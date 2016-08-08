@@ -1,11 +1,13 @@
 @startuml
-== Run VM (single host) ==
+== Run VM (multi host) ==
 
 Engine -> vdsm : runVM(spec)
 
-vdsm -> kubernetes : createPod(domxml)
+vdsm -> virt_controller : createVM(domxml)
+
+virt_controller -> kubernetes : createPod(domxml)
 note right
-	vdsm tells kubernetes to
+	virt_controller tells kubernetes to
 	create a virt-launcher pod
 end note
 
