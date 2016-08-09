@@ -8,11 +8,11 @@ virt-launcher: *.go
 	go build .
 
 clean:
-	rm virt-launcher -f
+	rm kubevirt/virt-launcher -f
 
 distclean: clean
 	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
-	docker rmi virt-launcher || true
+	docker rmi kubevirt/virt-launcher || true
 
 fmt:
 	go fmt .
@@ -26,7 +26,9 @@ run: build
 sync:
 	govendor sync
 
-docker: build
-	docker build -t virt-launcher .
+docker: sync
+	docker build -t kubevirt/go -f Dockerfile.build .
+	docker run --rm -v ${PWD}:/go/src/virt-launcher -w /go/src/virt-launcher kubevirt/go go build -v
+	docker build -t kubevirt/virt-launcher .
 
 .PHONY: clean test fmt sync docker
