@@ -1,4 +1,4 @@
-FROM frolvlad/alpine-glibc
+FROM alpine
 
 RUN apk --no-cache add libvirt-client
 
