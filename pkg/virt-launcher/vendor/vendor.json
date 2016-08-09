@@ -1,0 +1,15 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "VQ6YDSfOJIryq8fDPd1SkUkmwuY=",
+			"path": "github.com/rgbkrk/libvirt-go",
+			"revision": "66d8e5e3d8594066da97a9502693a47ab2a35469",
+			"revisionTime": "2015-09-21T12:26:35Z",
+			"version": "v2.12.0",
+			"versionExact": "v2.12.0"
+		}
+	],
+	"rootPath": "kirt/pkg/virt-launcher"
+}

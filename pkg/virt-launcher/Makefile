@@ -1,4 +1,6 @@
-all: fmt virt-launcher
+export GO15VENDOREXPERIMENT := 1
+
+all: sync fmt virt-launcher
 
 virt-launcher: *.go
 	go build .
@@ -12,5 +14,10 @@ fmt:
 test: virt-launcher
 	go test .
 
+run: fmt virt-launcher
+	sudo ./virt-launcher --domain-path dom.xml
 
-.PHONY: clean test fmt
+sync:
+	govendor sync
+
+.PHONY: clean test fmt sync

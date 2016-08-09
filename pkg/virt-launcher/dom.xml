@@ -1,0 +1,7 @@
+<domain type="qemu">
+    <name>testvm</name>
+    <memory unit="KiB">8192</memory>
+    <os>
+        <type>hvm</type>
+    </os> 
+</domain>
