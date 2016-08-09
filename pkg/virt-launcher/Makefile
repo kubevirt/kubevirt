@@ -1,6 +1,8 @@
 export GO15VENDOREXPERIMENT := 1
 
-all: sync fmt virt-launcher
+all: build
+   
+build: sync fmt virt-launcher
 
 virt-launcher: *.go
 	go build .
@@ -8,16 +10,23 @@ virt-launcher: *.go
 clean:
 	rm virt-launcher -f
 
+distclean: clean
+	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
+	docker rmi virt-launcher || true
+
 fmt:
 	go fmt .
 
-test: virt-launcher
+test: build
 	go test .
 
-run: fmt virt-launcher
+run: build
 	sudo ./virt-launcher --domain-path dom.xml
 
 sync:
 	govendor sync
 
-.PHONY: clean test fmt sync
+docker: build
+	docker build -t virt-launcher .
+
+.PHONY: clean test fmt sync docker
