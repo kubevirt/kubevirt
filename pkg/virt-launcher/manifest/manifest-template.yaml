@@ -16,7 +16,7 @@ spec:
   containers:
   - name: compute
     image: kubevirt/virt-launcher
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     securityContext:
       privileged: true
     volumeMounts:
