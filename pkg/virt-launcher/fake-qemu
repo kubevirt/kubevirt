@@ -1,0 +1,27 @@
+#!/bin/sh
+
+ARGS="$@"
+
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -name)
+        VM_NAME="$2"
+        shift
+    ;;
+    *)
+    ;;
+esac
+shift
+done
+
+>&2 echo $ARGS
+
+if [ -z "$VM_NAME" ]; then
+    exec /usr/bin/qemu-kvm $ARGS
+fi
+
+CONTAINER_ID=`docker ps | grep k8s_compute | grep $VM_NAME | awk '{print $1}'`
+docker exec $CONTAINER_ID /bin/sh -c "nohup qemu $ARGS >/dev/null 2>&1 &"
