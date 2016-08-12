@@ -27,7 +27,7 @@ description file.
 On bare metal run
 
 ```
-./virt-launcher --domain-path /my/domain.xml --libvirt-uri qemu:///system
+./virt-launcher --domain-path domain.xml --libvirt-uri qemu:///system
 ```
 
 == Development ==

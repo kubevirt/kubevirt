@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/rgbkrk/libvirt-go"
+	"github.com/rmohr/libvirt-go"
 	"io/ioutil"
 	"log"
 	"os"
@@ -13,8 +13,10 @@ import (
 func main() {
 	xmlPath := flag.String("domain-path", "/var/run/virt-launcher/dom.xml", "Where to look for the domain xml.")
 	conUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
+	user := flag.String("user", "kirt", "Libvirt user")
+	pass := flag.String("pass", "kirt", "Libvirt password")
 	flag.Parse()
-	conn := buildLocalConnection(*conUri)
+	conn := buildLocalConnection(*conUri, *user, *pass)
 	log.Print("Libvirt connection established.")
 
 	defer func() {
@@ -56,8 +58,8 @@ func main() {
 	log.Print("Domain destroyed.")
 }
 
-func buildLocalConnection(uri string) libvirt.VirConnection {
-	conn, err := libvirt.NewVirConnection(uri)
+func buildLocalConnection(uri string, user string, pass string) libvirt.VirConnection {
+	conn, err := libvirt.NewVirConnectionWithAuth(uri, user, pass)
 	if err != nil {
 		panic(err)
 	}

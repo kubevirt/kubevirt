@@ -3,12 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "VQ6YDSfOJIryq8fDPd1SkUkmwuY=",
-			"path": "github.com/rgbkrk/libvirt-go",
-			"revision": "66d8e5e3d8594066da97a9502693a47ab2a35469",
-			"revisionTime": "2015-09-21T12:26:35Z",
-			"version": "v2.12.0",
-			"versionExact": "v2.12.0"
+			"checksumSHA1": "W41lI7WKLqRz8ugAO2IvqmcdjYY=",
+			"path": "github.com/rmohr/libvirt-go",
+			"revision": "26215a0166c2bef7a71264125d9c39af9d4ad9ef",
+			"revisionTime": "2016-08-12T00:08:03Z"
 		}
 	],
 	"rootPath": "kirt/pkg/virt-launcher"

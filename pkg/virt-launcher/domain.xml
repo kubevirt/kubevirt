@@ -4,4 +4,7 @@
     <os>
         <type>hvm</type>
     </os> 
+      <devices>
+              <emulator>/usr/local/bin/qemu-x86_64</emulator>
+          </devices>
 </domain>
