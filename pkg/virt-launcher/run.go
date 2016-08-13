@@ -29,8 +29,8 @@ func main() {
 	}
 	log.Print("Domain description loaded.")
 
-	// Launch VM in paused mode
-	dom, createErr := conn.DomainCreateXML(string(xml), 1)
+	// Launch VM
+	dom, createErr := conn.DomainCreateXML(string(xml), 0)
 	if createErr != nil {
 		log.Fatal(createErr)
 	}
