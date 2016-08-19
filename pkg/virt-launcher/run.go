@@ -13,8 +13,8 @@ import (
 func main() {
 	xmlPath := flag.String("domain-path", "/var/run/virt-launcher/dom.xml", "Where to look for the domain xml.")
 	conUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	user := flag.String("user", "kirt", "Libvirt user")
-	pass := flag.String("pass", "kirt", "Libvirt password")
+	user := flag.String("user", "vdsm@ovirt", "Libvirt user")
+	pass := flag.String("pass", "shibboleth", "Libvirt password")
 	flag.Parse()
 	conn := buildLocalConnection(*conUri, *user, *pass)
 	log.Print("Libvirt connection established.")
