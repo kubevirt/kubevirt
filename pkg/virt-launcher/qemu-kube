@@ -21,5 +21,5 @@ if [ -z "$VM_NAME" ]; then
     exec /usr/bin/qemu-kvm $ARGS
 fi
 
-CONTAINER_ID=`docker ps | grep k8s_compute | grep $VM_NAME | awk '{print $1}'`
+CONTAINER_ID=$( docker ps | awk "/k8s_compute.*virt-launcher-$NAME.*/ { print \$1 }" )
 docker exec $CONTAINER_ID /bin/sh -c "nohup qemu $ARGS >/dev/null 2>&1 &"
