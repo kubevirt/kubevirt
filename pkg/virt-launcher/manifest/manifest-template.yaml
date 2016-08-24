@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: virt-launcher-{{ domain }}
+  name: virt-launcher-$domain
   labels:
     app: virt-launcher
-    domain: {{ domain }}
+    domain: $domain
 spec:
   volumes:
   - name: var-run-virt
@@ -12,7 +12,7 @@ spec:
       path: /var/run/libvirt
   - name: var-domain-xml
     hostPath:
-      path: /var/run/vdsm/manifest/{{ domain }}.xml
+      path: /var/run/vdsm/manifest/$domain.xml
   containers:
   - name: compute
     image: kubevirt/virt-launcher
