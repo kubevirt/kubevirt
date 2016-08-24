@@ -22,4 +22,9 @@ if [ -z "$VM_NAME" ]; then
 fi
 
 CONTAINER_ID=$( docker ps | awk "/k8s_compute.*virt-launcher-$NAME.*/ { print \$1 }" )
-docker exec $CONTAINER_ID /bin/sh -c "nohup qemu $ARGS >/dev/null 2>&1 &"
+
+DOCKER="docker"
+if [ -n "$QEMU_KUBE_DRY_RUN" ]; then
+        DOCKER="echo docker"
+fi
+$DOCKER exec $CONTAINER_ID /bin/sh -c "nohup qemu $ARGS >/dev/null 2>&1 &"
