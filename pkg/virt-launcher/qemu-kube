@@ -27,4 +27,4 @@ DOCKER="docker"
 if [ -n "$QEMU_KUBE_DRY_RUN" ]; then
         DOCKER="echo docker"
 fi
-$DOCKER exec $CONTAINER_ID /bin/sh -c "nohup qemu $ARGS >/dev/null 2>&1 &"
+$DOCKER exec $CONTAINER_ID /bin/sh -c "nohup qemu-kvm $ARGS >/dev/null 2>&1 &"
