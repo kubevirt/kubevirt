@@ -17,8 +17,6 @@ esac
 shift
 done
 
->&2 echo $ARGS
-
 if [ -z "$VM_NAME" ]; then
     exec /usr/bin/qemu-kvm $ARGS
 fi
