@@ -1,0 +1,50 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    name: libvirtd
+  name: libvirtd
+spec:
+  template:
+    metadata:
+      labels:
+        name: libvirtd
+    spec:
+      hostNetwork: true
+      hostPID: true
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: daemon
+          image: fabiand/libvirt:latest
+          ports:
+            - containerPort: 16509
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: /etc/libvirt
+              name: etc
+            - mountPath: /var/run/libvirt
+              name: varrun
+            - mountPath: /var/lib/libvirt
+              name: varlib
+            - mountPath: /var/log/libvirt
+              name: varlog
+            - mountPath: /host
+              name: host
+      volumes:
+        - name: etc
+          hostPath:
+            path: /etc/libvirt
+        - name: varrun
+          hostPath:
+            path: /var/run/libvirt
+        - name: varlib
+          hostPath:
+            path: /var/lib/libvirt
+        - name: varlog
+          hostPath:
+            path: /var/log/libvirt
+        - name: host
+            path: /

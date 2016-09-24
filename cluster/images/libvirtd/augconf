@@ -1,0 +1,13 @@
+set /files/etc/libvirt/libvirtd.conf/listen_tls 0
+set /files/etc/libvirt/libvirtd.conf/listen_tcp 1
+set /files/etc/libvirt/libvirtd.conf/auth_tcp none
+
+set /files/etc/libvirt/qemu.conf/spice_listen 0.0.0.0
+set /files/etc/libvirt/qemu.conf/vnc_listen 0.0.0.0
+set /files/etc/libvirt/qemu.conf/vnc_tls 0
+set /files/etc/libvirt/qemu.conf/vnc_sasl 0
+
+set /files/etc/libvirt/qemu.conf/user root
+set /files/etc/libvirt/qemu.conf/group root
+set /files/etc/libvirt/qemu.conf/dynamic_ownership 1
+
