@@ -9,5 +9,5 @@
 			"revisionTime": "2016-08-12T00:08:03Z"
 		}
 	],
-	"rootPath": "kirt/pkg/virt-launcher"
+	"rootPath": "kubevirt/core"
 }
