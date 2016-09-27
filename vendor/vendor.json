@@ -3,10 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "359LogJGVo3GCyh9Zqc4OYfNmNw=",
-			"path": "github.com/rmohr/libvirt-go",
-			"revision": "76eaf09cf129d46517a8037bd1f91accd17fce91",
-			"revisionTime": "2016-08-12T00:08:03Z"
+			"checksumSHA1": "DPHtow4r29lv9L6pbEv2Qp4QDiQ=",
+			"path": "github.com/rgbkrk/libvirt-go",
+			"revision": "26ca5c67cc596be31f449f59ae21844484028ed3",
+			"revisionTime": "2016-08-30T04:10:46Z"
 		}
 	],
 	"rootPath": "kubevirt/core"
