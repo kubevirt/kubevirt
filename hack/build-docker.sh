@@ -13,7 +13,7 @@ shift
 if [ $# -eq 0 ]; then
     args=$binaries
 else
-    args=$#
+    args=$@
 fi
 
 for arg in $args; do
