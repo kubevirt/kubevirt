@@ -21,27 +21,27 @@ func newValidRequest() *http.Request {
 
 }
 
-type mockVmService struct {
-	VmName string
-	rawXml []byte
+type mockVMService struct {
+	VMName string
+	rawXML []byte
 }
 
-func (m *mockVmService) StartVmRaw(vmName string, rawXml []byte) error {
-	m.VmName = vmName
-	m.rawXml = rawXml
+func (m *mockVMService) StartVMRaw(vmName string, rawXML []byte) error {
+	m.VMName = vmName
+	m.rawXML = rawXML
 	return nil
 }
 
-func (m *mockVmService) Clear() {
-	m.VmName = ""
-	m.rawXml = nil
+func (m *mockVMService) Clear() {
+	m.VMName = ""
+	m.rawXML = nil
 }
 
 var _ = Describe("VirtController", func() {
 	var recorder *httptest.ResponseRecorder
 	var request *http.Request
 	ctx := context.Background()
-	svc := mockVmService{}
+	svc := mockVMService{}
 	endpoints := Handlers{
 		RawDomainHandler: makeRawDomainHandler(ctx, makeRawDomainEndpoint(&svc)),
 	}
@@ -98,8 +98,8 @@ var _ = Describe("VirtController", func() {
 		Context("with valid XMl", func() {
 			It("should call vmService with the right arguments", func() {
 				handler.ServeHTTP(recorder, request)
-				Expect(svc.rawXml).To(Equal([]byte("<domain><name>testvm</name></domain>")))
-				Expect(svc.VmName).To(Equal("testvm"))
+				Expect(svc.rawXML).To(Equal([]byte("<domain><name>testvm</name></domain>")))
+				Expect(svc.VMName).To(Equal("testvm"))
 			})
 		})
 	})

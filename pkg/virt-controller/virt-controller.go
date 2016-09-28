@@ -17,13 +17,13 @@ import (
 
 const DefaultMaxContentLengthBytes = 3 << 20
 
-type VmService interface {
-	StartVmRaw(string, []byte) error
+type VMService interface {
+	StartVMRaw(string, []byte) error
 }
 
 type vmService struct{}
 
-func (v *vmService) StartVmRaw(name string, rawXml []byte) error {
+func (v *vmService) StartVMRaw(name string, rawXML []byte) error {
 	return nil
 }
 
@@ -50,14 +50,14 @@ func defineRoutes(endpoints *Handlers) http.Handler {
 	return router
 }
 
-func makeRawDomainEndpoint(svc VmService) endpoint.Endpoint {
+func makeRawDomainEndpoint(svc VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		req := request.(VmRequestDto)
-		err := svc.StartVmRaw(req.Name, req.RawDomain)
+		req := request.(VMRequestDTO)
+		err := svc.StartVMRaw(req.Name, req.RawDomain)
 		if err != nil {
-			return ResponseDto{Err: err.Error()}, nil
+			return ResponseDTO{Err: err.Error()}, nil
 		}
-		return ResponseDto{Err: ""}, nil
+		return ResponseDTO{Err: ""}, nil
 	}
 }
 
@@ -71,7 +71,7 @@ func makeRawDomainHandler(ctx context.Context, endpoint endpoint.Endpoint) http.
 }
 
 func decodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var vm VmRequestDto
+	var vm VMRequestDTO
 	var body []byte
 	body, err := checkAndExtractBody(r.Body, DefaultMaxContentLengthBytes)
 	if err != nil {
@@ -92,13 +92,13 @@ func encodeResponse(_ context.Context, w http.ResponseWriter, response interface
 	return json.NewEncoder(w).Encode(response)
 }
 
-type VmRequestDto struct {
+type VMRequestDTO struct {
 	XMLName   xml.Name `xml:"domain"`
 	Name      string   `xml:"name"`
 	RawDomain []byte
 }
 
-type ResponseDto struct {
+type ResponseDTO struct {
 	Err string `json:"err,omitempty"`
 }
 
