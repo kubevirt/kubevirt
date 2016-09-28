@@ -3,6 +3,38 @@
 	"ignore": "test",
 	"package": [
 		{
+			"path": "context",
+			"revision": ""
+		},
+		{
+			"checksumSHA1": "N36ww5Gg5pA6TM52vlqKhiSaRv4=",
+			"path": "github.com/go-kit/kit/endpoint",
+			"revision": "6fb874ce59bb45b2f60ee3d289829db02142ecc6",
+			"revisionTime": "2016-07-27T09:45:34Z",
+			"version": "v0.2.0",
+			"versionExact": "v0.2.0"
+		},
+		{
+			"checksumSHA1": "voLAZwm38JoEdwFfpz7LUaSyxtA=",
+			"path": "github.com/go-kit/kit/transport/http",
+			"revision": "6fb874ce59bb45b2f60ee3d289829db02142ecc6",
+			"revisionTime": "2016-07-27T09:45:34Z",
+			"version": "v0.2.0",
+			"versionExact": "v0.2.0"
+		},
+		{
+			"checksumSHA1": "g/V4qrXjUGG9B+e3hB+4NAYJ5Gs=",
+			"path": "github.com/gorilla/context",
+			"revision": "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",
+			"revisionTime": "2016-08-17T18:46:32Z"
+		},
+		{
+			"checksumSHA1": "urMd7A9QPAJYY0GZJL9qBhlUmD8=",
+			"path": "github.com/gorilla/mux",
+			"revision": "757bef944d0f21880861c2dd9c871ca543023cba",
+			"revisionTime": "2016-09-20T23:08:13Z"
+		},
+		{
 			"checksumSHA1": "DPHtow4r29lv9L6pbEv2Qp4QDiQ=",
 			"path": "github.com/rgbkrk/libvirt-go",
 			"revision": "26ca5c67cc596be31f449f59ae21844484028ed3",
