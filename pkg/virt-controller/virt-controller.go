@@ -8,11 +8,13 @@ import (
 	"log"
 	"net/http"
 
+	"flag"
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
 	"io"
 	"io/ioutil"
+	"strconv"
 )
 
 const DefaultMaxContentLengthBytes = 3 << 20
@@ -32,6 +34,11 @@ type Handlers struct {
 }
 
 func main() {
+
+	host := flag.String("address", "0.0.0.0", "Address to bind to")
+	port := flag.Int("port", 8080, "Port to listen on")
+
+	flag.Parse()
 	ctx := context.Background()
 	svc := vmService{}
 
@@ -40,7 +47,8 @@ func main() {
 	}
 
 	http.Handle("/", defineRoutes(&endpoints))
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Printf("Listening on %s:%d", *host, *port)
+	log.Fatal(http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil))
 }
 
 func defineRoutes(endpoints *Handlers) http.Handler {
