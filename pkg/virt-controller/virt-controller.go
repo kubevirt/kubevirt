@@ -25,7 +25,7 @@ func (vmService) StartVmRaw(name string) error {
 }
 
 type Handlers struct {
-	rawDomainHandler http.Handler
+	RawDomainHandler http.Handler
 }
 
 func main() {
@@ -33,7 +33,7 @@ func main() {
 	svc := vmService{}
 
 	endpoints := Handlers{
-		rawDomainHandler: makeRawDomainHandler(ctx, makeRawDomainEndpoint(svc)),
+		RawDomainHandler: makeRawDomainHandler(ctx, makeRawDomainEndpoint(svc)),
 	}
 
 	http.Handle("/", defineRoutes(&endpoints))
@@ -43,7 +43,7 @@ func main() {
 func defineRoutes(endpoints *Handlers) http.Handler {
 	router := mux.NewRouter()
 	restV1Route := router.PathPrefix("/api/v1/").Subrouter()
-	restV1Route.Methods("POST").Path("/domain/raw").Headers("Content-Type", "application/xml").Handler(endpoints.rawDomainHandler)
+	restV1Route.Methods("POST").Path("/domain/raw").Headers("Content-Type", "application/xml").Handler(endpoints.RawDomainHandler)
 	return router
 }
 

@@ -2,6 +2,8 @@
 
 ## Hacking
 
+### Setup
+
 First make sure you have [govendor](https://github.com/kardianos/govendor)
 installed.
 
@@ -16,6 +18,8 @@ If you don't have the `$GOPATH/bin` folder on your path, do
 ```bash
 export PATH=$PATH:$GOPATH/bin
 ```
+
+### Building
 
 To build the whole project, type
 
@@ -34,3 +38,13 @@ It is also possible to target only specific modules. For instance to build only 
 ```bash
 make build WAHT=virt-launcher
 ```
+
+### Testing
+
+Type
+
+```bash
+make test
+```
+
+to run all tests.
