@@ -11,16 +11,19 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
+	"io"
+	"io/ioutil"
 )
 
+const DefaultMaxContentLengthBytes = 3 << 20
+
 type VmService interface {
-	StartVmRaw(string) error
+	StartVmRaw(string, []byte) error
 }
 
 type vmService struct{}
 
-func (vmService) StartVmRaw(name string) error {
-	log.Printf("VM name is %s", name)
+func (v *vmService) StartVmRaw(name string, rawXml []byte) error {
 	return nil
 }
 
@@ -33,7 +36,7 @@ func main() {
 	svc := vmService{}
 
 	endpoints := Handlers{
-		RawDomainHandler: makeRawDomainHandler(ctx, makeRawDomainEndpoint(svc)),
+		RawDomainHandler: makeRawDomainHandler(ctx, makeRawDomainEndpoint(&svc)),
 	}
 
 	http.Handle("/", defineRoutes(&endpoints))
@@ -50,7 +53,7 @@ func defineRoutes(endpoints *Handlers) http.Handler {
 func makeRawDomainEndpoint(svc VmService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(VmRequestDto)
-		err := svc.StartVmRaw(req.Name)
+		err := svc.StartVmRaw(req.Name, req.RawDomain)
 		if err != nil {
 			return ResponseDto{Err: err.Error()}, nil
 		}
@@ -69,12 +72,19 @@ func makeRawDomainHandler(ctx context.Context, endpoint endpoint.Endpoint) http.
 
 func decodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	var vm VmRequestDto
-	if err := xml.NewDecoder(r.Body).Decode(&vm); err != nil {
+	var body []byte
+	body, err := checkAndExtractBody(r.Body, DefaultMaxContentLengthBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := xml.Unmarshal(body, &vm); err != nil {
 		return nil, err
 	}
 	if vm.Name == "" {
 		return nil, errors.New("VM name is missing")
 	}
+	vm.RawDomain = body
 	return vm, nil
 }
 
@@ -90,4 +100,16 @@ type VmRequestDto struct {
 
 type ResponseDto struct {
 	Err string `json:"err,omitempty"`
+}
+
+// TODO make this usable as a wrapping handler func or replace with http.MaxBytesReader
+func checkAndExtractBody(http_body io.ReadCloser, maxContentLength int64) ([]byte, error) {
+	body, err := ioutil.ReadAll(io.LimitReader(http_body, maxContentLength+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > maxContentLength {
+		return nil, errors.New("http: POST too large")
+	}
+	return body, nil
 }
