@@ -51,15 +51,15 @@ func decodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, er
 		return nil, err
 	}
 	if vm.Name == "" {
-		return nil, errors.New(".name is missing")
+		return nil, errors.New("Name is missing")
 	}
 
 	if vm.UUID == "" {
-		return nil, errors.New(".uuid name is missing")
+		return nil, errors.New("UUID is missing")
 	}
 
 	if _, err := uuid.FromString(vm.UUID); err != nil {
-		return nil, errors.New(".uuid is invalid")
+		return nil, errors.New("UUID is invalid")
 	}
 	vm.RawDomain = body
 	return vm, nil
