@@ -5,28 +5,39 @@ import (
 	"encoding/xml"
 	"errors"
 	"golang.org/x/net/context"
-	"log"
 	"net/http"
 
 	"flag"
 	"github.com/go-kit/kit/endpoint"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/levels"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
+	"github.com/satori/go.uuid"
 	"io"
 	"io/ioutil"
+	"os"
 	"strconv"
 )
 
 const DefaultMaxContentLengthBytes = 3 << 20
 
 type VMService interface {
-	StartVMRaw(string, []byte) error
+	StartVMRaw(uuid.UUID, string, []byte) error
 }
 
-type vmService struct{}
+type vmService struct {
+	logger levels.Levels
+}
 
-func (v *vmService) StartVMRaw(name string, rawXML []byte) error {
+func (v *vmService) StartVMRaw(UUID uuid.UUID, name string, rawXML []byte) error {
+	v.logger.Info().Log("action", "StartVMRaw", "object", "VM", "UUID", UUID, "name", name)
 	return nil
+}
+
+func makeVMService(logger log.Logger) *vmService {
+	svc := vmService{logger: levels.New(logger).With("component", "VMService")}
+	return &svc
 }
 
 type Handlers struct {
@@ -38,17 +49,19 @@ func main() {
 	host := flag.String("address", "0.0.0.0", "Address to bind to")
 	port := flag.Int("port", 8080, "Port to listen on")
 
+	logger := log.NewLogfmtLogger(os.Stderr)
 	flag.Parse()
 	ctx := context.Background()
-	svc := vmService{}
+	svc := makeVMService(logger)
 
 	endpoints := Handlers{
-		RawDomainHandler: makeRawDomainHandler(ctx, makeRawDomainEndpoint(&svc)),
+		RawDomainHandler: makeRawDomainHandler(ctx, makeRawDomainEndpoint(svc)),
 	}
 
 	http.Handle("/", defineRoutes(&endpoints))
-	log.Printf("Listening on %s:%d", *host, *port)
-	log.Fatal(http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil))
+	httpLogger := levels.New(logger).With("component", "http")
+	httpLogger.Info().Log("action", "listening", "interface", *host, "port", *port)
+	http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil)
 }
 
 func defineRoutes(endpoints *Handlers) http.Handler {
@@ -61,11 +74,11 @@ func defineRoutes(endpoints *Handlers) http.Handler {
 func makeRawDomainEndpoint(svc VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(VMRequestDTO)
-		err := svc.StartVMRaw(req.Name, req.RawDomain)
-		if err != nil {
-			return ResponseDTO{Err: err.Error()}, nil
+		UUID, err := uuid.FromString(req.UUID)
+		if err = svc.StartVMRaw(UUID, req.Name, req.RawDomain); err != nil {
+			return nil, err
 		}
-		return ResponseDTO{Err: ""}, nil
+		return VMResponseDTO{UUID: req.UUID}, nil
 	}
 }
 
@@ -90,24 +103,35 @@ func decodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, er
 		return nil, err
 	}
 	if vm.Name == "" {
-		return nil, errors.New("VM name is missing")
+		return nil, errors.New(".name is missing")
+	}
+
+	if vm.UUID == "" {
+		return nil, errors.New(".uuid name is missing")
+	}
+
+	if _, err := uuid.FromString(vm.UUID); err != nil {
+		return nil, errors.New(".uuid is invalid")
 	}
 	vm.RawDomain = body
 	return vm, nil
 }
 
 func encodeResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	return json.NewEncoder(w).Encode(response)
 }
 
 type VMRequestDTO struct {
 	XMLName   xml.Name `xml:"domain"`
 	Name      string   `xml:"name"`
+	UUID      string   `xml:"uuid"`
 	RawDomain []byte
 }
 
-type ResponseDTO struct {
-	Err string `json:"err,omitempty"`
+type VMResponseDTO struct {
+	UUID string `json:"uuid"`
 }
 
 // TODO make this usable as a wrapping handler func or replace with http.MaxBytesReader

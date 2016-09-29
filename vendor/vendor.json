@@ -15,6 +15,12 @@
 			"versionExact": "v0.2.0"
 		},
 		{
+			"checksumSHA1": "Daojj6D4ZxEWjgQ/bPEfXpzDZRc=",
+			"path": "github.com/go-kit/kit/log",
+			"revision": "fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7",
+			"revisionTime": "2016-09-28T07:33:14Z"
+		},
+		{
 			"checksumSHA1": "voLAZwm38JoEdwFfpz7LUaSyxtA=",
 			"path": "github.com/go-kit/kit/transport/http",
 			"revision": "6fb874ce59bb45b2f60ee3d289829db02142ecc6",
@@ -117,6 +123,12 @@
 			"path": "github.com/rgbkrk/libvirt-go",
 			"revision": "26ca5c67cc596be31f449f59ae21844484028ed3",
 			"revisionTime": "2016-08-30T04:10:46Z"
+		},
+		{
+			"checksumSHA1": "zmC8/3V4ls53DJlNTKDZwPSC/dA=",
+			"path": "github.com/satori/go.uuid",
+			"revision": "b061729afc07e77a8aa4fad0a2fd840958f1942a",
+			"revisionTime": "2016-09-27T10:08:44Z"
 		},
 		{
 			"checksumSHA1": "SPMXWeoFQa5z0pLPmqpcFzyHqQQ=",
