@@ -1,0 +1,53 @@
+swagger: '2.0'
+info:
+  title: virt-controller
+  description: virt-controller
+  version: "1.0.0"
+host: localhost:8080
+schemes:
+  - http
+basePath: /api/v1
+produces:
+  - application/json
+paths:
+  /domain/raw:
+    post:
+      summary: Post a domain XML here to start it somewhere in the cluster.
+      description: |
+        Post a domain XML here to start it somewhere in the cluster. Kubernetes will do the scheduling.
+      consumes:
+        - application/xml
+      parameters:
+        - name: body
+          in: body
+          description: The domain XML
+          required: true
+          schema:
+            $ref: '#/definitions/domain'
+      tags:
+        - VM
+      responses:
+        201:
+          description: The started VM
+          schema:
+            $ref: '#/definitions/VMResponse'
+
+definitions:
+  VMResponse:
+    required:
+      - uuid
+    properties:
+      uuid:
+        type: string
+        format: uuid
+  domain:
+    required:
+      - uuid
+      - name
+    properties:
+      uuid:
+        type: string
+        format: uuid
+      name:
+        type: string
+        format: string
