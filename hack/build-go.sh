@@ -16,5 +16,9 @@ else
 fi
 
 for arg in $args; do
-    (cd $arg; go $target)
+    if [ "${target}" = "test" ]; then
+        (cd $arg; go ${target} -v ./...)
+    else
+        (cd $arg; go $target ./...)
+    fi
 done

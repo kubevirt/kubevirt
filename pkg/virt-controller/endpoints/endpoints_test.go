@@ -1,4 +1,4 @@
-package main
+package endpoints
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"github.com/satori/go.uuid"
 	"io/ioutil"
+	"kubevirt/core/pkg/virt-controller/entities"
+	"kubevirt/core/pkg/virt-controller/rest"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -55,9 +57,9 @@ type mockVMService struct {
 	rawXML []byte
 }
 
-func (m *mockVMService) StartVMRaw(UUID uuid.UUID, vmName string, rawXML []byte) error {
-	m.UUID = UUID
-	m.VMName = vmName
+func (m *mockVMService) StartVMRaw(vm *entities.VM, rawXML []byte) error {
+	m.UUID = vm.UUID
+	m.VMName = vm.Name
 	m.rawXML = rawXML
 	return nil
 }
@@ -68,15 +70,15 @@ func (m *mockVMService) Clear() {
 	m.rawXML = nil
 }
 
-var _ = Describe("VirtController", func() {
+var _ = Describe("Endpoints", func() {
 	var recorder *httptest.ResponseRecorder
 	var request *http.Request
 	ctx := context.Background()
 	svc := mockVMService{}
-	endpoints := Handlers{
-		RawDomainHandler: makeRawDomainHandler(ctx, makeRawDomainEndpoint(&svc)),
+	endpoints := rest.Handlers{
+		RawDomainHandler: MakeRawDomainHandler(ctx, MakeRawDomainEndpoint(&svc)),
 	}
-	handler := http.Handler(defineRoutes(&endpoints))
+	handler := http.Handler(rest.DefineRoutes(&endpoints))
 
 	BeforeEach(func() {
 		request = newValidRequest()

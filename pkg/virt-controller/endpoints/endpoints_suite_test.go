@@ -1,4 +1,4 @@
-package main
+package endpoints_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestVirtController(t *testing.T) {
+func TestEndpoints(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "VirtController Suite")
+	RunSpecs(t, "Endpoints Suite")
 }
