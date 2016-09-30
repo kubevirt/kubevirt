@@ -7,6 +7,12 @@
 			"revision": ""
 		},
 		{
+			"checksumSHA1": "CDOphCxF7dup+hBBVRpFeQhM9Jw=",
+			"path": "github.com/asaskevich/govalidator",
+			"revision": "593d64559f7600f29581a3ee42177f5dbded27a9",
+			"revisionTime": "2016-07-15T17:06:12Z"
+		},
+		{
 			"checksumSHA1": "N36ww5Gg5pA6TM52vlqKhiSaRv4=",
 			"path": "github.com/go-kit/kit/endpoint",
 			"revision": "6fb874ce59bb45b2f60ee3d289829db02142ecc6",

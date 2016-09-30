@@ -8,9 +8,11 @@ import (
 	"net/http"
 
 	"encoding/json"
+	"github.com/go-kit/kit/log"
 	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"kubevirt/core/pkg/virt-controller/entities"
+	"kubevirt/core/pkg/virt-controller/precond"
 	"kubevirt/core/pkg/virt-controller/rest"
 	"net/http/httptest"
 	"net/url"
@@ -52,38 +54,41 @@ func newValidRequest() *http.Request {
 }
 
 type mockVMService struct {
-	UUID   uuid.UUID
-	VMName string
-	rawXML []byte
+	UUID         uuid.UUID
+	VMName       string
+	rawXML       []byte
+	PrecondPanic bool
+	Panic        bool
 }
 
 func (m *mockVMService) StartVMRaw(vm *entities.VM, rawXML []byte) error {
+	if m.PrecondPanic {
+		panic(precond.MustNotBeEmpty(""))
+	}
+	if m.Panic {
+		panic("panic")
+	}
 	m.UUID = vm.UUID
 	m.VMName = vm.Name
 	m.rawXML = rawXML
 	return nil
 }
 
-func (m *mockVMService) Clear() {
-	m.UUID = uuid.Nil
-	m.VMName = ""
-	m.rawXML = nil
-}
-
 var _ = Describe("Endpoints", func() {
 	var recorder *httptest.ResponseRecorder
 	var request *http.Request
+	var handler http.Handler
 	ctx := context.Background()
-	svc := mockVMService{}
-	endpoints := rest.Handlers{
-		RawDomainHandler: MakeRawDomainHandler(ctx, MakeRawDomainEndpoint(&svc)),
-	}
-	handler := http.Handler(rest.DefineRoutes(&endpoints))
+	var svc mockVMService
 
 	BeforeEach(func() {
+		svc = mockVMService{}
+		endpoints := rest.Handlers{
+			RawDomainHandler: MakeRawDomainHandler(ctx, InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(MakeRawDomainEndpoint(&svc))),
+		}
+		handler = http.Handler(rest.DefineRoutes(&endpoints))
 		request = newValidRequest()
 		recorder = httptest.NewRecorder()
-		svc.Clear()
 	})
 
 	Describe("REST call", func() {
@@ -146,6 +151,20 @@ var _ = Describe("Endpoints", func() {
 				json.NewDecoder(recorder.Body).Decode(&responseDTO)
 				Expect(responseDTO).To(Equal(VMResponseDTO{UUID: "0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f"}))
 				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
+			})
+		})
+		Context("with precondition panic", func() {
+			It("should return 500", func() {
+				svc.PrecondPanic = true
+				handler.ServeHTTP(recorder, request)
+				Expect(recorder.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+		Context("with panic", func() {
+			It("should return 500", func() {
+				svc.Panic = true
+				handler.ServeHTTP(recorder, request)
+				Expect(recorder.Code).To(Equal(http.StatusInternalServerError))
 			})
 		})
 	})

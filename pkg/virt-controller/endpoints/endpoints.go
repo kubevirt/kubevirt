@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/satori/go.uuid"
@@ -42,39 +43,49 @@ func MakeRawDomainHandler(ctx context.Context, endpoint endpoint.Endpoint) http.
 func decodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	var vm VMRequestDTO
 	var body []byte
-	body, err := checkAndExtractBody(r.Body, DefaultMaxContentLengthBytes)
+	// Normally we would directly unmarshal into the struct but we need the raw body again later
+	body, err := extractBodyWithLimit(r.Body, DefaultMaxContentLengthBytes)
 	if err != nil {
 		return nil, err
 	}
-
 	if err := xml.Unmarshal(body, &vm); err != nil {
 		return nil, err
 	}
-	if vm.Name == "" {
-		return nil, errors.New("Name is missing")
-	}
-
-	if vm.UUID == "" {
-		return nil, errors.New("UUID is missing")
-	}
-
-	if _, err := uuid.FromString(vm.UUID); err != nil {
-		return nil, errors.New("UUID is invalid")
+	if _, err := govalidator.ValidateStruct(vm); err != nil {
+		return nil, err
 	}
 	vm.RawDomain = body
 	return vm, nil
 }
 
-func encodeResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
+	if _, ok := response.(AppError); ok != false {
+		return encodeApplicationErrors(context, w, response)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	return json.NewEncoder(w).Encode(response)
 }
 
+func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "text/plain")
+	switch t := response.(type) {
+	// More specific AppErrors  like 404 must be handled before the AppError case
+	case AppError:
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(t.Cause().Error()))
+	default:
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Error handling failed, that should never happen."))
+	}
+	return json.NewEncoder(w).Encode(response)
+}
+
 type VMRequestDTO struct {
 	XMLName   xml.Name `xml:"domain"`
-	Name      string   `xml:"name"`
-	UUID      string   `xml:"uuid"`
+	Name      string   `xml:"name" valid:"required"`
+	UUID      string   `xml:"uuid" valid:"uuid,required"`
 	RawDomain []byte
 }
 
@@ -82,8 +93,7 @@ type VMResponseDTO struct {
 	UUID string `json:"uuid"`
 }
 
-// TODO make this usable as a wrapping handler func or replace with http.MaxBytesReader
-func checkAndExtractBody(http_body io.ReadCloser, maxContentLength int64) ([]byte, error) {
+func extractBodyWithLimit(http_body io.ReadCloser, maxContentLength int64) ([]byte, error) {
 	body, err := ioutil.ReadAll(io.LimitReader(http_body, maxContentLength+1))
 	if err != nil {
 		return nil, err

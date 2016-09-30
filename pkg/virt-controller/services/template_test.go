@@ -3,12 +3,12 @@ package services_test
 import (
 	. "kubevirt/core/pkg/virt-controller/services"
 
+	"bytes"
+	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/go-kit/kit/log"
-	"os"
 	"kubevirt/core/pkg/virt-controller/entities"
-	"bytes"
+	"os"
 )
 
 var _ = Describe("Template", func() {
@@ -23,7 +23,7 @@ var _ = Describe("Template", func() {
 
 				buffer := new(bytes.Buffer)
 
-				err = svc.RenderManifest(&entities.VM{Name:"testvm"}, buffer)
+				err = svc.RenderManifest(&entities.VM{Name: "testvm"}, buffer)
 
 				Expect(err).To(BeNil())
 				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))

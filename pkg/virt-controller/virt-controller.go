@@ -26,7 +26,7 @@ func main() {
 	svc := services.MakeVMService(logger)
 
 	handlers := rest.Handlers{
-		RawDomainHandler: endpoints.MakeRawDomainHandler(ctx, endpoints.MakeRawDomainEndpoint(svc)),
+		RawDomainHandler: endpoints.MakeRawDomainHandler(ctx, endpoints.InternalErrorMiddleware(logger)(endpoints.MakeRawDomainEndpoint(svc))),
 	}
 
 	http.Handle("/", rest.DefineRoutes(&handlers))

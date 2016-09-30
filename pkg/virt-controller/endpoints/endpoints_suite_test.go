@@ -1,4 +1,4 @@
-package endpoints_test
+package endpoints
 
 import (
 	. "github.com/onsi/ginkgo"
