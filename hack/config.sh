@@ -1,4 +1,4 @@
 #!/bin/bash
 
-binaries="pkg/virt-launcher pkg/virt-controller"
+binaries="pkg/virt-controller pkg/virt-launcher"
 docker_prefix=kubevirt

@@ -18,6 +18,8 @@ fi
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (cd $arg; go ${target} -v ./...)
+    elif [ "${target}" = "build" ]; then
+        (cd $arg; go ${target} .)
     else
         (cd $arg; go $target ./...)
     fi
