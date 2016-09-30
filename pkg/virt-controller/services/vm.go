@@ -12,17 +12,21 @@ type VMService interface {
 }
 
 type vmService struct {
-	logger levels.Levels
+	logger      levels.Levels
+	KubeService KubeService `inject:""`
 }
 
 func (v *vmService) StartVMRaw(vm *entities.VM, rawXML []byte) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(rawXML)
+	if err := v.KubeService.StartPod(vm); err != nil {
+		return err
+	}
 	v.logger.Info().Log("action", "StartVMRaw", "object", "VM", "UUID", vm.UUID, "name", vm.Name)
 	return nil
 }
 
-func MakeVMService(logger log.Logger) VMService {
+func NewVMService(logger log.Logger) VMService {
 	precond.MustNotBeNil(logger)
 	svc := vmService{logger: levels.New(logger).With("component", "VMService")}
 	return &svc
