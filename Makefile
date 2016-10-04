@@ -16,6 +16,7 @@ clean:
 
 distclean: clean
 	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
+	rm -f ./contrib/manifest/*.yaml
 
 sync:
 	govendor sync
@@ -23,4 +24,7 @@ sync:
 docker: build
 	./hack/build-docker.sh build ${WHAT}
 
-.PHONY: build fmt test clean distclean sync docker
+contrib:
+	./hack/build-contrib.sh
+
+.PHONY: build fmt test clean distclean sync docker contrib

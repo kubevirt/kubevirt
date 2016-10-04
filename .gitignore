@@ -3,4 +3,4 @@ vendor/*
 .idea
 pkg/virt-controller/virt-controller
 pkg/virt-launcher/virt-launcher
-
+contrib/manifest/*.yaml
