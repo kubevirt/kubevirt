@@ -3,7 +3,7 @@ export GO15VENDOREXPERIMENT := 1
 all: build
 
 build: sync fmt
-	./hack/build-go.sh build ${WHAT}
+	./hack/build-go.sh install ${WHAT}
 
 fmt:
 	./hack/build-go.sh fmt ${WHAT}
@@ -13,6 +13,7 @@ test: build
 
 clean:
 	./hack/build-go.sh clean ${WHAT}
+	rm ./bin -rf
 
 distclean: clean
 	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
