@@ -5,11 +5,12 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
 	"kubevirt/core/pkg/virt-controller/entities"
+	"os"
 	"os/exec"
 )
 
 type KubeService interface {
-	StartPod(vm *entities.VM) error
+	StartPod(vm *entities.VM, domainXML []byte) error
 }
 
 type kubeService struct {
@@ -18,11 +19,12 @@ type kubeService struct {
 	ApiServer       string
 }
 
-func (k *kubeService) StartPod(vm *entities.VM) error {
+func (k *kubeService) StartPod(vm *entities.VM, domainXML []byte) error {
 	buffer := new(bytes.Buffer)
-	k.TemplateService.RenderManifest(vm, buffer)
-	cmd := exec.Command("kubectl", "create", "-f", "-", "-s", k.ApiServer)
+	k.TemplateService.RenderManifest(vm, domainXML, buffer)
+	cmd := exec.Command("kubectl", "-s", k.ApiServer, "create", "-f", "-")
 	cmd.Stdin = buffer
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
 	}

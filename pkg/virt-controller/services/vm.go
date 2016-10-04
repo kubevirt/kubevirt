@@ -19,7 +19,7 @@ type vmService struct {
 func (v *vmService) StartVMRaw(vm *entities.VM, rawXML []byte) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(rawXML)
-	if err := v.KubeService.StartPod(vm); err != nil {
+	if err := v.KubeService.StartPod(vm, rawXML); err != nil {
 		return err
 	}
 	v.logger.Info().Log("action", "StartVMRaw", "object", "VM", "UUID", vm.UUID, "name", vm.Name)

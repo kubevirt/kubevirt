@@ -5,6 +5,8 @@ metadata:
   labels:
     app: virt-launcher
     domain: {{.Domain}}
+  annotations:
+    domainXML: "{{.DomainXML}}"
 spec:
   hostNetwork: true
   volumes:
@@ -20,14 +22,20 @@ spec:
   - name: rhev-storage
     hostPath:
       path: /rhev/data-center/
+  - name: podinfo
+    downwardAPI:
+      items:
+        - path: "annotations"
+          fieldRef:
+            fieldPath: metadata.annotations
   containers:
   - name: compute
     image: {{.DockerRegistry}}/{{.LauncherImage}}
     imagePullPolicy: IfNotPresent
     command:
         - "/virt-launcher"
-        - "-domain-path"
-        - "/etc/vdsm/dom/{{.Domain}}.xml"
+        - "-downward-api-path"
+        - "/etc/kubeapi/annotations"
     securityContext:
       privileged: true
     volumeMounts:
@@ -39,3 +47,5 @@ spec:
       mountPath: /etc/vdsm/dom/
     - name: rhev-storage
       mountPath: /rhev/data-center/
+    - name: podinfo
+      mountPath: /etc/kubeapi

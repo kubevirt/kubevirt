@@ -23,13 +23,13 @@ var _ = Describe("Template", func() {
 
 				buffer := new(bytes.Buffer)
 
-				err = svc.RenderManifest(&entities.VM{Name: "testvm"}, buffer)
+				err = svc.RenderManifest(&entities.VM{Name: "testvm"}, []byte("<domain>\n</domain>"), buffer)
 
 				Expect(err).To(BeNil())
 				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
 				Expect(buffer.String()).To(ContainSubstring("domain: testvm"))
 				Expect(buffer.String()).To(ContainSubstring("name: virt-launcher-testvm"))
-				Expect(buffer.String()).To(ContainSubstring("/etc/vdsm/dom/testvm.xml"))
+				Expect(buffer.String()).To(ContainSubstring("&lt;domain&gt;\\n&lt;/domain&gt;"))
 			})
 		})
 		Context("with wrong template path", func() {

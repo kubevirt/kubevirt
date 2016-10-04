@@ -1,22 +1,25 @@
 package services
 
 import (
+	"github.com/coreos/rkt/Godeps/_workspace/src/golang.org/x/net/html"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
 	"io"
 	"kubevirt/core/pkg/virt-controller/entities"
 	"kubevirt/core/pkg/virt-controller/precond"
+	"strings"
 	"text/template"
 )
 
 type TemplateService interface {
-	RenderManifest(*entities.VM, io.Writer) error
+	RenderManifest(*entities.VM, []byte, io.Writer) error
 }
 
 type manifestData struct {
 	Domain         string
 	DockerRegistry string
 	LauncherImage  string
+	DomainXML      string
 }
 
 type templateService struct {
@@ -25,12 +28,14 @@ type templateService struct {
 	dataTemplate manifestData
 }
 
-func (t *templateService) RenderManifest(vm *entities.VM, writer io.Writer) error {
+func (t *templateService) RenderManifest(vm *entities.VM, domainXML []byte, writer io.Writer) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(writer)
+	precond.MustNotBeNil(domainXML)
 	data := t.dataTemplate
 	data.Domain = precond.MustNotBeEmpty(vm.Name)
-	return t.template.Execute(writer, data)
+	data.DomainXML = EncodeDomainXML(string(domainXML))
+	return t.template.Execute(writer, &data)
 }
 
 func NewTemplateService(logger log.Logger, templateFile string, dockerRegistry string, launcherImage string) (TemplateService, error) {
@@ -51,4 +56,11 @@ func NewTemplateService(logger log.Logger, templateFile string, dockerRegistry s
 		},
 	}
 	return &svc, nil
+}
+
+func EncodeDomainXML(domainXML string) string {
+	encodedXML := html.EscapeString(string(domainXML))
+	encodedXML = strings.Replace(encodedXML, "\\", "\\\\", -1)
+	encodedXML = strings.Replace(encodedXML, "\n", "\\n", -1)
+	return encodedXML
 }
