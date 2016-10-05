@@ -1,7 +1,8 @@
 FROM centos:7.2.1511
 
 RUN yum -y localinstall http://resources.ovirt.org/pub/yum-repo/ovirt-release40.rpm \
-    && yum -y install qemu-img-ev qemu-kvm-ev qemu-kvm-tools-ev \
+    && yum -y localinstall https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+    && yum -y install qemu-img-ev qemu-kvm-ev qemu-kvm-tools-ev qemu-system-x86 \
     && yum -y install libvirt-client \
     && yum -y clean all
 

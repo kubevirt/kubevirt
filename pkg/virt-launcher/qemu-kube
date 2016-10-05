@@ -2,6 +2,28 @@
 
 ARGS="$@"
 
+# static config
+if [ -r "/etc/vdsm/qemu_kube.conf" ]; then
+    source "/etc/vdsm/qemu_kube.conf"
+fi
+# runtime config
+# TODO: let Makefile fill this
+# source "/var/run/vdsm/qemu_kube.conf"
+
+if [ -z "$QEMU_KUBE_USE_NSENTER" ]; then
+    QEMU_KUBE_USE_DOCKER="true"
+fi
+if [ -z "$QEMU" ]; then
+    QEMU="/usr/bin/qemu-system-x86_64"
+fi
+if [ -z "$LOG" ]; then
+    LOG="/var/log/vdsm/qemu-kube.log"
+fi
+if [ ! -w "$LOG" ]; then
+    LOG="/dev/null"
+fi
+
+
 while [[ $# -gt 0 ]]
 do
 key="$1"
@@ -18,13 +40,38 @@ shift
 done
 
 if [ -z "$VM_NAME" ]; then
-    exec /usr/bin/qemu-kvm $ARGS
+    exec $QEMU $ARGS
 fi
 
-CONTAINER_ID=$( docker ps | awk "/k8s_compute.*virt-launcher-$NAME.*/ { print \$1 }" )
 
-DOCKER="docker"
+CONTAINER_ID=$( docker ps | awk "/.*compute.*virt-launcher-$VM_NAME.*/ { print \$1 }" )
+# We can also get the pid from docker itself:
+QEMU_UID=$(id -u qemu)
+QEMU_GID=$(id -g qemu)
+
+if [ x"$QEMU_KUBE_USE_DOCKER" == x"true" ]; then
+    CMD="/bin/docker exec $CONTAINER_ID $QEMU $ARGS"
+else
+    # TODO: let Makefile fill UID and GID
+    CONTAINER_PID=docker inspect --format '{{.State.Pid}}' $CONTAINER_ID
+    CMD="/bin/sudo -C 1000 /bin/nsenter -t $CONTAINER_PID -u -p -G $QEMU_GID -S $QEMU_UID $QEMU $ARGS"
+fi
+
+date >> $LOG
+echo "QEMU_KUBE_USE_DOCKER=$QEMU_KUBE_USE_DOCKER" >> $LOG
+echo "$CMD" >> $LOG
+
 if [ -n "$QEMU_KUBE_DRY_RUN" ]; then
-        DOCKER="echo docker"
+        exit 0
 fi
-$DOCKER exec $CONTAINER_ID /bin/sh -c "nohup qemu-kvm $ARGS >/dev/null 2>&1 &"
+
+if [ x"$QEMU_KUBE_USE_DOCKER" == x"true" ]; then
+    exec $CMD
+else
+    # TODO: let Makefile fill UID and GID
+    export LC_ALL=C
+    export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+    export QEMU_AUDIO_DRV=none
+    exec $CMD
+fi
+

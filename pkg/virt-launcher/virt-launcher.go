@@ -64,7 +64,7 @@ func main() {
 	if createErr != nil {
 		log.Fatal(createErr)
 	}
-	log.Print("Domain started in pause mode.")
+	log.Print("Domain started.")
 
 	// Wait for termination
 	c := make(chan os.Signal, 1)
