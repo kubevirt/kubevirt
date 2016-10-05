@@ -42,7 +42,6 @@ definitions:
         format: uuid
   domain:
     required:
-      - uuid
       - name
     properties:
       uuid:

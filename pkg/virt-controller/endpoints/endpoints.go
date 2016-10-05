@@ -22,12 +22,12 @@ const DefaultMaxContentLengthBytes = 3 << 20
 func MakeRawDomainEndpoint(svc services.VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(VMRequestDTO)
-		UUID, err := uuid.FromString(req.UUID)
+		UUID := uuid.FromStringOrNil(req.UUID)
 		vm := entities.VM{Name: req.Name, UUID: UUID}
-		if err = svc.StartVMRaw(&vm, req.RawDomain); err != nil {
-			return nil, err
+		if err := svc.StartVMRaw(&vm, req.RawDomain); err != nil {
+			return nil, err //TODO with the kubelet in place it is hard to tell what went wrong
 		}
-		return VMResponseDTO{UUID: req.UUID}, nil
+		return VMResponseDTO{UUID: vm.UUID.String()}, nil
 	}
 }
 
@@ -77,6 +77,7 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 		w.Write([]byte(t.Cause().Error()))
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
+		// TODO log the error but don't send it along
 		w.Write([]byte("Error handling failed, that should never happen."))
 	}
 	return json.NewEncoder(w).Encode(response)
@@ -85,7 +86,7 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 type VMRequestDTO struct {
 	XMLName   xml.Name `xml:"domain"`
 	Name      string   `xml:"name" valid:"required"`
-	UUID      string   `xml:"uuid" valid:"uuid,required"`
+	UUID      string   `xml:"uuid" valid:"uuid"`
 	RawDomain []byte
 }
 

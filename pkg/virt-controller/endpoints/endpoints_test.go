@@ -32,9 +32,10 @@ const missingNameXML = `
 </domain>"
 `
 
-const missingUUIDXML = `
+const invalidUUIDXML = `
 <domain>
     <name>testvm</name>
+    <uuid>0a81f5b2-8403-7b236-21cc</uuid>
 </domain>"
 `
 
@@ -127,9 +128,9 @@ var _ = Describe("Endpoints", func() {
 				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
-		Context("with missing UUID", func() {
+		Context("with invalid UUID", func() {
 			It("should return 400", func() {
-				request.Body = ioutil.NopCloser(strings.NewReader(missingUUIDXML))
+				request.Body = ioutil.NopCloser(strings.NewReader(invalidUUIDXML))
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 			})
