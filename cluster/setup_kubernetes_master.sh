@@ -24,9 +24,6 @@ spec:
     - name: "var-run-kubernetes"
       hostPath:
         path: "/var/run/kubernetes"
-    - name: "etcd-datadir"
-      hostPath:
-        path: "/var/lib/etcd"
     - name: "usr"
       hostPath:
         path: "/usr"
@@ -34,17 +31,6 @@ spec:
       hostPath:
         path: "/lib64"
   containers:
-    - name: "etcd"
-      image: "b.gcr.io/kuar/etcd:2.1.1"
-      args:
-        - "--data-dir=/var/lib/etcd"
-        - "--advertise-client-urls=http://127.0.0.1:2379"
-        - "--listen-client-urls=http://127.0.0.1:2379"
-        - "--listen-peer-urls=http://127.0.0.1:2380"
-        - "--name=etcd"
-      volumeMounts:
-        - mountPath: /var/lib/etcd
-          name: "etcd-datadir"
     - name: "kube-apiserver"
       image: "b.gcr.io/kuar/kube-apiserver:1.2.0"
       args:
@@ -66,7 +52,7 @@ spec:
     - name: "kube-scheduler"
       image: "b.gcr.io/kuar/kube-scheduler:1.2.0"
       args:
-        - "--master=http://127.0.0.1:8080"
+        - "--master=http://${MASTER_IP}:8080"
         - "--v=2"
     - name: "kube-proxy"
       image: "b.gcr.io/kuar/kube-proxy:1.2.0"

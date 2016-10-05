@@ -42,17 +42,14 @@ yum install -y qemu-common qemu-kvm qemu-system-x86 libvirt || :
 
 yum install -y docker || :
 
-sed -i "s@OPTIONS='--selinux-enabled --log-driver=journald'@OPTIONS='--selinux-enabled --log-driver=journald --insecure-registry ${DOCKER_PRIV_REG} -G qemu'@" /etc/sysconfig/docker
-
-systemctl restart docker
-systemctl enable docker
+sed -i "s@^OPTIONS=.*@OPTIONS='--selinux-enabled --log-driver=journald --insecure-registry ${DOCKER_PRIV_REG} -G qemu'@" /etc/sysconfig/docker
 
 cat <<EOT > /etc/systemd/system/kubelet.service
 [Unit]
 Description=Kubernetes Kubelet
 Documentation=https://github.com/kubernetes/kubernetes
-Wants=vdsmd.service
-After=vdsmd.service
+Wants=docker.service
+After=docker.service
 
 [Service]
 ExecStart=/usr/bin/kubelet \
@@ -68,7 +65,29 @@ RestartSec=5
 WantedBy=multi-user.target
 EOT
 
+yum -y install flannel
+echo 'FLANNEL_OPTIONS="-iface=eth1"' >> /etc/sysconfig/flanneld
+sed -i /etc/sysconfig/flanneld  -e  "s@FLANNEL_ETCD=.*@FLANNEL_ETCD=\"http://${MASTER_IP}:2379\"@"
+
+if ${KUBERNETES_MASTER:-false}; then
+yum -y install etcd
+
+sed -i /etc/etcd/etcd.conf -e "s@.*ETCD_ADVERTISE_CLIENT_URLS=.*@@"
+sed -i /etc/etcd/etcd.conf -e "s@.*ETCD_LISTEN_CLIENT_URLS=.*@ETCD_LISTEN_CLIENT_URLS=\"http://localhost:2379,http://${MASTER_IP}:2379\"@"
+
+systemctl enable etcd
+systemctl start etcd
+
+sleep 2
+cat flannel.conf | etcdctl set /atomic.io/network/config
+fi
+
 yum -y install kubernetes-node kubernetes-client
+
+systemctl enable flanneld
+systemctl start flanneld # this will block until it can read a network config
+systemctl restart docker
+systemctl enable docker
 
 # Disble sasl for libvirt. VDSM configured that
 sed -i '/^auth_unix_rw/c\auth_unix_rw="none"' /etc/libvirt/libvirtd.conf
