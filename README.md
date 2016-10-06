@@ -2,6 +2,9 @@
 
 ## Hacking
 
+Before you start coding, the [Project structure overview](docs/structure.md)
+should help you understanding the project and the microservices layout.
+
 ### Setup
 
 First make sure you have [govendor](https://github.com/kardianos/govendor)
@@ -20,6 +23,12 @@ export PATH=$PATH:$GOPATH/bin
 ```
 
 ### Building
+
+First clone the project into your `$GOPATH`:
+
+```bash
+
+```
 
 To build the whole project, type
 

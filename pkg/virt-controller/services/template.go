@@ -3,12 +3,12 @@ package services
 import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
+	"html"
 	"io"
 	"kubevirt/core/pkg/entities"
 	"kubevirt/core/pkg/precond"
 	"strings"
 	"text/template"
-	"html"
 )
 
 type TemplateService interface {
