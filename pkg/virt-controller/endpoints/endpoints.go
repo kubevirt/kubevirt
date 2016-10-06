@@ -13,7 +13,8 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/satori/go.uuid"
-	"kubevirt/core/pkg/virt-controller/entities"
+	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/virt-controller/services"
 )
 
@@ -59,7 +60,7 @@ func decodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, er
 }
 
 func encodeResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	if _, ok := response.(AppError); ok != false {
+	if _, ok := response.(middleware.AppError); ok != false {
 		return encodeApplicationErrors(context, w, response)
 	}
 
@@ -72,7 +73,7 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 	w.Header().Set("Content-Type", "text/plain")
 	switch t := response.(type) {
 	// More specific AppErrors  like 404 must be handled before the AppError case
-	case AppError:
+	case middleware.AppError:
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(t.Cause().Error()))
 	default:

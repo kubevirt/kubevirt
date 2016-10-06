@@ -12,6 +12,7 @@ import (
 	golog "log"
 
 	"github.com/facebookgo/inject"
+	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/virt-controller/endpoints"
 	"kubevirt/core/pkg/virt-controller/rest"
 	"kubevirt/core/pkg/virt-controller/services"
@@ -47,7 +48,7 @@ func main() {
 	g.Populate()
 
 	handlers := rest.Handlers{
-		RawDomainHandler: endpoints.MakeRawDomainHandler(ctx, endpoints.InternalErrorMiddleware(logger)(endpoints.MakeRawDomainEndpoint(vmService))),
+		RawDomainHandler: endpoints.MakeRawDomainHandler(ctx, middleware.InternalErrorMiddleware(logger)(endpoints.MakeRawDomainEndpoint(vmService))),
 	}
 
 	http.Handle("/", rest.DefineRoutes(&handlers))

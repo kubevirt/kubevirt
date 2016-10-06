@@ -74,5 +74,5 @@ Finally start a VM called `testvm`:
 
 ```bash
 # this can be done from outside the VMs vecause of the virt-controller-service
-curl -X POST -H "Content-Type: application/xml" http://192.168.200.2:8182/api/v1/domain/raw -d @pkg/virt-launcher/domain.xml  -v
+curl -X POST -H "Content-Type: application/xml" http://192.168.200.2:8182/api/v1/domain/raw -d @cmd/virt-launcher/domain.xml  -v
 ```

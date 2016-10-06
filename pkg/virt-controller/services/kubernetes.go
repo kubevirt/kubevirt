@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
-	"kubevirt/core/pkg/virt-controller/entities"
+	"kubevirt/core/pkg/entities"
 	"os/exec"
 )
 

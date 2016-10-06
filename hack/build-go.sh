@@ -15,6 +15,17 @@ else
     args=$@
 fi
 
+# forward all commands to all packages if no specific one was requested
+# TODO finetune this a little bit more
+if [ $# -eq 0 ]; then
+    if [ "${target}" = "test" ]; then
+        (cd pkg; go ${target} -v ./...)
+    else
+        (cd pkg; go $target ./...)
+    fi
+fi
+
+# handle binaries
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (cd $arg; go ${target} -v ./...)
@@ -26,3 +37,4 @@ for arg in $args; do
         (cd $arg; go $target ./...)
     fi
 done
+

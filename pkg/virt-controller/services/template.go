@@ -1,14 +1,14 @@
 package services
 
 import (
-	"github.com/coreos/rkt/Godeps/_workspace/src/golang.org/x/net/html"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
 	"io"
-	"kubevirt/core/pkg/virt-controller/entities"
-	"kubevirt/core/pkg/virt-controller/precond"
+	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/precond"
 	"strings"
 	"text/template"
+	"html"
 )
 
 type TemplateService interface {

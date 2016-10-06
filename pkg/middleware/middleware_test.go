@@ -1,4 +1,4 @@
-package endpoints
+package middleware
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
-	"kubevirt/core/pkg/virt-controller/precond"
+	"kubevirt/core/pkg/precond"
 )
 
 var _ = Describe("Middleware", func() {

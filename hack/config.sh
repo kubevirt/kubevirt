@@ -1,5 +1,5 @@
 #!/bin/bash
 
-binaries="pkg/virt-controller pkg/virt-launcher"
+binaries="cmd/virt-controller cmd/virt-launcher"
 docker_prefix=kubevirt
 manifest_templates="`ls contrib/manifest/*.in`"

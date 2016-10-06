@@ -109,4 +109,4 @@ usermod -G wheel -a qemu
 mkdir -p /etc/kubernetes/manifests
 
 # Install qemu hack
-ln -s /vagrant/pkg/virt-launcher/qemu-kube /usr/local/bin/qemu-x86_64
+ln -s /vagrant/cmd/virt-launcher/qemu-kube /usr/local/bin/qemu-x86_64

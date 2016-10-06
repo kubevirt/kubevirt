@@ -1,4 +1,4 @@
-package endpoints
+package middleware
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
-	"kubevirt/core/pkg/virt-controller/precond"
+	"kubevirt/core/pkg/precond"
 )
 
 type AppError interface {

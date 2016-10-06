@@ -7,7 +7,7 @@ import (
 	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"kubevirt/core/pkg/virt-controller/entities"
+	"kubevirt/core/pkg/entities"
 	"os"
 )
 
@@ -18,7 +18,7 @@ var _ = Describe("Template", func() {
 	Describe("Rendering", func() {
 		Context("with correct parameters", func() {
 			It("should work", func() {
-				svc, err := NewTemplateService(logger, "../templates/manifest-template.yaml", "kubevirt", "virt-launcher")
+				svc, err := NewTemplateService(logger, "../../../cmd/virt-controller/templates/manifest-template.yaml", "kubevirt", "virt-launcher")
 				Expect(err).To(BeNil())
 
 				buffer := new(bytes.Buffer)

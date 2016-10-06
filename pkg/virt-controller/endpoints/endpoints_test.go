@@ -11,8 +11,9 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/satori/go.uuid"
 	"io/ioutil"
-	"kubevirt/core/pkg/virt-controller/entities"
-	"kubevirt/core/pkg/virt-controller/precond"
+	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/middleware"
+	"kubevirt/core/pkg/precond"
 	"kubevirt/core/pkg/virt-controller/rest"
 	"net/http/httptest"
 	"net/url"
@@ -85,7 +86,7 @@ var _ = Describe("Endpoints", func() {
 	BeforeEach(func() {
 		svc = mockVMService{}
 		endpoints := rest.Handlers{
-			RawDomainHandler: MakeRawDomainHandler(ctx, InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(MakeRawDomainEndpoint(&svc))),
+			RawDomainHandler: MakeRawDomainHandler(ctx, middleware.InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(MakeRawDomainEndpoint(&svc))),
 		}
 		handler = http.Handler(rest.DefineRoutes(&endpoints))
 		request = newValidRequest()

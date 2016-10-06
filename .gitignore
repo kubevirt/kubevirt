@@ -1,8 +1,8 @@
 vendor/*
 !vendor/vendor.json
 .idea
-pkg/virt-controller/virt-controller
-pkg/virt-launcher/virt-launcher
+cmd/virt-controller/virt-controller
+cmd/virt-launcher/virt-launcher
 contrib/manifest/*.yaml
 **/bin
 .vagrant

@@ -1,4 +1,4 @@
-package main
+package middleware
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestVirtLauncher(t *testing.T) {
+func TestEndpoints(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "VirtLauncher Suite")
+	RunSpecs(t, "Endpoints Suite")
 }
