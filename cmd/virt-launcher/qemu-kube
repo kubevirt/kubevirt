@@ -10,9 +10,6 @@ fi
 # TODO: let Makefile fill this
 # source "/var/run/vdsm/qemu_kube.conf"
 
-if [ -z "$QEMU_KUBE_USE_NSENTER" ]; then
-    QEMU_KUBE_USE_DOCKER="true"
-fi
 if [ -z "$QEMU" ]; then
     QEMU="/usr/bin/qemu-system-x86_64"
 fi
@@ -23,6 +20,9 @@ if [ ! -w "$LOG" ]; then
     LOG="/dev/null"
 fi
 
+# All namespaces a docker container uses:
+#CGROUPS='freezer,cpu,cpuacct,perf_event,net_cls,blkio,devices,memory,hugetlb,cpuset'
+CGROUPS='freezer,cpu,cpuacct,perf_event,net_cls,blkio,memory,hugetlb,cpuset' # don't use devices namespace
 
 while [[ $# -gt 0 ]]
 do
@@ -44,34 +44,24 @@ if [ -z "$VM_NAME" ]; then
 fi
 
 
-CONTAINER_ID=$( docker ps | awk "/.*compute.*virt-launcher-$VM_NAME.*/ { print \$1 }" )
-# We can also get the pid from docker itself:
-QEMU_UID=$(id -u qemu)
-QEMU_GID=$(id -g qemu)
-
-if [ x"$QEMU_KUBE_USE_DOCKER" == x"true" ]; then
-    CMD="/bin/docker exec $CONTAINER_ID $QEMU $ARGS"
-else
-    # TODO: let Makefile fill UID and GID
-    CONTAINER_PID=docker inspect --format '{{.State.Pid}}' $CONTAINER_ID
-    CMD="/bin/sudo -C 1000 /bin/nsenter -t $CONTAINER_PID -u -p -G $QEMU_GID -S $QEMU_UID $QEMU $ARGS"
-fi
+CONTAINER_ID=$( docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME.*/ { print \$1 }" )
+CONTAINER_PID=$(docker inspect --format '{{.State.Pid}}' $CONTAINER_ID)
+CMD="$QEMU $ARGS"
 
 date >> $LOG
-echo "QEMU_KUBE_USE_DOCKER=$QEMU_KUBE_USE_DOCKER" >> $LOG
 echo "$CMD" >> $LOG
 
-if [ -n "$QEMU_KUBE_DRY_RUN" ]; then
-        exit 0
-fi
+# Start qemu in the pid namespace of the container to receive signals on container kills
+# Don't close file descriptors bigger than 10000 to allow passing tap device fds
+exec sudo -C 10000 nsenter -t $CONTAINER_PID -p $CMD &
+SUDO_PID=$!
+NSENTER_PID=$(sudo pgrep -P $SUDO_PID)
+QEMU_PID=$(sudo pgrep -P $NSENTER_PID)
 
-if [ x"$QEMU_KUBE_USE_DOCKER" == x"true" ]; then
-    exec $CMD
-else
-    # TODO: let Makefile fill UID and GID
-    export LC_ALL=C
-    export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
-    export QEMU_AUDIO_DRV=none
-    exec $CMD
-fi
-
+sleep 2
+# Move the qemu process to the cgroups of the docker container
+# to adher the resource limitations of the container.
+# TODO, move a subshell into the right cgroups and execute nsenter there, to
+# start qemu in the right groups from the beginning
+sudo cgclassify -g ${CGROUPS}:system.slice/docker-$CONTAINER_ID.scope --sticky $QEMU_PID
+wait

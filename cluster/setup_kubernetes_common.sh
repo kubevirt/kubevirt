@@ -38,7 +38,7 @@ EOT
 fi
 
 # To get the qemu user and libvirt
-yum install -y qemu-common qemu-kvm qemu-system-x86 libvirt || :
+yum install -y qemu-common qemu-kvm qemu-system-x86 libcgroup-tools libvirt || :
 
 yum install -y docker || :
 
@@ -93,6 +93,11 @@ systemctl enable docker
 sed -i '/^auth_unix_rw/c\auth_unix_rw="none"' /etc/libvirt/libvirtd.conf
 systemctl restart libvirtd
 systemctl enable libvirtd
+
+# Define macvtap network interface for libvirt
+virsh net-define libvirt_network.xml
+virsh net-autostart kubevirt-net
+virsh net-start kubevirt-net
 
 # Allow qemu passwordless sudo
 cat >> /etc/sudoers.d/55-kubevirt <<EOF

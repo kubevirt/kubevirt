@@ -1,0 +1,16 @@
+<domain type="qemu">
+  <name>testvm</name>
+  <memory unit="KiB">8192</memory>
+  <os>
+    <type>hvm</type>
+  </os> 
+    <devices>
+      <emulator>/usr/local/bin/qemu-x86_64</emulator>
+      <interface type='network'>
+        <source network='kubevirt-net'/>
+      </interface>
+      <interface type='network'>
+        <source network='default'/>
+      </interface>
+    </devices>
+</domain>
