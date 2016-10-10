@@ -31,7 +31,7 @@ func main() {
 	}()
 
 	var xml string
-	if downwardAPIPath == nil {
+	if *downwardAPIPath == "" {
 		log.Print("Loading Domain from XML file.")
 		rawXML, err := ioutil.ReadFile(*xmlPath)
 		if err != nil {
