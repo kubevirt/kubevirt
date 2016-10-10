@@ -7,8 +7,8 @@ should help you understanding the project and the microservices layout.
 
 ### Setup
 
-First make sure you have [govendor](https://github.com/kardianos/govendor)
-installed.
+First make sure you have [govendor](https://github.com/kardianos/govendor) and
+`j2cli` installed.
 
 To install govendor in your `$GOPATH/bin` simply run
 
@@ -22,12 +22,19 @@ If you don't have the `$GOPATH/bin` folder on your path, do
 export PATH=$PATH:$GOPATH/bin
 ```
 
+`j2cli` can be installed with
+
+```bash
+sudo pip install j2cli
+```
+
 ### Building
 
 First clone the project into your `$GOPATH`:
 
 ```bash
-
+git clone http://git.app.eng.bos.redhat.com/git/kubevirt/core.git $GOPATH/src/kubevirt/core
+cd $GOPATH/src/kubevirt/core
 ```
 
 To build the whole project, type
@@ -71,17 +78,21 @@ vagrant up
 Build and deploy kubevirt:
 
 ```bash
-make all contrib
-vagrant rsync # if you do not use NFS
-vagrant ssh master -c "cd /vagrant && sudo hack/build-docker.sh"
-vagrant ssh node -c "cd /vagrant && sudo hack/build-docker.sh"
-vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/virt-controller.yaml"
-vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/virt-controller-service.yaml"
+bash cluster/sync.sh
 ```
 
 Finally start a VM called `testvm`:
 
 ```bash
 # this can be done from outside the VMs vecause of the virt-controller-service
-curl -X POST -H "Content-Type: application/xml" http://192.168.200.2:8182/api/v1/domain/raw -d @cmd/virt-launcher/domain.xml  -v
+curl -X POST -H "Content-Type: application/xml" http://192.168.200.2:8182/api/v1/domain/raw -d @cluster/testdomain.xml
+```
+
+This will start a VM on master or node with a macvtap and a tap networking device attached.
+
+Basic verifcation is possible by running
+
+```
+# TODO, there is an issue with the detection of where the VM is sceduled
+bash cluster/quicktest.sh
 ```

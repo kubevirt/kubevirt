@@ -45,7 +45,7 @@ Vagrant.configure(2) do |config|
   SHELL
 
   config.vm.define "master" do |master|
-      master.vm.hostname = "kubernetes-master"
+      master.vm.hostname = "master"
       master.vm.network "private_network", ip: "#{$master_ip}"
       master.vm.provider :libvirt do |domain|
           domain.memory = 3000
@@ -70,7 +70,7 @@ Vagrant.configure(2) do |config|
       SHELL
   end
   config.vm.define "node" do |node|
-      node.vm.hostname = "kubernetes-node"
+      node.vm.hostname = "node"
       node.vm.network "private_network", ip: "#{$node_ip}"
       node.vm.provider :libvirt do |domain|
           domain.memory = 2048
