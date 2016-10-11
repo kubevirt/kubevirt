@@ -1,4 +1,4 @@
-package entities
+package api
 
 import "github.com/satori/go.uuid"
 

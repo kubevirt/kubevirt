@@ -13,7 +13,8 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/satori/go.uuid"
-	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/api"
+	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/virt-controller/services"
 )
@@ -24,11 +25,11 @@ func MakeRawDomainEndpoint(svc services.VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(VMRequestDTO)
 		UUID := uuid.FromStringOrNil(req.UUID)
-		vm := entities.VM{Name: req.Name, UUID: UUID}
+		vm := api.VM{Name: req.Name, UUID: UUID}
 		if err := svc.StartVMRaw(&vm, req.RawDomain); err != nil {
 			return nil, err //TODO with the kubelet in place it is hard to tell what went wrong
 		}
-		return VMResponseDTO{UUID: vm.UUID.String()}, nil
+		return v1.VM{UUID: vm.UUID.String()}, nil
 	}
 }
 
@@ -85,14 +86,9 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 }
 
 type VMRequestDTO struct {
+	v1.VM     `valid:"required"`
 	XMLName   xml.Name `xml:"domain"`
-	Name      string   `xml:"name" valid:"required"`
-	UUID      string   `xml:"uuid" valid:"uuid"`
 	RawDomain []byte
-}
-
-type VMResponseDTO struct {
-	UUID string `json:"uuid"`
 }
 
 func extractBodyWithLimit(http_body io.ReadCloser, maxContentLength int64) ([]byte, error) {

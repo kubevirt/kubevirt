@@ -17,6 +17,8 @@ paths:
         Post a domain XML here to start it somewhere in the cluster. Kubernetes will do the scheduling.
       consumes:
         - application/xml
+      produces:
+        - application/json
       parameters:
         - name: body
           in: body
@@ -28,15 +30,22 @@ paths:
         - VM
       responses:
         201:
-          description: The started VM
+          description: VM defined
           schema:
-            $ref: '#/definitions/VMResponse'
+            $ref: '#/definitions/v1.VM'
+        400:
+          description: Request is syntactically incorrect
+        409:
+          description: VM already exists
 
 definitions:
-  VMResponse:
+  v1.VM:
     required:
+      - name
       - uuid
     properties:
+      name:
+        type: string
       uuid:
         type: string
         format: uuid

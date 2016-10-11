@@ -5,13 +5,13 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
 	"github.com/satori/go.uuid"
-	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/precond"
 	"regexp"
 )
 
 type VMService interface {
-	StartVMRaw(*entities.VM, []byte) error
+	StartVMRaw(*api.VM, []byte) error
 }
 
 type vmService struct {
@@ -19,7 +19,7 @@ type vmService struct {
 	KubeService KubeService `inject:""`
 }
 
-func (v *vmService) StartVMRaw(vm *entities.VM, rawXML []byte) error {
+func (v *vmService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(rawXML)
 	precond.MustNotBeEmpty(vm.Name)

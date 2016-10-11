@@ -11,7 +11,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/satori/go.uuid"
 	"io/ioutil"
-	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/api"
+	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/precond"
 	"kubevirt/core/pkg/virt-controller/rest"
@@ -63,7 +64,7 @@ type mockVMService struct {
 	Panic        bool
 }
 
-func (m *mockVMService) StartVMRaw(vm *entities.VM, rawXML []byte) error {
+func (m *mockVMService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 	if m.PrecondPanic {
 		panic(precond.MustNotBeEmpty(""))
 	}
@@ -149,9 +150,9 @@ var _ = Describe("Endpoints", func() {
 			})
 			It("should return a json containing the VM uuid", func() {
 				handler.ServeHTTP(recorder, request)
-				var responseDTO VMResponseDTO
+				var responseDTO v1.VM
 				json.NewDecoder(recorder.Body).Decode(&responseDTO)
-				Expect(responseDTO).To(Equal(VMResponseDTO{UUID: "0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f"}))
+				Expect(responseDTO).To(Equal(v1.VM{UUID: "0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f"}))
 				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
 			})
 		})

@@ -7,7 +7,7 @@ import (
 	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/api"
 	"os"
 )
 
@@ -23,7 +23,7 @@ var _ = Describe("Template", func() {
 
 				buffer := new(bytes.Buffer)
 
-				err = svc.RenderManifest(&entities.VM{Name: "testvm"}, []byte("<domain>\n</domain>"), buffer)
+				err = svc.RenderManifest(&api.VM{Name: "testvm"}, []byte("<domain>\n</domain>"), buffer)
 
 				Expect(err).To(BeNil())
 				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))

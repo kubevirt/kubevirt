@@ -5,14 +5,14 @@ import (
 	"github.com/go-kit/kit/log/levels"
 	"html"
 	"io"
-	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/precond"
 	"strings"
 	"text/template"
 )
 
 type TemplateService interface {
-	RenderManifest(*entities.VM, []byte, io.Writer) error
+	RenderManifest(*api.VM, []byte, io.Writer) error
 }
 
 type manifestData struct {
@@ -28,7 +28,7 @@ type templateService struct {
 	dataTemplate manifestData
 }
 
-func (t *templateService) RenderManifest(vm *entities.VM, domainXML []byte, writer io.Writer) error {
+func (t *templateService) RenderManifest(vm *api.VM, domainXML []byte, writer io.Writer) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(writer)
 	precond.MustNotBeNil(domainXML)

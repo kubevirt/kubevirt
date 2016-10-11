@@ -5,12 +5,12 @@ import (
 	"errors"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
-	"kubevirt/core/pkg/entities"
+	"kubevirt/core/pkg/api"
 	"os/exec"
 )
 
 type KubeService interface {
-	StartPod(vm *entities.VM, domainXML []byte) error
+	StartPod(vm *api.VM, domainXML []byte) error
 }
 
 type kubeService struct {
@@ -19,7 +19,7 @@ type kubeService struct {
 	ApiServer       string
 }
 
-func (k *kubeService) StartPod(vm *entities.VM, domainXML []byte) error {
+func (k *kubeService) StartPod(vm *api.VM, domainXML []byte) error {
 	stdinBuffer := new(bytes.Buffer)
 	stderrBuffer := new(bytes.Buffer)
 	k.TemplateService.RenderManifest(vm, domainXML, stdinBuffer)
