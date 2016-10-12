@@ -152,7 +152,7 @@ var _ = Describe("Endpoints", func() {
 				handler.ServeHTTP(recorder, request)
 				var responseDTO v1.VM
 				json.NewDecoder(recorder.Body).Decode(&responseDTO)
-				Expect(responseDTO).To(Equal(v1.VM{UUID: "0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f"}))
+				Expect(responseDTO).To(Equal(v1.VM{UUID: "0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f", Name: "testvm"}))
 				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
 			})
 		})

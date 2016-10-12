@@ -251,6 +251,14 @@
 			"revisionTime": "2016-08-30T04:10:46Z"
 		},
 		{
+			"checksumSHA1": "5McqW3RfqftesEuXlMImRjotx80=",
+			"path": "github.com/rmohr/go-model",
+			"revision": "0f7d612341def70d25ad0db5a4ad5d0254dffa6e",
+			"revisionTime": "2016-10-12T07:16:54Z",
+			"version": "=converter",
+			"versionExact": "converter"
+		},
+		{
 			"checksumSHA1": "zmC8/3V4ls53DJlNTKDZwPSC/dA=",
 			"path": "github.com/satori/go.uuid",
 			"revision": "b061729afc07e77a8aa4fad0a2fd840958f1942a",

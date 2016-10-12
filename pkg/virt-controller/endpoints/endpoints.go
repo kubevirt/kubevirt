@@ -12,7 +12,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
-	"github.com/satori/go.uuid"
+	"github.com/rmohr/go-model"
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/middleware"
@@ -24,12 +24,19 @@ const DefaultMaxContentLengthBytes = 3 << 20
 func MakeRawDomainEndpoint(svc services.VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(VMRequestDTO)
-		UUID := uuid.FromStringOrNil(req.UUID)
-		vm := api.VM{Name: req.Name, UUID: UUID}
+		vm := api.VM{}
+		if errs := model.Copy(&vm, &req.VM); errs != nil {
+			return nil, errs[0]
+		}
 		if err := svc.StartVMRaw(&vm, req.RawDomain); err != nil {
 			return nil, err //TODO with the kubelet in place it is hard to tell what went wrong
 		}
-		return v1.VM{UUID: vm.UUID.String()}, nil
+		// TODO add error aggregation
+		v1VM := v1.VM{}
+		if errs := model.Copy(&v1VM, &vm); errs != nil {
+			return nil, errs[0]
+		}
+		return v1VM, nil
 	}
 }
 
