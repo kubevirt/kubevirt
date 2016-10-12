@@ -83,10 +83,94 @@
 			"revisionTime": "2014-02-26T03:06:59Z"
 		},
 		{
-			"checksumSHA1": "qmlMYK6untubgQOaLZcnPin9BxM=",
-			"path": "github.com/onsi/ginkgo/ginkgo",
-			"revision": "45a5f6ffb2a14e4f29698c16ae4c0a34018a8951",
-			"revisionTime": "2016-09-26T21:18:03Z"
+			"checksumSHA1": "5CYrIFTTUD3pONFo8uEO21Ajz68=",
+			"path": "github.com/onsi/ginkgo",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "YpuDp4HzlSiuDjenwxBH8SrJUdQ=",
+			"path": "github.com/onsi/ginkgo/config",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "T1cZh3UWr4Hnx6fQYp+7KDNvxG4=",
+			"path": "github.com/onsi/ginkgo/internal/codelocation",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "qvz6/+otRkWa1OHaPMKap9D5Ge4=",
+			"path": "github.com/onsi/ginkgo/internal/containernode",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "882oWW4FC4Nrd8mrMptsDJSTDds=",
+			"path": "github.com/onsi/ginkgo/internal/failer",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "QRyuQm0kZZhoJSZIKQMNBobyHvc=",
+			"path": "github.com/onsi/ginkgo/internal/leafnodes",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "iGl+QVjDgV2/8VbzY5B5i4O3H10=",
+			"path": "github.com/onsi/ginkgo/internal/remote",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "bXl467puOFWqYtymMm9oz1FR7dM=",
+			"path": "github.com/onsi/ginkgo/internal/spec",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "KfcgmQ0ynI5Nl6qAmLSIFL4Yw1o=",
+			"path": "github.com/onsi/ginkgo/internal/specrunner",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "qHyV9V4XDctM1CYOplL703ZIqDg=",
+			"path": "github.com/onsi/ginkgo/internal/suite",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "TUBH2aNaARtAZ5vz51xMFRsOOo0=",
+			"path": "github.com/onsi/ginkgo/internal/testingtproxy",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "dpgqwFYT7NWSOG0Ah+r6kgMhrBg=",
+			"path": "github.com/onsi/ginkgo/internal/writer",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "JOMfdsky0xwygI2Sd2+iMQUoLIU=",
+			"path": "github.com/onsi/ginkgo/reporters",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "kfP87MI3lmtcXAy8YOHZEjgFM2k=",
+			"path": "github.com/onsi/ginkgo/reporters/stenographer",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "x2C2TFYRF/+vpy7KN9Hkjh8VPsE=",
+			"path": "github.com/onsi/ginkgo/types",
+			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
+			"revisionTime": "2016-10-07T05:04:02Z"
 		},
 		{
 			"checksumSHA1": "3g6SrQ0YmvEvx1MTqwKPqZd7B38=",
@@ -171,6 +255,12 @@
 			"path": "github.com/satori/go.uuid",
 			"revision": "b061729afc07e77a8aa4fad0a2fd840958f1942a",
 			"revisionTime": "2016-09-27T10:08:44Z"
+		},
+		{
+			"checksumSHA1": "Xz3hUrPvOYGWTuHrEryoYAj9zwg=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "9bb9f0998d48b31547d975974935ae9b48c7a03c",
+			"revisionTime": "2016-10-11T23:07:22Z"
 		},
 		{
 			"checksumSHA1": "SPMXWeoFQa5z0pLPmqpcFzyHqQQ=",
