@@ -49,3 +49,5 @@ spec:
       mountPath: /rhev/data-center/
     - name: podinfo
       mountPath: /etc/kubeapi
+{{if .NodeSelector}}  nodeSelector:
+{{range $key, $value := .NodeSelector}}    {{$key}}: {{$value}}{{end}}{{end}}

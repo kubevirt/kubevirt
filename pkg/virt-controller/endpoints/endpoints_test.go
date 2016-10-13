@@ -9,7 +9,6 @@ import (
 
 	"encoding/json"
 	"github.com/go-kit/kit/log"
-	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/api/v1"
@@ -57,11 +56,10 @@ func newValidRequest() *http.Request {
 }
 
 type mockVMService struct {
-	UUID         uuid.UUID
-	VMName       string
 	rawXML       []byte
 	PrecondPanic bool
 	Panic        bool
+	VM           *api.VM
 }
 
 func (m *mockVMService) StartVMRaw(vm *api.VM, rawXML []byte) error {
@@ -71,8 +69,7 @@ func (m *mockVMService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 	if m.Panic {
 		panic("panic")
 	}
-	m.UUID = vm.UUID
-	m.VMName = vm.Name
+	m.VM = vm
 	m.rawXML = rawXML
 	return nil
 }
@@ -144,8 +141,8 @@ var _ = Describe("Endpoints", func() {
 			})
 			It("should call vmService with the right arguments", func() {
 				handler.ServeHTTP(recorder, request)
-				Expect(svc.UUID.String()).To(Equal("0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f"))
-				Expect(svc.VMName).To(Equal("testvm"))
+				Expect(svc.VM.UUID.String()).To(Equal("0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f"))
+				Expect(svc.VM.Name).To(Equal("testvm"))
 				Expect(string(svc.rawXML)).To(Equal(validXML))
 			})
 			It("should return a json containing the VM uuid", func() {
@@ -155,7 +152,25 @@ var _ = Describe("Endpoints", func() {
 				Expect(responseDTO).To(Equal(v1.VM{UUID: "0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f", Name: "testvm"}))
 				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
 			})
+			Context("with Node-Selector header", func() {
+				It("should pass on the node selector values to the service", func() {
+					request.Header.Set("Node-Selector", "kubernetes.io/hostname=master")
+					handler.ServeHTTP(recorder, request)
+					var responseDTO v1.VM
+					json.NewDecoder(recorder.Body).Decode(&responseDTO)
+					Expect(svc.VM.NodeSelector).Should(HaveLen(1))
+					Expect(svc.VM.NodeSelector).Should(HaveKeyWithValue("kubernetes.io/hostname", "master"))
+				})
+			})
+			Context("with invalid Node-Selector header", func() {
+				It("should return 400", func() {
+					request.Header.Set("Node-Selector", "kubernetes.io/hostname")
+					handler.ServeHTTP(recorder, request)
+					Expect(recorder.Code).To(Equal(http.StatusBadRequest))
+				})
+			})
 		})
+
 		Context("with precondition panic", func() {
 			It("should return 500", func() {
 				svc.PrecondPanic = true

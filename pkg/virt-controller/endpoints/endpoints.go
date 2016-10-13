@@ -16,6 +16,7 @@ import (
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/middleware"
+	"kubevirt/core/pkg/util"
 	"kubevirt/core/pkg/virt-controller/services"
 )
 
@@ -58,6 +59,9 @@ func decodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, er
 		return nil, err
 	}
 	if err := xml.Unmarshal(body, &vm); err != nil {
+		return nil, err
+	}
+	if vm.NodeSelector, err = util.ExtractEmbeddedMap(r.Header.Get("Node-Selector")); err != nil {
 		return nil, err
 	}
 	if _, err := govalidator.ValidateStruct(vm); err != nil {

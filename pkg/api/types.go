@@ -5,6 +5,7 @@ import (
 )
 
 type VM struct {
-	Name string
-	UUID uuid.UUID
+	Name         string
+	UUID         uuid.UUID
+	NodeSelector map[string]string
 }

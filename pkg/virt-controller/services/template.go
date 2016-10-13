@@ -20,6 +20,7 @@ type manifestData struct {
 	DockerRegistry string
 	LauncherImage  string
 	DomainXML      string
+	NodeSelector   map[string]string
 }
 
 type templateService struct {
@@ -35,6 +36,7 @@ func (t *templateService) RenderManifest(vm *api.VM, domainXML []byte, writer io
 	data := t.dataTemplate
 	data.Domain = precond.MustNotBeEmpty(vm.Name)
 	data.DomainXML = EncodeDomainXML(string(domainXML))
+	data.NodeSelector = vm.NodeSelector
 	return t.template.Execute(writer, &data)
 }
 

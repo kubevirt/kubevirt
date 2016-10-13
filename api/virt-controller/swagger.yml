@@ -26,6 +26,10 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/domain'
+        - name: Node-Selector
+          description: key value pairs
+          in: header
+          type: string
       tags:
         - VM
       responses:
@@ -49,6 +53,10 @@ definitions:
       uuid:
         type: string
         format: uuid
+      nodeSelector:
+        type: object
+        additionalProperties:
+          type: string
   domain:
     required:
       - name

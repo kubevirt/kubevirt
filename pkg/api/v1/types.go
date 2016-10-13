@@ -7,8 +7,9 @@ import (
 )
 
 type VM struct {
-	Name string `xml:"name" valid:"required"`
-	UUID string `xml:"uuid" valid:"uuid"`
+	Name         string            `json:"name" xml:"name" valid:"required"`
+	UUID         string            `json:"uuid" xml:"uuid" valid:"uuid"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 func init() {
