@@ -33,7 +33,7 @@ func MakeRawDomainEndpoint(svc services.VMService) endpoint.Endpoint {
 	}
 }
 
-func decodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, error) {
+func DecodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	var vm VMRequestDTO
 	var body []byte
 	// Normally we would directly unmarshal into the struct but we need the raw body again later
@@ -58,4 +58,14 @@ type VMRequestDTO struct {
 	v1.VM     `valid:"required"`
 	XMLName   xml.Name `xml:"domain"`
 	RawDomain []byte
+}
+
+func MakeVMDeleteEndpoint(svc services.VMService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		name := request.(string)
+		// TODO here we would fetch the VM from etcd and return 404 if the VM does not exists
+		vm := api.VM{Name: name}
+		err := svc.DeleteVM(&vm)
+		return nil, err
+	}
 }

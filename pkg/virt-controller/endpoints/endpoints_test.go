@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"encoding/json"
+	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	"io/ioutil"
 	"kubevirt/core/pkg/api"
@@ -74,17 +75,29 @@ func (m *mockVMService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 	return nil
 }
 
+func (m *mockVMService) DeleteVM(vm *api.VM) error {
+	return nil
+}
+
 var _ = Describe("Endpoints", func() {
 	var recorder *httptest.ResponseRecorder
 	var request *http.Request
 	var handler http.Handler
 	ctx := context.Background()
 	var svc mockVMService
+	handlerBuilder := NewHandlerBuilder()
+	handlerBuilder.Middleware([]endpoint.Middleware{
+		middleware.InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter)),
+	})
 
 	BeforeEach(func() {
 		svc = mockVMService{}
 		endpoints := rest.Handlers{
-			RawDomainHandler: MakeRawDomainHandler(ctx, middleware.InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(MakeRawDomainEndpoint(&svc))),
+			RawDomainHandler: handlerBuilder.
+				Decoder(DecodeRawDomainRequest).
+				Encoder(EncodePostResponse).
+				Endpoint(MakeRawDomainEndpoint(&svc)).
+				Build(ctx),
 		}
 		handler = http.Handler(rest.DefineRoutes(&endpoints))
 		request = newValidRawDomainRequest()

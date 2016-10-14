@@ -11,15 +11,6 @@ import (
 
 const DefaultMaxContentLengthBytes = 3 << 20
 
-func MakeRawDomainHandler(ctx context.Context, endpoint endpoint.Endpoint) http.Handler {
-	return kithttp.NewServer(
-		ctx,
-		endpoint,
-		RawDomainRequestDecoder,
-		EncodePostResponse,
-	)
-}
-
 func MakeDeleteHandler(ctx context.Context, endpoint endpoint.Endpoint) http.Handler {
 	return kithttp.NewServer(
 		ctx,
