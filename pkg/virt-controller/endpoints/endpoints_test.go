@@ -47,7 +47,7 @@ const wrongRootElementXML = `
 </test>"
 `
 
-func newValidRequest() *http.Request {
+func newValidRawDomainRequest() *http.Request {
 	request, _ := http.NewRequest("POST", "/api/v1/domain/raw", nil)
 	request.Body = ioutil.NopCloser(strings.NewReader(validXML))
 	request.Header.Set("Content-Type", "application/xml")
@@ -87,7 +87,7 @@ var _ = Describe("Endpoints", func() {
 			RawDomainHandler: MakeRawDomainHandler(ctx, middleware.InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(MakeRawDomainEndpoint(&svc))),
 		}
 		handler = http.Handler(rest.DefineRoutes(&endpoints))
-		request = newValidRequest()
+		request = newValidRawDomainRequest()
 		recorder = httptest.NewRecorder()
 	})
 
