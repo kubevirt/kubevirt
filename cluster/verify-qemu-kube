@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+ERROR=0
+
 VM_NAME=$1
 if [ "x$VM_NAME" == "x" ]; then
 echo "Usage:"
@@ -8,12 +10,18 @@ echo "  ./verify-qemu-cube <vm_name>"
 exit 1
 fi
 VM_EMULATION_PID=$(sudo grep -E 'domstatus.*pid' /var/run/libvirt/qemu/${VM_NAME}.xml | sed "s/.*pid='\([[:digit:]]\+\)'.*/\1/")
+
 SUDO_PID=$(pgrep -P $VM_EMULATION_PID)
-NSENTER_PID=$(pgrep -P $SUDO_PID)
+BASH_PID=$(pgrep -P $SUDO_PID)
+NSENTER_PID=$(pgrep -P $BASH_PID)
 VM_PID=$(pgrep -P $NSENTER_PID)
+QEMU_PROC_NAME=$(ps -q $VM_PID -o comm=)
+
+echo "Qemu process: $QEMU_PROC_NAME"
+test "$QEMU_PROC_NAME" == "qemu-system-x86" || ERROR=1
+
 CONTAINER_ID=$( docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME.*/ { print \$1 }" )
 CONTAINER_PID=$(docker inspect --format '{{.State.Pid}}' $CONTAINER_ID)
-ERROR=0
 
 echo "VM name: $VM_NAME"
 echo "VM emulation PID: $VM_EMULATION_PID"
