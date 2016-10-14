@@ -115,3 +115,8 @@ mkdir -p /etc/kubernetes/manifests
 
 # Install qemu hack
 ln -s /vagrant/cmd/virt-launcher/qemu-kube /usr/local/bin/qemu-x86_64
+
+# Create log location for qemu hack
+mkdir -p /var/log/kubevirt/
+touch /var/log/kubevirt/qemu-kube.log
+chown qemu:qemu /var/log/kubevirt/qemu-kube.log

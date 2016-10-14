@@ -14,7 +14,7 @@ if [ -z "$QEMU" ]; then
     QEMU="/usr/bin/qemu-system-x86_64"
 fi
 if [ -z "$LOG" ]; then
-    LOG="/var/log/vdsm/qemu-kube.log"
+    LOG="/var/log/kubevirt/qemu-kube.log"
 fi
 if [ ! -w "$LOG" ]; then
     LOG="/dev/null"
