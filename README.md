@@ -7,8 +7,8 @@ should help you understanding the project and the microservices layout.
 
 ### Setup
 
-First make sure you have [govendor](https://github.com/kardianos/govendor) and
-`j2cli` installed.
+First make sure you have [govendor](https://github.com/kardianos/govendor),
+`j2cli` and `libvirt-devel` installed.
 
 To install govendor in your `$GOPATH/bin` simply run
 
@@ -26,6 +26,12 @@ export PATH=$PATH:$GOPATH/bin
 
 ```bash
 sudo pip install j2cli
+```
+
+On Fedora `libvirt-devel` can be  installed with
+
+```bash
+sudo dnf install libvirt-devel
 ```
 
 ### Building
