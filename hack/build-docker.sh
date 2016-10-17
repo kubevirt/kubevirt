@@ -17,5 +17,9 @@ else
 fi
 
 for arg in $args; do
-    (cd $arg; docker $target -t ${docker_prefix}/$(basename $arg) .)
+    if [ "${target}" = "build" ]; then
+        (cd $arg; docker $target -t ${docker_prefix}/$(basename $arg):${docker_tag} .)
+    elif [ "${target}" = "push" ]; then
+        (cd $arg; docker $target ${docker_prefix}/$(basename $arg):${docker_tag})
+    fi
 done

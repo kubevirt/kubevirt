@@ -7,7 +7,7 @@ metadata:
 spec:
   containers:
   - name: virt-controller
-    image: {{ docker_prefix }}/virt-controller
+    image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
     imagePullPolicy: IfNotPresent
     command:
         - "/virt-controller"
@@ -15,6 +15,8 @@ spec:
         - "127.0.0.1:8001"
         - "--docker-registry"
         - "{{ docker_prefix }}"
+        - "--launcher-image"
+        - "virt-launcher:{{ docker_tag }}"
         - "--port"
         - "8182"
     ports:
@@ -22,7 +24,7 @@ spec:
         name: "virt-controller"
         protocol: "TCP"
   - name: kubectl
-    image: {{ docker_prefix }}/virt-controller
+    image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
     imagePullPolicy: IfNotPresent
     command:
         - "kubectl"

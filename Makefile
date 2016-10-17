@@ -28,7 +28,10 @@ sync:
 docker: build
 	./hack/build-docker.sh build ${WHAT}
 
+publish: docker
+	./hack/build-docker.sh push ${WHAT}
+
 contrib:
 	./hack/build-contrib.sh
 
-.PHONY: build fmt test clean distclean sync docker contrib vet
+.PHONY: build fmt test clean distclean sync docker contrib vet publish
