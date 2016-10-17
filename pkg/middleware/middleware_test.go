@@ -28,7 +28,6 @@ var _ = Describe("Middleware", func() {
 				data, err := InternalErrorMiddleware(log.NewLogfmtLogger(GinkgoWriter))(
 					func(ctx context.Context, request interface{}) (interface{}, error) {
 						panic("generic one")
-						return nil, nil
 					})(nil, nil)
 				Expect(err).ShouldNot(HaveOccurred())
 				_, ok := data.(*InternalServerError)
