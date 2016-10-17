@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -ex
 
 make all contrib
 vagrant rsync # if you do not use NFS
