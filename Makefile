@@ -2,8 +2,11 @@ export GO15VENDOREXPERIMENT := 1
 
 all: build
 
-build: sync fmt
+build: sync fmt vet
 	./hack/build-go.sh install ${WHAT}
+
+vet:
+	./hack/build-go.sh vet ${WHAT}
 
 fmt:
 	./hack/build-go.sh fmt ${WHAT}
@@ -28,4 +31,4 @@ docker: build
 contrib:
 	./hack/build-contrib.sh
 
-.PHONY: build fmt test clean distclean sync docker contrib
+.PHONY: build fmt test clean distclean sync docker contrib vet
