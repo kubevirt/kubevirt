@@ -7,6 +7,7 @@ import (
 	"github.com/go-kit/kit/log/levels"
 	"github.com/satori/go.uuid"
 	"kubevirt/core/pkg/api"
+	"kubevirt/core/pkg/kubecli"
 	"kubevirt/core/pkg/precond"
 	"regexp"
 )
@@ -18,7 +19,7 @@ type VMService interface {
 
 type vmService struct {
 	logger          levels.Levels
-	KubeService     KubeService     `inject:""`
+	KubeCli         kubecli.KubeCli `inject:""`
 	TemplateService TemplateService `inject:""`
 }
 
@@ -39,7 +40,7 @@ func (v *vmService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 		return err
 	}
 
-	if err := v.KubeService.CreatePod(templateBuffer); err != nil {
+	if err := v.KubeCli.CreatePod(templateBuffer); err != nil {
 		return err
 	}
 	v.logger.Info().Log("action", "StartVMRaw", "object", "VM", "UUID", vm.UUID, "name", vm.Name)
@@ -50,7 +51,7 @@ func (v *vmService) DeleteVM(vm *api.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.Name)
 
-	if err := v.KubeService.DeletePodByLabel("domain", vm.Name); err != nil {
+	if err := v.KubeCli.DeletePodsByLabel("domain", vm.Name); err != nil {
 		return err
 	}
 	v.logger.Info().Log("action", "DeleteVM", "object", "VM", "UUID", vm.UUID, "name", vm.Name)

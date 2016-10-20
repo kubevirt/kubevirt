@@ -13,6 +13,7 @@ import (
 
 	"github.com/facebookgo/inject"
 	"github.com/go-kit/kit/endpoint"
+	"kubevirt/core/pkg/kubecli"
 	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/virt-controller/endpoints"
 	"kubevirt/core/pkg/virt-controller/rest"
@@ -40,7 +41,7 @@ func main() {
 	}
 
 	g.Provide(
-		&inject.Object{Value: services.NewKubeService(logger, *apiServer)},
+		&inject.Object{Value: kubecli.NewKubeCli(*apiServer)},
 		&inject.Object{Value: templateService},
 		&inject.Object{Value: vmService},
 	)
