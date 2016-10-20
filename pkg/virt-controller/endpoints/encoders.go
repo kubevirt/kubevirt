@@ -11,6 +11,12 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 	w.Header().Set("Content-Type", "text/plain")
 	switch t := response.(type) {
 	// More specific AppErrors  like 404 must be handled before the AppError case
+	case middleware.ResourceNotFoundError:
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(t.Cause().Error()))
+	case middleware.ResourceExistsError:
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(t.Cause().Error()))
 	case middleware.AppError:
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(t.Cause().Error()))

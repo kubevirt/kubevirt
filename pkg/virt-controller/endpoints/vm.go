@@ -13,6 +13,17 @@ import (
 	"net/http"
 )
 
+func MakePrepareMigrationHandler(svc services.VMService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		postObject := request.(*PostObject)
+		vm := api.VM{}
+		if errs := model.Copy(&vm, postObject.Payload); errs != nil {
+			return nil, errs[0]
+		}
+		return vm, svc.PrepareMigration(&vm)
+	}
+}
+
 func MakeRawDomainEndpoint(svc services.VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(VMRequestDTO)

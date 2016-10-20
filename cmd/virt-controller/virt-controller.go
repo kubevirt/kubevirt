@@ -13,6 +13,7 @@ import (
 
 	"github.com/facebookgo/inject"
 	"github.com/go-kit/kit/endpoint"
+	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/kubecli"
 	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/virt-controller/endpoints"
@@ -60,7 +61,8 @@ func main() {
 			Encoder(endpoints.EncodePostResponse).
 			Endpoint(endpoints.MakeRawDomainEndpoint(vmService)).
 			Build(ctx),
-		DeleteVMHandler: handlerBuilder.Delete().Endpoint(endpoints.MakeVMDeleteEndpoint(vmService)).Build(ctx),
+		DeleteVMHandler:         handlerBuilder.Delete().Endpoint(endpoints.MakeVMDeleteEndpoint(vmService)).Build(ctx),
+		PrepareMigrationHandler: handlerBuilder.Put((*v1.VM)(nil)).Endpoint(endpoints.MakePrepareMigrationHandler(vmService)).Build(ctx),
 	}
 
 	http.Handle("/", rest.DefineRoutes(&handlers))

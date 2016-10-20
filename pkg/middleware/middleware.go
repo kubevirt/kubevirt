@@ -73,7 +73,27 @@ func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
 				}
 			}()
 			data, err = next(ctx, request)
+			// From here on all AppErrors returned through the err return value are treated as app
+			// payload and returned with the right http return code
+			// For instance a service can just return an AppError instance as normal err and this check
+			// makes sure that our application error handler handles the response
+			if _, ok := err.(AppError); ok {
+				levels.New(logger).Crit().Log("error", err)
+				return err, nil
+			}
 			return data, err
 		}
 	}
+}
+
+func NewResourceNotFoundError(resource string, name string) *ResourceNotFoundError {
+	return &ResourceNotFoundError{appError{err: fmt.Errorf("%s with name %s does not exist", resource, name)}}
+}
+
+func NewResourceExistsError(resource string, name string) *ResourceNotFoundError {
+	return NewResourceConflictError(fmt.Sprintf("%s with name %s already exists", resource, name))
+}
+
+func NewResourceConflictError(msg string) *ResourceNotFoundError {
+	return &ResourceNotFoundError{appError{err: fmt.Errorf(msg)}}
 }

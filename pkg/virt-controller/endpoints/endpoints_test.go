@@ -79,6 +79,10 @@ func (m *mockVMService) DeleteVM(vm *api.VM) error {
 	return nil
 }
 
+func (v *mockVMService) PrepareMigration(vm *api.VM) error {
+	return nil
+}
+
 var _ = Describe("Endpoints", func() {
 	var recorder *httptest.ResponseRecorder
 	var request *http.Request
