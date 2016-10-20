@@ -36,7 +36,7 @@ func (v *vmService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 	}
 
 	templateBuffer := new(bytes.Buffer)
-	if err := v.TemplateService.RenderManifest(vm, rawXML, templateBuffer); err != nil {
+	if err := v.TemplateService.RenderLaunchManifest(vm, rawXML, templateBuffer); err != nil {
 		return err
 	}
 

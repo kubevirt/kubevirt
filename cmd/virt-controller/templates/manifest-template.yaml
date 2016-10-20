@@ -5,8 +5,8 @@ metadata:
   labels:
     app: virt-launcher
     domain: {{.Domain}}
-  annotations:
-    domainXML: "{{.DomainXML}}"
+{{if .DomainXML}}  annotations:
+    domainXML: "{{.DomainXML}}"{{end}}
 spec:
   hostNetwork: true
   volumes:
@@ -32,10 +32,9 @@ spec:
   - name: compute
     image: {{.DockerRegistry}}/{{.LauncherImage}}
     imagePullPolicy: IfNotPresent
-    command:
-        - "/virt-launcher"
-        - "-downward-api-path"
-        - "/etc/kubeapi/annotations"
+{{if .Args}}    command:
+{{range $value := .Args}}        - "{{$value}}"
+{{end}}{{end}}
     securityContext:
       privileged: true
     volumeMounts:
@@ -50,4 +49,5 @@ spec:
     - name: podinfo
       mountPath: /etc/kubeapi
 {{if .NodeSelector}}  nodeSelector:
-{{range $key, $value := .NodeSelector}}    {{$key}}: {{$value}}{{end}}{{end}}
+{{range $key, $value := .NodeSelector}}    {{$key}}: {{$value}}
+{{end}}{{end}}

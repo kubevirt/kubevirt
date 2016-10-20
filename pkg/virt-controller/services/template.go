@@ -12,7 +12,8 @@ import (
 )
 
 type TemplateService interface {
-	RenderManifest(*api.VM, []byte, io.Writer) error
+	RenderLaunchManifest(*api.VM, []byte, io.Writer) error
+	RenderMigrationManifest(*api.VM, io.Writer) error
 }
 
 type manifestData struct {
@@ -21,6 +22,7 @@ type manifestData struct {
 	LauncherImage  string
 	DomainXML      string
 	NodeSelector   map[string]string
+	Args           []string
 }
 
 type templateService struct {
@@ -29,7 +31,7 @@ type templateService struct {
 	dataTemplate manifestData
 }
 
-func (t *templateService) RenderManifest(vm *api.VM, domainXML []byte, writer io.Writer) error {
+func (t *templateService) RenderLaunchManifest(vm *api.VM, domainXML []byte, writer io.Writer) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(writer)
 	precond.MustNotBeNil(domainXML)
@@ -37,6 +39,17 @@ func (t *templateService) RenderManifest(vm *api.VM, domainXML []byte, writer io
 	data.Domain = precond.MustNotBeEmpty(vm.Name)
 	data.DomainXML = EncodeDomainXML(string(domainXML))
 	data.NodeSelector = vm.NodeSelector
+	data.Args = []string{"/virt-launcher", "-downward-api-path", "/etc/kubeapi/annotations"}
+	return t.template.Execute(writer, &data)
+}
+
+func (t *templateService) RenderMigrationManifest(vm *api.VM, writer io.Writer) error {
+	precond.MustNotBeNil(vm)
+	precond.MustNotBeNil(writer)
+	data := t.dataTemplate
+	data.Domain = precond.MustNotBeEmpty(vm.Name)
+	data.NodeSelector = vm.NodeSelector
+	data.Args = []string{"/virt-launcher", "-receive-only"}
 	return t.template.Execute(writer, &data)
 }
 
