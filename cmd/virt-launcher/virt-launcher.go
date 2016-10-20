@@ -21,6 +21,13 @@ func main() {
 	user := flag.String("user", "vdsm@ovirt", "Libvirt user")
 	pass := flag.String("pass", "shibboleth", "Libvirt password")
 	flag.Parse()
+
+	xml := readDomainXML(*xmlPath, *downwardAPIPath)
+	if xml == "" {
+		log.Fatal("Could not load domain XML. The resulting XML is empty")
+	}
+	log.Print("Domain description loaded.")
+
 	conn := buildLocalConnection(*conUri, *user, *pass)
 	log.Print("Libvirt connection established.")
 
@@ -29,35 +36,6 @@ func main() {
 			log.Fatalf("CloseConnection() == %d, expected 0", res)
 		}
 	}()
-
-	var xml string
-	if *downwardAPIPath == "" {
-		log.Print("Loading Domain from XML file.")
-		rawXML, err := ioutil.ReadFile(*xmlPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		xml = string(rawXML)
-	} else {
-		log.Print("Loading Domain from downward API file.")
-		f, err := os.Open(*downwardAPIPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.HasPrefix(line, `domainXML="`) {
-				xml = DecodeDomainXML(strings.Trim(strings.TrimPrefix(line, "domainXML="), `"`))
-			}
-		}
-
-	}
-	if xml == "" {
-		log.Fatal("Could not load domain XML. The resulting XML is empty")
-	}
-	log.Print("Domain description loaded.")
 
 	// Launch VM
 	dom, createErr := conn.DomainCreateXML(xml, 0)
@@ -84,6 +62,36 @@ func main() {
 		log.Fatal(destroyErr)
 	}
 	log.Print("Domain destroyed.")
+}
+
+func readDomainXML(xmlPath string, downwardAPIPath string) string {
+	var xml string
+
+	if downwardAPIPath == "" {
+		log.Print("Loading Domain from XML file.")
+		rawXML, err := ioutil.ReadFile(xmlPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		xml = string(rawXML)
+	} else {
+		log.Print("Loading Domain from downward API file.")
+		f, err := os.Open(downwardAPIPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, `domainXML="`) {
+				xml = DecodeDomainXML(strings.Trim(strings.TrimPrefix(line, "domainXML="), `"`))
+			}
+		}
+
+	}
+
+	return xml
 }
 
 func buildLocalConnection(uri string, user string, pass string) libvirt.VirConnection {
