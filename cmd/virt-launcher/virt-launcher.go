@@ -29,6 +29,7 @@ func main() {
 	conUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	user := flag.String("user", "vdsm@ovirt", "Libvirt user")
 	pass := flag.String("pass", "shibboleth", "Libvirt password")
+	receiveOnly := flag.Bool("receive-only", false, "Do not create the domain")
 	flag.Parse()
 
 	launcher := virtlauncher{
@@ -37,8 +38,11 @@ func main() {
 		pass:    *pass,
 	}
 
-	launcher.ReadDomainXML(*xmlPath, *downwardAPIPath)
-	launcher.CreateDomain()
+	if !*receiveOnly {
+		launcher.ReadDomainXML(*xmlPath, *downwardAPIPath)
+		launcher.CreateDomain()
+	}
+
 	waitUntilSignal()
 }
 
