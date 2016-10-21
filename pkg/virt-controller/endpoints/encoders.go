@@ -43,11 +43,7 @@ func EncodeGetResponse(context context.Context, w http.ResponseWriter, response 
 }
 
 func EncodeDeleteResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	if _, ok := response.(middleware.AppError); ok != false {
-		return encodeApplicationErrors(context, w, response)
-	}
-	w.WriteHeader(http.StatusNoContent)
-	return nil
+	return EncodeGetResponse(context, w, response)
 }
 
 func EncodePutResponse(context context.Context, w http.ResponseWriter, response interface{}) error {

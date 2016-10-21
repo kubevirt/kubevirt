@@ -7,8 +7,9 @@ import (
 	"golang.org/x/net/context"
 	"net/http"
 
+	"encoding/json"
 	"github.com/gorilla/mux"
-	"io/ioutil"
+	"kubevirt/core/pkg/api/v1"
 	"net/http/httptest"
 	"net/url"
 )
@@ -20,7 +21,7 @@ func newValidDeleteRequest() *http.Request {
 
 func testDeleteEndpoint(_ context.Context, request interface{}) (interface{}, error) {
 	Expect(request.(string)).To(Equal("test"))
-	return "this should not be returned", nil
+	return v1.VM{Name: request.(string)}, nil
 }
 
 var _ = Describe("Delete", func() {
@@ -48,15 +49,16 @@ var _ = Describe("Delete", func() {
 			})
 		})
 		Context("with valid request", func() {
-			It("should return 204", func() {
+			It("should return 200", func() {
 				handler.ServeHTTP(recorder, request)
-				Expect(recorder.Code).To(Equal(http.StatusNoContent))
+				Expect(recorder.Code).To(Equal(http.StatusOK))
 			})
 			It("should return no body", func() {
 				handler.ServeHTTP(recorder, request)
-				body, err := ioutil.ReadAll(recorder.Body)
-				Expect(err).To(BeNil())
-				Expect(string(body)).To(BeEmpty())
+				responseBody := payload{}
+				json.NewDecoder(recorder.Body).Decode(&responseBody)
+				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
+				Expect(responseBody).To(Equal(payload{Name: "test"}))
 			})
 		})
 	})

@@ -77,6 +77,6 @@ func MakeVMDeleteEndpoint(svc services.VMService) endpoint.Endpoint {
 		// TODO here we would fetch the VM from etcd and return 404 if the VM does not exists
 		vm := api.VM{Name: name}
 		err := svc.DeleteVM(&vm)
-		return nil, err
+		return vm, err
 	}
 }
