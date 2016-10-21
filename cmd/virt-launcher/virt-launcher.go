@@ -40,7 +40,6 @@ func main() {
 	launcher.ReadDomainXML(*xmlPath, *downwardAPIPath)
 	launcher.CreateDomain()
 	waitUntilSignal()
-	launcher.DestroyDomain()
 }
 
 func (vl *virtlauncher) CreateDomain() {
@@ -58,45 +57,12 @@ func (vl *virtlauncher) CreateDomain() {
 	log.Print("Libvirt connection established")
 
 	// Launch VM
-	dom, err := conn.DomainCreateXML(vl.domainXML, 0)
+	_, err = conn.DomainCreateXML(vl.domainXML, 0)
 	if err != nil {
 		panic(fmt.Sprintf("Could not create the libvirt domain: %s", err))
 	}
 
-	vl.domainUUID, err = dom.GetUUIDString()
-	if err != nil {
-		panic(fmt.Sprintf("Could not get the domain UUID (as string): %s", err))
-	}
-
 	log.Print("Domain started")
-}
-
-func (vl *virtlauncher) DestroyDomain() {
-	conn, err := libvirt.NewVirConnectionWithAuth(vl.connURI, vl.user, vl.pass)
-	if err != nil {
-		panic(fmt.Sprintf("Could not connect to libvirt using %s: %s", vl.connURI, err))
-	}
-	defer func() {
-		if closeRes, _ := conn.CloseConnection(); closeRes != 0 {
-			log.Fatalf("CloseConnection() == %d, expected 0", closeRes)
-		}
-		log.Print("Connection closed")
-	}()
-
-	log.Print("Libvirt connection established")
-
-	dom, err := conn.LookupByUUIDString(vl.domainUUID)
-	if err != nil {
-		panic(fmt.Sprintf("Could not find domain %s: %s", vl.domainUUID, err))
-	}
-
-	err = dom.Destroy()
-	if err != nil {
-		panic(fmt.Sprintf("Domain destroy failed: %s", err))
-	}
-
-	log.Print("Domain destroyed")
-
 }
 
 func waitUntilSignal() {
