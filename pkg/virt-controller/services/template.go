@@ -49,7 +49,7 @@ func (t *templateService) RenderMigrationManifest(vm *api.VM, writer io.Writer) 
 	data := t.dataTemplate
 	data.Domain = precond.MustNotBeEmpty(vm.Name)
 	data.NodeSelector = vm.NodeSelector
-	data.Args = []string{"/virt-launcher", "-receive-only"}
+	data.Args = []string{"/virt-launcher", "-receive-only", "-qemu-timeout", "60s"}
 	return t.template.Execute(writer, &data)
 }
 
