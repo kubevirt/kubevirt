@@ -1,7 +1,6 @@
 #!/bin/sh
 
 ARGS="$@"
-
 # static config
 if [ -r "/etc/vdsm/qemu_kube.conf" ]; then
     source "/etc/vdsm/qemu_kube.conf"
@@ -43,8 +42,23 @@ if [ -z "$VM_NAME" ]; then
     exec $QEMU $ARGS
 fi
 
+function find_container() {
+    docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME.*/ { print \$1 }"
+}
 
-CONTAINER_ID=$( docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME.*/ { print \$1 }" )
+NEXT_WAIT=0
+until test -n "$(find_container)" || [ $NEXT_WAIT -eq 10 ]; do
+           (( NEXT_WAIT++ ))
+           sleep 6
+done
+
+CONTAINER_ID=$( find_container )
+
+if [ -z "$CONTAINER_ID" ]; then
+        >&2 echo "Could not find the VM container"
+        exit 1
+fi
+
 CONTAINER_PID=$(docker inspect --format '{{.State.Pid}}' $CONTAINER_ID)
 CMD="$QEMU $ARGS"
 
@@ -56,5 +70,3 @@ echo "$CMD" >> $LOG
 # Start the qemu process in the cgroups of the docker container
 # to adher the resource limitations of the container.
 sudo -C 10000 bash -c -- "cgclassify -g ${CGROUPS}:system.slice/docker-$CONTAINER_ID.scope --sticky \$\$ && nsenter -t $CONTAINER_PID -p $CMD"
-
-wait
