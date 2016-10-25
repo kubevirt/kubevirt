@@ -8,6 +8,7 @@ import (
 	"github.com/satori/go.uuid"
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/kubecli"
+	"kubevirt/core/pkg/kubecli/v1.2"
 	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/precond"
 	"regexp"
@@ -36,8 +37,11 @@ func (v *vmService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 		return err
 	}
 
+	// Search for accepted and not finished pods
+	c := getUnfinishedPods(pods)
+
 	// Pod for VM already exists
-	if len(pods) > 0 {
+	if c > 0 {
 		return middleware.NewResourceExistsError("VM", vm.Name)
 	}
 
@@ -94,8 +98,11 @@ func (v *vmService) PrepareMigration(vm *api.VM) error {
 		return middleware.NewResourceNotFoundError("VM", vm.Name)
 	}
 
-	// If there is more then there is already a migration going on
-	if len(pods) > 1 {
+	// Search for accepted and not finished pods
+	c := getUnfinishedPods(pods)
+
+	// If there are more than one pod in other states than Succeeded or Failed we can't go on
+	if c > 1 {
 		return middleware.NewResourceConflictError(fmt.Sprintf("VM %s is already migrating", vm.Name))
 	}
 
@@ -108,4 +115,17 @@ func (v *vmService) PrepareMigration(vm *api.VM) error {
 	}
 	v.logger.Info().Log("action", "PrepareMigration", "object", "VM", "UUID", vm.UUID, "name", vm.Name)
 	return nil
+}
+
+func getUnfinishedPods(pods []v1_2.Pod) int {
+	c := 0
+	states := []string{"Running", "Pending", "Unknown"}
+	for _, pod := range pods {
+		for _, state := range states {
+			if pod.Status.Phase == state {
+				c++
+			}
+		}
+	}
+	return c
 }
