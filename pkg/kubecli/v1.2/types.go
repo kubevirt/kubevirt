@@ -64,7 +64,7 @@ type Pod struct {
 	APIVersion string   `json:"apiVersion"`
 	Metadata   Metadata `json:"metadata"`
 	Spec       Spec     `json:"spec"`
-	Status     `json:"status"`
+	Status     Status   `json:"status"`
 }
 
 type PodList struct {
