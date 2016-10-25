@@ -89,6 +89,9 @@ systemctl start flanneld # this will block until it can read a network config
 systemctl restart docker
 systemctl enable docker
 
+# Disable libvirt cgroup management
+echo "cgroup_controllers = [ ]" >> /etc/libvirt/qemu.conf
+
 # Disble sasl for libvirt. VDSM configured that
 sed -i '/^auth_unix_rw/c\auth_unix_rw="none"' /etc/libvirt/libvirtd.conf
 systemctl restart libvirtd
