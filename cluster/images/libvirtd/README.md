@@ -48,10 +48,6 @@ Start the container
       --pid=host \
       --user=root \
       --privileged \
-      -v /etc/libvirt:/etc/libvirt:Z \
-      -v /var/run/libvirt:/var/run/libvirt:Z \
-      -v /var/lib/libvirt:/var/lib/libvirt:Z \
-      -v /var/log/libvirt:/var/log/libvirt:Z \
       -v /sys:/sys:Z \
       -v /:/host:Z \
       -it fabiand/libvirtd:latest
@@ -59,3 +55,16 @@ Start the container
 Now, to verify, run, on the host:
 
     virsh capabilities
+
+These environment variables can be passed into the container
+ * LIBVIRT_PASSWORD: this will be used as the SASL password
+   for connecting to libvirt
+
+Considerations that need to be taken into account:
+ * The D-Bus socket is not exposed inside the container
+   so firewalld cannot be notified of changes (also
+   not every host system uses firewalld) so the following
+   ports might need to be allowed in if iptables is not
+   accepting input by default:
+   - TCP 16509
+   - TCP 5900->590X (depending on Spice/VNC settings of guest)

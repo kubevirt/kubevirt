@@ -1,6 +1,6 @@
-FROM centos:7
+FROM fedora
 
-MAINTAINER "Fabian Deutsch" <fabiand@redhat.com>
+MAINTAINER "Stu Gott" <sgott@redhat.com>
 ENV container docker
 
 RUN yum install -y \
