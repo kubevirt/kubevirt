@@ -7,71 +7,8 @@
 # export NODE_IPS="192.168.200.5"
 bash ./setup_kubernetes_common.sh
 
-cat <<EOT >> /etc/kubernetes/manifests/kubernetes.yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: kube-master
-spec:
-  hostNetwork: true
-  volumes:
-    - name: "etc-kubernetes"
-      hostPath:
-        path: "/etc/kubernetes"
-    - name: "ssl-certs"
-      hostPath:
-        path: "/usr/share/ca-certificates"
-    - name: "var-run-kubernetes"
-      hostPath:
-        path: "/var/run/kubernetes"
-    - name: "usr"
-      hostPath:
-        path: "/usr"
-    - name: "lib64"
-      hostPath:
-        path: "/lib64"
-  containers:
-    - name: "kube-apiserver"
-      image: "b.gcr.io/kuar/kube-apiserver:1.2.0"
-      args:
-        - "--allow-privileged=true"
-        - "--etcd-servers=http://127.0.0.1:2379"
-        - "--insecure-bind-address=0.0.0.0"
-        - "--service-cluster-ip-range=10.200.20.0/24"
-        - "--v=2"
-      volumeMounts:
-        - mountPath: /etc/kubernetes
-          name: "etc-kubernetes"
-        - mountPath: /var/run/kubernetes
-          name: "var-run-kubernetes"
-    - name: "kube-controller-manager"
-      image: "b.gcr.io/kuar/kube-controller-manager:1.2.0"
-      args:
-        - "--master=http://127.0.0.1:8080"
-        - "--v=2"
-    - name: "kube-scheduler"
-      image: "b.gcr.io/kuar/kube-scheduler:1.2.0"
-      args:
-        - "--master=http://${MASTER_IP}:8080"
-        - "--v=2"
-    - name: "kube-proxy"
-      image: "b.gcr.io/kuar/kube-proxy:1.2.0"
-      args:
-        - "--master=http://127.0.0.1:8080"
-        - "--v=2"
-      securityContext:
-        privileged: true
-      volumeMounts:
-        - mountPath: /etc/kubernetes
-          name: "etc-kubernetes"
-        - mountPath: /etc/ssl/certs
-          name: "ssl-certs"
-        - mountPath: /usr
-          name: "usr"
-        - mountPath: /lib64
-          name: "lib64"
-
-EOT
+sed -i s@YOUR_IP_HERE@${MASTER_IP}@ kubernetes/kubernetes-master.yaml
+cp kubernetes/kubernetes-master.yaml /etc/kubernetes/manifests/kubernetes-master.yaml
 
 {
 yum install -y cockpit cockpit-kubernetes

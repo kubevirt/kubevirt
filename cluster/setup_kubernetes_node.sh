@@ -5,45 +5,8 @@
 # export MASTER_IP=192.168.200.2
 bash ./setup_kubernetes_common.sh
 
-# TODO yaml
-cat <<EOT >> /etc/kubernetes/manifests/node.yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: kube-node
-spec:
-  hostNetwork: true
-  volumes:
-    - name: "etc-kubernetes"
-      hostPath:
-        path: "/etc/kubernetes"
-    - name: "ssl-certs"
-      hostPath:
-        path: "/usr/share/ca-certificates"
-    - name: "usr"
-      hostPath:
-        path: "/usr"
-    - name: "lib64"
-      hostPath:
-        path: "/lib64"
-  containers:
-    - name: "kube-proxy"
-      image: "b.gcr.io/kuar/kube-proxy:1.2.0"
-      args:
-        - "--master=http://${MASTER_IP}:8080"
-        - "--v=2"
-      securityContext:
-        privileged: true
-      volumeMounts:
-        - mountPath: /etc/kubernetes
-          name: "etc-kubernetes"
-        - mountPath: /etc/ssl/certs
-          name: "ssl-certs"
-        - mountPath: /usr
-          name: "usr"
-        - mountPath: /lib64
-          name: "lib64"
-EOT
+sed -i s@YOUR_IP_HERE@${MASTER_IP}@ kubernetes/kubernetes-node.yaml
+cp kubernetes/kubernetes-node.yaml /etc/kubernetes/manifests/kubernetes-node.yaml
 
 systemctl start kubelet
 systemctl enable kubelet
