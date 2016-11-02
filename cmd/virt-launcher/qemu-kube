@@ -1,4 +1,5 @@
 #!/bin/sh
+alias docker="sudo /usr/bin/docker"
 
 ARGS="$@"
 # static config

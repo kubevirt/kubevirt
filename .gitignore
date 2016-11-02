@@ -6,3 +6,4 @@ cmd/virt-launcher/virt-launcher
 contrib/manifest/*.yaml
 **/bin
 .vagrant
+cluster/.kubeconfig

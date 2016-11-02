@@ -1,7 +1,5 @@
 #/bin/bash -xe
 
-export DOCKER_PRIV_REG='10.35.37.2:5000'
-
 setenforce 0
 sed -i "s/^SELINUX=.*/SELINUX=permissive/" /etc/selinux/config
 
@@ -11,11 +9,16 @@ systemctl disable firewalld NetworkManager || :
 # Enabling the firewall destroys the iptable rules
 yum -y remove NetworkManager firewalld
 
-yum install -y bridge-utils
+# Needed for kubernetes service routing and dns
+# https://github.com/kubernetes/kubernetes/issues/33798#issuecomment-250962627
+sysctl -w net.bridge.bridge-nf-call-iptables=1
+sysctl -w net.bridge.bridge-nf-call-ip6tables=1
 
 # Install epel
 yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 yum -y install jq
+
+yum -y install bind-utils net-tools
 
 # if there is a second disk, use it for docker
 if ls /dev/*db ; then
@@ -37,57 +40,23 @@ EOT
   mount LABEL=dockerdata /var/lib/docker/
 fi
 
+cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=http://yum.kubernetes.io/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+       https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+yum install -y docker kubelet kubeadm kubectl kubernetes-cni
+
 # To get the qemu user and libvirt
 yum install -y qemu-common qemu-kvm qemu-system-x86 libcgroup-tools libvirt || :
 
-yum install -y docker || :
-
-sed -i "s@^OPTIONS=.*@OPTIONS='--selinux-enabled --log-driver=journald --insecure-registry ${DOCKER_PRIV_REG} -G qemu'@" /etc/sysconfig/docker
-
-cat <<EOT > /etc/systemd/system/kubelet.service
-[Unit]
-Description=Kubernetes Kubelet
-Documentation=https://github.com/kubernetes/kubernetes
-Wants=docker.service
-After=docker.service
-
-[Service]
-ExecStart=/usr/bin/kubelet \
-  --api-servers=http://192.168.200.2:8080 \
-  --register-node=true \
-  --allow-privileged=true \
-  --config=/etc/kubernetes/manifests \
-  --v=2
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOT
-
-yum -y install flannel
-echo 'FLANNEL_OPTIONS="-iface=eth1"' >> /etc/sysconfig/flanneld
-sed -i /etc/sysconfig/flanneld  -e  "s@FLANNEL_ETCD=.*@FLANNEL_ETCD=\"http://${MASTER_IP}:2379\"@"
-
-if ${KUBERNETES_MASTER:-false}; then
-yum -y install etcd
-
-sed -i /etc/etcd/etcd.conf -e "s@.*ETCD_ADVERTISE_CLIENT_URLS=.*@@"
-sed -i /etc/etcd/etcd.conf -e "s@.*ETCD_LISTEN_CLIENT_URLS=.*@ETCD_LISTEN_CLIENT_URLS=\"http://localhost:2379,http://${MASTER_IP}:2379\"@"
-
-systemctl enable etcd
-systemctl start etcd
-
-sleep 2
-cat flannel.conf | etcdctl set /atomic.io/network/config
-fi
-
-yum -y install kubernetes-node kubernetes-client
-
-systemctl enable flanneld
-systemctl start flanneld # this will block until it can read a network config
-systemctl restart docker
-systemctl enable docker
+systemctl enable docker && systemctl start docker
+systemctl enable kubelet && systemctl start kubelet
 
 # Disable libvirt cgroup management
 echo "cgroup_controllers = [ ]" >> /etc/libvirt/qemu.conf
@@ -112,9 +81,6 @@ EOF
 
 # Now add qemu to wheel
 usermod -G wheel -a qemu
-
-# Kubelet deployment path
-mkdir -p /etc/kubernetes/manifests
 
 # Install qemu hack
 ln -s /vagrant/cmd/virt-launcher/qemu-kube /usr/local/bin/qemu-x86_64

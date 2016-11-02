@@ -29,8 +29,5 @@ spec:
     command:
         - "kubectl"
         - "proxy"
-        - "-s"
-        - "http://192.168.200.2:8080"
         - "-p"
         - "8001"
-

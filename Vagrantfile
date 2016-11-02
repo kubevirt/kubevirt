@@ -8,6 +8,7 @@ $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
 $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
 $master_ip = ENV['MASTER_IP'].nil? ? "192.168.200.2" : ENV['MASTER_IP']
 $node_ip = ENV['NODE_IP'].nil? ? "192.168.200.5" : ENV['NODE_IP']
+$network_provider = ENV['NETWORK_PROVIDER'].nil? ? "weave" : ENV['NETWORK_PROVIDER']
 
 Vagrant.configure(2) do |config|
   config.vm.box = "centos7"
@@ -50,7 +51,7 @@ Vagrant.configure(2) do |config|
       master.vm.provider :libvirt do |domain|
           domain.memory = 3000
           if $cache_docker then
-              domain.storage :file, :size => '10G', :path => 'master_docker.img', :allow_existing => true
+              domain.storage :file, :size => '10G', :path => 'kubevirt_master_docker.img', :allow_existing => true
           end
       end
 
@@ -61,6 +62,7 @@ Vagrant.configure(2) do |config|
         export KUBERNETES_MASTER=true
         export VM_IP=#{$master_ip}
         export MASTER_IP=#{$master_ip}
+        export NETWORK_PROVIDER=#{$network_provider}
         cd /vagrant/cluster
         bash setup_kubernetes_master.sh
         set +x
@@ -75,7 +77,7 @@ Vagrant.configure(2) do |config|
       node.vm.provider :libvirt do |domain|
           domain.memory = 2048
           if $cache_docker then
-              domain.storage :file, :size => '10G', :path => 'node_docker.img', :allow_existing => true
+              domain.storage :file, :size => '10G', :path => 'kubevirt_node_docker.img', :allow_existing => true
           end
       end
 

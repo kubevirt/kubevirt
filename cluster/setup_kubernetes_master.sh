@@ -7,41 +7,36 @@
 # export NODE_IPS="192.168.200.5"
 bash ./setup_kubernetes_common.sh
 
-sed -i s@YOUR_IP_HERE@${MASTER_IP}@ kubernetes/kubernetes-master.yaml
-cp kubernetes/kubernetes-master.yaml /etc/kubernetes/manifests/kubernetes-master.yaml
-
-{
+# Cockpit with kubernetes plugin
 yum install -y cockpit cockpit-kubernetes
-systemctl start cockpit.socket
-systemctl enable cockpit.socket
-} &
+systemctl enable cockpit.socket && systemctl start cockpit.socket
 
-# Wait for all async jobs, like pulls
-wait
-
-systemctl start kubelet
-systemctl enable kubelet
+# Create the master
+kubeadm init --api-advertise-addresses=$MASTER_IP --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456 --use-kubernetes-version v1.4.5
 
 set +e
 
-kubectl -s ${MASTER_IP}:8080 version > /dev/null 2>&1
+kubectl -s 127.0.0.1:8080 version
 while [ $? -ne 0 ]
 do
 sleep 60
 echo 'Waiting for Kubernetes cluster to become functional...'
-kubectl -s ${MASTER_IP}:8080 version > /dev/null 2>&1
+kubectl -s 127.0.0.1:8080 version
 done
 
-NFSHOST=192.168.200.3
-if ${WITH_LOCAL_NFS:-false}; then
-mkdir -p /exports/nfs_clean/share1
+set -e
 
-chmod 0755 /exports/nfs_clean/share1
-chown 36:36 /exports/nfs_clean/share1
+# Flannel for networking
+kubectl create -s 127.0.0.1:8080 -f kube-$NETWORK_PROVIDER.yaml
 
-echo "/exports/nfs_clean/share1  *(rw,anonuid=36,anongid=36,all_squash,sync,no_subtree_check)" > /etc/exports
+# Allow scheduling pods on master
+kubectl -s 127.0.0.1:8080 taint nodes --all dedicated-
 
-systemctl enable nfs-server
-systemctl restart nfs-server
+mkdir -p /exports/share1
 
-fi
+chmod 0755 /exports/share1
+chown 36:36 /exports/share1
+
+echo "/exports/share1  *(rw,anonuid=36,anongid=36,all_squash,sync,no_subtree_check)" > /etc/exports
+
+systemctl enable nfs-server && systemctl start nfs-server
