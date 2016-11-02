@@ -1,13 +1,18 @@
+# Enable unauthenticated tcp
 set /files/etc/libvirt/libvirtd.conf/listen_tls 0
 set /files/etc/libvirt/libvirtd.conf/listen_tcp 1
 set /files/etc/libvirt/libvirtd.conf/auth_tcp none
 
+# Listen on all interfaces for now
 set /files/etc/libvirt/qemu.conf/spice_listen 0.0.0.0
 set /files/etc/libvirt/qemu.conf/vnc_listen 0.0.0.0
 set /files/etc/libvirt/qemu.conf/vnc_tls 0
 set /files/etc/libvirt/qemu.conf/vnc_sasl 0
 
+# Fixate user and group
 set /files/etc/libvirt/qemu.conf/user root
 set /files/etc/libvirt/qemu.conf/group root
 set /files/etc/libvirt/qemu.conf/dynamic_ownership 1
 
+# Important to save
+save
