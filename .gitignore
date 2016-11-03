@@ -3,6 +3,7 @@ vendor/*
 .idea
 cmd/virt-controller/virt-controller
 cmd/virt-launcher/virt-launcher
+cmd/virt-handler/virt-handler
 contrib/manifest/*.yaml
 **/bin
 .vagrant
