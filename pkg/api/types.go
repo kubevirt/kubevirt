@@ -1,11 +1,22 @@
 package api
 
 import (
-	"github.com/satori/go.uuid"
+	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/api/unversioned"
 )
 
 type VM struct {
-	Name         string
-	UUID         uuid.UUID
+	unversioned.TypeMeta
+	api.ObjectMeta
+	Spec VMSpec
+}
+
+type VMList struct {
+	unversioned.TypeMeta
+	unversioned.ListMeta
+	VMs []VM
+}
+
+type VMSpec struct {
 	NodeSelector map[string]string
 }

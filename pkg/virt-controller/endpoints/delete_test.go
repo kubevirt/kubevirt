@@ -9,7 +9,6 @@ import (
 
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"kubevirt/core/pkg/api/v1"
 	"net/http/httptest"
 	"net/url"
 )
@@ -21,7 +20,7 @@ func newValidDeleteRequest() *http.Request {
 
 func testDeleteEndpoint(_ context.Context, request interface{}) (interface{}, error) {
 	Expect(request.(string)).To(Equal("test"))
-	return v1.VM{Name: request.(string)}, nil
+	return payload{Name: request.(string)}, nil
 }
 
 var _ = Describe("Delete", func() {
@@ -53,7 +52,7 @@ var _ = Describe("Delete", func() {
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusOK))
 			})
-			It("should return no body", func() {
+			It("should return deleted entity", func() {
 				handler.ServeHTTP(recorder, request)
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)

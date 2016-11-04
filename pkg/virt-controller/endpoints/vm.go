@@ -6,6 +6,8 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	"github.com/rmohr/go-model"
 	"golang.org/x/net/context"
+	kubeapi "k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/types"
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/util"
@@ -26,12 +28,12 @@ func MakePrepareMigrationHandler(svc services.VMService) endpoint.Endpoint {
 
 func MakeRawDomainEndpoint(svc services.VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		req := request.(VMRequestDTO)
-		// TODO here we would fetch the VM from etcd and return 409 if the VM already exists
+		req := request.(v1.Domain)
 		vm := api.VM{}
-		if errs := model.Copy(&vm, &req.VM); errs != nil {
-			return nil, errs[0]
-		}
+		vm.Name = req.Name
+		vm.UID = types.UID(req.UUID)
+		vm.Spec.NodeSelector = req.NodeSelector
+
 		if err := svc.StartVMRaw(&vm, req.RawDomain); err != nil {
 			return nil, err //TODO with the kubelet in place it is hard to tell what went wrong
 		}
@@ -45,37 +47,31 @@ func MakeRawDomainEndpoint(svc services.VMService) endpoint.Endpoint {
 }
 
 func DecodeRawDomainRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var vm VMRequestDTO
+	var domain v1.Domain
 	var body []byte
 	// Normally we would directly unmarshal into the struct but we need the raw body again later
 	body, err := extractBodyWithLimit(r.Body, DefaultMaxContentLengthBytes)
 	if err != nil {
 		return nil, err
 	}
-	if err := xml.Unmarshal(body, &vm); err != nil {
+	if err := xml.Unmarshal(body, &domain); err != nil {
 		return nil, err
 	}
-	if vm.NodeSelector, err = util.ExtractEmbeddedMap(r.Header.Get("Node-Selector")); err != nil {
+	if domain.NodeSelector, err = util.ExtractEmbeddedMap(r.Header.Get("Node-Selector")); err != nil {
 		return nil, err
 	}
-	if _, err := govalidator.ValidateStruct(vm); err != nil {
+	if _, err := govalidator.ValidateStruct(domain); err != nil {
 		return nil, err
 	}
-	vm.RawDomain = body
-	return vm, nil
-}
-
-type VMRequestDTO struct {
-	v1.VM     `valid:"required"`
-	XMLName   xml.Name `xml:"domain"`
-	RawDomain []byte
+	domain.RawDomain = body
+	return domain, nil
 }
 
 func MakeVMDeleteEndpoint(svc services.VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		name := request.(string)
 		// TODO here we would fetch the VM from etcd and return 404 if the VM does not exists
-		vm := api.VM{Name: name}
+		vm := api.VM{ObjectMeta: kubeapi.ObjectMeta{Name: name}}
 		err := svc.DeleteVM(&vm)
 		return vm, err
 	}

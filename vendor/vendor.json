@@ -3,10 +3,6 @@
 	"ignore": "test",
 	"package": [
 		{
-			"path": "context",
-			"revision": ""
-		},
-		{
 			"checksumSHA1": "CDOphCxF7dup+hBBVRpFeQhM9Jw=",
 			"path": "github.com/asaskevich/govalidator",
 			"revision": "593d64559f7600f29581a3ee42177f5dbded27a9",
@@ -287,6 +283,16 @@
 			"path": "gopkg.in/yaml.v2",
 			"revision": "31c299268d302dd0aa9a0dcf765a3d58971ac83f",
 			"revisionTime": "2016-09-12T16:56:03Z"
+		},
+		{
+			"checksumSHA1": "CsZ8HBY1oOS1c3XfbD0MkQF/IvY=",
+			"origin": "github.com/kubernetes/client-go/1.5/",
+			"path": "k8s.io/client-go/1.5",
+			"revision": "843f7c4f28b1f647f664f883697107d5c02c5acc",
+			"revisionTime": "2016-10-23T20:27:10Z",
+			"tree": true,
+			"version": "v1.5",
+			"versionExact": "v1.5.0"
 		}
 	],
 	"rootPath": "kubevirt/core"

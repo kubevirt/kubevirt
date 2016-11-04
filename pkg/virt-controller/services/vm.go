@@ -6,6 +6,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
 	"github.com/satori/go.uuid"
+	"k8s.io/client-go/1.5/pkg/types"
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/kubecli"
 	"kubevirt/core/pkg/kubecli/v1.2"
@@ -45,11 +46,11 @@ func (v *vmService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 		return middleware.NewResourceExistsError("VM", vm.Name)
 	}
 
-	if vm.UUID == uuid.Nil {
-		vm.UUID = uuid.NewV4()
+	if vm.UID == "" {
+		vm.UID = types.UID(uuid.NewV4().String())
 		//TODO when we can serialize VMs to XML, we can get rid of this
 		r := regexp.MustCompile("</domain[\\s]*>")
-		rawXML = r.ReplaceAll(rawXML, []byte(fmt.Sprintf("<uuid>%s</uuid></domain>", vm.UUID.String())))
+		rawXML = r.ReplaceAll(rawXML, []byte(fmt.Sprintf("<uuid>%s</uuid></domain>", vm.UID)))
 	}
 
 	templateBuffer := new(bytes.Buffer)
@@ -60,7 +61,7 @@ func (v *vmService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 	if err := v.KubeCli.CreatePod(templateBuffer); err != nil {
 		return err
 	}
-	v.logger.Info().Log("action", "StartVMRaw", "object", "VM", "UUID", vm.UUID, "name", vm.Name)
+	v.logger.Info().Log("action", "StartVMRaw", "object", "VM", "UUID", vm.UID, "name", vm.Name)
 	return nil
 }
 
@@ -71,7 +72,7 @@ func (v *vmService) DeleteVM(vm *api.VM) error {
 	if err := v.KubeCli.DeletePodsByLabel("domain", vm.Name); err != nil {
 		return err
 	}
-	v.logger.Info().Log("action", "DeleteVM", "object", "VM", "UUID", vm.UUID, "name", vm.Name)
+	v.logger.Info().Log("action", "DeleteVM", "object", "VM", "UUID", vm.UID, "name", vm.Name)
 	return nil
 }
 
@@ -85,7 +86,7 @@ func NewVMService(logger log.Logger) VMService {
 func (v *vmService) PrepareMigration(vm *api.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.Name)
-	precond.MustBeTrue(len(vm.NodeSelector) > 0)
+	precond.MustBeTrue(len(vm.Spec.NodeSelector) > 0)
 
 	// Broken racy approach to at least not start multiple VMs during demos
 	pods, err := v.KubeCli.GetPodsByLabel("domain", vm.Name)
@@ -113,7 +114,7 @@ func (v *vmService) PrepareMigration(vm *api.VM) error {
 	if err := v.KubeCli.CreatePod(templateBuffer); err != nil {
 		return err
 	}
-	v.logger.Info().Log("action", "PrepareMigration", "object", "VM", "UUID", vm.UUID, "name", vm.Name)
+	v.logger.Info().Log("action", "PrepareMigration", "object", "VM", "UUID", vm.UID, "name", vm.Name)
 	return nil
 }
 

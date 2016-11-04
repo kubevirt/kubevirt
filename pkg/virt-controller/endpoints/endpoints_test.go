@@ -11,6 +11,8 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	"io/ioutil"
+	kubeapi "k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/types"
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/middleware"
@@ -158,7 +160,7 @@ var _ = Describe("Endpoints", func() {
 			})
 			It("should call vmService with the right arguments", func() {
 				handler.ServeHTTP(recorder, request)
-				Expect(svc.VM.UUID.String()).To(Equal("0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f"))
+				Expect(svc.VM.UID).To(Equal(types.UID("0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f")))
 				Expect(svc.VM.Name).To(Equal("testvm"))
 				Expect(string(svc.rawXML)).To(Equal(validXML))
 			})
@@ -166,7 +168,7 @@ var _ = Describe("Endpoints", func() {
 				handler.ServeHTTP(recorder, request)
 				var responseDTO v1.VM
 				json.NewDecoder(recorder.Body).Decode(&responseDTO)
-				Expect(responseDTO).To(Equal(v1.VM{UUID: "0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f", Name: "testvm"}))
+				Expect(responseDTO).To(Equal(v1.VM{ObjectMeta: kubeapi.ObjectMeta{UID: "0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f", Name: "testvm"}}))
 				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
 			})
 			Context("with Node-Selector header", func() {
@@ -175,8 +177,8 @@ var _ = Describe("Endpoints", func() {
 					handler.ServeHTTP(recorder, request)
 					var responseDTO v1.VM
 					json.NewDecoder(recorder.Body).Decode(&responseDTO)
-					Expect(svc.VM.NodeSelector).Should(HaveLen(1))
-					Expect(svc.VM.NodeSelector).Should(HaveKeyWithValue("kubernetes.io/hostname", "master"))
+					Expect(svc.VM.Spec.NodeSelector).Should(HaveLen(1))
+					Expect(svc.VM.Spec.NodeSelector).Should(HaveKeyWithValue("kubernetes.io/hostname", "master"))
 				})
 			})
 			Context("with invalid Node-Selector header", func() {
