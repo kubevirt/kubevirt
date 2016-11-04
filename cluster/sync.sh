@@ -9,3 +9,5 @@ vagrant ssh master -c "kubectl delete -f /vagrant/contrib/manifest/virt-controll
 vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/virt-controller.yaml"
 vagrant ssh master -c "kubectl delete -f /vagrant/contrib/manifest/virt-controller-service.yaml" || :
 vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/virt-controller-service.yaml"
+vagrant ssh master -c "kubectl delete -f /vagrant/contrib/manifest/virt-handler.yaml" || :
+vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/virt-handler.yaml"

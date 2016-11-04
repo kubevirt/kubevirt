@@ -1,0 +1,15 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: virt-handler
+spec:
+  template:
+    metadata:
+      name: virt-handler
+      labels:
+        daemon: virt-handler
+    spec:
+      containers:
+      - name: virt-handler
+        image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
