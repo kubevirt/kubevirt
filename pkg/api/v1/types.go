@@ -6,11 +6,46 @@ import (
 	"github.com/satori/go.uuid"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
+	"k8s.io/client-go/1.5/pkg/apimachinery/announced"
+	"k8s.io/client-go/1.5/pkg/runtime"
 	"kubevirt/core/pkg/api"
 	"reflect"
 )
 
+var (
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	AddToScheme   = SchemeBuilder.AddToScheme
+)
+
+// GroupName is the group name use in this package
+const GroupName = "kubevirt.io"
+
+// GroupVersion is group version used to register these objects
+var GroupVersion = unversioned.GroupVersion{Group: GroupName, Version: "v1alpha1"}
+
+// Adds the list of known types to api.Scheme.
+func addKnownTypes(scheme *runtime.Scheme) error {
+	scheme.AddKnownTypes(GroupVersion,
+		&VM{},
+		&VMList{},
+	)
+	return nil
+}
+
 func init() {
+	if err := announced.NewGroupMetaFactory(
+		&announced.GroupMetaFactoryArgs{
+			GroupName:              GroupName,
+			VersionPreferenceOrder: []string{GroupVersion.Version},
+			ImportPrefix:           "kubevirt/core/pgk/api/v1/types",
+		},
+		announced.VersionToSchemeFunc{
+			GroupVersion.Version: AddToScheme,
+		},
+	).Announce().RegisterAndEnable(); err != nil {
+		panic(err)
+	}
+
 	model.AddConversion((*uuid.UUID)(nil), (*string)(nil), func(in reflect.Value) (reflect.Value, error) {
 		return reflect.ValueOf(in.Interface().(uuid.UUID).String()), nil
 	})
@@ -44,7 +79,7 @@ type VM struct {
 type VMList struct {
 	unversioned.TypeMeta `json:",inline"`
 	unversioned.ListMeta `json:"metadata,omitempty"`
-	VMs                  []VM `json:"items"`
+	Items                []VM `json:"items"`
 }
 
 type VMSpec struct {

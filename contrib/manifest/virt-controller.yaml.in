@@ -11,8 +11,6 @@ spec:
     imagePullPolicy: IfNotPresent
     command:
         - "/virt-controller"
-        - "--api-server"
-        - "127.0.0.1:8001"
         - "--docker-registry"
         - "{{ docker_prefix }}"
         - "--launcher-image"
@@ -23,11 +21,3 @@ spec:
       - containerPort: 8182
         name: "virt-controller"
         protocol: "TCP"
-  - name: kubectl
-    image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
-    imagePullPolicy: IfNotPresent
-    command:
-        - "kubectl"
-        - "proxy"
-        - "-p"
-        - "8001"

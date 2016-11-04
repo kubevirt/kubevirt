@@ -31,6 +31,7 @@ type templateService struct {
 	dataTemplate manifestData
 }
 
+//Deprecated: create a nativ pod object with the kubernetes sdk
 func (t *templateService) RenderLaunchManifest(vm *api.VM, domainXML []byte, writer io.Writer) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(writer)
@@ -43,6 +44,7 @@ func (t *templateService) RenderLaunchManifest(vm *api.VM, domainXML []byte, wri
 	return t.template.Execute(writer, &data)
 }
 
+//Deprecated: create a nativ pod object with the kubernetes sdk
 func (t *templateService) RenderMigrationManifest(vm *api.VM, writer io.Writer) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(writer)

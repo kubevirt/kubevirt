@@ -28,7 +28,6 @@ func main() {
 	templateFile := flag.String("launcher-template", "./templates/manifest-template.yaml", "Pod manifest template for VMs")
 	dockerRegistry := flag.String("docker-registry", "kubevirt", "Organization or private docker registry URL")
 	launcherImage := flag.String("launcher-image", "virt-launcher", "Shim container for containerized VMs")
-	apiServer := flag.String("api-server", "127.0.0.1:8080", "Kubernetes api server location")
 
 	logger := log.NewLogfmtLogger(os.Stderr)
 	flag.Parse()
@@ -41,8 +40,14 @@ func main() {
 		golog.Fatal(err)
 	}
 
+	clientSet, err := kubecli.Get()
+
+	if err != nil {
+		golog.Fatal(err)
+	}
+
 	g.Provide(
-		&inject.Object{Value: kubecli.NewKubeCli(*apiServer)},
+		&inject.Object{Value: clientSet},
 		&inject.Object{Value: templateService},
 		&inject.Object{Value: vmService},
 	)
