@@ -37,7 +37,7 @@ func (t *templateService) RenderLaunchManifest(vm *api.VM, domainXML []byte, wri
 	precond.MustNotBeNil(writer)
 	precond.MustNotBeNil(domainXML)
 	data := t.dataTemplate
-	data.Domain = precond.MustNotBeEmpty(vm.Name)
+	data.Domain = precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	data.DomainXML = EncodeDomainXML(string(domainXML))
 	data.NodeSelector = vm.Spec.NodeSelector
 	data.Args = []string{"/virt-launcher", "-downward-api-path", "/etc/kubeapi/annotations"}
@@ -49,7 +49,7 @@ func (t *templateService) RenderMigrationManifest(vm *api.VM, writer io.Writer) 
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(writer)
 	data := t.dataTemplate
-	data.Domain = precond.MustNotBeEmpty(vm.Name)
+	data.Domain = precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	data.NodeSelector = vm.Spec.NodeSelector
 	data.Args = []string{"/virt-launcher", "-receive-only", "-qemu-timeout", "60s"}
 	return t.template.Execute(writer, &data)

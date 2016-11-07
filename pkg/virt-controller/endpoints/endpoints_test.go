@@ -65,6 +65,10 @@ type mockVMService struct {
 	VM           *api.VM
 }
 
+func (m *mockVMService) StartVM(vm *api.VM) error {
+	return nil
+}
+
 func (m *mockVMService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 	if m.PrecondPanic {
 		panic(precond.MustNotBeEmpty(""))
@@ -160,8 +164,8 @@ var _ = Describe("Endpoints", func() {
 			})
 			It("should call vmService with the right arguments", func() {
 				handler.ServeHTTP(recorder, request)
-				Expect(svc.VM.UID).To(Equal(types.UID("0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f")))
-				Expect(svc.VM.Name).To(Equal("testvm"))
+				Expect(svc.VM.GetObjectMeta().GetUID()).To(Equal(types.UID("0a81f5b2-8403-7b23-c8d6-21ccc2f80d6f")))
+				Expect(svc.VM.GetObjectMeta().GetName()).To(Equal("testvm"))
 				Expect(string(svc.rawXML)).To(Equal(validXML))
 			})
 			It("should return a json containing the VM uuid", func() {

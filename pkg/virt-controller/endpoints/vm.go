@@ -30,8 +30,8 @@ func MakeRawDomainEndpoint(svc services.VMService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(v1.Domain)
 		vm := api.VM{}
-		vm.Name = req.Name
-		vm.UID = types.UID(req.UUID)
+		vm.GetObjectMeta().SetName(req.Name)
+		vm.ObjectMeta.UID = types.UID(req.UUID)
 		vm.Spec.NodeSelector = req.NodeSelector
 
 		if err := svc.StartVMRaw(&vm, req.RawDomain); err != nil {

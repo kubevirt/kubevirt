@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/rmohr/go-model"
@@ -18,8 +19,8 @@ var _ = Describe("Mapper", func() {
 			dto := VM{}
 			errs := model.Copy(&dto, &vm)
 			Expect(errs).To(BeNil())
-			Expect(dto.Name).To(Equal("testvm"))
-			Expect(dto.GetUID()).To(Equal(vm.GetUID()))
+			Expect(dto.GetObjectMeta().GetName()).To(Equal("testvm"))
+			Expect(dto.GetObjectMeta().GetUID()).To(Equal(vm.GetObjectMeta().GetUID()))
 			Expect(dto.Spec.NodeSelector).To(Equal(vm.Spec.NodeSelector))
 		})
 	})
@@ -30,9 +31,21 @@ var _ = Describe("Mapper", func() {
 			dto.Spec = VMSpec{NodeSelector: map[string]string{"key": "val"}}
 			errs := model.Copy(&vm, &dto)
 			Expect(errs).To(BeNil())
-			Expect(vm.Name).To(Equal("testvm"))
-			Expect(vm.UID).To(Equal(dto.UID))
+
+			Expect(vm.GetObjectMeta().GetName()).To(Equal("testvm"))
+			Expect(vm.GetObjectMeta().GetUID()).To(Equal(dto.GetObjectMeta().GetUID()))
 			Expect(vm.Spec.NodeSelector).To(Equal(vm.Spec.NodeSelector))
+		})
+	})
+	Context("With a VM supplied", func() {
+		It("should map to json and back with custom mapper", func() {
+			vm := VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
+			newVM := VM{}
+			buf, err := json.Marshal(&vm)
+			Expect(err).To(BeNil())
+			err = json.Unmarshal(buf, &newVM)
+			Expect(err).To(BeNil())
+			Expect(newVM).To(Equal(vm))
 		})
 	})
 })

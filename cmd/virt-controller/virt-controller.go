@@ -19,6 +19,7 @@ import (
 	"kubevirt/core/pkg/virt-controller/endpoints"
 	"kubevirt/core/pkg/virt-controller/rest"
 	"kubevirt/core/pkg/virt-controller/services"
+	"kubevirt/core/pkg/virt-controller/watch"
 )
 
 func main() {
@@ -36,6 +37,7 @@ func main() {
 
 	vmService := services.NewVMService(logger)
 	templateService, err := services.NewTemplateService(logger, *templateFile, *dockerRegistry, *launcherImage)
+	vmWatcher := watch.NewVMWatcher()
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -50,6 +52,7 @@ func main() {
 		&inject.Object{Value: clientSet},
 		&inject.Object{Value: templateService},
 		&inject.Object{Value: vmService},
+		&inject.Object{Value: vmWatcher},
 	)
 
 	g.Populate()
@@ -73,6 +76,10 @@ func main() {
 	http.Handle("/", rest.DefineRoutes(&handlers))
 	httpLogger := levels.New(logger).With("component", "http")
 	httpLogger.Info().Log("action", "listening", "interface", *host, "port", *port)
+	_, err = vmWatcher.Watch()
+	if err != nil {
+		golog.Fatal(err)
+	}
 	if err := http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil); err != nil {
 		golog.Fatal(err)
 	}
