@@ -1,5 +1,48 @@
 # Components
 
+KubeVirt consists of a set of services:
+
+                |
+        Cluster | (virt-api-server)  (virt-controller)
+                | (vm-pod [M])
+                |
+    ------------+---------------------------------------
+                |
+     Kubernetes | (VM [TPR])
+                |
+    ------------+---------------------------------------
+                |
+      DaemonSet | (libvirtd) (vms-handler)
+                |
+
+    M: Managed
+    TPR: Third Party Resource
+
+
+## Example flow: Create VM
+
+    User       Virt API      VM TPR    Virt Controller    k8s      VM Pod
+    createVM  --> |                           |            |
+                  o create --> +              |            |
+                  |            | <~ create ~> ?            |
+                  |            |              |            |
+                  |            |              o create --> o ------> +
+                  |            |              |            |         |
+                  |            | <---------------------- get VM Spec o
+                  |            o ----------------------------------> |
+                  |            |              |            |         o defineVM()
+                  |            |              |            |         o watchVM()
+                  |            |              |            |         |
+    deleteVM -->  o delete --> *              |            |         |
+                  |              <~ delete ~> ?            |
+                  |                           |            |         |
+                  |                           o delete --> o ------> *
+                  |                           |            |
+                  :                           :            :
+    
+    Legend: ?: Event notification
+
+
 ## Virt API Server
 
 HTTP API server which serves as the endpoint for all virtualization related flows.
