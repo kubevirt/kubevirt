@@ -45,7 +45,13 @@ KubeVirt consists of a set of services:
 
 ## Virt API Server
 
-HTTP API server which serves as the endpoint for all virtualization related flows.
+HTTP API server which serves as the entry point for all virtualization related
+flows.
+
+The API Server is taking care to update the virtualization related third party
+resources (see below).
+This is effectively mapping an imperative interface (the REST API) onto the
+declarative centric resource model.
 
 ## Virt Controller
 
