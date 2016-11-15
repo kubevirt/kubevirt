@@ -78,7 +78,7 @@ func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
 			// For instance a service can just return an AppError instance as normal err and this check
 			// makes sure that our application error handler handles the response
 			if _, ok := err.(AppError); ok {
-				levels.New(logger).Crit().Log("error", err)
+				levels.New(logger).Crit().Log("msg", err)
 				return err, nil
 			}
 			return data, err

@@ -8,6 +8,7 @@ import (
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/meta"
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
+	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/apimachinery/announced"
 	"k8s.io/client-go/1.5/pkg/runtime"
 	"kubevirt/core/pkg/api"
@@ -68,12 +69,53 @@ func init() {
 		}
 		return reflect.ValueOf(out), nil
 	})
+	model.AddConversion((*VMSpec)(nil), (*api.VMSpec)(nil), func(in reflect.Value) (reflect.Value, error) {
+		out := api.VMSpec{}
+		errs := model.Copy(&out, in.Interface())
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
+	model.AddConversion((*VMCondition)(nil), (*api.VMCondition)(nil), func(in reflect.Value) (reflect.Value, error) {
+		out := api.VMCondition{}
+		errs := model.Copy(&out, in.Interface())
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
+	model.AddConversion((*api.VMCondition)(nil), (*VMCondition)(nil), func(in reflect.Value) (reflect.Value, error) {
+		out := VMCondition{}
+		errs := model.Copy(&out, in.Interface())
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
+	model.AddConversion((*api.VMStatus)(nil), (*VMStatus)(nil), func(in reflect.Value) (reflect.Value, error) {
+		out := VMStatus{}
+		errs := model.Copy(&out, in.Interface())
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
+	model.AddConversion((*VMStatus)(nil), (*api.VMStatus)(nil), func(in reflect.Value) (reflect.Value, error) {
+		out := api.VMStatus{}
+		errs := model.Copy(&out, in.Interface())
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
 }
 
 type VM struct {
 	unversioned.TypeMeta `json:",inline"`
 	ObjectMeta           kubeapi.ObjectMeta `json:"metadata,omitempty"`
 	Spec                 VMSpec             `json:"spec,omitempty" valid:"required"`
+	Status               VMStatus           `json:"status"`
 }
 
 type VMList struct {
@@ -84,6 +126,12 @@ type VMList struct {
 
 type VMSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+}
+
+type VMStatus struct {
+	NodeName   string        `json:"nodeName,omitempty"`
+	Conditions []VMCondition `json:"conditions,omitempty"`
+	Phase      VMPhase       `json:"phase"`
 }
 
 type Domain struct {
@@ -137,3 +185,48 @@ func (vl *VMList) UnmarshalJSON(data []byte) error {
 	*vl = tmp2
 	return nil
 }
+
+type VMConditionType string
+
+// These are valid conditions of VMs.
+const (
+	// PodCreated means that the VM request was translated into a Pod which can be scheduled and started by
+	// Kubernetes.
+	PodCreated VMConditionType = "PodCreated"
+	// VMReady means the pod is able to service requests and should be added to the
+	// load balancing pools of all matching services.
+	VMReady VMConditionType = "Ready"
+)
+
+type VMCondition struct {
+	Type               VMConditionType    `json:"type"`
+	Status             v1.ConditionStatus `json:"status"`
+	LastProbeTime      unversioned.Time   `json:"lastProbeTime,omitempty"`
+	LastTransitionTime unversioned.Time   `json:"lastTransitionTime,omitempty"`
+	Reason             string             `json:"reason,omitempty"`
+	Message            string             `json:"message,omitempty"`
+}
+
+// VMPhase is a label for the condition of a VM at the current time.
+type VMPhase string
+
+// These are the valid statuses of pods.
+const (
+	// VMPending means the VM has been accepted by the system, but the VM is not yet started. This includes time
+	// before being bound to a node, as well as a taget Pod might exist and be in ready state but the VM is not yet
+	// started inside it.
+	VMPending VMPhase = "Pending"
+	// VMRunning means the pod has been bound to a node and the VM is started.
+	VMRunning VMPhase = "Running"
+	// VMMigrating means the VM is currently migrated by a controller.
+	VMMigrating VMPhase = "Migrating"
+	// VMSucceeded means that the VM stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
+	// inside the VM.
+	VMSucceeded VMPhase = "Succeeded"
+	// VMFailed means that associated Pod is in failure state (exited with a non-zero exit code or was stopped by
+	// the system).
+	VMFailed VMPhase = "Failed"
+	// VMUnknown means that for some reason the state of the VM could not be obtained, typically due
+	// to an error in communicating with the host of the VM.
+	VMUnknown VMPhase = "Unknown"
+)

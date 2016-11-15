@@ -5,6 +5,7 @@ import (
 	"github.com/go-kit/kit/log/levels"
 	"html"
 	"io"
+	"k8s.io/client-go/1.5/pkg/types"
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/precond"
 	"strings"
@@ -18,6 +19,7 @@ type TemplateService interface {
 
 type manifestData struct {
 	Domain         string
+	VMUID          types.UID
 	DockerRegistry string
 	LauncherImage  string
 	DomainXML      string
@@ -40,6 +42,7 @@ func (t *templateService) RenderLaunchManifest(vm *api.VM, domainXML []byte, wri
 	data.Domain = precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	data.DomainXML = EncodeDomainXML(string(domainXML))
 	data.NodeSelector = vm.Spec.NodeSelector
+	data.VMUID = vm.GetObjectMeta().GetUID()
 	data.Args = []string{"/virt-launcher", "-downward-api-path", "/etc/kubeapi/annotations"}
 	return t.template.Execute(writer, &data)
 }

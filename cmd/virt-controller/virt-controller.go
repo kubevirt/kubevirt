@@ -37,7 +37,7 @@ func main() {
 
 	vmService := services.NewVMService(logger)
 	templateService, err := services.NewTemplateService(logger, *templateFile, *dockerRegistry, *launcherImage)
-	vmWatcher := watch.NewVMWatcher()
+	vmWatcher := watch.NewVMWatcher(logger)
 	if err != nil {
 		golog.Fatal(err)
 	}

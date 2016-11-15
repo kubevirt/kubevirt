@@ -12,6 +12,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"io/ioutil"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
+	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/types"
 	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/api/v1"
@@ -87,6 +88,10 @@ func (m *mockVMService) DeleteVM(vm *api.VM) error {
 
 func (v *mockVMService) PrepareMigration(vm *api.VM) error {
 	return nil
+}
+
+func (v *mockVMService) GetRunningPods(*api.VM) (*kubev1.PodList, error) {
+	return nil, nil
 }
 
 var _ = Describe("Endpoints", func() {

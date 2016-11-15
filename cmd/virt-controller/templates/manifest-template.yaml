@@ -5,6 +5,7 @@ metadata:
   labels:
     app: virt-launcher
     domain: {{.Domain}}
+    vmUID: {{.VMUID}}
 {{if .DomainXML}}  annotations:
     domainXML: "{{.DomainXML}}"{{end}}
 spec:
