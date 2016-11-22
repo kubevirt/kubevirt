@@ -8,3 +8,4 @@ contrib/manifest/*.yaml
 **/bin
 .vagrant
 cluster/.kubeconfig
+cluster/.kubectl
