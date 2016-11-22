@@ -1,4 +1,10 @@
 #!/bin/bash
+
+if [ "x$1" == "x--init" ]
+then
+    exec cluster/sync_config.sh
+fi
+
 if [ -e cluster/.kubeconfig ] && [ -e cluster/.kubectl ] && [ "x$1" == "x--core" ];then
     shift
     cluster/.kubectl --kubeconfig=cluster/.kubeconfig $@
