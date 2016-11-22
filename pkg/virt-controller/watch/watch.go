@@ -39,6 +39,7 @@ func (v *vmWatcher) Watch() (chan struct{}, error) {
 	vmSource := cache.NewListWatchFromClient(restClient, "vms", kubeapi.NamespaceDefault, fields.Everything())
 	queue := cache.NewFIFO(cache.MetaNamespaceKeyFunc)
 	cache.NewReflector(vmSource, &v1.VM{}, queue, 0).RunUntil(stop)
+	// TODO catch precond panics
 	go func() {
 		for {
 			dto := cache.Pop(queue).(*v1.VM)

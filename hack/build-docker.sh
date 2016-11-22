@@ -11,7 +11,7 @@ fi
 shift
 
 if [ $# -eq 0 ]; then
-    args=$binaries
+    args=$docker_images
 else
     args=$@
 fi

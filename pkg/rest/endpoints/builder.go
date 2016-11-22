@@ -2,35 +2,14 @@ package endpoints
 
 import (
 	"golang.org/x/net/context"
-	"net/http"
 
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"kubevirt/core/pkg/precond"
 )
 
-const DefaultMaxContentLengthBytes = 3 << 20
-
-func MakeDeleteHandler(ctx context.Context, endpoint endpoint.Endpoint) http.Handler {
-	return kithttp.NewServer(
-		ctx,
-		endpoint,
-		NameDecodeRequestFunc,
-		EncodeDeleteResponse,
-	)
-}
-
-func MakeGetHandler(ctx context.Context, endpoint endpoint.Endpoint) http.Handler {
-	return kithttp.NewServer(
-		ctx,
-		endpoint,
-		NameDecodeRequestFunc,
-		EncodeGetResponse,
-	)
-}
-
 type HandlerBuilder interface {
-	Build(context.Context) http.Handler
+	Build(context.Context) *kithttp.Server
 	Post(interface{}) HandlerBuilder
 	Put(interface{}) HandlerBuilder
 	Get() HandlerBuilder
@@ -48,7 +27,7 @@ type handlerBuilder struct {
 	decoder    kithttp.DecodeRequestFunc
 }
 
-func (h *handlerBuilder) Build(ctx context.Context) http.Handler {
+func (h *handlerBuilder) Build(ctx context.Context) *kithttp.Server {
 	precond.MustNotBeNil(h.endpoint)
 	precond.MustNotBeNil(h.encoder)
 	precond.MustNotBeNil(h.decoder)
@@ -68,19 +47,19 @@ func (h *handlerBuilder) Build(ctx context.Context) http.Handler {
 }
 
 func (h *handlerBuilder) Post(payloadTypePtr interface{}) HandlerBuilder {
-	h.decoder = NewJsonDecodeRequestFunc(payloadTypePtr)
+	h.decoder = NewJsonPostDecodeRequestFunc(payloadTypePtr)
 	h.encoder = EncodePostResponse
 	return h
 }
 
 func (h *handlerBuilder) Get() HandlerBuilder {
-	h.decoder = NameDecodeRequestFunc
+	h.decoder = NameNamespaceDecodeRequestFunc
 	h.encoder = EncodeGetResponse
 	return h
 }
 
 func (h *handlerBuilder) Delete() HandlerBuilder {
-	h.decoder = NameDecodeRequestFunc
+	h.decoder = NameNamespaceDecodeRequestFunc
 	h.encoder = EncodeDeleteResponse
 	return h
 }

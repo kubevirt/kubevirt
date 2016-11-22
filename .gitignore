@@ -4,6 +4,7 @@ vendor/*
 cmd/virt-controller/virt-controller
 cmd/virt-launcher/virt-launcher
 cmd/virt-handler/virt-handler
+cmd/virt-api/virt-api
 contrib/manifest/*.yaml
 **/bin
 .vagrant

@@ -97,3 +97,7 @@ func NewResourceExistsError(resource string, name string) *ResourceNotFoundError
 func NewResourceConflictError(msg string) *ResourceNotFoundError {
 	return &ResourceNotFoundError{appError{err: fmt.Errorf(msg)}}
 }
+
+func NewInternalServerError(err error) *InternalServerError {
+	return &InternalServerError{appError{err: err}}
+}

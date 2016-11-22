@@ -4,23 +4,23 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"golang.org/x/net/context"
 	"net/http"
 
 	"encoding/json"
-	"github.com/gorilla/mux"
+	"github.com/emicklei/go-restful"
+	"golang.org/x/net/context"
 	"net/http/httptest"
 	"net/url"
 )
 
 func newValidDeleteRequest() *http.Request {
-	request, _ := http.NewRequest("DELETE", "/api/v1/delete/test", nil)
+	request, _ := http.NewRequest("DELETE", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/test", nil)
 	return request
 }
 
 func testDeleteEndpoint(_ context.Context, request interface{}) (interface{}, error) {
-	Expect(request.(string)).To(Equal("test"))
-	return payload{Name: request.(string)}, nil
+	Expect(request.(*Metadata).Name).To(Equal("test"))
+	return payload{Name: request.(*Metadata).Name}, nil
 }
 
 var _ = Describe("Delete", func() {
@@ -30,11 +30,13 @@ var _ = Describe("Delete", func() {
 	ctx := context.Background()
 
 	BeforeEach(func() {
-		handler = NewHandlerBuilder().Delete().Endpoint(testDeleteEndpoint).Build(ctx)
-		router := mux.NewRouter()
-		router.Methods("DELETE").Path("/api/v1/delete/{name:[a-zA-Z0-9]+}").Handler(handler)
 
-		handler = http.Handler(router)
+		ws := new(restful.WebService)
+		handler = http.Handler(restful.NewContainer().Add(ws))
+
+		target := MakeGoRestfulWrapper(NewHandlerBuilder().Delete().Endpoint(testDeleteEndpoint).Build(ctx))
+
+		ws.Route(ws.DELETE("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/vms/{name}").To(target))
 		request = newValidDeleteRequest()
 		recorder = httptest.NewRecorder()
 	})

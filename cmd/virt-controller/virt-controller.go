@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"golang.org/x/net/context"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,12 +10,9 @@ import (
 	"github.com/go-kit/kit/log/levels"
 	golog "log"
 
+	"github.com/emicklei/go-restful"
 	"github.com/facebookgo/inject"
-	"github.com/go-kit/kit/endpoint"
-	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/kubecli"
-	"kubevirt/core/pkg/middleware"
-	"kubevirt/core/pkg/virt-controller/endpoints"
 	"kubevirt/core/pkg/virt-controller/rest"
 	"kubevirt/core/pkg/virt-controller/services"
 	"kubevirt/core/pkg/virt-controller/watch"
@@ -56,24 +52,8 @@ func main() {
 	)
 
 	g.Populate()
+	restful.Add(rest.WebService)
 
-	ctx := context.Background()
-	handlerBuilder := endpoints.NewHandlerBuilder()
-	handlerBuilder.Middleware([]endpoint.Middleware{
-		middleware.InternalErrorMiddleware(logger),
-	})
-
-	handlers := rest.Handlers{
-		RawDomainHandler: handlerBuilder.
-			Decoder(endpoints.DecodeRawDomainRequest).
-			Encoder(endpoints.EncodePostResponse).
-			Endpoint(endpoints.MakeRawDomainEndpoint(vmService)).
-			Build(ctx),
-		DeleteVMHandler:         handlerBuilder.Delete().Endpoint(endpoints.MakeVMDeleteEndpoint(vmService)).Build(ctx),
-		PrepareMigrationHandler: handlerBuilder.Put((*v1.VM)(nil)).Endpoint(endpoints.MakePrepareMigrationHandler(vmService)).Build(ctx),
-	}
-
-	http.Handle("/", rest.DefineRoutes(&handlers))
 	httpLogger := levels.New(logger).With("component", "http")
 	httpLogger.Info().Log("action", "listening", "interface", *host, "port", *port)
 	_, err = vmWatcher.Watch()

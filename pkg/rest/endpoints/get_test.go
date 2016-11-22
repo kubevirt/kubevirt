@@ -4,22 +4,23 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"golang.org/x/net/context"
 	"net/http"
 
 	"encoding/json"
-	"github.com/gorilla/mux"
+	"github.com/emicklei/go-restful"
+	"golang.org/x/net/context"
 	"net/http/httptest"
 	"net/url"
 )
 
 func newValidGetRequest() *http.Request {
-	request, _ := http.NewRequest("PUT", "/api/v1/get/test", nil)
+	request, _ := http.NewRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/test", nil)
 	return request
 }
 
 func testGetEndpoint(_ context.Context, request interface{}) (interface{}, error) {
-	Expect(request.(string)).To(Equal("test"))
+	metadata := request.(*Metadata)
+	Expect(metadata.Name).To(Equal("test"))
 	return payload{Name: "test", Email: "test@test.com"}, nil
 }
 
@@ -30,11 +31,14 @@ var _ = Describe("Get", func() {
 	ctx := context.Background()
 
 	BeforeEach(func() {
-		handler = NewHandlerBuilder().Get().Endpoint(testGetEndpoint).Build(ctx)
-		router := mux.NewRouter()
-		router.Methods("PUT").Path("/api/v1/get/{name:[a-zA-Z0-9]+}").Handler(handler)
 
-		handler = http.Handler(router)
+		ws := new(restful.WebService)
+		ws.Produces(restful.MIME_JSON)
+		handler = http.Handler(restful.NewContainer().Add(ws))
+
+		target := MakeGoRestfulWrapper(NewHandlerBuilder().Get().Endpoint(testGetEndpoint).Build(ctx))
+		ws.Route(ws.GET("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/vms/{name}").To(target))
+
 		request = newValidGetRequest()
 		recorder = httptest.NewRecorder()
 	})
@@ -42,7 +46,7 @@ var _ = Describe("Get", func() {
 	Describe("REST call", func() {
 		Context("with invalid URL", func() {
 			It("should return 404", func() {
-				request.URL, _ = url.Parse("/api/v1/put/?")
+				request.URL, _ = url.Parse("/api/v1/put/")
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusNotFound))
 			})

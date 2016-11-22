@@ -4,11 +4,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"golang.org/x/net/context"
 	"net/http"
 
 	"encoding/json"
-	"github.com/gorilla/mux"
+	"github.com/emicklei/go-restful"
+	"golang.org/x/net/context"
 	"io/ioutil"
 	"net/http/httptest"
 	"net/url"
@@ -16,14 +16,14 @@ import (
 )
 
 func newValidPostRequest() *http.Request {
-	request, _ := http.NewRequest("POST", "/api/v1/post", nil)
+	request, _ := http.NewRequest("POST", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms", nil)
 	request.Body = marshal(payload{Name: "test", Email: "test@test.com"})
 	request.Header.Set("Content-Type", "application/json")
 	return request
 }
 
 func testPostEndpoint(_ context.Context, request interface{}) (interface{}, error) {
-	return request, nil
+	return request.(*PutObject).Payload, nil
 }
 
 var _ = Describe("Post", func() {
@@ -33,11 +33,14 @@ var _ = Describe("Post", func() {
 	ctx := context.Background()
 
 	BeforeEach(func() {
-		handler = NewHandlerBuilder().Post((*payload)(nil)).Endpoint(testPostEndpoint).Build(ctx)
-		router := mux.NewRouter()
-		router.Methods("POST").Path("/api/v1/post").Headers("Content-Type", "application/json").Handler(handler)
 
-		handler = http.Handler(router)
+		ws := new(restful.WebService)
+		ws.Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON)
+		handler = http.Handler(restful.NewContainer().Add(ws))
+
+		target := MakeGoRestfulWrapper(NewHandlerBuilder().Post((*payload)(nil)).Endpoint(testPostEndpoint).Build(ctx))
+		ws.Route(ws.POST("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/vms").To(target))
+
 		request = newValidPostRequest()
 		recorder = httptest.NewRecorder()
 	})
@@ -51,10 +54,10 @@ var _ = Describe("Post", func() {
 			})
 		})
 		Context("with missing Content-Type header", func() {
-			It("should return 404", func() {
+			It("should return 414", func() {
 				request.Header.Del("Content-Type")
 				handler.ServeHTTP(recorder, request)
-				Expect(recorder.Code).To(Equal(http.StatusNotFound))
+				Expect(recorder.Code).To(Equal(http.StatusUnsupportedMediaType))
 			})
 		})
 		Context("with invalid JSON", func() {

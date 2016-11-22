@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"github.com/rmohr/go-model"
 	"github.com/satori/go.uuid"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
@@ -132,14 +131,6 @@ type VMStatus struct {
 	NodeName   string        `json:"nodeName,omitempty"`
 	Conditions []VMCondition `json:"conditions,omitempty"`
 	Phase      VMPhase       `json:"phase"`
-}
-
-type Domain struct {
-	Name         string   `json:"name" xml:"name" valid:"required"`
-	UUID         string   `json:"uuid" xml:"uuid" valid:"uuid"`
-	XMLName      xml.Name `xml:"domain"`
-	RawDomain    []byte
-	NodeSelector map[string]string `json:"-"`
 }
 
 // Required to satisfy Object interface

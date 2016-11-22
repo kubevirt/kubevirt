@@ -3,7 +3,6 @@ package libvirt
 import (
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

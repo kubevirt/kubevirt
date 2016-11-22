@@ -11,11 +11,9 @@ make all contrib
 vagrant rsync # if you do not use NFS
 vagrant ssh master -c "cd /vagrant && sudo hack/build-docker.sh"
 vagrant ssh node -c "cd /vagrant && sudo hack/build-docker.sh"
-vagrant ssh master -c "kubectl delete -f /vagrant/contrib/manifest/virt-controller.yaml" || :
-vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/virt-controller.yaml"
-vagrant ssh master -c "kubectl delete -f /vagrant/contrib/manifest/virt-controller-service.yaml" || :
-vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/virt-controller-service.yaml"
-vagrant ssh master -c "kubectl delete -f /vagrant/contrib/manifest/virt-handler.yaml" || :
-vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/virt-handler.yaml"
-vagrant ssh master -c "kubectl delete -f /vagrant/contrib/manifest/vm-resource.yaml"
-vagrant ssh master -c "kubectl create -f /vagrant/contrib/manifest/vm-resource.yaml"
+
+# Deploy all manifests files
+for i in `ls contrib/manifest/*.yaml`; do
+    cluster/kubectl.sh delete -f $i || :
+    cluster/kubectl.sh create -f $i
+done

@@ -6,15 +6,11 @@ echo "       ./cluster/quickcheck.sh [-clean-all]"
 }
 
 startvm () {
-HEADERS="-H \"Content-Type: application/xml\""
+HEADERS="-H \"Content-Type: application/json\""
 VM_NAME=$1
 TARGET_NODE=$2
-DOMAIN="sed -e s/testvm/$VM_NAME/g cluster/testdomain.xml"
-if [ "x" != "x$TARGET_NODE" ]; then
-$DOMAIN | curl -X POST -H "Content-Type: application/xml" -H "Node-Selector: kubernetes.io/hostname=$TARGET_NODE" http://192.168.200.2:8182/api/v1/domain/raw -d @-
-else
-$DOMAIN | curl -X POST -H "Content-Type: application/xml" http://192.168.200.2:8182/api/v1/domain/raw -d @-
-fi
+DOMAIN="sed -e s/testvm/$VM_NAME/g cluster/vm.json"
+$DOMAIN | curl -X POST -H "Content-Type: application/json" http://192.168.200.2:8183/apis/kubevirt.io/v1alpha1/namespaces/default/vms -d @-
 }
 
 VM_NAME=testvm
@@ -51,6 +47,7 @@ done
 
 if [ -z "$CLEAN_ALL" ]; then
 vagrant ssh master -c "kubectl delete pods -l domain=${VM_NAME}"
+vagrant ssh master -c "kubectl delete vms ${VM_NAME}"
 set -e
 sleep 2
 startvm $VM_NAME $TARGET_NODE
@@ -66,4 +63,5 @@ echo "Found VM running on node '$NODE'"
 vagrant ssh $NODE -c "sudo /vagrant/cluster/verify-qemu-kube ${VM_NAME}"
 else
 vagrant ssh master -c "kubectl delete pods -l app=virt-launcher"
+vagrant ssh master -c "kubectl delete vms --all"
 fi
