@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: haproxy
+  labels:
+    app: haproxy
+spec:
+  containers:
+  - name: haproxy
+    image: {{ docker_prefix }}/haproxy:{{ docker_tag }}
+    imagePullPolicy: IfNotPresent
+    ports:
+      - containerPort: 8184
+        name: "haproxy"
+        protocol: "TCP"

@@ -41,7 +41,7 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr un
 
 func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		metadata := payload.(endpoints.Metadata)
+		metadata := payload.(*endpoints.Metadata)
 		result := cli.Delete().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do()
 		return response(result)
 	}

@@ -13,7 +13,11 @@ vagrant ssh master -c "cd /vagrant && sudo hack/build-docker.sh"
 vagrant ssh node -c "cd /vagrant && sudo hack/build-docker.sh"
 
 # Deploy all manifests files
+set +x
 for i in `ls contrib/manifest/*.yaml`; do
-    cluster/kubectl.sh delete -f $i || :
-    cluster/kubectl.sh create -f $i
+    cluster/kubectl.sh --core delete -f $i --grace-period 0 2>/dev/null || :
+done
+sleep 2
+for i in `ls contrib/manifest/*.yaml`; do
+    cluster/kubectl.sh --core create -f $i
 done
