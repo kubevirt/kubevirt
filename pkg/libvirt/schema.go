@@ -2,11 +2,55 @@ package libvirt
 
 import (
 	"encoding/xml"
+	"github.com/rgbkrk/libvirt-go"
+	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/api/meta"
+	"k8s.io/client-go/1.5/pkg/api/unversioned"
 	"kubevirt/core/pkg/precond"
-	"net"
 )
 
+type LifeCycle string
+
+const (
+	NoState     LifeCycle = "NoState"
+	Running     LifeCycle = "Running"
+	Blocked     LifeCycle = "Blocked"
+	Paused      LifeCycle = "Paused"
+	Shutdown    LifeCycle = "Shutdown"
+	Shutoff     LifeCycle = "Shutoff"
+	Crashed     LifeCycle = "Crashed"
+	PMSuspended LifeCycle = "PMSuspended"
+)
+
+var LifeCycleTranslationMap = map[int]LifeCycle{
+	libvirt.VIR_DOMAIN_NOSTATE:     NoState,
+	libvirt.VIR_DOMAIN_RUNNING:     Running,
+	libvirt.VIR_DOMAIN_BLOCKED:     Blocked,
+	libvirt.VIR_DOMAIN_PAUSED:      Paused,
+	libvirt.VIR_DOMAIN_SHUTDOWN:    Shutdown,
+	libvirt.VIR_DOMAIN_SHUTOFF:     Shutoff,
+	libvirt.VIR_DOMAIN_CRASHED:     Crashed,
+	libvirt.VIR_DOMAIN_PMSUSPENDED: PMSuspended,
+}
+
 type Domain struct {
+	unversioned.TypeMeta
+	ObjectMeta api.ObjectMeta
+	Spec       DomainSpec
+	Status     DomainStatus
+}
+
+type DomainStatus struct {
+	Status LifeCycle
+}
+
+type DomainList struct {
+	unversioned.TypeMeta
+	ListMeta unversioned.ListMeta
+	Items    []Domain
+}
+
+type DomainSpec struct {
 	XMLName xml.Name `xml:"domain" json:"-"`
 	Name    string   `xml:"name" json:"name"`
 	UUID    string   `xml:"uuid,omitempty" json:"uuid,omitempty"`
@@ -30,6 +74,7 @@ type Devices struct {
 	Video      []Video     `xml:"video" json:"video,omitempty"`
 	Graphics   []Graphics  `xml:"graphics" json:"graphics,omitempty"`
 	Ballooning *Ballooning `xml:"memballoon,omitempty" json:"memballoon,omitempty"`
+	Disks      []Disk      `xml:"disk" json:"disks,omitempty"`
 }
 
 // BEGIN Disk -----------------------------
@@ -58,9 +103,9 @@ type DiskTarget struct {
 }
 
 type DiskDriver struct {
-	Cache       string `xml:"cache,attr" json:"cache"`
-	ErrorPolicy string `xml:"error_policy,attr" json:"errorPolicy"`
-	IO          string `xml:"io,attr" json:"io"`
+	Cache       string `xml:"cache,attr,omitempty" json:"cache,omitempty"`
+	ErrorPolicy string `xml:"error_policy,attr,omitempty" json:"errorPolicy,omitempty"`
+	IO          string `xml:"io,attr,omitempty" json:"io,omitempty"`
 	Name        string `xml:"name,attr" json:"name"`
 	Type        string `xml:"type,attr" json:"type"`
 }
@@ -69,14 +114,17 @@ type DiskDriver struct {
 
 // BEGIN Inteface -----------------------------
 type Interface struct {
-	Type      string     `xml:"type,attr" json:"type"`
-	Source    Source     `xml:"source" json:"source"`
-	Model     *Model     `xml:"model,omitempty" json:"model,omitempty"`
-	Mac       *Mac       `xml:"mac,omitempty" json:"mac,omitempty"`
-	BandWidth *BandWidth `xml:"bandwidth,omitempty" json:"bandwidth,omitempty"`
-	BootOrder *BootOrder `xml:"boot,omitempty" json:"boot,omitempty"`
-	LinkState *LinkState `xml:"link,omitempty" json:"link,omitempty"`
-	FilterRef *FilterRef `xml:"filterref,omitempty" json:"filterRef,omitempty"`
+	Address   Address          `xml:"address,omitempty" json:"address,omitempty"`
+	Type      string           `xml:"type,attr" json:"type"`
+	Source    InterfaceSource  `xml:"source" json:"source"`
+	Target    *InterfaceTarget `xml:"target,omitempty" json:"target,omitempty"`
+	Model     *Model           `xml:"model,omitempty" json:"model,omitempty"`
+	MAC       *MAC             `xml:"mac,omitempty" json:"mac,omitempty"`
+	BandWidth *BandWidth       `xml:"bandwidth,omitempty" json:"bandwidth,omitempty"`
+	BootOrder *BootOrder       `xml:"boot,omitempty" json:"boot,omitempty"`
+	LinkState *LinkState       `xml:"link,omitempty" json:"link,omitempty"`
+	FilterRef *FilterRef       `xml:"filterref,omitempty" json:"filterRef,omitempty"`
+	Alias     *Alias           `xml:"alias,omitempty" json:"alias,omitempty"`
 }
 
 type LinkState struct {
@@ -90,22 +138,30 @@ type BootOrder struct {
 	Order uint `xml:"order,attr" json:"order"`
 }
 
-type Mac struct {
-	Mac net.HardwareAddr `xml:"address,attr" json:"address"`
+type MAC struct {
+	MAC string `xml:"address,attr" json:"address"`
 }
 
 type FilterRef struct {
 	Filter string `xml:"filter,attr" json:"filter"`
 }
 
-type Source struct {
+type InterfaceSource struct {
 	Network string `xml:"network,attr,omitempty" json:"network,omitempty"`
 	Device  string `xml:"dev,attr,omitempty" json:"device,omitempty"`
 	Bridge  string `xml:"bridge,attr,omitempty" json:"bridge,omitempty"`
 }
 
 type Model struct {
-	Type string `xml:"type" json:"type"`
+	Type string `xml:"type,attr" json:"type"`
+}
+
+type InterfaceTarget struct {
+	Device string `xml:"dev,attr" json:"dev"`
+}
+
+type Alias struct {
+	Name string `xml:"name,attr" json:"name"`
 }
 
 // END Inteface -----------------------------
@@ -206,10 +262,10 @@ type ChannelSource struct {
 */
 
 type Video struct {
-	Mode VideoMode `xml:"mode"`
+	Model VideoModel `xml:"model"`
 }
 
-type VideoMode struct {
+type VideoModel struct {
 	Type   string `xml:"type,attr" json:"type"`
 	Heads  uint   `xml:"heads,attr,omitempty" json:"heads,omitempty"`
 	Ram    uint   `xml:"ram,attr,omitempty" json:"ram,omitempty"`
@@ -219,12 +275,26 @@ type VideoMode struct {
 
 type Graphics struct {
 	AutoPort      string `xml:"autoPort,attr,omitempty" json:"autoPort,omitempty"`
-	DefaultMode   string `xml:"defaultMode,omitempty" json:"defaultMode,omitempty"`
-	Listen        string `xml:"listen,omitempty" json:"listen,omitempty"`
-	PasswdValidTo string `xml:"passwdValidTo,omitempty" json:"passwdValidTo,omitempty"`
-	Port          int    `xml:"port,omitempty" json:"port,omitempty"`
-	TLSPort       int    `xml:"tlsPort,omitempty" json:"tlsPort,omitempty"`
-	Type          string `xml:"type" json:"type"`
+	DefaultMode   string `xml:"defaultMode,attr,omitempty" json:"defaultMode,omitempty"`
+	Listen        Listen `xml:"listen,omitempty" json:"listen,omitempty"`
+	PasswdValidTo string `xml:"passwdValidTo,attr,omitempty" json:"passwdValidTo,omitempty"`
+	Port          int    `xml:"port,attr,omitempty" json:"port,omitempty"`
+	TLSPort       int    `xml:"tlsPort,attr,omitempty" json:"tlsPort,omitempty"`
+	Type          string `xml:"type,attr" json:"type"`
+}
+
+type Listen struct {
+	Type    string `xml:"type,attr" json:"type"`
+	Address string `xml:"address,attr,omitempty" json:"address,omitempty"`
+	Network string `xml:"newtork,attr,omitempty" json:"network,omitempty"`
+}
+
+type Address struct {
+	Type     string `xml:"type,attr" json:"type"`
+	Domain   string `xml:"domain,attr" json:"domain"`
+	Bus      string `xml:"bus,attr" json:"bus"`
+	Slot     string `xml:"slot,attr" json:"slot"`
+	Function string `xml:"function,attr" json:"function"`
 }
 
 //END Video -------------------
@@ -238,14 +308,34 @@ type RandomGenerator struct {
 
 // TODO ballooning, rng, cpu ...
 
-func NewMinimalVM(vmName string) *Domain {
+func NewMinimalVM(vmName string) *DomainSpec {
 	precond.MustNotBeEmpty(vmName)
-	domain := Domain{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
+	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
 	domain.Memory = Memory{Unit: "KiB", Value: 8192}
 	domain.Devices = Devices{Emulator: "/usr/local/bin/qemu-x86_64"}
 	domain.Devices.Interfaces = []Interface{
-		{Type: "network", Source: Source{Network: "kubevirt-net"}},
-		{Type: "network", Source: Source{Network: "default"}},
+		{Type: "network", Source: InterfaceSource{Network: "kubevirt-net"}},
+		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}
 	return &domain
+}
+
+// Required to satisfy Object interface
+func (d *Domain) GetObjectKind() unversioned.ObjectKind {
+	return &d.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (d *Domain) GetObjectMeta() meta.Object {
+	return &d.ObjectMeta
+}
+
+// Required to satisfy Object interface
+func (dl *DomainList) GetObjectKind() unversioned.ObjectKind {
+	return &dl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (dl *DomainList) GetListMeta() unversioned.List {
+	return &dl.ListMeta
 }

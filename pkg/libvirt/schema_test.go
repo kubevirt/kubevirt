@@ -66,7 +66,7 @@ var _ = Describe("Schema", func() {
 			domain := NewMinimalVM("testvm")
 			buf, err := xml.Marshal(domain)
 			Expect(err).To(BeNil())
-			newDomain := Domain{}
+			newDomain := DomainSpec{}
 			err = xml.Unmarshal(buf, &newDomain)
 			Expect(err).To(BeNil())
 			domain.XMLName.Local = "domain"
@@ -76,7 +76,7 @@ var _ = Describe("Schema", func() {
 			domain := NewMinimalVM("testvm")
 			buf, err := json.Marshal(domain)
 			Expect(err).To(BeNil())
-			newDomain := Domain{}
+			newDomain := DomainSpec{}
 			err = json.Unmarshal(buf, &newDomain)
 			Expect(err).To(BeNil())
 			Expect(newDomain).To(Equal(*domain))
@@ -85,7 +85,7 @@ var _ = Describe("Schema", func() {
 	Context("With example schema in xml", func() {
 		It("Unmarshal into struct", func() {
 			domain := NewMinimalVM("testvm")
-			newDomain := Domain{}
+			newDomain := DomainSpec{}
 			err := xml.Unmarshal([]byte(exampleXML), &newDomain)
 			Expect(err).To(BeNil())
 			domain.XMLName.Local = "domain"
@@ -95,7 +95,7 @@ var _ = Describe("Schema", func() {
 	Context("With example schema in json", func() {
 		It("Unmarshal into struct", func() {
 			domain := NewMinimalVM("testvm")
-			newDomain := Domain{}
+			newDomain := DomainSpec{}
 			err := json.Unmarshal([]byte(exampleJSON), &newDomain)
 			Expect(err).To(BeNil())
 			Expect(newDomain).To(Equal(*domain))
