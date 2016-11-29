@@ -8,10 +8,12 @@ bash ./setup_kubernetes_common.sh
 set +e
 
 echo 'Trying to register myself...'
-kubeadm join --token abcdef.1234567890123456 $MASTER_IP
+# Skipping preflight checks because of https://github.com/kubernetes/kubeadm/issues/6
+kubeadm join --token abcdef.1234567890123456 $MASTER_IP --skip-preflight-checks
 while [ $? -ne 0 ]
 do
   sleep 30
   echo 'Trying to register myself...'
-  kubeadm join --token abcdef.1234567890123456 $MASTER_IP
+  # Skipping preflight checks because of https://github.com/kubernetes/kubeadm/issues/6
+  kubeadm join --token abcdef.1234567890123456 $MASTER_IP --skip-preflight-checks
 done
