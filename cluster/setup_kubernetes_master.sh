@@ -26,7 +26,10 @@ done
 
 set -e
 
-# Flannel for networking
+# Fix proxy definition
+# https://github.com/kubernetes/kubeadm/issues/66#issuecomment-262394822
+kubectl -n kube-system get ds -l 'component=kube-proxy' -o json   | jq '.items[0].spec.template.spec.containers[0].command |= .+ ["--proxy-mode=userspace"]'   |   kubectl apply -f - && kubectl -n kube-system delete pods -l 'component=kube-proxy'
+
 kubectl create -s 127.0.0.1:8080 -f kube-$NETWORK_PROVIDER.yaml
 
 # Allow scheduling pods on master
