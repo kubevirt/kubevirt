@@ -1,4 +1,18 @@
 apiVersion: v1
+kind: Service
+metadata:
+  name: haproxy-service
+spec:
+  ports:
+    - port: 8184
+      targetPort: haproxy
+  externalIPs :
+    - "192.168.200.2"
+    - "192.168.200.5"
+  selector:
+    app: haproxy
+---
+apiVersion: v1
 kind: Pod
 metadata:
   name: haproxy
