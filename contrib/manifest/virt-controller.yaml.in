@@ -1,4 +1,18 @@
 apiVersion: v1
+kind: Service
+metadata:
+  name: virt-controller-service
+spec:
+  ports:
+    - port: 8182
+      targetPort: virt-controller
+  externalIPs:
+    - "192.168.200.2"
+    - "192.168.200.5"
+  selector:
+    app: virt-controller
+---
+apiVersion: v1
 kind: Pod
 metadata:
   name: virt-controller
