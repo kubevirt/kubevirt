@@ -2,13 +2,20 @@ package kubecli
 
 import (
 	"flag"
+	"github.com/go-kit/kit/log/levels"
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/fields"
+	"k8s.io/client-go/1.5/pkg/labels"
 	"k8s.io/client-go/1.5/pkg/runtime"
 	"k8s.io/client-go/1.5/pkg/runtime/serializer"
+	"k8s.io/client-go/1.5/pkg/watch"
 	"k8s.io/client-go/1.5/rest"
+	"k8s.io/client-go/1.5/tools/cache"
 	"k8s.io/client-go/1.5/tools/clientcmd"
 	"kubevirt/core/pkg/api/v1"
+	"runtime/debug"
+	"time"
 )
 
 var (
@@ -47,4 +54,97 @@ func GetRESTClient() (*rest.RESTClient, error) {
 	config.ContentType = runtime.ContentTypeJSON
 
 	return rest.RESTClientFor(config)
+}
+
+// NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
+func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
+	listFunc := func(options api.ListOptions) (runtime.Object, error) {
+		return c.Get().
+			Namespace(namespace).
+			Resource(resource).
+			VersionedParams(&options, api.ParameterCodec).
+			FieldsSelectorParam(fieldSelector).
+			LabelsSelectorParam(labelSelector).
+			Do().
+			Get()
+	}
+	watchFunc := func(options api.ListOptions) (watch.Interface, error) {
+		return c.Get().
+			Prefix("watch").
+			Namespace(namespace).
+			Resource(resource).
+			VersionedParams(&options, api.ParameterCodec).
+			FieldsSelectorParam(fieldSelector).
+			LabelsSelectorParam(labelSelector).
+			Watch()
+	}
+	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
+}
+
+func NewInformer(
+	lw cache.ListerWatcher,
+	objType runtime.Object,
+	resyncPeriod time.Duration,
+	h ResourceEventHandler,
+) (cache.Indexer, *cache.Controller) {
+	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
+	fifo := cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, nil, clientState)
+
+	cfg := &cache.Config{
+		Queue:            fifo,
+		ListerWatcher:    lw,
+		ObjectType:       objType,
+		FullResyncPeriod: resyncPeriod,
+		RetryOnError:     false,
+
+		Process: func(obj interface{}) error {
+			// from oldest to newest
+			for _, d := range obj.(cache.Deltas) {
+				switch d.Type {
+				case cache.Sync, cache.Added, cache.Updated:
+					if old, exists, err := clientState.Get(d.Object); err == nil && exists {
+						if err := clientState.Update(d.Object); err != nil {
+							return err
+						}
+						err = h.OnUpdate(old, d.Object)
+						if err != nil {
+							return err
+						}
+					} else {
+						if err := clientState.Add(d.Object); err != nil {
+							return err
+						}
+						err = h.OnAdd(d.Object)
+						if err != nil {
+							return err
+						}
+					}
+				case cache.Deleted:
+					if err := clientState.Delete(d.Object); err != nil {
+						return err
+					}
+					err := h.OnDelete(d.Object)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		},
+	}
+	return clientState, cache.New(cfg)
+}
+
+type ResourceEventHandler interface {
+	OnAdd(obj interface{}) error
+	OnUpdate(oldObj, newObj interface{}) error
+	OnDelete(obj interface{}) error
+}
+
+func NewPanicCatcher(logger levels.Levels) func() {
+	return func() {
+		if r := recover(); r != nil {
+			logger.Crit().Log("stacktrace", debug.Stack(), "msg", r)
+		}
+	}
 }

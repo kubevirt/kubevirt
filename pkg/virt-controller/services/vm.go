@@ -14,19 +14,18 @@ import (
 	"k8s.io/client-go/1.5/pkg/labels"
 	"k8s.io/client-go/1.5/pkg/types"
 	"k8s.io/client-go/1.5/pkg/util/yaml"
-	"kubevirt/core/pkg/api"
-	"kubevirt/core/pkg/libvirt"
+	corev1 "kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/precond"
 	"regexp"
 )
 
 type VMService interface {
-	StartVMRaw(*api.VM, []byte) error
-	StartVM(*api.VM) error
-	DeleteVM(*api.VM) error
-	PrepareMigration(*api.VM) error
-	GetRunningPods(*api.VM) (*v1.PodList, error)
+	StartVMRaw(*corev1.VM, []byte) error
+	StartVM(*corev1.VM) error
+	DeleteVM(*corev1.VM) error
+	PrepareMigration(*corev1.VM) error
+	GetRunningPods(*corev1.VM) (*v1.PodList, error)
 }
 
 type vmService struct {
@@ -35,17 +34,17 @@ type vmService struct {
 	TemplateService TemplateService       `inject:""`
 }
 
-func (v *vmService) StartVM(vm *api.VM) error {
+func (v *vmService) StartVM(vm *corev1.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-	rawXML, err := xml.Marshal(libvirt.NewMinimalVM(vm.GetObjectMeta().GetName()))
+	rawXML, err := xml.Marshal(corev1.NewMinimalVM(vm.GetObjectMeta().GetName()))
 	if err != nil {
 		return err
 	}
 	return v.StartVMRaw(vm, rawXML)
 }
 
-func (v *vmService) StartVMRaw(vm *api.VM, rawXML []byte) error {
+func (v *vmService) StartVMRaw(vm *corev1.VM, rawXML []byte) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(rawXML)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
@@ -85,7 +84,7 @@ func (v *vmService) StartVMRaw(vm *api.VM, rawXML []byte) error {
 	return nil
 }
 
-func (v *vmService) DeleteVM(vm *api.VM) error {
+func (v *vmService) DeleteVM(vm *corev1.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
@@ -96,7 +95,7 @@ func (v *vmService) DeleteVM(vm *api.VM) error {
 	return nil
 }
 
-func (v *vmService) GetRunningPods(vm *api.VM) (*v1.PodList, error) {
+func (v *vmService) GetRunningPods(vm *corev1.VM) (*v1.PodList, error) {
 	podList, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).List(unfinishedVMPodSelector(vm))
 	if err != nil {
 		return nil, err
@@ -111,7 +110,7 @@ func NewVMService(logger log.Logger) VMService {
 	return &svc
 }
 
-func (v *vmService) PrepareMigration(vm *api.VM) error {
+func (v *vmService) PrepareMigration(vm *corev1.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	precond.MustBeTrue(len(vm.Spec.NodeSelector) > 0)
@@ -141,11 +140,11 @@ func (v *vmService) PrepareMigration(vm *api.VM) error {
 	return nil
 }
 
-func unfinishedVMPodSelector(vm *api.VM) kubeapi.ListOptions {
+func unfinishedVMPodSelector(vm *corev1.VM) kubeapi.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(kubeapi.PodFailed) +
 			",status.phase!=" + string(kubeapi.PodSucceeded))
-	labelSelector, err := labels.Parse(fmt.Sprintf("domain in (%s)", vm.GetObjectMeta().GetName()))
+	labelSelector, err := labels.Parse(fmt.Sprintf("kubevirt.io/domain in (%s)", vm.GetObjectMeta().GetName()))
 	if err != nil {
 		panic(err)
 	}

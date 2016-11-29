@@ -62,6 +62,6 @@ echo "Found VM running on node '$NODE'"
 # VM can also spawn on node
 vagrant ssh $NODE -c "sudo /vagrant/cluster/verify-qemu-kube ${VM_NAME}"
 else
-vagrant ssh master -c "kubectl delete pods -l app=virt-launcher"
+vagrant ssh master -c "kubectl delete pods -l kubevirt.io/app=virt-launcher"
 vagrant ssh master -c "kubectl delete vms --all"
 fi

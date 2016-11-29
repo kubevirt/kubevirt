@@ -3,11 +3,11 @@ kind: Pod
 metadata:
   generateName: virt-launcher-{{.Domain}}
   labels:
-    app: virt-launcher
-    domain: {{.Domain}}
-    vmUID: {{.VMUID}}
+    kubevirt.io/app: virt-launcher
+    kubevirt.io/domain: {{.Domain}}
+    kubevirt.io/vmUID: {{.VMUID}}
 {{if .DomainXML}}  annotations:
-    domainXML: "{{.DomainXML}}"{{end}}
+    kubevirt.io/domainXML: "{{.DomainXML}}"{{end}}
 spec:
   hostNetwork: true
   volumes:

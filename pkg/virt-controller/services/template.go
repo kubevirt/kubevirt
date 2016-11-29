@@ -6,15 +6,15 @@ import (
 	"html"
 	"io"
 	"k8s.io/client-go/1.5/pkg/types"
-	"kubevirt/core/pkg/api"
+	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/precond"
 	"strings"
 	"text/template"
 )
 
 type TemplateService interface {
-	RenderLaunchManifest(*api.VM, []byte, io.Writer) error
-	RenderMigrationManifest(*api.VM, io.Writer) error
+	RenderLaunchManifest(*v1.VM, []byte, io.Writer) error
+	RenderMigrationManifest(*v1.VM, io.Writer) error
 }
 
 type manifestData struct {
@@ -34,7 +34,7 @@ type templateService struct {
 }
 
 //Deprecated: create a nativ pod object with the kubernetes sdk
-func (t *templateService) RenderLaunchManifest(vm *api.VM, domainXML []byte, writer io.Writer) error {
+func (t *templateService) RenderLaunchManifest(vm *v1.VM, domainXML []byte, writer io.Writer) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(writer)
 	precond.MustNotBeNil(domainXML)
@@ -48,7 +48,7 @@ func (t *templateService) RenderLaunchManifest(vm *api.VM, domainXML []byte, wri
 }
 
 //Deprecated: create a nativ pod object with the kubernetes sdk
-func (t *templateService) RenderMigrationManifest(vm *api.VM, writer io.Writer) error {
+func (t *templateService) RenderMigrationManifest(vm *v1.VM, writer io.Writer) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(writer)
 	data := t.dataTemplate

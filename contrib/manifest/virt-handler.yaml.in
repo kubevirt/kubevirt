@@ -9,7 +9,16 @@ spec:
       labels:
         daemon: virt-handler
     spec:
+      volumes:
+      - name: var-run-virt
+        hostPath:
+          path: /var/run/libvirt
       containers:
       - name: virt-handler
         image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
         imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: var-run-virt
+          mountPath: /var/run/libvirt

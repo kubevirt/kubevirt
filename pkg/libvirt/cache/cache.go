@@ -1,15 +1,15 @@
-package libvirt
+package cache
 
 import (
 	"encoding/xml"
 	"github.com/rgbkrk/libvirt-go"
-	"k8s.io/client-go/1.5/pkg/api"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
 	"k8s.io/client-go/1.5/pkg/runtime"
 	"k8s.io/client-go/1.5/pkg/types"
 	"k8s.io/client-go/1.5/pkg/watch"
 	"k8s.io/client-go/1.5/tools/cache"
+	kubevirt "kubevirt/core/pkg/libvirt"
 )
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
@@ -17,13 +17,13 @@ func NewListWatchFromClient(c libvirt.VirConnection, events ...int) *cache.ListW
 	if len(events) == 0 {
 		events = []int{libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE}
 	}
-	listFunc := func(options api.ListOptions) (runtime.Object, error) {
+	listFunc := func(options kubeapi.ListOptions) (runtime.Object, error) {
 		doms, err := c.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE)
 		if err != nil {
 			return nil, err
 		}
-		list := DomainList{
-			Items: []Domain{},
+		list := kubevirt.DomainList{
+			Items: []kubevirt.Domain{},
 		}
 		for _, dom := range doms {
 			domain, err := NewDomain(&dom)
@@ -39,13 +39,13 @@ func NewListWatchFromClient(c libvirt.VirConnection, events ...int) *cache.ListW
 			if err != nil {
 				return nil, err
 			}
-			domain.Status.Status = LifeCycleTranslationMap[status[0]]
+			domain.Status.Status = kubevirt.LifeCycleTranslationMap[status[0]]
 			list.Items = append(list.Items, *domain)
 		}
 
 		return &list, nil
 	}
-	watchFunc := func(options api.ListOptions) (watch.Interface, error) {
+	watchFunc := func(options kubeapi.ListOptions) (watch.Interface, error) {
 		return NewDomainWatcher(c, events...)
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
@@ -84,9 +84,9 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 					// We can't count on a domain xml in these cases
 					status, err := d.GetState()
 					if err != nil {
-						domain.Status.Status = NoState
+						domain.Status.Status = kubevirt.NoState
 					} else {
-						domain.Status.Status = LifeCycleTranslationMap[status[0]]
+						domain.Status.Status = kubevirt.LifeCycleTranslationMap[status[0]]
 					}
 				default:
 					// TODO libvirt is racy there, between an event and fetching a domain xml everything can happen
@@ -103,7 +103,7 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 					if err != nil {
 						return 0
 					}
-					domain.Status.Status = LifeCycleTranslationMap[status[0]]
+					domain.Status.Status = kubevirt.LifeCycleTranslationMap[status[0]]
 				}
 
 				switch e.Event {
@@ -127,8 +127,8 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 	return watcher, nil
 }
 
-func NewDomainSpec(dom *libvirt.VirDomain) (*DomainSpec, error) {
-	domain := DomainSpec{}
+func NewDomainSpec(dom *libvirt.VirDomain) (*kubevirt.DomainSpec, error) {
+	domain := kubevirt.DomainSpec{}
 	domxml, err := dom.GetXMLDesc(libvirt.VIR_DOMAIN_XML_MIGRATABLE)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func NewDomainSpec(dom *libvirt.VirDomain) (*DomainSpec, error) {
 	return &domain, nil
 }
 
-func NewDomain(dom *libvirt.VirDomain) (*Domain, error) {
+func NewDomain(dom *libvirt.VirDomain) (*kubevirt.Domain, error) {
 	name, err := dom.GetName()
 	if err != nil {
 		return nil, err
@@ -150,14 +150,14 @@ func NewDomain(dom *libvirt.VirDomain) (*Domain, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Domain{
-		Spec: DomainSpec{},
+	return &kubevirt.Domain{
+		Spec: kubevirt.DomainSpec{},
 		ObjectMeta: kubeapi.ObjectMeta{
 			Name:      name,
 			UID:       types.UID(uuid),
 			Namespace: kubeapi.NamespaceDefault,
 		},
-		Status: DomainStatus{},
+		Status: kubevirt.DomainStatus{},
 		TypeMeta: unversioned.TypeMeta{
 			APIVersion: "1.2.2",
 			Kind:       "domains",

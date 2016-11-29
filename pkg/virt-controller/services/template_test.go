@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"kubevirt/core/pkg/api"
+	"kubevirt/core/pkg/api/v1"
 	"os"
 )
 
@@ -32,7 +32,7 @@ var _ = Describe("Template", func() {
 
 				Expect(err).To(BeNil())
 				buffer := new(bytes.Buffer)
-				err = svc.RenderLaunchManifest(&api.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}}, []byte("<domain>\n</domain>"), buffer)
+				err = svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}}, []byte("<domain>\n</domain>"), buffer)
 
 				Expect(err).To(BeNil())
 				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
@@ -48,7 +48,7 @@ var _ = Describe("Template", func() {
 
 				Expect(err).To(BeNil())
 				buffer := new(bytes.Buffer)
-				err = svc.RenderMigrationManifest(&api.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}}, buffer)
+				err = svc.RenderMigrationManifest(&v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}}, buffer)
 				Expect(err).To(BeNil())
 				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
 				Expect(buffer.String()).To(ContainSubstring("domain: testvm"))
@@ -70,7 +70,7 @@ var _ = Describe("Template", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
 				}
-				vm := api.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}, Spec: api.VMSpec{NodeSelector: nodeSelector}}
+				vm := v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}, Spec: v1.VMSpec{NodeSelector: nodeSelector}}
 				buffer := new(bytes.Buffer)
 
 				err = svc.RenderLaunchManifest(&vm, []byte("<domain>\n</domain>"), buffer)

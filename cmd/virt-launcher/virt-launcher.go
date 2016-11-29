@@ -196,8 +196,8 @@ func (vl *virtlauncher) ReadDomainXML(xmlPath string, downwardAPIPath string) {
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := scanner.Text()
-			if strings.HasPrefix(line, `domainXML="`) {
-				vl.domainXML = DecodeDomainXML(strings.Trim(strings.TrimPrefix(line, "domainXML="), `"`))
+			if strings.HasPrefix(line, `kubevirt.io/domainXML="`) {
+				vl.domainXML = DecodeDomainXML(strings.Trim(strings.TrimPrefix(line, "kubevirt.io/domainXML="), `"`))
 			}
 		}
 

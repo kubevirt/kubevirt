@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/tools/cache"
-	"kubevirt/core/pkg/api"
 	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/kubecli"
 	"kubevirt/core/pkg/virt-controller/services"
@@ -45,7 +44,7 @@ func (v *vmWatcher) Watch() (chan struct{}, error) {
 			dto := cache.Pop(queue).(*v1.VM)
 			//TODO: Field selectors are not yet working for TPRs
 			if dto.Status.Phase == "" {
-				vm := api.VM{}
+				vm := v1.VM{}
 				model.Copy(&vm, dto)
 				vmName := vm.GetObjectMeta().GetName()
 				logger := v.logger.With("object", "VM", "action", "createVMPod", "name", vmName, "UUID", vm.GetObjectMeta().GetUID())
@@ -99,7 +98,7 @@ func (v *vmWatcher) Watch() (chan struct{}, error) {
 				// object got enqueued already. It will fail above until the created pods time out.
 				// For (3) we want to enqueue again. If not the created pods will time out and we will
 				// not get any updates
-				dto.Status.Phase = v1.VMPending
+				dto.Status.Phase = v1.Pending
 				if err := restClient.Put().Resource("vms").Body(dto).Suffix(dto.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
 					logger.Error().Log("msg", err)
 					if e, ok := err.(*errors.StatusError); ok {

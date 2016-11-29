@@ -2,15 +2,21 @@ package main
 
 import (
 	"encoding/xml"
+	"flag"
 	"fmt"
 	libvirtapi "github.com/rgbkrk/libvirt-go"
 	"k8s.io/client-go/1.5/tools/cache"
 	"kubevirt/core/pkg/libvirt"
+	virtcache "kubevirt/core/pkg/libvirt/cache"
 	"time"
 )
 
 func main() {
+	flag.Parse()
 	libvirtapi.EventRegisterDefaultImpl()
+	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
+	libvirtUser := flag.String("user", "vdsm@ovirt", "Libvirt user")
+	libvirtPass := flag.String("pass", "shibboleth", "Libvirt password")
 	go func() {
 		for {
 			if res := libvirtapi.EventRunDefaultImpl(); res < 0 {
@@ -18,12 +24,12 @@ func main() {
 			}
 		}
 	}()
-	c, err := libvirtapi.NewVirConnection("")
+	c, err := libvirtapi.NewVirConnectionWithAuth(*libvirtUri, *libvirtUser, *libvirtPass)
 	defer c.CloseConnection()
 	if err != nil {
 		panic(err)
 	}
-	lw := libvirt.NewListWatchFromClient(c, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
+	lw := virtcache.NewListWatchFromClient(c, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
 
 	dur, err := time.ParseDuration("15s")
 	if err != nil {

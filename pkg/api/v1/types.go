@@ -203,21 +203,23 @@ type VMPhase string
 
 // These are the valid statuses of pods.
 const (
-	// VMPending means the VM has been accepted by the system, but the VM is not yet started. This includes time
-	// before being bound to a node, as well as a taget Pod might exist and be in ready state but the VM is not yet
-	// started inside it.
-	VMPending VMPhase = "Pending"
+	// VMPending means the VM has been accepted by the system.
+	// Either a target pod does not yet exist or a target Pod exists but is not yet scheduled and in running state.
+	Scheduling VMPhase = "Scheduling"
+	// A target pod was scheduled and the system saw that Pod in runnig state.
+	// Here is where the responsibility of virt-controller ends and virt-handler takes over.
+	Pending VMPhase = "Pending"
 	// VMRunning means the pod has been bound to a node and the VM is started.
-	VMRunning VMPhase = "Running"
+	Running VMPhase = "Running"
 	// VMMigrating means the VM is currently migrated by a controller.
-	VMMigrating VMPhase = "Migrating"
+	Migrating VMPhase = "Migrating"
 	// VMSucceeded means that the VM stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
 	// inside the VM.
-	VMSucceeded VMPhase = "Succeeded"
+	Succeeded VMPhase = "Succeeded"
 	// VMFailed means that associated Pod is in failure state (exited with a non-zero exit code or was stopped by
 	// the system).
-	VMFailed VMPhase = "Failed"
+	Failed VMPhase = "Failed"
 	// VMUnknown means that for some reason the state of the VM could not be obtained, typically due
 	// to an error in communicating with the host of the VM.
-	VMUnknown VMPhase = "Unknown"
+	Unknown VMPhase = "Unknown"
 )

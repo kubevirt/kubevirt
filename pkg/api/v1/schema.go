@@ -1,54 +1,9 @@
-package libvirt
+package v1
 
 import (
 	"encoding/xml"
-	"github.com/rgbkrk/libvirt-go"
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/meta"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
 	"kubevirt/core/pkg/precond"
 )
-
-type LifeCycle string
-
-const (
-	NoState     LifeCycle = "NoState"
-	Running     LifeCycle = "Running"
-	Blocked     LifeCycle = "Blocked"
-	Paused      LifeCycle = "Paused"
-	Shutdown    LifeCycle = "Shutdown"
-	Shutoff     LifeCycle = "Shutoff"
-	Crashed     LifeCycle = "Crashed"
-	PMSuspended LifeCycle = "PMSuspended"
-)
-
-var LifeCycleTranslationMap = map[int]LifeCycle{
-	libvirt.VIR_DOMAIN_NOSTATE:     NoState,
-	libvirt.VIR_DOMAIN_RUNNING:     Running,
-	libvirt.VIR_DOMAIN_BLOCKED:     Blocked,
-	libvirt.VIR_DOMAIN_PAUSED:      Paused,
-	libvirt.VIR_DOMAIN_SHUTDOWN:    Shutdown,
-	libvirt.VIR_DOMAIN_SHUTOFF:     Shutoff,
-	libvirt.VIR_DOMAIN_CRASHED:     Crashed,
-	libvirt.VIR_DOMAIN_PMSUSPENDED: PMSuspended,
-}
-
-type Domain struct {
-	unversioned.TypeMeta
-	ObjectMeta api.ObjectMeta
-	Spec       DomainSpec
-	Status     DomainStatus
-}
-
-type DomainStatus struct {
-	Status LifeCycle
-}
-
-type DomainList struct {
-	unversioned.TypeMeta
-	ListMeta unversioned.ListMeta
-	Items    []Domain
-}
 
 type DomainSpec struct {
 	XMLName xml.Name `xml:"domain" json:"-"`
@@ -318,24 +273,4 @@ func NewMinimalVM(vmName string) *DomainSpec {
 		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}
 	return &domain
-}
-
-// Required to satisfy Object interface
-func (d *Domain) GetObjectKind() unversioned.ObjectKind {
-	return &d.TypeMeta
-}
-
-// Required to satisfy ObjectMetaAccessor interface
-func (d *Domain) GetObjectMeta() meta.Object {
-	return &d.ObjectMeta
-}
-
-// Required to satisfy Object interface
-func (dl *DomainList) GetObjectKind() unversioned.ObjectKind {
-	return &dl.TypeMeta
-}
-
-// Required to satisfy ListMetaAccessor interface
-func (dl *DomainList) GetListMeta() unversioned.List {
-	return &dl.ListMeta
 }
