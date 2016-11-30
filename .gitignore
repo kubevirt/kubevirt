@@ -1,6 +1,7 @@
 vendor/*
 !vendor/vendor.json
 .idea
+*.iml
 cmd/virt-controller/virt-controller
 cmd/virt-launcher/virt-launcher
 cmd/virt-handler/virt-handler
