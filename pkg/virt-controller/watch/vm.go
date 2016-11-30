@@ -66,37 +66,46 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 		// For case (1) this loop is not responsible. virt-handler or another loop is
 		// responsible.
 		// For case (2) we want to delete the VM first and then start over again.
+
+		// TODO move defaulting to virt-api
+		if vm.Spec.Domain == nil {
+			spec := v1.NewMinimalVM(vm.GetObjectMeta().GetName())
+			vm.Spec.Domain = spec
+		}
+		vm.Spec.Domain.UUID = string(vm.GetObjectMeta().GetUID())
+		vm.Spec.Domain.Devices.Emulator = "/usr/local/bin/qemu-x86_64"
+
 		// TODO get rid of these service calls
 		if err := v.VMService.StartVM(&vm); err != nil {
 			logger.Error().Log("msg", err)
-			if pl, err := v.VMService.GetRunningPods(&vm); err == nil {
-				for _, p := range pl.Items {
-					if p.GetObjectMeta().GetLabels()["kubevirt.io/vmUID"] == string(vm.GetObjectMeta().GetUID()) {
-						// Pod from incomplete initialization detected, cleaning up
-						logger.Error().Log("msg", "Found orphan pod of current VM spec.", "pod", p.GetName())
-						err = v.VMService.DeleteVM(&vm)
-						if err != nil {
-							// TODO detect if communication error and do backoff
-							logger.Crit().Log("msg", err)
-							return cache.ErrRequeue{Err: err}
-						}
-					} else {
-						// TODO virt-api should make sure this does not happen. For now don't ask and clean up.
-						// Pod from old VM object detected,
-						logger.Error().Log("msg", "Found orphan pod of old VM spec.", "pod", p.GetName())
-						err = v.VMService.DeleteVM(&vm)
-						if err != nil {
-							// TODO detect if communication error and backoff
-							logger.Crit().Log("msg", err)
-							return cache.ErrRequeue{Err: err}
-						}
+			pl, err := v.VMService.GetRunningPods(&vm)
+			if err != nil {
+				// TODO detect if communication error and backoff
+				logger.Error().Log("msg", err)
+				return cache.ErrRequeue{Err: err}
+			}
+			for _, p := range pl.Items {
+				if p.GetObjectMeta().GetLabels()["kubevirt.io/vmUID"] == string(vm.GetObjectMeta().GetUID()) {
+					// Pod from incomplete initialization detected, cleaning up
+					logger.Error().Log("msg", "Found orphan pod of current VM spec.", "pod", p.GetName())
+					err = v.VMService.DeleteVM(&vm)
+					if err != nil {
+						// TODO detect if communication error and do backoff
+						logger.Crit().Log("msg", err)
+						return cache.ErrRequeue{Err: err}
+					}
+				} else {
+					// TODO virt-api should make sure this does not happen. For now don't ask and clean up.
+					// Pod from old VM object detected,
+					logger.Error().Log("msg", "Found orphan pod of old VM spec.", "pod", p.GetName())
+					err = v.VMService.DeleteVM(&vm)
+					if err != nil {
+						// TODO detect if communication error and backoff
+						logger.Crit().Log("msg", err)
+						return cache.ErrRequeue{Err: err}
 					}
 				}
-			} else {
-				logger.Crit().Log("msg", "Checking for running pods for VM failed.")
-				// TODO detect if communication error and backoff
 			}
-			logger.Info().Log("msg", "Enqueing initialization of VM again.")
 			return cache.ErrRequeue{Err: err}
 		}
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
@@ -119,7 +128,6 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 					return nil
 				}
 			}
-			logger.Info().Log("msg", "Enqueing initialization of VM again.")
 			// TODO backoff policy here
 			return cache.ErrRequeue{Err: err}
 		}
@@ -137,6 +145,15 @@ func (v *vmResourceEventHandler) OnUpdate(oldObj, newObj interface{}) error {
 }
 
 func (v *vmResourceEventHandler) OnDelete(obj interface{}) error {
-	// virt-controller does nothing in this case, it is up to virt-handler or the pod timeout itself to clean up
+	vm := obj.(*v1.VM)
+	logger := v.logger.With("object", "VM", "action", "deleteVMPods", "name", vm.GetObjectMeta().GetName(), "UUID", vm.GetObjectMeta().GetUID())
+	// TODO make sure the grace period is big enough that virt-handler can stop the VM the libvirt way
+	// TODO maybe add a SIGTERM delay to virt-launcher in combination with a grace periode on the delete?
+	err := v.VMService.DeleteVM(obj.(*v1.VM))
+	if err != nil {
+		logger.Error().Log("msg", err)
+		return cache.ErrRequeue{Err: err}
+	}
+	logger.Info().Log("msg", "Succeeded.")
 	return nil
 }

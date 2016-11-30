@@ -2,26 +2,21 @@ package services
 
 import (
 	"bytes"
-	"encoding/xml"
 	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
-	"github.com/satori/go.uuid"
 	"k8s.io/client-go/1.5/kubernetes"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/pkg/labels"
-	"k8s.io/client-go/1.5/pkg/types"
 	"k8s.io/client-go/1.5/pkg/util/yaml"
 	corev1 "kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/middleware"
 	"kubevirt/core/pkg/precond"
-	"regexp"
 )
 
 type VMService interface {
-	StartVMRaw(*corev1.VM, []byte) error
 	StartVM(*corev1.VM) error
 	DeleteVM(*corev1.VM) error
 	PrepareMigration(*corev1.VM) error
@@ -37,17 +32,6 @@ type vmService struct {
 func (v *vmService) StartVM(vm *corev1.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-	rawXML, err := xml.Marshal(corev1.NewMinimalVM(vm.GetObjectMeta().GetName()))
-	if err != nil {
-		return err
-	}
-	return v.StartVMRaw(vm, rawXML)
-}
-
-func (v *vmService) StartVMRaw(vm *corev1.VM, rawXML []byte) error {
-	precond.MustNotBeNil(vm)
-	precond.MustNotBeNil(rawXML)
-	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
 
 	podList, err := v.GetRunningPods(vm)
@@ -60,15 +44,8 @@ func (v *vmService) StartVMRaw(vm *corev1.VM, rawXML []byte) error {
 		return middleware.NewResourceExistsError("VM", vm.GetObjectMeta().GetName())
 	}
 
-	if vm.GetObjectMeta().GetUID() == "" {
-		vm.GetObjectMeta().SetUID(types.UID(uuid.NewV4().String()))
-		//TODO when we can serialize VMs to XML, we can get rid of this
-		r := regexp.MustCompile("</domain[\\s]*>")
-		rawXML = r.ReplaceAll(rawXML, []byte(fmt.Sprintf("<uuid>%s</uuid></domain>", vm.GetObjectMeta().GetUID())))
-	}
-
 	templateBuffer := new(bytes.Buffer)
-	if err := v.TemplateService.RenderLaunchManifest(vm, rawXML, templateBuffer); err != nil {
+	if err := v.TemplateService.RenderLaunchManifest(vm, templateBuffer); err != nil {
 		return err
 	}
 
@@ -125,7 +102,7 @@ func (v *vmService) PrepareMigration(vm *corev1.VM) error {
 	}
 
 	templateBuffer := new(bytes.Buffer)
-	if err := v.TemplateService.RenderMigrationManifest(vm, templateBuffer); err != nil {
+	if err := v.TemplateService.RenderLaunchManifest(vm, templateBuffer); err != nil {
 		return err
 	}
 	pod := v1.Pod{}

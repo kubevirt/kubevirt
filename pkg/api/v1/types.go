@@ -124,6 +124,7 @@ type VMList struct {
 }
 
 type VMSpec struct {
+	Domain       *DomainSpec       `json:"domain,omitempty"`
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
