@@ -30,7 +30,7 @@ func NewVMWatcher(logger log.Logger) VMWatcher {
 }
 
 func (v *vmWatcher) Watch() (chan struct{}, error) {
-	restClient, err := kubecli.GetRESTCLient()
+	restClient, err := kubecli.GetRESTClient()
 	if err != nil {
 		return nil, err
 	}

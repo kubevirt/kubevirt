@@ -34,7 +34,7 @@ func Get() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-func GetRESTCLient() (*rest.RESTClient, error) {
+func GetRESTClient() (*rest.RESTClient, error) {
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {

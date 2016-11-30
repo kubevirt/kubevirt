@@ -15,7 +15,7 @@ import (
 )
 
 func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr unversioned.GroupVersionResource, ptr runtime.Object) error {
-	cli, err := kubecli.GetRESTCLient()
+	cli, err := kubecli.GetRESTClient()
 	if err != nil {
 		return err
 	}
