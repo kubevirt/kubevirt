@@ -14,16 +14,18 @@ import (
 	"reflect"
 )
 
-func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr unversioned.GroupVersionResource, ptr runtime.Object) error {
+type ResponseHandlerFunc func(rest.Result) (runtime.Object, error)
+
+func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr unversioned.GroupVersionResource, ptr runtime.Object, response ResponseHandlerFunc) error {
 	cli, err := kubecli.GetRESTClient()
 	if err != nil {
 		return err
 	}
 	example := reflect.ValueOf(ptr).Elem().Interface()
-	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr)).Build(ctx)
-	put := endpoints.NewHandlerBuilder().Put(ptr).Endpoint(NewGenericPutEndpoint(cli, gvr)).Build(ctx)
-	post := endpoints.NewHandlerBuilder().Post(ptr).Endpoint(NewGenericPostEndpoint(cli, gvr)).Build(ctx)
-	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr)).Build(ctx)
+	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, response)).Build(ctx)
+	put := endpoints.NewHandlerBuilder().Put(ptr).Endpoint(NewGenericPutEndpoint(cli, gvr, response)).Build(ctx)
+	post := endpoints.NewHandlerBuilder().Post(ptr).Endpoint(NewGenericPostEndpoint(cli, gvr, response)).Build(ctx)
+	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, response)).Build(ctx)
 
 	ws.Route(ws.POST(fmt.Sprintf("apis/%s/%s/namespaces/{namespace}/%s", gvr.Group, gvr.Version, gvr.Resource)).
 		To(endpoints.MakeGoRestfulWrapper(post)).Reads(example).Writes(example))
@@ -39,7 +41,7 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr un
 	return nil
 }
 
-func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource) endpoint.Endpoint {
+func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		metadata := payload.(*endpoints.Metadata)
 		result := cli.Delete().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do()
@@ -47,7 +49,7 @@ func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersion
 	}
 }
 
-func NewGenericPutEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource) endpoint.Endpoint {
+func NewGenericPutEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		obj := payload.(*endpoints.PutObject)
 		result := cli.Put().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Body(obj.Payload).Do()
@@ -55,7 +57,7 @@ func NewGenericPutEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionRes
 	}
 }
 
-func NewGenericPostEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource) endpoint.Endpoint {
+func NewGenericPostEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		obj := payload.(*endpoints.PutObject)
 		result := cli.Post().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Body(obj.Payload).Do()
@@ -63,7 +65,7 @@ func NewGenericPostEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionRe
 	}
 }
 
-func NewGenericGetEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource) endpoint.Endpoint {
+func NewGenericGetEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		metadata := payload.(*endpoints.Metadata)
 		result := cli.Get().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do()
@@ -71,13 +73,20 @@ func NewGenericGetEndpoint(cli *rest.RESTClient, gvr unversioned.GroupVersionRes
 	}
 }
 
-func response(result rest.Result) (runtime.Object, error) {
-	if result.Error() != nil {
-		return nil, middleware.NewInternalServerError(result.Error())
+//FIXME this is basically one big workaround because version and kind are not filled by the restclient
+func NewResponseHandler(gvk unversioned.GroupVersionKind, ptr runtime.Object) ResponseHandlerFunc {
+	return func(result rest.Result) (runtime.Object, error) {
+		if result.Error() != nil {
+			return nil, middleware.NewInternalServerError(result.Error())
+		}
+		obj, err := result.Get()
+		if reflect.TypeOf(obj).Elem() == reflect.TypeOf(ptr).Elem() {
+			obj.(runtime.Object).GetObjectKind().SetGroupVersionKind(gvk)
+		}
+		if err != nil {
+			return nil, middleware.NewInternalServerError(result.Error())
+		}
+		return obj, nil
+
 	}
-	obj, err := result.Get()
-	if err != nil {
-		return nil, middleware.NewInternalServerError(result.Error())
-	}
-	return obj, nil
 }

@@ -22,8 +22,10 @@ func main() {
 
 	ctx := context.Background()
 	gvr := unversioned.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
+	gvk := unversioned.GroupVersionKind{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Kind: "VM"}
 
-	err := rest.AddGenericResourceProxy(rest.WebService, ctx, gvr, &v1.VM{})
+	// FIXME the whole NewResponseHandler is just a hack, see the method itself for details
+	err := rest.AddGenericResourceProxy(rest.WebService, ctx, gvr, &v1.VM{}, rest.NewResponseHandler(gvk, &v1.VM{}))
 	if err != nil {
 		log.Fatal(err)
 	}
