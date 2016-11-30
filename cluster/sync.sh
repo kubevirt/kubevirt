@@ -11,9 +11,11 @@ chmod u+x cluster/.kubectl
 vagrant ssh master -c "sudo cat /etc/kubernetes/kubelet.conf" > cluster/.kubeconfig
 
 make all contrib
-vagrant rsync # if you do not use NFS
-vagrant ssh master -c "cd /vagrant && sudo hack/build-docker.sh"
-vagrant ssh node -c "cd /vagrant && sudo hack/build-docker.sh"
+
+for VM in `vagrant status | grep running | cut -d " " -f1`; do
+  vagrant rsync $VM # if you do not use NFS
+  vagrant ssh $VM -c "cd /vagrant && sudo hack/build-docker.sh"
+done
 
 # Deploy all manifests files
 set +x
