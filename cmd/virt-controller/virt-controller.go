@@ -14,6 +14,7 @@ import (
 	"github.com/facebookgo/inject"
 	"k8s.io/client-go/1.5/tools/cache"
 	"kubevirt/core/pkg/kubecli"
+	"kubevirt/core/pkg/util"
 	"kubevirt/core/pkg/virt-controller/rest"
 	"kubevirt/core/pkg/virt-controller/services"
 	"kubevirt/core/pkg/virt-controller/watch"
@@ -45,7 +46,7 @@ func main() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vmCache, err := watch.NewVMCache()
+	vmCache, err := util.NewVMCache()
 	if err != nil {
 		golog.Fatal(err)
 	}

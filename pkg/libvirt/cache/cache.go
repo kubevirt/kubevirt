@@ -173,3 +173,9 @@ func NewDomain(dom *libvirt.VirDomain) (*kubevirt.Domain, error) {
 		},
 	}, nil
 }
+
+func NewDomainCache(c libvirt.VirConnection) (cache.SharedInformer, error) {
+	domainCacheSource := NewListWatchFromClient(c, libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
+	informer := cache.NewSharedInformer(domainCacheSource, &kubevirt.Domain{}, 0)
+	return informer, nil
+}
