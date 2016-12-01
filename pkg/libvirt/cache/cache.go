@@ -18,7 +18,7 @@ func NewListWatchFromClient(c libvirt.VirConnection, events ...int) *cache.ListW
 		events = []int{libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE}
 	}
 	listFunc := func(options kubeapi.ListOptions) (runtime.Object, error) {
-		doms, err := c.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE)
+		doms, err := c.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE | libvirt.VIR_CONNECT_LIST_DOMAINS_INACTIVE)
 		if err != nil {
 			return nil, err
 		}
@@ -73,6 +73,8 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 				// watcher.C <- watch.Event{Type: watch.Error, Object: &Domain{}}
 				return 0
 			}
+			// TODO In case of other events, it might not be enough to just send state and domainxml, maybe we have to embed the event and the details too
+			//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
 			e, ok := eventDetails.(libvirt.DomainLifecycleEvent)
 			if ok {
 				switch e.Event {
@@ -81,7 +83,12 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 					libvirt.VIR_DOMAIN_EVENT_SHUTDOWN,
 					libvirt.VIR_DOMAIN_EVENT_CRASHED,
 					libvirt.VIR_DOMAIN_EVENT_UNDEFINED:
-					// We can't count on a domain xml in these cases
+					// We can't count on a domain xml in these cases, but let's try it
+					if e.Event != libvirt.VIR_DOMAIN_EVENT_UNDEFINED {
+						if spec, err := NewDomainSpec(d); err == nil {
+							domain.Spec = *spec
+						}
+					}
 					status, err := d.GetState()
 					if err != nil {
 						domain.Status.Status = kubevirt.NoState
@@ -107,12 +114,14 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 				}
 
 				switch e.Event {
-				case libvirt.VIR_DOMAIN_EVENT_STARTED:
-					watcher.C <- watch.Event{Type: watch.Added, Object: domain}
-				case libvirt.VIR_DOMAIN_EVENT_STOPPED, libvirt.VIR_DOMAIN_EVENT_SHUTDOWN, libvirt.VIR_DOMAIN_EVENT_CRASHED:
+				case libvirt.VIR_DOMAIN_EVENT_DEFINED:
+					if e.Detail == libvirt.VIR_DOMAIN_EVENT_DEFINED_ADDED {
+						watcher.C <- watch.Event{Type: watch.Added, Object: domain}
+					} else {
+						watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
+					}
+				case libvirt.VIR_DOMAIN_EVENT_UNDEFINED:
 					watcher.C <- watch.Event{Type: watch.Deleted, Object: domain}
-				case libvirt.VIR_DOMAIN_EVENT_DEFINED, libvirt.VIR_DOMAIN_EVENT_UNDEFINED:
-					// kubevirt just cares about active domains, so ignore these events
 				default:
 					watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
 				}

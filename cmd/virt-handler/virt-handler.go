@@ -31,22 +31,18 @@ func main() {
 	}
 	lw := virtcache.NewListWatchFromClient(c, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
 
-	dur, err := time.ParseDuration("15s")
-	if err != nil {
-		panic(err)
-	}
-	_, ctl := cache.NewInformer(lw, &libvirt.Domain{}, dur, cache.ResourceEventHandlerFuncs{
+	_, ctl := cache.NewInformer(lw, &libvirt.Domain{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			j, _ := xml.Marshal(obj.(*libvirt.Domain).Spec)
-			fmt.Printf("ADDED: %s\n", string(j))
+			fmt.Printf("ADDED: %s, %s\n", obj.(*libvirt.Domain).Status.Status, string(j))
 		},
 		DeleteFunc: func(obj interface{}) {
 			j, _ := xml.Marshal(obj.(*libvirt.Domain).Spec)
-			fmt.Printf("DELETED: %s\n", string(j))
+			fmt.Printf("DELETED: %s, %s\n", obj.(*libvirt.Domain).Status.Status, string(j))
 		},
 		UpdateFunc: func(old interface{}, new interface{}) {
 			j, _ := xml.Marshal(new.(*libvirt.Domain).Spec)
-			fmt.Printf("UPDATED: %s\n", string(j))
+			fmt.Printf("UPDATED: %s, %s\n", new.(*libvirt.Domain).Status.Status, string(j))
 		},
 	})
 	stop := make(chan struct{})
