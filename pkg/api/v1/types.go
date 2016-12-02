@@ -46,6 +46,7 @@ func init() {
 		panic(err)
 	}
 
+	// TODO the whole mapping registration can be done be an automatic process with reflection
 	model.AddConversion((*uuid.UUID)(nil), (*string)(nil), func(in reflect.Value) (reflect.Value, error) {
 		return reflect.ValueOf(in.Interface().(uuid.UUID).String()), nil
 	})

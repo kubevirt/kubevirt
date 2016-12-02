@@ -269,7 +269,6 @@ func NewMinimalVM(vmName string) *DomainSpec {
 	domain.Memory = Memory{Unit: "KiB", Value: 8192}
 	domain.Devices = Devices{Emulator: "/usr/local/bin/qemu-x86_64"}
 	domain.Devices.Interfaces = []Interface{
-		{Type: "network", Source: InterfaceSource{Network: "kubevirt-net"}},
 		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}
 	return &domain

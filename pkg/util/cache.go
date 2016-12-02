@@ -1,9 +1,9 @@
 package util
 
 import (
+	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/tools/cache"
-	"k8s.io/kubernetes/pkg/api"
 	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/kubecli"
 )

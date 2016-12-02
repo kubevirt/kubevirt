@@ -6,10 +6,52 @@ import (
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/meta"
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
+	"kubevirt/core/pkg/api/v1"
 	"kubevirt/core/pkg/precond"
+	"kubevirt/core/pkg/util"
 )
 
 type LifeCycle string
+
+func init() {
+	// TODO the whole mapping registration can be done be an automatic process with reflection
+	util.AddConversion(&Memory{}, &v1.Memory{})
+	util.AddConversion(&OS{}, &v1.OS{})
+	util.AddConversion(&Devices{}, &v1.Devices{})
+	util.AddConversion(&Devices{}, &v1.Devices{})
+	util.AddPtrConversion((**Clock)(nil), (**v1.Clock)(nil))
+	util.AddPtrConversion((**SysInfo)(nil), (**v1.SysInfo)(nil))
+	util.AddConversion(&Channel{}, &v1.Channel{})
+	util.AddConversion(&Interface{}, &v1.Interface{})
+	util.AddConversion(&Video{}, &v1.Video{})
+	util.AddConversion(&Graphics{}, &v1.Graphics{})
+	util.AddPtrConversion((**Ballooning)(nil), (**v1.Ballooning)(nil))
+	util.AddConversion(&Disk{}, &v1.Disk{})
+	util.AddConversion(&DiskSource{}, &v1.DiskSource{})
+	util.AddConversion(&DiskTarget{}, &v1.DiskTarget{})
+	util.AddPtrConversion((**DiskDriver)(nil), (**v1.DiskDriver)(nil))
+	util.AddPtrConversion((**ReadOnly)(nil), (**v1.ReadOnly)(nil))
+	util.AddPtrConversion((**Address)(nil), (**v1.Address)(nil))
+	util.AddConversion(&InterfaceSource{}, &v1.InterfaceSource{})
+	util.AddPtrConversion((**InterfaceTarget)(nil), (**v1.InterfaceTarget)(nil))
+	util.AddPtrConversion((**Model)(nil), (**v1.Model)(nil))
+	util.AddPtrConversion((**MAC)(nil), (**v1.MAC)(nil))
+	util.AddPtrConversion((**BandWidth)(nil), (**v1.BandWidth)(nil))
+	util.AddPtrConversion((**BootOrder)(nil), (**v1.BootOrder)(nil))
+	util.AddPtrConversion((**LinkState)(nil), (**v1.LinkState)(nil))
+	util.AddPtrConversion((**FilterRef)(nil), (**v1.FilterRef)(nil))
+	util.AddPtrConversion((**Alias)(nil), (**v1.Alias)(nil))
+	util.AddConversion(&OSType{}, &v1.OSType{})
+	util.AddPtrConversion((**SMBios)(nil), (**v1.SMBios)(nil))
+	util.AddConversion(&Boot{}, &v1.Boot{})
+	util.AddPtrConversion((**BootMenu)(nil), (**v1.BootMenu)(nil))
+	util.AddPtrConversion((**BIOS)(nil), (**v1.BIOS)(nil))
+	util.AddConversion(&Entry{}, &v1.Entry{})
+	util.AddConversion(&ChannelSource{}, &v1.ChannelSource{})
+	util.AddPtrConversion((**ChannelTarget)(nil), (**v1.ChannelTarget)(nil))
+	util.AddConversion(&VideoModel{}, &v1.VideoModel{})
+	util.AddConversion(&Listen{}, &v1.Listen{})
+}
 
 const (
 	NoState     LifeCycle = "NoState"
@@ -314,7 +356,6 @@ func NewMinimalVM(vmName string) *DomainSpec {
 	domain.Memory = Memory{Unit: "KiB", Value: 8192}
 	domain.Devices = Devices{Emulator: "/usr/local/bin/qemu-x86_64"}
 	domain.Devices.Interfaces = []Interface{
-		{Type: "network", Source: InterfaceSource{Network: "kubevirt-net"}},
 		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}
 	return &domain

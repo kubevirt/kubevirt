@@ -148,3 +148,21 @@ func NewPanicCatcher(logger levels.Levels) func() {
 		}
 	}
 }
+
+type ResourceEventHandlerFuncs struct {
+	AddFunc    func(obj interface{}) error
+	UpdateFunc func(oldObj, newObj interface{}) error
+	DeleteFunc func(obj interface{}) error
+}
+
+func (r ResourceEventHandlerFuncs) OnAdd(obj interface{}) error {
+	return r.AddFunc(obj)
+}
+
+func (r ResourceEventHandlerFuncs) OnUpdate(oldObj, newObj interface{}) error {
+	return r.UpdateFunc(oldObj, newObj)
+}
+
+func (r ResourceEventHandlerFuncs) OnDelete(obj interface{}) error {
+	return r.DeleteFunc(obj)
+}

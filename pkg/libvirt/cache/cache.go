@@ -69,6 +69,7 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 		func(c *libvirt.VirConnection, d *libvirt.VirDomain, eventDetails interface{}, _ func()) int {
 			domain, err := NewDomain(d)
 			if err != nil {
+				// TODO proper logging
 				// FIXME like described below libvirt needs to send the xml along side with the event. When this is done we can return an error
 				// watcher.C <- watch.Event{Type: watch.Error, Object: &Domain{}}
 				return 0
@@ -85,12 +86,16 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 					libvirt.VIR_DOMAIN_EVENT_UNDEFINED:
 					// We can't count on a domain xml in these cases, but let's try it
 					if e.Event != libvirt.VIR_DOMAIN_EVENT_UNDEFINED {
-						if spec, err := NewDomainSpec(d); err == nil {
+						spec, err := NewDomainSpec(d)
+						if err != nil {
+							// TODO proper logging
+						} else {
 							domain.Spec = *spec
 						}
 					}
 					status, err := d.GetState()
 					if err != nil {
+						// TODO proper logging
 						domain.Status.Status = kubevirt.NoState
 					} else {
 						domain.Status.Status = kubevirt.LifeCycleTranslationMap[status[0]]
@@ -103,11 +108,13 @@ func NewDomainWatcher(c libvirt.VirConnection, events ...int) (watch.Interface, 
 					//      To fix this, an event should send its state and the current domain xml
 					spec, err := NewDomainSpec(d)
 					if err != nil {
+						// TODO proper logging
 						return 0
 					}
 					domain.Spec = *spec
 					status, err := d.GetState()
 					if err != nil {
+						// TODO proper logging
 						return 0
 					}
 					domain.Status.Status = kubevirt.LifeCycleTranslationMap[status[0]]

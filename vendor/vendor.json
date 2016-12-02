@@ -253,11 +253,11 @@
 			"revisionTime": "2016-08-30T04:10:46Z"
 		},
 		{
-			"checksumSHA1": "5McqW3RfqftesEuXlMImRjotx80=",
+			"checksumSHA1": "5jSd17ygNm0QrPE/QMWiimPdZag=",
 			"path": "github.com/rmohr/go-model",
-			"revision": "0f7d612341def70d25ad0db5a4ad5d0254dffa6e",
-			"revisionTime": "2016-10-12T07:16:54Z",
-			"version": "=converter",
+			"revision": "d4f7c185b41e09610b83b73d21b9088c4e946a08",
+			"revisionTime": "2016-12-05T14:24:10Z",
+			"version": "converter",
 			"versionExact": "converter"
 		},
 		{

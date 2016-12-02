@@ -22,3 +22,8 @@ spec:
         volumeMounts:
         - name: var-run-virt
           mountPath: /var/run/libvirt
+        env:
+          - name: HOSTNAME_OVERRIDE
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName

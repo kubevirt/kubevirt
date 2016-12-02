@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	libvirtapi "github.com/rgbkrk/libvirt-go"
+	"github.com/rmohr/go-model"
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/pkg/labels"
@@ -16,25 +17,32 @@ import (
 	"kubevirt/core/pkg/util"
 	"os"
 	"time"
-	"github.com/rmohr/go-model"
 )
 
 func main() {
 
-	flag.Parse()
 	libvirtapi.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	libvirtUser := flag.String("user", "vdsm@ovirt", "Libvirt user")
 	libvirtPass := flag.String("pass", "shibboleth", "Libvirt password")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
+	flag.Parse()
 
+	// The right nodename is vital for us. Resolution order is:
+	// 1) hostname-override
+	// 2) HOSTNAME_OVERRIDE env variable
+	// 3) hostname reported by the system (not very useful when in a container)
 	if *host == "" {
-		defaultHostName, err := os.Hostname()
-		if err != nil {
-			panic(err)
+		*host = os.Getenv("HOSTNAME_OVERRIDE")
+		if *host == "" {
+			defaultHostName, err := os.Hostname()
+			if err != nil {
+				panic(err)
+			}
+			*host = defaultHostName
 		}
-		*host = defaultHostName
 	}
+	fmt.Printf("Hostname: %s\n", *host)
 
 	go func() {
 		for {
@@ -43,8 +51,16 @@ func main() {
 			}
 		}
 	}()
-	c, err := libvirtapi.NewVirConnectionWithAuth(*libvirtUri, *libvirtUser, *libvirtPass)
-	defer c.CloseConnection()
+	// TODO we need to handle disconnects
+	domainCacheConn, err := libvirtapi.NewVirConnectionWithAuth(*libvirtUri, *libvirtUser, *libvirtPass)
+	defer domainCacheConn.CloseConnection()
+	if err != nil {
+		panic(err)
+	}
+
+	// TODO we need to handle disconnects
+	domainLWConn, err := libvirtapi.NewVirConnectionWithAuth(*libvirtUri, *libvirtUser, *libvirtPass)
+	defer domainLWConn.CloseConnection()
 	if err != nil {
 		panic(err)
 	}
@@ -54,25 +70,25 @@ func main() {
 		panic(err)
 	}
 
-	domainCache, err := virtcache.NewDomainCache(c)
+	domainCache, err := virtcache.NewDomainCache(domainCacheConn)
 	if err != nil {
 		panic(err)
 	}
 
-	domainListWatcher := virtcache.NewListWatchFromClient(c, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
+	domainListWatcher := virtcache.NewListWatchFromClient(domainLWConn, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
 
-	_, domainController := cache.NewInformer(domainListWatcher, &libvirt.Domain{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			j, _ := xml.Marshal(obj.(*libvirt.Domain).Spec)
-			fmt.Printf("ADDED: %s, %s\n", obj.(*libvirt.Domain).Status.Status, string(j))
+	_, domainController := kubecli.NewInformer(domainListWatcher, &libvirt.Domain{}, 0, kubecli.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) error {
+			fmt.Printf("Domain ADDED: %s: %s\n", obj.(*libvirt.Domain).GetObjectMeta().GetName(), obj.(*libvirt.Domain).Status.Status)
+			return nil
 		},
-		DeleteFunc: func(obj interface{}) {
-			j, _ := xml.Marshal(obj.(*libvirt.Domain).Spec)
-			fmt.Printf("DELETED: %s, %s\n", obj.(*libvirt.Domain).Status.Status, string(j))
+		DeleteFunc: func(obj interface{}) error {
+			fmt.Printf("Domain DELETED: %s: %s\n", obj.(*libvirt.Domain).GetObjectMeta().GetName(), obj.(*libvirt.Domain).Status.Status)
+			return nil
 		},
-		UpdateFunc: func(old interface{}, new interface{}) {
-			j, _ := xml.Marshal(new.(*libvirt.Domain).Spec)
-			fmt.Printf("UPDATED: %s, %s\n", new.(*libvirt.Domain).Status.Status, string(j))
+		UpdateFunc: func(old interface{}, new interface{}) error {
+			fmt.Printf("Domain UPDATED: %s: %s\n", new.(*libvirt.Domain).GetObjectMeta().GetName(), new.(*libvirt.Domain).Status.Status)
+			return nil
 		},
 	})
 	restClient, err := kubecli.GetRESTClient()
@@ -80,13 +96,84 @@ func main() {
 		panic(err)
 	}
 
-	l, err := labels.Parse(fmt.Sprintf("kubvirt.io/nodeName in (%s)", *host))
+	l, err := labels.Parse(fmt.Sprintf("kubevirt.io/nodeName in (%s)", *host))
 	if err != nil {
 		panic(err)
 	}
 	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceDefault, fields.Everything(), l)
 
-	vmStore, vmController := kubecli.NewInformer(vmListWatcher, &v1.VM{}, 0, &vmResourceEventHandler{})
+	vmStore, vmController := kubecli.NewInformer(vmListWatcher, &v1.VM{}, 0, kubecli.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) error {
+			// define and start
+			fmt.Printf("VM ADD\n")
+			domainSpec := &libvirt.DomainSpec{}
+			vm := obj.(*v1.VM)
+			errs := model.Copy(domainSpec, vm.Spec.Domain)
+			if len(errs) > 0 {
+				fmt.Println(errs)
+				return nil
+			}
+			domXML, _ := xml.Marshal(domainSpec)
+			dom, err := domainCacheConn.DomainDefineXML(string(domXML))
+			if err != nil {
+				fmt.Println(err)
+				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_DOM_EXIST {
+					time.Sleep(1 * time.Second)
+					return cache.ErrRequeue{Err: err}
+				}
+				// TODO more fine grained checks, backoff, ...
+			}
+
+			if err := dom.Create(); err != nil {
+				fmt.Println(err)
+				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
+					time.Sleep(1 * time.Second)
+					return cache.ErrRequeue{Err: err}
+				}
+				// TODO check if vm is already runnin, backoff, ...
+				// For now we assume the VM is running when the operation was invalid
+			}
+
+			return nil
+		},
+		DeleteFunc: func(obj interface{}) error {
+			// stop and undefine
+			fmt.Printf("VM DELETE\n")
+			vm, ok := obj.(*v1.VM)
+			if !ok {
+				vm = obj.(cache.DeletedFinalStateUnknown).Obj.(*v1.VM)
+			}
+			domain, err := domainCacheConn.LookupDomainByName(vm.ObjectMeta.Name)
+			if err != nil {
+				fmt.Println(err)
+				return nil
+			}
+
+			err = domain.Destroy()
+			if err != nil {
+				fmt.Println(err)
+				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
+					// TODO more fine grained checks, backoff, ...
+					time.Sleep(1 * time.Second)
+					return cache.ErrRequeue{Err: err}
+				}
+			}
+			domain.Undefine()
+			if err != nil {
+				fmt.Println(err)
+				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
+					// TODO more fine grained checks, backoff, ...
+					time.Sleep(1 * time.Second)
+					return cache.ErrRequeue{Err: err}
+				}
+			}
+			return nil
+		},
+		UpdateFunc: func(old interface{}, new interface{}) error {
+			fmt.Printf("VM UPDATE\n")
+			return nil
+		},
+	})
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
@@ -96,7 +183,7 @@ func main() {
 	cache.WaitForCacheSync(stop, vmCache.HasSynced)
 	cache.WaitForCacheSync(stop, domainCache.HasSynced)
 
-	for domain := range domainCache.GetStore().List() {
+	for _, domain := range domainCache.GetStore().List() {
 		d := domain.(*libvirt.Domain)
 		vmStore.Add(&v1.VM{
 			ObjectMeta: api.ObjectMeta{Name: d.ObjectMeta.Name, Namespace: api.NamespaceDefault},
@@ -108,29 +195,10 @@ func main() {
 	// Watch for VM changes
 	go vmController.Run(stop)
 
+	// Sleep forever
+	// TODO add a http handler which provides health check
 	for {
-		fmt.Println("Sleeping")
-		// Sleep for one minute
 		time.Sleep(60000 * time.Millisecond)
 
 	}
-}
-
-type vmResourceEventHandler struct {}
-
-func (v *vmResourceEventHandler) OnAdd(obj interface{}) error {
-	// define and start
-	domainSpec := &libvirt.DomainSpec{}
-	vm := obj.(*v1.VM)
-	model.Copy(domainSpec, vm.Spec.Domain)
-	return nil
-}
-
-func (v *vmResourceEventHandler) OnUpdate(oldObj, newObj interface{}) error {
-	return nil
-}
-
-func (v *vmResourceEventHandler) OnDelete(obj interface{}) error {
-	// stop and undefine
-	return nil
 }

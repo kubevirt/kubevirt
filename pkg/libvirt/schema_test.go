@@ -5,6 +5,8 @@ import (
 	"encoding/xml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/rmohr/go-model"
+	"kubevirt/core/pkg/api/v1"
 )
 
 var exampleXML = `
@@ -16,9 +18,6 @@ var exampleXML = `
   </os>
     <devices>
       <emulator>/usr/local/bin/qemu-x86_64</emulator>
-      <interface type='network'>
-        <source network='kubevirt-net'/>
-      </interface>
       <interface type='network'>
         <source network='default'/>
       </interface>
@@ -43,12 +42,6 @@ var exampleJSON = `
    "devices":{
       "emulator":"/usr/local/bin/qemu-x86_64",
       "interfaces":[
-         {
-            "type":"network",
-            "source":{
-               "network":"kubevirt-net"
-            }
-         },
          {
             "type":"network",
             "source":{
@@ -99,6 +92,15 @@ var _ = Describe("Schema", func() {
 			err := json.Unmarshal([]byte(exampleJSON), &newDomain)
 			Expect(err).To(BeNil())
 			Expect(newDomain).To(Equal(*domain))
+		})
+	})
+	Context("With v1.DomainSpec", func() {
+		It("converts to libvirt.DomainSpec", func() {
+			v1DomainSpec := v1.NewMinimalVM("testvm")
+			libvirtDomainSpec := DomainSpec{}
+			errs := model.Copy(&libvirtDomainSpec, v1DomainSpec)
+			Expect(libvirtDomainSpec).To(Equal(*NewMinimalVM("testvm")))
+			Expect(errs).To(BeEmpty())
 		})
 	})
 })
