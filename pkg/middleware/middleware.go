@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
-	"kubevirt/core/pkg/precond"
+	"kubevirt.io/core/pkg/precond"
 )
 
 type AppError interface {

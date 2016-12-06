@@ -3,7 +3,7 @@ package endpoints
 import (
 	"encoding/json"
 	"golang.org/x/net/context"
-	"kubevirt/core/pkg/middleware"
+	"kubevirt.io/core/pkg/middleware"
 	"net/http"
 )
 

@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/rmohr/go-model"
-	"kubevirt/core/pkg/api/v1"
+	"kubevirt.io/core/pkg/api/v1"
 )
 
 var exampleXML = `

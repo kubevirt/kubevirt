@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
-	"kubevirt/core/pkg/precond"
+	"kubevirt.io/core/pkg/precond"
 )
 
 type HandlerBuilder interface {

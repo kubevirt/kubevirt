@@ -1,14 +1,14 @@
 package services_test
 
 import (
-	. "kubevirt/core/pkg/virt-controller/services"
+	. "kubevirt.io/core/pkg/virt-controller/services"
 
 	"bytes"
 	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"kubevirt/core/pkg/api/v1"
+	"kubevirt.io/core/pkg/api/v1"
 	"os"
 )
 
@@ -29,7 +29,7 @@ var _ = Describe("Template", func() {
 				err = svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}}, buffer)
 
 				Expect(err).To(BeNil())
-				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
+				Expect(buffer.String()).To(ContainSubstring("image: kubevirt.io/virt-launcher"))
 				Expect(buffer.String()).To(ContainSubstring("domain: testvm"))
 				Expect(buffer.String()).To(ContainSubstring("generateName: virt-launcher-testvm"))
 				Expect(buffer.String()).To(Not(ContainSubstring("  nodeSelector:")))
@@ -54,7 +54,7 @@ var _ = Describe("Template", func() {
 				err = svc.RenderLaunchManifest(&vm, buffer)
 
 				Expect(err).To(BeNil())
-				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
+				Expect(buffer.String()).To(ContainSubstring("image: kubevirt.io/virt-launcher"))
 				Expect(buffer.String()).To(ContainSubstring("domain: testvm"))
 				Expect(buffer.String()).To(ContainSubstring("generateName: virt-launcher-testvm"))
 				Expect(buffer.String()).To(ContainSubstring("  nodeSelector:"))

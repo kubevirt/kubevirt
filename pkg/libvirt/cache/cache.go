@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/1.5/pkg/types"
 	"k8s.io/client-go/1.5/pkg/watch"
 	"k8s.io/client-go/1.5/tools/cache"
-	kubevirt "kubevirt/core/pkg/libvirt"
+	kubevirt "kubevirt.io/core/pkg/libvirt"
 )
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.

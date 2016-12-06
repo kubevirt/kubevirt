@@ -2,8 +2,8 @@ package rest
 
 import (
 	"github.com/emicklei/go-restful"
-	"kubevirt/core/pkg/api/v1"
-	"kubevirt/core/pkg/healthz"
+	"kubevirt.io/core/pkg/api/v1"
+	"kubevirt.io/core/pkg/healthz"
 )
 
 var WebService *restful.WebService

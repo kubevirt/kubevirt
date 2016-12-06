@@ -13,11 +13,11 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/facebookgo/inject"
 	"k8s.io/client-go/1.5/tools/cache"
-	"kubevirt/core/pkg/kubecli"
-	"kubevirt/core/pkg/util"
-	"kubevirt/core/pkg/virt-controller/rest"
-	"kubevirt/core/pkg/virt-controller/services"
-	"kubevirt/core/pkg/virt-controller/watch"
+	"kubevirt.io/core/pkg/kubecli"
+	"kubevirt.io/core/pkg/util"
+	"kubevirt.io/core/pkg/virt-controller/rest"
+	"kubevirt.io/core/pkg/virt-controller/services"
+	"kubevirt.io/core/pkg/virt-controller/watch"
 )
 
 func main() {

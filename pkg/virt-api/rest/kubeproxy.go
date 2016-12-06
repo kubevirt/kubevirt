@@ -8,9 +8,9 @@ import (
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
 	"k8s.io/client-go/1.5/pkg/runtime"
 	"k8s.io/client-go/1.5/rest"
-	"kubevirt/core/pkg/kubecli"
-	"kubevirt/core/pkg/middleware"
-	"kubevirt/core/pkg/rest/endpoints"
+	"kubevirt.io/core/pkg/kubecli"
+	"kubevirt.io/core/pkg/middleware"
+	"kubevirt.io/core/pkg/rest/endpoints"
 	"reflect"
 )
 
