@@ -13,8 +13,8 @@ import (
 	"k8s.io/client-go/1.5/pkg/types"
 	"k8s.io/client-go/1.5/rest"
 	"k8s.io/client-go/1.5/tools/cache"
-	corev1 "kubevirt.io/core/pkg/api/v1"
-	"kubevirt.io/core/pkg/kubecli"
+	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
 func NewPodResourceEventHandler(logger log.Logger) (kubecli.ResourceEventHandler, error) {

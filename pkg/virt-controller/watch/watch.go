@@ -10,9 +10,9 @@ import (
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/tools/cache"
-	"kubevirt.io/core/pkg/api/v1"
-	"kubevirt.io/core/pkg/kubecli"
-	"kubevirt.io/core/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 type VMWatcher interface {

@@ -301,5 +301,5 @@
 			"versionExact": "v1.5.0"
 		}
 	],
-	"rootPath": "kubevirt.io/core"
+	"rootPath": "kubevirt.io/kubevirt"
 }

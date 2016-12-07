@@ -8,7 +8,7 @@ import (
 	"github.com/satori/go.uuid"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/types"
-	"kubevirt.io/core/pkg/api"
+	"kubevirt.io/kubevirt/pkg/api"
 )
 
 var _ = Describe("Mapper", func() {

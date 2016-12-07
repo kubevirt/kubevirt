@@ -2,7 +2,7 @@ package v1
 
 import (
 	"encoding/xml"
-	"kubevirt.io/core/pkg/precond"
+	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 type DomainSpec struct {

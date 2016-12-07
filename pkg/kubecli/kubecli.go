@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/1.5/rest"
 	"k8s.io/client-go/1.5/tools/cache"
 	"k8s.io/client-go/1.5/tools/clientcmd"
-	"kubevirt.io/core/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"runtime/debug"
 	"time"
 )

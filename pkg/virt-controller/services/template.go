@@ -5,8 +5,8 @@ import (
 	"github.com/go-kit/kit/log/levels"
 	"io"
 	"k8s.io/client-go/1.5/pkg/types"
-	"kubevirt.io/core/pkg/api/v1"
-	"kubevirt.io/core/pkg/precond"
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/precond"
 	"text/template"
 )
 

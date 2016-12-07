@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/apimachinery/announced"
 	"k8s.io/client-go/1.5/pkg/runtime"
-	"kubevirt.io/core/pkg/api"
+	"kubevirt.io/kubevirt/pkg/api"
 	"reflect"
 )
 
@@ -37,7 +37,7 @@ func init() {
 		&announced.GroupMetaFactoryArgs{
 			GroupName:              GroupName,
 			VersionPreferenceOrder: []string{GroupVersion.Version},
-			ImportPrefix:           "kubevirt.io/core/pgk/api/v1",
+			ImportPrefix:           "kubevirt.io/kubevirt/pgk/api/v1",
 		},
 		announced.VersionToSchemeFunc{
 			GroupVersion.Version: SchemeBuilder.AddToScheme,

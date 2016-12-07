@@ -11,9 +11,9 @@ import (
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/pkg/labels"
 	"k8s.io/client-go/1.5/pkg/util/yaml"
-	corev1 "kubevirt.io/core/pkg/api/v1"
-	"kubevirt.io/core/pkg/middleware"
-	"kubevirt.io/core/pkg/precond"
+	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/middleware"
+	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 type VMService interface {

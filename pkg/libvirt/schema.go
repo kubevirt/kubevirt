@@ -6,9 +6,9 @@ import (
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/meta"
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
-	"kubevirt.io/core/pkg/api/v1"
-	"kubevirt.io/core/pkg/precond"
-	"kubevirt.io/core/pkg/util"
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/precond"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 type LifeCycle string

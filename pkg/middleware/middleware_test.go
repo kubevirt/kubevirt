@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
-	"kubevirt.io/core/pkg/precond"
+	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 var _ = Describe("Middleware", func() {

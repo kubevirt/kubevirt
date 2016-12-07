@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"k8s.io/client-go/1.5/pkg/util/json"
-	"kubevirt.io/core/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"net/http"
 )
 

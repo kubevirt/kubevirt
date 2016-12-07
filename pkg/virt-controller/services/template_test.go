@@ -1,14 +1,14 @@
 package services_test
 
 import (
-	. "kubevirt.io/core/pkg/virt-controller/services"
+	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"bytes"
 	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"kubevirt.io/core/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"os"
 )
 
