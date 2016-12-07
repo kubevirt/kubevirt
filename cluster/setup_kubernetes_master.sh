@@ -39,7 +39,8 @@ else
 fi
 
 # Allow scheduling pods on master
-kubectl -s 127.0.0.1:8080 taint nodes --all dedicated-
+# Ignore retval because it might not be dedicated
+kubectl -s 127.0.0.1:8080 taint nodes --all dedicated- || :
 
 mkdir -p /exports/share1
 
