@@ -7,7 +7,6 @@ $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'
 $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
 $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
 $master_ip = ENV['MASTER_IP'].nil? ? "192.168.200.2" : ENV['MASTER_IP']
-$node_ip = ENV['NODE_IP'].nil? ? "192.168.200.5" : ENV['NODE_IP']
 $network_provider = ENV['NETWORK_PROVIDER'].nil? ? "weave" : ENV['NETWORK_PROVIDER']
 
 Vagrant.configure(2) do |config|
@@ -73,7 +72,6 @@ Vagrant.configure(2) do |config|
   end
   config.vm.define "node" do |node|
       node.vm.hostname = "node"
-      node.vm.network "private_network", ip: "#{$node_ip}"
       node.vm.provider :libvirt do |domain|
           domain.memory = 2048
           if $cache_docker then
@@ -84,7 +82,6 @@ Vagrant.configure(2) do |config|
       node.vm.provision "shell", inline: <<-SHELL
         #!/bin/bash
         set -xe
-        export VM_IP=#{$node_ip}
         export MASTER_IP=#{$master_ip}
         cd /vagrant/cluster
         bash setup_kubernetes_node.sh

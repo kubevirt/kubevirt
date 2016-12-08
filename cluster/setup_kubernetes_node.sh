@@ -1,7 +1,6 @@
 #/bin/bash -xe
 
 # Example environment variables (set by Vagrantfile)
-# export VM_IP=192.168.200.5
 # export MASTER_IP=192.168.200.2
 bash ./setup_kubernetes_common.sh
 

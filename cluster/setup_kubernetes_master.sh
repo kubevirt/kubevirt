@@ -4,7 +4,6 @@
 # export KUBERNETES_MASTER=true
 # export VM_IP=192.168.200.2
 # export MASTER_IP=$VM_IP
-# export NODE_IPS="192.168.200.5"
 bash ./setup_kubernetes_common.sh
 
 # Cockpit with kubernetes plugin

@@ -6,9 +6,8 @@ spec:
   ports:
     - port: 8183
       targetPort: virt-api
-  externalIPs : 
+  externalIPs :
     - "192.168.200.2"
-    - "192.168.200.5"
   selector:
     app: virt-api
 ---
