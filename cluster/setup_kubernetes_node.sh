@@ -1,7 +1,5 @@
 #/bin/bash -xe
 
-# Example environment variables (set by Vagrantfile)
-# export MASTER_IP=192.168.200.2
 bash ./setup_kubernetes_common.sh
 
 ADVERTISED_MASTER_IP=`dig +short master`

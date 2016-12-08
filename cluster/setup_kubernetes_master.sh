@@ -1,9 +1,6 @@
 #/bin/bash -xe
 
-# Example environment variables (set by Vagrantfile)
-# export KUBERNETES_MASTER=true
-# export VM_IP=192.168.200.2
-# export MASTER_IP=$VM_IP
+export KUBERNETES_MASTER=true
 bash ./setup_kubernetes_common.sh
 
 # Cockpit with kubernetes plugin
