@@ -91,6 +91,9 @@ func Parse(f *ast.File) chan string {
 			}
 
 			for _, field := range structDecl.Fields.List {
+				if len(field.Names) == 0 {
+					continue
+				}
 				fieldName := field.Names[0].Name
 				if field.Tag != nil {
 					tag := reflect.StructTag(field.Tag.Value)

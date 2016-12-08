@@ -34,6 +34,11 @@ type UndocumentedStruct struct {
 	UndocumentedField string
 }
 
+type StructWithEmbeddedStruct struct {
+	Person
+	Address
+}
+
 var expected = strings.TrimSpace(`
 package main
 
@@ -56,6 +61,11 @@ func (Person) SwaggerDoc() map[string]string {
 }
 
 func (UndocumentedStruct) SwaggerDoc() map[string]string {
+	return map[string]string{
+	}
+}
+
+func (StructWithEmbeddedStruct) SwaggerDoc() map[string]string {
 	return map[string]string{
 	}
 }
