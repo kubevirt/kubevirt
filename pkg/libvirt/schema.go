@@ -1,5 +1,7 @@
 package libvirt
 
+//go:generate desc -in schema.go
+
 import (
 	"encoding/xml"
 	"github.com/rgbkrk/libvirt-go"
@@ -155,6 +157,7 @@ type DiskDriver struct {
 // END Disk -----------------------------
 
 // BEGIN Inteface -----------------------------
+
 type Interface struct {
 	Address   *Address         `xml:"address,omitempty" json:"address,omitempty"`
 	Type      string           `xml:"type,attr" json:"type"`
@@ -249,7 +252,6 @@ type BIOS struct {
 type Loader struct {
 }
 
-// Required for SMBios.Mode == 'sysinfo'
 type SysInfo struct {
 	Type      string  `xml:"type,attr" json:"type"`
 	System    []Entry `xml:"system>entry" json:"system"`
@@ -278,6 +280,7 @@ type Timer struct {
 //END Clock --------------------
 
 //BEGIN Channel --------------------
+
 type Channel struct {
 	Type   string         `xml:"type,attr" json:"type"`
 	Source ChannelSource  `xml:"target,omitempty" json:"source,omitempty"`

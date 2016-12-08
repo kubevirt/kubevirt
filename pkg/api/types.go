@@ -19,10 +19,13 @@ type VMList struct {
 	VMs []VM
 }
 
+// VMSpec is a description of a pod
 type VMSpec struct {
 	NodeSelector map[string]string
 }
 
+// VMStatus represents information about the status of a VM. Status may trail the actual
+// state of a system.
 type VMStatus struct {
 	NodeName   string
 	Conditions []VMCondition

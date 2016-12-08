@@ -1,5 +1,7 @@
 package v1
 
+//go:generate desc -in types.go
+
 import (
 	"encoding/json"
 	"github.com/rmohr/go-model"
@@ -118,17 +120,22 @@ type VM struct {
 	Status               VMStatus           `json:"status"`
 }
 
+// VMList is a list of VMs
 type VMList struct {
 	unversioned.TypeMeta `json:",inline"`
 	ListMeta             unversioned.ListMeta `json:"metadata,omitempty"`
 	Items                []VM                 `json:"items"`
 }
 
+// VMSpec is a description of a VM
 type VMSpec struct {
-	Domain       *DomainSpec       `json:"domain,omitempty"`
+	Domain *DomainSpec `json:"domain,omitempty"`
+	// If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
+// VMStatus represents information about the status of a VM. Status may trail the actual
+// state of a system.
 type VMStatus struct {
 	NodeName   string        `json:"nodeName,omitempty"`
 	Conditions []VMCondition `json:"conditions,omitempty"`
