@@ -6,8 +6,12 @@ $use_nfs = ENV['VAGRANT_USE_NFS'] == 'true'
 $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'
 $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
 $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
-$master_ip = ENV['MASTER_IP'].nil? ? "192.168.200.2" : ENV['MASTER_IP']
-$network_provider = ENV['NETWORK_PROVIDER'].nil? ? "weave" : ENV['NETWORK_PROVIDER']
+
+config = Hash[*File.read('hack/config.sh').split(/=|\n/)]
+
+$master_ip = config["master_ip"]
+$network_provider = config["network_provider"]
+
 
 Vagrant.configure(2) do |config|
   config.vm.box = "centos7"
@@ -63,7 +67,7 @@ Vagrant.configure(2) do |config|
         bash setup_kubernetes_master.sh
         set +x
         echo -e "\033[0;32m Deployment was successful!"
-        echo -e "Cockpit is accessible at https://192.168.200.2:9090."
+        echo -e "Cockpit is accessible at https://#{$master_ip}:9090."
         echo -e "Credentials for Cockpit are 'root:vagrant'.\033[0m"
       SHELL
   end

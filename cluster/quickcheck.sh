@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source hack/config.sh
+
 usage () {
 echo "Usage: ./cluster/quickcheck.sh [-vm-name  <VM>] [-target-node <NODE>]"
 echo "       ./cluster/quickcheck.sh [-clean-all]"
@@ -10,7 +12,7 @@ HEADERS="-H \"Content-Type: application/json\""
 VM_NAME=$1
 TARGET_NODE=$2
 DOMAIN="sed -e s/testvm/$VM_NAME/g cluster/vm.json"
-$DOMAIN | curl -X POST -H "Content-Type: application/json" http://192.168.200.2:8183/apis/kubevirt.io/v1alpha1/namespaces/default/vms -d @-
+$DOMAIN | curl -X POST -H "Content-Type: application/json" http://${master_ip}:8183/apis/kubevirt.io/v1alpha1/namespaces/default/vms -d @-
 }
 
 VM_NAME=testvm
@@ -52,7 +54,7 @@ set -e
 sleep 2
 startvm $VM_NAME $TARGET_NODE
 sleep 10
-NODE=$(vagrant ssh master -c "kubectl get pods -o json -l domain=${VM_NAME} | jq '.items[].spec.nodeName' -r" | sed -e 's/[[:space:]]*$//')
+NODE=$(vagrant ssh master -c "kubectl -s 127.0.0.1:8080 get pods -o json -l kubevirt.io/domain=${VM_NAME} | jq '.items[].spec.nodeName' -r" | sed -e 's/[[:space:]]*$//')
 
 if [ -z $NODE ]; then
 echo "Could not detect the VM."
