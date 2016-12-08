@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	sourceFile := flag.String("in", "", "golang file containing strucs for swagger")
+	sourceFile := flag.String("in", os.Getenv("GOFILE"), "golang file containing strucs for swagger")
 	targetFile := flag.String("out", "", "target file where description should be written")
 	flag.Parse()
 

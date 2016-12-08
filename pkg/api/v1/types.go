@@ -1,6 +1,6 @@
 package v1
 
-//go:generate desc -in types.go
+//go:generate desc
 
 import (
 	"encoding/json"

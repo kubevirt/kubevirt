@@ -14,3 +14,4 @@ cluster/.kubeconfig
 cluster/.kubectl
 *_swagger_generated.go
 *_swagger_generated_test.go
+build-tools/desc/desc

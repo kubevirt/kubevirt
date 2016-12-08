@@ -1,6 +1,6 @@
 package libvirt
 
-//go:generate desc -in schema.go
+//go:generate desc
 
 import (
 	"encoding/xml"
