@@ -10,12 +10,15 @@ import (
 //Address doc
 type Address struct {
 	//Country doc
+	// TODO should be filtered out
 	Country string `json:"country,omitempty"`
+	// TODO should be filtered out
 	//PostCode doc
 	PostCode int `json:"postcode,omitempty"`
 }
 
 //Person doc
+// TODO should be filtered out
 //with multiline
 type Person struct {
 	//FirstName doc
@@ -23,10 +26,13 @@ type Person struct {
 	//LastName doc
 	LastName string `json:",omitempty"`
 	//MiddleName doc
+	// FIXME should be filtered out
 	MiddleName string `json:"middleName"`
 
 	//Field without tag and
 	// multiline comment and something to escape \ "
+	// ---
+	// If we encounter a --- we skip everything after that separator
 	HeightInPounds int
 }
 
