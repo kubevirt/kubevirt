@@ -1,6 +1,6 @@
 export GO15VENDOREXPERIMENT := 1
 
-all: build
+all: build contrib
 
 build: sync fmt vet
 	./hack/build-go.sh install ${WHAT}
@@ -20,7 +20,7 @@ clean:
 
 distclean: clean
 	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
-	rm -f ./contrib/manifest/*.yaml
+	rm -f ./custer/manifest/*.yaml
 
 sync:
 	govendor sync
@@ -31,7 +31,9 @@ docker: build
 publish: docker
 	./hack/build-docker.sh push ${WHAT}
 
-contrib:
-	./hack/build-contrib.sh
+contrib: manifests
+
+manifests: $(wildcard cluster/manifest/*.in)
+	./hack/build-manifests.sh
 
 .PHONY: build fmt test clean distclean sync docker contrib vet publish
