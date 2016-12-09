@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-cluster/sync_config.sh
+contrib/vagrant/sync_config.sh
 
 make all
 
@@ -13,9 +13,9 @@ done
 # Deploy all manifests files
 set +x
 for i in `ls cluster/manifest/*.yaml`; do
-    cluster/kubectl.sh --core delete -f $i --grace-period 0 2>/dev/null || :
+    contrib/vagrant/kubectl.sh --core delete -f $i --grace-period 0 2>/dev/null || :
 done
 sleep 2
 for i in `ls cluster/manifest/*.yaml`; do
-    cluster/kubectl.sh --core create -f $i
+    contrib/vagrant/kubectl.sh --core create -f $i
 done

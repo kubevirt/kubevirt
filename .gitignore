@@ -10,8 +10,8 @@ cluster/manifest/*.yaml
 **/bin
 bin/*
 .vagrant
-cluster/.kubeconfig
-cluster/.kubectl
+contrib/vagrant/.kubeconfig
+contrib/vagrant/.kubectl
 *_swagger_generated.go
 *_swagger_generated_test.go
 build-tools/desc/desc

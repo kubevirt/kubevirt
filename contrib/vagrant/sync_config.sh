@@ -6,7 +6,7 @@ vagrant ssh-config master 2>&1 | grep "not yet ready for SSH" >/dev/null \
 
 OPTIONS=`vagrant ssh-config master | grep -v '^Host ' | awk -v ORS=' ' 'NF{print "-o " $1 "=" $2}'`
 
-scp $OPTIONS master:/usr/bin/kubectl cluster/.kubectl
-chmod u+x cluster/.kubectl
+scp $OPTIONS master:/usr/bin/kubectl contrib/vagrant/.kubectl
+chmod u+x contrib/vagrant/.kubectl
 
-vagrant ssh master -c "sudo cat /etc/kubernetes/kubelet.conf" > cluster/.kubeconfig
+vagrant ssh master -c "sudo cat /etc/kubernetes/kubelet.conf" > contrib/vagrant/.kubeconfig
