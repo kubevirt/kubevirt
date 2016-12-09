@@ -1,8 +1,13 @@
-export GO15VENDOREXPERIMENT := 1
+CURDIR = $(shell pwd)
+
+export GOPATH = $(CURDIR)/.gopath
+export GOBIN = $(CURDIR)/bin
+export GO15VENDOREXPERIMENT = 1
+export PATH := ${PATH}:$(CURDIR)/bin
 
 all: build contrib
 
-build: sync fmt vet
+build: gopath sync fmt vet
 	./hack/build-go.sh install ${WHAT}
 
 vet:
@@ -23,7 +28,7 @@ distclean: clean
 	rm -f ./custer/manifest/*.yaml
 
 sync:
-	govendor sync
+	cd $(GOPATH) && govendor sync -v
 
 docker: build
 	./hack/build-docker.sh build ${WHAT}
@@ -35,5 +40,11 @@ contrib: manifests
 
 manifests: $(wildcard cluster/manifest/*.in)
 	./hack/build-manifests.sh
+
+# Sets up the gopath / build environment
+gopath:
+	mkdir -p .gopath/src/kubevirt.io/ bin
+	ln -sf "$(CURDIR)" .gopath/src/kubevirt.io/kubevirt
+	env | sort | grep GO
 
 .PHONY: build fmt test clean distclean sync docker contrib vet publish
