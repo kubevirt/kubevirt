@@ -4,6 +4,7 @@
 
 $use_nfs = ENV['VAGRANT_USE_NFS'] == 'true'
 $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'
+$cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
 $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
 
 config = Hash[*File.read('hack/config.sh').split(/=|\n/)]
@@ -52,6 +53,9 @@ Vagrant.configure(2) do |config|
       master.vm.network "private_network", ip: "#{$master_ip}"
       master.vm.provider :libvirt do |domain|
           domain.memory = 3000
+          if $cache_docker then
+              domain.storage :file, :size => '10G', :path => 'kubevirt_master_docker.img', :allow_existing => true
+          end
       end
 
       master.vm.provision "shell", inline: <<-SHELL
@@ -71,6 +75,9 @@ Vagrant.configure(2) do |config|
       node.vm.hostname = "node"
       node.vm.provider :libvirt do |domain|
           domain.memory = 2048
+          if $cache_docker then
+              domain.storage :file, :size => '10G', :path => 'kubevirt_node_docker.img', :allow_existing => true
+          end
       end
 
       node.vm.provision "shell", inline: <<-SHELL
