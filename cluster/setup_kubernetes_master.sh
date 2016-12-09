@@ -15,11 +15,10 @@ kubeadm init --api-advertise-addresses=$ADVERTISED_MASTER_IP --pod-network-cidr=
 set +e
 
 kubectl -s 127.0.0.1:8080 version
-while [ $? -ne 0 ]
-do
-sleep 60
-echo 'Waiting for Kubernetes cluster to become functional...'
-kubectl -s 127.0.0.1:8080 version
+while [ $? -ne 0 ]; do
+  sleep 60
+  echo 'Waiting for Kubernetes cluster to become functional...'
+  kubectl -s 127.0.0.1:8080 version
 done
 
 set -e
