@@ -3,8 +3,8 @@
 source hack/config.sh
 
 usage () {
-echo "Usage: ./cluster/quickcheck.sh [-vm-name  <VM>] [-target-node <NODE>]"
-echo "       ./cluster/quickcheck.sh [-clean-all]"
+echo "Usage: ./cluster/vagrant-quickcheck.sh [-vm-name  <VM>] [-target-node <NODE>]"
+echo "       ./cluster/vagrant-quickcheck.sh [-clean-all]"
 }
 
 startvm () {
