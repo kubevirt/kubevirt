@@ -26,7 +26,8 @@ Note: KubeVirt is built in go. For best results, use this path:
 
 ### Project Components
 
- * virt-api: <!-- FIXME: Need to explain what this component does -->
+ * virt-api: This component provides a HTTP RESTfull entrypoint to manage
+   the virtual machines within the cluster.
  * virt-controller: This component manages the state of each VM within the
    Kubernetes cluster.
  * virt-handler: This is a daemon that runs on each Kubernetes node. It is
