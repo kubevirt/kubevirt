@@ -29,7 +29,7 @@ var _ = Describe("Template", func() {
 				err = svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}}, buffer)
 
 				Expect(err).To(BeNil())
-				Expect(buffer.String()).To(ContainSubstring("image: kubevirt.io/virt-launcher"))
+				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
 				Expect(buffer.String()).To(ContainSubstring("domain: testvm"))
 				Expect(buffer.String()).To(ContainSubstring("generateName: virt-launcher-testvm"))
 				Expect(buffer.String()).To(Not(ContainSubstring("  nodeSelector:")))
@@ -54,7 +54,7 @@ var _ = Describe("Template", func() {
 				err = svc.RenderLaunchManifest(&vm, buffer)
 
 				Expect(err).To(BeNil())
-				Expect(buffer.String()).To(ContainSubstring("image: kubevirt.io/virt-launcher"))
+				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
 				Expect(buffer.String()).To(ContainSubstring("domain: testvm"))
 				Expect(buffer.String()).To(ContainSubstring("generateName: virt-launcher-testvm"))
 				Expect(buffer.String()).To(ContainSubstring("  nodeSelector:"))
