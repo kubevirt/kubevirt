@@ -1,8 +1,9 @@
 # KubeVirt
 
-## Overview
+KubeVirt is a virtual machine management built around Kubernetes.
 
-KubeVirt is a virtual machine management aritechture built around Kubernetes.
+## Technical Overview
+
 Kubernetes allows for extensions to its architecture in the form of 3rd party
 resources: <http://kubernetes.io/docs/user-guide/thirdpartyresources/>.
 KubeVirt represents virtual machines as 3rd party resources and manages changes
