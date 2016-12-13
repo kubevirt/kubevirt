@@ -10,13 +10,15 @@ KubeVirt represents virtual machines as 3rd party resources and manages changes
 to libvirt domains based on the state of those resources.
 
 This project provides a Vagrant setup with the requisite components already
-installed. To boot a blank environment, simply type `vagrant up` from the
-root directory of the git tree, which can be found here:
+installed. To boot a vanilla kubernetes environment as base for kubevirt,
+simply type `vagrant up` from the root directory of the git tree, which can be
+found here:
 <!-- FIXME: <place URL to public git repository here> -->
 Once the Vagrant provisioning script has completed, run `./scripts/sync.sh` to
 build and deploy KubeVirt specific components to the Vagrant nodes.
 
-Note: KubeVirt is built in go. For best results, use this path:
+Note: KubeVirt is built in go. A properly configured go environment is
+therefore required. For best results, use this path:
 `$GOPATH/src/kubevirt.io/kubevirt/`
 
 ### Associated resources
@@ -97,7 +99,7 @@ $ ./cluster/kubectl.sh get vms -o json
 ## Cockpit
 
 Cockpit is exposed on <http://192.168.200.2:9090>
-The default login is root:vagrant
+The default login is `root:vagrant`
 
 It can be used to verify the running state of components within the cluster.
 More information can be found on that project's site:
@@ -143,8 +145,9 @@ sudo dnf install libvirt-devel
 First clone the project into your `$GOPATH`:
 
 ```bash
-git clone http://git.app.eng.bos.redhat.com/git/kubevirt/core.git $GOPATH/src/kubevirt/core
-cd $GOPATH/src/kubevirt/core
+# TODO github repo here
+git clone http://git.app.eng.bos.redhat.com/git/kubevirt/core.git $GOPATH/src/kubevirt.io/kubevirt
+cd $GOPATH/src/kubevirt.io/kubevirt
 ```
 
 To build the whole project, type
@@ -159,7 +162,8 @@ To build all docker images type
 make docker
 ```
 
-It is also possible to target only specific modules. For instance to build only the `virt-controller`, type
+It is also possible to target only specific modules. For instance to build only
+the `virt-controller`, type
 
 ```bash
 make build WHAT=virt-controller
@@ -177,32 +181,30 @@ to run all tests.
 
 ### Vagrant
 
-TODO, IMPROVE THAT FLOW:
+Sets up a kuberentes cluster with a master and a node:
 
-Sets up a kubernetes cluster with a master and a node:
 ```bash
-# export VAGRANT_USE_NFS=true # if you want to use nfs
 vagrant up
 ```
 
 Build and deploy kubevirt:
 
 ```bash
-bash cluster/sync.sh
+bash scripts/sync.sh
 ```
 
 Finally start a VM called `testvm`:
 
 ```bash
-# this can be done from outside the VMs because of the virt-controller-service
-curl -X POST -H "Content-Type: application/xml" http://192.168.200.2:8182/api/v1/domain/raw -d @cluster/testdomain.xml
+# this can be done from your GIT repo, no need to log into a vagrant VM
+$ ./cluster/kubectl.sh create -f cluster/vm.json
 ```
 
-This will start a VM on master or node with a macvtap and a tap networking device attached.
+This will start a VM on master or node with a macvtap and a tap networking
+device attached.
 
 Basic verification is possible by running
 
 ```
-# TODO, there is an issue with the detection of where the VM is scheduled
-bash cluster/quicktest.sh
+bash scripts/quickcheck.sh
 ```

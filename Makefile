@@ -1,6 +1,6 @@
 export GO15VENDOREXPERIMENT := 1
 
-all: build contrib
+all: build manifests
 
 generate:
 	(cd build-tools/desc && go install)
@@ -35,8 +35,6 @@ docker: build
 publish: docker
 	./hack/build-docker.sh push ${WHAT}
 
-contrib: manifests
-
 manifests: $(wildcard cluster/manifest/*.in)
 	./hack/build-manifests.sh
 
@@ -45,4 +43,4 @@ check: check-bash
 check-bash:
 	find . -name \*.sh -exec bash -n \{\} \;
 
-.PHONY: build fmt test clean distclean sync docker contrib vet publish
+.PHONY: build fmt test clean distclean sync docker manifests vet publish
