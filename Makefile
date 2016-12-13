@@ -35,7 +35,7 @@ docker: build
 publish: docker
 	./hack/build-docker.sh push ${WHAT}
 
-manifests: $(wildcard manifest/*.in)
+manifests: $(wildcard manifests/*.in)
 	./hack/build-manifests.sh
 
 check: check-bash
