@@ -43,8 +43,13 @@ if [ -z "$VM_NAME" ]; then
     exec $QEMU $ARGS
 fi
 
+if [[ "$VM_NAME" == *"="* ]]
+then
+    VM_NAME=$(echo -n "$VM_NAME" | awk -F "=" -v RS="," "/guest/ { print \$2; }")
+fi
+
 function find_container() {
-    docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME.*/ { print \$1 }"
+    docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME-{5}.*/ { print \$1 }"
 }
 
 NEXT_WAIT=0
