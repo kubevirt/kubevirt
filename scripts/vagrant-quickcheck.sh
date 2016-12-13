@@ -11,7 +11,7 @@ startvm () {
 HEADERS="-H \"Content-Type: application/json\""
 VM_NAME=$1
 TARGET_NODE=$2
-DOMAIN="sed -e s/testvm/$VM_NAME/g contrib/vagrant/vm.json"
+DOMAIN="sed -e s/testvm/$VM_NAME/g cluster/vagrant/vm.json"
 $DOMAIN | curl -X POST -H "Content-Type: application/json" http://${master_ip}:8183/apis/kubevirt.io/v1alpha1/namespaces/default/vms -d @-
 }
 

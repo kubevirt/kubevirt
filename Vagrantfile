@@ -38,7 +38,7 @@ Vagrant.configure(2) do |config|
   if $use_nfs then
     config.vm.synced_folder "./", "/vagrant", type: "nfs"
   else
-    config.vm.synced_folder "./", "/vagrant", type: "rsync", rsync__exclude: [ "contrib/vagrant/.kubectl", "contrib/vagrant/.kubeconfig" ]
+    config.vm.synced_folder "./", "/vagrant", type: "rsync", rsync__exclude: [ "cluster/vagrant/.kubectl", "cluster/vagrant/.kubeconfig" ]
   end
 
   config.vm.provision "shell", inline: <<-SHELL
@@ -63,7 +63,7 @@ Vagrant.configure(2) do |config|
         set -xe
         export WITH_LOCAL_NFS=true
         export NETWORK_PROVIDER=#{$network_provider}
-        cd /vagrant/contrib/vagrant
+        cd /vagrant/cluster/vagrant
         bash setup_kubernetes_master.sh
         set +x
         echo -e "\033[0;32m Deployment was successful!"
@@ -83,7 +83,7 @@ Vagrant.configure(2) do |config|
       node.vm.provision "shell", inline: <<-SHELL
         #!/bin/bash
         set -xe
-        cd /vagrant/contrib/vagrant
+        cd /vagrant/cluster/vagrant
         bash setup_kubernetes_node.sh
         set +x
         echo -e "\033[0;32m Deployment was successful!\033[0m"
