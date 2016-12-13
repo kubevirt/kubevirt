@@ -24,7 +24,7 @@ clean:
 
 distclean: clean
 	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
-	rm -f ./custer/manifest/*.yaml
+	rm -f manifest/*.yaml
 
 sync:
 	govendor sync
@@ -35,7 +35,7 @@ docker: build
 publish: docker
 	./hack/build-docker.sh push ${WHAT}
 
-manifests: $(wildcard cluster/manifest/*.in)
+manifests: $(wildcard manifest/*.in)
 	./hack/build-manifests.sh
 
 check: check-bash
