@@ -40,4 +40,9 @@ contrib: manifests
 manifests: $(wildcard cluster/manifest/*.in)
 	./hack/build-manifests.sh
 
+check: check-bash
+
+check-bash:
+	find . -name \*.sh -exec bash -n \{\} \;
+
 .PHONY: build fmt test clean distclean sync docker contrib vet publish
