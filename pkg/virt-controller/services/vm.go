@@ -1,7 +1,6 @@
 package services
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
@@ -10,7 +9,6 @@ import (
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/pkg/labels"
-	"k8s.io/client-go/1.5/pkg/util/yaml"
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -44,17 +42,12 @@ func (v *vmService) StartVM(vm *corev1.VM) error {
 		return middleware.NewResourceExistsError("VM", vm.GetObjectMeta().GetName())
 	}
 
-	templateBuffer := new(bytes.Buffer)
-	if err := v.TemplateService.RenderLaunchManifest(vm, templateBuffer); err != nil {
-		return err
-	}
-
-	pod := v1.Pod{}
-	err = yaml.NewYAMLToJSONDecoder(templateBuffer).Decode(&pod)
+	pod, err := v.TemplateService.RenderLaunchManifest(vm)
 	if err != nil {
 		return err
 	}
-	if _, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).Create(&pod); err != nil {
+
+	if _, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).Create(pod); err != nil {
 		return err
 	}
 	v.logger.Info().Log("action", "StartVMRaw", "object", "VM", "UUID", vm.GetObjectMeta().GetUID(), "name", vm.GetObjectMeta().GetName())
@@ -101,16 +94,11 @@ func (v *vmService) PrepareMigration(vm *corev1.VM) error {
 		return middleware.NewResourceConflictError(fmt.Sprintf("VM %s is already migrating", vm.GetObjectMeta().GetName()))
 	}
 
-	templateBuffer := new(bytes.Buffer)
-	if err := v.TemplateService.RenderLaunchManifest(vm, templateBuffer); err != nil {
-		return err
-	}
-	pod := v1.Pod{}
-	err = yaml.NewYAMLToJSONDecoder(templateBuffer).Decode(&pod)
+	pod, err := v.TemplateService.RenderLaunchManifest(vm)
 	if err != nil {
 		return err
 	}
-	if _, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).Create(&pod); err != nil {
+	if _, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).Create(pod); err != nil {
 		return err
 	}
 	v.logger.Info().Log("action", "PrepareMigration", "object", "VM", "UUID", vm.GetObjectMeta().GetUID(), "name", vm.GetObjectMeta().GetName())
@@ -121,7 +109,7 @@ func unfinishedVMPodSelector(vm *corev1.VM) kubeapi.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(kubeapi.PodFailed) +
 			",status.phase!=" + string(kubeapi.PodSucceeded))
-	labelSelector, err := labels.Parse(fmt.Sprintf("kubevirt.io/domain in (%s)", vm.GetObjectMeta().GetName()))
+	labelSelector, err := labels.Parse(fmt.Sprintf(corev1.DomainLabel+" in (%s)", vm.GetObjectMeta().GetName()))
 	if err != nil {
 		panic(err)
 	}

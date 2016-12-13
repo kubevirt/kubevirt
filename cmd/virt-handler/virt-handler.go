@@ -96,7 +96,7 @@ func main() {
 		panic(err)
 	}
 
-	l, err := labels.Parse(fmt.Sprintf("kubevirt.io/nodeName in (%s)", *host))
+	l, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", *host))
 	if err != nil {
 		panic(err)
 	}

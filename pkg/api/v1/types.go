@@ -232,3 +232,10 @@ const (
 	// to an error in communicating with the host of the VM.
 	Unknown VMPhase = "Unknown"
 )
+
+const (
+	AppLabel      string = "kubevirt.io/app"
+	DomainLabel   string = "kubevirt.io/domain"
+	UIDLabel      string = "kubevirt.io/vmUID"
+	NodeNameLabel string = "kubevirt.io/nodeName"
+)

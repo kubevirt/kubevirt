@@ -3,7 +3,6 @@ package services_test
 import (
 	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 
-	"bytes"
 	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,31 +14,25 @@ import (
 var _ = Describe("Template", func() {
 
 	logger := log.NewLogfmtLogger(os.Stderr)
-	svc, err := NewTemplateService(logger, "../../../cmd/virt-controller/templates/manifest-template.yaml", "kubevirt", "virt-launcher")
-	launchArgs := `
-    command:
-        - "/virt-launcher"
-`
+	svc, err := NewTemplateService(logger, "kubevirt", "virt-launcher")
+
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
 
 				Expect(err).To(BeNil())
-				buffer := new(bytes.Buffer)
-				err = svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}}, buffer)
+				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: "1234"}})
 
 				Expect(err).To(BeNil())
-				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
-				Expect(buffer.String()).To(ContainSubstring("domain: testvm"))
-				Expect(buffer.String()).To(ContainSubstring("generateName: virt-launcher-testvm"))
-				Expect(buffer.String()).To(Not(ContainSubstring("  nodeSelector:")))
-				Expect(buffer.String()).To(ContainSubstring(launchArgs))
-			})
-		})
-		Context("with wrong template path", func() {
-			It("should fail", func() {
-				_, err := NewTemplateService(logger, "templates/manifest-template.yaml", "kubevirt", "virt-launcher")
-				Expect(err).To(Not(BeNil()))
+				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
+				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					v1.AppLabel:    "virt-launcher",
+					v1.DomainLabel: "testvm",
+					v1.UIDLabel:    "1234",
+				}))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm"))
+				Expect(pod.Spec.NodeSelector).To(BeEmpty())
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "-qemu-timeout", "60s"}))
 			})
 		})
 		Context("with node selectors", func() {
@@ -48,17 +41,22 @@ var _ = Describe("Template", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
 				}
-				vm := v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm"}, Spec: v1.VMSpec{NodeSelector: nodeSelector}}
-				buffer := new(bytes.Buffer)
+				vm := v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector}}
 
-				err = svc.RenderLaunchManifest(&vm, buffer)
+				pod, err := svc.RenderLaunchManifest(&vm)
 
 				Expect(err).To(BeNil())
-				Expect(buffer.String()).To(ContainSubstring("image: kubevirt/virt-launcher"))
-				Expect(buffer.String()).To(ContainSubstring("domain: testvm"))
-				Expect(buffer.String()).To(ContainSubstring("generateName: virt-launcher-testvm"))
-				Expect(buffer.String()).To(ContainSubstring("  nodeSelector:"))
-				Expect(buffer.String()).To(ContainSubstring("    kubernetes.io/hostname: master"))
+				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
+				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
+					v1.AppLabel:    "virt-launcher",
+					v1.DomainLabel: "testvm",
+					v1.UIDLabel:    "1234",
+				}))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm"))
+				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
+					"kubernetes.io/hostname": "master",
+				}))
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "-qemu-timeout", "60s"}))
 			})
 		})
 	})

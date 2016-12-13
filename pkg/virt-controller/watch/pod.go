@@ -55,7 +55,7 @@ func NewPodCache() (cache.SharedInformer, error) {
 
 func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 	defer kubecli.NewPanicCatcher(p.logger)()
-	vmObj, exists, err := p.VMCache.GetStore().GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()["kubevirt.io/domain"])
+	vmObj, exists, err := p.VMCache.GetStore().GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[corev1.DomainLabel])
 	if err != nil {
 		// TODO handle this smarter, for now just try again
 		return cache.ErrRequeue{Err: err}
@@ -69,7 +69,7 @@ func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 	model.Copy(&vm, vmObj)
 
 	logger := p.logger.With("object", "VM", "action", "setVMPending", "name", vm.GetObjectMeta().GetName(), "UUID", vm.GetObjectMeta().GetUID())
-	if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()["kubevirt.io/vmUID"]) {
+	if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.UIDLabel]) {
 		// Obviously the pod of an outdated VM object, do nothing
 		return nil
 	}
@@ -80,7 +80,7 @@ func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 		if vm.GetObjectMeta().GetLabels() == nil {
 			vm.ObjectMeta.Labels = map[string]string{}
 		}
-		vm.ObjectMeta.Labels["kubevirt.io/nodeName"] = pod.Spec.NodeName
+		vm.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
 		// Update the VM
 		if err := p.restCli.Put().Resource("vms").Body(&vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
 			logger.Error().Log("msg", err)
@@ -102,7 +102,7 @@ func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 
 func scheduledVMPodSelector() kubeapi.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(kubeapi.PodRunning))
-	labelSelector, err := labels.Parse("kubevirt.io/app in (virt-launcher)")
+	labelSelector, err := labels.Parse(corev1.AppLabel + " in (virt-launcher)")
 	if err != nil {
 		panic(err)
 	}
