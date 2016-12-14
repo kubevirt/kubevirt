@@ -14,7 +14,7 @@ installed. To boot a vanilla kubernetes environment as base for kubevirt,
 simply type `vagrant up` from the root directory of the git tree, which can be
 found here:
 <!-- FIXME: <place URL to public git repository here> -->
-Once the Vagrant provisioning script has completed, run `./scripts/sync.sh` to
+Once the Vagrant provisioning script has completed, run `./cluster/sync.sh` to
 build and deploy KubeVirt specific components to the Vagrant nodes.
 
 Note: KubeVirt is built in go. A properly configured go environment is
@@ -45,7 +45,7 @@ therefore required. For best results, use this path:
 
 ### Scripts
 
- * `scripts/sync.sh`: After deploying a fresh vagrant environment, or after
+ * `cluster/sync.sh`: After deploying a fresh vagrant environment, or after
    making changes to code in this tree, this script will sync the Pods and
    DaemonSets in the running KubeVirt environment with the state of this tree.
  * `cluster/kubectl.sh`: This is a wrapper around Kubernete's kubectl command so
@@ -190,7 +190,7 @@ vagrant up
 Build and deploy kubevirt:
 
 ```bash
-bash scripts/sync.sh
+bash cluster/sync.sh
 ```
 
 Finally start a VM called `testvm`:
@@ -206,5 +206,5 @@ device attached.
 Basic verification is possible by running
 
 ```
-bash scripts/quickcheck.sh
+bash cluster/quickcheck.sh
 ```
