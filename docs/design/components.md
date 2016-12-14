@@ -18,9 +18,10 @@ KubeVirt consists of a set of services:
     M: Managed
     TPR: Third Party Resource
 
+## Example flow: Create and Delete a VM
 
-## Example flow: Create VM
-
+<!-- FIXME: wrong in a lot of ways and therefore misleading -->
+ 
     User       Virt API      VM TPR    Virt Controller    k8s      VM Pod
     createVM  --> |                           |            |
                   o create --> +              |            |
@@ -41,7 +42,6 @@ KubeVirt consists of a set of services:
                   :                           :            :
     
     Legend: ?: Event notification
-
 
 ## Virt API Server
 

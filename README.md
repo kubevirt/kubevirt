@@ -106,11 +106,6 @@ More information can be found on that project's site:
 
 http://cockpit-project.org/guide/latest/feature-kubernetes.html
 
-## Hacking
-
-Before you start coding, the [Project structure overview](docs/structure.md)
-should help you understanding the project and the microservices layout.
-
 ### Setup
 
 First make sure you have [govendor](https://github.com/kardianos/govendor),

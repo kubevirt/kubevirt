@@ -17,10 +17,10 @@ Scheduling, networking, and storage are all delegated to Kubernetes, while KubeV
 
 ## Services
 
-KubeVirt provides additional functionality to your Kubernetes cluster, including:
+KubeVirt adds VM related functionality to your Kubernetes cluster, including:
 
 * Virtual Machine management
-* Network management
+* Network management for Virtual Machines
 * REST API for virtulization functionality
 
 ## Application Layout
