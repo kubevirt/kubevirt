@@ -28,19 +28,12 @@ func main() {
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	flag.Parse()
 
-	// The right nodename is vital for us. Resolution order is:
-	// 1) hostname-override
-	// 2) HOSTNAME_OVERRIDE env variable
-	// 3) hostname reported by the system (not very useful when in a container)
 	if *host == "" {
-		*host = os.Getenv("HOSTNAME_OVERRIDE")
-		if *host == "" {
-			defaultHostName, err := os.Hostname()
-			if err != nil {
-				panic(err)
-			}
-			*host = defaultHostName
+		defaultHostName, err := os.Hostname()
+		if err != nil {
+			panic(err)
 		}
+		*host = defaultHostName
 	}
 	fmt.Printf("Hostname: %s\n", *host)
 

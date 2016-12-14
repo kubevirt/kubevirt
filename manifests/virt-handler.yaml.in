@@ -17,13 +17,17 @@ spec:
       - name: virt-handler
         image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
         imagePullPolicy: IfNotPresent
+        command:
+          - "/virt-handler"
+          - "--hostname-override"
+          - "$(NODE_NAME)"
         securityContext:
           privileged: true
         volumeMounts:
         - name: var-run-virt
           mountPath: /var/run/libvirt
         env:
-          - name: HOSTNAME_OVERRIDE
+          - name: NODE_NAME
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
