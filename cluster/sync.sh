@@ -10,6 +10,6 @@ for VM in `vagrant status | grep running | cut -d " " -f1`; do
   vagrant ssh $VM -c "cd /vagrant && sudo hack/build-docker.sh"
 done
 
-export KUBECTL="cluster/vagrant/kubectl.sh --core"
+export KUBECTL="cluster/kubectl.sh --core"
 
 cluster/deploy.sh
