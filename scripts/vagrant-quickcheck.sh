@@ -48,7 +48,7 @@ shift
 done
 
 if [ -z "$CLEAN_ALL" ]; then
-  vagrant ssh master -c "kubectl delete pods -l domain=${VM_NAME}"
+  vagrant ssh master -c "kubectl delete pods -l kubevirt.io/domain=${VM_NAME}"
   vagrant ssh master -c "kubectl delete vms ${VM_NAME}"
   set -e
   sleep 2
