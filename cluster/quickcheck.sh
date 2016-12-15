@@ -10,7 +10,7 @@ startvm () {
 VM_NAME=$1
 # TODO fix target node
 TARGET_NODE=$2
-DOMAIN="sed -e s/testvm/$VM_NAME/g cluster/vagrant/vm.json"
+DOMAIN="sed -e s/testvm/$VM_NAME/g cluster/vm.json"
 $DOMAIN | cluster/kubectl.sh create -f -
 }
 
