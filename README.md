@@ -141,7 +141,7 @@ First clone the project into your `$GOPATH`:
 
 ```bash
 # TODO github repo here
-git clone http://git.app.eng.bos.redhat.com/git/kubevirt/core.git $GOPATH/src/kubevirt.io/kubevirt
+git clone https://github.com/kubevirt/kubevirt.git $GOPATH/src/kubevirt.io/kubevirt
 cd $GOPATH/src/kubevirt.io/kubevirt
 ```
 
