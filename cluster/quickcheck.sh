@@ -1,18 +1,17 @@
 #!/bin/bash
 
 source hack/config.sh
-
 usage () {
 echo "Usage: ./cluster/quickcheck.sh [-vm-name  <VM>] [-target-node <NODE>]"
 echo "       ./cluster/quickcheck.sh [-clean-all]"
 }
 
 startvm () {
-HEADERS="-H \"Content-Type: application/json\""
 VM_NAME=$1
+# TODO fix target node
 TARGET_NODE=$2
 DOMAIN="sed -e s/testvm/$VM_NAME/g cluster/vagrant/vm.json"
-$DOMAIN | curl -X POST -H "Content-Type: application/json" http://${master_ip}:8183/apis/kubevirt.io/v1alpha1/namespaces/default/vms -d @-
+$DOMAIN | cluster/kubectl.sh create -f -
 }
 
 VM_NAME=testvm
@@ -48,22 +47,27 @@ shift
 done
 
 if [ -z "$CLEAN_ALL" ]; then
-  vagrant ssh master -c "kubectl delete pods -l kubevirt.io/domain=${VM_NAME}"
-  vagrant ssh master -c "kubectl delete vms ${VM_NAME}"
+  # Delete old VM if it exists
+  cluster/kubectl.sh --core delete pods -l kubevirt.io/domain=${VM_NAME}
+  # TODO only do this delete when it exists, to avoid misleading stderr output
+  cluster/kubectl.sh --core delete vms ${VM_NAME}
   set -e
   sleep 2
+  # Start new VM
   startvm $VM_NAME $TARGET_NODE
   sleep 10
-  NODE=$(vagrant ssh master -c "kubectl -s 127.0.0.1:8080 get pods -o json -l kubevirt.io/domain=${VM_NAME} | jq '.items[].spec.nodeName' -r" | sed -e 's/[[:space:]]*$//')
+  # Try to detect the node where the VM was scheduled to
+  NODE=$(cluster/kubectl.sh --core get pods -o json -l kubevirt.io/domain=${VM_NAME} | jq '.items[].spec.nodeName' -r)
 
   if [ -z $NODE ]; then
     echo "Could not detect the VM."
     exit 1
   fi
   echo "Found VM running on node '$NODE'"
-  # VM can also spawn on node
+  # Verify that the VM is running and in the right cgroups and namespaces
   vagrant ssh $NODE -c "sudo /vagrant/cluster/verify-qemu-kube ${VM_NAME}"
 else
-  vagrant ssh master -c "kubectl delete pods -l kubevirt.io/app=virt-launcher"
-  vagrant ssh master -c "kubectl delete vms --all"
+  # Remove all VMs and VM pods
+  cluster/vagrant/kubectl.sh --core delete pods -l kubevirt.io/app=virt-launcher
+  cluster/vagrant/kubectl.sh --core delete vms --all
 fi
