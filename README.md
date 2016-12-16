@@ -53,6 +53,8 @@ therefore required. For best results, use this path:
  * `cluster/sync_config.sh`: This script will contact the master node and
    collect its config and kubectl. It is called by sync.sh so does not generally
    need to be run separately.
+ * `cluster/quickcheck.sh`: This script will run a series of tests to ensure
+   the system is set up correctly.
 
 ## Example
 

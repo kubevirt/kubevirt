@@ -46,6 +46,13 @@ esac
 shift
 done
 
+JQ_PRESENT=$(which jq >/dev/null 2>&1 && echo 1 || echo 0)
+if [ "$JQ_PRESENT" == "0" ]
+then
+    echo "Missing required system dependency: jq"
+    exit 1
+fi
+
 if [ -z "$CLEAN_ALL" ]; then
   # Delete old VM if it exists
   cluster/kubectl.sh --core delete pods -l kubevirt.io/domain=${VM_NAME}
