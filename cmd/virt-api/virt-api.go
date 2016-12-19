@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/context"
 	"k8s.io/client-go/1.5/pkg/api/unversioned"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"log"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 
 func main() {
 
+	logging.InitializeLogging("virt-api")
 	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8183, "Port to listen on")

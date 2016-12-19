@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/1.5/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/libvirt/cache"
@@ -22,6 +23,7 @@ import (
 
 func main() {
 
+	logging.InitializeLogging("virt-handler")
 	libvirtapi.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	libvirtUser := flag.String("user", "", "Libvirt user")
@@ -36,12 +38,14 @@ func main() {
 		}
 		*host = defaultHostName
 	}
-	fmt.Printf("Hostname: %s\n", *host)
+	log := logging.DefaultLogger()
+	log.Info().V(1).Log("hostname", *host)
 
 	go func() {
 		for {
 			if res := libvirtapi.EventRunDefaultImpl(); res < 0 {
 				// Report the error somehow or break the loop.
+				log.Warning().Log("msg", "No results from libvirt")
 			}
 		}
 	}()

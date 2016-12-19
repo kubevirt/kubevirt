@@ -2,14 +2,13 @@ package services
 
 import (
 	"fmt"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/levels"
 	"k8s.io/client-go/1.5/kubernetes"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/pkg/labels"
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -22,7 +21,7 @@ type VMService interface {
 }
 
 type vmService struct {
-	logger          levels.Levels
+	logger          *logging.FilteredLogger
 	KubeCli         *kubernetes.Clientset `inject:""`
 	TemplateService TemplateService       `inject:""`
 }
@@ -73,10 +72,8 @@ func (v *vmService) GetRunningPods(vm *corev1.VM) (*v1.PodList, error) {
 	return podList, nil
 }
 
-func NewVMService(logger log.Logger) VMService {
-	precond.MustNotBeNil(logger)
-
-	svc := vmService{logger: levels.New(logger).With("component", "VMService")}
+func NewVMService() VMService {
+	svc := vmService{logger: logging.DefaultLogger().With("service", "VMService")}
 	return &svc
 }
 

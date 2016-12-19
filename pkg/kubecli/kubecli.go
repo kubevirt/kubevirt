@@ -2,7 +2,6 @@ package kubecli
 
 import (
 	"flag"
-	"github.com/go-kit/kit/log/levels"
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/fields"
@@ -14,6 +13,7 @@ import (
 	"k8s.io/client-go/1.5/tools/cache"
 	"k8s.io/client-go/1.5/tools/clientcmd"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"runtime/debug"
 	"time"
 )
@@ -152,10 +152,10 @@ type ResourceEventHandler interface {
 	OnDelete(obj interface{}) error
 }
 
-func NewPanicCatcher(logger levels.Levels) func() {
+func NewPanicCatcher(logger *logging.FilteredLogger) func() {
 	return func() {
 		if r := recover(); r != nil {
-			logger.Crit().Log("stacktrace", debug.Stack(), "msg", r)
+			logger.Critical().Log("stacktrace", debug.Stack(), "msg", r)
 		}
 	}
 }

@@ -1,8 +1,6 @@
 package watch
 
 import (
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/levels"
 	"github.com/jeevatkm/go-model"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/errors"
@@ -12,21 +10,22 @@ import (
 	"k8s.io/client-go/1.5/tools/cache"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 type vmResourceEventHandler struct {
 	VMService services.VMService `inject:""`
-	logger    levels.Levels
+	logger    *logging.FilteredLogger
 	restCli   *rest.RESTClient
 }
 
-func NewVMResourceEventHandler(logger log.Logger) (kubecli.ResourceEventHandler, error) {
+func NewVMResourceEventHandler() (kubecli.ResourceEventHandler, error) {
 	restClient, err := kubecli.GetRESTClient()
 	if err != nil {
 		return nil, err
 	}
-	return &vmResourceEventHandler{logger: levels.New(logger).With("component", "VMWatcher"), restCli: restClient}, nil
+	return &vmResourceEventHandler{logger: logging.DefaultLogger().With("service", "VMWatcher"), restCli: restClient}, nil
 }
 
 func NewVMInformer(handler kubecli.ResourceEventHandler) (*cache.Controller, error) {
@@ -56,8 +55,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 		vm := v1.VM{}
 		// Deep copy the object, so that we can savely manipulate it
 		model.Copy(&vm, obj)
-		vmName := vm.GetObjectMeta().GetName()
-		logger := v.logger.With("object", "VM", "action", "createVMPod", "name", vmName, "UUID", vm.GetObjectMeta().GetUID())
+		logger := v.logger.Object(&vm).With("action", "createVMPod")
 		// Create a pod for the specified VM
 		//Three cases where this can fail:
 		// 1) VM pods exist from old definition // 2) VM pods exist from previous start attempt and updating the VM definition failed
@@ -92,7 +90,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 					err = v.VMService.DeleteVM(&vm)
 					if err != nil {
 						// TODO detect if communication error and do backoff
-						logger.Crit().Log("msg", err)
+						logger.Critical().Log("msg", err)
 						return cache.ErrRequeue{Err: err}
 					}
 				} else {
@@ -102,7 +100,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 					err = v.VMService.DeleteVM(&vm)
 					if err != nil {
 						// TODO detect if communication error and backoff
-						logger.Crit().Log("msg", err)
+						logger.Critical().Log("msg", err)
 						return cache.ErrRequeue{Err: err}
 					}
 				}
