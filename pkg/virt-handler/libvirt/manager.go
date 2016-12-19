@@ -10,6 +10,8 @@ import (
 	"encoding/xml"
 	"github.com/jeevatkm/go-model"
 	"github.com/rgbkrk/libvirt-go"
+	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
+	"k8s.io/client-go/1.5/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -65,7 +67,8 @@ type VirDomain interface {
 }
 
 type LibvirtDomainManager struct {
-	virConn Connection
+	virConn  Connection
+	recorder record.EventRecorder
 }
 
 func NewConnection(uri string, user string, pass string) (Connection, error) {
@@ -76,8 +79,8 @@ func NewConnection(uri string, user string, pass string) (Connection, error) {
 	return &LibvirtConnection{VirConnection: virConn}, nil
 }
 
-func NewLibvirtDomainManager(connection Connection) (DomainManager, error) {
-	manager := LibvirtDomainManager{virConn: connection}
+func NewLibvirtDomainManager(connection Connection, recorder record.EventRecorder) (DomainManager, error) {
+	manager := LibvirtDomainManager{virConn: connection, recorder: recorder}
 	return &manager, nil
 }
 
@@ -97,10 +100,10 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 				return err
 			}
 			dom, err = l.virConn.DomainDefineXML(string(xml))
-			// TODO: VM defined event if no error
 			if err != nil {
 				return err
 			}
+			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined")
 		}
 	}
 	domState, err := dom.GetState()
@@ -113,17 +116,17 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	switch state {
 	case NoState, Shutdown, Shutoff, Crashed:
 		err := dom.Create()
-		// TODO: VM started event, if no error
 		if err != nil {
 			return err
 		}
+		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started")
 	case Paused:
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
-		// TODO: VM resumed event, if no error
 		if err != nil {
 			return err
 		}
+		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
 	default:
 		// Nothing to do
 		// TODO: blocked state
@@ -152,16 +155,16 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	state := LifeCycleTranslationMap[domState[0]]
 	if state == Running || state == Paused {
 		err = dom.Destroy()
-		// TODO: shutdown event if this succeeded
 		if err != nil {
 			return err
 		}
+		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Stopped.String(), "VM stopped")
 	}
 
 	err = dom.Undefine()
-	// TODO: undefine event if this succeeded
 	if err != nil {
 		return err
 	}
+	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
 }

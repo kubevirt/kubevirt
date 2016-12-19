@@ -2,13 +2,15 @@ package virthandler
 
 import (
 	"fmt"
+	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/tools/cache"
+	"k8s.io/client-go/1.5/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 )
 
-func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.DomainManager) (cache.Indexer, *cache.Controller) {
+func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.DomainManager, recorder record.EventRecorder) (cache.Indexer, *cache.Controller) {
 	return kubecli.NewInformer(listWatcher, &v1.VM{}, 0, kubecli.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) error {
 			fmt.Printf("VM ADD\n")
@@ -16,6 +18,7 @@ func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.Doma
 			err := domainManager.SyncVM(vm)
 			if err != nil {
 				fmt.Println(err)
+				recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 				return cache.ErrRequeue{Err: err}
 			}
 			return nil
@@ -32,6 +35,7 @@ func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.Doma
 			err := domainManager.KillVM(vm)
 			if err != nil {
 				fmt.Println(err)
+				recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 				return cache.ErrRequeue{Err: err}
 			}
 			return nil
@@ -45,6 +49,7 @@ func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.Doma
 			err := domainManager.SyncVM(vm)
 			if err != nil {
 				fmt.Println(err)
+				recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 				return cache.ErrRequeue{Err: err}
 			}
 			return nil

@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/apimachinery/announced"
 	"k8s.io/client-go/1.5/pkg/runtime"
+	"k8s.io/client-go/1.5/pkg/types"
 	"kubevirt.io/kubevirt/pkg/api"
 	"reflect"
 )
@@ -243,3 +244,34 @@ const (
 	UIDLabel      string = "kubevirt.io/vmUID"
 	NodeNameLabel string = "kubevirt.io/nodeName"
 )
+
+func NewVM(name string, uid types.UID) *VM {
+	return &VM{
+		Spec: VMSpec{},
+		ObjectMeta: kubeapi.ObjectMeta{
+			Name:      name,
+			UID:       uid,
+			Namespace: kubeapi.NamespaceDefault,
+		},
+		Status: VMStatus{},
+		TypeMeta: unversioned.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       "VM",
+		},
+	}
+}
+
+type SyncEvent string
+
+const (
+	Created    SyncEvent = "Created"
+	Deleted    SyncEvent = "Deleted"
+	Started    SyncEvent = "Started"
+	Stopped    SyncEvent = "Stopped"
+	SyncFailed SyncEvent = "SyncFailed"
+	Resumed    SyncEvent = "Resumed"
+)
+
+func (s SyncEvent) String() string {
+	return string(s)
+}

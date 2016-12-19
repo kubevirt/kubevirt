@@ -176,7 +176,7 @@ func NewDomain(dom kubevirt.VirDomain) (*kubevirt.Domain, error) {
 		Status: kubevirt.DomainStatus{},
 		TypeMeta: unversioned.TypeMeta{
 			APIVersion: "1.2.2",
-			Kind:       "domains",
+			Kind:       "Domain",
 		},
 	}, nil
 }
