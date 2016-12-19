@@ -1,6 +1,7 @@
 language: go
 go_import_path: kubevirt.io/kubevirt
 sudo: required
+dist: trusty
 
 go:
   - 1.6.x
