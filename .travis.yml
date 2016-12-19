@@ -1,0 +1,16 @@
+language: go
+go_import_path: kubevirt.io/kubevirt
+sudo: required
+dist: trusty
+
+go:
+  - 1.6.x
+  - 1.7.x
+  - tip
+
+install:
+ - go get -u github.com/kardianos/govendor
+ - sudo apt-get install libvirt-dev make
+
+script:
+ - make test

@@ -1,5 +1,7 @@
 # KubeVirt
 
+[![Build Status](https://travis-ci.org/kubevirt/kubevirt.svg?branch=master)](https://travis-ci.org/kubevirt/kubevirt)
+
 KubeVirt is a virtual machine management architecture built around Kubernetes.
 
 
