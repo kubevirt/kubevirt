@@ -196,7 +196,7 @@ type Timer struct {
 
 type Channel struct {
 	Type   string         `xml:"type,attr" json:"type"`
-	Source ChannelSource  `xml:"target,omitempty" json:"source,omitempty"`
+	Source ChannelSource  `xml:"source,omitempty" json:"source,omitempty"`
 	Target *ChannelTarget `xml:"target,omitempty" json:"target,omitempty"`
 }
 
