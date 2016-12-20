@@ -6,11 +6,13 @@ $use_nfs = ENV['VAGRANT_USE_NFS'] == 'true'
 $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'
 $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
 $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
+$nodes = (ENV['VAGRANT_NUM_NODES'] || 0).to_i
 
-config = Hash[*File.read('hack/config.sh').split(/=|\n/)]
+$config = Hash[*File.read('hack/config.sh').split(/=|\n/)]
 
-$master_ip = config["master_ip"]
-$network_provider = config["network_provider"]
+$master_ip = $config["master_ip"]
+$network_provider = $config["network_provider"]
+
 
 
 Vagrant.configure(2) do |config|
@@ -71,22 +73,25 @@ Vagrant.configure(2) do |config|
         echo -e "Credentials for Cockpit are 'root:vagrant'.\033[0m"
       SHELL
   end
-  config.vm.define "node" do |node|
-      node.vm.hostname = "node"
-      node.vm.provider :libvirt do |domain|
-          domain.memory = 2048
-          if $cache_docker then
-              domain.storage :file, :size => '10G', :path => 'kubevirt_node_docker.img', :allow_existing => true
-          end
-      end
 
-      node.vm.provision "shell", inline: <<-SHELL
-        #!/bin/bash
-        set -xe
-        cd /vagrant/cluster/vagrant
-        bash setup_kubernetes_node.sh
-        set +x
-        echo -e "\033[0;32m Deployment was successful!\033[0m"
-      SHELL
+  (0..($nodes-1)).each do |suffix|
+    config.vm.define "node" + suffix.to_s do |node|
+        node.vm.hostname = "node" + suffix.to_s
+        node.vm.provider :libvirt do |domain|
+            domain.memory = 2048
+            if $cache_docker then
+                domain.storage :file, :size => '10G', :path => 'kubevirt_node_docker' + suffix.to_s + '.img', :allow_existing => true
+            end
+        end
+
+        node.vm.provision "shell", inline: <<-SHELL
+          #!/bin/bash
+          set -xe
+          cd /vagrant/cluster/vagrant
+          bash setup_kubernetes_node.sh
+          set +x
+          echo -e "\033[0;32m Deployment was successful!\033[0m"
+        SHELL
+    end
   end
 end
