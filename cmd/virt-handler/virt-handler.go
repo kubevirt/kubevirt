@@ -128,6 +128,8 @@ func main() {
 		},
 		DeleteFunc: func(obj interface{}) error {
 			// stop and undefine
+			// Let's reenque the delete request until we reach the end of the mothod or until
+			// we detect that the VM does not exist anymore
 			fmt.Printf("VM DELETE\n")
 			vm, ok := obj.(*v1.VM)
 			if !ok {
@@ -136,22 +138,25 @@ func main() {
 			domain, err := domainCacheConn.LookupDomainByName(vm.ObjectMeta.Name)
 			if err != nil {
 				fmt.Println(err)
+				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_DOM_EXIST {
+					return cache.ErrRequeue{Err: err}
+				}
 				return nil
 			}
 
+			// TODO: Let's try a shutdown and give the VM some time to shut down
 			err = domain.Destroy()
 			if err != nil {
 				fmt.Println(err)
+				// If the VM is already destroyed, we still want to try to undefine the VM
 				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
 					return cache.ErrRequeue{Err: err}
 				}
 			}
-			domain.Undefine()
+			err = domain.Undefine()
 			if err != nil {
 				fmt.Println(err)
-				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
-					return cache.ErrRequeue{Err: err}
-				}
+				return cache.ErrRequeue{Err: err}
 			}
 			return nil
 		},
