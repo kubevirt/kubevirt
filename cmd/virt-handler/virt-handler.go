@@ -111,16 +111,13 @@ func main() {
 			if err != nil {
 				fmt.Println(err)
 				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_DOM_EXIST {
-					time.Sleep(1 * time.Second)
 					return cache.ErrRequeue{Err: err}
 				}
-				// TODO more fine grained checks, backoff, ...
 			}
 
 			if err := dom.Create(); err != nil {
 				fmt.Println(err)
 				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
-					time.Sleep(1 * time.Second)
 					return cache.ErrRequeue{Err: err}
 				}
 				// TODO check if vm is already runnin, backoff, ...
@@ -146,8 +143,6 @@ func main() {
 			if err != nil {
 				fmt.Println(err)
 				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
-					// TODO more fine grained checks, backoff, ...
-					time.Sleep(1 * time.Second)
 					return cache.ErrRequeue{Err: err}
 				}
 			}
@@ -155,8 +150,6 @@ func main() {
 			if err != nil {
 				fmt.Println(err)
 				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
-					// TODO more fine grained checks, backoff, ...
-					time.Sleep(1 * time.Second)
 					return cache.ErrRequeue{Err: err}
 				}
 			}

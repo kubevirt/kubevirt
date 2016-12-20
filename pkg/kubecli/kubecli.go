@@ -108,23 +108,38 @@ func NewInformer(
 						}
 						err = h.OnUpdate(old, d.Object)
 						if err != nil {
+							// TODO real backoff strategy
+							// TODO solve this by using workqueues as soon as they hit client-go
+							time.Sleep(1 * time.Second)
 							return err
 						}
 					} else {
 						if err := clientState.Add(d.Object); err != nil {
+							// TODO real backoff strategy
+							// TODO solve this by using workqueues as soon as they hit client-go
+							time.Sleep(1 * time.Second)
 							return err
 						}
 						err = h.OnAdd(d.Object)
 						if err != nil {
+							// TODO real backoff strategy
+							// TODO solve this by using workqueues as soon as they hit client-go
+							time.Sleep(1 * time.Second)
 							return err
 						}
 					}
 				case cache.Deleted:
 					if err := clientState.Delete(d.Object); err != nil {
+						// TODO real backoff strategy
+						// TODO solve this by using workqueues as soon as they hit client-go
+						time.Sleep(1 * time.Second)
 						return err
 					}
 					err := h.OnDelete(d.Object)
 					if err != nil {
+						// TODO real backoff strategy
+						// TODO solve this by using workqueues as soon as they hit client-go
+						time.Sleep(1 * time.Second)
 						return err
 					}
 				}
