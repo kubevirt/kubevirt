@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/1.5/tools/cache"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/libvirt/cache"
 	"os"
@@ -54,27 +55,15 @@ func main() {
 		panic(err)
 	}
 
+	domainListWatcher := virtcache.NewListWatchFromClient(domainConn, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
+
+	domainController := virthandler.NewDomainController(domainListWatcher)
+
 	domainCache, err := virtcache.NewDomainCache(domainConn)
 	if err != nil {
 		panic(err)
 	}
 
-	domainListWatcher := virtcache.NewListWatchFromClient(domainConn, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
-
-	_, domainController := kubecli.NewInformer(domainListWatcher, &libvirt.Domain{}, 0, kubecli.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) error {
-			fmt.Printf("Domain ADDED: %s: %s\n", obj.(*libvirt.Domain).GetObjectMeta().GetName(), obj.(*libvirt.Domain).Status.Status)
-			return nil
-		},
-		DeleteFunc: func(obj interface{}) error {
-			fmt.Printf("Domain DELETED: %s: %s\n", obj.(*libvirt.Domain).GetObjectMeta().GetName(), obj.(*libvirt.Domain).Status.Status)
-			return nil
-		},
-		UpdateFunc: func(old interface{}, new interface{}) error {
-			fmt.Printf("Domain UPDATED: %s: %s\n", new.(*libvirt.Domain).GetObjectMeta().GetName(), new.(*libvirt.Domain).Status.Status)
-			return nil
-		},
-	})
 	restClient, err := kubecli.GetRESTClient()
 	if err != nil {
 		panic(err)
@@ -84,49 +73,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceDefault, fields.Everything(), l)
 
-	vmStore, vmController := kubecli.NewInformer(vmListWatcher, &v1.VM{}, 0, kubecli.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) error {
-			fmt.Printf("VM ADD\n")
-			vm := obj.(*v1.VM)
-			err := domainManager.SyncVM(vm)
-			if err != nil {
-				fmt.Println(err)
-				return cache.ErrRequeue{Err: err}
-			}
-			return nil
-		},
-		DeleteFunc: func(obj interface{}) error {
-			// stop and undefine
-			// Let's reenque the delete request until we reach the end of the mothod or until
-			// we detect that the VM does not exist anymore
-			fmt.Printf("VM DELETE\n")
-			vm, ok := obj.(*v1.VM)
-			if !ok {
-				vm = obj.(cache.DeletedFinalStateUnknown).Obj.(*v1.VM)
-			}
-			err := domainManager.KillVM(vm)
-			if err != nil {
-				fmt.Println(err)
-				return cache.ErrRequeue{Err: err}
-			}
-			return nil
-		},
-		UpdateFunc: func(old interface{}, new interface{}) error {
-			fmt.Printf("VM UPDATE\n")
-			// TODO: at the moment kubecli.NewInformer guarantees that if old is already equal to new,
-			//       in this case we don't need to sync if old is equal to new (but this might change)
-			// TODO: Implement the spec update flow in LibvirtDomainManager.SyncVM
-			vm := new.(*v1.VM)
-			err := domainManager.SyncVM(vm)
-			if err != nil {
-				fmt.Println(err)
-				return cache.ErrRequeue{Err: err}
-			}
-			return nil
-		},
-	})
+	vmStore, vmController := virthandler.NewVMController(vmListWatcher, domainManager)
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
@@ -134,6 +84,7 @@ func main() {
 	go domainCache.Run(stop)
 	cache.WaitForCacheSync(stop, domainCache.HasSynced)
 
+	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainCache.GetStore().List() {
 		d := domain.(*libvirt.Domain)
 		vmStore.Add(&v1.VM{
