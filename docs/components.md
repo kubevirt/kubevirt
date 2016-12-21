@@ -2,7 +2,7 @@
 
 Make sure to check out the [Glossary](glossary.md) before continuing.
 
-KubeVirt consists of a set of services.
+KubeVirt consists of a set of services:
 
                 |
         Cluster | (virt-api)  (virt-controller)
@@ -16,7 +16,35 @@ KubeVirt consists of a set of services.
       DaemonSet | (libvirtd) (virt-handler) (vm-pod*)
                 |
 
-## virt-api
+    M: Managed
+    TPR: Third Party Resource
+
+## Example flow: Create and Delete a VM
+
+<!-- FIXME: wrong in a lot of ways and therefore misleading -->
+
+    User       Virt API      VM TPR    Virt Controller    k8s      VM Pod
+    createVM  --> |                           |            |
+                  o create --> +              |            |
+                  |            | <~ create ~> ?            |
+                  |            |              |            |
+                  |            |              o create --> o ------> +
+                  |            |              |            |         |
+                  |            | <---------------------- get VM Spec o
+                  |            o ----------------------------------> |
+                  |            |              |            |         o defineVM()
+                  |            |              |            |         o watchVM()
+                  |            |              |            |         |
+    deleteVM -->  o delete --> *              |            |         |
+                  |              <~ delete ~> ?            |
+                  |                           |            |         |
+                  |                           o delete --> o ------> *
+                  |                           |            |
+                  :                           :            :
+
+    Legend: ?: Event notification
+
+## `virt-api-server`
 
 HTTP API server which serves as the entry point for all virtualization related
 flows.
@@ -40,7 +68,7 @@ for example
 * Number and type of NICs
 * …
 
-## virt-controller
+## `virt-controller`
 
 From a high-level perspective the virt-controller has all the _cluster wide_
 virtualization functionality.
@@ -52,7 +80,7 @@ the life-cycle of the pods associated to the VM objects.
 A VM object will always be associated to a pod during it's life-time, however,
 due to i.e. migration of a VM the pod instance might change over time.
 
-## vm-launcher
+## `vm-launcher`
 
 For every VM object one pod is created. This pod's primary container runs the
 `vm-launcher`.
@@ -70,7 +98,7 @@ process and vice versa.
 
 As of now, a VM process
 
-## virt-handler
+## `virt-handler`
 
 Every host needs a single instance of `virt-handler`. It can be delivered as a DaemonSet.
 
@@ -89,7 +117,7 @@ The main areas which `virt-handler` has to cover are:
 
 Metrics collection for VMs is not part of `virt-handler`s responsibilities.
 
-## libvirtd
+## `libvirtd`
 
 On the host an instance of libvirtd is responsible for actually managing the
 VM processes.
