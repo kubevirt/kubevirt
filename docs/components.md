@@ -21,28 +21,28 @@ KubeVirt consists of a set of services:
 
 ## Example flow: Create and Delete a VM
 
-<!-- FIXME: wrong in a lot of ways and therefore misleading -->
+    Client         Virt API    VM TPR  Virt Controller  k8s         VM Handler
+    -------------- ----------- ------- ---------------- ----------- ----------
 
-    User       Virt API      VM TPR    Virt Controller    k8s      VM Pod
-    createVM  --> |                           |            |
-                  o create --> +              |            |
-                  |            | <~ create ~> ?            |
-                  |            |              |            |
-                  |            |              o create --> o ------> +
-                  |            |              |            |         |
-                  |            | <---------------------- get VM Spec o
-                  |            o ----------------------------------> |
-                  |            |              |            |         o defineVM()
-                  |            |              |            |         o watchVM()
-                  |            |              |            |         |
-    deleteVM -->  o delete --> *              |            |         |
-                  |              <~ delete ~> ?            |
-                  |                           |            |         |
-                  |                           o delete --> o ------> *
-                  |                           |            |
-                  :                           :            :
-
-    Legend: ?: Event notification
+                   listen <----------- WATCH /vms
+                   listen <---------------------------------------- WATCH /vms
+                                          |                            |
+    POST /vms ---> validate               |                            |
+                   create ---> VM ---> observe                         |
+                     |          |         v                            |
+                     |          |      POST /pods ----> validate       |
+                     |          |         |             create         |
+                     |          |         |             schedPod -> observe
+                     |          |         |                            v
+                     | <------------------------------------------> GET /vms
+                     |          |         |                         defineVM
+                     |          |         |                         watchVM
+                     |          |         |                            |
+    DELETE /vms -> validate     |         |                            |
+                   delete ----> * --------------------------------> observe
+                     |                    |                         shutdownVM
+                     |                    |                            |
+                     :                    :                            :
 
 ## `virt-api-server`
 
