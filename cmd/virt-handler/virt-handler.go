@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/xml"
 	"flag"
 	"fmt"
 	"github.com/jeevatkm/go-model"
@@ -12,9 +11,8 @@ import (
 	"k8s.io/client-go/1.5/tools/cache"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/libvirt"
-	virtcache "kubevirt.io/kubevirt/pkg/libvirt/cache"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
+	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/libvirt/cache"
 	"os"
 	"time"
 )
@@ -45,30 +43,23 @@ func main() {
 		}
 	}()
 	// TODO we need to handle disconnects
-	domainCacheConn, err := libvirtapi.NewVirConnectionWithAuth(*libvirtUri, *libvirtUser, *libvirtPass)
-	defer domainCacheConn.CloseConnection()
+	domainConn, err := libvirt.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass)
+	defer domainConn.CloseConnection()
 	if err != nil {
 		panic(err)
 	}
 
-	// TODO we need to handle disconnects
-	domainLWConn, err := libvirtapi.NewVirConnectionWithAuth(*libvirtUri, *libvirtUser, *libvirtPass)
-	defer domainLWConn.CloseConnection()
+	domainManager, err := libvirt.NewLibvirtDomainManager(domainConn)
 	if err != nil {
 		panic(err)
 	}
 
-	vmCache, err := util.NewVMCache()
+	domainCache, err := virtcache.NewDomainCache(domainConn)
 	if err != nil {
 		panic(err)
 	}
 
-	domainCache, err := virtcache.NewDomainCache(domainCacheConn)
-	if err != nil {
-		panic(err)
-	}
-
-	domainListWatcher := virtcache.NewListWatchFromClient(domainLWConn, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
+	domainListWatcher := virtcache.NewListWatchFromClient(domainConn, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
 
 	_, domainController := kubecli.NewInformer(domainListWatcher, &libvirt.Domain{}, 0, kubecli.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) error {
@@ -97,33 +88,13 @@ func main() {
 
 	vmStore, vmController := kubecli.NewInformer(vmListWatcher, &v1.VM{}, 0, kubecli.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) error {
-			// define and start
 			fmt.Printf("VM ADD\n")
-			domainSpec := &libvirt.DomainSpec{}
 			vm := obj.(*v1.VM)
-			errs := model.Copy(domainSpec, vm.Spec.Domain)
-			if len(errs) > 0 {
-				fmt.Println(errs)
-				return nil
-			}
-			domXML, _ := xml.Marshal(domainSpec)
-			dom, err := domainCacheConn.DomainDefineXML(string(domXML))
+			err := domainManager.SyncVM(vm)
 			if err != nil {
 				fmt.Println(err)
-				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_DOM_EXIST {
-					return cache.ErrRequeue{Err: err}
-				}
+				return cache.ErrRequeue{Err: err}
 			}
-
-			if err := dom.Create(); err != nil {
-				fmt.Println(err)
-				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
-					return cache.ErrRequeue{Err: err}
-				}
-				// TODO check if vm is already runnin, backoff, ...
-				// For now we assume the VM is running when the operation was invalid
-			}
-
 			return nil
 		},
 		DeleteFunc: func(obj interface{}) error {
@@ -135,25 +106,7 @@ func main() {
 			if !ok {
 				vm = obj.(cache.DeletedFinalStateUnknown).Obj.(*v1.VM)
 			}
-			domain, err := domainCacheConn.LookupDomainByName(vm.ObjectMeta.Name)
-			if err != nil {
-				fmt.Println(err)
-				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_DOM_EXIST {
-					return cache.ErrRequeue{Err: err}
-				}
-				return nil
-			}
-
-			// TODO: Let's try a shutdown and give the VM some time to shut down
-			err = domain.Destroy()
-			if err != nil {
-				fmt.Println(err)
-				// If the VM is already destroyed, we still want to try to undefine the VM
-				if code := err.(libvirtapi.VirError).Code; code != libvirtapi.VIR_ERR_OPERATION_INVALID {
-					return cache.ErrRequeue{Err: err}
-				}
-			}
-			err = domain.Undefine()
+			err := domainManager.KillVM(vm)
 			if err != nil {
 				fmt.Println(err)
 				return cache.ErrRequeue{Err: err}
@@ -162,6 +115,15 @@ func main() {
 		},
 		UpdateFunc: func(old interface{}, new interface{}) error {
 			fmt.Printf("VM UPDATE\n")
+			// TODO: at the moment kubecli.NewInformer guarantees that if old is already equal to new,
+			//       in this case we don't need to sync if old is equal to new (but this might change)
+			// TODO: Implement the spec update flow in LibvirtDomainManager.SyncVM
+			vm := new.(*v1.VM)
+			err := domainManager.SyncVM(vm)
+			if err != nil {
+				fmt.Println(err)
+				return cache.ErrRequeue{Err: err}
+			}
 			return nil
 		},
 	})
@@ -169,9 +131,7 @@ func main() {
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
-	go vmCache.Run(stop)
 	go domainCache.Run(stop)
-	cache.WaitForCacheSync(stop, vmCache.HasSynced)
 	cache.WaitForCacheSync(stop, domainCache.HasSynced)
 
 	for _, domain := range domainCache.GetStore().List() {
