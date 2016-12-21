@@ -92,8 +92,8 @@ You could also run some build steps individually:
     # To build all binaries
     make
 
-   # Or to build just one binary
-   make build WHAT=virt-controller
+    # Or to build just one binary
+    make build WHAT=virt-controller
 
     # To build all docker images
     make docker
