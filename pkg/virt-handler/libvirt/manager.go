@@ -1,5 +1,11 @@
 package libvirt
 
+//go:generate mockgen -source $GOFILE -imports "libvirt=github.com/rgbkrk/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
+/*
+ ATTENTION: Rerun code generators when interface signatures are modified.
+*/
+
 import (
 	"encoding/xml"
 	"github.com/rgbkrk/libvirt-go"

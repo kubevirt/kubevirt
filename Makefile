@@ -3,10 +3,9 @@ export GO15VENDOREXPERIMENT := 1
 all: build manifests
 
 generate:
-	(cd build-tools/desc && go install)
 	./hack/build-go.sh generate ${WHAT}
 
-build: sync generate fmt vet
+build: sync fmt vet
 	./hack/build-go.sh install ${WHAT}
 
 vet:

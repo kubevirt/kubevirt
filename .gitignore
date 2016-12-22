@@ -12,6 +12,4 @@ bin/*
 .vagrant
 cluster/vagrant/.kubeconfig
 cluster/vagrant/.kubectl
-*_swagger_generated.go
-*_swagger_generated_test.go
 build-tools/desc/desc

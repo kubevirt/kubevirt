@@ -99,6 +99,32 @@ You could also run some build steps individually:
     make docker
 ```
 
+### Code generation
+
+**Note:** This is only important if you plan to modify sources, you don't need code generators just for building
+
+Currently we use code generators for two purposes:
+
+ * Generating swagger documentation out of struct and field comments for [go-restful](https://github.com/emicklei/go-restful)
+ * Generating mock interfaces for [gomock](https://github.com/golang/mock)
+
+So if you add or modify comments on structs in `pkg/api/v1` or if you change
+interface definitions, you need to rerun the code generator.
+
+First install the generator tools:
+
+```bash
+go get -u github.com/golang/mock/gomock
+go get -u github.com/golang/mock/mockgen
+go get -u github.com/rmohr/go-swagger-utils/swagger-doc
+```
+
+Then regenerate the code:
+
+```bash
+make generate
+```
+
 ### Testing
 
 After a succefull build you can run the testsuite using:

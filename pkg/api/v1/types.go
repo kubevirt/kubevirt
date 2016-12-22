@@ -1,6 +1,10 @@
 package v1
 
-//go:generate desc
+//go:generate swagger-doc
+
+/*
+ ATTENTION: Rerun code generators when comments on structs or fields are modified.
+*/
 
 import (
 	"encoding/json"
