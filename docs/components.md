@@ -21,28 +21,44 @@ KubeVirt consists of a set of services:
 
 ## Example flow: Create and Delete a VM
 
-    Client         Virt API    VM TPR  Virt Controller  k8s         VM Handler
-    -------------- ----------- ------- ---------------- ----------- ----------
+```
+Client         Virt API    VM TPR  Virt Controller  k8s         VM Handler
+-------------- ----------- ------- ---------------- ----------- ----------
 
-                   listen <----------- WATCH /vms
-                   listen <---------------------------------------- WATCH /vms
-                                          |                            |
-    POST /vms ---> validate               |                            |
-                   create ---> VM ---> observe                         |
-                     |          |         v                            |
-                     |          |      POST /pods ----> validate       |
-                     |          |         |             create         |
-                     |          |         |             schedPod -> observe
-                     |          |         |                            v
-                     | <------------------------------------------> GET /vms
-                     |          |         |                         defineVM
-                     |          |         |                         watchVM
-                     |          |         |                            |
-    DELETE /vms -> validate     |         |                            |
-                   delete ----> * --------------------------------> observe
-                     |                    |                         shutdownVM
-                     |                    |                            |
-                     :                    :                            :
+               listen <----------- WATCH /vms
+               listen <---------------------------------------- WATCH /vms
+                                      |                            |
+POST /vms ---> validate               |                            |
+               create ---> VM ---> observe                         |
+                 |          |         v                            |
+                 |          |      POST /pods ----> validate       |
+                 |          |         |             create         |
+                 |          |         |             schedPod -> observe
+                 |          |         |                            v
+                 | <------------------------------------------> GET /vms
+                 |          |         |                         defineVM
+                 |          |         |                            |
+                 |          |         |                            |
+DELETE /vms -> validate     |         |                            |
+               delete ----> * --------------------------------> observe
+                 |                    |                         shutdownVM
+                 |                    |                            |
+                 :                    :                            :
+```
+
+1. A client posts a new VM definition to the `virt-api-server`
+2. The `virt-api-server` validates the input and creates a `VM` 3rd party
+   resource (TPR) object through the Kubernetes API Server
+3. The `virt-controller` observes the creation of the new `VM` object
+   and creates a corrsponding pod.
+4. Kubernetes is scheduling the pod on a host
+5. The `virt-handler` (_DaemonSet_) observes that a pod for a `VM` got
+   scheduled on the host where it is running on and fetches the _VM
+   Specification_ from the `virt-api-server`.
+6. The `virt-handler` is using the _VM Specification_ and creates a
+   corresponding domain using the local `libvirtd` instance.
+7. A client deletes the `VM` object through the `virt-api-server`.
+8. The `virt-handler` observes the deletion and turns off the domain. 
 
 ## `virt-api-server`
 
