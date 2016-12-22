@@ -6,21 +6,21 @@ pattern.
 ## Stack
 
 
-    +---------------------+
-    | KubeVirt            |
-    +---------------------+
-    | Orchestration (K8s) |
-    +---------------------+
-    | Scheduling (K8s)    |
-    +---------------------+
-    | Container Runtime   |
-    +---------------------+
-    | Operating System    |
-    +---------------------+
-    | Virtual             |
-    +---------------------+
-    | Physical            |
-    +---------------------+
+      +---------------------+
+      | KubeVirt            |
+    ~~+---------------------+~~
+      | Orchestration (K8s) |
+      +---------------------+
+      | Scheduling (K8s)    |
+      +---------------------+
+      | Container Runtime   |
+    ~~+---------------------+~~
+      | Operating System    |
+      +---------------------+
+      | (Virtual)           |
+    ~~+---------------------+~~
+      | Physical            |
+      +---------------------+
 
 Users requiring virtualization services are speaking to the Virtualization API
 (see below) which in turn is speaking to the Kubernetes cluster to schedule

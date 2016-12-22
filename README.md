@@ -3,14 +3,32 @@
 [![Build Status](https://travis-ci.org/kubevirt/kubevirt.svg?branch=master)](https://travis-ci.org/kubevirt/kubevirt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubevirt/kubevirt)](https://goreportcard.com/report/github.com/kubevirt/kubevirt)
 
-KubeVirt is a virtual machine management architecture built around Kubernetes.
+**KubeVirt** is a virtual machine management architecture built around
+Kubernetes.
+The virtualization capabilities are layered on top of Kubernetes,
+existing functionality like scheduling and storage are however directly
+consumed from Kubernetes.
 
+KubeVirt aims at beeing able to provide management for fully featured
+Virtual Machines, thus VMs where you can tune every single parameter.
+These are usually the kind of VMs you find 'classic' datacenter
+virtualization environments.
 
 ## Getting Started
 
-This document contains some more background below.
-If you want to get started right away, make sure to continue with our
+To get started right away please read out
 [Getting Started Guide](docs/getting-started.md).
+
+
+## Documentation
+
+You can learn more about how KubeVirt is designed (and why it is that way),
+and learn more about the major components by taking a look at
+[our documentation](docs/):
+
+* [Glossary](docs/glossary.md) - Explaining the most important terms
+* [Architecture](docs/architecture.md) - High-level view on the architetcure
+* [Components](docs/components.md) - Detailed look at all components
 
 
 ## Technical Overview
