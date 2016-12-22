@@ -2,7 +2,6 @@ package libvirt
 
 import (
 	"encoding/xml"
-	"fmt"
 	"github.com/rgbkrk/libvirt-go"
 	"github.com/rmohr/go-model"
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -106,7 +105,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	// TODO for migration and error detection we also need the state change reason
 	state := LifeCycleTranslationMap[domState[0]]
 	switch state {
-	case NoState, Shutdown, Shutoff:
+	case NoState, Shutdown, Shutoff, Crashed:
 		err := dom.Create()
 		// TODO: VM started event, if no error
 		if err != nil {
@@ -119,9 +118,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		if err != nil {
 			return err
 		}
-	case Crashed:
-		// TODO: redefine and start VM
-		return fmt.Errorf("Domain %s crashed", vm.GetObjectMeta().GetName())
 	default:
 		// Nothing to do
 	}
