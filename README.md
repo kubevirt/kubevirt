@@ -2,69 +2,92 @@
 
 [![Build Status](https://travis-ci.org/kubevirt/kubevirt.svg?branch=master)](https://travis-ci.org/kubevirt/kubevirt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubevirt/kubevirt)](https://goreportcard.com/report/github.com/kubevirt/kubevirt)
+[![Licensed under Apache License version 2.0](https://img.shields.io/github/license/kubevirt/kubevirt.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-KubeVirt is a virtual machine management architecture built around Kubernetes.
+
+**KubeVirt** is a virtual machine management architecture built around
+Kubernetes.
+
+**Note:** KubeVirt is a heavy work in progress.
+
+# Virtualization extension for Kubernetes
+
+At it's core KubeVirt extends [Kubernetes][k8s] by adding
+additional virtualization resource types (especially the `VM` type) through
+[Kubernetes's third party resource concept][tpr].
+By using this mechanism, the Kubernetes API can be used to manage these `VM`
+resources alongside all other resources Kubernetes provides.
+
+The resources themselves are not enough to launch virtual machines.
+For this to happen the _functionality and business logic_ needs to be added to
+the cluster. The functionality is not added to Kubernetes itself, but rather
+added to a Kubernetes cluster by _running_ additional controllers and agents
+on an existing cluster.
+
+The necessary controllers and agents are provided by KubeVirt.
+
+
+## Features
+
+As of today KubeVirt can be used to declarative
+
+ * Create a predefined VM
+ * Schedule a VM on a Kubernetes cluster
+ * Launch a VM
+ * Stop a VM
+ * Delete a VM
+
+Example:
+
+[![asciicast](https://asciinema.org/a/96275.png)](https://asciinema.org/a/96275)
 
 
 ## Getting Started
 
-This document contains some more background below.
-If you want to get started right away, make sure to continue with our
+To get started right away please read our
 [Getting Started Guide](docs/getting-started.md).
 
 
-## Technical Overview
+## Documentation
 
-Kubernetes allows for extensions to its architecture in the form of 3rd party
-resources: <http://kubernetes.io/docs/user-guide/thirdpartyresources/>.
-KubeVirt represents virtual machines as 3rd party resources and manages changes
-to libvirt domains based on the state of those resources.
+You can learn more about how KubeVirt is designed (and why it is that way),
+and learn more about the major components by taking a look at
+[our documentation](docs/):
 
-This project provides a Vagrant setup with the requisite components already
-installed. To boot a vanilla kubernetes environment as base for kubevirt,
-simply type `vagrant up` from the root directory of the git tree, which can be
-found here:
+ * [Glossary](docs/glossary.md) - Explaining the most important terms
+ * [Architecture](docs/architecture.md) - High-level view on the architetcure
+ * [Components](docs/components.md) - Detailed look at all components
 
-<https://github.com/kubevirt/kubevirt>
 
-Once the Vagrant provisioning script has completed, run `./cluster/sync.sh` to
-build and deploy KubeVirt specific components to the Vagrant nodes.
+## Related resources
 
-Note: KubeVirt is built in go. A properly configured go environment is
-therefore required. For best results, use this path:
-`$GOPATH/src/kubevirt.io/kubevirt/`
+ * [Kubernetes][k8s]
+ * [Libvirt][libvirt]
+ * [Cockpit][cockpit]
 
-### Associated resources
 
- * Kubernetes
- * Libvirt
- * Cockpit
+## License
 
-### Project Components
+KubeVirt is distributed under the
+[Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.txt).
 
- * virt-api: This component provides a HTTP RESTfull entrypoint to manage
-   the virtual machines within the cluster.
- * virt-controller: This component manages the state of each VM within the
-   Kubernetes cluster.
- * virt-handler: This is a daemon that runs on each Kubernetes node. It is
-   responsible for monitoring the state of VMs according to Kubernetes and
-   ensuring the corresponding libvirt domain is booted or halted accordingly.
- * virt-launcher: This component is a place-holder, one per running VM. Its
-   job is to remain running as long as the VM is defined. This simply prevents a
-   crash-loop state.
- * ha-proxy: This daemon proxies connections from 192.168.200.2 to the running
-   master node--making it possible to establish connections in a consistent
-   manner.
+    Copyright 2016
 
-### Scripts
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
- * `cluster/sync.sh`: After deploying a fresh vagrant environment, or after
-   making changes to code in this tree, this script will sync the Pods and
-   DaemonSets in the running KubeVirt environment with the state of this tree.
- * `cluster/kubectl.sh`: This is a wrapper around Kubernete's kubectl command so
-   that it can be run directly from this checkout without logging into a node.
- * `cluster/sync_config.sh`: This script will contact the master node and
-   collect its config and kubectl. It is called by sync.sh so does not generally
-   need to be run separately.
- * `cluster/quickcheck.sh`: This script will run a series of tests to ensure
-   the system is set up correctly.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+[//]: # (Reference links)
+   [k8s]: https://kubernetes.io
+   [tpr]: http://kubernetes.io/docs/user-guide/thirdpartyresources/
+   [ovirt]: https://www.ovirt.org
+   [cockpit]: https://cockpit-project.org/
+   [libvirt]: https://www.libvirt.org
