@@ -2,6 +2,8 @@
 
 Make sure to check out the [Glossary](glossary.md) before continuing.
 
+## Overview
+
 KubeVirt consists of a set of services:
 
                 |
@@ -20,6 +22,12 @@ KubeVirt consists of a set of services:
     TPR: Third Party Resource
 
 ## Example flow: Create and Delete a VM
+
+The following flow illustrates the communication flow between several
+(not all) components present in KubeVirt.
+In general the commnuication pattern can be considered to be a
+choreography, where all components act by themselves to realize the state
+provided by the `VM` objects.
 
 ```
 Client         Virt API    VM TPR  Virt Controller  k8s         VM Handler
@@ -52,9 +60,12 @@ DELETE /vms -> validate     |         |                            |
 3. The `virt-controller` observes the creation of the new `VM` object
    and creates a corrsponding pod.
 4. Kubernetes is scheduling the pod on a host
-5. The `virt-handler` (_DaemonSet_) observes that a pod for a `VM` got
-   scheduled on the host where it is running on and fetches the _VM
-   Specification_ from the `virt-api-server`.
+5. The `virt-controller` observes that a pod for the `VM` got started and
+   updates the `nodeName` field in the`VM` object.
+   Now that the `nodeName` is set, the responsibility transitions to the
+   `virt-handler` for any further action.
+6. The `virt-handler` (_DaemonSet_) observes that a `VM` got assigned to the
+   host where it is running on.
 6. The `virt-handler` is using the _VM Specification_ and creates a
    corresponding domain using the local `libvirtd` instance.
 7. A client deletes the `VM` object through the `virt-api-server`.
@@ -70,7 +81,7 @@ resources (see below).
 
 As the main entrypoint to KubeVirt it is responsible for defaulting and validation of the provided VM TPRs.
 
-## VM (TPR)
+## `VM` (TPR)
 
 VM definitions are kept as third party resources inside the Kubernetes API
 server.
