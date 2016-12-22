@@ -15,10 +15,10 @@ KubeVirt consists of a set of services:
                 |
     ------------+---------------------------------------
                 |
-      DaemonSet | (libvirtd) (virt-handler) (vm-pod*)
+      DaemonSet | (libvirtd) (virt-handler) (vm-pod M)
                 |
 
-    M: Managed
+    M: Managed by KubeVirt
     TPR: Third Party Resource
 
 ## Example flow: Create and Delete a VM
@@ -30,33 +30,40 @@ choreography, where all components act by themselves to realize the state
 provided by the `VM` objects.
 
 ```
-Client         Virt API    VM TPR  Virt Controller  k8s         VM Handler
--------------- ----------- ------- ---------------- ----------- ----------
+Client         K8s API     VM TPR  Virt Controller  VM Handler
+-------------- ----------- ------- ---------------- ----------
 
                listen <----------- WATCH /vms
-               listen <---------------------------------------- WATCH /vms
-                                      |                            |
-POST /vms ---> validate               |                            |
-               create ---> VM ---> observe                         |
-                 |          |         v                            |
-                 |          |      POST /pods ----> validate       |
-                 |          |         |             create         |
-                 |          |         |             schedPod -> observe
-                 |          |         |                            v
-                 | <------------------------------------------> GET /vms
-                 |          |         |                         defineVM
-                 |          |         |                            |
-                 |          |         |                            |
-DELETE /vms -> validate     |         |                            |
-               delete ----> * --------------------------------> observe
-                 |                    |                         shutdownVM
-                 |                    |                            |
-                 :                    :                            :
+               listen <---------------------------- WATCH /vms
+                                      |                |
+POST /vms ---> validate               |                |
+               create ---> VM ---> observe -------> observe
+                 |          |         v                v
+               validate <--------- POST /pods       defineVM
+               create       |         |                |
+                 |          |         |                |
+               schedPod ---------> observe             |
+                 |          |         v                |
+               validate <--------- PUT /vms            |
+               update ---> VM --------------------> observe
+                 |          |         |             launchVM
+                 |          |         |                |
+                 :          :         :                :
+                 |          |         |                |
+DELETE /vms -> validate     |         |                |
+               delete ----> * --------------------> observe
+                 |                    |             shutdownVM
+                 |                    |                |
+                 :                    :                :
 ```
 
-1. A client posts a new VM definition to the `virt-api-server`
-2. The `virt-api-server` validates the input and creates a `VM` 3rd party
-   resource (TPR) object through the Kubernetes API Server
+**Disclaimer:** The diagram above is not completely accurate, because
+there are _temporary workarounds_ in place to avoid bugs and address some
+other stuff.
+
+1. A client posts a new VM definition to the K8s API Server
+2. The K8s API Server validates the input and creates a `VM` 3rd party
+   resource (TPR) object.
 3. The `virt-controller` observes the creation of the new `VM` object
    and creates a corrsponding pod.
 4. Kubernetes is scheduling the pod on a host

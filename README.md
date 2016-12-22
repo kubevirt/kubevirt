@@ -44,7 +44,7 @@ Example:
 
 ## Getting Started
 
-To get started right away please read out
+To get started right away please read our
 [Getting Started Guide](docs/getting-started.md).
 
 
