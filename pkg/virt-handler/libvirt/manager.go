@@ -126,6 +126,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		}
 	default:
 		// Nothing to do
+		// TODO: blocked state
 	}
 
 	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
@@ -149,8 +150,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	}
 
 	state := LifeCycleTranslationMap[domState[0]]
-	// TODO: What happens if a VM is in pause state?
-	if state == Running {
+	if state == Running || state == Paused {
 		err = dom.Destroy()
 		// TODO: shutdown event if this succeeded
 		if err != nil {
