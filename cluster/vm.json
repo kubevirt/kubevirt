@@ -5,6 +5,28 @@
    "apiVersion": "kubevirt.io/v1alpha1",
    "kind": "VM",
    "spec": {
-           "nodeSelector": {"kubernetes.io/hostname":"master"}
+        "nodeSelector": {"kubernetes.io/hostname":"master"},
+        "domain": {
+          "devices": {
+            "interfaces": [
+              {
+                "source": {
+                  "network": "default"
+                },
+                "type": "network"
+              }
+            ]
+          },
+          "memory": {
+            "unit": "KiB",
+            "value": 8192
+          },
+          "os": {
+            "type": {
+              "os": "hvm"
+            }
+          },
+          "type": "qemu"
+        }
    }
 }

@@ -4,10 +4,13 @@ import (
 	"flag"
 	"fmt"
 	libvirtapi "github.com/rgbkrk/libvirt-go"
+	kubecorev1 "k8s.io/client-go/1.5/kubernetes/typed/core/v1"
 	"k8s.io/client-go/1.5/pkg/api"
+	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/pkg/labels"
 	"k8s.io/client-go/1.5/tools/cache"
+	"k8s.io/client-go/1.5/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
@@ -49,7 +52,16 @@ func main() {
 		panic(err)
 	}
 
-	domainManager, err := libvirt.NewLibvirtDomainManager(domainConn)
+	// Create event recorder
+	coreClient, err := kubecli.Get()
+	if err != nil {
+		panic(err)
+	}
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceDefault)})
+	recorder := broadcaster.NewRecorder(kubev1.EventSource{Component: "virt-handler", Host: *host})
+
+	domainManager, err := libvirt.NewLibvirtDomainManager(domainConn, recorder)
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +87,7 @@ func main() {
 
 	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceDefault, fields.Everything(), l)
 
-	vmStore, vmController := virthandler.NewVMController(vmListWatcher, domainManager)
+	vmStore, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder)
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
