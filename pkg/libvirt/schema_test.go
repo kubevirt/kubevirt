@@ -3,9 +3,9 @@ package libvirt
 import (
 	"encoding/json"
 	"encoding/xml"
+	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/rmohr/go-model"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 

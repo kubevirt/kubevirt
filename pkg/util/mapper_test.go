@@ -1,9 +1,9 @@
 package util
 
 import (
+	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/jeevatkm/go-model"
 )
 
 var _ = Describe("Mapper", func() {

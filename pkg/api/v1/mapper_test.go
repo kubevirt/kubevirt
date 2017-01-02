@@ -2,9 +2,9 @@ package v1
 
 import (
 	"encoding/json"
+	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/rmohr/go-model"
 	"github.com/satori/go.uuid"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/types"
