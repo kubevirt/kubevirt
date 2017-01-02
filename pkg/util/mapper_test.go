@@ -3,7 +3,7 @@ package util
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/rmohr/go-model"
+	"github.com/jeevatkm/go-model"
 )
 
 var _ = Describe("Mapper", func() {
