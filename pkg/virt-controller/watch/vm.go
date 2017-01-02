@@ -3,7 +3,7 @@ package watch
 import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
-	"github.com/rmohr/go-model"
+	"github.com/jeevatkm/go-model"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/errors"
 	"k8s.io/client-go/1.5/pkg/api/unversioned"

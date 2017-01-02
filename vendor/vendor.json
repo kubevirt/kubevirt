@@ -79,6 +79,12 @@
 			"revisionTime": "2016-05-14T03:44:11Z"
 		},
 		{
+			"checksumSHA1": "dtkL4Y9QiX0xpeSdoH71Ov+VpW4=",
+			"path": "github.com/jeevatkm/go-model",
+			"revision": "b63a4a27f7b484e4ffac7c530a8a996b9e9c8570",
+			"revisionTime": "2016-12-31T05:27:35Z"
+		},
+		{
 			"checksumSHA1": "abKzFXAn0KDr5U+JON1ZgJ2lUtU=",
 			"path": "github.com/kr/logfmt",
 			"revision": "b84e30acd515aadc4b783ad4ff83aff3299bdfe0",
@@ -251,14 +257,6 @@
 			"path": "github.com/rgbkrk/libvirt-go",
 			"revision": "26ca5c67cc596be31f449f59ae21844484028ed3",
 			"revisionTime": "2016-08-30T04:10:46Z"
-		},
-		{
-			"checksumSHA1": "5jSd17ygNm0QrPE/QMWiimPdZag=",
-			"path": "github.com/rmohr/go-model",
-			"revision": "d4f7c185b41e09610b83b73d21b9088c4e946a08",
-			"revisionTime": "2016-12-05T14:24:10Z",
-			"version": "converter",
-			"versionExact": "converter"
 		},
 		{
 			"checksumSHA1": "zmC8/3V4ls53DJlNTKDZwPSC/dA=",

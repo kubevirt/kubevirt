@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/rmohr/go-model"
+	"github.com/jeevatkm/go-model"
 	"reflect"
 )
 
