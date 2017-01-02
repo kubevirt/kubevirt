@@ -2,9 +2,11 @@ language: go
 go_import_path: kubevirt.io/kubevirt
 sudo: required
 dist: trusty
+services:
+  - docker
 
 go:
-  - 1.6.x
+  - 1.6.3
   - 1.7.x
   - tip
 
@@ -20,3 +22,20 @@ script:
  - make generate
  - if git diff --name-only | grep 'generated.*.go'; then echo "Content of generated files changed. Please regenerate and commit them."; false; fi
  - make test
+
+cache:
+  directories:
+  - vendor
+
+deploy:
+  provider: script
+  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish
+  skip_cleanup: true
+  on:
+    branch: master
+    go: 1.6.3
+
+env:
+  global:
+  - secure: qU6IqYNN7P9UiQjvgfXdqvbvD1RLIP4a6uH9fX4Dx3UFXmutXE38/RIWhOtIAzDz8QHhm2l8vfefaC9VwGJI3XPv6gfKCCRPYj+0EKn0E7mJBM0uk7NRiujLg9Kh2zFCkYJT4Q91L39/STbDdoSBLHjwuMKUPOQlysOr8sQS6JT1xb7qJ/Vhcgy7Ex0jba4qHiDsLlJQulOE7YS5HxfwUN+cN9maQjFZNM7NpLf3YFqZ1Yq7hnBxXjpteMWSuGsCsSE2hlKwHvtYhcMoSWR7dw3x25XapwBI5YB5z8CEZvWsHbx9qnbe5VGMBVMubWw9xjQkAImKp2PFceMVRSgx01ufZBf434jLYA1+OmBgow15iGJhy9icxSOvXn0aA46rhzGkFHsd4MDd04bO8S1KXvr9ALfU8OP+VqG9Gnt0mCV+qrT1JpYyR0NrS3uMd1R7F+o8CL1Mf5V/UGkHsfdHWSgBqKfmHaR5xEmp5M2wHHkgD9PFedimyUZDuhJPAu26UNeCHxhzq3+sReFsdPQbVA/eRvXNu5Fj1qNtIaCj/2L31AeR7SpCDSgYrnBVAojSjNiVYD9fSIT7TGsZ9oNaqGfCh08hbVGrxD4qJuyzkJPOkdhohfPS0MhYMf9GJ36qCn/odOdchOl2RyKOt5NiWN+qrRG4aXXKcUvO2RVuTJo=
+  - secure: ipzpBip/KzzrMXy0SjvnpxMhj95ygcAqI7zpth8L0b7nBIsdyfFZj8MoE4PNiaG+YQdK3eVyLjDU3U67HzrviCLHeWcCaCqzIdNes9ig2kuL65LcHom0YmfWtZY3WKwqtu2Cr4UW+16FPecWEg0pNRBrI/u0Yzmn1K/Ll46iycndtyCU4uysPeN0JBK7Ht6J4YUlhZQ0rnA2p+TpH3lwSW63qmZgwGOsixwAMe35vXrPZVPBk2ROG6+MfToFcU+5h+snEOenCnyVyfxP5UqNVRE/ZAmcWBSIo7/FyGJ3/VMJMCBFqXLJAU5DF9N182p7VwQcMctq4Iba1Yjmezdit2f5F2KPtPttWXV0fqy9zB1/Hlbz41htaAwSrsnsFaN33W+hdbFWC9vGgXSy71RngPBTaq/rwb2125CKxoehcUijAavFJMt8926HrHXztWTjyNSerms9EGoJjDspDmySNg4hMOrTtJbE+L+1Ze5I7ZfgfFU9oACM2SffpbtKAnqEbi8+UkNi33MntNSSvULfE/RFRYbl7ld54CNTUFQinLThLnRCtyVQN0VadA554qf+4HTXgvW6ifYljHKUkl6QEkuf0GCDZg3R8sIkvkqf7jpDwdq9+wErLao2z+SW1LV/vnHQxuKZTBTquGIhroehO4lljUdeE8BU0P+S+n+nzFg=
