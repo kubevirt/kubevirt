@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/jeevatkm/go-model"
 	libvirtapi "github.com/rgbkrk/libvirt-go"
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/fields"

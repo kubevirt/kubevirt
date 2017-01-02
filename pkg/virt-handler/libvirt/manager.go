@@ -8,8 +8,8 @@ package libvirt
 
 import (
 	"encoding/xml"
+	"github.com/jeevatkm/go-model"
 	"github.com/rgbkrk/libvirt-go"
-	"github.com/rmohr/go-model"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
