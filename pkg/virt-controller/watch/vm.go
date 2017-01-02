@@ -74,6 +74,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 		}
 		vm.Spec.Domain.UUID = string(vm.GetObjectMeta().GetUID())
 		vm.Spec.Domain.Devices.Emulator = "/usr/local/bin/qemu-x86_64"
+		vm.Spec.Domain.Name = vm.GetObjectMeta().GetName()
 
 		// TODO get rid of these service calls
 		if err := v.VMService.StartVM(&vm); err != nil {
