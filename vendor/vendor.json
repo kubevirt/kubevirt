@@ -79,6 +79,12 @@
 			"revisionTime": "2016-05-14T03:44:11Z"
 		},
 		{
+			"checksumSHA1": "JSHl8b3nI8EWvzm+uyrIqj2Hiu4=",
+			"path": "github.com/golang/mock/gomock",
+			"revision": "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9",
+			"revisionTime": "2016-01-21T18:51:14Z"
+		},
+		{
 			"checksumSHA1": "dtkL4Y9QiX0xpeSdoH71Ov+VpW4=",
 			"path": "github.com/jeevatkm/go-model",
 			"revision": "b63a4a27f7b484e4ffac7c530a8a996b9e9c8570",
@@ -101,6 +107,12 @@
 			"path": "github.com/onsi/ginkgo/config",
 			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
 			"revisionTime": "2016-10-07T05:04:02Z"
+		},
+		{
+			"checksumSHA1": "cbuojgas4J2pS6Eu5EHqhKdHVxw=",
+			"path": "github.com/onsi/ginkgo/extensions/table",
+			"revision": "a23f924ce96d61f963fb6219b8ff069d8d768cc2",
+			"revisionTime": "2017-01-02T03:15:22Z"
 		},
 		{
 			"checksumSHA1": "T1cZh3UWr4Hnx6fQYp+7KDNvxG4=",

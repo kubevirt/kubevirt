@@ -103,28 +103,37 @@ func NewInformer(
 				switch d.Type {
 				case cache.Sync, cache.Added, cache.Updated:
 					if old, exists, err := clientState.Get(d.Object); err == nil && exists {
+						err = h.OnUpdate(old, d.Object)
+						if err != nil {
+							// TODO real backoff strategy
+							// TODO solve this by using workqueues as soon as they hit client-go
+							time.Sleep(1 * time.Second)
+							return err
+						}
 						if err := clientState.Update(d.Object); err != nil {
 							return err
 						}
-						err = h.OnUpdate(old, d.Object)
-						if err != nil {
-							return err
-						}
 					} else {
-						if err := clientState.Add(d.Object); err != nil {
-							return err
-						}
 						err = h.OnAdd(d.Object)
 						if err != nil {
+							// TODO real backoff strategy
+							// TODO solve this by using workqueues as soon as they hit client-go
+							time.Sleep(1 * time.Second)
+							return err
+						}
+						if err := clientState.Add(d.Object); err != nil {
 							return err
 						}
 					}
 				case cache.Deleted:
-					if err := clientState.Delete(d.Object); err != nil {
-						return err
-					}
 					err := h.OnDelete(d.Object)
 					if err != nil {
+						// TODO real backoff strategy
+						// TODO solve this by using workqueues as soon as they hit client-go
+						time.Sleep(1 * time.Second)
+						return err
+					}
+					if err := clientState.Delete(d.Object); err != nil {
 						return err
 					}
 				}

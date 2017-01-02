@@ -10,7 +10,13 @@ go:
 
 install:
  - go get -u github.com/kardianos/govendor
+ - go get -u github.com/golang/mock/gomock
+ - go get -u github.com/golang/mock/mockgen
+ - go get -u github.com/rmohr/go-swagger-utils/swagger-doc
  - sudo apt-get install libvirt-dev make
+ - make sync
 
 script:
+ - make generate
+ - if git diff --name-only | grep 'generated.*.go'; then echo "Content of generated files changed. Please regenerate and commit them."; false; fi
  - make test

@@ -1,7 +1,5 @@
 package libvirt
 
-//go:generate desc
-
 import (
 	"encoding/xml"
 	"github.com/rgbkrk/libvirt-go"
