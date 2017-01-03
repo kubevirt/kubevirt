@@ -37,7 +37,8 @@ publish: docker
 manifests: $(wildcard manifests/*.in)
 	./hack/build-manifests.sh
 
-check: check-bash
+check: check-bash vet
+	test -z "`./hack/build-go.sh fmt`"
 
 check-bash:
 	find . -name \*.sh -exec bash -n \{\} \;
