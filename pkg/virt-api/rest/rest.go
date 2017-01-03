@@ -13,5 +13,5 @@ func init() {
 	WebService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
 	WebService.ApiVersion(v1.GroupVersion.String()).Doc("help")
 	restful.Add(WebService)
-	WebService.Route(WebService.GET("/api/v1/healthz").To(healthz.KubeConnectionHealthzFunc).Doc("Health endpoint"))
+	WebService.Route(WebService.GET("/apis/" + v1.GroupVersion.String() + "/healthz").To(healthz.KubeConnectionHealthzFunc).Doc("Health endpoint"))
 }
