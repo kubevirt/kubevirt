@@ -16,7 +16,7 @@ spec:
         runAsUser: 0
       containers:
         - name: daemon
-          image: fabiand/libvirt:latest
+          image: kubevirt/libvirtd:latest
           ports:
             - containerPort: 16509
           securityContext:
@@ -47,4 +47,5 @@ spec:
           hostPath:
             path: /var/log/libvirt
         - name: host
+          hostPath:
             path: /

@@ -19,6 +19,8 @@ spec:
         imagePullPolicy: IfNotPresent
         command:
           - "/virt-handler"
+          - "--libvirt-uri"
+          - "qemu:///system"
           - "--hostname-override"
           - "$(NODE_NAME)"
         securityContext:
