@@ -15,7 +15,7 @@ spec:
       securityContext:
         runAsUser: 0
       containers:
-        - name: daemon
+        - name: libvirtd
           image: kubevirt/libvirtd:latest
           ports:
             - containerPort: 16509
