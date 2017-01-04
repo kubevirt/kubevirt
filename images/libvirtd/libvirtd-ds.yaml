@@ -12,6 +12,7 @@ spec:
     spec:
       hostNetwork: true
       hostPID: true
+      hostIPC: true
       securityContext:
         runAsUser: 0
       containers:
@@ -23,29 +24,9 @@ spec:
             privileged: true
             runAsUser: 0
           volumeMounts:
-            - mountPath: /etc/libvirt
-              name: etc
-            - mountPath: /var/run/libvirt
-              name: varrun
-            - mountPath: /var/lib/libvirt
-              name: varlib
-            - mountPath: /var/log/libvirt
-              name: varlog
             - mountPath: /host
               name: host
       volumes:
-        - name: etc
-          hostPath:
-            path: /etc/libvirt
-        - name: varrun
-          hostPath:
-            path: /var/run/libvirt
-        - name: varlib
-          hostPath:
-            path: /var/lib/libvirt
-        - name: varlog
-          hostPath:
-            path: /var/log/libvirt
         - name: host
           hostPath:
             path: /
