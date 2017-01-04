@@ -13,8 +13,8 @@ type TemplateService interface {
 }
 
 type templateService struct {
-	logger         levels.Levels
-	launcherImage  string
+	logger        levels.Levels
+	launcherImage string
 }
 
 //Deprecated: remove the service and just use a builder or contextcless helper function
@@ -56,8 +56,8 @@ func NewTemplateService(logger log.Logger, launcherImage string) (TemplateServic
 	precond.MustNotBeNil(logger)
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
-		logger:         levels.New(logger).With("component", "TemplateService"),
-		launcherImage:  launcherImage,
+		logger:        levels.New(logger).With("component", "TemplateService"),
+		launcherImage: launcherImage,
 	}
 	return &svc, nil
 }
