@@ -211,11 +211,14 @@ type Alias struct {
 //BEGIN OS --------------------
 
 type OS struct {
-	Type      OSType    `xml:"type" json:"type"`
-	SMBios    *SMBios   `xml:"smbios,omitempty" json:"smBIOS,omitempty"`
-	BootOrder []Boot    `xml:"boot" json:"bootOrder"`
-	BootMenu  *BootMenu `xml:"bootmenu,omitempty" json:"bootMenu,omitempty"`
-	BIOS      *BIOS     `xml:"bios,omitempty" json:"bios,omitempty"`
+	Type       OSType    `xml:"type" json:"type"`
+	SMBios     *SMBios   `xml:"smbios,omitempty" json:"smBIOS,omitempty"`
+	BootOrder  []Boot    `xml:"boot" json:"bootOrder"`
+	BootMenu   *BootMenu `xml:"bootmenu,omitempty" json:"bootMenu,omitempty"`
+	BIOS       *BIOS     `xml:"bios,omitempty" json:"bios,omitempty"`
+	Kernel     string    `xml:"kernel,omitempty" json:"kernel,omitempty"`
+	Initrd     string    `xml:"initrd,omitempty" json:"initrd,omitempty"`
+	KernelArgs string    `xml:"cmdline,omitempty" json:"cmdline,omitempty"`
 }
 
 type OSType struct {
