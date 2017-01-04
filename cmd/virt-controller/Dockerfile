@@ -1,4 +1,4 @@
-FROM centos:7.2.1511
+FROM centos:7
 
 COPY virt-controller /virt-controller
 

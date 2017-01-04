@@ -1,4 +1,4 @@
-FROM centos:7.2.1511
+FROM centos:7
 
 RUN curl -OL https://github.com/swagger-api/swagger-ui/archive/v2.2.6.tar.gz && tar xf v2.2.6.tar.gz \
     && mkdir /third_party \
