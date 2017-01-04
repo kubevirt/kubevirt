@@ -24,10 +24,8 @@ spec:
     imagePullPolicy: IfNotPresent
     command:
         - "/virt-controller"
-        - "--docker-registry"
-        - "{{ docker_prefix }}"
         - "--launcher-image"
-        - "virt-launcher:{{ docker_tag }}"
+        - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
         - "--port"
         - "8182"
     ports:
