@@ -69,7 +69,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 
 		// TODO move defaulting to virt-api
 		if vm.Spec.Domain == nil {
-			spec := v1.NewMinimalVM(vm.GetObjectMeta().GetName())
+			spec := v1.NewMinimalDomainSpec(vm.GetObjectMeta().GetName())
 			vm.Spec.Domain = spec
 		}
 		vm.Spec.Domain.UUID = string(vm.GetObjectMeta().GetUID())

@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/1.5/pkg/runtime"
 	"k8s.io/client-go/1.5/pkg/types"
 	"kubevirt.io/kubevirt/pkg/api"
+	"kubevirt.io/kubevirt/pkg/precond"
 	"reflect"
 )
 
@@ -274,4 +275,19 @@ const (
 
 func (s SyncEvent) String() string {
 	return string(s)
+}
+
+func NewMinimalVM(vmName string) *VM {
+	precond.CheckNotEmpty(vmName)
+	return &VM{
+		Spec: VMSpec{Domain: NewMinimalDomainSpec(vmName)},
+		ObjectMeta: kubeapi.ObjectMeta{
+			Name:      vmName,
+			Namespace: kubeapi.NamespaceDefault,
+		},
+		TypeMeta: unversioned.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       "VM",
+		},
+	}
 }

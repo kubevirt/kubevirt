@@ -96,7 +96,7 @@ var _ = Describe("Schema", func() {
 	})
 	Context("With v1.DomainSpec", func() {
 		It("converts to libvirt.DomainSpec", func() {
-			v1DomainSpec := v1.NewMinimalVM("testvm")
+			v1DomainSpec := v1.NewMinimalDomainSpec("testvm")
 			libvirtDomainSpec := DomainSpec{}
 			errs := model.Copy(&libvirtDomainSpec, v1DomainSpec)
 			Expect(libvirtDomainSpec).To(Equal(*NewMinimalVM("testvm")))
