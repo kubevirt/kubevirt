@@ -29,12 +29,19 @@ cache:
   - vendor
 
 deploy:
-  provider: script
-  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish
-  skip_cleanup: true
-  on:
-    branch: master
-    go: 1.6.3
+  - provider: script
+    script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish
+    skip_cleanup: true
+    on:
+      branch: master
+      go: 1.6.3
+  - provider: script
+    script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish DOCKER_TAG=$TRAVIS_TAG
+    skip_cleanup: true
+    on:
+      tags: true
+      go: 1.6.3
+
 
 env:
   global:
