@@ -270,7 +270,7 @@ type RandomGenerator struct {
 
 // TODO ballooning, rng, cpu ...
 
-func NewMinimalVM(vmName string) *DomainSpec {
+func NewMinimalDomainSpec(vmName string) *DomainSpec {
 	precond.MustNotBeEmpty(vmName)
 	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
 	domain.Memory = Memory{Unit: "KiB", Value: 8192}

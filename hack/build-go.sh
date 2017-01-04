@@ -23,6 +23,7 @@ if [ $# -eq 0 ]; then
         (cd pkg; go ${target} -v ./...)
     else
         (cd pkg; go $target ./...)
+        (cd tests; go $target ./...)
     fi
 fi
 

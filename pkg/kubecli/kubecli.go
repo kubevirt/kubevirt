@@ -20,15 +20,17 @@ import (
 
 var (
 	kubeconfig string
+	master     string
 )
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	flag.StringVar(&master, "master", "", "master url")
 }
 
 func Get() (*kubernetes.Clientset, error) {
 
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +45,7 @@ func Get() (*kubernetes.Clientset, error) {
 
 func GetRESTClient() (*rest.RESTClient, error) {
 
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		return nil, err
 	}

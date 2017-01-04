@@ -120,6 +120,6 @@ var _ = Describe("Manager", func() {
 func newVM(name string) *v1.VM {
 	return &v1.VM{
 		ObjectMeta: api.ObjectMeta{Name: name},
-		Spec:       v1.VMSpec{Domain: v1.NewMinimalVM(name)},
+		Spec:       v1.VMSpec{Domain: v1.NewMinimalDomainSpec(name)},
 	}
 }
