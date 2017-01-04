@@ -14,7 +14,6 @@ type TemplateService interface {
 
 type templateService struct {
 	logger         levels.Levels
-	dockerRegistry string
 	launcherImage  string
 }
 
@@ -40,7 +39,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 			Containers: []kubev1.Container{
 				{
 					Name:            "compute",
-					Image:           t.dockerRegistry + "/" + t.launcherImage,
+					Image:           t.launcherImage,
 					ImagePullPolicy: kubev1.PullIfNotPresent,
 					Command:         []string{"/virt-launcher", "-qemu-timeout", "60s"},
 					SecurityContext: &kubev1.SecurityContext{Privileged: &True},
@@ -53,13 +52,11 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	return &pod, nil
 }
 
-func NewTemplateService(logger log.Logger, dockerRegistry string, launcherImage string) (TemplateService, error) {
+func NewTemplateService(logger log.Logger, launcherImage string) (TemplateService, error) {
 	precond.MustNotBeNil(logger)
-	precond.MustNotBeEmpty(dockerRegistry)
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		logger:         levels.New(logger).With("component", "TemplateService"),
-		dockerRegistry: dockerRegistry,
 		launcherImage:  launcherImage,
 	}
 	return &svc, nil

@@ -14,7 +14,7 @@ import (
 var _ = Describe("Template", func() {
 
 	logger := log.NewLogfmtLogger(os.Stderr)
-	svc, err := NewTemplateService(logger, "kubevirt", "virt-launcher")
+	svc, err := NewTemplateService(logger, "kubevirt/virt-launcher")
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {

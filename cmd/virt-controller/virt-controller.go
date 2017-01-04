@@ -24,7 +24,6 @@ func main() {
 
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8182, "Port to listen on")
-	dockerRegistry := flag.String("docker-registry", "kubevirt", "Organization or private docker registry URL")
 	launcherImage := flag.String("launcher-image", "virt-launcher", "Shim container for containerized VMs")
 
 	logger := log.NewLogfmtLogger(os.Stderr)
@@ -33,7 +32,7 @@ func main() {
 	var g inject.Graph
 
 	vmService := services.NewVMService(logger)
-	templateService, err := services.NewTemplateService(logger, *dockerRegistry, *launcherImage)
+	templateService, err := services.NewTemplateService(logger, *launcherImage)
 	if err != nil {
 		golog.Fatal(err)
 	}
