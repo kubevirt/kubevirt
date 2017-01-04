@@ -17,8 +17,8 @@ mkdir /odev && {
   # Keep ptmx/pts for pty creation
   mount --rbind /odev/pts /dev/pts
   mount --rbind /dev/pts/ptmx /dev/ptmx
-  # Use the original /dev/kvm to ensure group ownership is honored
-  mount --rbind /odev/kvm /dev/kvm
+  # Use the original /dev/kvm if available
+  [[ -e /odev/lvm ]] && mount --rbind /odev/kvm /dev/kvm
 }
 
 /usr/sbin/virtlogd &
