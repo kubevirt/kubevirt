@@ -13,6 +13,8 @@ RUN yum install -y \
 COPY augconf /augconf
 RUN augtool -f /augconf
 
+RUN echo -n shibboleth | saslpasswd2 -p -a libvirt vdsm@ovirt
+
 COPY libvirtd.sh /libvirtd.sh
 RUN chmod a+x /libvirtd.sh
 #EXPOSE 16509
