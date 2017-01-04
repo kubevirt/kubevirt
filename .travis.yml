@@ -21,6 +21,7 @@ install:
 script:
  - make generate
  - if git diff --name-only | grep 'generated.*.go'; then echo "Content of generated files changed. Please regenerate and commit them."; false; fi
+ - make check
  - make test
 
 cache:
