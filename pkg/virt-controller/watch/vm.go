@@ -16,7 +16,6 @@ import (
 
 type vmResourceEventHandler struct {
 	VMService services.VMService `inject:""`
-	logger    *logging.FilteredLogger
 	restCli   *rest.RESTClient
 }
 
@@ -25,7 +24,7 @@ func NewVMResourceEventHandler() (kubecli.ResourceEventHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &vmResourceEventHandler{logger: logging.DefaultLogger().With("service", "VMWatcher"), restCli: restClient}, nil
+	return &vmResourceEventHandler{restCli: restClient}, nil
 }
 
 func NewVMInformer(handler kubecli.ResourceEventHandler) (*cache.Controller, error) {
@@ -49,13 +48,13 @@ func NewVMCache() (cache.SharedInformer, error) {
 }
 
 func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
-	defer kubecli.NewPanicCatcher(v.logger)()
+	defer kubecli.NewPanicCatcher()()
 	//TODO: Field selectors are not yet working for TPRs
 	if obj.Status.Phase == "" {
 		vm := v1.VM{}
 		// Deep copy the object, so that we can savely manipulate it
 		model.Copy(&vm, obj)
-		logger := v.logger.Object(&vm).With("action", "createVMPod")
+		logger := logging.DefaultLogger().Object(&vm)
 		// Create a pod for the specified VM
 		//Three cases where this can fail:
 		// 1) VM pods exist from old definition // 2) VM pods exist from previous start attempt and updating the VM definition failed
@@ -76,31 +75,31 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 
 		// TODO get rid of these service calls
 		if err := v.VMService.StartVM(&vm); err != nil {
-			logger.Error().Log("msg", err)
+			logger.Error().Msgf("Defining a target pod for the VM failed with: %s", err)
 			pl, err := v.VMService.GetRunningPods(&vm)
 			if err != nil {
 				// TODO detect if communication error and backoff
-				logger.Error().Log("msg", err)
+				logger.Error().Msgf("Getting all running Pods for the VM failed with: %s", err)
 				return cache.ErrRequeue{Err: err}
 			}
 			for _, p := range pl.Items {
 				if p.GetObjectMeta().GetLabels()["kubevirt.io/vmUID"] == string(vm.GetObjectMeta().GetUID()) {
 					// Pod from incomplete initialization detected, cleaning up
-					logger.Error().Log("msg", "Found orphan pod of current VM spec.", "pod", p.GetName())
+					logger.Error().Msgf("Found orphan pod with name '%s' for VM.", p.GetName())
 					err = v.VMService.DeleteVM(&vm)
 					if err != nil {
 						// TODO detect if communication error and do backoff
-						logger.Critical().Log("msg", err)
+						logger.Critical().Msgf("Deleting orphaned pod with name '%s' for VM failed with: %s", p.GetName(), err)
 						return cache.ErrRequeue{Err: err}
 					}
 				} else {
 					// TODO virt-api should make sure this does not happen. For now don't ask and clean up.
 					// Pod from old VM object detected,
-					logger.Error().Log("msg", "Found orphan pod of old VM spec.", "pod", p.GetName())
+					logger.Error().Msgf("Found orphan pod with name '%s' for deleted VM", p.GetName())
 					err = v.VMService.DeleteVM(&vm)
 					if err != nil {
 						// TODO detect if communication error and backoff
-						logger.Critical().Log("msg", err)
+						logger.Critical().Msgf("Deleting orphaned pod with name '%s' for VM failed with: %s", p.GetName(), err)
 						return cache.ErrRequeue{Err: err}
 					}
 				}
@@ -119,7 +118,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 		// not get any updates
 		vm.Status.Phase = v1.Scheduling
 		if err := v.restCli.Put().Resource("vms").Body(&vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
-			logger.Error().Log("msg", err)
+			logger.Error().Msgf("Updating the VM state to 'Scheduling' failed with: %s", err)
 			if e, ok := err.(*errors.StatusError); ok {
 				if e.Status().Reason == unversioned.StatusReasonNotFound ||
 					e.Status().Reason == unversioned.StatusReasonConflict {
@@ -130,7 +129,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 			// TODO backoff policy here
 			return cache.ErrRequeue{Err: err}
 		}
-		logger.Info().Log("msg", "Succeeded.")
+		logger.Info().Msg("Handing over the VM to the scheduler succeeded")
 	}
 	return nil
 }
@@ -145,14 +144,14 @@ func (v *vmResourceEventHandler) OnUpdate(oldObj, newObj interface{}) error {
 
 func (v *vmResourceEventHandler) OnDelete(obj interface{}) error {
 	vm := obj.(*v1.VM)
-	logger := v.logger.With("object", "VM", "action", "deleteVMPods", "name", vm.GetObjectMeta().GetName(), "UUID", vm.GetObjectMeta().GetUID())
+	logger := logging.DefaultLogger().Object(vm)
 	// TODO make sure the grace period is big enough that virt-handler can stop the VM the libvirt way
 	// TODO maybe add a SIGTERM delay to virt-launcher in combination with a grace periode on the delete?
 	err := v.VMService.DeleteVM(obj.(*v1.VM))
 	if err != nil {
-		logger.Error().Log("msg", err)
+		logger.Error().Msgf("Deleting VM target Pod failed with: %s", err)
 		return cache.ErrRequeue{Err: err}
 	}
-	logger.Info().Log("msg", "Succeeded.")
+	logger.Info().Msg("Deleting VM target Pod succeeded.")
 	return nil
 }

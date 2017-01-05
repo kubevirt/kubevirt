@@ -21,11 +21,10 @@ func NewPodResourceEventHandler() (kubecli.ResourceEventHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &podResourceEventHandler{logger: logging.DefaultLogger().With("service", "PodWatcher"), restCli: restClient}, nil
+	return &podResourceEventHandler{restCli: restClient}, nil
 }
 
 type podResourceEventHandler struct {
-	logger  *logging.FilteredLogger
 	restCli *rest.RESTClient
 	VMCache cache.SharedInformer `inject:""`
 }
@@ -53,7 +52,7 @@ func NewPodCache() (cache.SharedInformer, error) {
 }
 
 func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
-	defer kubecli.NewPanicCatcher(p.logger)()
+	defer kubecli.NewPanicCatcher()()
 	vmObj, exists, err := p.VMCache.GetStore().GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[corev1.DomainLabel])
 	if err != nil {
 		// TODO handle this smarter, for now just try again
@@ -67,7 +66,7 @@ func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 	vm := corev1.VM{}
 	model.Copy(&vm, vmObj)
 
-	logger := p.logger.With("object", "VM", "action", "setVMPending", "name", vm.GetObjectMeta().GetName(), "UUID", vm.GetObjectMeta().GetUID())
+	logger := logging.DefaultLogger().Object(&vm)
 	if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.UIDLabel]) {
 		// Obviously the pod of an outdated VM object, do nothing
 		return nil
@@ -82,7 +81,7 @@ func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 		vm.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
 		// Update the VM
 		if err := p.restCli.Put().Resource("vms").Body(&vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
-			logger.Error().Log("msg", err)
+			logger.Error().Msgf("Setting the VM to pending failed with: %s", err)
 			if e, ok := err.(*errors.StatusError); ok {
 				if e.Status().Reason == unversioned.StatusReasonNotFound {
 					// VM does not exist anymore, we don't have to retry
@@ -90,10 +89,10 @@ func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 				}
 				// TODO backoff policy here?
 			}
-			logger.Info().Log("msg", "Enqueing initialization of VM again.")
+			logger.V(3).Info().Msg("Enqueuing VM initialization again.")
 			return cache.ErrRequeue{Err: err}
 		} else {
-			logger.Info().Log("msg", "Succeeded.")
+			logger.Info().Msgf("VM successfully scheduled to %s.", vm.Status.NodeName)
 		}
 	}
 	return nil
