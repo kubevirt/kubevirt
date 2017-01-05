@@ -152,10 +152,10 @@ type ResourceEventHandler interface {
 	OnDelete(obj interface{}) error
 }
 
-func NewPanicCatcher(logger *logging.FilteredLogger) func() {
+func NewPanicCatcher() func() {
 	return func() {
 		if r := recover(); r != nil {
-			logger.Critical().Log("stacktrace", debug.Stack(), "msg", r)
+			logging.DefaultLogger().Critical().Log("stacktrace", debug.Stack(), "msg", r)
 		}
 	}
 }

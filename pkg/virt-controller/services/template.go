@@ -3,7 +3,6 @@ package services
 import (
 	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -12,7 +11,6 @@ type TemplateService interface {
 }
 
 type templateService struct {
-	logger        *logging.FilteredLogger
 	launcherImage string
 }
 
@@ -54,7 +52,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 func NewTemplateService(launcherImage string) (TemplateService, error) {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
-		logger:        logging.DefaultLogger().With("service", "TemplateService"),
 		launcherImage: launcherImage,
 	}
 	return &svc, nil

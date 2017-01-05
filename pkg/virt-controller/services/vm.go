@@ -8,7 +8,6 @@ import (
 	"k8s.io/client-go/1.5/pkg/fields"
 	"k8s.io/client-go/1.5/pkg/labels"
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -21,7 +20,6 @@ type VMService interface {
 }
 
 type vmService struct {
-	logger          *logging.FilteredLogger
 	KubeCli         *kubernetes.Clientset `inject:""`
 	TemplateService TemplateService       `inject:""`
 }
@@ -49,7 +47,6 @@ func (v *vmService) StartVM(vm *corev1.VM) error {
 	if _, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).Create(pod); err != nil {
 		return err
 	}
-	v.logger.Info().Log("action", "StartVMRaw", "object", "VM", "UUID", vm.GetObjectMeta().GetUID(), "name", vm.GetObjectMeta().GetName())
 	return nil
 }
 
@@ -60,7 +57,6 @@ func (v *vmService) DeleteVM(vm *corev1.VM) error {
 	if err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).DeleteCollection(nil, unfinishedVMPodSelector(vm)); err != nil {
 		return err
 	}
-	v.logger.Info().Log("action", "DeleteVM", "object", "VM", "UUID", vm.GetObjectMeta().GetUID(), "name", vm.GetObjectMeta().GetUID())
 	return nil
 }
 
@@ -73,7 +69,7 @@ func (v *vmService) GetRunningPods(vm *corev1.VM) (*v1.PodList, error) {
 }
 
 func NewVMService() VMService {
-	svc := vmService{logger: logging.DefaultLogger().With("service", "VMService")}
+	svc := vmService{}
 	return &svc
 }
 
@@ -98,7 +94,6 @@ func (v *vmService) PrepareMigration(vm *corev1.VM) error {
 	if _, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).Create(pod); err != nil {
 		return err
 	}
-	v.logger.Info().Log("action", "PrepareMigration", "object", "VM", "UUID", vm.GetObjectMeta().GetUID(), "name", vm.GetObjectMeta().GetName())
 	return nil
 }
 

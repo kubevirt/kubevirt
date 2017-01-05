@@ -92,6 +92,14 @@ func (e LogError) Error() string {
 	return e.message
 }
 
+func (l FilteredLogger) Msg(msg string) {
+	l.Log("msg", msg)
+}
+
+func (l FilteredLogger) Msgf(msg string, args ...interface{}) {
+	l.Msg(fmt.Sprintf(msg, args))
+}
+
 func (l FilteredLogger) Log(params ...interface{}) error {
 	// messages should be logged if any of these conditions are met:
 	// The log filtering level is debug
