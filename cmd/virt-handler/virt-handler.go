@@ -51,10 +51,10 @@ func main() {
 	}()
 	// TODO we need to handle disconnects
 	domainConn, err := libvirt.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass)
-	defer domainConn.CloseConnection()
 	if err != nil {
 		panic(err)
 	}
+	defer domainConn.CloseConnection()
 
 	// Create event recorder
 	coreClient, err := kubecli.Get()
