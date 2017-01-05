@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-source hack/config.sh
+# Temporary hack to export everything into env
+eval `cat hack/config.sh | sed -e 's/^/export /'`
 
 if [ $# -eq 0 ]; then
     args=$manifest_templates
@@ -11,5 +12,5 @@ fi
 
 # Render kubernetes manifests
 for arg in $args; do
-    j2 --format=env $arg hack/config.sh > ${arg%%.in}
+    env | j2 --format=env $arg > ${arg%%.in}
 done
