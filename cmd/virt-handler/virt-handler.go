@@ -24,8 +24,8 @@ func main() {
 
 	libvirtapi.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	libvirtUser := flag.String("user", "vdsm@ovirt", "Libvirt user")
-	libvirtPass := flag.String("pass", "shibboleth", "Libvirt password")
+	libvirtUser := flag.String("user", "", "Libvirt user")
+	libvirtPass := flag.String("pass", "", "Libvirt password")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	flag.Parse()
 
