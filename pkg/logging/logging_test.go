@@ -1,13 +1,14 @@
 package logging
 
 import (
+	"kubevirt.io/kubevirt/pkg/api"
 	"path/filepath"
 	"runtime"
 	"testing"
 )
 
 var logCalled bool = false
-var logParams []interface{} = nil
+var logParams []interface{} = make([]interface{}, 0)
 
 type MockLogger struct {
 }
@@ -24,18 +25,6 @@ func assert(t *testing.T, condition bool, failMessage string) {
 		fileName := filepath.Base(filePath)
 		t.Fatalf("[%s:%d] %s", fileName, lineNumber, failMessage)
 	}
-}
-
-func compareLog(logLine []interface{}, referenceLine []string) bool {
-	if len(logLine) == len(referenceLine) {
-		for i, _ := range logLine {
-			if logLine[i].(string) != referenceLine[i] {
-				return false
-			}
-		}
-		return true
-	}
-	return false
 }
 
 func setUp() {
@@ -63,7 +52,6 @@ func TestMockLogger(t *testing.T) {
 	l := MockLogger{}
 	assert(t, !logCalled, "Test Case was not correctly initialized")
 	assert(t, len(logParams) == 0, "logParams was not reset")
-	assert(t, compareLog(logParams, []string{}), "logParams was not reset")
 	l.Log("test", "message")
 	assert(t, logCalled, "MockLogger was not called")
 	tearDown()
@@ -208,5 +196,90 @@ func TestLogConcurrency(t *testing.T) {
 	log2 := log.Warning()
 	assert(t, log.currentLogLevel != log2.currentLogLevel, "log and log2 should not have the same log level")
 	assert(t, log.currentLogLevel == INFO, "Calling Warning() did not create a new log object")
+	tearDown()
+}
+
+func TestDebugMessage(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	log.Debug().Log("test", "message")
+	t.Log(logParams)
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[1].(string) == "test", "Component was not logged")
+	assert(t, logEntry[2].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[3].(string) == "DEBUG", "Logged line was not DEBUG level")
+	tearDown()
+}
+
+func TestInfoMessage(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	log.Info().Log("test", "message")
+	t.Log(logParams)
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[1].(string) == "test", "Component was not logged")
+	assert(t, logEntry[2].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[3].(string) == "INFO", "Logged line was not INFO level")
+	tearDown()
+}
+
+func TestWarningMessage(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	log.Warning().Log("test", "message")
+	t.Log(logParams)
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[1].(string) == "test", "Component was not logged")
+	assert(t, logEntry[2].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[3].(string) == "WARNING", "Logged line was not WARNING level")
+	tearDown()
+}
+
+func TestErrorMessage(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	log.Error().Log("test", "message")
+	t.Log(logParams)
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[1].(string) == "test", "Component was not logged")
+	assert(t, logEntry[2].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[3].(string) == "ERROR", "Logged line was not ERROR level")
+	tearDown()
+}
+
+func TestCriticalMessage(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	log.Critical().Log("test", "message")
+	t.Log(logParams)
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[1].(string) == "test", "Component was not logged")
+	assert(t, logEntry[2].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[3].(string) == "CRITICAL", "Logged line was not CRITICAL level")
+	tearDown()
+}
+
+func TestObject(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	vm := api.VM{}
+	log.Object(&vm).Log("test", "message")
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[1].(string) == "test", "Component was not logged")
+	assert(t, logEntry[2].(string) == "name", "Logged line did not contain object name")
+	assert(t, logEntry[4].(string) == "kind", "Logged line did not contain object kind")
+	assert(t, logEntry[6].(string) == "uid", "Logged line did not contain UUID")
 	tearDown()
 }

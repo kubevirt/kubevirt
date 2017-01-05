@@ -134,17 +134,17 @@ func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 	logParams = append(logParams, "kind", kind)
 	logParams = append(logParams, "uid", uid)
 
-	l.logContext.With(logParams)
+	l.With(logParams...)
 	return &l
 }
 
 func (l *FilteredLogger) With(obj ...interface{}) *FilteredLogger {
-	l.logContext.With(obj...)
+	l.logContext = l.logContext.With(obj...)
 	return l
 }
 
 func (l *FilteredLogger) WithPrefix(obj ...interface{}) *FilteredLogger {
-	l.logContext.WithPrefix(obj...)
+	l.logContext = l.logContext.WithPrefix(obj...)
 	return l
 }
 
@@ -176,25 +176,30 @@ func (l FilteredLogger) V(level int) *FilteredLogger {
 
 func (l FilteredLogger) Debug() *FilteredLogger {
 	l.currentLogLevel = DEBUG
+	l.With("level", "DEBUG")
 	return &l
 }
 
 func (l FilteredLogger) Info() *FilteredLogger {
 	l.currentLogLevel = INFO
+	l.With("level", "INFO")
 	return &l
 }
 
 func (l FilteredLogger) Warning() *FilteredLogger {
 	l.currentLogLevel = WARNING
+	l.With("level", "WARNING")
 	return &l
 }
 
 func (l FilteredLogger) Error() *FilteredLogger {
 	l.currentLogLevel = ERROR
+	l.With("level", "ERROR")
 	return &l
 }
 
 func (l FilteredLogger) Critical() *FilteredLogger {
 	l.currentLogLevel = CRITICAL
+	l.With("level", "CRITICAL")
 	return &l
 }
