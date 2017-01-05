@@ -3,18 +3,15 @@ package services_test
 import (
 	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 
-	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"os"
 )
 
 var _ = Describe("Template", func() {
 
-	logger := log.NewLogfmtLogger(os.Stderr)
-	svc, err := NewTemplateService(logger, "kubevirt/virt-launcher")
+	svc, err := NewTemplateService("kubevirt/virt-launcher")
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {

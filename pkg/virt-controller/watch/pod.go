@@ -1,8 +1,6 @@
 package watch
 
 import (
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/levels"
 	"github.com/jeevatkm/go-model"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/errors"
@@ -15,18 +13,19 @@ import (
 	"k8s.io/client-go/1.5/tools/cache"
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
 )
 
-func NewPodResourceEventHandler(logger log.Logger) (kubecli.ResourceEventHandler, error) {
+func NewPodResourceEventHandler() (kubecli.ResourceEventHandler, error) {
 	restClient, err := kubecli.GetRESTClient()
 	if err != nil {
 		return nil, err
 	}
-	return &podResourceEventHandler{logger: levels.New(logger).With("component", "PodWatcher"), restCli: restClient}, nil
+	return &podResourceEventHandler{logger: logging.DefaultLogger().With("service", "PodWatcher"), restCli: restClient}, nil
 }
 
 type podResourceEventHandler struct {
-	logger  levels.Levels
+	logger  *logging.FilteredLogger
 	restCli *rest.RESTClient
 	VMCache cache.SharedInformer `inject:""`
 }

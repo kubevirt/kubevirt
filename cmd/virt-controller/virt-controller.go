@@ -3,17 +3,15 @@ package main
 import (
 	"flag"
 	"net/http"
-	"os"
 	"strconv"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/levels"
 	golog "log"
 
 	"github.com/emicklei/go-restful"
 	"github.com/facebookgo/inject"
 	"k8s.io/client-go/1.5/tools/cache"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -22,25 +20,26 @@ import (
 
 func main() {
 
+	logging.InitializeLogging("virt-controller")
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8182, "Port to listen on")
 	launcherImage := flag.String("launcher-image", "virt-launcher", "Shim container for containerized VMs")
 
-	logger := log.NewLogfmtLogger(os.Stderr)
+	logger := logging.DefaultLogger()
 	flag.Parse()
 
 	var g inject.Graph
 
-	vmService := services.NewVMService(logger)
-	templateService, err := services.NewTemplateService(logger, *launcherImage)
+	vmService := services.NewVMService()
+	templateService, err := services.NewTemplateService(*launcherImage)
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vmHandler, err := watch.NewVMResourceEventHandler(logger)
+	vmHandler, err := watch.NewVMResourceEventHandler()
 	if err != nil {
 		golog.Fatal(err)
 	}
-	podHandler, err := watch.NewPodResourceEventHandler(logger)
+	podHandler, err := watch.NewPodResourceEventHandler()
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -92,7 +91,8 @@ func main() {
 	}
 	go podController.Run(stop)
 
-	httpLogger := levels.New(logger).With("component", "http")
+	httpLogger := logger.With("service", "http")
+
 	httpLogger.Info().Log("action", "listening", "interface", *host, "port", *port)
 	if err := http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil); err != nil {
 		golog.Fatal(err)

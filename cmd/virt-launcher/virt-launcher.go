@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/logging"
 	"strconv"
 	"strings"
 )
@@ -120,6 +121,7 @@ func (mon *Monitor) RunForever(startTimeout time.Duration) {
 func main() {
 	startTimeout := 0 * time.Second
 
+	logging.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
 	debugMode := flag.Bool("debug", false, "Enable debug messages")
 	flag.Parse()
