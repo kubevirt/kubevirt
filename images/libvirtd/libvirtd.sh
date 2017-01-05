@@ -4,7 +4,6 @@ set -xe
 
 fatal() { echo "FATAL: $@" >&2 ; exit 2 ; }
 [[ -f /host/var/run/libvirtd.pid ]] && fatal "libvirtd seems to be running on the host"
-brctl show | grep virbr >/dev/null && fatal "libvirtd bridges are present on the host"
 
 # HACK
 # Use hosts's /dev to see new devices and allow macvtap
