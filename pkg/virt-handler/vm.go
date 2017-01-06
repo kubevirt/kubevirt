@@ -2,6 +2,7 @@ package virthandler
 
 import (
 	"fmt"
+	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/tools/cache"
 	"k8s.io/client-go/1.5/tools/record"
@@ -21,6 +22,18 @@ func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.Doma
 				recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 				return cache.ErrRequeue{Err: err}
 			}
+
+			restClient, err := kubecli.GetRESTClient()
+			if err != nil {
+				return cache.ErrRequeue{Err: err}
+			}
+			vm.Status.Phase = v1.Succeeded
+			err = restClient.Put().Resource("vms").Body(vm).
+				Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
+			if err != nil {
+				return cache.ErrRequeue{Err: err}
+			}
+
 			return nil
 		},
 		DeleteFunc: func(obj interface{}) error {

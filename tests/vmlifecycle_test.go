@@ -69,6 +69,11 @@ var _ = Describe("Vmlifecycle", func() {
 				event := obj.Object.(*kubev1.Event)
 				Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
 				if event.Type == "Normal" && event.Reason == v1.Started.String() {
+					result = restClient.Get().Namespace(api.NamespaceDefault).
+						Resource("vms").Name("testvm").Do()
+					obj, err := result.Get()
+					Expect(err).To(BeNil())
+					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal("Succeeded"))
 					close(done)
 					return
 				}
