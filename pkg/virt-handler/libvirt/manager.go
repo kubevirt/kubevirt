@@ -72,7 +72,13 @@ type LibvirtDomainManager struct {
 }
 
 func NewConnection(uri string, user string, pass string) (Connection, error) {
-	virConn, err := libvirt.NewVirConnectionWithAuth(uri, user, pass)
+	var virConn libvirt.VirConnection
+	var err error
+	if user == "" {
+		virConn, err = libvirt.NewVirConnection(uri)
+	} else {
+		virConn, err = libvirt.NewVirConnectionWithAuth(uri, user, pass)
+	}
 	if err != nil {
 		return nil, err
 	}
