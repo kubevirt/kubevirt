@@ -26,3 +26,7 @@ spec:
       - containerPort: 8184
         name: "haproxy"
         protocol: "TCP"
+  - name: rsyslog
+    image: {{ docker_prefix }}/rsyslog:{{ docker_tag }}
+    imagePullPolicy: IfNotPresent
+    args: ["-f", "/rsyslog.conf"]
