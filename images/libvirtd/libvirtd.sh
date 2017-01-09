@@ -18,6 +18,8 @@ mkdir /odev && {
   mount --rbind /dev/pts/ptmx /dev/ptmx
   # Use the original /dev/kvm if available
   [[ -e /odev/lvm ]] && mount --rbind /odev/kvm /dev/kvm
+
+  mount --rbind /host/sys /sys
 }
 
 /usr/sbin/virtlogd &
