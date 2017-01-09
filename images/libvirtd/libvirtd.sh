@@ -7,20 +7,23 @@ fatal() { echo "FATAL: $@" >&2 ; exit 2 ; }
 
 # HACK
 # Use hosts's /dev to see new devices and allow macvtap
-mkdir /odev && {
-  mount --rbind /dev /odev
-  mount --rbind /host/dev /dev
-  # Keep some devices from the original /dev
-  mount --rbind /odev/shm /dev/shm
-  mount --rbind /odev/mqueue /dev/mqueue
-  # Keep ptmx/pts for pty creation
-  mount --rbind /odev/pts /dev/pts
-  mount --rbind /dev/pts/ptmx /dev/ptmx
-  # Use the original /dev/kvm if available
-  [[ -e /odev/lvm ]] && mount --rbind /odev/kvm /dev/kvm
+mkdir /dev.container && {
+  mount --make-rprivate --rbind /dev /dev.container
 
-  mount --rbind /host/sys /sys
+  mount --rbind /host/dev /dev
+
+  # Keep some devices from the containerinal /dev
+  keep() { mount --rbind /dev.container/$1 /dev/$1 ; }
+  keep shm
+  keep mqueue
+  # Keep ptmx/pts for pty creation
+  keep pts
+  mount --rbind /dev/pts/ptmx /dev/ptmx
+  # Use the container /dev/kvm if available
+  [[ -e /dev.container/kvm ]] && keep kvm
 }
+
+mount --rbind /host/sys /sys
 
 /usr/sbin/virtlogd &
 /usr/sbin/libvirtd -l
