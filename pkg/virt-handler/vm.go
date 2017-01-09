@@ -27,7 +27,7 @@ func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.Doma
 			if err != nil {
 				return cache.ErrRequeue{Err: err}
 			}
-			vm.Status.Phase = v1.Succeeded
+			vm.Status.Phase = v1.Running
 			err = restClient.Put().Resource("vms").Body(vm).
 				Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
 			if err != nil {
