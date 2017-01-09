@@ -92,12 +92,12 @@ func (e LogError) Error() string {
 	return e.message
 }
 
-func (l FilteredLogger) Msg(msg string) {
+func (l FilteredLogger) Msg(msg interface{}) {
 	l.Log("msg", msg)
 }
 
 func (l FilteredLogger) Msgf(msg string, args ...interface{}) {
-	l.Msg(fmt.Sprintf(msg, args))
+	l.Msg(fmt.Sprintf(msg, args...))
 }
 
 func (l FilteredLogger) Log(params ...interface{}) error {

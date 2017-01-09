@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"errors"
 	"kubevirt.io/kubevirt/pkg/api"
 	"path/filepath"
 	"runtime"
@@ -281,5 +282,28 @@ func TestObject(t *testing.T) {
 	assert(t, logEntry[2].(string) == "name", "Logged line did not contain object name")
 	assert(t, logEntry[4].(string) == "kind", "Logged line did not contain object kind")
 	assert(t, logEntry[6].(string) == "uid", "Logged line did not contain UUID")
+	tearDown()
+}
+
+func TestError(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	err := errors.New("Test error")
+	log.Error().Log(err)
+	assert(t, logCalled, "Error was not logged via .Log()")
+
+	logCalled = false
+	log.Msg(err)
+	assert(t, logCalled, "Error was not logged via .Msg()")
+
+	logCalled = false
+	// using more than one parameter in format string
+	log.Msgf("[%d] %s", 1, err)
+	assert(t, logCalled, "Error was not logged via .Msgf()")
+
+	logCalled = false
+	log.Msgf("%s", err)
+	assert(t, logCalled, "Error was not logged via .Msgf()")
 	tearDown()
 }
