@@ -50,7 +50,7 @@ func MakeLogger(logger log.Logger) *FilteredLogger {
 		defaultVerbosity = 0
 	}
 	return &FilteredLogger{
-		logContext:            log.NewContext(logger).With("component", defaultComponent),
+		logContext:            log.NewContext(logger),
 		filterLevel:           defaultLogLevel,
 		currentLogLevel:       defaultLogLevel,
 		verbosityLevel:        defaultVerbosity,
