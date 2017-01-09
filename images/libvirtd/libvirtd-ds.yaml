@@ -23,6 +23,9 @@ spec:
           securityContext:
             privileged: true
             runAsUser: 0
+          env:
+          - name: LIBVIRTD_DEFAULT_NETWORK_DEVICE
+            value: "weave"
           volumeMounts:
             - mountPath: /host
               name: host

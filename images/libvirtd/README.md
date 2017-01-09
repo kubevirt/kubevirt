@@ -32,7 +32,7 @@ Define the daemon set:
 
 Now test on any host of the cluster:
 
-    virsh capabilities
+    virsh -c "qemu+tcp://127.0.0.1/system" capabilities
 
 
 # Try without k8s
@@ -48,23 +48,28 @@ Start the container
       --pid=host \
       --user=root \
       --privileged \
-      -v /sys:/sys:Z \
       -v /:/host:Z \
-      -it fabiand/libvirtd:latest
+      -it kubevirt/libvirtd:latest
 
 Now, to verify, run, on the host:
 
     virsh capabilities
 
+# Environment Variables
+
 These environment variables can be passed into the container
- * LIBVIRT_PASSWORD: this will be used as the SASL password
-   for connecting to libvirt
+
+* LIBVIRTD_DEFAULT_NETWORK_DEVICE: Set it to an existing device
+  to let the default network point to it.
+
+# Notes
 
 Considerations that need to be taken into account:
- * The D-Bus socket is not exposed inside the container
-   so firewalld cannot be notified of changes (also
-   not every host system uses firewalld) so the following
-   ports might need to be allowed in if iptables is not
-   accepting input by default:
-   - TCP 16509
-   - TCP 5900->590X (depending on Spice/VNC settings of guest)
+
+* The D-Bus socket is not exposed inside the container
+  so firewalld cannot be notified of changes (also
+  not every host system uses firewalld) so the following
+  ports might need to be allowed in if iptables is not
+  accepting input by default:
+  - TCP 16509
+  - TCP 5900->590X (depending on Spice/VNC settings of guest)
