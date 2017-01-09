@@ -4,6 +4,7 @@ import (
 	"fmt"
 	kubeapi "k8s.io/client-go/1.5/pkg/api"
 	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
+	"k8s.io/client-go/1.5/rest"
 	"k8s.io/client-go/1.5/tools/cache"
 	"k8s.io/client-go/1.5/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -11,7 +12,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 )
 
-func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.DomainManager, recorder record.EventRecorder) (cache.Indexer, *cache.Controller) {
+func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient) (cache.Indexer, *cache.Controller) {
 	return kubecli.NewInformer(listWatcher, &v1.VM{}, 0, kubecli.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) error {
 			fmt.Printf("VM ADD\n")
@@ -24,10 +25,6 @@ func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.Doma
 			}
 
 			if vm.Status.Phase != v1.Running {
-				restClient, err := kubecli.GetRESTClient()
-				if err != nil {
-					return cache.ErrRequeue{Err: err}
-				}
 				vm.Status.Phase = v1.Running
 				err = restClient.Put().Resource("vms").Body(vm).
 					Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
