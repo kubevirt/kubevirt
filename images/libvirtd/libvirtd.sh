@@ -23,8 +23,6 @@ mkdir /dev.container && {
   [[ -e /dev.container/kvm ]] && keep kvm
 }
 
-mount --rbind /host/sys /sys
-
 # We create the network on a file basis to not
 # have to wait for libvirtd to come up
 if [[ -n "$LIBVIRTD_DEFAULT_NETWORK_DEVICE" ]]; then
