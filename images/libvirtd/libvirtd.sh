@@ -8,7 +8,7 @@ fatal() { echo "FATAL: $@" >&2 ; exit 2 ; }
 # HACK
 # Use hosts's /dev to see new devices and allow macvtap
 mkdir /dev.container && {
-  mount --make-rprivate --rbind /dev /dev.container
+  mount --rbind /dev /dev.container
 
   mount --rbind /host/dev /dev
 
