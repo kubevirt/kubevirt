@@ -23,17 +23,18 @@ func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.Doma
 				return cache.ErrRequeue{Err: err}
 			}
 
-			restClient, err := kubecli.GetRESTClient()
-			if err != nil {
-				return cache.ErrRequeue{Err: err}
+			if vm.Status.Phase != v1.Running {
+				restClient, err := kubecli.GetRESTClient()
+				if err != nil {
+					return cache.ErrRequeue{Err: err}
+				}
+				vm.Status.Phase = v1.Running
+				err = restClient.Put().Resource("vms").Body(vm).
+					Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
+				if err != nil {
+					return cache.ErrRequeue{Err: err}
+				}
 			}
-			vm.Status.Phase = v1.Running
-			err = restClient.Put().Resource("vms").Body(vm).
-				Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
-			if err != nil {
-				return cache.ErrRequeue{Err: err}
-			}
-
 			return nil
 		},
 		DeleteFunc: func(obj interface{}) error {
