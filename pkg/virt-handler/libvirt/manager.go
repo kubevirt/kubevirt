@@ -13,6 +13,7 @@ import (
 	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 )
 
 type DomainManager interface {
@@ -103,17 +104,23 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		if err.(libvirt.VirError).Code == libvirt.VIR_ERR_NO_DOMAIN {
 			xml, err := xml.Marshal(&wantedSpec)
 			if err != nil {
+				logging.DefaultLogger().Object(vm).Error().Msgf("Generating the domain xml failed: %v", err)
 				return err
 			}
 			dom, err = l.virConn.DomainDefineXML(string(xml))
 			if err != nil {
+				logging.DefaultLogger().Object(vm).Error().Msgf("Defining the VM failed with: %v", err)
 				return err
 			}
 			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined")
+		} else {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain failed with: %v", err)
+			return err
 		}
 	}
 	domState, err := dom.GetState()
 	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain state failed with: %v", err)
 		return err
 	}
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
@@ -123,6 +130,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	case NoState, Shutdown, Shutoff, Crashed:
 		err := dom.Create()
 		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Starting the VM failed with: %v", err)
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started")
@@ -130,6 +138,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Resuming the VM failed with: %v", err)
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
@@ -155,6 +164,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	// TODO: Graceful shutdown
 	domState, err := dom.GetState()
 	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain state failed with: %v", err)
 		return err
 	}
 
@@ -162,6 +172,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	if state == Running || state == Paused {
 		err = dom.Destroy()
 		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Destroying the domain state failed with: %v", err)
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Stopped.String(), "VM stopped")
@@ -169,6 +180,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 
 	err = dom.Undefine()
 	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Msgf("Undefining the domain state failed with: %v", err)
 		return err
 	}
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
