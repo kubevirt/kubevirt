@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"errors"
 	"kubevirt.io/kubevirt/pkg/api"
 	"path/filepath"
 	"runtime"
@@ -76,7 +77,7 @@ func TestGoodLevel(t *testing.T) {
 
 func TestComponent(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.Log("foo", "bar")
 
 	assert(t, len(logParams) == 1, "Expected 1 log line")
@@ -89,7 +90,7 @@ func TestComponent(t *testing.T) {
 
 func TestDebugCutoff(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.SetLogLevel(INFO)
 	assert(t, log.filterLevel == INFO, "Unable to set log level")
 
@@ -105,7 +106,7 @@ func TestDebugCutoff(t *testing.T) {
 
 func TestInfoCutoff(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.SetLogLevel(WARNING)
 	assert(t, log.filterLevel == WARNING, "Unable to set log level")
 
@@ -125,7 +126,7 @@ func TestInfoCutoff(t *testing.T) {
 
 func TestVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	if err := log.SetVerbosityLevel(2); err != nil {
 		t.Fatal("Unexpected error setting verbosity")
 	}
@@ -154,7 +155,7 @@ func TestVerbosity(t *testing.T) {
 
 func TestNegativeVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	err := log.SetVerbosityLevel(-1)
 	assert(t, err != nil, "Requesting a negative verbosity should not have been allowed")
 	tearDown()
@@ -179,7 +180,7 @@ func TestCachedLoggers(t *testing.T) {
 
 func TestWarningCutoff(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 
 	log.Warning().Log("message", "test warning message")
 	assert(t, logCalled, "Warning level message should have been recorded")
@@ -191,7 +192,7 @@ func TestWarningCutoff(t *testing.T) {
 
 func TestLogConcurrency(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	// create a new log object from the previous one.
 	log2 := log.Warning()
 	assert(t, log.currentLogLevel != log2.currentLogLevel, "log and log2 should not have the same log level")
@@ -201,7 +202,7 @@ func TestLogConcurrency(t *testing.T) {
 
 func TestDebugMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.SetLogLevel(DEBUG)
 	log.Debug().Log("test", "message")
 	t.Log(logParams)
@@ -215,7 +216,7 @@ func TestDebugMessage(t *testing.T) {
 
 func TestInfoMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.SetLogLevel(DEBUG)
 	log.Info().Log("test", "message")
 	t.Log(logParams)
@@ -229,7 +230,7 @@ func TestInfoMessage(t *testing.T) {
 
 func TestWarningMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.SetLogLevel(DEBUG)
 	log.Warning().Log("test", "message")
 	t.Log(logParams)
@@ -243,7 +244,7 @@ func TestWarningMessage(t *testing.T) {
 
 func TestErrorMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.SetLogLevel(DEBUG)
 	log.Error().Log("test", "message")
 	t.Log(logParams)
@@ -257,7 +258,7 @@ func TestErrorMessage(t *testing.T) {
 
 func TestCriticalMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.SetLogLevel(DEBUG)
 	log.Critical().Log("test", "message")
 	t.Log(logParams)
@@ -271,7 +272,7 @@ func TestCriticalMessage(t *testing.T) {
 
 func TestObject(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(MockLogger{}).With("component", "test")
 	log.SetLogLevel(DEBUG)
 	vm := api.VM{}
 	log.Object(&vm).Log("test", "message")
@@ -281,5 +282,28 @@ func TestObject(t *testing.T) {
 	assert(t, logEntry[2].(string) == "name", "Logged line did not contain object name")
 	assert(t, logEntry[4].(string) == "kind", "Logged line did not contain object kind")
 	assert(t, logEntry[6].(string) == "uid", "Logged line did not contain UUID")
+	tearDown()
+}
+
+func TestError(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{}).With("component", "test")
+	log.SetLogLevel(DEBUG)
+	err := errors.New("Test error")
+	log.Error().Log(err)
+	assert(t, logCalled, "Error was not logged via .Log()")
+
+	logCalled = false
+	log.Msg(err)
+	assert(t, logCalled, "Error was not logged via .Msg()")
+
+	logCalled = false
+	// using more than one parameter in format string
+	log.Msgf("[%d] %s", 1, err)
+	assert(t, logCalled, "Error was not logged via .Msgf()")
+
+	logCalled = false
+	log.Msgf("%s", err)
+	assert(t, logCalled, "Error was not logged via .Msgf()")
 	tearDown()
 }
