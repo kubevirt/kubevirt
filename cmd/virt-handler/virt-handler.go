@@ -96,8 +96,11 @@ func main() {
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
-	go domainCache.Run(stop)
+
+	stopWarmup := make(chan struct{})
+	go domainCache.Run(stopWarmup)
 	cache.WaitForCacheSync(stop, domainCache.HasSynced)
+	close(stopWarmup)
 
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainCache.GetStore().List() {
