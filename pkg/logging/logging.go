@@ -23,6 +23,14 @@ const (
 	CRITICAL logLevel = iota
 )
 
+var logLevelNames = map[logLevel]string{
+	DEBUG:    "DEBUG",
+	INFO:     "INFO",
+	WARNING:  "WARNING",
+	ERROR:    "ERROR",
+	CRITICAL: "CRITICAL",
+}
+
 type LoggableObject interface {
 	meta.ObjectMetaAccessor
 	k8sruntime.Object
@@ -30,6 +38,7 @@ type LoggableObject interface {
 
 type FilteredLogger struct {
 	logContext            *log.Context
+	component             string
 	filterLevel           logLevel
 	currentLogLevel       logLevel
 	verbosityLevel        int
@@ -51,6 +60,7 @@ func MakeLogger(logger log.Logger) *FilteredLogger {
 	}
 	return &FilteredLogger{
 		logContext:            log.NewContext(logger),
+		component:             defaultComponent,
 		filterLevel:           defaultLogLevel,
 		currentLogLevel:       defaultLogLevel,
 		verbosityLevel:        defaultVerbosity,
@@ -69,7 +79,8 @@ var defaultVerbosity = 0
 func Logger(component string) *FilteredLogger {
 	if _, ok := loggers[component]; !ok {
 		logger := log.NewLogfmtLogger(os.Stderr)
-		log := MakeLogger(logger).With("component", component)
+		log := MakeLogger(logger)
+		log.component = component
 		loggers[component] = log
 	}
 	return loggers[component]
@@ -112,13 +123,13 @@ func (l FilteredLogger) Log(params ...interface{}) error {
 		(l.currentVerbosityLevel <= l.verbosityLevel)) {
 		logParams := make([]interface{}, 0)
 
+		logParams = append(logParams, "component", l.component, "level", logLevelNames[l.currentLogLevel])
 		if l.currentVerbosityLevel > 1 {
 			_, fileName, lineNumber, _ := runtime.Caller(1)
 			logParams = append(logParams, "filename", filepath.Base(fileName))
 			logParams = append(logParams, "line", lineNumber)
 		}
-		logParams = append(logParams, params...)
-		return l.logContext.Log(logParams...)
+		return l.logContext.WithPrefix(logParams...).Log(params...)
 	}
 	return nil
 }
@@ -176,30 +187,25 @@ func (l FilteredLogger) V(level int) *FilteredLogger {
 
 func (l FilteredLogger) Debug() *FilteredLogger {
 	l.currentLogLevel = DEBUG
-	l.With("level", "DEBUG")
 	return &l
 }
 
 func (l FilteredLogger) Info() *FilteredLogger {
 	l.currentLogLevel = INFO
-	l.With("level", "INFO")
 	return &l
 }
 
 func (l FilteredLogger) Warning() *FilteredLogger {
 	l.currentLogLevel = WARNING
-	l.With("level", "WARNING")
 	return &l
 }
 
 func (l FilteredLogger) Error() *FilteredLogger {
 	l.currentLogLevel = ERROR
-	l.With("level", "ERROR")
 	return &l
 }
 
 func (l FilteredLogger) Critical() *FilteredLogger {
 	l.currentLogLevel = CRITICAL
-	l.With("level", "CRITICAL")
 	return &l
 }
