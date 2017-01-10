@@ -73,7 +73,7 @@ var _ = Describe("Vmlifecycle", func() {
 						Resource("vms").Name("testvm").Do()
 					obj, err := result.Get()
 					Expect(err).To(BeNil())
-					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal("Running"))
+					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
 					close(done)
 					return
 				}

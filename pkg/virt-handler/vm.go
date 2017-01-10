@@ -25,6 +25,11 @@ func NewVMController(listWatcher cache.ListerWatcher, domainManager libvirt.Doma
 			}
 
 			if vm.Status.Phase != v1.Running {
+				obj, err = kubeapi.Scheme.Copy(vm)
+				if err != nil {
+					goto is_error
+				}
+				vm = obj.(*v1.VM)
 				vm.Status.Phase = v1.Running
 				err = restClient.Put().Resource("vms").Body(vm).
 					Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
