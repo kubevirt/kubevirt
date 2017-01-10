@@ -6,6 +6,8 @@
 
 
 **KubeVirt** is a virtual machine management architecture built around
+Kubernetes, implemented as an extension to Kubernetes.
+The aim is to provide a common ground for virtualization solutions on top of
 Kubernetes.
 
 **Note:** KubeVirt is a heavy work in progress.
