@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/util/rand"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
@@ -28,9 +29,9 @@ func (w *ObjectEventWatcher) Watch() {
 		panic(err)
 	}
 
-	uid := w.object.(meta.ObjectMetaAccessor).GetObjectMeta().GetUID()
+	uid := w.object.(meta.ObjectMetaAccessor).GetObjectMeta().GetName()
 	eventWatcher, err := cli.Core().Events(api.NamespaceDefault).
-		Watch(kubev1.ListOptions{FieldSelector: fields.ParseSelectorOrDie("involvedObject.uid=" + string(uid)).String()})
+		Watch(kubev1.ListOptions{FieldSelector: fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String()})
 	if err != nil {
 		panic(err)
 	}
@@ -64,4 +65,8 @@ func PanicOnError(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func NewRandomVM() *v1.VM {
+	return v1.NewMinimalVM("testvm" + rand.String(5))
 }

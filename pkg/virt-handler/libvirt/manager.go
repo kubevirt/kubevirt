@@ -8,6 +8,7 @@ package libvirt
 
 import (
 	"encoding/xml"
+	"fmt"
 	"github.com/jeevatkm/go-model"
 	"github.com/rgbkrk/libvirt-go"
 	"k8s.io/client-go/pkg/api"
@@ -16,7 +17,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"fmt"
 )
 
 type DomainManager interface {

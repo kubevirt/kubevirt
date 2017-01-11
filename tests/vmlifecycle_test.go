@@ -9,6 +9,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"strings"
 )
 
 var _ = Describe("Vmlifecycle", func() {
@@ -17,13 +18,14 @@ var _ = Describe("Vmlifecycle", func() {
 
 	restClient, err := kubecli.GetRESTClient()
 	tests.PanicOnError(err)
+	var vm *v1.VM
 
 	BeforeEach(func() {
+		vm = tests.NewRandomVM()
 		tests.MustCleanup()
 	})
 
 	Context("New VM given", func() {
-		vm := v1.NewMinimalVM("testvm")
 
 		It("Should be accepted on POST", func() {
 			err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Error()
@@ -39,7 +41,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
 				if event.Type == "Normal" && event.Reason == v1.Started.String() {
 					result = restClient.Get().Namespace(api.NamespaceDefault).
-						Resource("vms").Name("testvm").Do()
+						Resource("vms").Name(vm.GetObjectMeta().GetName()).Do()
 					obj, err := result.Get()
 					Expect(err).To(BeNil())
 					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
@@ -51,10 +53,9 @@ var _ = Describe("Vmlifecycle", func() {
 		}, 10)
 
 		Context("New VM which can't be started", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
 
 			It("Should retry starting the VM", func(done Done) {
+				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
 				result := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do()
 				Expect(result.Error()).To(BeNil())
 
@@ -63,8 +64,8 @@ var _ = Describe("Vmlifecycle", func() {
 				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
 					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
 						retryCount++
-						if retryCount >= 3 {
-							// Done, three retries is enough
+						if retryCount >= 2 {
+							// Done, two retries is enough
 							return true
 						}
 					}
@@ -73,13 +74,15 @@ var _ = Describe("Vmlifecycle", func() {
 				close(done)
 			}, 10)
 
-			PIt("Should stop retrying starting the VM on VM delete", func(done Done) {
+			It("Should stop retrying invalid VM and go on to latest change request", func(done Done) {
+				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
 				result := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do()
 				Expect(result.Error()).To(BeNil())
 
+				// Wait until we see that starting the VM is failing
 				obj, _ := result.Get()
 				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
+					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() && strings.Contains(event.Message, "nonexistent") {
 						return true
 					}
 					return false
@@ -88,13 +91,16 @@ var _ = Describe("Vmlifecycle", func() {
 				result = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do()
 				Expect(result.Error()).To(BeNil())
 
+				// Check that the definition is deleted from the host
 				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
 					if event.Type == "Normal" && event.Reason == v1.Deleted.String() {
 						return true
 					}
 					return false
 				}).Watch()
+
 				close(done)
+
 			}, 10)
 		})
 	})

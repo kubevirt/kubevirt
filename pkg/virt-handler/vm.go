@@ -80,13 +80,11 @@ func (c *Controller) runWorker() {
 func (c *Controller) processNextWorkItem() bool {
 	key, quit := c.queue.Get()
 	if quit {
-		logging.DefaultLogger().V(3).Info().Msg("Exiting")
 		return false
 	}
 	defer c.queue.Done(key)
 	// Fetch the latest Vm state from cache
 	obj, exists, err := c.indexer.GetByKey(key.(string))
-	logging.DefaultLogger().V(3).Info().Msgf("Object %s", obj)
 
 	if err != nil {
 		// TODO do something more smart here
