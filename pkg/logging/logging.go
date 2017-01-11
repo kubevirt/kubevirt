@@ -104,14 +104,18 @@ func (e LogError) Error() string {
 }
 
 func (l FilteredLogger) Msg(msg interface{}) {
-	l.Log("msg", msg)
+	l.log(2, "msg", msg)
 }
 
 func (l FilteredLogger) Msgf(msg string, args ...interface{}) {
-	l.Msg(fmt.Sprintf(msg, args...))
+	l.log(2, "msg", fmt.Sprintf(msg, args...))
 }
 
 func (l FilteredLogger) Log(params ...interface{}) error {
+	return l.log(2, params...)
+}
+
+func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 	// messages should be logged if any of these conditions are met:
 	// The log filtering level is debug
 	// The log filtering level is info and verbosity checks match
@@ -125,7 +129,7 @@ func (l FilteredLogger) Log(params ...interface{}) error {
 
 		logParams = append(logParams, "component", l.component, "level", logLevelNames[l.currentLogLevel])
 		if l.currentVerbosityLevel > 1 {
-			_, fileName, lineNumber, _ := runtime.Caller(1)
+			_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
 			logParams = append(logParams, "filename", filepath.Base(fileName))
 			logParams = append(logParams, "line", lineNumber)
 		}
@@ -138,7 +142,7 @@ func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 
 	name := obj.GetObjectMeta().GetName()
 	uid := obj.GetObjectMeta().GetUID()
-	kind := obj.GetObjectKind()
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
 	logParams := make([]interface{}, 0)
 	logParams = append(logParams, "name", name)
