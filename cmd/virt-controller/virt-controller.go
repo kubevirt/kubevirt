@@ -9,7 +9,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/facebookgo/inject"
-	"k8s.io/client-go/1.5/tools/cache"
+	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/util"

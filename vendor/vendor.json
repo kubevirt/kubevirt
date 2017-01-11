@@ -301,14 +301,12 @@
 			"revisionTime": "2016-09-12T16:56:03Z"
 		},
 		{
-			"checksumSHA1": "CsZ8HBY1oOS1c3XfbD0MkQF/IvY=",
-			"origin": "github.com/kubernetes/client-go/1.5",
-			"path": "k8s.io/client-go/1.5",
-			"revision": "843f7c4f28b1f647f664f883697107d5c02c5acc",
-			"revisionTime": "2016-10-23T20:27:10Z",
-			"tree": true,
-			"version": "v1.5",
-			"versionExact": "v1.5.0"
+			"checksumSHA1": "q4wpVI0MTfqWAh8PGe0Mqi/F/Es=",
+			"origin": "github.com/kubernetes/client-go",
+			"path": "k8s.io/client-go",
+			"revision": "24a02a6d7d2c9a21b12a3eb35c71c784e63825f4",
+			"revisionTime": "2017-01-02T15:19:42Z",
+			"tree": true
 		}
 	],
 	"rootPath": "kubevirt.io/kubevirt"

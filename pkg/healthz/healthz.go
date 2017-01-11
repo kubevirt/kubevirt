@@ -3,7 +3,7 @@ package healthz
 import (
 	"fmt"
 	"github.com/emicklei/go-restful"
-	"k8s.io/client-go/1.5/pkg/util/json"
+	"k8s.io/client-go/pkg/util/json"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"net/http"
 )
@@ -16,7 +16,7 @@ func KubeConnectionHealthzFunc(_ *restful.Request, response *restful.Response) {
 		return
 	}
 
-	body, err := cli.Core().GetRESTClient().Get().AbsPath("/version").Do().Raw()
+	body, err := cli.Core().RESTClient().Get().AbsPath("/version").Do().Raw()
 	if err != nil {
 		unhealthy(err, response)
 		return

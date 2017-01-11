@@ -10,8 +10,8 @@ import (
 	"encoding/xml"
 	"github.com/jeevatkm/go-model"
 	"github.com/rgbkrk/libvirt-go"
-	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/tools/record"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 )
@@ -158,6 +158,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 		if err.(libvirt.VirError).Code == libvirt.VIR_ERR_NO_DOMAIN {
 			return nil
 		} else {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain failed with: %v", err)
 			return err
 		}
 	}

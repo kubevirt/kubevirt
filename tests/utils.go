@@ -1,12 +1,12 @@
 package tests
 
 import (
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/meta"
-	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/fields"
-	"k8s.io/client-go/1.5/pkg/labels"
-	"k8s.io/client-go/1.5/pkg/runtime"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/meta"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/pkg/runtime"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
@@ -30,7 +30,7 @@ func (w *ObjectEventWatcher) Watch() {
 
 	uid := w.object.(meta.ObjectMetaAccessor).GetObjectMeta().GetUID()
 	eventWatcher, err := cli.Core().Events(api.NamespaceDefault).
-		Watch(api.ListOptions{FieldSelector: fields.ParseSelectorOrDie("involvedObject.uid=" + string(uid))})
+		Watch(kubev1.ListOptions{FieldSelector: fields.ParseSelectorOrDie("involvedObject.uid=" + string(uid)).String()})
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,7 @@ func MustCleanup() {
 	labelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
 	PanicOnError(err)
 	err = coreClient.Core().Pods(api.NamespaceDefault).
-		DeleteCollection(nil, api.ListOptions{FieldSelector: fields.Everything(), LabelSelector: labelSelector})
+		DeleteCollection(nil, kubev1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: labelSelector.String()})
 	PanicOnError(err)
 }
 

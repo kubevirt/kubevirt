@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	kubeapi "k8s.io/client-go/1.5/pkg/api"
+	kubeapi "k8s.io/client-go/pkg/api"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 

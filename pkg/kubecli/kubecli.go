@@ -2,16 +2,18 @@ package kubecli
 
 import (
 	"flag"
-	"k8s.io/client-go/1.5/kubernetes"
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/fields"
-	"k8s.io/client-go/1.5/pkg/labels"
-	"k8s.io/client-go/1.5/pkg/runtime"
-	"k8s.io/client-go/1.5/pkg/runtime/serializer"
-	"k8s.io/client-go/1.5/pkg/watch"
-	"k8s.io/client-go/1.5/rest"
-	"k8s.io/client-go/1.5/tools/cache"
-	"k8s.io/client-go/1.5/tools/clientcmd"
+	"fmt"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/runtime/serializer"
+	"k8s.io/client-go/pkg/watch"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"runtime/debug"
@@ -60,7 +62,7 @@ func GetRESTClient() (*rest.RESTClient, error) {
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
-	listFunc := func(options api.ListOptions) (runtime.Object, error) {
+	listFunc := func(options kubev1.ListOptions) (runtime.Object, error) {
 		return c.Get().
 			Namespace(namespace).
 			Resource(resource).
@@ -70,7 +72,7 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 			Do().
 			Get()
 	}
-	watchFunc := func(options api.ListOptions) (watch.Interface, error) {
+	watchFunc := func(options kubev1.ListOptions) (watch.Interface, error) {
 		return c.Get().
 			Prefix("watch").
 			Namespace(namespace).
@@ -83,6 +85,29 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
 }
 
+type Compressor struct{}
+
+func (c *Compressor) Compress(d cache.Deltas) cache.Deltas {
+
+	// Start processing from the last entry or from the last Delete
+	deleteIndex := -1
+	for i, d := range d {
+		if d.Type == cache.Deleted {
+			deleteIndex = i
+		}
+	}
+
+	var newDeltas cache.Deltas
+	if deleteIndex > -1 && deleteIndex < len(d)-1 {
+		newDeltas = cache.Deltas{d[deleteIndex], d[len(d)-1]}
+	}
+	newDeltas = cache.Deltas{d[len(d)-1]}
+	fmt.Println("DELTAS:")
+	fmt.Println(d)
+	fmt.Println(newDeltas)
+	return newDeltas
+}
+
 func NewInformer(
 	lw cache.ListerWatcher,
 	objType runtime.Object,
@@ -90,41 +115,43 @@ func NewInformer(
 	h ResourceEventHandler,
 ) (cache.Indexer, *cache.Controller) {
 	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
-	fifo := cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, nil, clientState)
+	fifo := cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, &Compressor{}, clientState)
 
 	cfg := &cache.Config{
 		Queue:            fifo,
 		ListerWatcher:    lw,
 		ObjectType:       objType,
 		FullResyncPeriod: resyncPeriod,
-		RetryOnError:     false,
+		RetryOnError:     true,
 
 		Process: func(obj interface{}) error {
 			// from oldest to newest
+			fmt.Println(obj.(cache.Deltas))
+
 			for _, d := range obj.(cache.Deltas) {
 				switch d.Type {
 				case cache.Sync, cache.Added, cache.Updated:
 					if old, exists, err := clientState.Get(d.Object); err == nil && exists {
+						if err := clientState.Update(d.Object); err != nil {
+							return err
+						}
 						err = h.OnUpdate(old, d.Object)
 						if err != nil {
 							// TODO real backoff strategy
 							// TODO solve this by using workqueues as soon as they hit client-go
 							time.Sleep(1 * time.Second)
-							return err
-						}
-						if err := clientState.Update(d.Object); err != nil {
-							return err
+							return handleErr(err)
 						}
 					} else {
+						if err := clientState.Add(d.Object); err != nil {
+							return err
+						}
 						err = h.OnAdd(d.Object)
 						if err != nil {
 							// TODO real backoff strategy
 							// TODO solve this by using workqueues as soon as they hit client-go
 							time.Sleep(1 * time.Second)
-							return err
-						}
-						if err := clientState.Add(d.Object); err != nil {
-							return err
+							return handleErr(err)
 						}
 					}
 				case cache.Deleted:
@@ -133,7 +160,7 @@ func NewInformer(
 						// TODO real backoff strategy
 						// TODO solve this by using workqueues as soon as they hit client-go
 						time.Sleep(1 * time.Second)
-						return err
+						return handleErr(err)
 					}
 					if err := clientState.Delete(d.Object); err != nil {
 						return err
@@ -144,6 +171,17 @@ func NewInformer(
 		},
 	}
 	return clientState, cache.New(cfg)
+}
+
+/*
+Helper to translate between requeue errors like they are used in queues and the controller error handling.
+This allows  to use the controlle rerror handling if it is enable and not trigger the queues reenqueue logic.
+*/
+func handleErr(err error) error {
+	if e, ok := err.(cache.ErrRequeue); ok == true {
+		return e.Err
+	}
+	return nil
 }
 
 type ResourceEventHandler interface {

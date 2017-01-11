@@ -5,7 +5,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful/swagger"
 	"golang.org/x/net/context"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
+	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -23,8 +23,8 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-	gvr := unversioned.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
-	gvk := unversioned.GroupVersionKind{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Kind: "VM"}
+	gvr := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
+	gvk := schema.GroupVersionKind{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Kind: "VM"}
 
 	// FIXME the whole NewResponseHandler is just a hack, see the method itself for details
 	err := rest.AddGenericResourceProxy(rest.WebService, ctx, gvr, &v1.VM{}, rest.NewResponseHandler(gvk, &v1.VM{}))

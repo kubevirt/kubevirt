@@ -3,12 +3,13 @@ package cache
 import (
 	"encoding/xml"
 	"github.com/rgbkrk/libvirt-go"
-	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
-	"k8s.io/client-go/1.5/pkg/runtime"
-	"k8s.io/client-go/1.5/pkg/types"
-	"k8s.io/client-go/1.5/pkg/watch"
-	"k8s.io/client-go/1.5/tools/cache"
+	kubeapi "k8s.io/client-go/pkg/api"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/types"
+	"k8s.io/client-go/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 	kubevirt "kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 )
 
@@ -17,7 +18,7 @@ func NewListWatchFromClient(c kubevirt.Connection, events ...int) *cache.ListWat
 	if len(events) == 0 {
 		events = []int{libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE}
 	}
-	listFunc := func(options kubeapi.ListOptions) (runtime.Object, error) {
+	listFunc := func(options kubev1.ListOptions) (runtime.Object, error) {
 		doms, err := c.ListAllDomains(libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE | libvirt.VIR_CONNECT_LIST_DOMAINS_INACTIVE)
 		if err != nil {
 			return nil, err
@@ -45,7 +46,7 @@ func NewListWatchFromClient(c kubevirt.Connection, events ...int) *cache.ListWat
 
 		return &list, nil
 	}
-	watchFunc := func(options kubeapi.ListOptions) (watch.Interface, error) {
+	watchFunc := func(options kubev1.ListOptions) (watch.Interface, error) {
 		return NewDomainWatcher(c, events...)
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
@@ -174,7 +175,7 @@ func NewDomain(dom kubevirt.VirDomain) (*kubevirt.Domain, error) {
 			Namespace: kubeapi.NamespaceDefault,
 		},
 		Status: kubevirt.DomainStatus{},
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: "1.2.2",
 			Kind:       "Domain",
 		},

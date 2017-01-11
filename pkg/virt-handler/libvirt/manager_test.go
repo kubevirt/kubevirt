@@ -7,8 +7,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/rgbkrk/libvirt-go"
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/tools/record"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 

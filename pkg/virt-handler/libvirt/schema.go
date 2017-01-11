@@ -3,9 +3,10 @@ package libvirt
 import (
 	"encoding/xml"
 	"github.com/rgbkrk/libvirt-go"
-	"k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/meta"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/meta"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -76,7 +77,7 @@ var LifeCycleTranslationMap = map[int]LifeCycle{
 }
 
 type Domain struct {
-	unversioned.TypeMeta
+	metav1.TypeMeta
 	ObjectMeta api.ObjectMeta
 	Spec       DomainSpec
 	Status     DomainStatus
@@ -87,8 +88,8 @@ type DomainStatus struct {
 }
 
 type DomainList struct {
-	unversioned.TypeMeta
-	ListMeta unversioned.ListMeta
+	metav1.TypeMeta
+	ListMeta metav1.ListMeta
 	Items    []Domain
 }
 
@@ -366,7 +367,7 @@ func NewMinimalVM(vmName string) *DomainSpec {
 }
 
 // Required to satisfy Object interface
-func (d *Domain) GetObjectKind() unversioned.ObjectKind {
+func (d *Domain) GetObjectKind() schema.ObjectKind {
 	return &d.TypeMeta
 }
 
@@ -376,11 +377,11 @@ func (d *Domain) GetObjectMeta() meta.Object {
 }
 
 // Required to satisfy Object interface
-func (dl *DomainList) GetObjectKind() unversioned.ObjectKind {
+func (dl *DomainList) GetObjectKind() schema.ObjectKind {
 	return &dl.TypeMeta
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (dl *DomainList) GetListMeta() unversioned.List {
+func (dl *DomainList) GetListMeta() metav1.List {
 	return &dl.ListMeta
 }
