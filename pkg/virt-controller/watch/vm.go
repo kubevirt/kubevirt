@@ -2,12 +2,12 @@ package watch
 
 import (
 	"github.com/jeevatkm/go-model"
-	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/errors"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
-	"k8s.io/client-go/1.5/pkg/fields"
-	"k8s.io/client-go/1.5/rest"
-	"k8s.io/client-go/1.5/tools/cache"
+	kubeapi "k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/errors"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -120,8 +120,8 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 		if err := v.restCli.Put().Resource("vms").Body(&vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
 			logger.Error().Msgf("Updating the VM state to 'Scheduling' failed with: %s", err)
 			if e, ok := err.(*errors.StatusError); ok {
-				if e.Status().Reason == unversioned.StatusReasonNotFound ||
-					e.Status().Reason == unversioned.StatusReasonConflict {
+				if e.Status().Reason == metav1.StatusReasonNotFound ||
+					e.Status().Reason == metav1.StatusReasonConflict {
 					// Nothing to do for us, VM got either deleted in the meantime or a newer version is enqueued already
 					return nil
 				}

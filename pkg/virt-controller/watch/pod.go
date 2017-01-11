@@ -2,15 +2,15 @@ package watch
 
 import (
 	"github.com/jeevatkm/go-model"
-	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/errors"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
-	"k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/fields"
-	"k8s.io/client-go/1.5/pkg/labels"
-	"k8s.io/client-go/1.5/pkg/types"
-	"k8s.io/client-go/1.5/rest"
-	"k8s.io/client-go/1.5/tools/cache"
+	kubeapi "k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/errors"
+	"k8s.io/client-go/pkg/api/v1"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/pkg/types"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -35,7 +35,7 @@ func NewPodInformer(handler kubecli.ResourceEventHandler) (*cache.Controller, er
 		return nil, err
 	}
 	selector := scheduledVMPodSelector()
-	podCacheSource := kubecli.NewListWatchFromClient(restClient.Core().GetRESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
+	podCacheSource := kubecli.NewListWatchFromClient(restClient.Core().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
 	_, ctl := kubecli.NewInformer(podCacheSource, &v1.Pod{}, 0, handler)
 	return ctl, nil
 }
@@ -46,7 +46,7 @@ func NewPodCache() (cache.SharedInformer, error) {
 		return nil, err
 	}
 	//TODO, maybe we can combine the list watchers for the cache and the watcher?
-	vmCacheSource := cache.NewListWatchFromClient(cli.Core().GetRESTClient(), "pods", kubeapi.NamespaceDefault, fields.Everything())
+	vmCacheSource := cache.NewListWatchFromClient(cli.Core().RESTClient(), "pods", kubeapi.NamespaceDefault, fields.Everything())
 	informer := cache.NewSharedInformer(vmCacheSource, &v1.Pod{}, 0)
 	return informer, nil
 }
@@ -83,7 +83,7 @@ func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 		if err := p.restCli.Put().Resource("vms").Body(&vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
 			logger.Error().Msgf("Setting the VM to pending failed with: %s", err)
 			if e, ok := err.(*errors.StatusError); ok {
-				if e.Status().Reason == unversioned.StatusReasonNotFound {
+				if e.Status().Reason == metav1.StatusReasonNotFound {
 					// VM does not exist anymore, we don't have to retry
 					return nil
 				}

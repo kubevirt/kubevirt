@@ -2,11 +2,10 @@ package services
 
 import (
 	"fmt"
-	"k8s.io/client-go/1.5/kubernetes"
-	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/fields"
-	"k8s.io/client-go/1.5/pkg/labels"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -44,7 +43,7 @@ func (v *vmService) StartVM(vm *corev1.VM) error {
 		return err
 	}
 
-	if _, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).Create(pod); err != nil {
+	if _, err := v.KubeCli.Core().Pods(v1.NamespaceDefault).Create(pod); err != nil {
 		return err
 	}
 	return nil
@@ -54,14 +53,14 @@ func (v *vmService) DeleteVM(vm *corev1.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
-	if err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).DeleteCollection(nil, unfinishedVMPodSelector(vm)); err != nil {
+	if err := v.KubeCli.Core().Pods(v1.NamespaceDefault).DeleteCollection(nil, unfinishedVMPodSelector(vm)); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (v *vmService) GetRunningPods(vm *corev1.VM) (*v1.PodList, error) {
-	podList, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).List(unfinishedVMPodSelector(vm))
+	podList, err := v.KubeCli.Core().Pods(v1.NamespaceDefault).List(unfinishedVMPodSelector(vm))
 	if err != nil {
 		return nil, err
 	}
@@ -91,19 +90,19 @@ func (v *vmService) PrepareMigration(vm *corev1.VM) error {
 	if err != nil {
 		return err
 	}
-	if _, err := v.KubeCli.Core().Pods(kubeapi.NamespaceDefault).Create(pod); err != nil {
+	if _, err := v.KubeCli.Core().Pods(v1.NamespaceDefault).Create(pod); err != nil {
 		return err
 	}
 	return nil
 }
 
-func unfinishedVMPodSelector(vm *corev1.VM) kubeapi.ListOptions {
+func unfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
-		"status.phase!=" + string(kubeapi.PodFailed) +
-			",status.phase!=" + string(kubeapi.PodSucceeded))
+		"status.phase!=" + string(v1.PodFailed) +
+			",status.phase!=" + string(v1.PodSucceeded))
 	labelSelector, err := labels.Parse(fmt.Sprintf(corev1.DomainLabel+" in (%s)", vm.GetObjectMeta().GetName()))
 	if err != nil {
 		panic(err)
 	}
-	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
+	return v1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }

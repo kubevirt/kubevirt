@@ -2,7 +2,7 @@ package virthandler
 
 import (
 	"fmt"
-	"k8s.io/client-go/1.5/tools/cache"
+	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 )

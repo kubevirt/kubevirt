@@ -4,84 +4,107 @@ import (
 	"flag"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/1.5/pkg/api"
-	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/fields"
-	"k8s.io/client-go/1.5/pkg/labels"
+	"k8s.io/client-go/pkg/api"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/tests"
+	"strings"
 )
 
 var _ = Describe("Vmlifecycle", func() {
 
 	flag.Parse()
-	coreClient, err := kubecli.Get()
-	if err != nil {
-		panic(err)
-	}
+
 	restClient, err := kubecli.GetRESTClient()
-	if err != nil {
-		panic(err)
-	}
-
-	// TODO: we need this cleanup code for every test file, make a helper for that
-	cleanup := func() {
-		// Remove all VMs
-		err := restClient.Delete().Namespace(api.NamespaceDefault).Resource("vms").Do().Error()
-		Expect(err).To(BeNil())
-
-		// Remove VM pods
-		Expect(err).To(BeNil())
-		labelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
-		Expect(err).To(BeNil())
-		err = coreClient.Core().Pods(api.NamespaceDefault).DeleteCollection(nil, api.ListOptions{FieldSelector: fields.Everything(), LabelSelector: labelSelector})
-		Expect(err).To(BeNil())
-	}
+	tests.PanicOnError(err)
+	var vm *v1.VM
 
 	BeforeEach(func() {
-		cleanup()
+		vm = tests.NewRandomVM()
+		tests.MustCleanup()
 	})
 
 	Context("New VM given", func() {
-		vm := v1.NewMinimalVM("testvm")
 
 		It("Should be accepted on POST", func() {
-			// Create a VM
 			err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Error()
 			Expect(err).To(BeNil())
 		})
 
 		It("Should start the VM on POST", func(done Done) {
-			// Create a VM
 			result := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do()
-			obj, err := result.Get()
 			Expect(result.Error()).To(BeNil())
+			obj, _ := result.Get()
 
-			//TODO: make a helper for the watch and iterate ove object events by uid which takes a callback function
-			// Create a watcher for events of this VM and  make sure we stop it at the end of the test
-			// TODO: make a helper for that pattern
-			uid := obj.(*v1.VM).GetObjectMeta().GetUID()
-			eventWatcher, err := coreClient.Core().Events(api.NamespaceDefault).Watch(api.ListOptions{FieldSelector: fields.ParseSelectorOrDie("involvedObject.uid=" + string(uid))})
-			Expect(err).To(BeNil())
-			defer eventWatcher.Stop()
-
-			for obj := range eventWatcher.ResultChan() {
-				event := obj.Object.(*kubev1.Event)
+			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
 				Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
 				if event.Type == "Normal" && event.Reason == v1.Started.String() {
 					result = restClient.Get().Namespace(api.NamespaceDefault).
-						Resource("vms").Name("testvm").Do()
+						Resource("vms").Name(vm.GetObjectMeta().GetName()).Do()
 					obj, err := result.Get()
 					Expect(err).To(BeNil())
 					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
 					close(done)
-					return
+					return true
 				}
-			}
+				return false
+			}).Watch()
 		}, 10)
 
+		Context("New VM which can't be started", func() {
+
+			It("Should retry starting the VM", func(done Done) {
+				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
+				result := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do()
+				Expect(result.Error()).To(BeNil())
+
+				retryCount := 0
+				obj, _ := result.Get()
+				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
+					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
+						retryCount++
+						if retryCount >= 2 {
+							// Done, two retries is enough
+							return true
+						}
+					}
+					return false
+				}).Watch()
+				close(done)
+			}, 10)
+
+			It("Should stop retrying invalid VM and go on to latest change request", func(done Done) {
+				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
+				result := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do()
+				Expect(result.Error()).To(BeNil())
+
+				// Wait until we see that starting the VM is failing
+				obj, _ := result.Get()
+				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
+					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() && strings.Contains(event.Message, "nonexistent") {
+						return true
+					}
+					return false
+				}).Watch()
+
+				result = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do()
+				Expect(result.Error()).To(BeNil())
+
+				// Check that the definition is deleted from the host
+				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
+					if event.Type == "Normal" && event.Reason == v1.Deleted.String() {
+						return true
+					}
+					return false
+				}).Watch()
+
+				close(done)
+
+			}, 10)
+		})
 	})
 	AfterEach(func() {
-		cleanup()
+		tests.MustCleanup()
 	})
 })

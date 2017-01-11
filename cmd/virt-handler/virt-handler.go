@@ -4,13 +4,13 @@ import (
 	"flag"
 	"fmt"
 	libvirtapi "github.com/rgbkrk/libvirt-go"
-	kubecorev1 "k8s.io/client-go/1.5/kubernetes/typed/core/v1"
-	"k8s.io/client-go/1.5/pkg/api"
-	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/fields"
-	"k8s.io/client-go/1.5/pkg/labels"
-	"k8s.io/client-go/1.5/tools/cache"
-	"k8s.io/client-go/1.5/tools/record"
+	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/pkg/api"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -96,21 +96,22 @@ func main() {
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
-	go domainCache.Run(stop)
+
+	stopWarmup := make(chan struct{})
+	go domainCache.Run(stopWarmup)
 	cache.WaitForCacheSync(stop, domainCache.HasSynced)
+	close(stopWarmup)
 
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainCache.GetStore().List() {
 		d := domain.(*libvirt.Domain)
-		vmStore.Add(&v1.VM{
-			ObjectMeta: api.ObjectMeta{Name: d.ObjectMeta.Name, Namespace: api.NamespaceDefault},
-		})
+		vmStore.Add(libvirt.NewVMReferenceFromName(d.ObjectMeta.Name))
 	}
 
 	// Watch for domain changes
 	go domainController.Run(stop)
 	// Watch for VM changes
-	go vmController.Run(stop)
+	go vmController.Run(1, stop)
 
 	// Sleep forever
 	// TODO add a http handler which provides health check

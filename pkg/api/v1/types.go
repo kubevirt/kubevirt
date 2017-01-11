@@ -10,13 +10,14 @@ import (
 	"encoding/json"
 	"github.com/jeevatkm/go-model"
 	"github.com/satori/go.uuid"
-	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/api/meta"
-	"k8s.io/client-go/1.5/pkg/api/unversioned"
-	"k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/apimachinery/announced"
-	"k8s.io/client-go/1.5/pkg/runtime"
-	"k8s.io/client-go/1.5/pkg/types"
+	kubeapi "k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/meta"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apimachinery/announced"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/runtime/schema"
+	"k8s.io/client-go/pkg/types"
 	"kubevirt.io/kubevirt/pkg/api"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"reflect"
@@ -26,7 +27,7 @@ import (
 const GroupName = "kubevirt.io"
 
 // GroupVersion is group version used to register these objects
-var GroupVersion = unversioned.GroupVersion{Group: GroupName, Version: "v1alpha1"}
+var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
@@ -34,7 +35,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VM{},
 		&VMList{},
 		&kubeapi.ListOptions{},
+		&v1.ListOptions{},
 		&kubeapi.DeleteOptions{},
+		&v1.DeleteOptions{},
 	)
 	return nil
 }
@@ -120,17 +123,17 @@ func init() {
 }
 
 type VM struct {
-	unversioned.TypeMeta `json:",inline"`
-	ObjectMeta           kubeapi.ObjectMeta `json:"metadata,omitempty"`
-	Spec                 VMSpec             `json:"spec,omitempty" valid:"required"`
-	Status               VMStatus           `json:"status"`
+	metav1.TypeMeta `json:",inline"`
+	ObjectMeta      kubeapi.ObjectMeta `json:"metadata,omitempty"`
+	Spec            VMSpec             `json:"spec,omitempty" valid:"required"`
+	Status          VMStatus           `json:"status"`
 }
 
 // VMList is a list of VMs
 type VMList struct {
-	unversioned.TypeMeta `json:",inline"`
-	ListMeta             unversioned.ListMeta `json:"metadata,omitempty"`
-	Items                []VM                 `json:"items"`
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VM            `json:"items"`
 }
 
 // VMSpec is a description of a VM
@@ -149,7 +152,7 @@ type VMStatus struct {
 }
 
 // Required to satisfy Object interface
-func (v *VM) GetObjectKind() unversioned.ObjectKind {
+func (v *VM) GetObjectKind() schema.ObjectKind {
 	return &v.TypeMeta
 }
 
@@ -159,12 +162,12 @@ func (v *VM) GetObjectMeta() meta.Object {
 }
 
 // Required to satisfy Object interface
-func (vl *VMList) GetObjectKind() unversioned.ObjectKind {
+func (vl *VMList) GetObjectKind() schema.ObjectKind {
 	return &vl.TypeMeta
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (vl *VMList) GetListMeta() unversioned.List {
+func (vl *VMList) GetListMeta() metav1.List {
 	return &vl.ListMeta
 }
 
@@ -207,8 +210,8 @@ const (
 type VMCondition struct {
 	Type               VMConditionType    `json:"type"`
 	Status             v1.ConditionStatus `json:"status"`
-	LastProbeTime      unversioned.Time   `json:"lastProbeTime,omitempty"`
-	LastTransitionTime unversioned.Time   `json:"lastTransitionTime,omitempty"`
+	LastProbeTime      metav1.Time        `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time        `json:"lastTransitionTime,omitempty"`
 	Reason             string             `json:"reason,omitempty"`
 	Message            string             `json:"message,omitempty"`
 }
@@ -255,7 +258,7 @@ func NewVM(name string, uid types.UID) *VM {
 			Namespace: kubeapi.NamespaceDefault,
 		},
 		Status: VMStatus{},
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       "VM",
 		},
@@ -285,7 +288,7 @@ func NewMinimalVM(vmName string) *VM {
 			Name:      vmName,
 			Namespace: kubeapi.NamespaceDefault,
 		},
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       "VM",
 		},

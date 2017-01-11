@@ -8,11 +8,15 @@ package libvirt
 
 import (
 	"encoding/xml"
+	"fmt"
 	"github.com/jeevatkm/go-model"
 	"github.com/rgbkrk/libvirt-go"
-	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/tools/record"
+	"k8s.io/client-go/pkg/api"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/runtime/schema"
+	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 )
 
 type DomainManager interface {
@@ -31,10 +35,28 @@ type Connection interface {
 
 type LibvirtConnection struct {
 	libvirt.VirConnection
+	user  string
+	pass  string
+	uri   string
+	alive bool
 }
 
 func (l *LibvirtConnection) LookupDomainByName(name string) (VirDomain, error) {
+	if !l.alive {
+		conn, err := newConnection(l.uri, l.user, l.pass)
+		if err != nil {
+			logging.DefaultLogger().Error().Msgf("Connection to libvirt lost because of %s", err)
+			return nil, err
+		}
+		l.alive = true
+		l.VirConnection = conn
+	}
+
 	dom, err := l.VirConnection.LookupDomainByName(name)
+	if err != nil && err.(libvirt.VirError).Code != libvirt.VIR_ERR_NO_DOMAIN {
+		l.alive = false
+		logging.DefaultLogger().Error().Msgf("Connection to libvirt lost because of %s", err)
+	}
 	return &dom, err
 }
 
@@ -72,6 +94,14 @@ type LibvirtDomainManager struct {
 }
 
 func NewConnection(uri string, user string, pass string) (Connection, error) {
+	virConn, err := newConnection(uri, user, pass)
+	if err != nil {
+		return nil, err
+	}
+	return &LibvirtConnection{VirConnection: virConn, user: user, pass: pass, uri: uri, alive: true}, nil
+}
+
+func newConnection(uri string, user string, pass string) (libvirt.VirConnection, error) {
 	var virConn libvirt.VirConnection
 	var err error
 	if user == "" {
@@ -80,9 +110,9 @@ func NewConnection(uri string, user string, pass string) (Connection, error) {
 		virConn, err = libvirt.NewVirConnectionWithAuth(uri, user, pass)
 	}
 	if err != nil {
-		return nil, err
+		return libvirt.VirConnection{}, err
 	}
-	return &LibvirtConnection{VirConnection: virConn}, nil
+	return virConn, err
 }
 
 func NewLibvirtDomainManager(connection Connection, recorder record.EventRecorder) (DomainManager, error) {
@@ -103,17 +133,23 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		if err.(libvirt.VirError).Code == libvirt.VIR_ERR_NO_DOMAIN {
 			xml, err := xml.Marshal(&wantedSpec)
 			if err != nil {
+				logging.DefaultLogger().Object(vm).Error().Msgf("Generating the domain xml failed: %v", err)
 				return err
 			}
 			dom, err = l.virConn.DomainDefineXML(string(xml))
 			if err != nil {
+				logging.DefaultLogger().Object(vm).Error().Msgf("Defining the VM failed with: %v", err)
 				return err
 			}
 			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined")
+		} else {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain failed with: %v", err)
+			return err
 		}
 	}
 	domState, err := dom.GetState()
 	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain state failed with: %v", err)
 		return err
 	}
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
@@ -123,6 +159,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	case NoState, Shutdown, Shutoff, Crashed:
 		err := dom.Create()
 		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Starting the VM failed with: %v", err)
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started")
@@ -130,6 +167,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Resuming the VM failed with: %v", err)
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
@@ -149,12 +187,14 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 		if err.(libvirt.VirError).Code == libvirt.VIR_ERR_NO_DOMAIN {
 			return nil
 		} else {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain failed with: %v", err)
 			return err
 		}
 	}
 	// TODO: Graceful shutdown
 	domState, err := dom.GetState()
 	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain state failed with: %v", err)
 		return err
 	}
 
@@ -162,6 +202,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	if state == Running || state == Paused {
 		err = dom.Destroy()
 		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Msgf("Destroying the domain state failed with: %v", err)
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Stopped.String(), "VM stopped")
@@ -169,8 +210,22 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 
 	err = dom.Undefine()
 	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Msgf("Undefining the domain state failed with: %v", err)
 		return err
 	}
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
+}
+
+// TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
+func NewVMReferenceFromName(name string) *v1.VM {
+	vm := &v1.VM{
+		ObjectMeta: api.ObjectMeta{
+			Name:      name,
+			Namespace: api.NamespaceDefault,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", v1.GroupVersion.String(), api.NamespaceDefault, name),
+		},
+	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: v1.GroupVersion.Group, Kind: "VM", Version: v1.GroupVersion.Version})
+	return vm
 }

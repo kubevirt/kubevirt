@@ -6,8 +6,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
-	kubeapi "k8s.io/client-go/1.5/pkg/api"
-	"k8s.io/client-go/1.5/pkg/types"
+	kubeapi "k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/types"
 	"kubevirt.io/kubevirt/pkg/api"
 )
 

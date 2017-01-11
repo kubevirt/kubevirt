@@ -1,7 +1,7 @@
 package services
 
 import (
-	kubev1 "k8s.io/client-go/1.5/pkg/api/v1"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 )

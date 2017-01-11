@@ -321,3 +321,42 @@ func TestMultipleLevels(t *testing.T) {
 	assert(t, logEntry[5].(string) == "test", "Logged line did not contain message")
 	tearDown()
 }
+
+func TestLogVerbosity(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	log.SetVerbosityLevel(2)
+	log.V(2).Log("msg", "test")
+
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[4].(string) == "filename", "Logged line did not contain filename")
+	assert(t, logEntry[5].(string) == "logging_test.go", "Logged line referenced wrong module")
+	tearDown()
+}
+
+func TestMsgVerbosity(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	log.SetVerbosityLevel(2)
+	log.V(2).Msg("test")
+
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[4].(string) == "filename", "Logged line did not contain filename")
+	assert(t, logEntry[5].(string) == "logging_test.go", "Logged line referenced wrong module")
+	tearDown()
+}
+
+func TestMsgfVerbosity(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(DEBUG)
+	log.SetVerbosityLevel(2)
+	log.V(2).Msgf("%s", "test")
+
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[4].(string) == "filename", "Logged line did not contain filename")
+	assert(t, logEntry[5].(string) == "logging_test.go", "Logged line referenced wrong module")
+	tearDown()
+}
