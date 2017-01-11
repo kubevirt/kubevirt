@@ -8,7 +8,6 @@ package libvirt
 
 import (
 	"encoding/xml"
-	"fmt"
 	"github.com/jeevatkm/go-model"
 	"github.com/rgbkrk/libvirt-go"
 	"k8s.io/client-go/pkg/api"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"fmt"
 )
 
 type DomainManager interface {
@@ -35,10 +35,28 @@ type Connection interface {
 
 type LibvirtConnection struct {
 	libvirt.VirConnection
+	user  string
+	pass  string
+	uri   string
+	alive bool
 }
 
 func (l *LibvirtConnection) LookupDomainByName(name string) (VirDomain, error) {
+	if !l.alive {
+		conn, err := newConnection(l.uri, l.user, l.pass)
+		if err != nil {
+			logging.DefaultLogger().Error().Msgf("Connection to libvirt lost because of %s", err)
+			return nil, err
+		}
+		l.alive = true
+		l.VirConnection = conn
+	}
+
 	dom, err := l.VirConnection.LookupDomainByName(name)
+	if err != nil && err.(libvirt.VirError).Code != libvirt.VIR_ERR_NO_DOMAIN {
+		l.alive = false
+		logging.DefaultLogger().Error().Msgf("Connection to libvirt lost because of %s", err)
+	}
 	return &dom, err
 }
 
@@ -76,6 +94,14 @@ type LibvirtDomainManager struct {
 }
 
 func NewConnection(uri string, user string, pass string) (Connection, error) {
+	virConn, err := newConnection(uri, user, pass)
+	if err != nil {
+		return nil, err
+	}
+	return &LibvirtConnection{VirConnection: virConn, user: user, pass: pass, uri: uri, alive: true}, nil
+}
+
+func newConnection(uri string, user string, pass string) (libvirt.VirConnection, error) {
 	var virConn libvirt.VirConnection
 	var err error
 	if user == "" {
@@ -84,9 +110,9 @@ func NewConnection(uri string, user string, pass string) (Connection, error) {
 		virConn, err = libvirt.NewVirConnectionWithAuth(uri, user, pass)
 	}
 	if err != nil {
-		return nil, err
+		return libvirt.VirConnection{}, err
 	}
-	return &LibvirtConnection{VirConnection: virConn}, nil
+	return virConn, err
 }
 
 func NewLibvirtDomainManager(connection Connection, recorder record.EventRecorder) (DomainManager, error) {
@@ -197,7 +223,8 @@ func NewVMReferenceFromName(name string) *v1.VM {
 		ObjectMeta: api.ObjectMeta{
 			Name:      name,
 			Namespace: api.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", v1.GroupVersion.String(), api.NamespaceDefault, name)},
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", v1.GroupVersion.String(), api.NamespaceDefault, name),
+		},
 	}
 	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: v1.GroupVersion.Group, Kind: "VM", Version: v1.GroupVersion.Version})
 	return vm
