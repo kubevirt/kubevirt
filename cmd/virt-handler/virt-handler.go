@@ -105,15 +105,13 @@ func main() {
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainCache.GetStore().List() {
 		d := domain.(*libvirt.Domain)
-		vmStore.Add(&v1.VM{
-			ObjectMeta: api.ObjectMeta{Name: d.ObjectMeta.Name, Namespace: api.NamespaceDefault},
-		})
+		vmStore.Add(libvirt.NewVMReferenceFromName(d.ObjectMeta.Name))
 	}
 
 	// Watch for domain changes
 	go domainController.Run(stop)
 	// Watch for VM changes
-	go vmController.Run(stop)
+	go vmController.Run(1, stop)
 
 	// Sleep forever
 	// TODO add a http handler which provides health check

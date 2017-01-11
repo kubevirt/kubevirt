@@ -2,7 +2,6 @@ package kubecli
 
 import (
 	"flag"
-	"fmt"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -85,29 +84,6 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
 }
 
-type Compressor struct{}
-
-func (c *Compressor) Compress(d cache.Deltas) cache.Deltas {
-
-	// Start processing from the last entry or from the last Delete
-	deleteIndex := -1
-	for i, d := range d {
-		if d.Type == cache.Deleted {
-			deleteIndex = i
-		}
-	}
-
-	var newDeltas cache.Deltas
-	if deleteIndex > -1 && deleteIndex < len(d)-1 {
-		newDeltas = cache.Deltas{d[deleteIndex], d[len(d)-1]}
-	}
-	newDeltas = cache.Deltas{d[len(d)-1]}
-	fmt.Println("DELTAS:")
-	fmt.Println(d)
-	fmt.Println(newDeltas)
-	return newDeltas
-}
-
 func NewInformer(
 	lw cache.ListerWatcher,
 	objType runtime.Object,
@@ -115,7 +91,7 @@ func NewInformer(
 	h ResourceEventHandler,
 ) (cache.Indexer, *cache.Controller) {
 	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
-	fifo := cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, &Compressor{}, clientState)
+	fifo := cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, nil, clientState)
 
 	cfg := &cache.Config{
 		Queue:            fifo,
@@ -126,7 +102,6 @@ func NewInformer(
 
 		Process: func(obj interface{}) error {
 			// from oldest to newest
-			fmt.Println(obj.(cache.Deltas))
 
 			for _, d := range obj.(cache.Deltas) {
 				switch d.Type {
