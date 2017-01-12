@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"time"
 )
 
 type logLevel int
@@ -24,11 +25,11 @@ const (
 )
 
 var logLevelNames = map[logLevel]string{
-	DEBUG:    "DEBUG",
-	INFO:     "INFO",
-	WARNING:  "WARNING",
-	ERROR:    "ERROR",
-	CRITICAL: "CRITICAL",
+	DEBUG:    "debug",
+	INFO:     "info",
+	WARNING:  "warning",
+	ERROR:    "error",
+	CRITICAL: "critical",
 }
 
 type LoggableObject interface {
@@ -125,14 +126,16 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 	if force || (l.filterLevel == INFO &&
 		(l.currentLogLevel == l.filterLevel) &&
 		(l.currentVerbosityLevel <= l.verbosityLevel)) {
-		logParams := make([]interface{}, 0)
+		now := time.Now().UTC()
+		_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
+		logParams := make([]interface{}, 0, 8)
 
-		logParams = append(logParams, "component", l.component, "level", logLevelNames[l.currentLogLevel])
-		if l.currentVerbosityLevel > 1 {
-			_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
-			logParams = append(logParams, "filename", filepath.Base(fileName))
-			logParams = append(logParams, "line", lineNumber)
-		}
+		logParams = append(logParams,
+			"level", logLevelNames[l.currentLogLevel],
+			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
+			"component", l.component,
+		)
 		return l.logContext.WithPrefix(logParams...).Log(params...)
 	}
 	return nil
