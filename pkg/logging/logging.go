@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"time"
 )
 
 type logLevel int
@@ -125,11 +126,15 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 	if force || (l.filterLevel == INFO &&
 		(l.currentLogLevel == l.filterLevel) &&
 		(l.currentVerbosityLevel <= l.verbosityLevel)) {
-		logParams := make([]interface{}, 0)
-
-		logParams = append(logParams, "component", l.component, "level", logLevelNames[l.currentLogLevel])
+		now := time.Now().UTC()
 		_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
-		logParams = append(logParams, "pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber))
+		logParams := make([]interface{}, 0, 8)
+
+		logParams = append(logParams,
+			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"component", l.component,
+			"level", logLevelNames[l.currentLogLevel],
+			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber))
 		return l.logContext.WithPrefix(logParams...).Log(params...)
 	}
 	return nil
