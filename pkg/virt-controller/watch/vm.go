@@ -48,7 +48,7 @@ func NewVMCache() (cache.SharedInformer, error) {
 }
 
 func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
-	defer kubecli.NewPanicCatcher()()
+	defer kubecli.CatchPanic()
 	//TODO: Field selectors are not yet working for TPRs
 	if obj.Status.Phase == "" {
 		vm := v1.VM{}

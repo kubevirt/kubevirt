@@ -9,6 +9,8 @@ import (
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/runtime/serializer"
+	"k8s.io/client-go/pkg/util/wait"
+	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -165,11 +167,9 @@ type ResourceEventHandler interface {
 	OnDelete(obj interface{}) error
 }
 
-func NewPanicCatcher() func() {
-	return func() {
-		if r := recover(); r != nil {
-			logging.DefaultLogger().Critical().Log("stacktrace", debug.Stack(), "msg", r)
-		}
+func CatchPanic() {
+	if r := recover(); r != nil {
+		logging.DefaultLogger().Critical().Log("stacktrace", debug.Stack(), "msg", r)
 	}
 }
 
@@ -189,4 +189,67 @@ func (r ResourceEventHandlerFuncs) OnUpdate(oldObj, newObj interface{}) error {
 
 func (r ResourceEventHandlerFuncs) OnDelete(obj interface{}) error {
 	return r.DeleteFunc(obj)
+}
+
+func NewIndexerInformerForWorkQueue(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object) (cache.Indexer, *cache.Controller) {
+	return cache.NewIndexerInformer(lw, objType, 0, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			if err == nil {
+				queue.Add(key)
+			}
+		},
+		UpdateFunc: func(old interface{}, new interface{}) {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(new)
+			if err == nil {
+				queue.Add(key)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			if err == nil {
+				queue.Add(key)
+			}
+		},
+	}, cache.Indexers{})
+}
+
+type Controller struct {
+	indexer  cache.Indexer
+	queue    workqueue.RateLimitingInterface
+	informer *cache.Controller
+	f        ControllerFunc
+}
+
+func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object, f ControllerFunc) (cache.Indexer, *Controller) {
+	indexer, informer := NewIndexerInformerForWorkQueue(lw, queue, objType)
+
+	return indexer, &Controller{
+		informer: informer,
+		indexer:  indexer,
+		queue:    queue,
+		f:        f,
+	}
+}
+
+type ControllerFunc func(cache.Indexer, workqueue.RateLimitingInterface) bool
+
+func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
+	defer CatchPanic()
+	defer c.queue.ShutDown()
+	logging.DefaultLogger().Info().Msg("Starting VM controller.")
+
+	go c.informer.Run(stopCh)
+
+	for i := 0; i < threadiness; i++ {
+		go wait.Until(c.runWorker, time.Second, stopCh)
+	}
+
+	<-stopCh
+	logging.DefaultLogger().Info().Msg("Stopping VM controller.")
+}
+
+func (c *Controller) runWorker() {
+	for c.f(c.indexer, c.queue) {
+	}
 }
