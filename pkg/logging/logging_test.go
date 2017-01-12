@@ -276,9 +276,10 @@ func TestObject(t *testing.T) {
 	assert(t, logEntry[1].(string) == "test", "Component was not logged")
 	assert(t, logEntry[2].(string) == "level", "Logged line did not have level entry")
 	assert(t, logEntry[3].(string) == "INFO", "Logged line was not of level INFO")
-	assert(t, logEntry[4].(string) == "name", "Logged line did not contain object name")
-	assert(t, logEntry[6].(string) == "kind", "Logged line did not contain object kind")
-	assert(t, logEntry[8].(string) == "uid", "Logged line did not contain UUID")
+	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[6].(string) == "name", "Logged line did not contain object name")
+	assert(t, logEntry[8].(string) == "kind", "Logged line did not contain object kind")
+	assert(t, logEntry[10].(string) == "uid", "Logged line did not contain UUID")
 	tearDown()
 }
 
@@ -317,8 +318,9 @@ func TestMultipleLevels(t *testing.T) {
 	assert(t, logEntry[1].(string) == "test", "Component was not logged")
 	assert(t, logEntry[2].(string) == "level", "Logged line did not have level entry")
 	assert(t, logEntry[3].(string) == "INFO", "Logged line was not of level INFO")
-	assert(t, logEntry[4].(string) == "msg", "Logged line did not contain message header")
-	assert(t, logEntry[5].(string) == "test", "Logged line did not contain message")
+	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[6].(string) == "msg", "Logged line did not contain message header")
+	assert(t, logEntry[7].(string) == "test", "Logged line did not contain message")
 	tearDown()
 }
 

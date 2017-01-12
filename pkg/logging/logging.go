@@ -128,11 +128,8 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 		logParams := make([]interface{}, 0)
 
 		logParams = append(logParams, "component", l.component, "level", logLevelNames[l.currentLogLevel])
-		if l.currentVerbosityLevel > 1 {
-			_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
-			logParams = append(logParams, "filename", filepath.Base(fileName))
-			logParams = append(logParams, "line", lineNumber)
-		}
+		_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
+		logParams = append(logParams, "pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber))
 		return l.logContext.WithPrefix(logParams...).Log(params...)
 	}
 	return nil
