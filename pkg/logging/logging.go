@@ -25,11 +25,11 @@ const (
 )
 
 var logLevelNames = map[logLevel]string{
-	DEBUG:    "DEBUG",
-	INFO:     "INFO",
-	WARNING:  "WARNING",
-	ERROR:    "ERROR",
-	CRITICAL: "CRITICAL",
+	DEBUG:    "debug",
+	INFO:     "info",
+	WARNING:  "warning",
+	ERROR:    "error",
+	CRITICAL: "critical",
 }
 
 type LoggableObject interface {
