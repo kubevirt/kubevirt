@@ -131,10 +131,11 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 		logParams := make([]interface{}, 0, 8)
 
 		logParams = append(logParams,
-			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
-			"component", l.component,
 			"level", logLevelNames[l.currentLogLevel],
-			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber))
+			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
+			"component", l.component,
+		)
 		return l.logContext.WithPrefix(logParams...).Log(params...)
 	}
 	return nil

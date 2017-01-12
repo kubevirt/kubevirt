@@ -84,9 +84,9 @@ func TestComponent(t *testing.T) {
 	assert(t, len(logParams) == 1, "Expected 1 log line")
 
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[2].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[3].(string) == "test", "Component was not logged")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
 	tearDown()
 }
 
@@ -208,11 +208,11 @@ func TestDebugMessage(t *testing.T) {
 	log.SetLogLevel(DEBUG)
 	log.Debug().Log("test", "message")
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[2].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[3].(string) == "test", "Component was not logged")
-	assert(t, logEntry[4].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[5].(string) == "DEBUG", "Logged line was not DEBUG level")
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == "DEBUG", "Logged line was not DEBUG level")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
 	tearDown()
 }
 
@@ -222,11 +222,11 @@ func TestInfoMessage(t *testing.T) {
 	log.SetLogLevel(DEBUG)
 	log.Info().Log("test", "message")
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[2].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[3].(string) == "test", "Component was not logged")
-	assert(t, logEntry[4].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[5].(string) == "INFO", "Logged line was not INFO level")
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == "INFO", "Logged line was not INFO level")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
 	tearDown()
 }
 
@@ -236,11 +236,11 @@ func TestWarningMessage(t *testing.T) {
 	log.SetLogLevel(DEBUG)
 	log.Warning().Log("test", "message")
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[2].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[3].(string) == "test", "Component was not logged")
-	assert(t, logEntry[4].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[5].(string) == "WARNING", "Logged line was not WARNING level")
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == "WARNING", "Logged line was not WARNING level")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
 	tearDown()
 }
 
@@ -250,11 +250,11 @@ func TestErrorMessage(t *testing.T) {
 	log.SetLogLevel(DEBUG)
 	log.Error().Log("test", "message")
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[2].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[3].(string) == "test", "Component was not logged")
-	assert(t, logEntry[4].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[5].(string) == "ERROR", "Logged line was not ERROR level")
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == "ERROR", "Logged line was not ERROR level")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
 	tearDown()
 }
 
@@ -264,11 +264,11 @@ func TestCriticalMessage(t *testing.T) {
 	log.SetLogLevel(DEBUG)
 	log.Critical().Log("test", "message")
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[2].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[3].(string) == "test", "Component was not logged")
-	assert(t, logEntry[4].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[5].(string) == "CRITICAL", "Logged line was not CRITICAL level")
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == "CRITICAL", "Logged line was not CRITICAL level")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
 	tearDown()
 }
 
@@ -279,12 +279,12 @@ func TestObject(t *testing.T) {
 	vm := api.VM{}
 	log.Object(&vm).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[2].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[3].(string) == "test", "Component was not logged")
-	assert(t, logEntry[4].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[5].(string) == "INFO", "Logged line was not of level INFO")
-	assert(t, logEntry[6].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == "INFO", "Logged line was not of level INFO")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
 	assert(t, logEntry[8].(string) == "name", "Logged line did not contain object name")
 	assert(t, logEntry[10].(string) == "kind", "Logged line did not contain object kind")
 	assert(t, logEntry[12].(string) == "uid", "Logged line did not contain UUID")
@@ -322,12 +322,12 @@ func TestMultipleLevels(t *testing.T) {
 	log.Info().Debug().Info().Msg("test")
 
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[2].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[3].(string) == "test", "Component was not logged")
-	assert(t, logEntry[4].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[5].(string) == "INFO", "Logged line was not of level INFO")
-	assert(t, logEntry[6].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == "INFO", "Logged line was not of level INFO")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
 	assert(t, logEntry[8].(string) == "msg", "Logged line did not contain message header")
 	assert(t, logEntry[9].(string) == "test", "Logged line did not contain message")
 	tearDown()
@@ -341,8 +341,8 @@ func TestLogVerbosity(t *testing.T) {
 	log.V(2).Log("msg", "test")
 
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[6].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[7].(string), "logging_test.go"), "Logged line referenced wrong module")
+	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
+	assert(t, strings.HasPrefix(logEntry[5].(string), "logging_test.go"), "Logged line referenced wrong module")
 	tearDown()
 }
 
@@ -354,8 +354,8 @@ func TestMsgVerbosity(t *testing.T) {
 	log.V(2).Msg("test")
 
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[6].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[7].(string), "logging_test.go"), "Logged line referenced wrong module")
+	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
+	assert(t, strings.HasPrefix(logEntry[5].(string), "logging_test.go"), "Logged line referenced wrong module")
 	tearDown()
 }
 
@@ -367,7 +367,7 @@ func TestMsgfVerbosity(t *testing.T) {
 	log.V(2).Msgf("%s", "test")
 
 	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[6].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[7].(string), "logging_test.go"), "Logged line referenced wrong module")
+	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
+	assert(t, strings.HasPrefix(logEntry[5].(string), "logging_test.go"), "Logged line referenced wrong module")
 	tearDown()
 }
