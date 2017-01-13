@@ -19,7 +19,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
-	True := true
 	// TODO use constants for labels
 	pod := kubev1.Pod{
 		ObjectMeta: kubev1.ObjectMeta{
@@ -31,7 +30,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 			},
 		},
 		Spec: kubev1.PodSpec{
-			HostNetwork:   true,
 			RestartPolicy: kubev1.RestartPolicyNever,
 			Containers: []kubev1.Container{
 				{
@@ -39,7 +37,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 					Image:           t.launcherImage,
 					ImagePullPolicy: kubev1.PullIfNotPresent,
 					Command:         []string{"/virt-launcher", "-qemu-timeout", "60s"},
-					SecurityContext: &kubev1.SecurityContext{Privileged: &True},
 				},
 			},
 			NodeSelector: vm.Spec.NodeSelector,
