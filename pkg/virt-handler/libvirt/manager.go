@@ -45,7 +45,7 @@ func (l *LibvirtConnection) LookupDomainByName(name string) (VirDomain, error) {
 	if !l.alive {
 		conn, err := newConnection(l.uri, l.user, l.pass)
 		if err != nil {
-			logging.DefaultLogger().Error().Msgf("Connection to libvirt lost because of %s", err)
+			logging.DefaultLogger().Error().Reason(err).Msg("Connection to libvirt lost.")
 			return nil, err
 		}
 		l.alive = true
@@ -55,7 +55,7 @@ func (l *LibvirtConnection) LookupDomainByName(name string) (VirDomain, error) {
 	dom, err := l.VirConnection.LookupDomainByName(name)
 	if err != nil && err.(libvirt.VirError).Code != libvirt.VIR_ERR_NO_DOMAIN {
 		l.alive = false
-		logging.DefaultLogger().Error().Msgf("Connection to libvirt lost because of %s", err)
+		logging.DefaultLogger().Error().Reason(err).Msg("Connection to libvirt lost.")
 	}
 	return &dom, err
 }
@@ -133,23 +133,23 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		if err.(libvirt.VirError).Code == libvirt.VIR_ERR_NO_DOMAIN {
 			xml, err := xml.Marshal(&wantedSpec)
 			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Msgf("Generating the domain xml failed: %v", err)
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain xml failed.")
 				return err
 			}
 			dom, err = l.virConn.DomainDefineXML(string(xml))
 			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Msgf("Defining the VM failed with: %v", err)
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
 				return err
 			}
 			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined")
 		} else {
-			logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain failed with: %v", err)
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
 			return err
 		}
 	}
 	domState, err := dom.GetState()
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain state failed with: %v", err)
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
 		return err
 	}
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
@@ -159,7 +159,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	case NoState, Shutdown, Shutoff, Crashed:
 		err := dom.Create()
 		if err != nil {
-			logging.DefaultLogger().Object(vm).Error().Msgf("Starting the VM failed with: %v", err)
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Starting the VM failed.")
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started")
@@ -167,7 +167,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {
-			logging.DefaultLogger().Object(vm).Error().Msgf("Resuming the VM failed with: %v", err)
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Resuming the VM failed.")
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
@@ -187,14 +187,14 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 		if err.(libvirt.VirError).Code == libvirt.VIR_ERR_NO_DOMAIN {
 			return nil
 		} else {
-			logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain failed with: %v", err)
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
 			return err
 		}
 	}
 	// TODO: Graceful shutdown
 	domState, err := dom.GetState()
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Msgf("Getting the domain state failed with: %v", err)
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
 		return err
 	}
 
@@ -202,7 +202,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	if state == Running || state == Paused {
 		err = dom.Destroy()
 		if err != nil {
-			logging.DefaultLogger().Object(vm).Error().Msgf("Destroying the domain state failed with: %v", err)
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Destroying the domain state failed.")
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Stopped.String(), "VM stopped")
@@ -210,7 +210,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 
 	err = dom.Undefine()
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Msgf("Undefining the domain state failed with: %v", err)
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Undefining the domain state failed.")
 		return err
 	}
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")

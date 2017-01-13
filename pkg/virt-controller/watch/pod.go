@@ -81,7 +81,7 @@ func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
 		vm.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
 		// Update the VM
 		if err := p.restCli.Put().Resource("vms").Body(&vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
-			logger.Error().Msgf("Setting the VM to pending failed with: %s", err)
+			logger.Error().Reason(err).Msg("Setting the VM to pending failed.")
 			if e, ok := err.(*errors.StatusError); ok {
 				if e.Status().Reason == metav1.StatusReasonNotFound {
 					// VM does not exist anymore, we don't have to retry
