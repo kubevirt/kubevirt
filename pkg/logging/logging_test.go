@@ -2,6 +2,7 @@ package logging
 
 import (
 	"errors"
+	"fmt"
 	"kubevirt.io/kubevirt/pkg/api"
 	"path/filepath"
 	"runtime"
@@ -369,5 +370,18 @@ func TestMsgfVerbosity(t *testing.T) {
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
 	assert(t, strings.HasPrefix(logEntry[5].(string), "logging_test.go"), "Logged line referenced wrong module")
+	tearDown()
+}
+
+func TestErrWithMsgf(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.Reason(fmt.Errorf("testerror")).Msgf("%s", "test")
+
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[8].(string) == "reason", "Logged line did not contain message header")
+	assert(t, logEntry[9].(error).Error() == "testerror", "Logged line did not contain message header")
+	assert(t, logEntry[10].(string) == "msg", "Logged line did not contain message header")
+	assert(t, logEntry[11].(string) == "test", "Logged line did not contain message")
 	tearDown()
 }

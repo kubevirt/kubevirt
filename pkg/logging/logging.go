@@ -44,6 +44,7 @@ type FilteredLogger struct {
 	currentLogLevel       logLevel
 	verbosityLevel        int
 	currentVerbosityLevel int
+	err                   error
 }
 
 func InitializeLogging(comp string) {
@@ -136,6 +137,9 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 			"component", l.component,
 		)
+		if l.err != nil {
+			l.logContext = l.logContext.With("reason", l.err)
+		}
 		return l.logContext.WithPrefix(logParams...).Log(params...)
 	}
 	return nil
@@ -214,5 +218,10 @@ func (l FilteredLogger) Error() *FilteredLogger {
 
 func (l FilteredLogger) Critical() *FilteredLogger {
 	l.currentLogLevel = CRITICAL
+	return &l
+}
+
+func (l FilteredLogger) Reason(err error) *FilteredLogger {
+	l.err = err
 	return &l
 }

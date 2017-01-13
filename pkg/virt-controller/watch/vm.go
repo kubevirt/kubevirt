@@ -75,11 +75,11 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 
 		// TODO get rid of these service calls
 		if err := v.VMService.StartVM(&vm); err != nil {
-			logger.Error().Msgf("Defining a target pod for the VM failed with: %s", err)
+			logger.Error().Msg("Defining a target pod for the VM.")
 			pl, err := v.VMService.GetRunningPods(&vm)
 			if err != nil {
 				// TODO detect if communication error and backoff
-				logger.Error().Msgf("Getting all running Pods for the VM failed with: %s", err)
+				logger.Error().Reason(err).Msg("Getting all running Pods for the VM failed.")
 				return cache.ErrRequeue{Err: err}
 			}
 			for _, p := range pl.Items {
@@ -89,17 +89,17 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 					err = v.VMService.DeleteVM(&vm)
 					if err != nil {
 						// TODO detect if communication error and do backoff
-						logger.Critical().Msgf("Deleting orphaned pod with name '%s' for VM failed with: %s", p.GetName(), err)
+						logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for VM failed.", p.GetName())
 						return cache.ErrRequeue{Err: err}
 					}
 				} else {
 					// TODO virt-api should make sure this does not happen. For now don't ask and clean up.
 					// Pod from old VM object detected,
-					logger.Error().Msgf("Found orphan pod with name '%s' for deleted VM", p.GetName())
+					logger.Error().Msgf("Found orphan pod with name '%s' for deleted VM.", p.GetName())
 					err = v.VMService.DeleteVM(&vm)
 					if err != nil {
 						// TODO detect if communication error and backoff
-						logger.Critical().Msgf("Deleting orphaned pod with name '%s' for VM failed with: %s", p.GetName(), err)
+						logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for VM failed.", p.GetName())
 						return cache.ErrRequeue{Err: err}
 					}
 				}
@@ -118,7 +118,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 		// not get any updates
 		vm.Status.Phase = v1.Scheduling
 		if err := v.restCli.Put().Resource("vms").Body(&vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
-			logger.Error().Msgf("Updating the VM state to 'Scheduling' failed with: %s", err)
+			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
 			if e, ok := err.(*errors.StatusError); ok {
 				if e.Status().Reason == metav1.StatusReasonNotFound ||
 					e.Status().Reason == metav1.StatusReasonConflict {
@@ -129,7 +129,7 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 			// TODO backoff policy here
 			return cache.ErrRequeue{Err: err}
 		}
-		logger.Info().Msg("Handing over the VM to the scheduler succeeded")
+		logger.Info().Msg("Handing over the VM to the scheduler succeeded.")
 	}
 	return nil
 }
@@ -149,7 +149,7 @@ func (v *vmResourceEventHandler) OnDelete(obj interface{}) error {
 	// TODO maybe add a SIGTERM delay to virt-launcher in combination with a grace periode on the delete?
 	err := v.VMService.DeleteVM(obj.(*v1.VM))
 	if err != nil {
-		logger.Error().Msgf("Deleting VM target Pod failed with: %s", err)
+		logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
 		return cache.ErrRequeue{Err: err}
 	}
 	logger.Info().Msg("Deleting VM target Pod succeeded.")
