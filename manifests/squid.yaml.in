@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spice-proxy
+spec:
+  ports:
+    - port: 3128
+      targetPort: spice-proxy
+  externalIPs:
+    - "{{ master_ip }}"
+  selector:
+    app: spice-proxy
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: spice-proxy
+  labels:
+    app: spice-proxy
+spec:
+  containers:
+  - name: spice-proxy
+    image: rmohr/spice-squid:latest
+    imagePullPolicy: IfNotPresent
+    ports:
+      - containerPort: 3128
+        name: "spice-proxy"
+        protocol: "TCP"
