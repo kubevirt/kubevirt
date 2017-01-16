@@ -18,7 +18,7 @@ var _ = Describe("Template", func() {
 			It("should work", func() {
 
 				Expect(err).To(BeNil())
-				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: "1234"}})
+				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{Domain: &v1.DomainSpec{}}})
 
 				Expect(err).To(BeNil())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
@@ -38,7 +38,7 @@ var _ = Describe("Template", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
 				}
-				vm := v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector}}
+				vm := v1.VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector, Domain: &v1.DomainSpec{}}}
 
 				pod, err := svc.RenderLaunchManifest(&vm)
 
