@@ -1,32 +1,52 @@
 {
-   "metadata": {
-     "name": "testvm"
-   },
-   "apiVersion": "kubevirt.io/v1alpha1",
-   "kind": "VM",
-   "spec": {
-        "nodeSelector": {"kubernetes.io/hostname":"master"},
-        "domain": {
-          "devices": {
-            "interfaces": [
-              {
-                "source": {
-                  "network": "default"
-                },
-                "type": "network"
-              }
-            ]
-          },
-          "memory": {
-            "unit": "KiB",
-            "value": 8192
-          },
-          "os": {
-            "type": {
-              "os": "hvm"
+  "metadata": {
+    "name": "testvm"
+  },
+  "apiVersion": "kubevirt.io/v1alpha1",
+  "kind": "VM",
+  "spec": {
+    "nodeSelector": {
+      "kubernetes.io/hostname": "master"
+    },
+    "domain": {
+      "devices": {
+        "interfaces": [
+          {
+            "source": {
+              "network": "default"
+            },
+            "type": "network"
+          }
+        ],
+        "video": [
+          {
+            "model": {
+              "type": "qxl",
+              "heads": 1,
+              "ram": 65536,
+              "vgamem": 16384,
+              "vram": 8192
             }
-          },
-          "type": "qemu"
+          }
+        ],
+        "graphics": [
+          {
+            "autoPort": "yes",
+            "defaultMode": "any",
+            "type": "spice"
+          }
+        ]
+      },
+      "memory": {
+        "unit": "KiB",
+        "value": 8192
+      },
+      "os": {
+        "type": {
+          "os": "hvm"
         }
-   }
+      },
+      "type": "qemu"
+    }
+  }
 }
