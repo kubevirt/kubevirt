@@ -325,7 +325,7 @@ type Graphics struct {
 	DefaultMode   string `xml:"defaultMode,attr,omitempty" json:"defaultMode,omitempty"`
 	Listen        Listen `xml:"listen,omitempty" json:"listen,omitempty"`
 	PasswdValidTo string `xml:"passwdValidTo,attr,omitempty" json:"passwdValidTo,omitempty"`
-	Port          int    `xml:"port,attr,omitempty" json:"port,omitempty"`
+	Port          int32  `xml:"port,attr,omitempty" json:"port,omitempty"`
 	TLSPort       int    `xml:"tlsPort,attr,omitempty" json:"tlsPort,omitempty"`
 	Type          string `xml:"type,attr" json:"type"`
 }

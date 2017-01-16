@@ -12,6 +12,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"strings"
 )
 
 type vmResourceEventHandler struct {
@@ -73,9 +74,22 @@ func processVM(v *vmResourceEventHandler, obj *v1.VM) error {
 		vm.Spec.Domain.Devices.Emulator = "/usr/local/bin/qemu-x86_64"
 		vm.Spec.Domain.Name = vm.GetObjectMeta().GetName()
 
+		// TODO when we move this to virt-api, we have to block that they are set on POST or changed on PUT
+		graphics := vm.Spec.Domain.Devices.Graphics
+		for i, _ := range graphics {
+			if strings.ToLower(graphics[i].Type) == "spice" {
+				graphics[i].Port = int32(4000) + int32(i)
+				graphics[i].Listen = v1.Listen{
+					Address: "0.0.0.0",
+					Type:    "address",
+				}
+
+			}
+		}
+
 		// TODO get rid of these service calls
 		if err := v.VMService.StartVM(&vm); err != nil {
-			logger.Error().Msg("Defining a target pod for the VM.")
+			logger.Error().Reason(err).Msg("Defining a target pod for the VM failed.")
 			pl, err := v.VMService.GetRunningPods(&vm)
 			if err != nil {
 				// TODO detect if communication error and backoff
