@@ -43,6 +43,7 @@ type ResourceExistsError struct{ appError }
 type ResourceNotFoundError struct{ appError } // Can be thrown before or by a service call
 type PreconditionError struct{ appError }     // Precondition not met, most likely a bug in a service (service)
 type InternalServerError struct{ appError }   // Unknown internal error, most likely a bug in a service or a library
+type BadRequestError struct{ appError }
 
 type KubernetesError struct {
 	result rest.Result
@@ -127,8 +128,12 @@ func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
 	}
 }
 
-func NewResourceNotFoundError(resource string, name string) *ResourceNotFoundError {
-	return &ResourceNotFoundError{appError{err: fmt.Errorf("%s with name %s does not exist", resource, name)}}
+func NewResourceNotFoundError(msg string) *ResourceNotFoundError {
+	return &ResourceNotFoundError{appError{err: fmt.Errorf(msg)}}
+}
+
+func NewBadRequestError(msg string) *BadRequestError {
+	return &BadRequestError{appError{err: fmt.Errorf(msg)}}
 }
 
 func NewResourceExistsError(resource string, name string) *ResourceNotFoundError {
