@@ -5,8 +5,7 @@
 [![Licensed under Apache License version 2.0](https://img.shields.io/github/license/kubevirt/kubevirt.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 
-**KubeVirt** is a virtual machine management architecture built around
-Kubernetes, implemented as an extension to Kubernetes.
+**KubeVirt** is a virtual machine management add-on for Kubernetes.
 The aim is to provide a common ground for virtualization solutions on top of
 Kubernetes.
 
