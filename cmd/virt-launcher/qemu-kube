@@ -75,4 +75,4 @@ echo "$CMD" >> $LOG
 # Don't close file descriptors bigger than 10000 to allow passing tap device fds
 # Start the qemu process in the cgroups of the docker container
 # to adher the resource limitations of the container.
-sudo -C 10000 bash -c -- "cgclassify -g ${CGROUPS}:system.slice/docker-$CONTAINER_ID.scope --sticky \$\$ && nsenter -t $CONTAINER_PID -p $CMD"
+sudo -C 10000 bash -c -- "cgclassify -g ${CGROUPS}:system.slice/docker-$CONTAINER_ID.scope --sticky \$\$ && nsenter -t $CONTAINER_PID -n -p $CMD"
