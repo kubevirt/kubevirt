@@ -2,14 +2,18 @@ package tests_test
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"flag"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"io"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"math/rand"
 	"net"
 	"strings"
 )
@@ -92,6 +96,24 @@ var _ = Describe("Vmlifecycle", func() {
 			line, err := bufio.NewReader(conn).ReadString('\n')
 			Expect(err).To(BeNil())
 			Expect(strings.TrimSpace(line)).To(Equal("HTTP/1.1 200 Connection established"))
+
+			// Let's send a spice handshake
+			conn.Write(newSpiceHandshake())
+
+			// Let's parse the response
+			var i int32
+			x := make([]byte, 4, 4)
+			io.ReadFull(conn, x)
+			Expect(string(x)).To(Equal("REDQ")) // spice magic
+			binary.Read(conn, binary.LittleEndian, &i)
+			Expect(i).To(Equal(int32(2)), "Major version does not match.")
+			binary.Read(conn, binary.LittleEndian, &i)
+			Expect(i).To(Equal(int32(2)), "Minor version does not match.")
+			binary.Read(conn, binary.LittleEndian, &i)
+			Expect(i).To(BeNumerically(">", 4), "Message not long enough.")
+			binary.Read(conn, binary.LittleEndian, &i)
+			Expect(i).To(Equal(int32(0)), "Message status is not OK.") // 0 is equal to OK
+
 			close(done)
 		}, 10)
 	})
@@ -100,3 +122,20 @@ var _ = Describe("Vmlifecycle", func() {
 		tests.MustCleanup()
 	})
 })
+
+func newSpiceHandshake() []byte {
+	var b []byte
+	bb := bytes.NewBuffer(b)
+	bb.Write([]byte("REDQ"))                                  // spice magic
+	binary.Write(bb, binary.LittleEndian, uint32(2))          // protocol major version
+	binary.Write(bb, binary.LittleEndian, uint32(2))          // protocol minor version
+	binary.Write(bb, binary.LittleEndian, uint32(22))         // message size
+	binary.Write(bb, binary.LittleEndian, uint32(rand.Int())) // session id
+	binary.Write(bb, binary.LittleEndian, uint8(3))           // channel type
+	binary.Write(bb, binary.LittleEndian, uint8(0))           // channel id
+	binary.Write(bb, binary.LittleEndian, uint32(1))          // number of common capabilities
+	binary.Write(bb, binary.LittleEndian, uint32(0))          // number of channel capabilities
+	binary.Write(bb, binary.LittleEndian, uint32(18))         // capabilities offset
+	binary.Write(bb, binary.LittleEndian, uint32(13))         // client common capabilities
+	return bb.Bytes()
+}
