@@ -15,8 +15,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
-	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
-	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/libvirt/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"os"
 	"time"
 )

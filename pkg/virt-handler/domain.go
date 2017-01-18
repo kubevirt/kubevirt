@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
 /*
