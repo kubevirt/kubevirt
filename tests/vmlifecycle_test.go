@@ -6,9 +6,12 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/util/json"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"net/http"
 	"strings"
 )
 
@@ -30,6 +33,26 @@ var _ = Describe("Vmlifecycle", func() {
 		It("Should be accepted on POST", func() {
 			err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Error()
 			Expect(err).To(BeNil())
+		})
+
+		It("Should reject posting the same VM a second time", func() {
+			err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Error()
+			Expect(err).To(BeNil())
+			b, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).DoRaw()
+			Expect(err).ToNot(BeNil())
+			status := metav1.Status{}
+			err = json.Unmarshal(b, &status)
+			Expect(err).To(BeNil())
+			Expect(status.Code).To(Equal(int32(http.StatusConflict)))
+		})
+
+		It("Should return 404 if VM does not exist", func() {
+			b, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name("nonexistnt").DoRaw()
+			Expect(err).ToNot(BeNil())
+			status := metav1.Status{}
+			err = json.Unmarshal(b, &status)
+			Expect(err).To(BeNil())
+			Expect(status.Code).To(Equal(int32(http.StatusNotFound)))
 		})
 
 		It("Should start the VM on POST", func(done Done) {
