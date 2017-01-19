@@ -15,7 +15,7 @@ import (
 	"reflect"
 )
 
-type ResponseHandlerFunc func(rest.Result) (runtime.Object, error)
+type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
 func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, ptr runtime.Object, response ResponseHandlerFunc) error {
 	cli, err := kubecli.GetRESTClient()
@@ -76,16 +76,13 @@ func NewGenericGetEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource
 
 //FIXME this is basically one big workaround because version and kind are not filled by the restclient
 func NewResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) ResponseHandlerFunc {
-	return func(result rest.Result) (runtime.Object, error) {
-		if result.Error() != nil {
-			return nil, middleware.NewInternalServerError(result.Error())
-		}
+	return func(result rest.Result) (interface{}, error) {
 		obj, err := result.Get()
+		if err != nil {
+			return middleware.NewKubernetesError(result), nil
+		}
 		if reflect.TypeOf(obj).Elem() == reflect.TypeOf(ptr).Elem() {
 			obj.(runtime.Object).GetObjectKind().SetGroupVersionKind(gvk)
-		}
-		if err != nil {
-			return nil, middleware.NewInternalServerError(result.Error())
 		}
 		return obj, nil
 

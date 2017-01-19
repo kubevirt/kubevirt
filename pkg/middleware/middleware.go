@@ -7,8 +7,11 @@ import (
 	"golang.org/x/net/context"
 	"runtime/debug"
 
+	"encoding/json"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
+	"k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -40,6 +43,44 @@ type ResourceExistsError struct{ appError }
 type ResourceNotFoundError struct{ appError } // Can be thrown before or by a service call
 type PreconditionError struct{ appError }     // Precondition not met, most likely a bug in a service (service)
 type InternalServerError struct{ appError }   // Unknown internal error, most likely a bug in a service or a library
+
+type KubernetesError struct {
+	result rest.Result
+}
+
+func (k *KubernetesError) Cause() error {
+	return k.result.Error()
+}
+
+func (k *KubernetesError) Error() string {
+	return k.result.Error().Error()
+}
+
+func (k *KubernetesError) Status() (*v1.Status, error) {
+	b, _ := k.result.Raw()
+	status := v1.Status{}
+	err := json.Unmarshal(b, &status)
+	if err != nil {
+		return &status, nil
+	}
+	return nil, err
+}
+
+func (k *KubernetesError) StatusCode() int {
+	status, err := k.Status()
+	if err != nil {
+		return int(status.Code)
+	} else {
+		var s int
+		k.result.StatusCode(&s)
+		return s
+	}
+}
+
+func (k *KubernetesError) Body() []byte {
+	body, _ := k.result.Raw()
+	return body
+}
 
 // InternalErrorMiddleware is a convenience middleware which can be used in combination with panics.
 // After data is sanitized and validated, services can expect to get reasonable valid data passed (e.g.
@@ -100,4 +141,8 @@ func NewResourceConflictError(msg string) *ResourceNotFoundError {
 
 func NewInternalServerError(err error) *InternalServerError {
 	return &InternalServerError{appError{err: err}}
+}
+
+func NewKubernetesError(result rest.Result) *KubernetesError {
+	return &KubernetesError{result: result}
 }
