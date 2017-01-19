@@ -221,3 +221,25 @@ $ ./cluster/kubectl.sh get vms -o json
             "spec": {
     ...
 ```
+
+### Accessing the VM via Spice
+
+First make sure you have `remote-viewer` installed. On Fedora run
+
+```bash
+dnf install virt-viewer
+```
+
+Then, after you made sure that the VM `testvm` is running, type
+
+```
+cluster/kubectl.sh spice testvm
+```
+
+to start a remote session with `remote-viewer`.
+
+To print the connection details to stdout, run
+
+```bash
+cluster/kubectl.sh spice testvm --details
+```
