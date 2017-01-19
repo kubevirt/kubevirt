@@ -5,7 +5,7 @@ package virtwrap
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	libvirt_go "github.com/rgbkrk/libvirt-go"
+	libvirt_go "github.com/libvirt/libvirt-go"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -93,28 +93,29 @@ func (_mr *_MockConnectionRecorder) DomainDefineXML(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainDefineXML", arg0)
 }
 
-func (_m *MockConnection) CloseConnection() (int, error) {
-	ret := _m.ctrl.Call(_m, "CloseConnection")
+func (_m *MockConnection) Close() (int, error) {
+	ret := _m.ctrl.Call(_m, "Close")
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockConnectionRecorder) CloseConnection() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CloseConnection")
+func (_mr *_MockConnectionRecorder) Close() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
 }
 
-func (_m *MockConnection) DomainEventRegister(dom libvirt_go.VirDomain, eventId int, callback *libvirt_go.DomainEventCallback, opaque func()) int {
-	ret := _m.ctrl.Call(_m, "DomainEventRegister", dom, eventId, callback, opaque)
+func (_m *MockConnection) DomainEventLifecycleRegister(dom *libvirt_go.Domain, callback libvirt_go.DomainEventLifecycleCallback) (int, error) {
+	ret := _m.ctrl.Call(_m, "DomainEventLifecycleRegister", dom, callback)
 	ret0, _ := ret[0].(int)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-func (_mr *_MockConnectionRecorder) DomainEventRegister(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventRegister", arg0, arg1, arg2, arg3)
+func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0, arg1)
 }
 
-func (_m *MockConnection) ListAllDomains(flags uint32) ([]VirDomain, error) {
+func (_m *MockConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error) {
 	ret := _m.ctrl.Call(_m, "ListAllDomains", flags)
 	ret0, _ := ret[0].([]VirDomain)
 	ret1, _ := ret[1].(error)
@@ -146,11 +147,12 @@ func (_m *MockVirDomain) EXPECT() *_MockVirDomainRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVirDomain) GetState() ([]int, error) {
+func (_m *MockVirDomain) GetState() (libvirt_go.DomainState, int, error) {
 	ret := _m.ctrl.Call(_m, "GetState")
-	ret0, _ := ret[0].([]int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(libvirt_go.DomainState)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 func (_mr *_MockVirDomainRecorder) GetState() *gomock.Call {
@@ -209,7 +211,7 @@ func (_mr *_MockVirDomainRecorder) GetUUIDString() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUUIDString")
 }
 
-func (_m *MockVirDomain) GetXMLDesc(flags uint32) (string, error) {
+func (_m *MockVirDomain) GetXMLDesc(flags libvirt_go.DomainXMLFlags) (string, error) {
 	ret := _m.ctrl.Call(_m, "GetXMLDesc", flags)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)

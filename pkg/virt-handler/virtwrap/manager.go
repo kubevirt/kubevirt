@@ -1,6 +1,6 @@
 package virtwrap
 
-//go:generate mockgen -source $GOFILE -imports "libvirt=github.com/rgbkrk/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
@@ -9,7 +9,7 @@ package virtwrap
 import (
 	"encoding/xml"
 	"github.com/jeevatkm/go-model"
-	"github.com/rgbkrk/libvirt-go"
+	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -25,13 +25,13 @@ type DomainManager interface {
 type Connection interface {
 	LookupDomainByName(name string) (VirDomain, error)
 	DomainDefineXML(xml string) (VirDomain, error)
-	CloseConnection() (int, error)
-	DomainEventRegister(dom libvirt.VirDomain, eventId int, callback *libvirt.DomainEventCallback, opaque func()) int
-	ListAllDomains(flags uint32) ([]VirDomain, error)
+	Close() (int, error)
+	DomainEventLifecycleRegister(dom *libvirt.Domain, callback libvirt.DomainEventLifecycleCallback) (int, error)
+	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 }
 
 type LibvirtConnection struct {
-	libvirt.VirConnection
+	libvirt.Connect
 	user  string
 	pass  string
 	uri   string
@@ -39,6 +39,7 @@ type LibvirtConnection struct {
 }
 
 func (l *LibvirtConnection) LookupDomainByName(name string) (VirDomain, error) {
+	libvirt.EventRegisterDefaultImpl()
 	if !l.alive {
 		conn, err := newConnection(l.uri, l.user, l.pass)
 		if err != nil {
@@ -46,24 +47,24 @@ func (l *LibvirtConnection) LookupDomainByName(name string) (VirDomain, error) {
 			return nil, err
 		}
 		l.alive = true
-		l.VirConnection = conn
+		l.Connect = *conn
 	}
 
-	dom, err := l.VirConnection.LookupDomainByName(name)
-	if err != nil && err.(libvirt.VirError).Code != libvirt.VIR_ERR_NO_DOMAIN {
+	dom, err := l.Connect.LookupDomainByName(name)
+	if err != nil && err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 		l.alive = false
 		logging.DefaultLogger().Error().Reason(err).Msg("Connection to libvirt lost.")
 	}
-	return &dom, err
+	return dom, err
 }
 
 func (l *LibvirtConnection) DomainDefineXML(xml string) (VirDomain, error) {
-	dom, err := l.VirConnection.DomainDefineXML(xml)
-	return &dom, err
+	dom, err := l.Connect.DomainDefineXML(xml)
+	return dom, err
 }
 
-func (l *LibvirtConnection) ListAllDomains(flags uint32) ([]VirDomain, error) {
-	virDoms, err := l.VirConnection.ListAllDomains(flags)
+func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error) {
+	virDoms, err := l.Connect.ListAllDomains(flags)
 	if err != nil {
 		return nil, err
 	}
@@ -75,13 +76,13 @@ func (l *LibvirtConnection) ListAllDomains(flags uint32) ([]VirDomain, error) {
 }
 
 type VirDomain interface {
-	GetState() ([]int, error)
+	GetState() (libvirt.DomainState, int, error)
 	Create() error
 	Resume() error
 	Destroy() error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
-	GetXMLDesc(flags uint32) (string, error)
+	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
 	Undefine() error
 }
 
@@ -92,23 +93,21 @@ type LibvirtDomainManager struct {
 
 func NewConnection(uri string, user string, pass string) (Connection, error) {
 	virConn, err := newConnection(uri, user, pass)
-	if err != nil {
-		return nil, err
-	}
-	return &LibvirtConnection{VirConnection: virConn, user: user, pass: pass, uri: uri, alive: true}, nil
+	lvConn := &LibvirtConnection{Connect: *virConn, user: user, pass: pass, uri: uri, alive: true}
+	return lvConn, err
+
 }
 
-func newConnection(uri string, user string, pass string) (libvirt.VirConnection, error) {
-	var virConn libvirt.VirConnection
+func newConnection(uri string, user string /**pass*/, _ string) (*libvirt.Connect, error) {
+	var virConn *libvirt.Connect
 	var err error
 	if user == "" {
-		virConn, err = libvirt.NewVirConnection(uri)
-	} else {
-		virConn, err = libvirt.NewVirConnectionWithAuth(uri, user, pass)
+		virConn, err = libvirt.NewConnect(uri)
 	}
-	if err != nil {
-		return libvirt.VirConnection{}, err
-	}
+	// TODO: Reimplement using the SASL style ConnectAuth
+	//else {
+	//	virConn, err = libvirt.NewConnectWithAuth(uri, user, pass)
+	//}
 	return virConn, err
 }
 
@@ -127,13 +126,13 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	dom, err := l.virConn.LookupDomainByName(vm.GetObjectMeta().GetName())
 	if err != nil {
 		// We need the domain but it does not exist, so create it
-		if err.(libvirt.VirError).Code == libvirt.VIR_ERR_NO_DOMAIN {
-			xml, err := xml.Marshal(&wantedSpec)
+		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
+			xmlStr, err := xml.Marshal(&wantedSpec)
 			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain xml failed.")
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain xmlStr failed.")
 				return err
 			}
-			dom, err = l.virConn.DomainDefineXML(string(xml))
+			dom, err = l.virConn.DomainDefineXML(string(xmlStr))
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
 				return err
@@ -144,23 +143,23 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 			return err
 		}
 	}
-	domState, err := dom.GetState()
+	domState, _, err := dom.GetState()
 	if err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
 		return err
 	}
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
 	// TODO for migration and error detection we also need the state change reason
-	state := LifeCycleTranslationMap[domState[0]]
-	switch state {
-	case NoState, Shutdown, Shutoff, Crashed:
+	//state := LifeCycleTranslationMap[domState[0]]
+	switch domState {
+	case libvirt.DOMAIN_NOSTATE, libvirt.DOMAIN_SHUTDOWN, libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_CRASHED:
 		err := dom.Create()
 		if err != nil {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Starting the VM failed.")
 			return err
 		}
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started")
-	case Paused:
+	case libvirt.DOMAIN_PAUSED:
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {
@@ -181,7 +180,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	dom, err := l.virConn.LookupDomainByName(vm.GetObjectMeta().GetName())
 	if err != nil {
 		// If the VM does not exist, we are done
-		if err.(libvirt.VirError).Code == libvirt.VIR_ERR_NO_DOMAIN {
+		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
 			return nil
 		} else {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
@@ -189,14 +188,13 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 		}
 	}
 	// TODO: Graceful shutdown
-	domState, err := dom.GetState()
+	domState, _, err := dom.GetState()
 	if err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
 		return err
 	}
 
-	state := LifeCycleTranslationMap[domState[0]]
-	if state == Running || state == Paused {
+	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
 		err = dom.Destroy()
 		if err != nil {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Destroying the domain state failed.")

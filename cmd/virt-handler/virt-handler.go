@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	libvirtapi "github.com/rgbkrk/libvirt-go"
+	libvirtapi "github.com/libvirt/libvirt-go"
 	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -44,7 +44,7 @@ func main() {
 
 	go func() {
 		for {
-			if res := libvirtapi.EventRunDefaultImpl(); res < 0 {
+			if res := libvirtapi.EventRunDefaultImpl(); res != nil {
 				// Report the error somehow or break the loop.
 				log.Warning().Log("msg", "No results from virtwrap")
 			}
@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer domainConn.CloseConnection()
+	defer domainConn.Close()
 
 	// Create event recorder
 	coreClient, err := kubecli.Get()
@@ -71,7 +71,7 @@ func main() {
 		panic(err)
 	}
 
-	domainListWatcher := virtcache.NewListWatchFromClient(domainConn, libvirtapi.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
+	domainListWatcher := virtcache.NewListWatchFromClient(domainConn)
 
 	domainController := virthandler.NewDomainController(domainListWatcher)
 
