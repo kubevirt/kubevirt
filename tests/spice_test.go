@@ -39,7 +39,7 @@ var _ = Describe("Vmlifecycle", func() {
 			close(done)
 		}, 3)
 
-		It("should return connection details for running VMs", func(done Done) {
+		It("should return connection details for running VMs in ini format", func(done Done) {
 			// Create the VM
 			result := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do()
 			obj, err := result.Get()
@@ -62,6 +62,28 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(spice[2]).To(ContainSubstring("host="))
 			Expect(spice[3]).To(Equal("port=4000"))
 			Expect(spice[4]).To(ContainSubstring("proxy="))
+			close(done)
+		}, 10)
+
+		It("should return connection details for running VMs in json format", func(done Done) {
+			// Create the VM
+			result := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do()
+			obj, err := result.Get()
+			Expect(err).To(BeNil())
+
+			// Block until the VM is running
+			// TODO, that is going to be a common pattern, create some helpers for that
+			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
+				if event.Type == "Normal" && event.Reason == v1.Started.String() {
+					return true
+				}
+				return false
+			}).Watch()
+			obj, err = restClient.Get().Resource("spices").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+			Expect(err).To(BeNil())
+			spice := obj.(*v1.Spice).Info
+			Expect(spice.Type).To(Equal("spice"))
+			Expect(spice.Port).To(Equal(int32(4000)))
 			close(done)
 		}, 10)
 

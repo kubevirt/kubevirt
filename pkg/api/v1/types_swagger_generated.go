@@ -28,3 +28,11 @@ func (VMStatus) SwaggerDoc() map[string]string {
 func (VMCondition) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
+
+func (Spice) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (SpiceInfo) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}

@@ -25,11 +25,12 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-	gvr := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
+	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
+	spiceGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "spices"}
 	gvk := schema.GroupVersionKind{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Kind: "VM"}
 
 	// FIXME the whole NewResponseHandler is just a hack, see the method itself for details
-	err := rest.AddGenericResourceProxy(rest.WebService, ctx, gvr, &v1.VM{}, rest.NewResponseHandler(gvk, &v1.VM{}))
+	err := rest.AddGenericResourceProxy(rest.WebService, ctx, vmGVR, &v1.VM{}, rest.NewResponseHandler(gvk, &v1.VM{}))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,11 +43,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceSubResourceEndpoint(cli, coreCli, gvr)).Encoder(endpoints.EncodePlainTextGetResponse).Build(ctx))
-	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(gvr, "spice")).
-		To(spice).Produces("text/plain").
+	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
+	spiceINISubresource := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
+		Endpoint(rest.NewSpiceINIEndpoint(cli, coreCli, vmGVR)).Encoder(endpoints.EncodePlainTextGetResponse).Build(ctx))
+	spiceJSONResource := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
+		Endpoint(rest.NewSpiceJSONEndpoint(cli, coreCli, vmGVR)).Build(ctx))
+
+	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(vmGVR, "spice")).
+		To(spiceINISubresource).Produces("text/plain").
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
+	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(spiceGVR)).
+		To(spiceJSONResource).Produces("application/json").
+		Doc("Returns SPICE connection details as JSON."))
 
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(), // you control what services are visible

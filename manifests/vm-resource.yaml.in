@@ -5,3 +5,11 @@ kind: ThirdPartyResource
 description: "VM management"
 versions:
   - name: v1alpha1
+---
+metadata:
+  name: spice.kubevirt.io
+apiVersion: extensions/v1beta1
+kind: ThirdPartyResource
+description: "VM spice connection info"
+versions:
+  - name: v1alpha1
