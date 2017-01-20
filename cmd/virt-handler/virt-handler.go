@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/libvirt/cache"
@@ -105,7 +106,7 @@ func main() {
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainCache.GetStore().List() {
 		d := domain.(*libvirt.Domain)
-		vmStore.Add(libvirt.NewVMReferenceFromName(d.ObjectMeta.Name))
+		vmStore.Add(util.NewVMReferenceFromName(d.ObjectMeta.Name))
 	}
 
 	// Watch for domain changes

@@ -8,12 +8,9 @@ package libvirt
 
 import (
 	"encoding/xml"
-	"fmt"
 	"github.com/jeevatkm/go-model"
 	"github.com/rgbkrk/libvirt-go"
-	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -215,17 +212,4 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	}
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
-}
-
-// TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
-func NewVMReferenceFromName(name string) *v1.VM {
-	vm := &v1.VM{
-		ObjectMeta: api.ObjectMeta{
-			Name:      name,
-			Namespace: api.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", v1.GroupVersion.String(), api.NamespaceDefault, name),
-		},
-	}
-	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: v1.GroupVersion.Group, Kind: "VM", Version: v1.GroupVersion.Version})
-	return vm
 }

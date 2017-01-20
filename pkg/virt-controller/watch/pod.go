@@ -52,7 +52,7 @@ func NewPodCache() (cache.SharedInformer, error) {
 }
 
 func processPod(p *podResourceEventHandler, pod *v1.Pod) error {
-	defer kubecli.CatchPanic()
+	defer kubecli.HandlePanic()
 	vmObj, exists, err := p.VMCache.GetStore().GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[corev1.DomainLabel])
 	if err != nil {
 		// TODO handle this smarter, for now just try again

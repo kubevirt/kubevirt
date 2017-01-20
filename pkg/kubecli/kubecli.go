@@ -167,7 +167,7 @@ type ResourceEventHandler interface {
 	OnDelete(obj interface{}) error
 }
 
-func CatchPanic() {
+func HandlePanic() {
 	if r := recover(); r != nil {
 		logging.DefaultLogger().Critical().Log("stacktrace", debug.Stack(), "msg", r)
 	}
@@ -235,7 +235,7 @@ func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface
 type ControllerFunc func(cache.Indexer, workqueue.RateLimitingInterface) bool
 
 func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
-	defer CatchPanic()
+	defer HandlePanic()
 	defer c.queue.ShutDown()
 	logging.DefaultLogger().Info().Msg("Starting VM controller.")
 
@@ -247,6 +247,10 @@ func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
 
 	<-stopCh
 	logging.DefaultLogger().Info().Msg("Stopping VM controller.")
+}
+
+func (c *Controller) WaitForSync(stopCh chan struct{}) {
+	cache.WaitForCacheSync(stopCh, c.informer.HasSynced)
 }
 
 func (c *Controller) runWorker() {
