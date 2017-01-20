@@ -33,16 +33,24 @@ func main() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	podHandler, err := watch.NewPodResourceEventHandler()
-	if err != nil {
-		golog.Fatal(err)
-	}
 
 	clientSet, err := kubecli.Get()
 
 	if err != nil {
 		golog.Fatal(err)
 	}
+
+	g.Provide(
+		&inject.Object{Value: clientSet},
+		&inject.Object{Value: templateService},
+		&inject.Object{Value: vmService},
+	)
+
+	err = g.Populate()
+	if err != nil {
+		golog.Fatal(err)
+	}
+	restful.Add(rest.WebService)
 
 	// Bootstrapping. From here on the initialization order is important
 	stop := make(chan struct{})
@@ -55,31 +63,14 @@ func main() {
 	}
 	vmCache, vmController := watch.NewVMController(vmService, nil, restClient)
 
-	g.Provide(
-		&inject.Object{Value: clientSet},
-		&inject.Object{Value: templateService},
-		&inject.Object{Value: vmService},
-		&inject.Object{Value: podHandler},
-		&inject.Object{Value: vmCache},
-	)
-
-	err = g.Populate()
-	if err != nil {
-		golog.Fatal(err)
-	}
-	restful.Add(rest.WebService)
-
 	go vmController.Run(1, stop)
 
 	// Wait until VM cache has warmed up before we start watching pods
 	vmController.WaitForSync(stop)
 
 	// Start watching pods
-	podController, err := watch.NewPodInformer(podHandler)
-	if err != nil {
-		golog.Fatal(err)
-	}
-	go podController.Run(stop)
+	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient)
+	go podController.Run(1, stop)
 
 	httpLogger := logger.With("service", "http")
 
