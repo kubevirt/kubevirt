@@ -10,11 +10,11 @@ import (
 	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
-	kubevirt "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
-func NewListWatchFromClient(c kubevirt.Connection, events ...int) *cache.ListWatch {
+func NewListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
 	if len(events) == 0 {
 		events = []int{libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE}
 	}
@@ -23,8 +23,8 @@ func NewListWatchFromClient(c kubevirt.Connection, events ...int) *cache.ListWat
 		if err != nil {
 			return nil, err
 		}
-		list := kubevirt.DomainList{
-			Items: []kubevirt.Domain{},
+		list := virtwrap.DomainList{
+			Items: []virtwrap.Domain{},
 		}
 		for _, dom := range doms {
 			domain, err := NewDomain(dom)
@@ -40,7 +40,7 @@ func NewListWatchFromClient(c kubevirt.Connection, events ...int) *cache.ListWat
 			if err != nil {
 				return nil, err
 			}
-			domain.Status.Status = kubevirt.LifeCycleTranslationMap[status[0]]
+			domain.Status.Status = virtwrap.LifeCycleTranslationMap[status[0]]
 			list.Items = append(list.Items, *domain)
 		}
 
@@ -64,7 +64,7 @@ func (d *DomainWatcher) ResultChan() <-chan watch.Event {
 	return d.C
 }
 
-func NewDomainWatcher(c kubevirt.Connection, events ...int) (watch.Interface, error) {
+func NewDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, error) {
 	watcher := &DomainWatcher{C: make(chan watch.Event)}
 	callback := libvirt.DomainEventCallback(
 		func(c *libvirt.VirConnection, d *libvirt.VirDomain, eventDetails interface{}, _ func()) int {
@@ -97,9 +97,9 @@ func NewDomainWatcher(c kubevirt.Connection, events ...int) (watch.Interface, er
 					status, err := d.GetState()
 					if err != nil {
 						// TODO proper logging
-						domain.Status.Status = kubevirt.NoState
+						domain.Status.Status = virtwrap.NoState
 					} else {
-						domain.Status.Status = kubevirt.LifeCycleTranslationMap[status[0]]
+						domain.Status.Status = virtwrap.LifeCycleTranslationMap[status[0]]
 					}
 				default:
 					// TODO libvirt is racy there, between an event and fetching a domain xml everything can happen
@@ -118,7 +118,7 @@ func NewDomainWatcher(c kubevirt.Connection, events ...int) (watch.Interface, er
 						// TODO proper logging
 						return 0
 					}
-					domain.Status.Status = kubevirt.LifeCycleTranslationMap[status[0]]
+					domain.Status.Status = virtwrap.LifeCycleTranslationMap[status[0]]
 				}
 
 				switch e.Event {
@@ -144,8 +144,8 @@ func NewDomainWatcher(c kubevirt.Connection, events ...int) (watch.Interface, er
 	return watcher, nil
 }
 
-func NewDomainSpec(dom kubevirt.VirDomain) (*kubevirt.DomainSpec, error) {
-	domain := kubevirt.DomainSpec{}
+func NewDomainSpec(dom virtwrap.VirDomain) (*virtwrap.DomainSpec, error) {
+	domain := virtwrap.DomainSpec{}
 	domxml, err := dom.GetXMLDesc(libvirt.VIR_DOMAIN_XML_MIGRATABLE)
 	if err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func NewDomainSpec(dom kubevirt.VirDomain) (*kubevirt.DomainSpec, error) {
 	return &domain, nil
 }
 
-func NewDomain(dom kubevirt.VirDomain) (*kubevirt.Domain, error) {
+func NewDomain(dom virtwrap.VirDomain) (*virtwrap.Domain, error) {
 	name, err := dom.GetName()
 	if err != nil {
 		return nil, err
@@ -167,14 +167,14 @@ func NewDomain(dom kubevirt.VirDomain) (*kubevirt.Domain, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &kubevirt.Domain{
-		Spec: kubevirt.DomainSpec{},
+	return &virtwrap.Domain{
+		Spec: virtwrap.DomainSpec{},
 		ObjectMeta: kubeapi.ObjectMeta{
 			Name:      name,
 			UID:       types.UID(uuid),
 			Namespace: kubeapi.NamespaceDefault,
 		},
-		Status: kubevirt.DomainStatus{},
+		Status: virtwrap.DomainStatus{},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "1.2.2",
 			Kind:       "Domain",
@@ -182,8 +182,8 @@ func NewDomain(dom kubevirt.VirDomain) (*kubevirt.Domain, error) {
 	}, nil
 }
 
-func NewDomainCache(c kubevirt.Connection) (cache.SharedInformer, error) {
+func NewDomainCache(c virtwrap.Connection) (cache.SharedInformer, error) {
 	domainCacheSource := NewListWatchFromClient(c, libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE)
-	informer := cache.NewSharedInformer(domainCacheSource, &kubevirt.Domain{}, 0)
+	informer := cache.NewSharedInformer(domainCacheSource, &virtwrap.Domain{}, 0)
 	return informer, nil
 }
