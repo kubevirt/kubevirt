@@ -10,6 +10,10 @@ go:
   - 1.7.x
   - tip
 
+before_install:
+ - sudo add-apt-repository ppa:jacob/virtualisation -y
+ - sudo apt-get update -q
+
 install:
  - go get -u github.com/kardianos/govendor
  - go get -u github.com/golang/mock/gomock
