@@ -26,7 +26,7 @@ func main() {
 
 	logging.InitializeLogging("virt-handler")
 	libvirtapi.EventRegisterDefaultImpl()
-	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
+	libvirtUri := flag.String("virtwrap-uri", "qemu:///system", "Libvirt connection string.")
 	libvirtUser := flag.String("user", "", "Libvirt user")
 	libvirtPass := flag.String("pass", "", "Libvirt password")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
@@ -46,12 +46,12 @@ func main() {
 		for {
 			if res := libvirtapi.EventRunDefaultImpl(); res < 0 {
 				// Report the error somehow or break the loop.
-				log.Warning().Log("msg", "No results from libvirt")
+				log.Warning().Log("msg", "No results from virtwrap")
 			}
 		}
 	}()
 	// TODO we need to handle disconnects
-	domainConn, err := libvirt.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass)
+	domainConn, err := virtwrap.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass)
 	if err != nil {
 		panic(err)
 	}
@@ -66,7 +66,7 @@ func main() {
 	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceDefault)})
 	recorder := broadcaster.NewRecorder(kubev1.EventSource{Component: "virt-handler", Host: *host})
 
-	domainManager, err := libvirt.NewLibvirtDomainManager(domainConn, recorder)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, recorder)
 	if err != nil {
 		panic(err)
 	}
@@ -105,7 +105,7 @@ func main() {
 
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainCache.GetStore().List() {
-		d := domain.(*libvirt.Domain)
+		d := domain.(*virtwrap.Domain)
 		vmStore.Add(util.NewVMReferenceFromName(d.ObjectMeta.Name))
 	}
 

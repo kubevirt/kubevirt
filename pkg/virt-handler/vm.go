@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
-func NewVMController(lw cache.ListerWatcher, domainManager libvirt.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient) (cache.Indexer, *kubecli.Controller) {
+func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient) (cache.Indexer, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	return kubecli.NewController(lw, queue, &v1.VM{}, func(indexer cache.Indexer, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
@@ -39,6 +39,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager libvirt.DomainManager
 				queue.AddRateLimited(key)
 				return true
 			}
+
 			vm = util.NewVMReferenceFromName(name)
 		} else {
 			vm = obj.(*v1.VM)

@@ -14,17 +14,18 @@ into pause mode because of resource shortage or cut off connections to storage.
 */
 
 func NewDomainController(lw cache.ListerWatcher) *cache.Controller {
-	_, domainController := cache.NewInformer(lw, &libvirt.Domain{}, 0, cache.ResourceEventHandlerFuncs{
+	_, domainController := cache.NewInformer(lw, &virtwrap.Domain{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			fmt.Printf("Domain ADDED: %s: %s\n", obj.(*libvirt.Domain).GetObjectMeta().GetName(), obj.(*libvirt.Domain).Status.Status)
-			logging.DefaultLogger().Info().Object(obj.(*libvirt.Domain)).Msg("Domain added.")
+			fmt.Printf("Domain ADDED: %s: %s\n", obj.(*virtwrap.Domain).GetObjectMeta().GetName(), obj.(*virtwrap.Domain).Status.Status)
+			logging.DefaultLogger().Info().Object(obj.(*virtwrap.Domain)).Msg("Domain added.")
 		},
 		DeleteFunc: func(obj interface{}) {
-			fmt.Printf("Domain DELETED: %s: %s\n", obj.(*libvirt.Domain).GetObjectMeta().GetName(), obj.(*libvirt.Domain).Status.Status)
-			logging.DefaultLogger().Info().Object(obj.(*libvirt.Domain)).Msg("Domain deleted.")
+			fmt.Printf("Domain DELETED: %s: %s\n", obj.(*virtwrap.Domain).GetObjectMeta().GetName(), obj.(*virtwrap.Domain).Status.Status)
+			logging.DefaultLogger().Info().Object(obj.(*virtwrap.Domain)).Msg("Domain deleted.")
 		},
 		UpdateFunc: func(old interface{}, new interface{}) {
-			logging.DefaultLogger().Info().Object(new.(*libvirt.Domain)).Msg("Domain updated.")
+			logging.DefaultLogger().Info().Object(new.(*virtwrap.Domain)).Msg("Domain updated.")
+
 		},
 	})
 	return domainController

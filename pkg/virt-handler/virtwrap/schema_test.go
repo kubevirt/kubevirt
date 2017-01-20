@@ -1,4 +1,4 @@
-package libvirt
+package virtwrap
 
 import (
 	"encoding/json"
