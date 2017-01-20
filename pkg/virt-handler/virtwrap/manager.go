@@ -1,4 +1,4 @@
-package libvirt
+package virtwrap
 
 //go:generate mockgen -source $GOFILE -imports "libvirt=github.com/rgbkrk/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 

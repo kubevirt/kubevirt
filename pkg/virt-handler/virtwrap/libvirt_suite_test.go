@@ -1,4 +1,4 @@
-package libvirt
+package virtwrap
 
 import (
 	. "github.com/onsi/ginkgo"

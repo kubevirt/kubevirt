@@ -50,7 +50,7 @@ func main() {
 		}
 	}()
 	// TODO we need to handle disconnects
-	domainConn, err := libvirt.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass)
+	domainConn, err := virtwrap.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass)
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func main() {
 	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceDefault)})
 	recorder := broadcaster.NewRecorder(kubev1.EventSource{Component: "virt-handler", Host: *host})
 
-	domainManager, err := libvirt.NewLibvirtDomainManager(domainConn, recorder)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, recorder)
 	if err != nil {
 		panic(err)
 	}
@@ -104,8 +104,8 @@ func main() {
 
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainCache.GetStore().List() {
-		d := domain.(*libvirt.Domain)
-		vmStore.Add(libvirt.NewVMReferenceFromName(d.ObjectMeta.Name))
+		d := domain.(*virtwrap.Domain)
+		vmStore.Add(virtwrap.NewVMReferenceFromName(d.ObjectMeta.Name))
 	}
 
 	// Watch for domain changes
