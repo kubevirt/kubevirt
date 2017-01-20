@@ -11,6 +11,7 @@ go:
   - tip
 
 install:
+ - git reset --hard # we are caching the vendor folder, make sure we see the new vendor.json file
  - go get -u github.com/kardianos/govendor
  - go get -u github.com/golang/mock/gomock
  - go get -u github.com/golang/mock/mockgen
