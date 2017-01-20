@@ -10,6 +10,10 @@ go:
   - 1.7.x
   - tip
 
+before_install:
+ - sudo add-apt-repository ppa:jacob/virtualisation -y
+ - sudo apt-get update -q
+
 install:
  - git reset --hard # we are caching the vendor folder, make sure we see the new vendor.json file
  - go get -u github.com/kardianos/govendor
