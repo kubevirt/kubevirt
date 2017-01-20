@@ -86,109 +86,10 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
 }
 
-func NewInformer(
-	lw cache.ListerWatcher,
-	objType runtime.Object,
-	resyncPeriod time.Duration,
-	h ResourceEventHandler,
-) (cache.Indexer, *cache.Controller) {
-	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
-	fifo := cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, nil, clientState)
-
-	cfg := &cache.Config{
-		Queue:            fifo,
-		ListerWatcher:    lw,
-		ObjectType:       objType,
-		FullResyncPeriod: resyncPeriod,
-		RetryOnError:     true,
-
-		Process: func(obj interface{}) error {
-			// from oldest to newest
-
-			for _, d := range obj.(cache.Deltas) {
-				switch d.Type {
-				case cache.Sync, cache.Added, cache.Updated:
-					if old, exists, err := clientState.Get(d.Object); err == nil && exists {
-						if err := clientState.Update(d.Object); err != nil {
-							return err
-						}
-						err = h.OnUpdate(old, d.Object)
-						if err != nil {
-							// TODO real backoff strategy
-							// TODO solve this by using workqueues as soon as they hit client-go
-							time.Sleep(1 * time.Second)
-							return handleErr(err)
-						}
-					} else {
-						if err := clientState.Add(d.Object); err != nil {
-							return err
-						}
-						err = h.OnAdd(d.Object)
-						if err != nil {
-							// TODO real backoff strategy
-							// TODO solve this by using workqueues as soon as they hit client-go
-							time.Sleep(1 * time.Second)
-							return handleErr(err)
-						}
-					}
-				case cache.Deleted:
-					err := h.OnDelete(d.Object)
-					if err != nil {
-						// TODO real backoff strategy
-						// TODO solve this by using workqueues as soon as they hit client-go
-						time.Sleep(1 * time.Second)
-						return handleErr(err)
-					}
-					if err := clientState.Delete(d.Object); err != nil {
-						return err
-					}
-				}
-			}
-			return nil
-		},
-	}
-	return clientState, cache.New(cfg)
-}
-
-/*
-Helper to translate between requeue errors like they are used in queues and the controller error handling.
-This allows  to use the controlle rerror handling if it is enable and not trigger the queues reenqueue logic.
-*/
-func handleErr(err error) error {
-	if e, ok := err.(cache.ErrRequeue); ok == true {
-		return e.Err
-	}
-	return nil
-}
-
-type ResourceEventHandler interface {
-	OnAdd(obj interface{}) error
-	OnUpdate(oldObj, newObj interface{}) error
-	OnDelete(obj interface{}) error
-}
-
 func HandlePanic() {
 	if r := recover(); r != nil {
 		logging.DefaultLogger().Critical().Log("stacktrace", debug.Stack(), "msg", r)
 	}
-}
-
-type ResourceEventHandlerFuncs struct {
-	AddFunc    func(obj interface{}) error
-	UpdateFunc func(oldObj, newObj interface{}) error
-	DeleteFunc func(obj interface{}) error
-}
-
-func (r ResourceEventHandlerFuncs) OnAdd(obj interface{}) error {
-	return r.AddFunc(obj)
-}
-
-func (r ResourceEventHandlerFuncs) OnUpdate(oldObj, newObj interface{}) error {
-	return r.UpdateFunc(oldObj, newObj)
-}
-
-func (r ResourceEventHandlerFuncs) OnDelete(obj interface{}) error {
-	return r.DeleteFunc(obj)
 }
 
 func NewIndexerInformerForWorkQueue(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object) (cache.Indexer, *cache.Controller) {

@@ -3,7 +3,7 @@ package virthandler
 import (
 	"fmt"
 	"k8s.io/client-go/tools/cache"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 )
 
@@ -14,18 +14,17 @@ into pause mode because of resource shortage or cut off connections to storage.
 */
 
 func NewDomainController(lw cache.ListerWatcher) *cache.Controller {
-	_, domainController := kubecli.NewInformer(lw, &libvirt.Domain{}, 0, kubecli.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) error {
+	_, domainController := cache.NewInformer(lw, &libvirt.Domain{}, 0, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
 			fmt.Printf("Domain ADDED: %s: %s\n", obj.(*libvirt.Domain).GetObjectMeta().GetName(), obj.(*libvirt.Domain).Status.Status)
-			return nil
+			logging.DefaultLogger().Info().Object(obj.(*libvirt.Domain)).Msg("Domain added.")
 		},
-		DeleteFunc: func(obj interface{}) error {
+		DeleteFunc: func(obj interface{}) {
 			fmt.Printf("Domain DELETED: %s: %s\n", obj.(*libvirt.Domain).GetObjectMeta().GetName(), obj.(*libvirt.Domain).Status.Status)
-			return nil
+			logging.DefaultLogger().Info().Object(obj.(*libvirt.Domain)).Msg("Domain deleted.")
 		},
-		UpdateFunc: func(old interface{}, new interface{}) error {
-			fmt.Printf("Domain UPDATED: %s: %s\n", new.(*libvirt.Domain).GetObjectMeta().GetName(), new.(*libvirt.Domain).Status.Status)
-			return nil
+		UpdateFunc: func(old interface{}, new interface{}) {
+			logging.DefaultLogger().Info().Object(new.(*libvirt.Domain)).Msg("Domain updated.")
 		},
 	})
 	return domainController
