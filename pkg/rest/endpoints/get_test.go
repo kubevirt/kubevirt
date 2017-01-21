@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"encoding/json"
-	"fmt"
 	"github.com/emicklei/go-restful"
+	"github.com/ghodss/yaml"
 	"golang.org/x/net/context"
 	"gopkg.in/ini.v1"
 	"net/http/httptest"
@@ -41,9 +41,10 @@ var _ = Describe("Get", func() {
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Get().Endpoint(testGetEndpoint).
 			Encoder(NewMimeTypeAwareEncoder(EncodeGetResponse, map[string]kithttp.EncodeResponseFunc{
-				"text/plain": EncodeINIGetResponse,
+				"text/plain":       EncodeINIGetResponse,
+				"application/yaml": EncodeYamlGetResponse,
 			})).Build(ctx))
-		ws.Route(ws.GET("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/vms/{name}").Produces("applicatoin/json", "text/plain").To(target))
+		ws.Route(ws.GET("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/vms/{name}").Produces("applicatoin/json", "text/plain", "application/yaml").To(target))
 
 		request = newValidGetRequest()
 		recorder = httptest.NewRecorder()
@@ -79,6 +80,16 @@ var _ = Describe("Get", func() {
 				Expect(err).To(BeNil())
 				Expect(recorder.Header().Get("Content-Type")).To(Equal("text/plain"))
 				Expect(f.MapTo(&responseBody)).To(BeNil())
+				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
+			})
+		})
+		Context("with Accept header applicatoin/yaml", func() {
+			It("should return yaml file", func() {
+				request.Header.Add("Accept", "application/yaml")
+				handler.ServeHTTP(recorder, request)
+				responseBody := payload{}
+				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/yaml"))
+				Expect(yaml.Unmarshal(recorder.Body.Bytes(), &responseBody)).To(BeNil())
 				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
 			})
 		})

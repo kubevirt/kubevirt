@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"encoding/json"
+	"github.com/ghodss/yaml"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
 	"gopkg.in/ini.v1"
@@ -80,6 +81,20 @@ func EncodeINIGetResponse(context context.Context, w http.ResponseWriter, respon
 		return err
 	}
 	_, err = cfg.WriteTo(w)
+	return err
+}
+
+func EncodeYamlGetResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
+	if _, ok := response.(middleware.AppError); ok != false {
+		return encodeApplicationErrors(context, w, response)
+	}
+	w.Header().Set("Content-Type", "application/yaml")
+	w.WriteHeader(http.StatusOK)
+	b, err := yaml.Marshal(response)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
 	return err
 }
 
