@@ -169,7 +169,7 @@ func NewDomain(dom kubevirt.VirDomain) (*kubevirt.Domain, error) {
 	}
 	return &kubevirt.Domain{
 		Spec: kubevirt.DomainSpec{},
-		ObjectMeta: kubeapi.ObjectMeta{
+		ObjectMeta: kubev1.ObjectMeta{
 			Name:      name,
 			UID:       types.UID(uuid),
 			Namespace: kubeapi.NamespaceDefault,

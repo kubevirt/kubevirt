@@ -121,13 +121,29 @@ func init() {
 		}
 		return reflect.ValueOf(out), nil
 	})
+	model.AddConversion((*v1.ObjectMeta)(nil), (*kubeapi.ObjectMeta)(nil), func(in reflect.Value) (reflect.Value, error) {
+		out := kubeapi.ObjectMeta{}
+		errs := model.Copy(&out, in.Interface())
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
+	model.AddConversion((*kubeapi.ObjectMeta)(nil), (*v1.ObjectMeta)(nil), func(in reflect.Value) (reflect.Value, error) {
+		out := v1.ObjectMeta{}
+		errs := model.Copy(&out, in.Interface())
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
 }
 
 type VM struct {
 	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      kubeapi.ObjectMeta `json:"metadata,omitempty"`
-	Spec            VMSpec             `json:"spec,omitempty" valid:"required"`
-	Status          VMStatus           `json:"status"`
+	ObjectMeta      v1.ObjectMeta `json:"metadata,omitempty"`
+	Spec            VMSpec        `json:"spec,omitempty" valid:"required"`
+	Status          VMStatus      `json:"status"`
 }
 
 // VMList is a list of VMs
@@ -253,7 +269,7 @@ const (
 func NewVM(name string, uid types.UID) *VM {
 	return &VM{
 		Spec: VMSpec{},
-		ObjectMeta: kubeapi.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			UID:       uid,
 			Namespace: kubeapi.NamespaceDefault,
@@ -285,7 +301,7 @@ func NewMinimalVM(vmName string) *VM {
 	precond.CheckNotEmpty(vmName)
 	return &VM{
 		Spec: VMSpec{Domain: NewMinimalDomainSpec(vmName)},
-		ObjectMeta: kubeapi.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:      vmName,
 			Namespace: kubeapi.NamespaceDefault,
 		},
@@ -298,8 +314,8 @@ func NewMinimalVM(vmName string) *VM {
 
 type Spice struct {
 	metav1.TypeMeta `json:",inline" ini:"-"`
-	ObjectMeta      kubeapi.ObjectMeta `json:"metadata,omitempty" ini:"-"`
-	Info            SpiceInfo          `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
+	ObjectMeta      v1.ObjectMeta `json:"metadata,omitempty" ini:"-"`
+	Info            SpiceInfo     `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
 }
 
 type SpiceInfo struct {
@@ -312,7 +328,7 @@ type SpiceInfo struct {
 func NewSpice(vmName string) *Spice {
 	return &Spice{
 		Info: SpiceInfo{},
-		ObjectMeta: kubeapi.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:      vmName,
 			Namespace: kubeapi.NamespaceDefault,
 		},
