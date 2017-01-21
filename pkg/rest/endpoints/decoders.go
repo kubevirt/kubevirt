@@ -22,23 +22,23 @@ type Metadata struct {
 }
 
 const (
-	reqKey  string = "restful_req__"
-	respKey string = "restful_resp__"
+	ReqKey  string = "restful_req__"
+	RespKey string = "restful_resp__"
 )
 
 func GetRestfulRequest(ctx context.Context) *restful.Request {
-	return ctx.Value(reqKey).(*restful.Request)
+	return ctx.Value(ReqKey).(*restful.Request)
 }
 
 func GetRestfulResponse(ctx context.Context) *restful.Response {
-	return ctx.Value(respKey).(*restful.Response)
+	return ctx.Value(RespKey).(*restful.Response)
 }
 
 func MakeGoRestfulWrapper(server *gokithttp.Server) restful.RouteFunction {
 	return func(request *restful.Request, response *restful.Response) {
 		requestFunc := func(ctx context.Context, _ *http.Request) context.Context {
-			ctx = context.WithValue(ctx, reqKey, request)
-			ctx = context.WithValue(ctx, respKey, response)
+			ctx = context.WithValue(ctx, ReqKey, request)
+			ctx = context.WithValue(ctx, RespKey, response)
 			return ctx
 		}
 		gokithttp.ServerBefore(requestFunc)(server)
