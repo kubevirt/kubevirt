@@ -4,7 +4,9 @@ import (
 	"flag"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful/swagger"
+	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
+	"gopkg.in/ini.v1"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -19,6 +21,7 @@ import (
 func main() {
 
 	logging.InitializeLogging("virt-api")
+	ini.PrettyFormat = false
 	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8183, "Port to listen on")
@@ -44,16 +47,19 @@ func main() {
 	}
 
 	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
-	spiceINISubresource := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceINIEndpoint(cli, coreCli, vmGVR)).Encoder(endpoints.EncodePlainTextGetResponse).Build(ctx))
-	spiceJSONResource := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceJSONEndpoint(cli, coreCli, vmGVR)).Build(ctx))
+	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
+		Endpoint(rest.NewSpiceEndpoint(cli, coreCli, vmGVR)).Encoder(
+		endpoints.NewMimeTypeAwareEncoder(endpoints.EncodeGetResponse,
+			map[string]kithttp.EncodeResponseFunc{
+				"text/plain":       endpoints.EncodeINIGetResponse,
+				"application/json": endpoints.EncodeGetResponse,
+			})).Build(ctx))
 
 	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(vmGVR, "spice")).
-		To(spiceINISubresource).Produces("text/plain").
+		To(spice).Produces("text/plain", "application/json").
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(spiceGVR)).
-		To(spiceJSONResource).Produces("application/json").
+		To(spice).Produces("application/json", "text/plain").
 		Doc("Returns SPICE connection details as JSON."))
 
 	config := swagger.Config{

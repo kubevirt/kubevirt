@@ -53,7 +53,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}
 				return false
 			}).Watch()
-			raw, err := restClient.Get().Resource("vms").SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
+			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", "text/plain").SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			Expect(err).To(BeNil())
 			spice := strings.Split(string(raw), "\n")
 
@@ -101,7 +101,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}
 				return false
 			}).Watch()
-			raw, err := restClient.Get().Resource("vms").SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
+			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", "text/plain").SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			Expect(err).To(BeNil())
 			spice := strings.Split(string(raw), "\n")
 

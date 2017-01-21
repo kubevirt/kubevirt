@@ -247,7 +247,7 @@ cluster/kubectl.sh spice testvm --details
 To direclty query the config, do
 
 ```bash
-curl $HOST/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm/spice
+curl $HOST/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm/spice -H"Accept:text/plain"
 ```
 
 ### Accessing the Domain via the SPICE primay resource
