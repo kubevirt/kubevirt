@@ -53,13 +53,14 @@ func main() {
 			map[string]kithttp.EncodeResponseFunc{
 				"text/plain":       endpoints.EncodeINIGetResponse,
 				"application/json": endpoints.EncodeGetResponse,
+				"application/yaml": endpoints.EncodeYamlGetResponse,
 			})).Build(ctx))
 
 	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(vmGVR, "spice")).
-		To(spice).Produces("text/plain", "application/json").
+		To(spice).Produces("text/plain", "application/json", "application/yaml").
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(spiceGVR)).
-		To(spice).Produces("application/json", "text/plain").
+		To(spice).Produces("application/json", "text/plain", "application/yaml").
 		Doc("Returns SPICE connection details as JSON."))
 
 	config := swagger.Config{
