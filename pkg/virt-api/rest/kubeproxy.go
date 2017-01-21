@@ -29,15 +29,22 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, response)).Build(ctx)
 
 	ws.Route(ws.POST(ResourcePathBase(gvr)).
+		Produces("application/json", "application/yaml").
+		Consumes("application/json", "application/yaml").
 		To(endpoints.MakeGoRestfulWrapper(post)).Reads(example).Writes(example))
 
 	ws.Route(ws.PUT(ResourcePath(gvr)).
+		Produces("application/json", "application/yaml").
+		Consumes("application/json", "application/yaml").
 		To(endpoints.MakeGoRestfulWrapper(put)).Reads(example).Writes(example).Doc("test2"))
 
 	ws.Route(ws.DELETE(ResourcePath(gvr)).
+		Produces("application/json", "application/yaml").
+		Consumes("application/json", "application/yaml").
 		To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"))
 
 	ws.Route(ws.GET(ResourcePath(gvr)).
+		Produces("application/json", "application/yaml").
 		To(endpoints.MakeGoRestfulWrapper(get)).Writes(example).Doc("test4"))
 	return nil
 }
