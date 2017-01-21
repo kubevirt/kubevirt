@@ -295,6 +295,12 @@
 			"revisionTime": "2016-10-11T23:07:22Z"
 		},
 		{
+			"checksumSHA1": "v0plVTBSyu5TvzfwHWNBe5/eZZo=",
+			"path": "gopkg.in/ini.v1",
+			"revision": "766e555c68dc8bda90d197ee8946c37519c19409",
+			"revisionTime": "2017-01-17T13:00:17Z"
+		},
+		{
 			"checksumSHA1": "SPMXWeoFQa5z0pLPmqpcFzyHqQQ=",
 			"path": "gopkg.in/yaml.v2",
 			"revision": "31c299268d302dd0aa9a0dcf765a3d58971ac83f",

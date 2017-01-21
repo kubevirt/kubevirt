@@ -297,16 +297,16 @@ func NewMinimalVM(vmName string) *VM {
 }
 
 type Spice struct {
-	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      kubeapi.ObjectMeta `json:"metadata,omitempty"`
-	Info            SpiceInfo          `json:"info,omitempty" valid:"required"`
+	metav1.TypeMeta `json:",inline" ini:"-"`
+	ObjectMeta      kubeapi.ObjectMeta `json:"metadata,omitempty" ini:"-"`
+	Info            SpiceInfo          `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
 }
 
 type SpiceInfo struct {
-	Type  string `json:"type"`
-	Host  string `json:"host"`
-	Port  int32  `json:"port"`
-	Proxy string `json:"proxy,omitempty"`
+	Type  string `json:"type" ini:"type"`
+	Host  string `json:"host" ini:"host"`
+	Port  int32  `json:"port" ini:"port"`
+	Proxy string `json:"proxy,omitempty" ini:"proxy,omitempty"`
 }
 
 func NewSpice(vmName string) *Spice {
