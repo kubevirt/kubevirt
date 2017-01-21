@@ -12,9 +12,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 )
 
