@@ -1,14 +1,18 @@
 package endpoints
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful"
+	"github.com/ghodss/yaml"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
+	"kubevirt.io/kubevirt/pkg/middleware"
 	"net/http"
 	"reflect"
+	"strings"
 )
 
 type PutObject struct {
@@ -100,8 +104,34 @@ func NewJsonDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReques
 	}
 }
 
+func NewYamlDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRequestFunc {
+	payloadType := reflect.TypeOf(payloadTypePtr).Elem()
+	return func(_ context.Context, r *http.Request) (interface{}, error) {
+		obj := reflect.New(payloadType).Interface()
+		var b []byte
+		buf := bytes.NewBuffer(b)
+		_, err := buf.ReadFrom(r.Body)
+		if err != nil {
+			return nil, err
+		}
+		if err := yaml.Unmarshal(buf.Bytes(), obj); err != nil {
+			return nil, err
+		}
+		if _, err := govalidator.ValidateStruct(obj); err != nil {
+			return nil, err
+		}
+		return obj, nil
+	}
+}
+
 func NewJsonPostDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRequestFunc {
-	jsonDecodeRequestFunc := NewJsonDecodeRequestFunc(payloadTypePtr)
+	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
+		NewJsonDecodeRequestFunc(payloadTypePtr),
+		map[string]gokithttp.DecodeRequestFunc{
+			"application/json": NewJsonDecodeRequestFunc(payloadTypePtr),
+			"application/yaml": NewYamlDecodeRequestFunc(payloadTypePtr),
+		},
+	)
 	return func(ctx context.Context, r *http.Request) (interface{}, error) {
 		namespace, err := namespaceDecodeRequestFunc(ctx, r)
 		if err != nil {
@@ -116,7 +146,13 @@ func NewJsonPostDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRe
 }
 
 func NewJsonPutDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRequestFunc {
-	jsonDecodeRequestFunc := NewJsonDecodeRequestFunc(payloadTypePtr)
+	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
+		NewJsonDecodeRequestFunc(payloadTypePtr),
+		map[string]gokithttp.DecodeRequestFunc{
+			"application/json": NewJsonDecodeRequestFunc(payloadTypePtr),
+			"application/yaml": NewYamlDecodeRequestFunc(payloadTypePtr),
+		},
+	)
 	return func(ctx context.Context, r *http.Request) (interface{}, error) {
 		metadata, err := NameNamespaceDecodeRequestFunc(ctx, r)
 		if err != nil {
@@ -127,5 +163,22 @@ func NewJsonPutDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReq
 			return nil, err
 		}
 		return &PutObject{Metadata: *metadata.(*Metadata), Payload: payload}, nil
+	}
+}
+
+func NewMimeTypeAwareDecodeRequestFunc(defaultDecoder gokithttp.DecodeRequestFunc, decoderMapping map[string]gokithttp.DecodeRequestFunc) gokithttp.DecodeRequestFunc {
+	return func(ctx context.Context, r *http.Request) (interface{}, error) {
+		requestContext := GetRestfulRequest(ctx)
+		contentType := strings.TrimSpace(requestContext.HeaderParameter("Content-Type"))
+		// Use default encoder in case no Content-Type is specified
+		decoder := defaultDecoder
+		if len(contentType) > 0 {
+			// Content-Type is given, check if we have a decoder and fail if we don't
+			decoder = decoderMapping[contentType]
+			if decoder == nil {
+				return nil, middleware.NewUnsupportedMediaType(contentType)
+			}
+		}
+		return decoder(ctx, r)
 	}
 }

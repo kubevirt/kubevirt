@@ -1,0 +1,32 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VM
+metadata:
+  name: testvm
+spec:
+  domain:
+    devices:
+      graphics:
+      - autoPort: "yes"
+        defaultMode: any
+        type: spice
+      interfaces:
+      - source:
+          network: default
+        type: network
+      video:
+      - Model:
+          VGAMem: 16384
+          heads: 1
+          ram: 65536
+          type: qxl
+          vram: 8192
+    memory:
+      unit: KiB
+      value: 8192
+    name: testvm
+    os:
+      type:
+        os: hvm
+    type: qemu
+  nodeSelector:
+    kubernetes.io/hostname: master

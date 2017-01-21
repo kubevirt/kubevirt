@@ -49,25 +49,45 @@ func (h *handlerBuilder) Build(ctx context.Context) *kithttp.Server {
 
 func (h *handlerBuilder) Post(payloadTypePtr interface{}) HandlerBuilder {
 	h.decoder = NewJsonPostDecodeRequestFunc(payloadTypePtr)
-	h.encoder = NewEncodeJsonResponse(http.StatusCreated)
+	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusCreated),
+		map[string]kithttp.EncodeResponseFunc{
+			"application/json": NewEncodeJsonResponse(http.StatusCreated),
+			"application/yaml": NewEncodeYamlResponse(http.StatusCreated),
+		},
+	)
 	return h
 }
 
 func (h *handlerBuilder) Get() HandlerBuilder {
 	h.decoder = NameNamespaceDecodeRequestFunc
-	h.encoder = NewEncodeJsonResponse(http.StatusOK)
+	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
+		map[string]kithttp.EncodeResponseFunc{
+			"application/json": NewEncodeJsonResponse(http.StatusOK),
+			"application/yaml": NewEncodeYamlResponse(http.StatusOK),
+		},
+	)
 	return h
 }
 
 func (h *handlerBuilder) Delete() HandlerBuilder {
 	h.decoder = NameNamespaceDecodeRequestFunc
-	h.encoder = NewEncodeJsonResponse(http.StatusOK)
+	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
+		map[string]kithttp.EncodeResponseFunc{
+			"application/json": NewEncodeJsonResponse(http.StatusOK),
+			"application/yaml": NewEncodeYamlResponse(http.StatusOK),
+		},
+	)
 	return h
 }
 
 func (h *handlerBuilder) Put(payloadTypePtr interface{}) HandlerBuilder {
 	h.decoder = NewJsonPutDecodeRequestFunc(payloadTypePtr)
-	h.encoder = NewEncodeJsonResponse(http.StatusOK)
+	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
+		map[string]kithttp.EncodeResponseFunc{
+			"application/json": NewEncodeJsonResponse(http.StatusOK),
+			"application/yaml": NewEncodeYamlResponse(http.StatusOK),
+		},
+	)
 	return h
 }
 
