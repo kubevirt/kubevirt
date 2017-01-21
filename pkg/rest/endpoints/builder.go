@@ -6,6 +6,7 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"kubevirt.io/kubevirt/pkg/precond"
+	"net/http"
 )
 
 type HandlerBuilder interface {
@@ -48,25 +49,25 @@ func (h *handlerBuilder) Build(ctx context.Context) *kithttp.Server {
 
 func (h *handlerBuilder) Post(payloadTypePtr interface{}) HandlerBuilder {
 	h.decoder = NewJsonPostDecodeRequestFunc(payloadTypePtr)
-	h.encoder = EncodePostResponse
+	h.encoder = NewEncodeJsonResponse(http.StatusCreated)
 	return h
 }
 
 func (h *handlerBuilder) Get() HandlerBuilder {
 	h.decoder = NameNamespaceDecodeRequestFunc
-	h.encoder = EncodeGetResponse
+	h.encoder = NewEncodeJsonResponse(http.StatusOK)
 	return h
 }
 
 func (h *handlerBuilder) Delete() HandlerBuilder {
 	h.decoder = NameNamespaceDecodeRequestFunc
-	h.encoder = EncodeDeleteResponse
+	h.encoder = NewEncodeJsonResponse(http.StatusOK)
 	return h
 }
 
 func (h *handlerBuilder) Put(payloadTypePtr interface{}) HandlerBuilder {
 	h.decoder = NewJsonPutDecodeRequestFunc(payloadTypePtr)
-	h.encoder = EncodePutResponse
+	h.encoder = NewEncodeJsonResponse(http.StatusOK)
 	return h
 }
 

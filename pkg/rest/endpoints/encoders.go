@@ -6,10 +6,8 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
 	"gopkg.in/ini.v1"
-	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"net/http"
-	"reflect"
 	"strings"
 )
 
@@ -44,52 +42,42 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 	return err
 }
 
-func EncodePostResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	logging.DefaultLogger().Info().Msg(reflect.TypeOf(response).Name())
-	if _, ok := response.(middleware.AppError); ok {
-		return encodeApplicationErrors(context, w, response)
+func NewEncodeJsonResponse(returnCode int) kithttp.EncodeResponseFunc {
+	return func(context context.Context, w http.ResponseWriter, response interface{}) error {
+		if _, ok := response.(middleware.AppError); ok {
+			return encodeApplicationErrors(context, w, response)
+		}
+		return encodeJsonResponse(w, response, returnCode)
 	}
-	return encodeJsonResponse(w, response, http.StatusCreated)
 }
 
-func EncodeGetResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	if _, ok := response.(middleware.AppError); ok {
-		return encodeApplicationErrors(context, w, response)
+func NewEncodeINIResponse(returnCode int) kithttp.EncodeResponseFunc {
+	return func(context context.Context, w http.ResponseWriter, response interface{}) error {
+		if _, ok := response.(middleware.AppError); ok != false {
+			return encodeApplicationErrors(context, w, response)
+		}
+		return encodeINIResponse(w, response, returnCode)
 	}
-	return encodeJsonResponse(w, response, http.StatusOK)
 }
 
-func EncodePlainTextGetResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	if _, ok := response.(middleware.AppError); ok != false {
-		return encodeApplicationErrors(context, w, response)
+func NewEncodeYamlResponse(returnCode int) kithttp.EncodeResponseFunc {
+	return func(context context.Context, w http.ResponseWriter, response interface{}) error {
+		if _, ok := response.(middleware.AppError); ok != false {
+			return encodeApplicationErrors(context, w, response)
+		}
+		return encodeYamlResponse(w, response, returnCode)
 	}
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte(response.(string)))
-	return err
 }
 
-func EncodeINIGetResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	if _, ok := response.(middleware.AppError); ok != false {
-		return encodeApplicationErrors(context, w, response)
-	}
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	cfg := ini.Empty()
-	err := ini.ReflectFrom(cfg, response)
-	if err != nil {
-		return err
-	}
-	_, err = cfg.WriteTo(w)
-	return err
+func encodeJsonResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(returnCode)
+	return json.NewEncoder(w).Encode(response)
 }
 
-func EncodeYamlGetResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	if _, ok := response.(middleware.AppError); ok != false {
-		return encodeApplicationErrors(context, w, response)
-	}
+func encodeYamlResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
 	w.Header().Set("Content-Type", "application/yaml")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(returnCode)
 	b, err := yaml.Marshal(response)
 	if err != nil {
 		return err
@@ -98,18 +86,16 @@ func EncodeYamlGetResponse(context context.Context, w http.ResponseWriter, respo
 	return err
 }
 
-func EncodeDeleteResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	return EncodeGetResponse(context, w, response)
-}
-
-func EncodePutResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	return EncodeGetResponse(context, w, response)
-}
-
-func encodeJsonResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
-	w.Header().Set("Content-Type", "application/json")
+func encodeINIResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
+	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(returnCode)
-	return json.NewEncoder(w).Encode(response)
+	cfg := ini.Empty()
+	err := ini.ReflectFrom(cfg, response)
+	if err != nil {
+		return err
+	}
+	_, err = cfg.WriteTo(w)
+	return err
 }
 
 func NewMimeTypeAwareEncoder(defaultEncoder kithttp.EncodeResponseFunc, encoderMapping map[string]kithttp.EncodeResponseFunc) kithttp.EncodeResponseFunc {
