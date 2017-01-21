@@ -40,9 +40,9 @@ var _ = Describe("Get", func() {
 		handler = http.Handler(restful.NewContainer().Add(ws))
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Get().Endpoint(testGetEndpoint).
-			Encoder(NewMimeTypeAwareEncoder(EncodeGetResponse, map[string]kithttp.EncodeResponseFunc{
-				"text/plain":       EncodeINIGetResponse,
-				"application/yaml": EncodeYamlGetResponse,
+			Encoder(NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK), map[string]kithttp.EncodeResponseFunc{
+				"text/plain":       NewEncodeINIResponse(http.StatusOK),
+				"application/yaml": NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
 		ws.Route(ws.GET("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/vms/{name}").Produces("applicatoin/json", "text/plain", "application/yaml").To(target))
 

@@ -49,11 +49,11 @@ func main() {
 	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
 	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
 		Endpoint(rest.NewSpiceEndpoint(cli, coreCli, vmGVR)).Encoder(
-		endpoints.NewMimeTypeAwareEncoder(endpoints.EncodeGetResponse,
+		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeJsonResponse(http.StatusOK),
 			map[string]kithttp.EncodeResponseFunc{
-				"text/plain":       endpoints.EncodeINIGetResponse,
-				"application/json": endpoints.EncodeGetResponse,
-				"application/yaml": endpoints.EncodeYamlGetResponse,
+				"text/plain":       endpoints.NewEncodeINIResponse(http.StatusOK),
+				"application/json": endpoints.NewEncodeJsonResponse(http.StatusOK),
+				"application/yaml": endpoints.NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
 
 	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(vmGVR, "spice")).
