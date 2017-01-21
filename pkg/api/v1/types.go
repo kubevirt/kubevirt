@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/pkg/types"
 	"kubevirt.io/kubevirt/pkg/api"
 	"kubevirt.io/kubevirt/pkg/precond"
+	"kubevirt.io/kubevirt/pkg/util"
 	"reflect"
 )
 
@@ -65,78 +66,11 @@ func init() {
 	model.AddConversion((*string)(nil), (*uuid.UUID)(nil), func(in reflect.Value) (reflect.Value, error) {
 		return reflect.ValueOf(uuid.FromStringOrNil(in.String())), nil
 	})
-	model.AddConversion((*VMSpec)(nil), (*api.VMSpec)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := api.VMSpec{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*api.VMSpec)(nil), (*VMSpec)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := VMSpec{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*VMSpec)(nil), (*api.VMSpec)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := api.VMSpec{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*VMCondition)(nil), (*api.VMCondition)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := api.VMCondition{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*api.VMCondition)(nil), (*VMCondition)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := VMCondition{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*api.VMStatus)(nil), (*VMStatus)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := VMStatus{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*VMStatus)(nil), (*api.VMStatus)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := api.VMStatus{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*v1.ObjectMeta)(nil), (*kubeapi.ObjectMeta)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := kubeapi.ObjectMeta{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*kubeapi.ObjectMeta)(nil), (*v1.ObjectMeta)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := v1.ObjectMeta{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
+
+	util.AddConversion(&VMSpec{}, &api.VMSpec{})
+	util.AddConversion(&VMCondition{}, &api.VMCondition{})
+	util.AddConversion(&VMStatus{}, &api.VMStatus{})
+	util.AddConversion(&v1.ObjectMeta{}, &kubeapi.ObjectMeta{})
 }
 
 type VM struct {
