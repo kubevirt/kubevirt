@@ -12,4 +12,5 @@ bin/*
 .vagrant
 cluster/vagrant/.kubeconfig
 cluster/vagrant/.kubectl
+cluster/.console.vv
 build-tools/desc/desc

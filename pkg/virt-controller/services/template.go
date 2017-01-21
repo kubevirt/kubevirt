@@ -4,6 +4,8 @@ import (
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
+	"strconv"
+	"strings"
 )
 
 type TemplateService interface {
@@ -19,7 +21,27 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
-	True := true
+
+	// VM target container
+	container := kubev1.Container{
+		Name:            "compute",
+		Image:           t.launcherImage,
+		ImagePullPolicy: kubev1.PullIfNotPresent,
+		Command:         []string{"/virt-launcher", "-qemu-timeout", "60s"},
+	}
+
+	// Set up spice ports
+	ports := []kubev1.ContainerPort{}
+	for i, g := range vm.Spec.Domain.Devices.Graphics {
+		if strings.ToLower(g.Type) == "spice" {
+			ports = append(ports, kubev1.ContainerPort{
+				ContainerPort: g.Port,
+				Name:          "spice" + strconv.Itoa(i),
+			})
+		}
+	}
+	container.Ports = ports
+
 	// TODO use constants for labels
 	pod := kubev1.Pod{
 		ObjectMeta: kubev1.ObjectMeta{
@@ -31,18 +53,9 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 			},
 		},
 		Spec: kubev1.PodSpec{
-			HostNetwork:   true,
 			RestartPolicy: kubev1.RestartPolicyNever,
-			Containers: []kubev1.Container{
-				{
-					Name:            "compute",
-					Image:           t.launcherImage,
-					ImagePullPolicy: kubev1.PullIfNotPresent,
-					Command:         []string{"/virt-launcher", "-qemu-timeout", "60s"},
-					SecurityContext: &kubev1.SecurityContext{Privileged: &True},
-				},
-			},
-			NodeSelector: vm.Spec.NodeSelector,
+			Containers:    []kubev1.Container{container},
+			NodeSelector:  vm.Spec.NodeSelector,
 		},
 	}
 

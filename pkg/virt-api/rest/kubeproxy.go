@@ -28,16 +28,16 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 	post := endpoints.NewHandlerBuilder().Post(ptr).Endpoint(NewGenericPostEndpoint(cli, gvr, response)).Build(ctx)
 	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, response)).Build(ctx)
 
-	ws.Route(ws.POST(fmt.Sprintf("apis/%s/%s/namespaces/{namespace}/%s", gvr.Group, gvr.Version, gvr.Resource)).
+	ws.Route(ws.POST(ResourcePathBase(gvr)).
 		To(endpoints.MakeGoRestfulWrapper(post)).Reads(example).Writes(example))
 
-	ws.Route(ws.PUT(fmt.Sprintf("apis/%s/%s/namespaces/{namespace}/%s/{name}", gvr.Group, gvr.Version, gvr.Resource)).
+	ws.Route(ws.PUT(ResourcePath(gvr)).
 		To(endpoints.MakeGoRestfulWrapper(put)).Reads(example).Writes(example).Doc("test2"))
 
-	ws.Route(ws.DELETE(fmt.Sprintf("apis/%s/%s/namespaces/{namespace}/%s/{name}", gvr.Group, gvr.Version, gvr.Resource)).
+	ws.Route(ws.DELETE(ResourcePath(gvr)).
 		To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"))
 
-	ws.Route(ws.GET(fmt.Sprintf("apis/%s/%s/namespaces/{namespace}/%s/{name}", gvr.Group, gvr.Version, gvr.Resource)).
+	ws.Route(ws.GET(ResourcePath(gvr)).
 		To(endpoints.MakeGoRestfulWrapper(get)).Writes(example).Doc("test4"))
 	return nil
 }
@@ -87,4 +87,16 @@ func NewResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) Respons
 		return obj, nil
 
 	}
+}
+
+func ResourcePathBase(gvr schema.GroupVersionResource) string {
+	return fmt.Sprintf("apis/%s/%s/namespaces/{namespace}/%s", gvr.Group, gvr.Version, gvr.Resource)
+}
+
+func ResourcePath(gvr schema.GroupVersionResource) string {
+	return ResourcePathBase(gvr) + "/{name}"
+}
+
+func SubResourcePath(gvr schema.GroupVersionResource, subResource string) string {
+	return ResourcePath(gvr) + "/" + subResource
 }

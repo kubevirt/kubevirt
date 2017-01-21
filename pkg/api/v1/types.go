@@ -38,6 +38,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&v1.ListOptions{},
 		&kubeapi.DeleteOptions{},
 		&v1.DeleteOptions{},
+		&Spice{},
 	)
 	return nil
 }
@@ -291,6 +292,33 @@ func NewMinimalVM(vmName string) *VM {
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       "VM",
+		},
+	}
+}
+
+type Spice struct {
+	metav1.TypeMeta `json:",inline"`
+	ObjectMeta      kubeapi.ObjectMeta `json:"metadata,omitempty"`
+	Info            SpiceInfo          `json:"info,omitempty" valid:"required"`
+}
+
+type SpiceInfo struct {
+	Type  string `json:"type"`
+	Host  string `json:"host"`
+	Port  int32  `json:"port"`
+	Proxy string `json:"proxy,omitempty"`
+}
+
+func NewSpice(vmName string) *Spice {
+	return &Spice{
+		Info: SpiceInfo{},
+		ObjectMeta: kubeapi.ObjectMeta{
+			Name:      vmName,
+			Namespace: kubeapi.NamespaceDefault,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       "Spice",
 		},
 	}
 }

@@ -20,6 +20,9 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 	case *middleware.ResourceNotFoundError:
 		w.WriteHeader(http.StatusNotFound)
 		_, err = w.Write([]byte(t.Cause().Error()))
+	case middleware.BadRequestError:
+		w.WriteHeader(http.StatusBadRequest)
+		_, err = w.Write([]byte(t.Cause().Error()))
 	case middleware.ResourceExistsError:
 		w.WriteHeader(http.StatusConflict)
 		_, err = w.Write([]byte(t.Cause().Error()))
@@ -47,6 +50,16 @@ func EncodeGetResponse(context context.Context, w http.ResponseWriter, response 
 		return encodeApplicationErrors(context, w, response)
 	}
 	return encodeJsonResponse(w, response, http.StatusOK)
+}
+
+func EncodePlainTextGetResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
+	if _, ok := response.(middleware.AppError); ok != false {
+		return encodeApplicationErrors(context, w, response)
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte(response.(string)))
+	return err
 }
 
 func EncodeDeleteResponse(context context.Context, w http.ResponseWriter, response interface{}) error {

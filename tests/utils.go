@@ -38,7 +38,7 @@ func (w *ObjectEventWatcher) Watch() {
 	defer eventWatcher.Stop()
 
 	for obj := range eventWatcher.ResultChan() {
-		if done := w.process(obj.Object.(*kubev1.Event)); done == true {
+		if w.process(obj.Object.(*kubev1.Event)) {
 			break
 		}
 	}
@@ -69,4 +69,26 @@ func PanicOnError(err error) {
 
 func NewRandomVM() *v1.VM {
 	return v1.NewMinimalVM("testvm" + rand.String(5))
+}
+
+func NewRandomVMWithSpice() *v1.VM {
+	vm := NewRandomVM()
+	vm.Spec.Domain.Devices.Video = []v1.Video{
+		{
+			Model: v1.VideoModel{
+				Type:   "qxl",
+				Heads:  1,
+				Ram:    65563,
+				VGAMem: 16384,
+				VRam:   8192,
+			},
+		},
+	}
+	vm.Spec.Domain.Devices.Graphics = []v1.Graphics{
+		{
+			DefaultMode: "any",
+			Type:        "spice",
+		},
+	}
+	return vm
 }
