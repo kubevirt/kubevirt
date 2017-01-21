@@ -160,7 +160,7 @@ func NewDomain(dom virtwrap.VirDomain) (*virtwrap.Domain, error) {
 	}
 	return &virtwrap.Domain{
 		Spec: virtwrap.DomainSpec{},
-		ObjectMeta: kubeapi.ObjectMeta{
+		ObjectMeta: kubev1.ObjectMeta{
 			Name:      name,
 			UID:       types.UID(uuid),
 			Namespace: kubeapi.NamespaceDefault,

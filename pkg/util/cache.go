@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"k8s.io/client-go/pkg/api"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
@@ -23,7 +24,7 @@ func NewVMCache() (cache.SharedInformer, error) {
 // TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
 func NewVMReferenceFromName(name string) *v1.VM {
 	vm := &v1.VM{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: kubev1.ObjectMeta{
 			Name:      name,
 			Namespace: api.NamespaceDefault,
 			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", v1.GroupVersion.String(), api.NamespaceDefault, name),

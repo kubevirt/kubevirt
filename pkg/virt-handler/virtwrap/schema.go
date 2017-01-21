@@ -3,8 +3,8 @@ package virtwrap
 import (
 	"encoding/xml"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/meta"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -78,7 +78,7 @@ var LifeCycleTranslationMap = map[libvirt.DomainState]LifeCycle{
 
 type Domain struct {
 	metav1.TypeMeta
-	ObjectMeta api.ObjectMeta
+	ObjectMeta kubev1.ObjectMeta
 	Spec       DomainSpec
 	Status     DomainStatus
 }
