@@ -6,7 +6,6 @@ import (
 	"github.com/emicklei/go-restful/swagger"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
-	"gopkg.in/ini.v1"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -21,7 +20,6 @@ import (
 func main() {
 
 	logging.InitializeLogging("virt-api")
-	ini.PrettyFormat = false
 	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8183, "Port to listen on")
