@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"github.com/emicklei/go-restful"
 	"golang.org/x/net/context"
+	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"net/http/httptest"
@@ -17,10 +18,19 @@ import (
 	"strings"
 )
 
-func marshal(payload interface{}) io.ReadCloser {
+func marshalToJSON(payload interface{}) io.ReadCloser {
 	var b []byte
 	buffer := bytes.NewBuffer(b)
-	json.NewEncoder(buffer).Encode(payload)
+	Expect(json.NewEncoder(buffer).Encode(payload)).To(Succeed())
+	return ioutil.NopCloser(buffer)
+}
+
+func marshalToYAML(payload interface{}) io.ReadCloser {
+	var b []byte
+	buffer := bytes.NewBuffer(b)
+	raw, err := yaml.Marshal(payload)
+	Expect(err).ToNot(HaveOccurred())
+	buffer.Write(raw)
 	return ioutil.NopCloser(buffer)
 }
 
@@ -31,7 +41,7 @@ type payload struct {
 
 func newValidPutRequest() *http.Request {
 	request, _ := http.NewRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/test", nil)
-	request.Body = marshal(payload{Name: "test", Email: "test@test.com"})
+	request.Body = marshalToJSON(payload{Name: "test", Email: "test@test.com"})
 	request.Header.Set("Content-Type", "application/json")
 	return request
 }
@@ -50,7 +60,7 @@ var _ = Describe("Put", func() {
 	BeforeEach(func() {
 
 		ws := new(restful.WebService)
-		ws.Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON)
+		ws.Produces(restful.MIME_JSON, "application/yaml").Consumes(restful.MIME_JSON, "application/yaml")
 		handler = http.Handler(restful.NewContainer().Add(ws))
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Put((*payload)(nil)).Endpoint(testPutEndpoint).Build(ctx))
@@ -84,14 +94,14 @@ var _ = Describe("Put", func() {
 		})
 		Context("with missing name field", func() {
 			It("should return 400", func() {
-				request.Body = marshal(payload{Email: "test@test.com"})
+				request.Body = marshalToJSON(payload{Email: "test@test.com"})
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
 		Context("with invalid email", func() {
 			It("should return 400", func() {
-				request.Body = marshal(payload{Name: "test", Email: "wrong"})
+				request.Body = marshalToJSON(payload{Name: "test", Email: "wrong"})
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 			})
@@ -106,6 +116,19 @@ var _ = Describe("Put", func() {
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)
 				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
+				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
+			})
+		})
+		Context("with valid YAML", func() {
+			It("should accept it and return it as YAML", func() {
+				request.Header.Set("Content-Type", "application/yaml")
+				request.Header.Set("Accept", "application/yaml")
+				request.Body = marshalToYAML(&payload{Name: "test", Email: "test@test.com"})
+				handler.ServeHTTP(recorder, request)
+				Expect(recorder.Code).To(Equal(http.StatusOK))
+				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/yaml"))
+				responseBody := payload{}
+				yaml.Unmarshal(recorder.Body.Bytes(), &responseBody)
 				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
 			})
 		})
