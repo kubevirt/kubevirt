@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"flag"
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gopkg.in/ini.v1"
 	"io"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -54,14 +56,16 @@ var _ = Describe("Vmlifecycle", func() {
 				return false
 			}).Watch()
 			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", "text/plain").SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
-			Expect(err).To(BeNil())
-			spice := strings.Split(string(raw), "\n")
+			spice, err := ini.Load(raw)
+			Expect(err).To(Not(HaveOccurred()))
 
-			Expect(spice[0]).To(Equal("[virt-viewer]"))
-			Expect(spice[1]).To(Equal("type=spice"))
-			Expect(spice[2]).To(ContainSubstring("host="))
-			Expect(spice[3]).To(Equal("port=4000"))
-			Expect(spice[4]).To(ContainSubstring("proxy="))
+			Expect(spice.Section("virt-viewer")).NotTo(BeNil())
+			section := spice.Section("virt-viewer")
+			Expect(section.HasKey("type")).To(BeTrue())
+			Expect(section.HasKey("host")).To(BeTrue())
+			Expect(section.HasKey("port")).To(BeTrue())
+			Expect(section.Key("port").Value()).To(Equal("4000"))
+			Expect(section.HasKey("proxy")).To(BeTrue())
 			close(done)
 		}, 10)
 
@@ -103,17 +107,19 @@ var _ = Describe("Vmlifecycle", func() {
 			}).Watch()
 			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", "text/plain").SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			Expect(err).To(BeNil())
-			spice := strings.Split(string(raw), "\n")
+			spiceINI, err := ini.Load(raw)
+			Expect(err).NotTo(HaveOccurred())
+			spice := v1.SpiceInfo{}
+			Expect(spiceINI.Section("virt-viewer").MapTo(&spice)).To(Succeed())
 
-			proxy := strings.TrimPrefix(spice[4], "proxy=http://")
-			port := strings.TrimPrefix(spice[3], "port=")
-			podIP := strings.TrimPrefix(spice[2], "host=")
+			proxy := strings.TrimPrefix(spice.Proxy, "http://")
+			host := fmt.Sprintf("%s:%d", spice.Host, spice.Port)
 
 			// Let's see if we can connect to the spice port through the proxy
 			conn, err := net.Dial("tcp", proxy)
 			Expect(err).To(BeNil())
-			conn.Write([]byte("CONNECT " + podIP + ":" + port + " HTTP/1.1\r\n"))
-			conn.Write([]byte("Host: " + podIP + ":" + port + "\r\n"))
+			conn.Write([]byte("CONNECT " + host + " HTTP/1.1\r\n"))
+			conn.Write([]byte("Host: " + host + "\r\n"))
 			conn.Write([]byte("\r\n"))
 			line, err := bufio.NewReader(conn).ReadString('\n')
 			Expect(err).To(BeNil())
