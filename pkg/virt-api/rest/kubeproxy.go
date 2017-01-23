@@ -14,6 +14,7 @@ import (
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 	"reflect"
+	"strings"
 )
 
 type ResponseHandlerFunc func(rest.Result) (interface{}, error)
@@ -23,13 +24,16 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 	if err != nil {
 		return err
 	}
+	// We don't have to set root here, since the whole webservice has that prefix:
+	// ws.Path(ResourcePathBase(gvr.GroupVersion()))
+
 	example := reflect.ValueOf(ptr).Elem().Interface()
 	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, response)).Build(ctx)
 	put := endpoints.NewHandlerBuilder().Put(ptr).Endpoint(NewGenericPutEndpoint(cli, gvr, response)).Build(ctx)
 	post := endpoints.NewHandlerBuilder().Post(ptr).Endpoint(NewGenericPostEndpoint(cli, gvr, response)).Build(ctx)
 	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, response)).Build(ctx)
 
-	ws.Route(ws.POST(ResourcePathBase(gvr)).
+	ws.Route(ws.POST(ResourcePath(gvr)).
 		Produces(mime.MIME_JSON, mime.MIME_YAML).
 		Consumes(mime.MIME_JSON, mime.MIME_YAML).
 		To(endpoints.MakeGoRestfulWrapper(post)).Reads(example).Writes(example))
@@ -97,14 +101,17 @@ func NewResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) Respons
 	}
 }
 
-func ResourcePathBase(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("apis/%s/%s/namespaces/{namespace}/%s", gvr.Group, gvr.Version, gvr.Resource)
+func ResourcePathBase(gvr schema.GroupVersion) string {
+	return fmt.Sprintf("/apis/%s/%s", gvr.Group, gvr.Version)
 }
 
 func ResourcePath(gvr schema.GroupVersionResource) string {
-	return ResourcePathBase(gvr) + "/{name}"
+	return fmt.Sprintf("/namespaces/{namespace}/%s/{name}", gvr.Resource)
 }
 
-func SubResourcePath(gvr schema.GroupVersionResource, subResource string) string {
-	return ResourcePath(gvr) + "/" + subResource
+func SubResourcePath(subResource string) string {
+	if !strings.HasPrefix(subResource, "/") {
+		return "/" + subResource
+	}
+	return subResource
 }
