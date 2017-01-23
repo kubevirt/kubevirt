@@ -11,7 +11,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
 func NewVMController(lw cache.ListerWatcher, domainManager libvirt.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient) (cache.Indexer, *kubecli.Controller) {
