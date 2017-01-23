@@ -10,6 +10,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/libvirt"
 )
 
@@ -25,7 +26,6 @@ func NewVMController(lw cache.ListerWatcher, domainManager libvirt.DomainManager
 		obj, exists, err := indexer.GetByKey(key.(string))
 
 		if err != nil {
-			// TODO do something more smart here
 			queue.AddRateLimited(key)
 			return true
 		}
@@ -39,7 +39,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager libvirt.DomainManager
 				queue.AddRateLimited(key)
 				return true
 			}
-			vm = libvirt.NewVMReferenceFromName(name)
+			vm = util.NewVMReferenceFromName(name)
 		} else {
 			vm = obj.(*v1.VM)
 		}
