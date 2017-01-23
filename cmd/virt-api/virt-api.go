@@ -55,7 +55,7 @@ func main() {
 				mime.MIME_YAML: endpoints.NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
 
-	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(vmGVR, "spice")).
+	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
 		To(spice).Produces("text/plain", "application/json", "application/yaml").
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(spiceGVR)).
@@ -65,7 +65,7 @@ func main() {
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(), // you control what services are visible
 		WebServicesUrl:  "http://localhost:8183",
-		ApiPath:         "/apidocs.json",
+		ApiPath:         "/swaggerapi",
 		SwaggerPath:     "/apidocs/",
 		SwaggerFilePath: *swaggerui,
 	}

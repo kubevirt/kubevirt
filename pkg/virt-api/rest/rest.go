@@ -25,10 +25,10 @@ var spiceProxy string
 
 func init() {
 	WebService = new(restful.WebService)
-	WebService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	WebService.Path(ResourcePathBase(v1.GroupVersion)).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
 	WebService.ApiVersion(v1.GroupVersion.String()).Doc("help")
 	restful.Add(WebService)
-	WebService.Route(WebService.GET("/apis/" + v1.GroupVersion.String() + "/healthz").To(healthz.KubeConnectionHealthzFunc).Doc("Health endpoint"))
+	WebService.Route(WebService.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).Doc("Health endpoint"))
 	// TODO should be reloadable, use configmaps and update on every access? Watch a config file and reload?
 	flag.StringVar(&spiceProxy, "spice-proxy", "", "Spice proxy to use when spice access is requested")
 }
