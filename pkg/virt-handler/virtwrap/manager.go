@@ -98,16 +98,38 @@ func NewConnection(uri string, user string, pass string) (Connection, error) {
 
 }
 
-func newConnection(uri string, user string /**pass*/, _ string) (*libvirt.Connect, error) {
+// TODO: needs a functional test.
+func authWithPassword(uri string, user string, pass string) (*libvirt.Connect, error) {
+	callback := func(creds []*libvirt.ConnectCredential) {
+		for _, cred := range creds {
+			if cred.Type == libvirt.CRED_AUTHNAME {
+				cred.Result = user
+				cred.ResultLen = len(cred.Result)
+			} else if cred.Type == libvirt.CRED_PASSPHRASE {
+				cred.Result = pass
+				cred.ResultLen = len(cred.Result)
+			}
+		}
+	}
+	auth := &libvirt.ConnectAuth{
+		CredType: []libvirt.ConnectCredentialType{
+			libvirt.CRED_AUTHNAME, libvirt.CRED_PASSPHRASE,
+		},
+		Callback: callback,
+	}
+	virConn, err := libvirt.NewConnectWithAuth(uri, auth, 0)
+
+	return virConn, err
+}
+
+func newConnection(uri string, user string, pass string) (*libvirt.Connect, error) {
 	var virConn *libvirt.Connect
 	var err error
 	if user == "" {
 		virConn, err = libvirt.NewConnect(uri)
+	} else {
+		virConn, err = authWithPassword(uri, user, pass)
 	}
-	// TODO: Reimplement using the SASL style ConnectAuth
-	//else {
-	//	virConn, err = libvirt.NewConnectWithAuth(uri, user, pass)
-	//}
 	return virConn, err
 }
 
