@@ -1,8 +1,8 @@
-package libvirt
+package virtwrap
 
 import (
 	"encoding/xml"
-	"github.com/rgbkrk/libvirt-go"
+	"github.com/libvirt/libvirt-go"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/meta"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
@@ -65,15 +65,15 @@ const (
 	PMSuspended LifeCycle = "PMSuspended"
 )
 
-var LifeCycleTranslationMap = map[int]LifeCycle{
-	libvirt.VIR_DOMAIN_NOSTATE:     NoState,
-	libvirt.VIR_DOMAIN_RUNNING:     Running,
-	libvirt.VIR_DOMAIN_BLOCKED:     Blocked,
-	libvirt.VIR_DOMAIN_PAUSED:      Paused,
-	libvirt.VIR_DOMAIN_SHUTDOWN:    Shutdown,
-	libvirt.VIR_DOMAIN_SHUTOFF:     Shutoff,
-	libvirt.VIR_DOMAIN_CRASHED:     Crashed,
-	libvirt.VIR_DOMAIN_PMSUSPENDED: PMSuspended,
+var LifeCycleTranslationMap = map[libvirt.DomainState]LifeCycle{
+	libvirt.DOMAIN_NOSTATE:     NoState,
+	libvirt.DOMAIN_RUNNING:     Running,
+	libvirt.DOMAIN_BLOCKED:     Blocked,
+	libvirt.DOMAIN_PAUSED:      Paused,
+	libvirt.DOMAIN_SHUTDOWN:    Shutdown,
+	libvirt.DOMAIN_SHUTOFF:     Shutoff,
+	libvirt.DOMAIN_CRASHED:     Crashed,
+	libvirt.DOMAIN_PMSUSPENDED: PMSuspended,
 }
 
 type Domain struct {

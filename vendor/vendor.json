@@ -97,6 +97,12 @@
 			"revisionTime": "2014-02-26T03:06:59Z"
 		},
 		{
+			"checksumSHA1": "9uPqPshCXYpIMBEj5um0iPDSiAg=",
+			"path": "github.com/libvirt/libvirt-go",
+			"revision": "9730c83200cc23efa557aeef3d62ebfb666d5667",
+			"revisionTime": "2017-01-16T17:26:24Z"
+		},
+		{
 			"checksumSHA1": "5CYrIFTTUD3pONFo8uEO21Ajz68=",
 			"path": "github.com/onsi/ginkgo",
 			"revision": "acfa16ac8e9e0d2c6b11cfe78c79d8652c3ee3fd",
@@ -263,12 +269,6 @@
 			"path": "github.com/onsi/gomega/types",
 			"revision": "d59fa0ac68bb5dd932ee8d24eed631cdd519efc3",
 			"revisionTime": "2016-09-11T05:10:23Z"
-		},
-		{
-			"checksumSHA1": "DPHtow4r29lv9L6pbEv2Qp4QDiQ=",
-			"path": "github.com/rgbkrk/libvirt-go",
-			"revision": "26ca5c67cc596be31f449f59ae21844484028ed3",
-			"revisionTime": "2016-08-30T04:10:46Z"
 		},
 		{
 			"checksumSHA1": "zmC8/3V4ls53DJlNTKDZwPSC/dA=",
