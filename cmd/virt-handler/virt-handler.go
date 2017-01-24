@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	libvirtapi "github.com/libvirt/libvirt-go"
+	"github.com/libvirt/libvirt-go"
 	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -25,7 +25,7 @@ import (
 func main() {
 
 	logging.InitializeLogging("virt-handler")
-	libvirtapi.EventRegisterDefaultImpl()
+	libvirt.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("virtwrap-uri", "qemu:///system", "Libvirt connection string.")
 	libvirtUser := flag.String("user", "", "Libvirt user")
 	libvirtPass := flag.String("pass", "", "Libvirt password")
@@ -44,7 +44,7 @@ func main() {
 
 	go func() {
 		for {
-			if res := libvirtapi.EventRunDefaultImpl(); res != nil {
+			if res := libvirt.EventRunDefaultImpl(); res != nil {
 				// Report the error somehow or break the loop.
 				log.Warning().Log("msg", "No results from virtwrap")
 			}
