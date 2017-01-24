@@ -25,7 +25,7 @@ var spiceProxy string
 
 func init() {
 	WebService = new(restful.WebService)
-	WebService.Path(ResourcePathBase(v1.GroupVersion)).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	WebService.Path(GroupVersionBasePath(v1.GroupVersion)).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
 	WebService.ApiVersion(v1.GroupVersion.String()).Doc("help")
 	restful.Add(WebService)
 	WebService.Route(WebService.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).Doc("Health endpoint"))

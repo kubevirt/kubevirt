@@ -13,35 +13,38 @@ import (
 	"kubevirt.io/kubevirt/pkg/middleware"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
+	"net/http"
 	"reflect"
 	"strings"
 )
 
 type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
-func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, ptr runtime.Object, response ResponseHandlerFunc) error {
+func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objListPointer runtime.Object, response ResponseHandlerFunc) error {
 	cli, err := kubecli.GetRESTClient()
 	if err != nil {
 		return err
 	}
 	// We don't have to set root here, since the whole webservice has that prefix:
-	// ws.Path(ResourcePathBase(gvr.GroupVersion()))
+	// ws.Path(GroupVersionBasePath(gvr.GroupVersion()))
 
-	example := reflect.ValueOf(ptr).Elem().Interface()
+	objExample := reflect.ValueOf(objPointer).Elem().Interface()
+	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
+
 	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, response)).Build(ctx)
-	put := endpoints.NewHandlerBuilder().Put(ptr).Endpoint(NewGenericPutEndpoint(cli, gvr, response)).Build(ctx)
-	post := endpoints.NewHandlerBuilder().Post(ptr).Endpoint(NewGenericPostEndpoint(cli, gvr, response)).Build(ctx)
+	put := endpoints.NewHandlerBuilder().Put(objPointer).Endpoint(NewGenericPutEndpoint(cli, gvr, response)).Build(ctx)
+	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli, gvr, response)).Build(ctx)
 	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, response)).Build(ctx)
 
 	ws.Route(ws.POST(ResourcePath(gvr)).
 		Produces(mime.MIME_JSON, mime.MIME_YAML).
 		Consumes(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(post)).Reads(example).Writes(example))
+		To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample))
 
 	ws.Route(ws.PUT(ResourcePath(gvr)).
 		Produces(mime.MIME_JSON, mime.MIME_YAML).
 		Consumes(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(put)).Reads(example).Writes(example).Doc("test2"))
+		To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).Doc("test2"))
 
 	ws.Route(ws.DELETE(ResourcePath(gvr)).
 		Produces(mime.MIME_JSON, mime.MIME_YAML).
@@ -50,7 +53,26 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 
 	ws.Route(ws.GET(ResourcePath(gvr)).
 		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(get)).Writes(example).Doc("test4"))
+		To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"))
+
+	// TODO, implement watch. For now it is here to provide swagger doc only
+	ws.Route(ws.GET("/watch/" + gvr.Resource).
+		Produces(mime.MIME_JSON).
+		To(NotImplementedYet).Writes(objExample))
+	ws.Route(ws.GET("/watch" + ResourceBasePath(gvr)).
+		Produces(mime.MIME_JSON).
+		To(NotImplementedYet).Writes(objExample))
+
+	// TODO List all vms in namespace
+	ws.Route(ws.GET(ResourceBasePath(gvr)).
+		Produces(mime.MIME_JSON).
+		Writes(listExample).
+		To(NotImplementedYet).Writes(objExample))
+
+	// TODO Delete all vms in namespace
+	ws.Route(ws.DELETE(ResourceBasePath(gvr)).
+		Produces(mime.MIME_JSON).
+		To(NotImplementedYet).Writes(objExample))
 	return nil
 }
 
@@ -86,6 +108,13 @@ func NewGenericGetEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource
 	}
 }
 
+func NotImplementedYet(request *restful.Request, response *restful.Response) {
+	response.AddHeader("Content-Type", "text/plain")
+	response.WriteHeader(http.StatusInternalServerError)
+	response.Write([]byte("Not implemented yet, use the native apiserver endpoint."))
+
+}
+
 //FIXME this is basically one big workaround because version and kind are not filled by the restclient
 func NewResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) ResponseHandlerFunc {
 	return func(result rest.Result) (interface{}, error) {
@@ -101,8 +130,12 @@ func NewResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) Respons
 	}
 }
 
-func ResourcePathBase(gvr schema.GroupVersion) string {
+func GroupVersionBasePath(gvr schema.GroupVersion) string {
 	return fmt.Sprintf("/apis/%s/%s", gvr.Group, gvr.Version)
+}
+
+func ResourceBasePath(gvr schema.GroupVersionResource) string {
+	return fmt.Sprintf("/namespaces/{namespace}/%s", gvr.Resource)
 }
 
 func ResourcePath(gvr schema.GroupVersionResource) string {

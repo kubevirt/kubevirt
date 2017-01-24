@@ -32,7 +32,7 @@ func main() {
 	gvk := schema.GroupVersionKind{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Kind: "VM"}
 
 	// FIXME the whole NewResponseHandler is just a hack, see the method itself for details
-	err := rest.AddGenericResourceProxy(rest.WebService, ctx, vmGVR, &v1.VM{}, rest.NewResponseHandler(gvk, &v1.VM{}))
+	err := rest.AddGenericResourceProxy(rest.WebService, ctx, vmGVR, &v1.VM{}, &v1.VMList{}, rest.NewResponseHandler(gvk, &v1.VM{}))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func main() {
 		WebServices:     restful.RegisteredWebServices(), // you control what services are visible
 		WebServicesUrl:  "http://localhost:8183",
 		ApiPath:         "/swaggerapi",
-		SwaggerPath:     "/apidocs/",
+		SwaggerPath:     "/swagger-ui/",
 		SwaggerFilePath: *swaggerui,
 	}
 	swagger.InstallSwaggerService(config)
