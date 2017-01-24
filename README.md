@@ -45,7 +45,13 @@ Example:
 
 ## Getting Started
 
-To get started right away please read our
+**Demo** To try out our demo run
+```bash
+$ curl run.kubevirt.io/demo.sh | bash
+```
+on a recent Fedora or Ubuntu and follow [these steps](https://github.com/kubevirt/demo).
+
+**Developer** To setup a development environment please read our
 [Getting Started Guide](docs/getting-started.md).
 
 
