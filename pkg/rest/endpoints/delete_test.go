@@ -21,7 +21,7 @@ func newValidDeleteRequest() *http.Request {
 
 func testDeleteEndpoint(_ context.Context, request interface{}) (interface{}, error) {
 	Expect(request.(*Metadata).Name).To(Equal("test"))
-	return payload{Name: request.(*Metadata).Name}, nil
+	return payload{Name: request.(*Metadata).Name, Metadata: *request.(*Metadata)}, nil
 }
 
 var _ = Describe("Delete", func() {
@@ -60,7 +60,14 @@ var _ = Describe("Delete", func() {
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)
 				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_JSON))
-				Expect(responseBody).To(Equal(payload{Name: "test"}))
+				Expect(responseBody).To(Equal(payload{Name: "test", Metadata: Metadata{Name: "test", Namespace: "default"}}))
+			})
+			It("should detect labelSelector", func() {
+				request, _ := http.NewRequest("DELETE", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/test?labelSelector=app%3Dmyapp", nil)
+				handler.ServeHTTP(recorder, request)
+				responseBody := payload{}
+				json.NewDecoder(recorder.Body).Decode(&responseBody)
+				Expect(responseBody.Metadata.Headers.LabelSelector).To(Equal("app=myapp"))
 			})
 		})
 	})

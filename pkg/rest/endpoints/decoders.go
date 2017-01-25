@@ -15,7 +15,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type PutObject struct {
@@ -36,7 +35,7 @@ type MetadataHeader struct {
 	LabelSelector   string
 	FieldSelector   string
 	ResourceVersion string
-	Timeout         time.Duration
+	TimeoutSeconds  int64
 }
 
 const (
@@ -95,7 +94,7 @@ func queryExtractor(ctx context.Context, r *http.Request) (*MetadataHeader, erro
 	meta.LabelSelector = rest.QueryParameter("labelSelector")
 	meta.ResourceVersion = rest.QueryParameter("resourceVersion")
 
-	if err := extractDuration(rest.QueryParameter("timeoutSeconds"), &(meta.Timeout)); err != nil {
+	if err := extractDuration(rest.QueryParameter("timeoutSeconds"), &(meta.TimeoutSeconds)); err != nil {
 		return nil, err
 	}
 	return meta, nil
@@ -112,14 +111,14 @@ func extractBool(header string, target *bool) error {
 	return nil
 }
 
-func extractDuration(header string, target *time.Duration) error {
+func extractDuration(header string, target *int64) error {
 	if header != "" {
 		f, err := strconv.Atoi(header)
 		if err != nil {
 			return err
 		}
-		t := time.Second * time.Duration(f)
-		target = &t
+		f64 := int64(f)
+		target = &f64
 	}
 	return nil
 }
