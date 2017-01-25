@@ -255,9 +255,14 @@ cluster/kubectl.sh spice testvm --details
 To directly query the config, do
 
 ```bash
-curl $HOST/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm/spice -H"Accept:text/plain"
+curl 192.168.200.2:8184/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm/spice -H"Accept:text/plain"
 ```
 
 ### Accessing the Domain via the SPICE primary resource
 
 Since `kubectl` does not support TPR subresources yet, the above `cluster/kubectl.sh spice` magic is just a wrapper.
+
+## API Documentation
+
+The combined swagger documentation of Kubernetes and KubeVirt can be accessed under [/swaggerapi](http://192.168.200.2:8184/swaggerapi).
+There is also an embedded swagger-ui instance running inside the cluster. It can be accessed via [/swagger-ui](http://192.168.200.2:8184/swaggerapi).
