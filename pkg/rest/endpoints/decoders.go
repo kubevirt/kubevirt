@@ -13,7 +13,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type PutObject struct {
@@ -24,6 +26,17 @@ type PutObject struct {
 type Metadata struct {
 	Name      string
 	Namespace string
+	Headers   MetadataHeader
+}
+
+type MetadataHeader struct {
+	Pretty          bool
+	Export          bool
+	Exact           bool
+	LabelSelector   string
+	FieldSelector   string
+	ResourceVersion string
+	Timeout         time.Duration
 }
 
 const (
@@ -64,6 +77,53 @@ func nameDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, e
 	return name, nil
 }
 
+func queryExtractor(ctx context.Context, r *http.Request) (*MetadataHeader, error) {
+	rest := GetRestfulRequest(ctx)
+	meta := &MetadataHeader{}
+
+	if err := extractBool(rest.QueryParameter("pretty"), &(meta.Pretty)); err != nil {
+		return nil, err
+	}
+
+	if err := extractBool(rest.QueryParameter("export"), &(meta.Export)); err != nil {
+		return nil, err
+	}
+	if err := extractBool(rest.QueryParameter("exact"), &(meta.Exact)); err != nil {
+		return nil, err
+	}
+	meta.FieldSelector = rest.QueryParameter("fieldSelector")
+	meta.LabelSelector = rest.QueryParameter("labelSelector")
+	meta.ResourceVersion = rest.QueryParameter("resourceVersion")
+
+	if err := extractDuration(rest.QueryParameter("timeoutSeconds"), &(meta.Timeout)); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+func extractBool(header string, target *bool) error {
+	if header != "" {
+		f, err := strconv.ParseBool(header)
+		if err != nil {
+			return err
+		}
+		target = &f
+	}
+	return nil
+}
+
+func extractDuration(header string, target *time.Duration) error {
+	if header != "" {
+		f, err := strconv.Atoi(header)
+		if err != nil {
+			return err
+		}
+		t := time.Second * time.Duration(f)
+		target = &t
+	}
+	return nil
+}
+
 func namespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, error) {
 	rest := GetRestfulRequest(ctx)
 
@@ -78,6 +138,18 @@ func namespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface
 	return namespace, nil
 }
 
+func NamespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, error) {
+	namespace, err := namespaceDecodeRequestFunc(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	headers, err := queryExtractor(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return &Metadata{Namespace: namespace.(string), Headers: *headers}, nil
+}
+
 func NameNamespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, error) {
 	name, err := nameDecodeRequestFunc(ctx, r)
 	if err != nil {
@@ -87,8 +159,11 @@ func NameNamespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (inter
 	if err != nil {
 		return nil, err
 	}
-
-	return &Metadata{Name: name.(string), Namespace: namespace.(string)}, nil
+	headers, err := queryExtractor(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return &Metadata{Name: name.(string), Namespace: namespace.(string), Headers: *headers}, nil
 }
 
 func NewJsonDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRequestFunc {
@@ -134,7 +209,7 @@ func NewJsonPostDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRe
 		},
 	)
 	return func(ctx context.Context, r *http.Request) (interface{}, error) {
-		namespace, err := namespaceDecodeRequestFunc(ctx, r)
+		metadata, err := NamespaceDecodeRequestFunc(ctx, r)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +217,7 @@ func NewJsonPostDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRe
 		if err != nil {
 			return nil, err
 		}
-		return &PutObject{Metadata: Metadata{Namespace: namespace.(string)}, Payload: payload}, nil
+		return &PutObject{Metadata: *metadata.(*Metadata), Payload: payload}, nil
 	}
 }
 

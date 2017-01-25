@@ -36,44 +36,105 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli, gvr, response)).Build(ctx)
 	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, response)).Build(ctx)
 
-	ws.Route(ws.POST(ResourcePath(gvr)).
-		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		Consumes(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample))
+	ws.Route(addPostParams(
+		ws.POST(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample), ws,
+	))
 
-	ws.Route(ws.PUT(ResourcePath(gvr)).
-		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		Consumes(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).Doc("test2"))
+	ws.Route(addPutParams(
+		ws.PUT(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).Doc("test2"), ws,
+	))
 
-	ws.Route(ws.DELETE(ResourcePath(gvr)).
-		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		Consumes(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"))
+	ws.Route(addDeleteParams(
+		ws.DELETE(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"), ws,
+	))
 
-	ws.Route(ws.GET(ResourcePath(gvr)).
-		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"))
+	ws.Route(addGetParams(
+		ws.GET(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"), ws,
+	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
-	ws.Route(ws.GET("/watch/" + gvr.Resource).
-		Produces(mime.MIME_JSON).
-		To(NotImplementedYet).Writes(objExample))
-	ws.Route(ws.GET("/watch" + ResourceBasePath(gvr)).
-		Produces(mime.MIME_JSON).
-		To(NotImplementedYet).Writes(objExample))
+	ws.Route(addWatchGetListParams(
+		ws.GET("/watch/"+gvr.Resource).
+			Produces(mime.MIME_JSON).
+			To(NotImplementedYet).Writes(objExample), ws,
+	))
+
+	ws.Route(addWatchGetListParams(
+		ws.GET("/watch"+ResourceBasePath(gvr)).
+			Produces(mime.MIME_JSON).
+			To(NotImplementedYet).Writes(objExample), ws,
+	))
 
 	// TODO List all vms in namespace
-	ws.Route(ws.GET(ResourceBasePath(gvr)).
-		Produces(mime.MIME_JSON).
-		Writes(listExample).
-		To(NotImplementedYet).Writes(objExample))
+	ws.Route(addWatchGetListParams(
+		ws.GET(ResourceBasePath(gvr)).
+			Produces(mime.MIME_JSON).
+			Writes(listExample).
+			To(NotImplementedYet).Writes(objExample), ws,
+	))
 
 	// TODO Delete all vms in namespace
-	ws.Route(ws.DELETE(ResourceBasePath(gvr)).
-		Produces(mime.MIME_JSON).
-		To(NotImplementedYet).Writes(objExample))
+	ws.Route(addDeleteListParams(
+		ws.DELETE(ResourceBasePath(gvr)).
+			Produces(mime.MIME_JSON).
+			To(NotImplementedYet).Writes(objExample), ws,
+	))
 	return nil
+}
+
+func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
+		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
+		Param(ws.QueryParameter("timeoutSeconds", "Timeout for the list/watch call.").DataType("int"))
+}
+
+func addDeleteListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NameParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws))
+}
+
+func addGetParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws)).
+		Param(ws.QueryParameter("export", "Should this value be exported. Export strips fields that a user can not specify.").DataType("boolean")).
+		Param(ws.QueryParameter("exact", "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'").DataType("boolean"))
+}
+
+func addPostParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws))
+}
+
+func addPutParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
+}
+
+func addDeleteParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
+}
+
+func NameParam(ws *restful.WebService) *restful.Parameter {
+	return ws.PathParameter("name", "Name of the resource").Required(true)
+}
+
+func NamespaceParam(ws *restful.WebService) *restful.Parameter {
+	return ws.PathParameter("namespace", "Object name and auth scope, such as for teams and projects").Required(true)
+}
+
+func labelSelectorParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("labelSelector", "A selector to restrict the list of returned objects by their labels. Defaults to everything")
+}
+
+func fieldSelectorParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("fieldSelector", "A selector to restrict the list of returned objects by their fields. Defaults to everything.")
 }
 
 func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
