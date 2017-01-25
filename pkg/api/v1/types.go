@@ -20,8 +20,8 @@ import (
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/pkg/types"
 	"kubevirt.io/kubevirt/pkg/api"
+	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/util"
 	"reflect"
 )
 
@@ -68,10 +68,10 @@ func init() {
 		return reflect.ValueOf(uuid.FromStringOrNil(in.String())), nil
 	})
 
-	util.AddConversion(&VMSpec{}, &api.VMSpec{})
-	util.AddConversion(&VMCondition{}, &api.VMCondition{})
-	util.AddConversion(&VMStatus{}, &api.VMStatus{})
-	util.AddConversion(&v1.ObjectMeta{}, &kubeapi.ObjectMeta{})
+	mapper.AddConversion(&VMSpec{}, &api.VMSpec{})
+	mapper.AddConversion(&VMCondition{}, &api.VMCondition{})
+	mapper.AddConversion(&VMStatus{}, &api.VMStatus{})
+	mapper.AddConversion(&v1.ObjectMeta{}, &kubeapi.ObjectMeta{})
 }
 
 type VM struct {
