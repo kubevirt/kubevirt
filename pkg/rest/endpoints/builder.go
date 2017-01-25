@@ -6,6 +6,7 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"kubevirt.io/kubevirt/pkg/precond"
+	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http"
 )
 
@@ -51,8 +52,8 @@ func (h *handlerBuilder) Post(payloadTypePtr interface{}) HandlerBuilder {
 	h.decoder = NewJsonPostDecodeRequestFunc(payloadTypePtr)
 	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusCreated),
 		map[string]kithttp.EncodeResponseFunc{
-			"application/json": NewEncodeJsonResponse(http.StatusCreated),
-			"application/yaml": NewEncodeYamlResponse(http.StatusCreated),
+			rest.MIME_JSON: NewEncodeJsonResponse(http.StatusCreated),
+			rest.MIME_YAML: NewEncodeYamlResponse(http.StatusCreated),
 		},
 	)
 	return h
@@ -62,8 +63,8 @@ func (h *handlerBuilder) Get() HandlerBuilder {
 	h.decoder = NameNamespaceDecodeRequestFunc
 	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
 		map[string]kithttp.EncodeResponseFunc{
-			"application/json": NewEncodeJsonResponse(http.StatusOK),
-			"application/yaml": NewEncodeYamlResponse(http.StatusOK),
+			rest.MIME_JSON: NewEncodeJsonResponse(http.StatusOK),
+			rest.MIME_YAML: NewEncodeYamlResponse(http.StatusOK),
 		},
 	)
 	return h
@@ -73,8 +74,8 @@ func (h *handlerBuilder) Delete() HandlerBuilder {
 	h.decoder = NameNamespaceDecodeRequestFunc
 	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
 		map[string]kithttp.EncodeResponseFunc{
-			"application/json": NewEncodeJsonResponse(http.StatusOK),
-			"application/yaml": NewEncodeYamlResponse(http.StatusOK),
+			rest.MIME_JSON: NewEncodeJsonResponse(http.StatusOK),
+			rest.MIME_YAML: NewEncodeYamlResponse(http.StatusOK),
 		},
 	)
 	return h
@@ -84,8 +85,8 @@ func (h *handlerBuilder) Put(payloadTypePtr interface{}) HandlerBuilder {
 	h.decoder = NewJsonPutDecodeRequestFunc(payloadTypePtr)
 	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
 		map[string]kithttp.EncodeResponseFunc{
-			"application/json": NewEncodeJsonResponse(http.StatusOK),
-			"application/yaml": NewEncodeYamlResponse(http.StatusOK),
+			rest.MIME_JSON: NewEncodeJsonResponse(http.StatusOK),
+			rest.MIME_YAML: NewEncodeYamlResponse(http.StatusOK),
 		},
 	)
 	return h

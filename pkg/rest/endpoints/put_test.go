@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
+	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -42,7 +43,7 @@ type payload struct {
 func newValidPutRequest() *http.Request {
 	request, _ := http.NewRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/test", nil)
 	request.Body = marshalToJSON(payload{Name: "test", Email: "test@test.com"})
-	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Content-Type", rest.MIME_JSON)
 	return request
 }
 
@@ -60,7 +61,7 @@ var _ = Describe("Put", func() {
 	BeforeEach(func() {
 
 		ws := new(restful.WebService)
-		ws.Produces(restful.MIME_JSON, "application/yaml").Consumes(restful.MIME_JSON, "application/yaml")
+		ws.Produces(restful.MIME_JSON, rest.MIME_YAML).Consumes(restful.MIME_JSON, rest.MIME_YAML)
 		handler = http.Handler(restful.NewContainer().Add(ws))
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Put((*payload)(nil)).Endpoint(testPutEndpoint).Build(ctx))
@@ -73,7 +74,7 @@ var _ = Describe("Put", func() {
 	Describe("REST call", func() {
 		Context("with invalid URL", func() {
 			It("should return 404", func() {
-				request.URL, _ = url.Parse("/api/v1/put/?")
+				request.URL, _ = url.Parse("/api/rest/put/?")
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusNotFound))
 			})
@@ -115,18 +116,18 @@ var _ = Describe("Put", func() {
 				handler.ServeHTTP(recorder, request)
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)
-				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
+				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_JSON))
 				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
 			})
 		})
 		Context("with valid YAML", func() {
 			It("should accept it and return it as YAML", func() {
-				request.Header.Set("Content-Type", "application/yaml")
-				request.Header.Set("Accept", "application/yaml")
+				request.Header.Set("Content-Type", rest.MIME_YAML)
+				request.Header.Set("Accept", rest.MIME_YAML)
 				request.Body = marshalToYAML(&payload{Name: "test", Email: "test@test.com"})
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusOK))
-				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/yaml"))
+				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_YAML))
 				responseBody := payload{}
 				yaml.Unmarshal(recorder.Body.Bytes(), &responseBody)
 				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))

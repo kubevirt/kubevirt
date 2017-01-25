@@ -10,6 +10,7 @@ import (
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
 	"kubevirt.io/kubevirt/pkg/middleware"
+	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http"
 	"reflect"
 	"strings"
@@ -128,8 +129,8 @@ func NewJsonPostDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRe
 	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
 		NewJsonDecodeRequestFunc(payloadTypePtr),
 		map[string]gokithttp.DecodeRequestFunc{
-			"application/json": NewJsonDecodeRequestFunc(payloadTypePtr),
-			"application/yaml": NewYamlDecodeRequestFunc(payloadTypePtr),
+			rest.MIME_JSON: NewJsonDecodeRequestFunc(payloadTypePtr),
+			rest.MIME_YAML: NewYamlDecodeRequestFunc(payloadTypePtr),
 		},
 	)
 	return func(ctx context.Context, r *http.Request) (interface{}, error) {
@@ -149,8 +150,8 @@ func NewJsonPutDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReq
 	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
 		NewJsonDecodeRequestFunc(payloadTypePtr),
 		map[string]gokithttp.DecodeRequestFunc{
-			"application/json": NewJsonDecodeRequestFunc(payloadTypePtr),
-			"application/yaml": NewYamlDecodeRequestFunc(payloadTypePtr),
+			rest.MIME_JSON: NewJsonDecodeRequestFunc(payloadTypePtr),
+			rest.MIME_YAML: NewYamlDecodeRequestFunc(payloadTypePtr),
 		},
 	)
 	return func(ctx context.Context, r *http.Request) (interface{}, error) {

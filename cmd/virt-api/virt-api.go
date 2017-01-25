@@ -10,6 +10,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"log"
@@ -49,9 +50,9 @@ func main() {
 		Endpoint(rest.NewSpiceEndpoint(cli, coreCli, vmGVR)).Encoder(
 		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeJsonResponse(http.StatusOK),
 			map[string]kithttp.EncodeResponseFunc{
-				"text/plain":       endpoints.NewEncodeINIResponse(http.StatusOK),
-				"application/json": endpoints.NewEncodeJsonResponse(http.StatusOK),
-				"application/yaml": endpoints.NewEncodeYamlResponse(http.StatusOK),
+				mime.MIME_INI:  endpoints.NewEncodeINIResponse(http.StatusOK),
+				mime.MIME_JSON: endpoints.NewEncodeJsonResponse(http.StatusOK),
+				mime.MIME_YAML: endpoints.NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
 
 	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(vmGVR, "spice")).

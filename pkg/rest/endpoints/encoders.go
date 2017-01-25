@@ -7,12 +7,13 @@ import (
 	"golang.org/x/net/context"
 	"gopkg.in/ini.v1"
 	"kubevirt.io/kubevirt/pkg/middleware"
+	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http"
 	"strings"
 )
 
 func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response interface{}) error {
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", rest.MIME_TEXT)
 	var err error
 	switch t := response.(type) {
 	// More specific AppErrors  like 404 must be handled before the AppError case
@@ -70,13 +71,13 @@ func NewEncodeYamlResponse(returnCode int) kithttp.EncodeResponseFunc {
 }
 
 func encodeJsonResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", rest.MIME_JSON)
 	w.WriteHeader(returnCode)
 	return json.NewEncoder(w).Encode(response)
 }
 
 func encodeYamlResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
-	w.Header().Set("Content-Type", "application/yaml")
+	w.Header().Set("Content-Type", rest.MIME_YAML)
 	w.WriteHeader(returnCode)
 	b, err := yaml.Marshal(response)
 	if err != nil {
@@ -87,7 +88,7 @@ func encodeYamlResponse(w http.ResponseWriter, response interface{}, returnCode 
 }
 
 func encodeINIResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", rest.MIME_INI)
 	w.WriteHeader(returnCode)
 	cfg := ini.Empty()
 	err := ini.ReflectFrom(cfg, response)

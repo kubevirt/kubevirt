@@ -12,6 +12,7 @@ import (
 	"github.com/ghodss/yaml"
 	"golang.org/x/net/context"
 	"gopkg.in/ini.v1"
+	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http/httptest"
 	"net/url"
 )
@@ -41,10 +42,10 @@ var _ = Describe("Get", func() {
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Get().Endpoint(testGetEndpoint).
 			Encoder(NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK), map[string]kithttp.EncodeResponseFunc{
-				"text/plain":       NewEncodeINIResponse(http.StatusOK),
-				"application/yaml": NewEncodeYamlResponse(http.StatusOK),
+				rest.MIME_TEXT: NewEncodeINIResponse(http.StatusOK),
+				rest.MIME_YAML: NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
-		ws.Route(ws.GET("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/vms/{name}").Produces("applicatoin/json", "text/plain", "application/yaml").To(target))
+		ws.Route(ws.GET("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/vms/{name}").Produces(rest.MIME_JSON, rest.MIME_TEXT, rest.MIME_YAML).To(target))
 
 		request = newValidGetRequest()
 		recorder = httptest.NewRecorder()
@@ -53,7 +54,7 @@ var _ = Describe("Get", func() {
 	Describe("REST call", func() {
 		Context("with invalid URL", func() {
 			It("should return 404", func() {
-				request.URL, _ = url.Parse("/api/v1/put/")
+				request.URL, _ = url.Parse("/api/rest/put/")
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusNotFound))
 			})
@@ -67,28 +68,28 @@ var _ = Describe("Get", func() {
 				handler.ServeHTTP(recorder, request)
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)
-				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
+				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_JSON))
 				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
 			})
 		})
-		Context("with Accept header text/plain", func() {
+		Context("with Accept header rest.MIME_TEXT", func() {
 			It("should return ini file", func() {
-				request.Header.Add("Accept", "text/plain")
+				request.Header.Add("Accept", rest.MIME_TEXT)
 				handler.ServeHTTP(recorder, request)
 				responseBody := payload{}
 				f, err := ini.Load(recorder.Body.Bytes())
 				Expect(err).To(BeNil())
-				Expect(recorder.Header().Get("Content-Type")).To(Equal("text/plain"))
+				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_TEXT))
 				Expect(f.MapTo(&responseBody)).To(BeNil())
 				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
 			})
 		})
 		Context("with Accept header applicatoin/yaml", func() {
 			It("should return yaml file", func() {
-				request.Header.Add("Accept", "application/yaml")
+				request.Header.Add("Accept", rest.MIME_YAML)
 				handler.ServeHTTP(recorder, request)
 				responseBody := payload{}
-				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/yaml"))
+				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_YAML))
 				Expect(yaml.Unmarshal(recorder.Body.Bytes(), &responseBody)).To(BeNil())
 				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
 			})
