@@ -33,26 +33,7 @@ func init() {
 	flag.StringVar(&spiceProxy, "spice-proxy", "", "Spice proxy to use when spice access is requested")
 }
 
-func NewSpiceINIEndpoint(cli *rest.RESTClient, coreCli *kubernetes.Clientset, gvr schema.GroupVersionResource) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		metadata := payload.(*endpoints.Metadata)
-		obj, err := cli.Get().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do().Get()
-		if err != nil {
-			return nil, middleware.NewInternalServerError(err)
-		}
-
-		vm := obj.(*v1.VM)
-		spice, err := spiceFromVM(vm, coreCli)
-		if err != nil {
-			return nil, err
-
-		}
-
-		return toPlainText(spice), nil
-	}
-}
-
-func NewSpiceJSONEndpoint(cli *rest.RESTClient, coreCli *kubernetes.Clientset, gvr schema.GroupVersionResource) endpoint.Endpoint {
+func NewSpiceEndpoint(cli *rest.RESTClient, coreCli *kubernetes.Clientset, gvr schema.GroupVersionResource) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		metadata := payload.(*endpoints.Metadata)
 		obj, err := cli.Get().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do().Get()
@@ -109,19 +90,6 @@ func spiceFromVM(vm *v1.VM, coreCli *kubernetes.Clientset) (*v1.Spice, error) {
 	}
 
 	return nil, middleware.NewResourceNotFoundError("No spice device attached to the VM found.")
-}
-
-func toPlainText(spice *v1.Spice) string {
-
-	config := "[virt-viewer]\n" +
-		fmt.Sprintf("type=%s\n", spice.Info.Type) +
-		fmt.Sprintf("host=%s\n", spice.Info.Host) +
-		fmt.Sprintf("port=%d\n", spice.Info.Port)
-
-	if len(spiceProxy) > 0 {
-		config = config + fmt.Sprintf("proxy=%s\n", spice.Info.Proxy)
-	}
-	return config
 }
 
 // TODO for now just copied from VMService

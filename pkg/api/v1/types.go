@@ -8,6 +8,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/jeevatkm/go-model"
 	"github.com/satori/go.uuid"
 	kubeapi "k8s.io/client-go/pkg/api"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/pkg/types"
 	"kubevirt.io/kubevirt/pkg/api"
+	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"reflect"
 )
@@ -65,69 +67,18 @@ func init() {
 	model.AddConversion((*string)(nil), (*uuid.UUID)(nil), func(in reflect.Value) (reflect.Value, error) {
 		return reflect.ValueOf(uuid.FromStringOrNil(in.String())), nil
 	})
-	model.AddConversion((*VMSpec)(nil), (*api.VMSpec)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := api.VMSpec{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*api.VMSpec)(nil), (*VMSpec)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := VMSpec{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*VMSpec)(nil), (*api.VMSpec)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := api.VMSpec{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*VMCondition)(nil), (*api.VMCondition)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := api.VMCondition{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*api.VMCondition)(nil), (*VMCondition)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := VMCondition{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*api.VMStatus)(nil), (*VMStatus)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := VMStatus{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion((*VMStatus)(nil), (*api.VMStatus)(nil), func(in reflect.Value) (reflect.Value, error) {
-		out := api.VMStatus{}
-		errs := model.Copy(&out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
+
+	mapper.AddConversion(&VMSpec{}, &api.VMSpec{})
+	mapper.AddConversion(&VMCondition{}, &api.VMCondition{})
+	mapper.AddConversion(&VMStatus{}, &api.VMStatus{})
+	mapper.AddConversion(&v1.ObjectMeta{}, &kubeapi.ObjectMeta{})
 }
 
 type VM struct {
 	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      kubeapi.ObjectMeta `json:"metadata,omitempty"`
-	Spec            VMSpec             `json:"spec,omitempty" valid:"required"`
-	Status          VMStatus           `json:"status"`
+	ObjectMeta      v1.ObjectMeta `json:"metadata,omitempty"`
+	Spec            VMSpec        `json:"spec,omitempty" valid:"required"`
+	Status          VMStatus      `json:"status"`
 }
 
 // VMList is a list of VMs
@@ -253,7 +204,7 @@ const (
 func NewVM(name string, uid types.UID) *VM {
 	return &VM{
 		Spec: VMSpec{},
-		ObjectMeta: kubeapi.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			UID:       uid,
 			Namespace: kubeapi.NamespaceDefault,
@@ -285,7 +236,7 @@ func NewMinimalVM(vmName string) *VM {
 	precond.CheckNotEmpty(vmName)
 	return &VM{
 		Spec: VMSpec{Domain: NewMinimalDomainSpec(vmName)},
-		ObjectMeta: kubeapi.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:      vmName,
 			Namespace: kubeapi.NamespaceDefault,
 		},
@@ -297,22 +248,22 @@ func NewMinimalVM(vmName string) *VM {
 }
 
 type Spice struct {
-	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      kubeapi.ObjectMeta `json:"metadata,omitempty"`
-	Info            SpiceInfo          `json:"info,omitempty" valid:"required"`
+	metav1.TypeMeta `json:",inline" ini:"-"`
+	ObjectMeta      v1.ObjectMeta `json:"metadata,omitempty" ini:"-"`
+	Info            SpiceInfo     `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
 }
 
 type SpiceInfo struct {
-	Type  string `json:"type"`
-	Host  string `json:"host"`
-	Port  int32  `json:"port"`
-	Proxy string `json:"proxy,omitempty"`
+	Type  string `json:"type" ini:"type"`
+	Host  string `json:"host" ini:"host"`
+	Port  int32  `json:"port" ini:"port"`
+	Proxy string `json:"proxy,omitempty" ini:"proxy,omitempty"`
 }
 
 func NewSpice(vmName string) *Spice {
 	return &Spice{
 		Info: SpiceInfo{},
-		ObjectMeta: kubeapi.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:      vmName,
 			Namespace: kubeapi.NamespaceDefault,
 		},
@@ -321,4 +272,17 @@ func NewSpice(vmName string) *Spice {
 			Kind:       "Spice",
 		},
 	}
+}
+
+// TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
+func NewVMReferenceFromName(name string) *VM {
+	vm := &VM{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: kubeapi.NamespaceDefault,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
+		},
+	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
+	return vm
 }

@@ -39,6 +39,12 @@
 			"revisionTime": "2015-02-14T07:43:06Z"
 		},
 		{
+			"checksumSHA1": "muGVyM8mY3/gcap6kr4Ib3F5Xn4=",
+			"path": "github.com/ghodss/yaml",
+			"revision": "04f313413ffd65ce25f2541bfd2b2ceec5c0908c",
+			"revisionTime": "2016-12-07T00:33:20Z"
+		},
+		{
 			"checksumSHA1": "N36ww5Gg5pA6TM52vlqKhiSaRv4=",
 			"path": "github.com/go-kit/kit/endpoint",
 			"revision": "6fb874ce59bb45b2f60ee3d289829db02142ecc6",
@@ -293,6 +299,12 @@
 			"path": "golang.org/x/sys/unix",
 			"revision": "9bb9f0998d48b31547d975974935ae9b48c7a03c",
 			"revisionTime": "2016-10-11T23:07:22Z"
+		},
+		{
+			"checksumSHA1": "v0plVTBSyu5TvzfwHWNBe5/eZZo=",
+			"path": "gopkg.in/ini.v1",
+			"revision": "766e555c68dc8bda90d197ee8946c37519c19409",
+			"revisionTime": "2017-01-17T13:00:17Z"
 		},
 		{
 			"checksumSHA1": "SPMXWeoFQa5z0pLPmqpcFzyHqQQ=",

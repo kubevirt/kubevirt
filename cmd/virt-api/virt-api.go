@@ -4,11 +4,13 @@ import (
 	"flag"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful/swagger"
+	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"log"
@@ -44,16 +46,20 @@ func main() {
 	}
 
 	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
-	spiceINISubresource := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceINIEndpoint(cli, coreCli, vmGVR)).Encoder(endpoints.EncodePlainTextGetResponse).Build(ctx))
-	spiceJSONResource := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceJSONEndpoint(cli, coreCli, vmGVR)).Build(ctx))
+	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
+		Endpoint(rest.NewSpiceEndpoint(cli, coreCli, vmGVR)).Encoder(
+		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeJsonResponse(http.StatusOK),
+			map[string]kithttp.EncodeResponseFunc{
+				mime.MIME_INI:  endpoints.NewEncodeINIResponse(http.StatusOK),
+				mime.MIME_JSON: endpoints.NewEncodeJsonResponse(http.StatusOK),
+				mime.MIME_YAML: endpoints.NewEncodeYamlResponse(http.StatusOK),
+			})).Build(ctx))
 
 	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(vmGVR, "spice")).
-		To(spiceINISubresource).Produces("text/plain").
+		To(spice).Produces("text/plain", "application/json", "application/yaml").
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(spiceGVR)).
-		To(spiceJSONResource).Produces("application/json").
+		To(spice).Produces("application/json", "text/plain", "application/yaml").
 		Doc("Returns SPICE connection details as JSON."))
 
 	config := swagger.Config{

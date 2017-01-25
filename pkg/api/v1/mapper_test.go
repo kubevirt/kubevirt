@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
 	kubeapi "k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/types"
 	"kubevirt.io/kubevirt/pkg/api"
 )
@@ -28,7 +29,7 @@ var _ = Describe("Mapper", func() {
 	PContext("With a v1.VM supplied", func() {
 		It("should map to VM", func() {
 			vm := api.VM{}
-			dto := VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
+			dto := VM{ObjectMeta: v1.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
 			dto.Spec = VMSpec{NodeSelector: map[string]string{"key": "val"}}
 			errs := model.Copy(&vm, &dto)
 			Expect(errs).To(BeNil())
@@ -40,7 +41,7 @@ var _ = Describe("Mapper", func() {
 	})
 	Context("With a VM supplied", func() {
 		It("should map to json and back with custom mapper", func() {
-			vm := VM{ObjectMeta: kubeapi.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
+			vm := VM{ObjectMeta: v1.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
 			newVM := VM{}
 			buf, err := json.Marshal(&vm)
 			Expect(err).To(BeNil())

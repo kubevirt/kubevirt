@@ -1,4 +1,4 @@
-package util
+package mapper
 
 import (
 	"github.com/jeevatkm/go-model"

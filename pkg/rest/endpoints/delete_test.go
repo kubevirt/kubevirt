@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"github.com/emicklei/go-restful"
 	"golang.org/x/net/context"
+	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http/httptest"
 	"net/url"
 )
@@ -44,7 +45,7 @@ var _ = Describe("Delete", func() {
 	Describe("REST call", func() {
 		Context("with invalid URL", func() {
 			It("should return 404", func() {
-				request.URL, _ = url.Parse("/api/v1/delete/?")
+				request.URL, _ = url.Parse("/api/rest/delete/?")
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusNotFound))
 			})
@@ -58,7 +59,7 @@ var _ = Describe("Delete", func() {
 				handler.ServeHTTP(recorder, request)
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)
-				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
+				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_JSON))
 				Expect(responseBody).To(Equal(payload{Name: "test"}))
 			})
 		})

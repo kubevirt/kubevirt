@@ -3,55 +3,55 @@ package virtwrap
 import (
 	"encoding/xml"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/meta"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 type LifeCycle string
 
 func init() {
 	// TODO the whole mapping registration can be done be an automatic process with reflection
-	util.AddConversion(&Memory{}, &v1.Memory{})
-	util.AddConversion(&OS{}, &v1.OS{})
-	util.AddConversion(&Devices{}, &v1.Devices{})
-	util.AddConversion(&Devices{}, &v1.Devices{})
-	util.AddPtrConversion((**Clock)(nil), (**v1.Clock)(nil))
-	util.AddPtrConversion((**SysInfo)(nil), (**v1.SysInfo)(nil))
-	util.AddConversion(&Channel{}, &v1.Channel{})
-	util.AddConversion(&Interface{}, &v1.Interface{})
-	util.AddConversion(&Video{}, &v1.Video{})
-	util.AddConversion(&Graphics{}, &v1.Graphics{})
-	util.AddPtrConversion((**Ballooning)(nil), (**v1.Ballooning)(nil))
-	util.AddConversion(&Disk{}, &v1.Disk{})
-	util.AddConversion(&DiskSource{}, &v1.DiskSource{})
-	util.AddConversion(&DiskTarget{}, &v1.DiskTarget{})
-	util.AddPtrConversion((**DiskDriver)(nil), (**v1.DiskDriver)(nil))
-	util.AddPtrConversion((**ReadOnly)(nil), (**v1.ReadOnly)(nil))
-	util.AddPtrConversion((**Address)(nil), (**v1.Address)(nil))
-	util.AddConversion(&InterfaceSource{}, &v1.InterfaceSource{})
-	util.AddPtrConversion((**InterfaceTarget)(nil), (**v1.InterfaceTarget)(nil))
-	util.AddPtrConversion((**Model)(nil), (**v1.Model)(nil))
-	util.AddPtrConversion((**MAC)(nil), (**v1.MAC)(nil))
-	util.AddPtrConversion((**BandWidth)(nil), (**v1.BandWidth)(nil))
-	util.AddPtrConversion((**BootOrder)(nil), (**v1.BootOrder)(nil))
-	util.AddPtrConversion((**LinkState)(nil), (**v1.LinkState)(nil))
-	util.AddPtrConversion((**FilterRef)(nil), (**v1.FilterRef)(nil))
-	util.AddPtrConversion((**Alias)(nil), (**v1.Alias)(nil))
-	util.AddConversion(&OSType{}, &v1.OSType{})
-	util.AddPtrConversion((**SMBios)(nil), (**v1.SMBios)(nil))
-	util.AddConversion(&Boot{}, &v1.Boot{})
-	util.AddPtrConversion((**BootMenu)(nil), (**v1.BootMenu)(nil))
-	util.AddPtrConversion((**BIOS)(nil), (**v1.BIOS)(nil))
-	util.AddConversion(&Entry{}, &v1.Entry{})
-	util.AddConversion(&ChannelSource{}, &v1.ChannelSource{})
-	util.AddPtrConversion((**ChannelTarget)(nil), (**v1.ChannelTarget)(nil))
-	util.AddConversion(&VideoModel{}, &v1.VideoModel{})
-	util.AddConversion(&Listen{}, &v1.Listen{})
+	mapper.AddConversion(&Memory{}, &v1.Memory{})
+	mapper.AddConversion(&OS{}, &v1.OS{})
+	mapper.AddConversion(&Devices{}, &v1.Devices{})
+	mapper.AddConversion(&Devices{}, &v1.Devices{})
+	mapper.AddPtrConversion((**Clock)(nil), (**v1.Clock)(nil))
+	mapper.AddPtrConversion((**SysInfo)(nil), (**v1.SysInfo)(nil))
+	mapper.AddConversion(&Channel{}, &v1.Channel{})
+	mapper.AddConversion(&Interface{}, &v1.Interface{})
+	mapper.AddConversion(&Video{}, &v1.Video{})
+	mapper.AddConversion(&Graphics{}, &v1.Graphics{})
+	mapper.AddPtrConversion((**Ballooning)(nil), (**v1.Ballooning)(nil))
+	mapper.AddConversion(&Disk{}, &v1.Disk{})
+	mapper.AddConversion(&DiskSource{}, &v1.DiskSource{})
+	mapper.AddConversion(&DiskTarget{}, &v1.DiskTarget{})
+	mapper.AddPtrConversion((**DiskDriver)(nil), (**v1.DiskDriver)(nil))
+	mapper.AddPtrConversion((**ReadOnly)(nil), (**v1.ReadOnly)(nil))
+	mapper.AddPtrConversion((**Address)(nil), (**v1.Address)(nil))
+	mapper.AddConversion(&InterfaceSource{}, &v1.InterfaceSource{})
+	mapper.AddPtrConversion((**InterfaceTarget)(nil), (**v1.InterfaceTarget)(nil))
+	mapper.AddPtrConversion((**Model)(nil), (**v1.Model)(nil))
+	mapper.AddPtrConversion((**MAC)(nil), (**v1.MAC)(nil))
+	mapper.AddPtrConversion((**BandWidth)(nil), (**v1.BandWidth)(nil))
+	mapper.AddPtrConversion((**BootOrder)(nil), (**v1.BootOrder)(nil))
+	mapper.AddPtrConversion((**LinkState)(nil), (**v1.LinkState)(nil))
+	mapper.AddPtrConversion((**FilterRef)(nil), (**v1.FilterRef)(nil))
+	mapper.AddPtrConversion((**Alias)(nil), (**v1.Alias)(nil))
+	mapper.AddConversion(&OSType{}, &v1.OSType{})
+	mapper.AddPtrConversion((**SMBios)(nil), (**v1.SMBios)(nil))
+	mapper.AddConversion(&Boot{}, &v1.Boot{})
+	mapper.AddPtrConversion((**BootMenu)(nil), (**v1.BootMenu)(nil))
+	mapper.AddPtrConversion((**BIOS)(nil), (**v1.BIOS)(nil))
+	mapper.AddConversion(&Entry{}, &v1.Entry{})
+	mapper.AddConversion(&ChannelSource{}, &v1.ChannelSource{})
+	mapper.AddPtrConversion((**ChannelTarget)(nil), (**v1.ChannelTarget)(nil))
+	mapper.AddConversion(&VideoModel{}, &v1.VideoModel{})
+	mapper.AddConversion(&Listen{}, &v1.Listen{})
 }
 
 const (
@@ -78,7 +78,7 @@ var LifeCycleTranslationMap = map[libvirt.DomainState]LifeCycle{
 
 type Domain struct {
 	metav1.TypeMeta
-	ObjectMeta api.ObjectMeta
+	ObjectMeta kubev1.ObjectMeta
 	Spec       DomainSpec
 	Status     DomainStatus
 }

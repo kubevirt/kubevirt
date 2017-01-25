@@ -43,6 +43,7 @@ type ResourceExistsError struct{ appError }
 type ResourceNotFoundError struct{ appError } // Can be thrown before or by a service call
 type PreconditionError struct{ appError }     // Precondition not met, most likely a bug in a service (service)
 type InternalServerError struct{ appError }   // Unknown internal error, most likely a bug in a service or a library
+type UnsupportedMediaTypeError struct{ appError }
 type BadRequestError struct{ appError }
 
 type KubernetesError struct {
@@ -150,4 +151,8 @@ func NewInternalServerError(err error) *InternalServerError {
 
 func NewKubernetesError(result rest.Result) *KubernetesError {
 	return &KubernetesError{result: result}
+}
+
+func NewUnsupportedMediaType(mediaType string) *UnsupportedMediaTypeError {
+	return &UnsupportedMediaTypeError{appError{err: fmt.Errorf("Media Type(s) '%s' not supported", mediaType)}}
 }

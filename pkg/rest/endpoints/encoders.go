@@ -2,15 +2,18 @@ package endpoints
 
 import (
 	"encoding/json"
+	"github.com/ghodss/yaml"
+	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"gopkg.in/ini.v1"
 	"kubevirt.io/kubevirt/pkg/middleware"
+	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http"
-	"reflect"
+	"strings"
 )
 
 func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response interface{}) error {
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", rest.MIME_TEXT)
 	var err error
 	switch t := response.(type) {
 	// More specific AppErrors  like 404 must be handled before the AppError case
@@ -19,6 +22,9 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 		_, err = w.Write(t.Body())
 	case *middleware.ResourceNotFoundError:
 		w.WriteHeader(http.StatusNotFound)
+		_, err = w.Write([]byte(t.Cause().Error()))
+	case *middleware.UnsupportedMediaTypeError:
+		w.WriteHeader(http.StatusUnsupportedMediaType)
 		_, err = w.Write([]byte(t.Cause().Error()))
 	case middleware.BadRequestError:
 		w.WriteHeader(http.StatusBadRequest)
@@ -37,41 +43,82 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 	return err
 }
 
-func EncodePostResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	logging.DefaultLogger().Info().Msg(reflect.TypeOf(response).Name())
-	if _, ok := response.(middleware.AppError); ok {
-		return encodeApplicationErrors(context, w, response)
+func NewEncodeJsonResponse(returnCode int) kithttp.EncodeResponseFunc {
+	return func(context context.Context, w http.ResponseWriter, response interface{}) error {
+		if _, ok := response.(middleware.AppError); ok {
+			return encodeApplicationErrors(context, w, response)
+		}
+		return encodeJsonResponse(w, response, returnCode)
 	}
-	return encodeJsonResponse(w, response, http.StatusCreated)
 }
 
-func EncodeGetResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	if _, ok := response.(middleware.AppError); ok {
-		return encodeApplicationErrors(context, w, response)
+func NewEncodeINIResponse(returnCode int) kithttp.EncodeResponseFunc {
+	return func(context context.Context, w http.ResponseWriter, response interface{}) error {
+		if _, ok := response.(middleware.AppError); ok != false {
+			return encodeApplicationErrors(context, w, response)
+		}
+		return encodeINIResponse(w, response, returnCode)
 	}
-	return encodeJsonResponse(w, response, http.StatusOK)
 }
 
-func EncodePlainTextGetResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	if _, ok := response.(middleware.AppError); ok != false {
-		return encodeApplicationErrors(context, w, response)
+func NewEncodeYamlResponse(returnCode int) kithttp.EncodeResponseFunc {
+	return func(context context.Context, w http.ResponseWriter, response interface{}) error {
+		if _, ok := response.(middleware.AppError); ok != false {
+			return encodeApplicationErrors(context, w, response)
+		}
+		return encodeYamlResponse(w, response, returnCode)
 	}
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte(response.(string)))
-	return err
-}
-
-func EncodeDeleteResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	return EncodeGetResponse(context, w, response)
-}
-
-func EncodePutResponse(context context.Context, w http.ResponseWriter, response interface{}) error {
-	return EncodeGetResponse(context, w, response)
 }
 
 func encodeJsonResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", rest.MIME_JSON)
 	w.WriteHeader(returnCode)
 	return json.NewEncoder(w).Encode(response)
+}
+
+func encodeYamlResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
+	w.Header().Set("Content-Type", rest.MIME_YAML)
+	w.WriteHeader(returnCode)
+	b, err := yaml.Marshal(response)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	return err
+}
+
+func encodeINIResponse(w http.ResponseWriter, response interface{}, returnCode int) error {
+	w.Header().Set("Content-Type", rest.MIME_INI)
+	w.WriteHeader(returnCode)
+	cfg := ini.Empty()
+	err := ini.ReflectFrom(cfg, response)
+	if err != nil {
+		return err
+	}
+	_, err = cfg.WriteTo(w)
+	return err
+}
+
+func NewMimeTypeAwareEncoder(defaultEncoder kithttp.EncodeResponseFunc, encoderMapping map[string]kithttp.EncodeResponseFunc) kithttp.EncodeResponseFunc {
+	return func(context context.Context, w http.ResponseWriter, response interface{}) error {
+		requestContext := GetRestfulRequest(context)
+		contentTypes := strings.TrimSpace(requestContext.HeaderParameter("Accept"))
+
+		var encoder kithttp.EncodeResponseFunc
+		if len(contentTypes) == 0 {
+			encoder = defaultEncoder
+		} else {
+			for _, m := range strings.Split(contentTypes, ",") {
+				encoder = encoderMapping[strings.TrimSpace(m)]
+				if encoder != nil {
+					break
+				}
+			}
+			if encoder == nil {
+				return encodeApplicationErrors(context, w, middleware.NewUnsupportedMediaType(contentTypes))
+			}
+		}
+
+		return encoder(context, w, response)
+	}
 }

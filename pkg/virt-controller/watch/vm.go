@@ -13,7 +13,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"strings"
 )
@@ -46,7 +45,7 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 				queue.AddRateLimited(key)
 				return true
 			}
-			vm = util.NewVMReferenceFromName(name)
+			vm = v1.NewVMReferenceFromName(name)
 		} else {
 			vm = obj.(*v1.VM)
 		}
