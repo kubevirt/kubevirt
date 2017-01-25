@@ -26,7 +26,7 @@ func main() {
 
 	logging.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
-	libvirtUri := flag.String("virtwrap-uri", "qemu:///system", "Libvirt connection string.")
+	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	libvirtUser := flag.String("user", "", "Libvirt user")
 	libvirtPass := flag.String("pass", "", "Libvirt password")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
