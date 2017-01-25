@@ -22,10 +22,10 @@ func newValidGetRequest() *http.Request {
 	return request
 }
 
-func testGetEndpoint(_ context.Context, request interface{}) (interface{}, error) {
+func testGetEndpointByName(_ context.Context, request interface{}) (interface{}, error) {
 	metadata := request.(*Metadata)
 	Expect(metadata.Name).To(Equal("test"))
-	return &payload{Name: "test", Email: "test@test.com"}, nil
+	return &payload{Name: "test", Email: "test@test.com", Metadata: *metadata}, nil
 }
 
 var _ = Describe("Get", func() {
@@ -40,7 +40,7 @@ var _ = Describe("Get", func() {
 		ws.Produces(restful.MIME_JSON)
 		handler = http.Handler(restful.NewContainer().Add(ws))
 
-		target := MakeGoRestfulWrapper(NewHandlerBuilder().Get().Endpoint(testGetEndpoint).
+		target := MakeGoRestfulWrapper(NewHandlerBuilder().Get().Endpoint(testGetEndpointByName).
 			Encoder(NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK), map[string]kithttp.EncodeResponseFunc{
 				rest.MIME_TEXT: NewEncodeINIResponse(http.StatusOK),
 				rest.MIME_YAML: NewEncodeYamlResponse(http.StatusOK),
@@ -69,7 +69,14 @@ var _ = Describe("Get", func() {
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)
 				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_JSON))
-				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
+				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com", Metadata: Metadata{Name: "test", Namespace: "default"}}))
+			})
+			It("should detect labelSelector", func() {
+				request, _ := http.NewRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/test?labelSelector=app%3Dmyapp", nil)
+				handler.ServeHTTP(recorder, request)
+				responseBody := payload{}
+				json.NewDecoder(recorder.Body).Decode(&responseBody)
+				Expect(responseBody.Metadata.Headers.LabelSelector).To(Equal("app=myapp"))
 			})
 		})
 		Context("with Accept header rest.MIME_TEXT", func() {
@@ -81,7 +88,7 @@ var _ = Describe("Get", func() {
 				Expect(err).To(BeNil())
 				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_TEXT))
 				Expect(f.MapTo(&responseBody)).To(BeNil())
-				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
+				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com", Metadata: Metadata{Name: "test", Namespace: "default"}}))
 			})
 		})
 		Context("with Accept header applicatoin/yaml", func() {
@@ -91,7 +98,7 @@ var _ = Describe("Get", func() {
 				responseBody := payload{}
 				Expect(recorder.Header().Get("Content-Type")).To(Equal(rest.MIME_YAML))
 				Expect(yaml.Unmarshal(recorder.Body.Bytes(), &responseBody)).To(BeNil())
-				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com"}))
+				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com", Metadata: Metadata{Name: "test", Namespace: "default"}}))
 			})
 		})
 	})

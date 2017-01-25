@@ -5,7 +5,10 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
+	"k8s.io/client-go/pkg/api"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
@@ -16,11 +19,14 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
-func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objListPointer runtime.Object, response ResponseHandlerFunc) error {
+func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) error {
+	objResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind}, objPointer)
+	objListResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind + "List"}, objListPointer)
 	cli, err := kubecli.GetRESTClient()
 	if err != nil {
 		return err
@@ -31,10 +37,12 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
 
-	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, response)).Build(ctx)
-	put := endpoints.NewHandlerBuilder().Put(objPointer).Endpoint(NewGenericPutEndpoint(cli, gvr, response)).Build(ctx)
-	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli, gvr, response)).Build(ctx)
-	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, response)).Build(ctx)
+	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	put := endpoints.NewHandlerBuilder().Put(objPointer).Endpoint(NewGenericPutEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	getList := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
+	deleteList := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
 
 	ws.Route(addPostParams(
 		ws.POST(ResourcePath(gvr)).
@@ -81,14 +89,14 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 		ws.GET(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON).
 			Writes(listExample).
-			To(NotImplementedYet).Writes(objExample), ws,
+			To(endpoints.MakeGoRestfulWrapper(getList)), ws,
 	))
 
 	// TODO Delete all vms in namespace
 	ws.Route(addDeleteListParams(
 		ws.DELETE(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON).
-			To(NotImplementedYet).Writes(objExample), ws,
+			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample), ws,
 	))
 	return nil
 }
@@ -96,7 +104,7 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
 	return builder.Param(NamespaceParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
 		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
-		Param(ws.QueryParameter("timeoutSeconds", "Timeout for the list/watch call.").DataType("int"))
+		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("int"))
 }
 
 func addDeleteListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
@@ -145,6 +153,62 @@ func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResou
 	}
 }
 
+func NewGenericGetListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
+	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+		metadata := payload.(*endpoints.Metadata)
+		listOptions, err := listOptionsFromMetadata(metadata)
+		if err != nil {
+			return middleware.NewBadRequestError(err.Error()), nil
+		}
+		fmt.Println(listOptions.LabelSelector)
+		result := cli.Get().Namespace(metadata.Namespace).
+			FieldsSelectorParam(listOptions.FieldSelector).
+			LabelsSelectorParam(listOptions.LabelSelector).
+			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
+			Resource(gvr.Resource).Do()
+		return response(result)
+	}
+}
+
+func NewGenericDeleteListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
+	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+		metadata := payload.(*endpoints.Metadata)
+		listOptions, err := listOptionsFromMetadata(metadata)
+		if err != nil {
+			return middleware.NewBadRequestError(err.Error()), nil
+		}
+		fmt.Println(listOptions.LabelSelector)
+		result := cli.Delete().Namespace(metadata.Namespace).
+			FieldsSelectorParam(listOptions.FieldSelector).
+			LabelsSelectorParam(listOptions.LabelSelector).
+			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
+			Resource(gvr.Resource).Do()
+		return response(result)
+	}
+}
+
+func listOptionsFromMetadata(metadata *endpoints.Metadata) (*api.ListOptions, error) {
+	listOptions := &api.ListOptions{}
+	if metadata.Headers.FieldSelector != "" {
+		fieldSelector, err := fields.ParseSelector(metadata.Headers.FieldSelector)
+		if err != nil {
+			return nil, err
+		}
+		listOptions.FieldSelector = fieldSelector
+	}
+	if metadata.Headers.LabelSelector != "" {
+		labelSelector, err := labels.Parse(metadata.Headers.LabelSelector)
+		if err != nil {
+			return nil, err
+		}
+		listOptions.LabelSelector = labelSelector
+	}
+
+	listOptions.ResourceVersion = metadata.Headers.ResourceVersion
+	listOptions.TimeoutSeconds = &metadata.Headers.TimeoutSeconds
+	return listOptions, nil
+}
+
 func NewGenericPutEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		obj := payload.(*endpoints.PutObject)
@@ -177,7 +241,7 @@ func NotImplementedYet(request *restful.Request, response *restful.Response) {
 }
 
 //FIXME this is basically one big workaround because version and kind are not filled by the restclient
-func NewResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) ResponseHandlerFunc {
+func newResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) ResponseHandlerFunc {
 	return func(result rest.Result) (interface{}, error) {
 		obj, err := result.Get()
 		if err != nil {
