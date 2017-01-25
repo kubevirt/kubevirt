@@ -10,7 +10,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
@@ -40,7 +39,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 				return true
 			}
 
-			vm = util.NewVMReferenceFromName(name)
+			vm = v1.NewVMReferenceFromName(name)
 		} else {
 			vm = obj.(*v1.VM)
 		}

@@ -8,6 +8,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/jeevatkm/go-model"
 	"github.com/satori/go.uuid"
 	kubeapi "k8s.io/client-go/pkg/api"
@@ -271,4 +272,17 @@ func NewSpice(vmName string) *Spice {
 			Kind:       "Spice",
 		},
 	}
+}
+
+// TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
+func NewVMReferenceFromName(name string) *VM {
+	vm := &VM{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: kubeapi.NamespaceDefault,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
+		},
+	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
+	return vm
 }
