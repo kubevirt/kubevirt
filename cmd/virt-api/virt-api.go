@@ -56,6 +56,7 @@ func main() {
 
 	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
 		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
+		Param(rest.NamespaceParam(rest.WebService)).Param(rest.NameParam(rest.WebService)).
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 
 	config := swagger.Config{
