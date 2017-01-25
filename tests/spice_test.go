@@ -14,6 +14,7 @@ import (
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/tests"
 	"math/rand"
 	"net"
@@ -55,7 +56,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}
 				return false
 			}).Watch()
-			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", "text/plain").SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
+			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			spice, err := ini.Load(raw)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -83,7 +84,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}
 				return false
 			}).Watch()
-			obj, err = restClient.Get().Resource("spices").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+			obj, err = restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 			Expect(err).To(BeNil())
 			spice := obj.(*v1.Spice).Info
 			Expect(spice.Type).To(Equal("spice"))
@@ -105,7 +106,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}
 				return false
 			}).Watch()
-			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", "text/plain").SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
+			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			Expect(err).To(BeNil())
 			spiceINI, err := ini.Load(raw)
 			Expect(err).NotTo(HaveOccurred())
