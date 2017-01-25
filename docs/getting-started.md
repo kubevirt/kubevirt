@@ -261,29 +261,3 @@ curl $HOST/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm/spice -H"Acce
 ### Accessing the Domain via the SPICE primary resource
 
 Since `kubectl` does not support TPR subresources yet, the above `cluster/kubectl.sh spice` magic is just a wrapper.
-As an alternative way to get the SPICE connection details through native `kubectl` commands, run
-
-```bash
-cluster/kubectl.sh get spices testvm
-```
-
-That will return a JSON which looks like this:
-
-```json
-{
-  "kind": "Spice",
-  "apiVersion": "kubevirt.io/v1alpha1",
-  "metadata": {
-    "Name": "testvm",
-    "GenerateName": "",
-    "Namespace": "default",
-    [...]
-  },
-  "info": {
-    "type": "spice",
-    "host": "10.32.0.9",
-    "port": 4000,
-    "proxy": "http://192.168.200.2:3128"
-  }
-}
-```
