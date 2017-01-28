@@ -18,6 +18,7 @@ spec:
       containers:
         - name: libvirtd
           image: kubevirt/libvirtd:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 16509
           securityContext:
