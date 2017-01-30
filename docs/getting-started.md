@@ -38,6 +38,14 @@ demo environment:
 
 That's it for now with vagrant, it will be used further down.
 
+On some systems Vagrant will always ask you for your sudo password when you try
+to do something with a VM. To avoid retyping your password all the time you can
+add yourself to the `libvirt` group.
+
+```bash
+sudo gpasswd -a ${USER} libvirt
+newgrp libvirt
+```
 
 ### Build dependencies
 
