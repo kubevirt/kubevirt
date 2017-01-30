@@ -62,7 +62,7 @@ and learn more about the major components by taking a look at
 [our documentation](docs/):
 
  * [Glossary](docs/glossary.md) - Explaining the most important terms
- * [Architecture](docs/architecture.md) - High-level view on the architetcure
+ * [Architecture](docs/architecture.md) - High-level view on the architecture
  * [Components](docs/components.md) - Detailed look at all components
 
 
