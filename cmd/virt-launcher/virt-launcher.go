@@ -35,7 +35,7 @@ func (mon *Monitor) refresh() {
 		log.Printf("Refreshing executable %s pid %d", mon.exename, mon.pid)
 	}
 
-	// is the procecess there?
+	// is the process there?
 	if mon.pid == 0 {
 		var err error
 		mon.pid, err = pidOf(mon.exename)

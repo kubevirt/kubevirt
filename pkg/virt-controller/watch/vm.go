@@ -62,7 +62,7 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 			// Schedule the VM
 			vmCopy := v1.VM{}
 
-			// Deep copy the object, so that we can savely manipulate it
+			// Deep copy the object, so that we can safely manipulate it
 			model.Copy(&vmCopy, vm)
 			logger := logging.DefaultLogger().Object(&vmCopy)
 
