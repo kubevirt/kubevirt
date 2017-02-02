@@ -3,6 +3,7 @@ package virtwrap
 import (
 	"encoding/xml"
 	"github.com/golang/mock/gomock"
+	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -29,7 +30,12 @@ var _ = Describe("Manager", func() {
 		It("should define and start a new VM", func() {
 			vm := newVM("testvm")
 			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			xml, err := xml.Marshal(vm.Spec.Domain)
+
+			// we have to make sure that we use correct DomainSpec (from virtwrap)
+			var domainSpec DomainSpec
+			Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
+
+			xml, err := xml.Marshal(domainSpec)
 			Expect(err).To(BeNil())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
