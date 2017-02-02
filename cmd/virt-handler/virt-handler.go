@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/libvirt/libvirt-go"
 	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api"
@@ -17,8 +20,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
-	"os"
-	"time"
 )
 
 func main() {
