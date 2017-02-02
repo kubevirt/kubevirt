@@ -135,7 +135,7 @@ make generate
 
 ### Testing
 
-After a succefull build you can run the testsuite using:
+After a successful build you can run the testsuite using:
 
 ```bash
     make test
@@ -144,7 +144,7 @@ After a succefull build you can run the testsuite using:
 
 ## Use
 
-Congratulationsyou are still with us and you have build KubeVirt.
+Congratulations you are still with us and you have build KubeVirt.
 
 Now it's time to get hands on and give it a try.
 
@@ -252,13 +252,13 @@ To print the connection details to stdout, run
 cluster/kubectl.sh spice testvm --details
 ```
 
-To direclty query the config, do
+To directly query the config, do
 
 ```bash
 curl $HOST/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm/spice -H"Accept:text/plain"
 ```
 
-### Accessing the Domain via the SPICE primay resource
+### Accessing the Domain via the SPICE primary resource
 
 Since `kubectl` does not support TPR subresources yet, the above `cluster/kubectl.sh spice` magic is just a wrapper.
 As an alternative way to get the SPICE connection details through native `kubectl` commands, run
