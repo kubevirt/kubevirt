@@ -12,7 +12,7 @@ vet:
 	./hack/build-go.sh vet ${WHAT}
 
 fmt:
-	./hack/build-go.sh fmt ${WHAT}
+	goimports -w -local kubevirt.io cmd/ pkg/ tests/
 
 test: build
 	./hack/build-go.sh test ${WHAT}
