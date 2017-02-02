@@ -34,11 +34,11 @@ func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWat
 				return nil, err
 			}
 			domain.Spec = *spec
-			status, _, err := dom.GetState()
+			status, reason, err := dom.GetState()
 			if err != nil {
 				return nil, err
 			}
-			domain.Status.Status = virtwrap.LifeCycleTranslationMap[status]
+			domain.SetState(status, reason)
 			list.Items = append(list.Items, *domain)
 		}
 
@@ -91,15 +91,15 @@ func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, er
 					domain.Spec = *spec
 				}
 			}
-			status, _, err := d.GetState()
+			status, reason, err := d.GetState()
 			if err != nil {
 
 				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
 				}
-				domain.Status.Status = virtwrap.NoState
+				domain.SetState(libvirt.DOMAIN_NOSTATE, reason)
 			} else {
-				domain.Status.Status = virtwrap.LifeCycleTranslationMap[status]
+				domain.SetState(status, reason)
 			}
 		default:
 			spec, err := NewDomainSpec(d)
@@ -108,12 +108,12 @@ func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, er
 				return
 			}
 			domain.Spec = *spec
-			status, _, err := d.GetState()
+			status, reason, err := d.GetState()
 			if err != nil {
 				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
 				return
 			}
-			domain.Status.Status = virtwrap.LifeCycleTranslationMap[status]
+			domain.SetState(status, reason)
 		}
 
 		switch event.Event {
