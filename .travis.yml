@@ -18,6 +18,7 @@ before_install:
 
 install:
  - git reset --hard # we are caching the vendor folder, make sure we see the new vendor.json file
+ - go get github.com/mattn/goveralls
  - go get -u github.com/kardianos/govendor
  - go get -u github.com/golang/mock/gomock
  - go get -u github.com/golang/mock/mockgen
@@ -29,7 +30,8 @@ script:
  - make generate
  - if git diff --name-only | grep 'generated.*.go'; then echo "Content of generated files changed. Please regenerate and commit them."; false; fi
  - make check
- - make test
+ - make build
+ - if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then $HOME/gopath/bin/goveralls -service=travis-ci -package=./pkg/...; else make test; fi
 
 cache:
   directories:
