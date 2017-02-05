@@ -32,6 +32,10 @@ func NewPodController(vmCache cache.Indexer, recorder record.EventRecorder, clie
 
 	selector := scheduledVMPodSelector()
 	lw := kubecli.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
+	return NewPodControllerWithListWatch(vmCache, recorder, lw, restClient)
+}
+
+func NewPodControllerWithListWatch(vmCache cache.Indexer, recorder record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Indexer, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	return kubecli.NewController(lw, queue, &v1.Pod{}, func(indexer cache.Indexer, queue workqueue.RateLimitingInterface) bool {
@@ -81,6 +85,7 @@ func NewPodController(vmCache cache.Indexer, recorder record.EventRecorder, clie
 				vmCopy.ObjectMeta.Labels = map[string]string{}
 			}
 			vmCopy.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
+			vmCopy.Status.NodeName = pod.Spec.NodeName
 			// Update the VM
 			logger := logging.DefaultLogger().Object(vm)
 			if err := restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
