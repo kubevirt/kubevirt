@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/clientcmd"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"net/http"
 )
@@ -21,6 +22,8 @@ import (
 var _ = Describe("Pod", func() {
 	var server *ghttp.Server
 	var stopChan chan struct{}
+
+	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		stopChan = make(chan struct{})
