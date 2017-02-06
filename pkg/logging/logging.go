@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/go-kit/kit/log"
+	"io"
 	"k8s.io/client-go/pkg/api/meta"
 	k8sruntime "k8s.io/client-go/pkg/runtime"
 	"os"
@@ -90,6 +91,10 @@ func Logger(component string) *FilteredLogger {
 
 func DefaultLogger() *FilteredLogger {
 	return Logger(defaultComponent)
+}
+
+func (l *FilteredLogger) SetIOWriter(w io.Writer) {
+	l.logContext = log.NewContext(log.NewLogfmtLogger(w))
 }
 
 func (l *FilteredLogger) SetLogger(logger log.Logger) *FilteredLogger {

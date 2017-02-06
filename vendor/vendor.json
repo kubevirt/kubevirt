@@ -91,6 +91,12 @@
 			"revisionTime": "2016-01-21T18:51:14Z"
 		},
 		{
+			"checksumSHA1": "kBeNcaKk56FguvPSUCEaH6AxpRc=",
+			"path": "github.com/golang/protobuf/proto",
+			"revision": "8ee79997227bf9b34611aee7946ae64735e6fd93",
+			"revisionTime": "2016-11-17T03:31:26Z"
+		},
+		{
 			"checksumSHA1": "dtkL4Y9QiX0xpeSdoH71Ov+VpW4=",
 			"path": "github.com/jeevatkm/go-model",
 			"revision": "b63a4a27f7b484e4ffac7c530a8a996b9e9c8570",
@@ -215,6 +221,12 @@
 			"path": "github.com/onsi/gomega/format",
 			"revision": "d59fa0ac68bb5dd932ee8d24eed631cdd519efc3",
 			"revisionTime": "2016-09-11T05:10:23Z"
+		},
+		{
+			"checksumSHA1": "ooqSazBvVZ6FNEzZk+T85as9PXs=",
+			"path": "github.com/onsi/gomega/ghttp",
+			"revision": "e85f63af4302dc0e4277c6008ecf803f1d80e4f0",
+			"revisionTime": "2017-01-14T00:03:05Z"
 		},
 		{
 			"checksumSHA1": "H4RBR9kcEWh2lECAzBaOTSvgUuA=",
