@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubevirt/kubevirt)](https://goreportcard.com/report/github.com/kubevirt/kubevirt)
 [![Licensed under Apache License version 2.0](https://img.shields.io/github/license/kubevirt/kubevirt.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Coverage Status](https://coveralls.io/repos/github/kubevirt/kubevirt/badge.svg?branch=master)](https://coveralls.io/github/kubevirt/kubevirt?branch=master)
-
+[![Visit our IRC channel](https://kiwiirc.com/buttons/irc.freenode.net/kubevirt.png)](https://kiwiirc.com/client/irc.freenode.net/#kubevirt)
 
 **KubeVirt** is a virtual machine management add-on for Kubernetes.
 The aim is to provide a common ground for virtualization solutions on top of
@@ -72,7 +72,7 @@ If you got enough of code and want to speak to people, then you got a couple
 of options:
 
 * Follow us on [Twitter](https://twitter.com/kubevirt)
-* Chat with us on [IRC](irc://irc.freenode.net/#kubevirt)
+* Chat with us on IRC via [#kubevirt @ irc.freenode.net](https://kiwiirc.com/client/irc.freenode.net/kubevirt)
 * Discuss with us on the [kubevirt-dev Google Group](https://groups.google.com/forum/#!forum/kubevirt-dev)
 * Stay informed about designs and upcoming events by watching our [community content](https://github.com/kubevirt/community/)
 
