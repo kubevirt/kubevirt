@@ -12,7 +12,9 @@ Kubernetes.
 
 **Note:** KubeVirt is a heavy work in progress.
 
-# Virtualization extension for Kubernetes
+# Introduction
+
+## Virtualization extension for Kubernetes
 
 At it's core KubeVirt extends [Kubernetes][k8s] by adding
 additional virtualization resource types (especially the `VM` type) through
@@ -28,9 +30,6 @@ on an existing cluster.
 
 The necessary controllers and agents are provided by KubeVirt.
 
-
-## Features
-
 As of today KubeVirt can be used to declarative
 
  * Create a predefined VM
@@ -44,7 +43,7 @@ Example:
 [![asciicast](https://asciinema.org/a/96275.png)](https://asciinema.org/a/96275)
 
 
-## Getting Started
+# Getting Started
 
 **Demo** To try out our demo run
 ```bash
@@ -65,6 +64,17 @@ and learn more about the major components by taking a look at
  * [Glossary](docs/glossary.md) - Explaining the most important terms
  * [Architecture](docs/architecture.md) - High-level view on the architecture
  * [Components](docs/components.md) - Detailed look at all components
+
+
+# Community
+
+If you got enough of code and want to speak to people, then you got a couple
+of options:
+
+* Follow us on [Twitter](https://twitter.com/kubevirt)
+* Chat with us on [IRC](irc://irc.freenode.net/#kubevirt)
+* Discuss with us on the [kubevirt-dev Google Group](https://groups.google.com/forum/#!forum/kubevirt-dev)
+* Stay informed about designs and upcoming events by watching our [community content](https://github.com/kubevirt/community/)
 
 
 ## Related resources
