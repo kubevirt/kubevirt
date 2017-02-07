@@ -59,6 +59,19 @@ used. To enter `virt-api` with an interactive shell, type
 cluster/kubectl.sh exec virt-api -c virt-api -i -t -- sh
 ```
 
+## Kubelet Logs
+
+After all you might not see errors in the logs provided by Kubernetes. In that case
+you can take a look at the logs of the `kubelet` on the host where the issue is
+appearing. Depending on the error it is getting logged to either the system logs or
+to the kubelet logs, you can use the following commands to view them:
+
+```bash
+journalctl
+# or
+journalctl -u kubelet
+```
+
 ## References
 
  - [kubectl overview](https://kubernetes.io/docs/user-guide/kubectl-overview/)
