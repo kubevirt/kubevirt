@@ -31,6 +31,9 @@ const GroupName = "kubevirt.io"
 // GroupVersion is group version used to register these objects
 var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
+// GroupVersionKind
+var GroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VM"}
+
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
@@ -212,7 +215,7 @@ func NewVM(name string, uid types.UID) *VM {
 		Status: VMStatus{},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
-			Kind:       "VM",
+			Kind:       GroupVersionKind.Kind,
 		},
 	}
 }

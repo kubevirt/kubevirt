@@ -36,8 +36,9 @@ func marshalToYAML(payload interface{}) io.ReadCloser {
 }
 
 type payload struct {
-	Name  string `json:"name" valid:"required"`
-	Email string `json:"email" valid:"email"`
+	Name     string   `json:"name" valid:"required"`
+	Email    string   `json:"email" valid:"email"`
+	Metadata Metadata `json:"metadata"`
 }
 
 func newValidPutRequest() *http.Request {

@@ -28,11 +28,9 @@ func main() {
 
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
-	spiceGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "spices"}
-	gvk := schema.GroupVersionKind{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Kind: "VM"}
 
-	// FIXME the whole NewResponseHandler is just a hack, see the method itself for details
-	err := rest.AddGenericResourceProxy(rest.WebService, ctx, vmGVR, &v1.VM{}, rest.NewResponseHandler(gvk, &v1.VM{}))
+	// FIXME the whole newResponseHandler is just a hack, see the method itself for details
+	err := rest.AddGenericResourceProxy(rest.WebService, ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,18 +53,16 @@ func main() {
 				mime.MIME_YAML: endpoints.NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
 
-	rest.WebService.Route(rest.WebService.GET(rest.SubResourcePath(vmGVR, "spice")).
-		To(spice).Produces("text/plain", "application/json", "application/yaml").
+	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
+		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
+		Param(rest.NamespaceParam(rest.WebService)).Param(rest.NameParam(rest.WebService)).
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
-	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(spiceGVR)).
-		To(spice).Produces("application/json", "text/plain", "application/yaml").
-		Doc("Returns SPICE connection details as JSON."))
 
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(), // you control what services are visible
 		WebServicesUrl:  "http://localhost:8183",
-		ApiPath:         "/apidocs.json",
-		SwaggerPath:     "/apidocs/",
+		ApiPath:         "/swaggerapi",
+		SwaggerPath:     "/swagger-ui/",
 		SwaggerFilePath: *swaggerui,
 	}
 	swagger.InstallSwaggerService(config)

@@ -5,7 +5,10 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
+	"k8s.io/client-go/pkg/api"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
@@ -13,41 +16,133 @@ import (
 	"kubevirt.io/kubevirt/pkg/middleware"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
+	"net/http"
 	"reflect"
+	"strings"
+	"time"
 )
 
 type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
-func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, ptr runtime.Object, response ResponseHandlerFunc) error {
+func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) error {
+	objResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind}, objPointer)
+	objListResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind + "List"}, objListPointer)
 	cli, err := kubecli.GetRESTClient()
 	if err != nil {
 		return err
 	}
-	example := reflect.ValueOf(ptr).Elem().Interface()
-	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, response)).Build(ctx)
-	put := endpoints.NewHandlerBuilder().Put(ptr).Endpoint(NewGenericPutEndpoint(cli, gvr, response)).Build(ctx)
-	post := endpoints.NewHandlerBuilder().Post(ptr).Endpoint(NewGenericPostEndpoint(cli, gvr, response)).Build(ctx)
-	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, response)).Build(ctx)
+	// We don't have to set root here, since the whole webservice has that prefix:
+	// ws.Path(GroupVersionBasePath(gvr.GroupVersion()))
 
-	ws.Route(ws.POST(ResourcePathBase(gvr)).
-		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		Consumes(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(post)).Reads(example).Writes(example))
+	objExample := reflect.ValueOf(objPointer).Elem().Interface()
+	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
 
-	ws.Route(ws.PUT(ResourcePath(gvr)).
-		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		Consumes(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(put)).Reads(example).Writes(example).Doc("test2"))
+	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	put := endpoints.NewHandlerBuilder().Put(objPointer).Endpoint(NewGenericPutEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	getList := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
+	deleteList := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
 
-	ws.Route(ws.DELETE(ResourcePath(gvr)).
-		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		Consumes(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"))
+	ws.Route(addPostParams(
+		ws.POST(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample), ws,
+	))
 
-	ws.Route(ws.GET(ResourcePath(gvr)).
-		Produces(mime.MIME_JSON, mime.MIME_YAML).
-		To(endpoints.MakeGoRestfulWrapper(get)).Writes(example).Doc("test4"))
+	ws.Route(addPutParams(
+		ws.PUT(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).Doc("test2"), ws,
+	))
+
+	ws.Route(addDeleteParams(
+		ws.DELETE(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"), ws,
+	))
+
+	ws.Route(addGetParams(
+		ws.GET(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"), ws,
+	))
+
+	// TODO, implement watch. For now it is here to provide swagger doc only
+	ws.Route(addWatchGetListParams(
+		ws.GET("/watch/"+gvr.Resource).
+			Produces(mime.MIME_JSON).
+			To(NotImplementedYet).Writes(objExample), ws,
+	))
+
+	ws.Route(addWatchGetListParams(
+		ws.GET("/watch"+ResourceBasePath(gvr)).
+			Produces(mime.MIME_JSON).
+			To(NotImplementedYet).Writes(objExample), ws,
+	))
+
+	// TODO List all vms in namespace
+	ws.Route(addWatchGetListParams(
+		ws.GET(ResourceBasePath(gvr)).
+			Produces(mime.MIME_JSON).
+			Writes(listExample).
+			To(endpoints.MakeGoRestfulWrapper(getList)), ws,
+	))
+
+	// TODO Delete all vms in namespace
+	ws.Route(addDeleteListParams(
+		ws.DELETE(ResourceBasePath(gvr)).
+			Produces(mime.MIME_JSON).
+			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample), ws,
+	))
 	return nil
+}
+
+func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
+		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
+		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("int"))
+}
+
+func addDeleteListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NameParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws))
+}
+
+func addGetParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws)).
+		Param(ws.QueryParameter("export", "Should this value be exported. Export strips fields that a user can not specify.").DataType("boolean")).
+		Param(ws.QueryParameter("exact", "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'").DataType("boolean"))
+}
+
+func addPostParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws))
+}
+
+func addPutParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
+}
+
+func addDeleteParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
+}
+
+func NameParam(ws *restful.WebService) *restful.Parameter {
+	return ws.PathParameter("name", "Name of the resource").Required(true)
+}
+
+func NamespaceParam(ws *restful.WebService) *restful.Parameter {
+	return ws.PathParameter("namespace", "Object name and auth scope, such as for teams and projects").Required(true)
+}
+
+func labelSelectorParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("labelSelector", "A selector to restrict the list of returned objects by their labels. Defaults to everything")
+}
+
+func fieldSelectorParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("fieldSelector", "A selector to restrict the list of returned objects by their fields. Defaults to everything.")
 }
 
 func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
@@ -56,6 +151,62 @@ func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResou
 		result := cli.Delete().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do()
 		return response(result)
 	}
+}
+
+func NewGenericGetListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
+	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+		metadata := payload.(*endpoints.Metadata)
+		listOptions, err := listOptionsFromMetadata(metadata)
+		if err != nil {
+			return middleware.NewBadRequestError(err.Error()), nil
+		}
+		fmt.Println(listOptions.LabelSelector)
+		result := cli.Get().Namespace(metadata.Namespace).
+			FieldsSelectorParam(listOptions.FieldSelector).
+			LabelsSelectorParam(listOptions.LabelSelector).
+			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
+			Resource(gvr.Resource).Do()
+		return response(result)
+	}
+}
+
+func NewGenericDeleteListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
+	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+		metadata := payload.(*endpoints.Metadata)
+		listOptions, err := listOptionsFromMetadata(metadata)
+		if err != nil {
+			return middleware.NewBadRequestError(err.Error()), nil
+		}
+		fmt.Println(listOptions.LabelSelector)
+		result := cli.Delete().Namespace(metadata.Namespace).
+			FieldsSelectorParam(listOptions.FieldSelector).
+			LabelsSelectorParam(listOptions.LabelSelector).
+			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
+			Resource(gvr.Resource).Do()
+		return response(result)
+	}
+}
+
+func listOptionsFromMetadata(metadata *endpoints.Metadata) (*api.ListOptions, error) {
+	listOptions := &api.ListOptions{}
+	if metadata.Headers.FieldSelector != "" {
+		fieldSelector, err := fields.ParseSelector(metadata.Headers.FieldSelector)
+		if err != nil {
+			return nil, err
+		}
+		listOptions.FieldSelector = fieldSelector
+	}
+	if metadata.Headers.LabelSelector != "" {
+		labelSelector, err := labels.Parse(metadata.Headers.LabelSelector)
+		if err != nil {
+			return nil, err
+		}
+		listOptions.LabelSelector = labelSelector
+	}
+
+	listOptions.ResourceVersion = metadata.Headers.ResourceVersion
+	listOptions.TimeoutSeconds = &metadata.Headers.TimeoutSeconds
+	return listOptions, nil
 }
 
 func NewGenericPutEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
@@ -82,8 +233,15 @@ func NewGenericGetEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource
 	}
 }
 
+func NotImplementedYet(request *restful.Request, response *restful.Response) {
+	response.AddHeader("Content-Type", "text/plain")
+	response.WriteHeader(http.StatusInternalServerError)
+	response.Write([]byte("Not implemented yet, use the native apiserver endpoint."))
+
+}
+
 //FIXME this is basically one big workaround because version and kind are not filled by the restclient
-func NewResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) ResponseHandlerFunc {
+func newResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) ResponseHandlerFunc {
 	return func(result rest.Result) (interface{}, error) {
 		obj, err := result.Get()
 		if err != nil {
@@ -97,14 +255,21 @@ func NewResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) Respons
 	}
 }
 
-func ResourcePathBase(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("apis/%s/%s/namespaces/{namespace}/%s", gvr.Group, gvr.Version, gvr.Resource)
+func GroupVersionBasePath(gvr schema.GroupVersion) string {
+	return fmt.Sprintf("/apis/%s/%s", gvr.Group, gvr.Version)
+}
+
+func ResourceBasePath(gvr schema.GroupVersionResource) string {
+	return fmt.Sprintf("/namespaces/{namespace}/%s", gvr.Resource)
 }
 
 func ResourcePath(gvr schema.GroupVersionResource) string {
-	return ResourcePathBase(gvr) + "/{name}"
+	return fmt.Sprintf("/namespaces/{namespace}/%s/{name}", gvr.Resource)
 }
 
-func SubResourcePath(gvr schema.GroupVersionResource, subResource string) string {
-	return ResourcePath(gvr) + "/" + subResource
+func SubResourcePath(subResource string) string {
+	if !strings.HasPrefix(subResource, "/") {
+		return "/" + subResource
+	}
+	return subResource
 }
