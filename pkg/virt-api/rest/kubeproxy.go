@@ -88,24 +88,23 @@ func GenericResourceProxy(ctx context.Context, gvr schema.GroupVersionResource, 
 			To(NotImplementedYet).Writes(objExample), ws,
 	))
 
+	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(addWatchGetListParams(
 		ws.GET("/watch"+ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON).
 			To(NotImplementedYet).Writes(objExample), ws,
 	))
 
-	// TODO List all vms in namespace
 	ws.Route(addWatchGetListParams(
 		ws.GET(ResourceBasePath(gvr)).
-			Produces(mime.MIME_JSON).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Writes(listExample).
 			To(endpoints.MakeGoRestfulWrapper(getList)), ws,
 	))
 
-	// TODO Delete all vms in namespace
 	ws.Route(addDeleteListParams(
 		ws.DELETE(ResourceBasePath(gvr)).
-			Produces(mime.MIME_JSON).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample), ws,
 	))
 
