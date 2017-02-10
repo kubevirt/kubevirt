@@ -24,20 +24,30 @@ import (
 
 type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
-func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) error {
+func GenericResourceProxy(ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
+
+	ws := new(restful.WebService)
+	ws.Path(GroupVersionBasePath(gvr.GroupVersion()))
+	gv := gvr.GroupVersion()
+	ws.ApiVersion(gv.String()).Doc("ThirdPartyResource")
+
 	objResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind}, objPointer)
 	objListResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind + "List"}, objListPointer)
 	cli, err := kubecli.GetRESTClient()
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(cli)).Build(ctx)
+	ws.Route(ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
+
 	// We don't have to set root here, since the whole webservice has that prefix:
 	// ws.Path(GroupVersionBasePath(gvr.GroupVersion()))
 
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
 
-	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, newStatusResponseHandler())).Build(ctx)
 	put := endpoints.NewHandlerBuilder().Put(objPointer).Endpoint(NewGenericPutEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
 	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
 	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
@@ -45,7 +55,7 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 	deleteList := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
 
 	ws.Route(addPostParams(
-		ws.POST(ResourcePath(gvr)).
+		ws.POST(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample), ws,
@@ -98,7 +108,19 @@ func AddGenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr sc
 			Produces(mime.MIME_JSON).
 			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample), ws,
 	))
-	return nil
+
+	return ws, nil
+}
+
+func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionResource) (*restful.WebService, error) {
+	cli, err := kubecli.GetRESTClient()
+	if err != nil {
+		return nil, err
+	}
+	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(cli)).Build(ctx)
+	ws := new(restful.WebService)
+	ws.Route(ws.GET(GroupBasePath(gvr.GroupVersion())).Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
+	return ws, nil
 }
 
 func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
@@ -160,7 +182,6 @@ func NewGenericGetListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionReso
 		if err != nil {
 			return middleware.NewBadRequestError(err.Error()), nil
 		}
-		fmt.Println(listOptions.LabelSelector)
 		result := cli.Get().Namespace(metadata.Namespace).
 			FieldsSelectorParam(listOptions.FieldSelector).
 			LabelsSelectorParam(listOptions.LabelSelector).
@@ -177,7 +198,6 @@ func NewGenericDeleteListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionR
 		if err != nil {
 			return middleware.NewBadRequestError(err.Error()), nil
 		}
-		fmt.Println(listOptions.LabelSelector)
 		result := cli.Delete().Namespace(metadata.Namespace).
 			FieldsSelectorParam(listOptions.FieldSelector).
 			LabelsSelectorParam(listOptions.LabelSelector).
@@ -253,6 +273,38 @@ func newResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) Respons
 		return obj, nil
 
 	}
+}
+
+//FIXME this is basically one big workaround because version and kind are not filled by the restclient
+func newStatusResponseHandler() ResponseHandlerFunc {
+	return func(result rest.Result) (interface{}, error) {
+		obj, err := result.Get()
+		if err != nil {
+			return middleware.NewKubernetesError(result), nil
+		}
+		if reflect.TypeOf(obj).Elem() == reflect.TypeOf(metav1.Status{}) {
+			obj.(*metav1.Status).Kind = "Status"
+			obj.(*metav1.Status).APIVersion = "v1"
+		}
+		return obj, nil
+
+	}
+}
+
+func NewAutodiscoveryEndpoint(cli *rest.RESTClient) endpoint.Endpoint {
+	return func(ctx context.Context, _ interface{}) (interface{}, error) {
+		request := ctx.Value(endpoints.ReqKey).(*restful.Request)
+		result := cli.Get().AbsPath(request.SelectedRoutePath()).SetHeader("Accept", mime.MIME_JSON).Do()
+		obj, err := result.Get()
+		if err != nil {
+			return middleware.NewKubernetesError(result), nil
+		}
+		return obj, nil
+	}
+}
+
+func GroupBasePath(gvr schema.GroupVersion) string {
+	return fmt.Sprintf("/apis/%s", gvr.Group)
 }
 
 func GroupVersionBasePath(gvr schema.GroupVersion) string {

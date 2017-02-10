@@ -137,6 +137,10 @@ func namespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface
 	return namespace, nil
 }
 
+func NoopDecoder(_ context.Context, _ *http.Request) (interface{}, error) {
+	return nil, nil
+}
+
 func NamespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, error) {
 	namespace, err := namespaceDecodeRequestFunc(ctx, r)
 	if err != nil {

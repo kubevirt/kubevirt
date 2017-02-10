@@ -8,6 +8,7 @@ import (
 	"golang.org/x/net/context"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	mime "kubevirt.io/kubevirt/pkg/rest"
@@ -30,7 +31,7 @@ func main() {
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
 
 	// FIXME the whole newResponseHandler is just a hack, see the method itself for details
-	err := rest.AddGenericResourceProxy(rest.WebService, ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
+	ws, err := rest.GenericResourceProxy(ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,10 +54,18 @@ func main() {
 				mime.MIME_YAML: endpoints.NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
 
-	rest.WebService.Route(rest.WebService.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
+	ws.Route(ws.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
 		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
-		Param(rest.NamespaceParam(rest.WebService)).Param(rest.NameParam(rest.WebService)).
+		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
+	restful.Add(ws)
+
+	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON).Doc("Health endpoint"))
+	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmGVR)
+	if err != nil {
+		log.Fatal(err)
+	}
+	restful.Add(ws)
 
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(), // you control what services are visible
