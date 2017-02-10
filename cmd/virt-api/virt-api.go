@@ -68,6 +68,7 @@ func main() {
 	}
 	restful.Add(ws)
 	restful.Filter(filter.RequestLoggingFilter())
+	restful.Filter(restful.OPTIONSFilter())
 
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(), // you control what services are visible
