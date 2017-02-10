@@ -13,6 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/logging"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
+	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"log"
 	"net/http"
@@ -58,6 +59,7 @@ func main() {
 		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
+	ws.Filter(filter.RequestLoggingFilter())
 	restful.Add(ws)
 
 	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON).Doc("Health endpoint"))
@@ -65,7 +67,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	ws.Filter(filter.RequestLoggingFilter())
 	restful.Add(ws)
+	restful.Filter(filter.RequestLoggingFilter())
 
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(), // you control what services are visible
