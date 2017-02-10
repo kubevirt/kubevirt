@@ -48,7 +48,7 @@ func main() {
 	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
 	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
 		Endpoint(rest.NewSpiceEndpoint(cli, coreCli, vmGVR)).Encoder(
-		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeJsonResponse(http.StatusOK),
+		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeINIResponse(http.StatusOK),
 			map[string]kithttp.EncodeResponseFunc{
 				mime.MIME_INI:  endpoints.NewEncodeINIResponse(http.StatusOK),
 				mime.MIME_JSON: endpoints.NewEncodeJsonResponse(http.StatusOK),

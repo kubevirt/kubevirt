@@ -108,15 +108,22 @@ func NewMimeTypeAwareEncoder(defaultEncoder kithttp.EncodeResponseFunc, encoderM
 		if len(contentTypes) == 0 {
 			encoder = defaultEncoder
 		} else {
+
 			for _, m := range strings.Split(contentTypes, ",") {
-				encoder = encoderMapping[strings.TrimSpace(m)]
+				mimeType := strings.TrimSpace(m)
+				// go-restful adds the content type "*/*" if none was given, if we see that one, use the default encoder
+				if mimeType == "*/*" {
+					encoder = defaultEncoder
+				} else {
+					encoder = encoderMapping[mimeType]
+				}
 				if encoder != nil {
 					break
 				}
 			}
-			if encoder == nil {
-				return encodeApplicationErrors(context, w, middleware.NewUnsupportedMediaType(contentTypes))
-			}
+		}
+		if encoder == nil {
+			return encodeApplicationErrors(context, w, middleware.NewUnsupportedMediaType(contentTypes))
 		}
 
 		return encoder(context, w, response)
