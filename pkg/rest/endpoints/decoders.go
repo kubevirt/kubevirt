@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful"
+	"github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
@@ -20,6 +21,11 @@ import (
 type PutObject struct {
 	Metadata Metadata
 	Payload  interface{}
+}
+
+type PatchObject struct {
+	Metadata Metadata
+	Patch    jsonpatch.Patch
 }
 
 type Metadata struct {
@@ -183,6 +189,20 @@ func NewJsonDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReques
 	}
 }
 
+func JsonPatchDecodeRequestFunc(_ context.Context, r *http.Request) (interface{}, error) {
+	var b []byte
+	buf := bytes.NewBuffer(b)
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	patch, err := jsonpatch.DecodePatch(buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return patch, nil
+}
+
 func NewYamlDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRequestFunc {
 	payloadType := reflect.TypeOf(payloadTypePtr).Elem()
 	return func(_ context.Context, r *http.Request) (interface{}, error) {
@@ -242,6 +262,26 @@ func NewJsonPutDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReq
 			return nil, err
 		}
 		return &PutObject{Metadata: *metadata.(*Metadata), Payload: payload}, nil
+	}
+}
+
+func NewJsonPatchDecodeRequestFunc() gokithttp.DecodeRequestFunc {
+	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
+		nil,
+		map[string]gokithttp.DecodeRequestFunc{
+			rest.MIME_JSON_PATCH: JsonPatchDecodeRequestFunc,
+		},
+	)
+	return func(ctx context.Context, r *http.Request) (interface{}, error) {
+		metadata, err := NameNamespaceDecodeRequestFunc(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+		payload, err := jsonDecodeRequestFunc(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+		return &PatchObject{Metadata: *metadata.(*Metadata), Patch: payload.(jsonpatch.Patch)}, nil
 	}
 }
 

@@ -27,6 +27,12 @@
 			"revisionTime": "2016-11-16T14:06:10Z"
 		},
 		{
+			"checksumSHA1": "b5+BOAl3a4bGDi+RCOBUZuDyG0o=",
+			"path": "github.com/evanphx/json-patch",
+			"revision": "ba18e35c5c1b36ef6334cad706eb681153d2d379",
+			"revisionTime": "2017-01-23T15:48:00Z"
+		},
+		{
 			"checksumSHA1": "GqkBIw2lUA6lv/jgh9WIyR0YdWY=",
 			"path": "github.com/facebookgo/inject",
 			"revision": "643b7206b487b04fbea325cf6e8d06a66f8db772",

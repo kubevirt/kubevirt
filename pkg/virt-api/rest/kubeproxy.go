@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"github.com/go-kit/kit/endpoint"
@@ -49,6 +50,7 @@ func GenericResourceProxy(ctx context.Context, gvr schema.GroupVersionResource, 
 
 	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli, gvr, newStatusResponseHandler())).Build(ctx)
 	put := endpoints.NewHandlerBuilder().Put(objPointer).Endpoint(NewGenericPutEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	patch := endpoints.NewHandlerBuilder().Patch().Endpoint(NewGenericPatchEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
 	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
 	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
 	getList := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
@@ -80,6 +82,12 @@ func GenericResourceProxy(ctx context.Context, gvr schema.GroupVersionResource, 
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"), ws,
 	))
+
+	ws.Route(
+		ws.PATCH(ResourcePath(gvr)).
+			Produces(mime.MIME_JSON_PATCH).
+			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample).Doc("test5"),
+	)
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(addWatchGetListParams(
@@ -232,6 +240,31 @@ func NewGenericPutEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		obj := payload.(*endpoints.PutObject)
 		result := cli.Put().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Body(obj.Payload).Do()
+		return response(result)
+	}
+}
+
+func NewGenericPatchEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
+	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+		obj := payload.(*endpoints.PatchObject)
+		result := cli.Get().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Do()
+		rawBody, err := result.Raw()
+		if err != nil {
+			return middleware.NewKubernetesError(result), nil
+		}
+		// Check if we can deserialize into something we expected
+		patchedBody, err := result.Get()
+		if err != nil {
+			return middleware.NewKubernetesError(result), nil
+		}
+		// So we have a runtime.Object and a valid patch. If something fails here, it is probably because of a well formed patch request which is not valid for the object.
+		rawPatchedBody, err := obj.Patch.Apply(rawBody)
+		if err != nil {
+			return middleware.NewUnprocessibleEntityError(err), nil
+		}
+
+		json.Unmarshal(rawPatchedBody, patchedBody)
+		result = cli.Put().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Body(patchedBody).Do()
 		return response(result)
 	}
 }

@@ -26,10 +26,13 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 	case *middleware.UnsupportedMediaTypeError:
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		_, err = w.Write([]byte(t.Cause().Error()))
-	case middleware.BadRequestError:
+	case *middleware.UnprocessableEntityError:
+		w.WriteHeader(422)
+		_, err = w.Write([]byte(t.Cause().Error()))
+	case *middleware.BadRequestError:
 		w.WriteHeader(http.StatusBadRequest)
 		_, err = w.Write([]byte(t.Cause().Error()))
-	case middleware.ResourceExistsError:
+	case *middleware.ResourceExistsError:
 		w.WriteHeader(http.StatusConflict)
 		_, err = w.Write([]byte(t.Cause().Error()))
 	case middleware.AppError:

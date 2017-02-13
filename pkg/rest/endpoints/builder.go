@@ -14,6 +14,7 @@ type HandlerBuilder interface {
 	Build(context.Context) *kithttp.Server
 	Post(interface{}) HandlerBuilder
 	Put(interface{}) HandlerBuilder
+	Patch() HandlerBuilder
 	Get() HandlerBuilder
 	Delete() HandlerBuilder
 	Middleware([]endpoint.Middleware) HandlerBuilder
@@ -83,6 +84,17 @@ func (h *handlerBuilder) Delete() HandlerBuilder {
 
 func (h *handlerBuilder) Put(payloadTypePtr interface{}) HandlerBuilder {
 	h.decoder = NewJsonPutDecodeRequestFunc(payloadTypePtr)
+	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
+		map[string]kithttp.EncodeResponseFunc{
+			rest.MIME_JSON: NewEncodeJsonResponse(http.StatusOK),
+			rest.MIME_YAML: NewEncodeYamlResponse(http.StatusOK),
+		},
+	)
+	return h
+}
+
+func (h *handlerBuilder) Patch() HandlerBuilder {
+	h.decoder = NewJsonPatchDecodeRequestFunc()
 	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
 		map[string]kithttp.EncodeResponseFunc{
 			rest.MIME_JSON: NewEncodeJsonResponse(http.StatusOK),
