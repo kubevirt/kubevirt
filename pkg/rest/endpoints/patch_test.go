@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
+	"github.com/evanphx/json-patch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -28,7 +29,12 @@ func testPatchEndpoint(ctx context.Context, request interface{}) (interface{}, e
 	rawOriginalpayload, err := json.Marshal(&originalPayload)
 	Expect(err).ToNot(HaveOccurred())
 
-	rawPatchedBody, err := obj.Patch.Apply(rawOriginalpayload)
+	b, err := json.Marshal(obj.Patch)
+	Expect(err).ToNot(HaveOccurred())
+
+	patch, err := jsonpatch.DecodePatch(b)
+	Expect(err).ToNot(HaveOccurred())
+	rawPatchedBody, err := patch.Apply(rawOriginalpayload)
 	if err != nil {
 		return middleware.NewUnprocessibleEntityError(err), nil
 	}

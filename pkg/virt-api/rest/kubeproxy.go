@@ -3,7 +3,9 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful"
+	"github.com/evanphx/json-patch"
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/pkg/api"
@@ -248,25 +250,64 @@ func NewGenericPatchEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResour
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		obj := payload.(*endpoints.PatchObject)
 		result := cli.Get().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Do()
-		rawBody, err := result.Raw()
-		if err != nil {
+		if result.Error() != nil {
 			return middleware.NewKubernetesError(result), nil
 		}
 		// Check if we can deserialize into something we expected
-		patchedBody, err := result.Get()
+		originalBody, err := result.Get()
 		if err != nil {
 			return middleware.NewKubernetesError(result), nil
 		}
-		// So we have a runtime.Object and a valid patch. If something fails here, it is probably because of a well formed patch request which is not valid for the object.
-		rawPatchedBody, err := obj.Patch.Apply(rawBody)
+
+		patchedBody, err := patchJson(obj.PatchType, obj.Patch, originalBody)
 		if err != nil {
+			return err, nil
+		}
+
+		ok, err := govalidator.ValidateStruct(patchedBody)
+		if !ok {
 			return middleware.NewUnprocessibleEntityError(err), nil
 		}
 
-		json.Unmarshal(rawPatchedBody, patchedBody)
 		result = cli.Put().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Body(patchedBody).Do()
 		return response(result)
 	}
+}
+
+func patchJson(patchType api.PatchType, patch interface{}, orig runtime.Object) (runtime.Object, error) {
+
+	var rawPatched []byte
+	rawOriginal, err := json.Marshal(orig)
+	if err != nil {
+		return nil, middleware.NewInternalServerError(err)
+	}
+
+	rawPatch, err := json.Marshal(patch)
+	if err != nil {
+		return nil, middleware.NewInternalServerError(err)
+	}
+
+	switch patchType {
+	case api.MergePatchType:
+		if rawPatched, err = jsonpatch.MergePatch(rawOriginal, rawPatch); err != nil {
+			return nil, middleware.NewUnprocessibleEntityError(err)
+		}
+	case api.JSONPatchType:
+		p, err := jsonpatch.DecodePatch(rawPatch)
+		if err != nil {
+			return nil, middleware.NewUnprocessibleEntityError(err)
+		}
+		if rawPatched, err = p.Apply(rawOriginal); err != nil {
+			return nil, middleware.NewUnprocessibleEntityError(err)
+		}
+	default:
+		return nil, middleware.NewInternalServerError(fmt.Errorf("Patch type %s is unknown", patchType))
+	}
+	patchedObj := reflect.New(reflect.TypeOf(orig).Elem()).Interface().(runtime.Object)
+	if err = json.Unmarshal(rawPatched, patchedObj); err != nil {
+		return nil, middleware.NewInternalServerError(err)
+	}
+	return patchedObj, nil
 }
 
 func NewGenericPostEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {

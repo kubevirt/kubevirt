@@ -6,10 +6,10 @@ import (
 	"errors"
 	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful"
-	"github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
+	"k8s.io/client-go/pkg/api"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http"
@@ -24,8 +24,9 @@ type PutObject struct {
 }
 
 type PatchObject struct {
-	Metadata Metadata
-	Patch    jsonpatch.Patch
+	Metadata  Metadata
+	Patch     interface{}
+	PatchType api.PatchType
 }
 
 type Metadata struct {
@@ -190,13 +191,8 @@ func NewJsonDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReques
 }
 
 func JsonPatchDecodeRequestFunc(_ context.Context, r *http.Request) (interface{}, error) {
-	var b []byte
-	buf := bytes.NewBuffer(b)
-	_, err := buf.ReadFrom(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	patch, err := jsonpatch.DecodePatch(buf.Bytes())
+	var patch interface{}
+	err := json.NewDecoder(r.Body).Decode(&patch)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +265,8 @@ func NewJsonPatchDecodeRequestFunc() gokithttp.DecodeRequestFunc {
 	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
 		nil,
 		map[string]gokithttp.DecodeRequestFunc{
-			rest.MIME_JSON_PATCH: JsonPatchDecodeRequestFunc,
+			string(api.JSONPatchType):  JsonPatchDecodeRequestFunc,
+			string(api.MergePatchType): JsonPatchDecodeRequestFunc,
 		},
 	)
 	return func(ctx context.Context, r *http.Request) (interface{}, error) {
@@ -281,7 +278,8 @@ func NewJsonPatchDecodeRequestFunc() gokithttp.DecodeRequestFunc {
 		if err != nil {
 			return nil, err
 		}
-		return &PatchObject{Metadata: *metadata.(*Metadata), Patch: payload.(jsonpatch.Patch)}, nil
+		patchType := api.PatchType(r.Header.Get("Content-Type"))
+		return &PatchObject{Metadata: *metadata.(*Metadata), Patch: payload, PatchType: patchType}, nil
 	}
 }
 
