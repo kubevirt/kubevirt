@@ -1,0 +1,22 @@
+# This config was used to create the saveconfig.json file
+
+/backstores/fileio create file.img /volume/file.img ${SIZE_MB}M
+cd /iscsi
+create $WWN
+
+cd /iscsi/$WWN/tpg1/luns
+create lun=0 storage_object=/backstores/fileio/file.img
+
+cd /iscsi/$WWN/tpg1/portals/0.0.0.0:3260
+cd /iscsi/$WWN/tpg1
+set attribute authentication=0
+set attribute generate_node_acls=1
+
+cd /backstores/fileio
+#delete file.img
+cd /iscsi
+#delete $WWN
+#cd /iscsi/$WWN/tpg1/portals
+cd /
+saveconfig
+
