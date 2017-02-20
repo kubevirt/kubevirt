@@ -36,3 +36,29 @@ func (Spice) SwaggerDoc() map[string]string {
 func (SpiceInfo) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
+
+func (Migration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "A Migration is a job that moves a Virtual Machine from one node to another",
+	}
+}
+
+func (MigrationSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "MigrationSpec is a description of a VM Migration",
+		"nodeName":     "The Kubernetes name of the Virtual Machine object to select for one migration.\nFor example \"destinationNodeName\": \"testvm\" will migrate a VM called \"testvm\" in the namespace \"default\"",
+		"nodeSelector": "Criteria to use when selecting the destination for the migration\nfor example, to select by the hostname, specify `kubernetes.io/hostname: master`\nother possible choices include the hardware required to run the vm or\nor lableing of the nodes to indicate their roles in larger applications.\nexamples:\ndisktype: ssd,\nrandomGenerator: /dev/random,\nrandomGenerator: superfastdevice,\napp: mysql,\nlicensedForServiceX: true",
+	}
+}
+
+func (MigrationStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "MigrationStatus is the last reported status of a VM Migratrion. Status may trail the actual\nstate of a migration.",
+	}
+}
+
+func (MigrationList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "A list of Migrations",
+	}
+}

@@ -44,6 +44,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&kubeapi.DeleteOptions{},
 		&v1.DeleteOptions{},
 		&Spice{},
+		&Migration{},
+		&MigrationList{},
 	)
 	return nil
 }
@@ -101,9 +103,10 @@ type VMSpec struct {
 // VMStatus represents information about the status of a VM. Status may trail the actual
 // state of a system.
 type VMStatus struct {
-	NodeName   string        `json:"nodeName,omitempty"`
-	Conditions []VMCondition `json:"conditions,omitempty"`
-	Phase      VMPhase       `json:"phase"`
+	NodeName          string        `json:"nodeName,omitempty"`
+	MigrationNodeName string        `json:"migrationNodeName,omitempty"`
+	Conditions        []VMCondition `json:"conditions,omitempty"`
+	Phase             VMPhase       `json:"phase"`
 }
 
 // Required to satisfy Object interface
@@ -288,4 +291,100 @@ func NewVMReferenceFromName(name string) *VM {
 	}
 	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
 	return vm
+}
+
+//TODO validate that this is correct
+func NewMigrationReferenceFromName(name string) *Migration {
+	migration := &Migration{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: kubeapi.NamespaceDefault,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
+		},
+	}
+	migration.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
+	return migration
+}
+
+// A Migration is a job that moves a Virtual Machine from one node to another
+type Migration struct {
+	metav1.TypeMeta `json:",inline"`
+	ObjectMeta      v1.ObjectMeta   `json:"metadata,omitempty"`
+	Spec            MigrationSpec   `json:"spec,omitempty" valid:"required"`
+	Status          MigrationStatus `json:"message,omitempty"`
+}
+
+// MigrationSpec is a description of a VM Migration
+type MigrationSpec struct {
+	// The Kubernetes name of the Virtual Machine object to select for one migration.
+	// For example "destinationNodeName": "testvm" will migrate a VM called "testvm" in the namespace "default"
+	MigratingVMName string `json:"nodeName,omitempty"`
+	// Criteria to use when selecting the destination for the migration
+	// for example, to select by the hostname, specify `kubernetes.io/hostname: master`
+	// other possible choices include the hardware required to run the vm or
+	// or lableing of the nodes to indicate their roles in larger applications.
+	// examples:
+	// disktype: ssd,
+	// randomGenerator: /dev/random,
+	// randomGenerator: superfastdevice,
+	// app: mysql,
+	// licensedForServiceX: true
+	DestinationNodeSelector map[string]string `json:"nodeSelector,omitempty"`
+}
+
+type MigrationPhase string
+
+const (
+	// Migration has been scheduled but no update on the status has been recorded
+	MigrationPending MigrationPhase = "Pending"
+
+	// Migration is actively progressing
+	MigrationInProgress MigrationPhase = "In Progress"
+
+	// Migration has completed successfully
+	MigrationSucceeded MigrationPhase = "Succeeded"
+
+	// Migration has failed.  The Status structure of the associated Virtual Machine
+	// Will indicate whether if the error was fatal.
+	MigrationFailed MigrationPhase = "Failed"
+)
+
+// MigrationStatus is the last reported status of a VM Migratrion. Status may trail the actual
+// state of a migration.
+type MigrationStatus struct {
+	Phase MigrationPhase `json:"message,omitempty"`
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (v *Migration) GetObjectMeta() meta.Object {
+	return &v.ObjectMeta
+}
+
+//A list of Migrations
+type MigrationList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VM            `json:"items"`
+}
+
+// Required to satisfy Object interface
+func (ml *MigrationList) GetObjectKind() schema.ObjectKind {
+	return &ml.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (ml *MigrationList) GetListMeta() metav1.List {
+	return &ml.ListMeta
+}
+
+func (ml *MigrationList) UnmarshalJSON(data []byte) error {
+	type MigrationListCopy MigrationList
+	tmp := MigrationListCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := MigrationList(tmp)
+	*ml = tmp2
+	return nil
 }

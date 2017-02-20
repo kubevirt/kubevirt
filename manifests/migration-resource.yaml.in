@@ -1,0 +1,7 @@
+metadata:
+  name: migration.kubevirt.io
+apiVersion: extensions/v1beta1
+kind: ThirdPartyResource
+description: "VM migration management"
+versions:
+  - name: v1alpha1
