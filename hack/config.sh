@@ -1,5 +1,5 @@
 binaries="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api"
-docker_images="$binaries images/haproxy images/libvirtd"
+docker_images="$binaries images/haproxy images/libvirtd images/iscsi-target-tgtd"
 docker_prefix=kubevirt
 docker_tag=${DOCKER_TAG:-latest}
 manifest_templates="`ls manifests/*.in`"
