@@ -76,33 +76,41 @@ func NewPodControllerWithListWatch(vmCache cache.Indexer, recorder record.EventR
 		// This is basically a hack, so that virt-handler can completely focus on the VM object and does not have to care about pods
 		if vm.Status.Phase == corev1.Scheduling {
 			// deep copy the VM to allow manipulations
-			vmCopy := corev1.VM{}
-			model.Copy(&vmCopy, vm)
-
-			vmCopy.Status.Phase = corev1.Pending
-			// FIXME we store this in the metadata since field selctors are currently not working for TPRs
-			if vmCopy.GetObjectMeta().GetLabels() == nil {
-				vmCopy.ObjectMeta.Labels = map[string]string{}
-			}
-			vmCopy.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
-			vmCopy.Status.NodeName = pod.Spec.NodeName
-			// Update the VM
-			logger := logging.DefaultLogger().Object(vm)
-			if err := restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
-				logger.Error().Reason(err).Msg("Setting the VM to pending failed.")
-				if e, ok := err.(*errors.StatusError); ok {
-					if e.Status().Reason == metav1.StatusReasonNotFound {
-						// VM does not exist anymore, we don't have to retry
-						return true
-					}
-
-				}
-				logger.V(3).Info().Msg("Enqueuing VM initialization again.")
-				queue.AddRateLimited(key)
-				return true
-			}
-			logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
+			schedulePod(vm, pod, restClient, queue, key)
 		}
 		return true
 	})
+}
+func schedulePod(vm *corev1.VM, pod *v1.Pod, restClient *rest.RESTClient, queue workqueue.RateLimitingInterface, key interface{}) {
+	vmCopy := copyVMFromPod(vm, pod)
+	logger := logging.DefaultLogger().Object(vm)
+	if err := restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
+		handlePodSchedulingError(logger, err, queue, key)
+
+	} else {
+		logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
+	}
+}
+func handlePodSchedulingError(logger *logging.FilteredLogger, err error, queue workqueue.RateLimitingInterface, key interface{}) {
+	logger.Error().Reason(err).Msg("Setting the VM to pending failed.")
+	if e, ok := err.(*errors.StatusError); ok {
+		if e.Status().Reason == metav1.StatusReasonNotFound {
+			// VM does not exist anymore, we don't have to retry
+			return
+		}
+	}
+	logger.V(3).Info().Msg("Enqueuing VM initialization again.")
+	queue.AddRateLimited(key)
+}
+
+func copyVMFromPod(vm *corev1.VM, pod *v1.Pod) corev1.VM {
+	vmCopy := corev1.VM{}
+	model.Copy(&vmCopy, vm)
+	vmCopy.Status.Phase = corev1.Pending
+	if vmCopy.GetObjectMeta().GetLabels() == nil {
+		vmCopy.ObjectMeta.Labels = map[string]string{}
+	}
+	vmCopy.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
+	vmCopy.Status.NodeName = pod.Spec.NodeName
+	return vmCopy
 }
