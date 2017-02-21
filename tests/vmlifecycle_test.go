@@ -71,7 +71,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}
 				return false
 			}).Watch()
-		}, 10)
+		}, 30)
 
 		Context("New VM which can't be started", func() {
 
@@ -92,7 +92,7 @@ var _ = Describe("Vmlifecycle", func() {
 					return false
 				}).Watch()
 				close(done)
-			}, 10)
+			}, 30)
 
 			It("Should stop retrying invalid VM and go on to latest change request", func(done Done) {
 				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
@@ -120,7 +120,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 				close(done)
 
-			}, 10)
+			}, 30)
 		})
 	})
 	AfterEach(func() {
