@@ -29,6 +29,7 @@ func init() {
 	mapper.AddPtrConversion((**Ballooning)(nil), (**v1.Ballooning)(nil))
 	mapper.AddConversion(&Disk{}, &v1.Disk{})
 	mapper.AddConversion(&DiskSource{}, &v1.DiskSource{})
+	mapper.AddConversion(&DiskSourceHost{}, &v1.DiskSourceHost{})
 	mapper.AddConversion(&DiskTarget{}, &v1.DiskTarget{})
 	mapper.AddPtrConversion((**DiskDriver)(nil), (**v1.DiskDriver)(nil))
 	mapper.AddPtrConversion((**ReadOnly)(nil), (**v1.ReadOnly)(nil))
@@ -123,21 +124,24 @@ type Devices struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
-	Device     string      `xml:"device,attr"`
-	Snapshot   string      `xml:"snapshot,attr"`
-	Type       string      `xml:"type,attr"`
-	DiskSource DiskSource  `xml:"source"`
-	DiskTarget DiskTarget  `xml:"target"`
-	Serial     string      `xml:"serial,omitempty"`
-	Driver     *DiskDriver `xml:"driver,omitempty"`
-	ReadOnly   *ReadOnly   `xml:"readonly,omitempty"`
+	Device   string      `xml:"device,attr"`
+	Snapshot string      `xml:"snapshot,attr"`
+	Type     string      `xml:"type,attr"`
+	Source   DiskSource  `xml:"source"`
+	Target   DiskTarget  `xml:"target"`
+	Serial   string      `xml:"serial,omitempty"`
+	Driver   *DiskDriver `xml:"driver,omitempty"`
+	ReadOnly *ReadOnly   `xml:"readonly,omitempty"`
 }
 
 type ReadOnly struct{}
 
 type DiskSource struct {
-	File          string `xml:"file,attr"`
-	StartupPolicy string `xml:"startupPolicy,attr,omitempty"`
+	File          string          `xml:"file,attr,omitempty"`
+	StartupPolicy string          `xml:"startupPolicy,attr,omitempty"`
+	Protocol      string          `xml:"protocol,attr,omitempty"`
+	Name          string          `xml:"name,attr,omitempty"`
+	Host          *DiskSourceHost `xml:"host,omitempty"`
 }
 
 type DiskTarget struct {
@@ -151,6 +155,11 @@ type DiskDriver struct {
 	IO          string `xml:"io,attr,omitempty"`
 	Name        string `xml:"name,attr"`
 	Type        string `xml:"type,attr"`
+}
+
+type DiskSourceHost struct {
+	Name string `xml:"name,attr"`
+	Port string `xml:"port,attr,omitempty"`
 }
 
 // END Disk -----------------------------

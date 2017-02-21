@@ -54,8 +54,10 @@ type Disk struct {
 type ReadOnly struct{}
 
 type DiskSource struct {
-	File          string `json:"file"`
-	StartupPolicy string `json:"startupPolicy,omitempty"`
+	File          string          `json:"file,omitempty"`
+	StartupPolicy string          `json:"startupPolicy,omitempty"`
+	Name          string          `json:"name,omitempty"`
+	Host          *DiskSourceHost `json:"host,omitempty"`
 }
 
 type DiskTarget struct {
@@ -67,8 +69,13 @@ type DiskDriver struct {
 	Cache       string `json:"cache,omitempty"`
 	ErrorPolicy string `json:"errorPolicy,omitempty"`
 	IO          string `json:"io,omitempty"`
-	Name        string `json:"name"`
-	Type        string `json:"type"`
+	Name        string `json:"name,omitempty"`
+	Type        string `json:"type,omitempty"`
+}
+
+type DiskSourceHost struct {
+	Name string `json:"name"`
+	Port string `json:"port,omitempty"`
 }
 
 // END Disk -----------------------------

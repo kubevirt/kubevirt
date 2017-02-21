@@ -34,6 +34,10 @@ func (DiskDriver) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (DiskSourceHost) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
