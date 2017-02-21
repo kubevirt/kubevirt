@@ -64,7 +64,7 @@ const (
 	Running        LifeCycle         = "Running"
 	Blocked        LifeCycle         = "Blocked"
 	Paused         LifeCycle         = "Paused"
-	Shutdown       LifeCycle         = "Shutdown"
+	Shutdown       LifeCycle         = "ShuttingDown"
 	Shutoff        LifeCycle         = "Shutoff"
 	Crashed        LifeCycle         = "Crashed"
 	PMSuspended    LifeCycle         = "PMSuspended"
