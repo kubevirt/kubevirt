@@ -53,7 +53,7 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 
 		if !exists {
 			// Delete VM Pods
-			err := vmService.DeleteVM(vm)
+			err := vmService.DeleteVMPod(vm)
 			if err != nil {
 				logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
 			}
@@ -98,9 +98,9 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 			}
 
 			// TODO get rid of these service calls
-			if err := vmService.StartVM(&vmCopy); err != nil {
+			if err := vmService.StartVMPod(&vmCopy); err != nil {
 				logger.Error().Reason(err).Msg("Defining a target pod for the VM.")
-				pl, err := vmService.GetRunningPods(&vmCopy)
+				pl, err := vmService.GetRunningVMPods(&vmCopy)
 				if err != nil {
 					logger.Error().Reason(err).Msg("Getting all running Pods for the VM failed.")
 					queue.AddRateLimited(key)
@@ -110,7 +110,7 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 					if p.GetObjectMeta().GetLabels()["kubevirt.io/vmUID"] == string(vmCopy.GetObjectMeta().GetUID()) {
 						// Pod from incomplete initialization detected, cleaning up
 						logger.Error().Msgf("Found orphan pod with name '%s' for VM.", p.GetName())
-						err = vmService.DeleteVM(&vmCopy)
+						err = vmService.DeleteVMPod(&vmCopy)
 						if err != nil {
 							logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for VM failed.", p.GetName())
 							queue.AddRateLimited(key)
@@ -120,7 +120,7 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 						// TODO virt-api should make sure this does not happen. For now don't ask and clean up.
 						// Pod from old VM object detected,
 						logger.Error().Msgf("Found orphan pod with name '%s' for deleted VM.", p.GetName())
-						err = vmService.DeleteVM(&vmCopy)
+						err = vmService.DeleteVMPod(&vmCopy)
 						if err != nil {
 							logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for VM failed.", p.GetName())
 							queue.AddRateLimited(key)
