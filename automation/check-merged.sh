@@ -9,11 +9,6 @@ export PATH=$GOPATH/bin:$PATH
 # Needed for templating of manifests
 pip install j2cli
 
-# Use dockerize to detect if services are ready
-export DOCKERIZE_VERSION=v0.3.0
-wget -q https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz -O dockerize.tar.gz
-tar -C /usr/local/bin -xzvf dockerize.tar.gz
-
 # Keep .vagrant files between builds
 export VAGRANT_DOTFILE_PATH=~/.vagrant
 
@@ -53,11 +48,9 @@ make
 cluster/sync.sh
 
 # Wait until virt-api is ready
-#/usr/local/bin/dockerize -wait http://192.168.200.2:8183/apis/kubevirt.io/v1alpha1/healthz -timeout 240s
 sleep 30
-cluster/kubectl.sh --core version
 cluster/kubectl.sh --core get pods
 cluster/kubectl.sh version
 
 # Run functional tests
-cluster/run_tests.sh
+cluster/run_tests.sh --ginkgo.noColor

@@ -6,4 +6,3 @@ libvirt-client
 git
 ruby-devel
 zlib-devel
-wget
