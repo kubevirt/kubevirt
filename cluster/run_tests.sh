@@ -1,5 +1,5 @@
+#!/bin/bash -e
 source hack/config.sh
 
-pushd tests
+cd tests
 go test -master=http://$master_ip:$master_port "$@"
-popd
