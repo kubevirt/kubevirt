@@ -6,29 +6,36 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/rest"
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 type VMService interface {
-	StartVM(*corev1.VM) error
-	DeleteVM(*corev1.VM) error
-	PrepareMigration(*corev1.VM) error
-	GetRunningPods(*corev1.VM) (*v1.PodList, error)
+	StartVMPod(*corev1.VM) error
+	DeleteVMPod(*corev1.VM) error
+	GetRunningVMPods(*corev1.VM) (*v1.PodList, error)
+	DeleteMigration(*corev1.Migration) error
+	GetRunningMigrationPods(*corev1.Migration) (*v1.PodList, error)
+	SetupMigration(migration *corev1.Migration, vm *corev1.VM) error
+	UpdateMigration(migration *corev1.Migration) error
+	FetchVM(vmName string) (*corev1.VM, error)
 }
 
 type vmService struct {
 	KubeCli         *kubernetes.Clientset `inject:""`
+	RestClient      *rest.RESTClient      `inject:""`
 	TemplateService TemplateService       `inject:""`
 }
 
-func (v *vmService) StartVM(vm *corev1.VM) error {
+func (v *vmService) StartVMPod(vm *corev1.VM) error {
+
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
 
-	podList, err := v.GetRunningPods(vm)
+	podList, err := v.GetRunningVMPods(vm)
 	if err != nil {
 		return err
 	}
@@ -49,22 +56,38 @@ func (v *vmService) StartVM(vm *corev1.VM) error {
 	return nil
 }
 
-func (v *vmService) DeleteVM(vm *corev1.VM) error {
+func (v *vmService) DeleteVMPod(vm *corev1.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
-	if err := v.KubeCli.Core().Pods(v1.NamespaceDefault).DeleteCollection(nil, UnfinishedVMPodSelector(vm)); err != nil {
+	if err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).DeleteCollection(nil, UnfinishedVMPodSelector(vm)); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (v *vmService) GetRunningPods(vm *corev1.VM) (*v1.PodList, error) {
-	podList, err := v.KubeCli.Core().Pods(v1.NamespaceDefault).List(UnfinishedVMPodSelector(vm))
+func (v *vmService) GetRunningVMPods(vm *corev1.VM) (*v1.PodList, error) {
+	podList, err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).List(UnfinishedVMPodSelector(vm))
+
 	if err != nil {
 		return nil, err
 	}
 	return podList, nil
+}
+
+func (v *vmService) UpdateMigration(migration *corev1.Migration) error {
+	migrationName := migration.ObjectMeta.Name
+	_, err := v.RestClient.Put().Namespace(v1.NamespaceDefault).Resource("migrations").Body(migration).Name(migrationName).Do().Get()
+	return err
+}
+
+func (v *vmService) FetchVM(vmName string) (*corev1.VM, error) {
+	resp, err := v.RestClient.Get().Namespace(v1.NamespaceDefault).Resource("vms").Name(vmName).Do().Get()
+	if err != nil {
+		return nil, err
+	}
+	vm := resp.(*corev1.VM)
+	return vm, nil
 }
 
 func NewVMService() VMService {
@@ -72,36 +95,58 @@ func NewVMService() VMService {
 	return &svc
 }
 
-func (v *vmService) PrepareMigration(vm *corev1.VM) error {
-	precond.MustNotBeNil(vm)
-	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-	precond.MustBeTrue(len(vm.Spec.NodeSelector) > 0)
-	podList, err := v.GetRunningPods(vm)
-	if err != nil {
-		return err
-	}
-
-	// If there are more than one pod in other states than Succeeded or Failed we can't go on
-	if len(podList.Items) > 1 {
-		return middleware.NewResourceConflictError(fmt.Sprintf("VM %s is already migrating", vm.GetObjectMeta().GetName()))
-	}
-
-	pod, err := v.TemplateService.RenderLaunchManifest(vm)
-	if err != nil {
-		return err
-	}
-	if _, err := v.KubeCli.Core().Pods(v1.NamespaceDefault).Create(pod); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Visible for tests
 func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodFailed) +
 			",status.phase!=" + string(v1.PodSucceeded))
 	labelSelector, err := labels.Parse(fmt.Sprintf(corev1.DomainLabel+" in (%s)", vm.GetObjectMeta().GetName()))
+	if err != nil {
+		panic(err)
+	}
+	return v1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+}
+
+func (v *vmService) SetupMigration(migration *corev1.Migration, vm *corev1.VM) error {
+	pod, err := v.TemplateService.RenderLaunchManifest(vm)
+	if err == nil {
+		_, err = v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).Create(pod)
+	}
+	if err == nil {
+		migration.Status.Phase = corev1.MigrationInProgress
+	} else {
+		migration.Status.Phase = corev1.MigrationFailed
+	}
+
+	err2 := v.UpdateMigration(migration)
+	if err2 != nil {
+		err = err2
+	}
+	return err
+}
+
+func (v *vmService) DeleteMigration(migration *corev1.Migration) error {
+	precond.MustNotBeNil(migration)
+	precond.MustNotBeEmpty(migration.GetObjectMeta().GetName())
+
+	if err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).DeleteCollection(nil, unfinishedMigrationPodSelector(migration)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.PodList, error) {
+	podList, err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).List(unfinishedMigrationPodSelector(migration))
+	if err != nil {
+		return nil, err
+	}
+	return podList, nil
+}
+
+func unfinishedMigrationPodSelector(migration *corev1.Migration) v1.ListOptions {
+	fieldSelector := fields.ParseSelectorOrDie(
+		"status.phase!=" + string(v1.PodFailed) +
+			",status.phase!=" + string(v1.PodSucceeded))
+	labelSelector, err := labels.Parse(fmt.Sprintf(corev1.DomainLabel+" in (%s)", migration.GetObjectMeta().GetName()))
 	if err != nil {
 		panic(err)
 	}
