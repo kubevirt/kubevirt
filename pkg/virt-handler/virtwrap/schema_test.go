@@ -21,6 +21,12 @@ var exampleXML = `
       <interface type='network'>
         <source network='default'/>
       </interface>
+      <disk type='network' device='disk'>
+        <driver name='qemu' type='raw'/>
+        <source protocol='iscsi' name='iqn.2013-07.com.example:iscsi-nopool/2'>
+          <host name='example.com' port='3260'/>
+        </source>
+      </disk>
     </devices>
 </domain>
 `
@@ -48,12 +54,43 @@ var exampleJSON = `
                "network":"default"
             }
          }
+      ],
+      "disks": [
+        {
+          "type": "network",
+          "device": "disk",
+          "driver": {
+            "name": "qemu",
+            "type": "raw"
+          },
+          "source": {
+            "protocol": "iscsi",
+            "name": "iqn.2013-07.com.example:iscsi-nopool/2",
+            "host": {
+              "name": "example.com",
+              "port": "3260"
+            }
+          }
+        }
       ]
    }
 }
 `
 
 var _ = Describe("Schema", func() {
+	//The example domain should stay in sync to the xml and json above
+	var exampleDomain = NewMinimalVM("testvm")
+	exampleDomain.Devices.Disks = []Disk{
+		{Type: "network",
+			Device: "disk",
+			Driver: &DiskDriver{Name: "qemu",
+				Type: "raw"},
+			Source: DiskSource{Protocol: "iscsi",
+				Name: "iqn.2013-07.com.example:iscsi-nopool/2",
+				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
+		},
+	}
+
 	Context("With schema", func() {
 		It("Generate expected libvirt xml", func() {
 			domain := NewMinimalVM("testvm")
@@ -77,21 +114,19 @@ var _ = Describe("Schema", func() {
 	})
 	Context("With example schema in xml", func() {
 		It("Unmarshal into struct", func() {
-			domain := NewMinimalVM("testvm")
 			newDomain := DomainSpec{}
 			err := xml.Unmarshal([]byte(exampleXML), &newDomain)
+			newDomain.XMLName.Local = ""
 			Expect(err).To(BeNil())
-			domain.XMLName.Local = "domain"
-			Expect(newDomain).To(Equal(*domain))
+			Expect(newDomain).To(Equal(*exampleDomain))
 		})
 	})
 	Context("With example schema in json", func() {
 		It("Unmarshal into struct", func() {
-			domain := NewMinimalVM("testvm")
 			newDomain := DomainSpec{}
 			err := json.Unmarshal([]byte(exampleJSON), &newDomain)
 			Expect(err).To(BeNil())
-			Expect(newDomain).To(Equal(*domain))
+			Expect(newDomain).To(Equal(*exampleDomain))
 		})
 	})
 	Context("With v1.DomainSpec", func() {
