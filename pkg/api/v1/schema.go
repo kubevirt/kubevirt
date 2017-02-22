@@ -41,14 +41,14 @@ type Devices struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
-	Device     string      `json:"device"`
-	Snapshot   string      `json:"shapshot"`
-	Type       string      `json:"type"`
-	DiskSource DiskSource  `json:"diskSource"`
-	DiskTarget DiskTarget  `json:"diskTarget"`
-	Serial     string      `json:"serial,omitempty"`
-	Driver     *DiskDriver `json:"driver,omitempty"`
-	ReadOnly   *ReadOnly   `json:"readOnly,omitempty"`
+	Device   string      `json:"device"`
+	Snapshot string      `json:"shapshot,omitempty"`
+	Type     string      `json:"type"`
+	Source   DiskSource  `json:"source"`
+	Target   DiskTarget  `json:"target"`
+	Serial   string      `json:"serial,omitempty"`
+	Driver   *DiskDriver `json:"driver,omitempty"`
+	ReadOnly *ReadOnly   `json:"readOnly,omitempty"`
 }
 
 type ReadOnly struct{}
@@ -56,12 +56,13 @@ type ReadOnly struct{}
 type DiskSource struct {
 	File          string          `json:"file,omitempty"`
 	StartupPolicy string          `json:"startupPolicy,omitempty"`
+	Protocol      string          `json:"protocol,omitempty"`
 	Name          string          `json:"name,omitempty"`
 	Host          *DiskSourceHost `json:"host,omitempty"`
 }
 
 type DiskTarget struct {
-	Bus    string `json:"bus"`
+	Bus    string `json:"bus,omitempty"`
 	Device string `json:"dev"`
 }
 
