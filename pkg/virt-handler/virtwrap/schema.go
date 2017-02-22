@@ -125,7 +125,7 @@ type Devices struct {
 
 type Disk struct {
 	Device   string      `xml:"device,attr"`
-	Snapshot string      `xml:"snapshot,attr"`
+	Snapshot string      `xml:"snapshot,attr,omitempty"`
 	Type     string      `xml:"type,attr"`
 	Source   DiskSource  `xml:"source"`
 	Target   DiskTarget  `xml:"target"`
@@ -145,7 +145,7 @@ type DiskSource struct {
 }
 
 type DiskTarget struct {
-	Bus    string `xml:"bus,attr"`
+	Bus    string `xml:"bus,attr,omitempty"`
 	Device string `xml:"dev,attr"`
 }
 

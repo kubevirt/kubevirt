@@ -1,7 +1,6 @@
 package virtwrap
 
 import (
-	"encoding/json"
 	"encoding/xml"
 	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
@@ -9,76 +8,29 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var exampleXML = `
-<domain type="qemu">
+var exampleXML = `<domain type="qemu">
   <name>testvm</name>
   <memory unit="KiB">8192</memory>
   <os>
     <type>hvm</type>
   </os>
-    <devices>
-      <emulator>/usr/local/bin/qemu-x86_64</emulator>
-      <interface type='network'>
-        <source network='default'/>
-      </interface>
-      <disk type='network' device='disk'>
-        <driver name='qemu' type='raw'/>
-        <source protocol='iscsi' name='iqn.2013-07.com.example:iscsi-nopool/2'>
-          <host name='example.com' port='3260'/>
-        </source>
-      </disk>
-    </devices>
-</domain>
-`
-
-var exampleJSON = `
-{
-   "name":"testvm",
-   "memory":{
-      "value":8192,
-      "unit":"KiB"
-   },
-   "type":"qemu",
-   "os":{
-      "type":{
-         "os":"hvm"
-      },
-      "bootOrder":null
-   },
-   "devices":{
-      "emulator":"/usr/local/bin/qemu-x86_64",
-      "interfaces":[
-         {
-            "type":"network",
-            "source":{
-               "network":"default"
-            }
-         }
-      ],
-      "disks": [
-        {
-          "type": "network",
-          "device": "disk",
-          "driver": {
-            "name": "qemu",
-            "type": "raw"
-          },
-          "source": {
-            "protocol": "iscsi",
-            "name": "iqn.2013-07.com.example:iscsi-nopool/2",
-            "host": {
-              "name": "example.com",
-              "port": "3260"
-            }
-          }
-        }
-      ]
-   }
-}
-`
+  <devices>
+    <emulator>/usr/local/bin/qemu-x86_64</emulator>
+    <interface type="network">
+      <source network="default"></source>
+    </interface>
+    <disk device="disk" type="network">
+      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
+        <host name="example.com" port="3260"></host>
+      </source>
+      <target dev="vda"></target>
+      <driver name="qemu" type="raw"></driver>
+    </disk>
+  </devices>
+</domain>`
 
 var _ = Describe("Schema", func() {
-	//The example domain should stay in sync to the xml and json above
+	//The example domain should stay in sync to the xml above
 	var exampleDomain = NewMinimalVM("testvm")
 	exampleDomain.Devices.Disks = []Disk{
 		{Type: "network",
@@ -88,6 +40,7 @@ var _ = Describe("Schema", func() {
 			Source: DiskSource{Protocol: "iscsi",
 				Name: "iqn.2013-07.com.example:iscsi-nopool/2",
 				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
+			Target: DiskTarget{Device: "vda"},
 		},
 	}
 
@@ -96,45 +49,38 @@ var _ = Describe("Schema", func() {
 			domain := NewMinimalVM("testvm")
 			buf, err := xml.Marshal(domain)
 			Expect(err).To(BeNil())
+
 			newDomain := DomainSpec{}
 			err = xml.Unmarshal(buf, &newDomain)
 			Expect(err).To(BeNil())
+
 			domain.XMLName.Local = "domain"
 			Expect(newDomain).To(Equal(*domain))
 		})
-		It("Generate expected libvirt json", func() {
-			domain := NewMinimalVM("testvm")
-			buf, err := json.Marshal(domain)
-			Expect(err).To(BeNil())
-			newDomain := DomainSpec{}
-			err = json.Unmarshal(buf, &newDomain)
-			Expect(err).To(BeNil())
-			Expect(newDomain).To(Equal(*domain))
-		})
 	})
-	Context("With example schema in xml", func() {
+	Context("With example schema", func() {
 		It("Unmarshal into struct", func() {
 			newDomain := DomainSpec{}
 			err := xml.Unmarshal([]byte(exampleXML), &newDomain)
 			newDomain.XMLName.Local = ""
 			Expect(err).To(BeNil())
+
 			Expect(newDomain).To(Equal(*exampleDomain))
 		})
-	})
-	Context("With example schema in json", func() {
-		It("Unmarshal into struct", func() {
-			newDomain := DomainSpec{}
-			err := json.Unmarshal([]byte(exampleJSON), &newDomain)
+		It("Marshal into xml", func() {
+			buf, err := xml.MarshalIndent(*exampleDomain, "", "  ")
 			Expect(err).To(BeNil())
-			Expect(newDomain).To(Equal(*exampleDomain))
+
+			Expect(string(buf)).To(Equal(exampleXML))
 		})
+
 	})
 	Context("With v1.DomainSpec", func() {
 		It("converts to libvirt.DomainSpec", func() {
 			v1DomainSpec := v1.NewMinimalDomainSpec("testvm")
-			libvirtDomainSpec := DomainSpec{}
-			errs := model.Copy(&libvirtDomainSpec, v1DomainSpec)
-			Expect(libvirtDomainSpec).To(Equal(*NewMinimalVM("testvm")))
+			virtDomainSpec := DomainSpec{}
+			errs := model.Copy(&virtDomainSpec, v1DomainSpec)
+			Expect(virtDomainSpec).To(Equal(*NewMinimalVM("testvm")))
 			Expect(errs).To(BeEmpty())
 		})
 	})
