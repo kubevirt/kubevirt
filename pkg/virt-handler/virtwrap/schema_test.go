@@ -76,11 +76,23 @@ var _ = Describe("Schema", func() {
 
 	})
 	Context("With v1.DomainSpec", func() {
+		var v1DomainSpec = v1.NewMinimalDomainSpec("testvm")
+		v1DomainSpec.Devices.Disks = []v1.Disk{
+			{Type: "network",
+				Device: "disk",
+				Driver: &v1.DiskDriver{Name: "qemu",
+					Type: "raw"},
+				Source: v1.DiskSource{Protocol: "iscsi",
+					Name: "iqn.2013-07.com.example:iscsi-nopool/2",
+					Host: &v1.DiskSourceHost{Name: "example.com", Port: "3260"}},
+				Target: v1.DiskTarget{Device: "vda"},
+			},
+		}
+
 		It("converts to libvirt.DomainSpec", func() {
-			v1DomainSpec := v1.NewMinimalDomainSpec("testvm")
 			virtDomainSpec := DomainSpec{}
 			errs := model.Copy(&virtDomainSpec, v1DomainSpec)
-			Expect(virtDomainSpec).To(Equal(*NewMinimalVM("testvm")))
+			Expect(virtDomainSpec).To(Equal(*exampleDomain))
 			Expect(errs).To(BeEmpty())
 		})
 	})
