@@ -305,7 +305,7 @@ func patchJson(patchType api.PatchType, patch interface{}, orig runtime.Object) 
 	}
 	patchedObj := reflect.New(reflect.TypeOf(orig).Elem()).Interface().(runtime.Object)
 	if err = json.Unmarshal(rawPatched, patchedObj); err != nil {
-		return nil, middleware.NewInternalServerError(err)
+		return nil, middleware.NewUnprocessibleEntityError(err)
 	}
 	return patchedObj, nil
 }

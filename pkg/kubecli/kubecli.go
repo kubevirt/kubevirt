@@ -47,6 +47,10 @@ func Get() (*kubernetes.Clientset, error) {
 }
 
 func GetRESTClient() (*rest.RESTClient, error) {
+	return GetRESTClientFromFlags(master, kubeconfig)
+}
+
+func GetRESTClientFromFlags(master string, kubeconfig string) (*rest.RESTClient, error) {
 
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
