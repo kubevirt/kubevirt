@@ -1,20 +1,30 @@
 package virthandler_test
 
 import (
+	"net/http"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	kubeapi "k8s.io/client-go/pkg/api"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/runtime/schema"
+	"k8s.io/client-go/pkg/runtime/serializer"
 	"k8s.io/client-go/pkg/util/workqueue"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	"net/http"
 )
 
 var _ = Describe("VM", func() {
@@ -36,9 +46,14 @@ var _ = Describe("VM", func() {
 		fakeWatcher = framework.NewFakeControllerSource()
 		ctrl = gomock.NewController(GinkgoT())
 		mockManager = virtwrap.NewMockDomainManager(ctrl)
+
+		coreClient, err := kubecli.GetFromFlags(server.URL(), "")
+		Expect(err).ToNot(HaveOccurred())
+
 		restClient, err := kubecli.GetRESTClientFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
-		vmStore, vmQueue, controller = NewVMController(fakeWatcher, mockManager, record.NewFakeRecorder(100), *restClient, "master")
+
+		vmStore, vmQueue, controller = NewVMController(fakeWatcher, mockManager, record.NewFakeRecorder(100), *restClient, coreClient, "master")
 		controller.StartInformer(stopChan)
 		controller.WaitForSync(stopChan)
 		go controller.Run(1, stopChan)
@@ -78,3 +93,113 @@ var _ = Describe("VM", func() {
 		ctrl.Finish()
 	})
 })
+
+var _ = Describe("PVC", func() {
+	RegisterFailHandler(Fail)
+
+	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+
+	var (
+		expectedPVC kubev1.PersistentVolumeClaim
+		expectedPV  kubev1.PersistentVolume
+		server      *ghttp.Server
+	)
+
+	BeforeEach(func() {
+		expectedPVC = kubev1.PersistentVolumeClaim{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+			},
+			Spec: kubev1.PersistentVolumeClaimSpec{
+				VolumeName: "disk-01",
+			},
+			Status: kubev1.PersistentVolumeClaimStatus{
+				Phase: kubev1.ClaimBound,
+			},
+		}
+
+		source := kubev1.ISCSIVolumeSource{
+			IQN:          "iqn.2009-02.com.test:for.all",
+			Lun:          1,
+			TargetPortal: "127.0.0.1:6543",
+		}
+
+		expectedPV = kubev1.PersistentVolume{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "PersistentVolume",
+				APIVersion: "v1",
+			},
+			Spec: kubev1.PersistentVolumeSpec{
+				PersistentVolumeSource: kubev1.PersistentVolumeSource{
+					ISCSI: &source,
+				},
+			},
+		}
+
+		server = ghttp.NewServer()
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/persistentvolumeclaims/test-claim"),
+				ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPVC),
+			),
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/api/v1/persistentvolumes/disk-01"),
+				ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPV),
+			),
+		)
+	})
+
+	AfterEach(func() {
+		server.Close()
+	})
+
+	Context("Map Source Disks", func() {
+		It("looks up and applies PVC", func() {
+			vm := v1.VM{}
+
+			disk := v1.Disk{
+				Type: "PersistentVolumeClaim",
+				Source: v1.DiskSource{
+					Name: "test-claim",
+				},
+				Target: v1.DiskTarget{
+					Device: "vda",
+				},
+			}
+			disk.Type = "PersistentVolumeClaim"
+
+			domain := v1.DomainSpec{}
+			domain.Devices.Disks = []v1.Disk{disk}
+			vm.Spec.Domain = &domain
+
+			restClient := getRestClient(server.URL())
+			vmCopy, err := MapPersistentVolumes(&vm, restClient, kubeapi.NamespaceDefault)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
+			newDisk := vmCopy.Spec.Domain.Devices.Disks[0]
+			Expect(newDisk.Device).To(Equal("disk"))
+			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
+			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
+		})
+	})
+})
+
+func getRestClient(url string) *rest.RESTClient {
+	gv := schema.GroupVersion{Group: "", Version: "v1"}
+	restConfig, err := clientcmd.BuildConfigFromFlags(url, "")
+	Expect(err).NotTo(HaveOccurred())
+	restConfig.GroupVersion = &gv
+	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: kubeapi.Codecs}
+	restConfig.APIPath = "/api"
+	restConfig.ContentType = runtime.ContentTypeJSON
+	restClient, err := rest.RESTClientFor(restConfig)
+	Expect(err).NotTo(HaveOccurred())
+	return restClient
+}
+
+func TestVMs(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "PVC")
+}

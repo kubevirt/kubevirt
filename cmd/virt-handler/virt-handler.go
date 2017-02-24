@@ -82,7 +82,7 @@ func main() {
 
 	// Wire VM controller
 	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceDefault, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, *host)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, coreClient, *host)
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
