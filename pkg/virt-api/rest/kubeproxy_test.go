@@ -54,14 +54,15 @@ var _ = Describe("Kubeproxy", func() {
 		}
 		restful.Add(ws)
 
+	})
+
+	BeforeEach(func() {
 		kubeproxy = httptest.NewServer(restful.DefaultContainer)
+		var err error
 		restClient, err = kubecli.GetRESTClientFromFlags(kubeproxy.URL, "")
 		if err != nil {
 			Expect(err).ToNot(HaveOccurred())
 		}
-	})
-
-	BeforeEach(func() {
 		sourceVM = v1.NewMinimalVM("testvm")
 		apiserverMock.Reset()
 	})
@@ -289,9 +290,12 @@ var _ = Describe("Kubeproxy", func() {
 		})
 	})
 
+	AfterEach(func() {
+		kubeproxy.Close()
+	})
+
 	AfterSuite(func() {
 		apiserverMock.Close()
-		kubeproxy.Close()
 	})
 })
 
