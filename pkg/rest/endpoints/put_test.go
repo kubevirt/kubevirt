@@ -26,6 +26,13 @@ func marshalToJSON(payload interface{}) io.ReadCloser {
 	return ioutil.NopCloser(buffer)
 }
 
+func toReader(json string) io.ReadCloser {
+	var b []byte
+	buffer := bytes.NewBuffer(b)
+	buffer.WriteString(json)
+	return ioutil.NopCloser(buffer)
+}
+
 func marshalToYAML(payload interface{}) io.ReadCloser {
 	var b []byte
 	buffer := bytes.NewBuffer(b)

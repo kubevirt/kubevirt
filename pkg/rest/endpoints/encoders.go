@@ -26,10 +26,13 @@ func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response 
 	case *middleware.UnsupportedMediaTypeError:
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		_, err = w.Write([]byte(t.Cause().Error()))
-	case middleware.BadRequestError:
+	case *middleware.UnprocessableEntityError:
+		w.WriteHeader(422)
+		_, err = w.Write([]byte(t.Cause().Error()))
+	case *middleware.BadRequestError:
 		w.WriteHeader(http.StatusBadRequest)
 		_, err = w.Write([]byte(t.Cause().Error()))
-	case middleware.ResourceExistsError:
+	case *middleware.ResourceExistsError:
 		w.WriteHeader(http.StatusConflict)
 		_, err = w.Write([]byte(t.Cause().Error()))
 	case middleware.AppError:
@@ -108,15 +111,22 @@ func NewMimeTypeAwareEncoder(defaultEncoder kithttp.EncodeResponseFunc, encoderM
 		if len(contentTypes) == 0 {
 			encoder = defaultEncoder
 		} else {
+
 			for _, m := range strings.Split(contentTypes, ",") {
-				encoder = encoderMapping[strings.TrimSpace(m)]
+				mimeType := strings.TrimSpace(m)
+				// go-restful adds the content type "*/*" if none was given, if we see that one, use the default encoder
+				if mimeType == "*/*" {
+					encoder = defaultEncoder
+				} else {
+					encoder = encoderMapping[mimeType]
+				}
 				if encoder != nil {
 					break
 				}
 			}
-			if encoder == nil {
-				return encodeApplicationErrors(context, w, middleware.NewUnsupportedMediaType(contentTypes))
-			}
+		}
+		if encoder == nil {
+			return encodeApplicationErrors(context, w, middleware.NewUnsupportedMediaType(contentTypes))
 		}
 
 		return encoder(context, w, response)

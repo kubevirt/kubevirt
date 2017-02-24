@@ -26,9 +26,9 @@ if [ -e  ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig ] &&
    [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ] &&
    [ "x$1" == "x--core" ]; then
     shift
-    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl --kubeconfig=${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig $@
+    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl --kubeconfig=${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig "$@"
 elif [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ];then
-    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl -s http://${master_ip}:8184 $@
+    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl -s http://${master_ip}:8184 "$@"
 else
     echo "Did you already run '$SYNC_CONFIG' to deploy kubevirt?"
 fi

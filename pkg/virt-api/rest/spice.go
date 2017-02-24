@@ -3,7 +3,6 @@ package rest
 import (
 	"flag"
 	"fmt"
-	"github.com/emicklei/go-restful"
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/kubernetes"
@@ -14,21 +13,14 @@ import (
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 	"strings"
 )
 
-var WebService *restful.WebService
 var spiceProxy string
 
 func init() {
-	WebService = new(restful.WebService)
-	WebService.Path(GroupVersionBasePath(v1.GroupVersion)).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	WebService.ApiVersion(v1.GroupVersion.String()).Doc("help")
-	restful.Add(WebService)
-	WebService.Route(WebService.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).Doc("Health endpoint"))
 	// TODO should be reloadable, use configmaps and update on every access? Watch a config file and reload?
 	flag.StringVar(&spiceProxy, "spice-proxy", "", "Spice proxy to use when spice access is requested")
 }

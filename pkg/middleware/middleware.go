@@ -45,6 +45,7 @@ type PreconditionError struct{ appError }     // Precondition not met, most like
 type InternalServerError struct{ appError }   // Unknown internal error, most likely a bug in a service or a library
 type UnsupportedMediaTypeError struct{ appError }
 type BadRequestError struct{ appError }
+type UnprocessableEntityError struct{ appError }
 
 type KubernetesError struct {
 	result rest.Result
@@ -151,6 +152,10 @@ func NewInternalServerError(err error) *InternalServerError {
 
 func NewKubernetesError(result rest.Result) *KubernetesError {
 	return &KubernetesError{result: result}
+}
+
+func NewUnprocessibleEntityError(err error) *UnprocessableEntityError {
+	return &UnprocessableEntityError{appError{err: err}}
 }
 
 func NewUnsupportedMediaType(mediaType string) *UnsupportedMediaTypeError {

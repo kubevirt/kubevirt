@@ -9,6 +9,7 @@ import (
 	"github.com/ghodss/yaml"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
+	"k8s.io/client-go/pkg/api"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http"
@@ -20,6 +21,12 @@ import (
 type PutObject struct {
 	Metadata Metadata
 	Payload  interface{}
+}
+
+type PatchObject struct {
+	Metadata  Metadata
+	Patch     interface{}
+	PatchType api.PatchType
 }
 
 type Metadata struct {
@@ -137,6 +144,10 @@ func namespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface
 	return namespace, nil
 }
 
+func NoopDecoder(_ context.Context, _ *http.Request) (interface{}, error) {
+	return nil, nil
+}
+
 func NamespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, error) {
 	namespace, err := namespaceDecodeRequestFunc(ctx, r)
 	if err != nil {
@@ -177,6 +188,15 @@ func NewJsonDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReques
 		}
 		return obj, nil
 	}
+}
+
+func JsonPatchDecodeRequestFunc(_ context.Context, r *http.Request) (interface{}, error) {
+	var patch interface{}
+	err := json.NewDecoder(r.Body).Decode(&patch)
+	if err != nil {
+		return nil, err
+	}
+	return patch, nil
 }
 
 func NewYamlDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRequestFunc {
@@ -238,6 +258,28 @@ func NewJsonPutDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReq
 			return nil, err
 		}
 		return &PutObject{Metadata: *metadata.(*Metadata), Payload: payload}, nil
+	}
+}
+
+func NewJsonPatchDecodeRequestFunc() gokithttp.DecodeRequestFunc {
+	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
+		nil,
+		map[string]gokithttp.DecodeRequestFunc{
+			string(api.JSONPatchType):  JsonPatchDecodeRequestFunc,
+			string(api.MergePatchType): JsonPatchDecodeRequestFunc,
+		},
+	)
+	return func(ctx context.Context, r *http.Request) (interface{}, error) {
+		metadata, err := NameNamespaceDecodeRequestFunc(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+		payload, err := jsonDecodeRequestFunc(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+		patchType := api.PatchType(r.Header.Get("Content-Type"))
+		return &PatchObject{Metadata: *metadata.(*Metadata), Patch: payload, PatchType: patchType}, nil
 	}
 }
 
