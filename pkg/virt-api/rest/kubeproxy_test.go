@@ -7,6 +7,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"golang.org/x/net/context"
@@ -19,6 +20,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	rest2 "kubevirt.io/kubevirt/pkg/rest"
 	. "kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
@@ -71,8 +73,7 @@ var _ = Describe("Kubeproxy", func() {
 				),
 			)
 			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
-			Expect(result.Error()).To(HaveOccurred())
-			Expect(result.Error().(*errors.StatusError).Status().Code).To(BeNumerically("==", http.StatusConflict))
+			Expect(result).To(HaveStatusCode(http.StatusConflict))
 		})
 		It("PUT should succeed", func() {
 			apiserverMock.AppendHandlers(
@@ -82,9 +83,9 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
 				),
 			)
-			obj, err := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(sourceVM).Do().Get()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(obj).To(Equal(expectedVM))
+			result := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+			Expect(result).To(HaveBodyEqualTo(expectedVM))
 		})
 		It("DELETE should succeed", func() {
 			apiserverMock.AppendHandlers(
@@ -93,7 +94,8 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, struct{}{}),
 				),
 			)
-			Expect(restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do().Error()).ToNot(HaveOccurred())
+			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
 		})
 		It("GET a VM should succeed", func() {
 			apiserverMock.AppendHandlers(
@@ -102,9 +104,9 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
 				),
 			)
-			obj, err := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do().Get()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(obj).To(Equal(expectedVM))
+			result := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+			Expect(result).To(HaveBodyEqualTo(expectedVM))
 		})
 		It("GET a VMList should succeed", func() {
 			apiserverMock.AppendHandlers(
@@ -113,9 +115,9 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, v1.VMList{TypeMeta: v12.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VMList"}, Items: []v1.VM{*expectedVM}}),
 				),
 			)
-			obj, err := restClient.Get().Resource(vmResource).Namespace(api.NamespaceDefault).Do().Get()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(obj).To(Equal(&v1.VMList{Items: []v1.VM{*expectedVM}}))
+			result := restClient.Get().Resource(vmResource).Namespace(api.NamespaceDefault).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+			Expect(result).To(HaveBodyEqualTo(&v1.VMList{Items: []v1.VM{*expectedVM}}))
 		})
 		It("Merge Patch should succeed", func() {
 			apiserverMock.AppendHandlers(
@@ -172,36 +174,27 @@ var _ = Describe("Kubeproxy", func() {
 		})
 	})
 
-	Context("HTTP Operations on not existing VMs in the apiserver", func() {
-		It("POST should succeed", func() {
+	Context("HTTP Operations on not existing VMs in the apiserver,", func() {
+		table.DescribeTable("POST should succeed", func(contentType string, accept string) {
 			apiserverMock.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest(http.MethodPost, vmBasePath()),
 					ghttp.VerifyJSONRepresenting(sourceVM),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
+					ghttp.RespondWithJSONEncoded(http.StatusCreated, sourceVM),
 				),
 			)
-			obj, err := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).Body(sourceVM).Do().Get()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(obj).To(Equal(expectedVM))
-		})
+			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).SetHeader("Content-Type", contentType).SetHeader("Accept", accept).Body(sourceVM).Do()
+			Expect(result).To(RepresentMimeType(accept))
+			Expect(result).To(HaveStatusCode(http.StatusCreated))
+			Expect(result).To(HaveBodyEqualTo(expectedVM))
+		},
+			table.Entry("sending JSON and receiving JSON", rest2.MIME_JSON, rest2.MIME_JSON),
+			table.Entry("sending JSON and receiving YAML", rest2.MIME_JSON, rest2.MIME_YAML),
+		)
 		It("POST should fail on missing mandatory field with 400", func() {
 			sourceVM.Spec = v1.VMSpec{}
 			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
-			Expect(result.Error()).To(HaveOccurred())
-			Expect(result.Error().(*errors.StatusError).Status().Code).To(BeNumerically("==", http.StatusBadRequest))
-		})
-		It("POST should succeed", func() {
-			apiserverMock.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest(http.MethodPost, vmBasePath()),
-					ghttp.VerifyJSONRepresenting(sourceVM),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
-				),
-			)
-			obj, err := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).Body(sourceVM).Do().Get()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(obj).To(Equal(expectedVM))
+			Expect(result).To(HaveStatusCode(http.StatusBadRequest))
 		})
 		It("PUT should fail with 404", func() {
 			apiserverMock.AppendHandlers(
@@ -212,8 +205,7 @@ var _ = Describe("Kubeproxy", func() {
 				),
 			)
 			result := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
-			Expect(result.Error()).To(HaveOccurred())
-			Expect(result.Error().(*errors.StatusError).Status().Code).To(BeNumerically("==", http.StatusNotFound))
+			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 		It("DELETE should fail", func() {
 			apiserverMock.AppendHandlers(
@@ -223,8 +215,7 @@ var _ = Describe("Kubeproxy", func() {
 				),
 			)
 			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
-			Expect(result.Error()).To(HaveOccurred())
-			Expect(result.Error().(*errors.StatusError).Status().Code).To(BeNumerically("==", http.StatusNotFound))
+			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 		It("GET should fail with 404", func() {
 			apiserverMock.AppendHandlers(
@@ -234,8 +225,7 @@ var _ = Describe("Kubeproxy", func() {
 				),
 			)
 			result := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
-			Expect(result.Error()).To(HaveOccurred())
-			Expect(result.Error().(*errors.StatusError).Status().Code).To(BeNumerically("==", http.StatusNotFound))
+			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 		It("GET a VMList should return an empty list", func() {
 			apiserverMock.AppendHandlers(
@@ -258,8 +248,7 @@ var _ = Describe("Kubeproxy", func() {
 			result := restClient.Patch(api.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
 				[]byte("{\"spec\" : { \"nodeSelector\": {\"test/lala\": \"blub\"}}}"),
 			).Do()
-			Expect(result.Error()).To(HaveOccurred())
-			Expect(result.Error().(*errors.StatusError).Status().Code).To(BeNumerically("==", http.StatusNotFound))
+			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 	})
 
