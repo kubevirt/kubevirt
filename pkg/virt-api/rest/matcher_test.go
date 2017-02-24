@@ -89,7 +89,8 @@ func (matcher *haveBodyEqualToMatcher) Match(actual interface{}) (success bool, 
 	if reflect.TypeOf(matcher.expected).Kind() != reflect.Ptr {
 		matcher.expected = &matcher.expected
 	}
-	if reflect.TypeOf(matcher.obj).Kind() != reflect.Ptr {
+
+	if matcher.obj != nil && reflect.TypeOf(matcher.obj).Kind() != reflect.Ptr {
 		matcher.obj = &matcher.obj
 	}
 

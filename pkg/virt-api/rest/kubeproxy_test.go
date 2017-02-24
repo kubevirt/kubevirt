@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"encoding/json"
+	"fmt"
 	"github.com/emicklei/go-restful"
+	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -63,6 +66,23 @@ var _ = Describe("Kubeproxy", func() {
 		apiserverMock.Reset()
 	})
 
+	Context("To allow autodiscovery for kubectl", func() {
+		It("should proxy /apis/kubevirt.io/v1alpha1/", func() {
+			apiserverMock.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest(http.MethodGet, "/apis/kubevirt.io/v1alpha1/"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
+				),
+			)
+			result := restClient.Get().AbsPath("/apis/kubevirt.io/v1alpha1/").Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+			body, _ := result.Raw()
+			var obj v1.VM
+			Expect(json.Unmarshal(body, &obj)).To(Succeed())
+			Expect(&obj).To(Equal(expectedVM))
+		})
+	})
+
 	Context("HTTP Operations on an existing VM in the apiserver", func() {
 		It("POST should fail with 409", func() {
 			apiserverMock.AppendHandlers(
@@ -75,7 +95,7 @@ var _ = Describe("Kubeproxy", func() {
 			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
 			Expect(result).To(HaveStatusCode(http.StatusConflict))
 		})
-		It("PUT should succeed", func() {
+		table.DescribeTable("PUT should succeed", func(contentType string, accept string) {
 			apiserverMock.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest(http.MethodPut, vmPath(sourceVM)),
@@ -83,10 +103,18 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
 				),
 			)
-			result := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
+			result := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).
+				SetHeader("Content-Type", contentType).SetHeader("Accept", accept).Body(toBytesFromMimeType(sourceVM, contentType)).
+				Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
+			Expect(result).To(RepresentMimeType(accept))
 			Expect(result).To(HaveBodyEqualTo(expectedVM))
-		})
+		},
+			table.Entry("sending JSON and receiving JSON", rest2.MIME_JSON, rest2.MIME_JSON),
+			table.Entry("sending JSON and receiving YAML", rest2.MIME_JSON, rest2.MIME_YAML),
+			table.Entry("sending YAML and receiving JSON", rest2.MIME_YAML, rest2.MIME_JSON),
+			table.Entry("sending YAML and receiving YAML", rest2.MIME_YAML, rest2.MIME_YAML),
+		)
 		It("DELETE should succeed", func() {
 			apiserverMock.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -97,17 +125,21 @@ var _ = Describe("Kubeproxy", func() {
 			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 		})
-		It("GET a VM should succeed", func() {
+		table.DescribeTable("GET a VM should succeed", func(accept string) {
 			apiserverMock.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest(http.MethodGet, vmPath(sourceVM)),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
 				),
 			)
-			result := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).SetHeader("Accept", accept).Namespace(api.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
+			Expect(result).To(RepresentMimeType(accept))
 			Expect(result).To(HaveBodyEqualTo(expectedVM))
-		})
+		},
+			table.Entry("receiving JSON", rest2.MIME_JSON),
+			table.Entry("receiving YAML", rest2.MIME_YAML),
+		)
 		It("GET a VMList should succeed", func() {
 			apiserverMock.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -183,13 +215,18 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusCreated, sourceVM),
 				),
 			)
-			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).SetHeader("Content-Type", contentType).SetHeader("Accept", accept).Body(sourceVM).Do()
+			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).
+				SetHeader("Content-Type", contentType).SetHeader("Accept", accept).
+				Body(toBytesFromMimeType(sourceVM, contentType)).
+				Do()
 			Expect(result).To(RepresentMimeType(accept))
 			Expect(result).To(HaveStatusCode(http.StatusCreated))
 			Expect(result).To(HaveBodyEqualTo(expectedVM))
 		},
 			table.Entry("sending JSON and receiving JSON", rest2.MIME_JSON, rest2.MIME_JSON),
 			table.Entry("sending JSON and receiving YAML", rest2.MIME_JSON, rest2.MIME_YAML),
+			table.Entry("sending YAML and receiving JSON", rest2.MIME_YAML, rest2.MIME_JSON),
+			table.Entry("sending YAML and receiving YAML", rest2.MIME_YAML, rest2.MIME_YAML),
 		)
 		It("POST should fail on missing mandatory field with 400", func() {
 			sourceVM.Spec = v1.VMSpec{}
@@ -274,5 +311,21 @@ func returnReceivedBody(statusCode int) http.HandlerFunc {
 		req.Body.Close()
 		Expect(err).ToNot(HaveOccurred())
 		w.Write(data)
+	}
+}
+
+func toBytesFromMimeType(obj interface{}, mimeType string) []byte {
+	switch mimeType {
+
+	case rest2.MIME_JSON:
+		data, err := json.Marshal(obj)
+		Expect(err).ToNot(HaveOccurred())
+		return data
+	case rest2.MIME_YAML:
+		data, err := yaml.Marshal(obj)
+		Expect(err).ToNot(HaveOccurred())
+		return data
+	default:
+		panic(fmt.Errorf("Mime Type %s is not supported", mimeType))
 	}
 }
