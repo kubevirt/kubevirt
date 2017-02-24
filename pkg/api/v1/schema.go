@@ -42,7 +42,7 @@ type Devices struct {
 
 type Disk struct {
 	Device   string      `json:"device"`
-	Snapshot string      `json:"shapshot,omitempty"`
+	Snapshot string      `json:"snapshot,omitempty"`
 	Type     string      `json:"type"`
 	Source   DiskSource  `json:"source"`
 	Target   DiskTarget  `json:"target"`
