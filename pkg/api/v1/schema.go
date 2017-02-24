@@ -36,6 +36,8 @@ type Devices struct {
 	Graphics   []Graphics  `json:"graphics,omitempty"`
 	Ballooning *Ballooning `json:"memballoon,omitempty"`
 	Disks      []Disk      `json:"disks,omitempty"`
+	Serials    []Serial    `json:"serials,omitempty"`
+	Consoles   []Console   `json:"consoles,omitempty"`
 }
 
 // BEGIN Disk -----------------------------
@@ -80,6 +82,33 @@ type DiskSourceHost struct {
 }
 
 // END Disk -----------------------------
+
+// BEGIN Serial -----------------------------
+
+type Serial struct {
+	Type         string       `json:"type"`
+	SerialTarget SerialTarget `json:"serialTarget"`
+}
+
+type SerialTarget struct {
+	Port string `json:"port"`
+}
+
+// END Serial -----------------------------
+
+// BEGIN Console -----------------------------
+
+type Console struct {
+	Type          string        `json:"type"`
+	ConsoleTarget ConsoleTarget `json:"consoleTarget"`
+}
+
+type ConsoleTarget struct {
+	Type string `json:"type"`
+	Port string `json:"port"`
+}
+
+// END Serial -----------------------------
 
 // BEGIN Inteface -----------------------------
 
