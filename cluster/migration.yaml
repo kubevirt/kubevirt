@@ -1,0 +1,8 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: Migration
+metadata:
+  name: testvm-migration
+spec:
+  migratingVMName: testvm
+  destinationNodeSelector:
+    kubernetes.io/hostname: master

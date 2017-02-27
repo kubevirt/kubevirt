@@ -28,9 +28,10 @@ type VMSpec struct {
 // VMStatus represents information about the status of a VM. Status may trail the actual
 // state of a system.
 type VMStatus struct {
-	NodeName   string
-	Conditions []VMCondition
-	Phase      VMPhase
+	NodeName          string
+	MigrationNodeName string
+	Conditions        []VMCondition
+	Phase             VMPhase
 }
 
 // Required to satisfy Object interface
