@@ -8,6 +8,7 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	"fmt"
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -28,6 +29,11 @@ type Connection interface {
 	Close() (int, error)
 	DomainEventLifecycleRegister(dom *libvirt.Domain, callback libvirt.DomainEventLifecycleCallback) (int, error)
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
+	NewStream(flags libvirt.StreamFlags) (*Stream, error)
+}
+
+type Stream struct {
+	*libvirt.Stream
 }
 
 type LibvirtConnection struct {
@@ -36,6 +42,23 @@ type LibvirtConnection struct {
 	pass  string
 	uri   string
 	alive bool
+}
+
+func (s *Stream) Write(p []byte) (n int, err error) {
+	fmt.Print(string(p))
+	return s.Stream.Send(p)
+}
+
+func (s *Stream) Read(p []byte) (n int, err error) {
+	return s.Stream.Recv(p)
+}
+
+func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (*Stream, error) {
+	s, err := l.Connect.NewStream(flags)
+	if err != nil {
+		return nil, err
+	}
+	return &Stream{Stream: s}, nil
 }
 
 func (l *LibvirtConnection) LookupDomainByName(name string) (VirDomain, error) {
@@ -84,6 +107,7 @@ type VirDomain interface {
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
 	Undefine() error
+	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
 }
 
 type LibvirtDomainManager struct {

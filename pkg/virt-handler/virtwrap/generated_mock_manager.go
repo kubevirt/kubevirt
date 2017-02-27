@@ -126,6 +126,17 @@ func (_mr *_MockConnectionRecorder) ListAllDomains(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDomains", arg0)
 }
 
+func (_m *MockConnection) NewStream(flags libvirt_go.StreamFlags) (*Stream, error) {
+	ret := _m.ctrl.Call(_m, "NewStream", flags)
+	ret0, _ := ret[0].(*Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) NewStream(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "NewStream", arg0)
+}
+
 // Mock of VirDomain interface
 type MockVirDomain struct {
 	ctrl     *gomock.Controller
@@ -230,4 +241,14 @@ func (_m *MockVirDomain) Undefine() error {
 
 func (_mr *_MockVirDomainRecorder) Undefine() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Undefine")
+}
+
+func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt_go.Stream, flags libvirt_go.DomainConsoleFlags) error {
+	ret := _m.ctrl.Call(_m, "OpenConsole", devname, stream, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) OpenConsole(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "OpenConsole", arg0, arg1, arg2)
 }
