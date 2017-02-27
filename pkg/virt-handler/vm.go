@@ -75,7 +75,15 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 		} else {
 			// Synchronize the VM state
 			// TODO check if found VM has the same UID like the domain, if not, delete the Domain first
-			err = domainManager.SyncVM(vm)
+
+			// Only sync if the VM is not marked as migrating. Everything except shutting down the VM is not permitted when it is migrating.
+			// TODO MigrationNodeName should be a pointer
+			if vm.Status.MigrationNodeName == "" {
+				err = domainManager.SyncVM(vm)
+			} else {
+				queue.Forget(key)
+				return true
+			}
 
 			// Update VM status to running
 			if err == nil && vm.Status.Phase != v1.Running {
