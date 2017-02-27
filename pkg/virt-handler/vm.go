@@ -2,6 +2,7 @@ package virthandler
 
 import (
 	kubeapi "k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/errors"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
@@ -11,9 +12,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"net/http"
 )
 
-func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient) (cache.Indexer, *kubecli.Controller) {
+func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, host string) (cache.Indexer, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	return kubecli.NewController(lw, queue, &v1.VM{}, func(indexer cache.Indexer, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
@@ -38,8 +40,29 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 				queue.AddRateLimited(key)
 				return true
 			}
-
 			vm = v1.NewVMReferenceFromName(name)
+
+			// If we don't have the VM in the cache, it could be that it is currently migrating to us
+			result := restClient.Get().Name(vm.GetObjectMeta().GetName()).Resource("vms").Namespace(kubeapi.NamespaceDefault).Do()
+			if result.Error() == nil {
+				// So the VM still seems to exist
+				fetchedVM, err := result.Get()
+				if err != nil {
+					// Since there was no fetch error, this should have worked, let's back off
+					queue.AddRateLimited(key)
+					return true
+				}
+				if fetchedVM.(*v1.VM).Status.MigrationNodeName == host {
+					// OK, this VM is migrating to us, don't interrupt it
+					queue.Forget(key)
+					return true
+				}
+			} else if result.Error().(*errors.StatusError).Status().Code != int32(http.StatusNotFound) {
+				// Something went wrong, let's try again later
+				queue.AddRateLimited(key)
+				return true
+			}
+			// The VM is deleted on the cluster, let's go on with the deletion on the host
 		} else {
 			vm = obj.(*v1.VM)
 		}

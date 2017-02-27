@@ -95,7 +95,7 @@ func main() {
 
 	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceDefault, fields.Everything(), l)
 
-	vmStore, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient)
+	vmStore, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, *host)
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
