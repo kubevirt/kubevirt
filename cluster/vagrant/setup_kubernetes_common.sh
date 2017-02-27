@@ -61,6 +61,17 @@ systemctl enable kubelet && systemctl start kubelet
 # Disable libvirt cgroup management
 echo "cgroup_controllers = [ ]" >> /etc/libvirt/qemu.conf
 
+# Let libvirt listen on TCP for migrations
+echo 'LIBVIRTD_ARGS="--listen"' >> /etc/sysconfig/libvirtd
+
+cat << EOT >>/etc/libvirt/libvirtd.conf
+listen_tcp = 1
+tcp_port = "16509"
+auth_tcp = "none"
+listen_addr = "0.0.0.0"
+listen_tls = 0
+EOT
+
 # Disble sasl for libvirt. VDSM configured that
 sed -i '/^auth_unix_rw/c\auth_unix_rw="none"' /etc/libvirt/libvirtd.conf
 systemctl restart libvirtd
