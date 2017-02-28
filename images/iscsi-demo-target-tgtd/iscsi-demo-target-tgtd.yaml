@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: disk-custom
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+  selector:
+    matchLabels:
+      os: "none"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: disk-alpine
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+  selector:
+    matchLabels:
+      os: "alpine"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: disk-cirros
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      os: "cirros"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: iscsi-disk-custom
+  labels:
+    os: "none"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  iscsi:
+    iqn: iqn.2017-01.io.kubevirt:sn.42
+    lun: 1
+    targetPortal: iscsi-demo-target.default.svc.cluster.local
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: iscsi-disk-alpine
+  labels:
+    os: "alpine"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  iscsi:
+    iqn: iqn.2017-01.io.kubevirt:sn.42
+    lun: 2
+    targetPortal: iscsi-demo-target.default.svc.cluster.local
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: iscsi-disk-cirros
+  labels:
+    os: "cirros"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  iscsi:
+    iqn: iqn.2017-01.io.kubevirt:sn.42
+    lun: 3
+    targetPortal: iscsi-demo-target.default.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iscsi-demo-target
+spec:
+  ports:
+    - name: iscsi
+      port: 3260
+      targetPort: 3260
+  selector:
+    app: iscsi-demo-target
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    name: iscsi-demo-target-tgtd
+    app: iscsi-demo-target
+  name: iscsi-demo-target-tgtd
+spec:
+  containers:
+    - name: target
+      image: kubevirt/iscsi-demo-target-tgtd
+      ports:
+        - containerPort: 3260
