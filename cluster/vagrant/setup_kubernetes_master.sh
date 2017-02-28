@@ -22,7 +22,7 @@ done
 set -e
 
 if [ "$NETWORK_PROVIDER" == "weave" ]; then 
-  kubectl apply -s 127.0.0.1:8080 -f https://git.io/weave-kube
+  kubectl apply -s 127.0.0.1:8080 -f https://github.com/weaveworks/weave/releases/download/v1.9.0/weave-daemonset.yaml
 else
   kubectl create -s 127.0.0.1:8080 -f kube-$NETWORK_PROVIDER.yaml
 fi
