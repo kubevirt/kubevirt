@@ -75,6 +75,7 @@ func HaveBodyEqualTo(expected interface{}) types.GomegaMatcher {
 type haveBodyEqualToMatcher struct {
 	expected interface{}
 	obj      interface{}
+	err      error
 }
 
 func (matcher *haveBodyEqualToMatcher) Match(actual interface{}) (success bool, err error) {
@@ -84,7 +85,11 @@ func (matcher *haveBodyEqualToMatcher) Match(actual interface{}) (success bool, 
 	}
 
 	// Ignoring error here since failed requests can still contain a body
-	matcher.obj, _ = result.Get()
+	matcher.obj, matcher.err = result.Get()
+
+	if matcher.err != nil {
+		return false, nil
+	}
 
 	if reflect.TypeOf(matcher.expected).Kind() != reflect.Ptr {
 		matcher.expected = &matcher.expected
@@ -98,11 +103,19 @@ func (matcher *haveBodyEqualToMatcher) Match(actual interface{}) (success bool, 
 }
 
 func (matcher *haveBodyEqualToMatcher) FailureMessage(actual interface{}) (message string) {
-	return fmt.Sprintf("Expected\n\t%#v\nto to be equal to\n\t%#v", matcher.obj, matcher.expected)
+	if matcher.err != nil {
+		return fmt.Sprintf("Deserializing the runtime object failed with %v", matcher.err)
+	} else {
+		return fmt.Sprintf("Expected\n\t%#v\nto to be equal to\n\t%#v", matcher.obj, matcher.expected)
+	}
 }
 
 func (matcher *haveBodyEqualToMatcher) NegatedFailureMessage(actual interface{}) (message string) {
-	return fmt.Sprintf("Expected\n\t%#v\nnot to be equal to\n\t%#v", matcher.obj, matcher.expected)
+	if matcher.err != nil {
+		return fmt.Sprintf("Deserializing the runtime object failed with %v", matcher.err)
+	} else {
+		return fmt.Sprintf("Expected\n\t%#v\nnot to be equal to\n\t%#v", matcher.obj, matcher.expected)
+	}
 }
 
 func HaveStatusCode(expected interface{}) types.GomegaMatcher {

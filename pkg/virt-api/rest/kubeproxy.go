@@ -27,12 +27,20 @@ import (
 
 type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
-func GenericResourceProxy(ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
-
+func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restful.WebService, error) {
 	ws := new(restful.WebService)
-	ws.Path(GroupVersionBasePath(gvr.GroupVersion()))
-	gv := gvr.GroupVersion()
-	ws.ApiVersion(gv.String()).Doc("ThirdPartyResource")
+	ws.Path(GroupVersionBasePath(gv))
+
+	cli, err := kubecli.GetRESTClient()
+	if err != nil {
+		return nil, err
+	}
+	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(cli)).Build(ctx)
+	ws.Route(ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
+	return ws, nil
+}
+
+func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
 
 	objResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind}, objPointer)
 	objListResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind + "List"}, objListPointer)
@@ -40,12 +48,6 @@ func GenericResourceProxy(ctx context.Context, gvr schema.GroupVersionResource, 
 	if err != nil {
 		return nil, err
 	}
-
-	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(cli)).Build(ctx)
-	ws.Route(ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
-
-	// We don't have to set root here, since the whole webservice has that prefix:
-	// ws.Path(GroupVersionBasePath(gvr.GroupVersion()))
 
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()

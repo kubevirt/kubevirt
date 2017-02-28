@@ -28,30 +28,40 @@ import (
 )
 
 const vmResource = "vms"
+const migrationResource = "migrations"
 
 var _ = Describe("Kubeproxy", func() {
 	flag.Parse()
 	var apiserverMock *ghttp.Server
 	var kubeproxy *httptest.Server
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: vmResource}
+	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: migrationResource}
 	ctx := context.Background()
 	var restClient *rest.RESTClient
 	var sourceVM *v1.VM
+	var sourceMigration *v1.Migration
 
 	// Work around go-client bug
 	expectedVM := v1.NewMinimalVM("testvm")
 	expectedVM.TypeMeta.Kind = ""
 	expectedVM.TypeMeta.APIVersion = ""
 
+	expectedMigration := v1.NewMinimalMigration("testmigration", "testvm")
+	expectedMigration.TypeMeta.Kind = ""
+	expectedMigration.TypeMeta.APIVersion = ""
+
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeSuite(func() {
 		apiserverMock = ghttp.NewServer()
 		flag.Lookup("master").Value.Set(apiserverMock.URL())
-		ws, err := GenericResourceProxy(ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
+
+		ws, err := GroupVersionProxyBase(ctx, v1.GroupVersion)
+		Expect(err).ToNot(HaveOccurred())
+		ws, err = GenericResourceProxy(ws, ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
+		Expect(err).ToNot(HaveOccurred())
+		ws, err = GenericResourceProxy(ws, ctx, migrationGVR, &v1.Migration{}, "Migration", &v1.MigrationList{})
+		Expect(err).ToNot(HaveOccurred())
 		restful.Add(ws)
 
 	})
@@ -64,6 +74,7 @@ var _ = Describe("Kubeproxy", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 		sourceVM = v1.NewMinimalVM("testvm")
+		sourceMigration = v1.NewMinimalMigration("testmigration", "testvm")
 		apiserverMock.Reset()
 	})
 
@@ -290,6 +301,67 @@ var _ = Describe("Kubeproxy", func() {
 		})
 	})
 
+	Context("HTTP Operation on a given migration in the apiserver", func() {
+		It("DELETE should succeed", func() {
+			apiserverMock.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest(http.MethodDelete, migrationPath(sourceMigration)),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, struct{}{}),
+				),
+			)
+			result := restClient.Delete().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+		})
+		It("GET should succeed", func() {
+			apiserverMock.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest(http.MethodGet, migrationPath(sourceMigration)),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceMigration),
+				),
+			)
+			result := restClient.Get().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+			Expect(result).To(HaveBodyEqualTo(expectedMigration))
+		})
+		It("PUT should succeed", func() {
+			apiserverMock.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest(http.MethodPut, migrationPath(sourceMigration)),
+					ghttp.VerifyJSONRepresenting(sourceMigration),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceMigration),
+				),
+			)
+			result := restClient.Put().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Body(sourceMigration).Namespace(api.NamespaceDefault).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+			Expect(result).To(HaveBodyEqualTo(expectedMigration))
+		})
+		It("GET a MigrationList should succeed", func() {
+			apiserverMock.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest(http.MethodGet, migrationBasePath()),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, v1.MigrationList{TypeMeta: v12.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "MigrationList"}, Items: []v1.Migration{*expectedMigration}}),
+				),
+			)
+			result := restClient.Get().Resource(migrationResource).Namespace(api.NamespaceDefault).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+			Expect(result).To(HaveBodyEqualTo(&v1.MigrationList{Items: []v1.Migration{*expectedMigration}}))
+		})
+	})
+	Context("HTTP Operation on a non existent migration in the apiserver", func() {
+		It("POST should succeed", func() {
+			apiserverMock.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest(http.MethodPost, migrationBasePath()),
+					ghttp.VerifyJSONRepresenting(sourceMigration),
+					ghttp.RespondWithJSONEncoded(http.StatusCreated, sourceMigration),
+				),
+			)
+			result := restClient.Post().Resource(migrationResource).Body(sourceMigration).Namespace(api.NamespaceDefault).Do()
+			Expect(result).To(HaveStatusCode(http.StatusCreated))
+			Expect(result).To(HaveBodyEqualTo(expectedMigration))
+		})
+	})
+
 	AfterEach(func() {
 		kubeproxy.Close()
 	})
@@ -303,8 +375,16 @@ func vmBasePath() string {
 	return "/apis/kubevirt.io/v1alpha1/namespaces/default/vms"
 }
 
+func migrationBasePath() string {
+	return "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations"
+}
+
 func vmPath(vm *v1.VM) string {
 	return vmBasePath() + "/" + vm.GetObjectMeta().GetName()
+}
+
+func migrationPath(migration *v1.Migration) string {
+	return migrationBasePath() + "/" + migration.GetObjectMeta().GetName()
 }
 
 func returnReceivedBody(statusCode int) http.HandlerFunc {

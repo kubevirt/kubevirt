@@ -294,15 +294,21 @@ func NewVMReferenceFromName(name string) *VM {
 }
 
 //TODO validate that this is correct
-func NewMigrationReferenceFromName(name string) *Migration {
+func NewMinimalMigration(name string, vmName string) *Migration {
 	migration := &Migration{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			Namespace: kubeapi.NamespaceDefault,
 			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
 		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       "Migration",
+		},
+		Spec: MigrationSpec{
+			MigratingVMName: vmName,
+		},
 	}
-	migration.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
 	return migration
 }
 
@@ -311,14 +317,14 @@ type Migration struct {
 	metav1.TypeMeta `json:",inline"`
 	ObjectMeta      v1.ObjectMeta   `json:"metadata,omitempty"`
 	Spec            MigrationSpec   `json:"spec,omitempty" valid:"required"`
-	Status          MigrationStatus `json:"message,omitempty"`
+	Status          MigrationStatus `json:"status,omitempty"`
 }
 
 // MigrationSpec is a description of a VM Migration
 type MigrationSpec struct {
 	// The Kubernetes name of the Virtual Machine object to select for one migration.
 	// For example "destinationNodeName": "testvm" will migrate a VM called "testvm" in the namespace "default"
-	MigratingVMName string `json:"nodeName,omitempty"`
+	MigratingVMName string `json:"migratingVMName,omitempty"`
 	// Criteria to use when selecting the destination for the migration
 	// for example, to select by the hostname, specify `kubernetes.io/hostname: master`
 	// other possible choices include the hardware required to run the vm or
@@ -329,7 +335,7 @@ type MigrationSpec struct {
 	// randomGenerator: superfastdevice,
 	// app: mysql,
 	// licensedForServiceX: true
-	DestinationNodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	DestinationNodeSelector map[string]string `json:"destinationNodeSelector,omitempty"`
 }
 
 type MigrationPhase string
@@ -364,7 +370,7 @@ func (v *Migration) GetObjectMeta() meta.Object {
 type MigrationList struct {
 	metav1.TypeMeta `json:",inline"`
 	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VM            `json:"items"`
+	Items           []Migration     `json:"items"`
 }
 
 // Required to satisfy Object interface
