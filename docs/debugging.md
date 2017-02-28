@@ -22,22 +22,25 @@ will try to connect to the apiserver.
 
 ## Retrieving Logs
 
-To investigate the logs of a container, you can view the logs via
-`cluster/kubectl.sh logs`.  To view the logs of `virt-api`, type
+To investigate the logs of a pod, you can view the logs via
+`cluster/kubectl.sh logs`. To view the logs of `virt-api`, type
 
 ```bash
 cluster/kubectl.sh logs virt-api -f
 ```
 
-Sometimes a container is crashlooping because of an application error inside
-it. In this case, you normally can't see any logs, because the container is
-already gone, and so are the logs. To get the logs from the last run attempt,
-the `--previous` flag can be used. To view the logs of `virt-api` from the
-previous run, type
+Sometimes a container in a pod is crashlooping because of an application error
+inside it. In this case, you normally can't see any logs, because the container
+is already gone, and so are the logs. To get the logs from the last run
+attempt, the `--previous` flag can be used. To view the logs of the container
+`virt-api` in the pod `virt-api` from the previous run, type
 
 ```bash
-cluster/kubectl.sh logs virt-api -f -p
+cluster/kubectl.sh logs virt-api -f -c virt-api -p
 ```
+
+Note that you always have to select a container inside a pod for fetching old
+logs with the `--previous` flag.
 
 ## Watching Events
 
