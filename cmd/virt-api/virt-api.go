@@ -30,9 +30,19 @@ func main() {
 
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
+	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "migrations"}
 
-	// FIXME the whole newResponseHandler is just a hack, see the method itself for details
-	ws, err := rest.GenericResourceProxy(ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
+	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ws, err = rest.GenericResourceProxy(ws, ctx, migrationGVR, &v1.Migration{}, "Migration", &v1.MigrationList{})
 	if err != nil {
 		log.Fatal(err)
 	}
