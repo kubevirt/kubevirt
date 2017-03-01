@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -70,6 +71,9 @@ func MakeGoRestfulWrapper(server *gokithttp.Server) restful.RouteFunction {
 	}
 }
 
+var nameIdentifierRegex = regexp.MustCompile("^[a-z0-9\\-]+$")
+var namespaceIdentifierRegex = regexp.MustCompile("^[a-z0-9\\-]+$")
+
 func nameDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, error) {
 	rest := GetRestfulRequest(ctx)
 	name := rest.PathParameter("name")
@@ -77,8 +81,8 @@ func nameDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, e
 		return nil, errors.New("Could not find a 'name' variable.")
 	}
 
-	if !govalidator.IsAlphanumeric(name) {
-		return nil, errors.New("Variable 'name' does not validate as alphanumeric.")
+	if !nameIdentifierRegex.MatchString(name) {
+		return nil, errors.New("Variable 'name' is invalid.")
 	}
 	return name, nil
 }
@@ -138,8 +142,8 @@ func namespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface
 		return nil, errors.New("Could not find a 'namespace' variable.")
 	}
 
-	if !govalidator.IsAlphanumeric(namespace) {
-		return nil, errors.New("Variable 'name' does not validate as alphanumeric.")
+	if !namespaceIdentifierRegex.MatchString(namespace) {
+		return nil, errors.New("Variable 'namespace' is invalid.")
 	}
 	return namespace, nil
 }

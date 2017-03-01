@@ -387,11 +387,11 @@ func GroupVersionBasePath(gvr schema.GroupVersion) string {
 }
 
 func ResourceBasePath(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("/namespaces/{namespace}/%s", gvr.Resource)
+	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s", gvr.Resource)
 }
 
 func ResourcePath(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("/namespaces/{namespace}/%s/{name}", gvr.Resource)
+	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
 }
 
 func SubResourcePath(subResource string) string {
