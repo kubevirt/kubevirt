@@ -29,6 +29,7 @@ import (
 
 const vmResource = "vms"
 const migrationResource = "migrations"
+const vmName = "test-vm"
 
 var _ = Describe("Kubeproxy", func() {
 	flag.Parse()
@@ -42,11 +43,11 @@ var _ = Describe("Kubeproxy", func() {
 	var sourceMigration *v1.Migration
 
 	// Work around go-client bug
-	expectedVM := v1.NewMinimalVM("testvm")
+	expectedVM := v1.NewMinimalVM(vmName)
 	expectedVM.TypeMeta.Kind = ""
 	expectedVM.TypeMeta.APIVersion = ""
 
-	expectedMigration := v1.NewMinimalMigration("testmigration", "testvm")
+	expectedMigration := v1.NewMinimalMigration("testmigration", vmName)
 	expectedMigration.TypeMeta.Kind = ""
 	expectedMigration.TypeMeta.APIVersion = ""
 
@@ -73,8 +74,8 @@ var _ = Describe("Kubeproxy", func() {
 		if err != nil {
 			Expect(err).ToNot(HaveOccurred())
 		}
-		sourceVM = v1.NewMinimalVM("testvm")
-		sourceMigration = v1.NewMinimalMigration("testmigration", "testvm")
+		sourceVM = v1.NewMinimalVM(vmName)
+		sourceMigration = v1.NewMinimalMigration("testmigration", vmName)
 		apiserverMock.Reset()
 	})
 
@@ -106,6 +107,10 @@ var _ = Describe("Kubeproxy", func() {
 			)
 			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
 			Expect(result).To(HaveStatusCode(http.StatusConflict))
+		})
+		It("Get with invalid VM name should fail with 400", func() {
+			result := restClient.Get().Resource(vmResource).Namespace(api.NamespaceDefault).Name("UPerLetterIsInvalid").Do()
+			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 		table.DescribeTable("PUT should succeed", func(contentType string, accept string) {
 			apiserverMock.AppendHandlers(
