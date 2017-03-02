@@ -10,11 +10,12 @@ import (
 	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
-func NewListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
+func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
 	listFunc := func(options kubev1.ListOptions) (runtime.Object, error) {
 		doms, err := c.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
 		if err != nil {
@@ -44,7 +45,7 @@ func NewListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWat
 		return &list, nil
 	}
 	watchFunc := func(options kubev1.ListOptions) (watch.Interface, error) {
-		return NewDomainWatcher(c, events...)
+		return newDomainWatcher(c, events...)
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
 }
@@ -61,78 +62,79 @@ func (d *DomainWatcher) ResultChan() <-chan watch.Event {
 	return d.C
 }
 
-func NewDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, error) {
+func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, error) {
 	watcher := &DomainWatcher{C: make(chan watch.Event)}
-	callback := libvirt.DomainEventLifecycleCallback(
-		func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
-			domain, err := NewDomain(d)
-			if err != nil {
-				// TODO proper logging
-				// FIXME like described below libvirt needs to send the xml along side with the event. When this is done we can return an error
-				// watcher.C <- watch.Event{Type: watch.Error, Object: &Domain{}}
-				return
-			}
-			// TODO In case of other events, it might not be enough to just send state and domainxml, maybe we have to embed the event and the details too
-			//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
-			switch event.Event {
+	callback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
+		logging.DefaultLogger().Info().V(3).Msgf("Libvirt event %d with reason %d received", event.Event, event.Detail)
+		domain, err := NewDomain(d)
+		if err != nil {
+			logging.DefaultLogger().Error().Reason(err).Msg("Could not create the Domain.")
+			return
+		}
+		// TODO In case of other events, it might not be enough to just send state and domainxml, maybe we have to embed the event and the details too
+		//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
+		switch event.Event {
 
-			case libvirt.DOMAIN_EVENT_STOPPED,
-				libvirt.DOMAIN_EVENT_SHUTDOWN,
-				libvirt.DOMAIN_EVENT_CRASHED,
-				libvirt.DOMAIN_EVENT_UNDEFINED:
-				// We can't count on a domain xml in these cases, but let's try it
-				if event.Event != libvirt.DOMAIN_EVENT_UNDEFINED {
-					spec, err := NewDomainSpec(d)
-					if err != nil {
-						// TODO proper logging
-					} else {
-						domain.Spec = *spec
-					}
-				}
-				status, _, err := d.GetState()
-				if err != nil {
-					// TODO proper logging
-					domain.Status.Status = virtwrap.NoState
-				} else {
-					domain.Status.Status = virtwrap.LifeCycleTranslationMap[status]
-				}
-			default:
-				// TODO libvirt is racy there, between an event and fetching a domain xml everything can happen
-				//      that is why we can't just report an error here, on the next resync we can compensate this missed event
-				// TODO Fix libvirt regarding to event order and domain xml availability. Sometimes when a VM is defined the domainxml can't yet be fetched
-				//      Libvirt is inherently inconsistent, see https://www.redhat.com/archives/libvir-list/2016-November/msg01318.html
-				//      To fix this, an event should send its state and the current domain xml
+		case libvirt.DOMAIN_EVENT_STOPPED,
+			libvirt.DOMAIN_EVENT_SHUTDOWN,
+			libvirt.DOMAIN_EVENT_CRASHED,
+			libvirt.DOMAIN_EVENT_UNDEFINED:
+			// We can't count on a domain xml in these cases, but let's try it
+			if event.Event != libvirt.DOMAIN_EVENT_UNDEFINED {
 				spec, err := NewDomainSpec(d)
 				if err != nil {
-					// TODO proper logging
-					return
+
+					if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
+						logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
+					}
+				} else {
+					domain.Spec = *spec
 				}
-				domain.Spec = *spec
-				status, _, err := d.GetState()
-				if err != nil {
-					// TODO proper logging
-					return
+			}
+			status, _, err := d.GetState()
+			if err != nil {
+
+				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
+					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
 				}
+				domain.Status.Status = virtwrap.NoState
+			} else {
 				domain.Status.Status = virtwrap.LifeCycleTranslationMap[status]
 			}
+		default:
+			spec, err := NewDomainSpec(d)
+			if err != nil {
+				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
+				return
+			}
+			domain.Spec = *spec
+			status, _, err := d.GetState()
+			if err != nil {
+				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
+				return
+			}
+			domain.Status.Status = virtwrap.LifeCycleTranslationMap[status]
+		}
 
-			switch event.Event {
-			case libvirt.DOMAIN_EVENT_DEFINED:
-				if libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
-					watcher.C <- watch.Event{Type: watch.Added, Object: domain}
-				} else {
-					watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
-				}
-			case libvirt.DOMAIN_EVENT_UNDEFINED:
-				watcher.C <- watch.Event{Type: watch.Deleted, Object: domain}
-			default:
+		switch event.Event {
+		case libvirt.DOMAIN_EVENT_DEFINED:
+			if libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
+				watcher.C <- watch.Event{Type: watch.Added, Object: domain}
+			} else {
 				watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
 			}
+		case libvirt.DOMAIN_EVENT_UNDEFINED:
+			watcher.C <- watch.Event{Type: watch.Deleted, Object: domain}
+		default:
+			watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
+		}
 
-		})
-	dom := libvirt.Domain{}
-	c.DomainEventLifecycleRegister(&dom, callback)
-	return watcher, nil
+	}
+	_, err := c.DomainEventLifecycleRegister(nil, callback)
+	if err != nil {
+		logging.DefaultLogger().Info().V(2).Msg("Lifecycle event callback registered.")
+	}
+	return watcher, err
 }
 
 func NewDomainSpec(dom virtwrap.VirDomain) (*virtwrap.DomainSpec, error) {
@@ -173,8 +175,8 @@ func NewDomain(dom virtwrap.VirDomain) (*virtwrap.Domain, error) {
 	}, nil
 }
 
-func NewDomainCache(c virtwrap.Connection) (cache.SharedInformer, error) {
-	domainCacheSource := NewListWatchFromClient(c)
-	informer := cache.NewSharedInformer(domainCacheSource, &virtwrap.Domain{}, 0)
+func NewSharedInformer(c virtwrap.Connection) (cache.SharedInformer, error) {
+	lw := newListWatchFromClient(c)
+	informer := cache.NewSharedInformer(lw, &virtwrap.Domain{}, 0)
 	return informer, nil
 }
