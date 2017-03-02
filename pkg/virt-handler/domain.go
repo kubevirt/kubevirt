@@ -1,7 +1,6 @@
 package virthandler
 
 import (
-	"fmt"
 	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
@@ -13,20 +12,17 @@ For now it looks like we should use domain events to detect unexpected domain ch
 into pause mode because of resource shortage or cut off connections to storage.
 */
 
-func NewDomainController(lw cache.ListerWatcher) *cache.Controller {
-	_, domainController := cache.NewInformer(lw, &virtwrap.Domain{}, 0, cache.ResourceEventHandlerFuncs{
+func RegisterDomainListener(informer cache.SharedInformer) error {
+	return informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			fmt.Printf("Domain ADDED: %s: %s\n", obj.(*virtwrap.Domain).GetObjectMeta().GetName(), obj.(*virtwrap.Domain).Status.Status)
-			logging.DefaultLogger().Info().Object(obj.(*virtwrap.Domain)).Msg("Domain added.")
+			logging.DefaultLogger().Info().Object(obj.(*virtwrap.Domain)).Msgf("Added domain is in state %s", obj.(*virtwrap.Domain).Status.Status)
 		},
 		DeleteFunc: func(obj interface{}) {
-			fmt.Printf("Domain DELETED: %s: %s\n", obj.(*virtwrap.Domain).GetObjectMeta().GetName(), obj.(*virtwrap.Domain).Status.Status)
-			logging.DefaultLogger().Info().Object(obj.(*virtwrap.Domain)).Msg("Domain deleted.")
+			logging.DefaultLogger().Info().Object(obj.(*virtwrap.Domain)).Msgf("Deleted domain is in state %s", obj.(*virtwrap.Domain).Status.Status)
 		},
 		UpdateFunc: func(old interface{}, new interface{}) {
-			logging.DefaultLogger().Info().Object(new.(*virtwrap.Domain)).Msg("Domain updated.")
+			logging.DefaultLogger().Info().Object(new.(*virtwrap.Domain)).Msgf("Updated domain is in state %s", new.(*virtwrap.Domain).Status.Status)
 
 		},
 	})
-	return domainController
 }

@@ -68,7 +68,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 
 		if err != nil {
 			// Something went wrong, reenqueue the item with a delay
-			logging.DefaultLogger().V(3).Info().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
+			logging.DefaultLogger().Error().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
 			recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 			queue.AddRateLimited(key)
 			return true

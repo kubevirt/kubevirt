@@ -46,7 +46,7 @@ func main() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
 				// Report the error somehow or break the loop.
-				log.Warning().Log("msg", "No results from virtwrap")
+				log.Error().Reason(res).Msg("Listening to libvirt events failed.")
 			}
 		}
 	}()
@@ -71,11 +71,14 @@ func main() {
 		panic(err)
 	}
 
-	domainListWatcher := virtcache.NewListWatchFromClient(domainConn)
+	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
 
-	domainController := virthandler.NewDomainController(domainListWatcher)
+	if err != nil {
+		panic(err)
+	}
 
-	domainCache, err := virtcache.NewDomainCache(domainConn)
+	err = virthandler.RegisterDomainListener(domainSharedInformer)
+
 	if err != nil {
 		panic(err)
 	}
@@ -98,19 +101,15 @@ func main() {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	stopWarmup := make(chan struct{})
-	go domainCache.Run(stopWarmup)
-	cache.WaitForCacheSync(stop, domainCache.HasSynced)
-	close(stopWarmup)
+	go domainSharedInformer.Run(stop)
+	cache.WaitForCacheSync(stop, domainSharedInformer.HasSynced)
 
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
-	for _, domain := range domainCache.GetStore().List() {
+	for _, domain := range domainSharedInformer.GetStore().List() {
 		d := domain.(*virtwrap.Domain)
 		vmStore.Add(v1.NewVMReferenceFromName(d.ObjectMeta.Name))
 	}
 
-	// Watch for domain changes
-	go domainController.Run(stop)
 	// Watch for VM changes
 	go vmController.Run(1, stop)
 

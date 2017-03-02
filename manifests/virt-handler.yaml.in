@@ -19,6 +19,8 @@ spec:
         imagePullPolicy: IfNotPresent
         command:
           - "/virt-handler"
+          - "-v"
+          - "2"
           - "--libvirt-uri"
           - "qemu:///system"
           - "--hostname-override"
