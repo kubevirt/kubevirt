@@ -66,69 +66,7 @@ func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, er
 	watcher := &DomainWatcher{C: make(chan watch.Event)}
 	callback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
 		logging.DefaultLogger().Info().V(3).Msgf("Libvirt event %d with reason %d received", event.Event, event.Detail)
-		domain, err := NewDomain(d)
-		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Could not create the Domain.")
-			return
-		}
-		// TODO In case of other events, it might not be enough to just send state and domainxml, maybe we have to embed the event and the details too
-		//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
-		switch event.Event {
-
-		case libvirt.DOMAIN_EVENT_STOPPED,
-			libvirt.DOMAIN_EVENT_SHUTDOWN,
-			libvirt.DOMAIN_EVENT_CRASHED,
-			libvirt.DOMAIN_EVENT_UNDEFINED:
-			// We can't count on a domain xml in these cases, but let's try it
-			if event.Event != libvirt.DOMAIN_EVENT_UNDEFINED {
-				spec, err := NewDomainSpec(d)
-				if err != nil {
-
-					if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
-						logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
-					}
-				} else {
-					domain.Spec = *spec
-				}
-			}
-			status, reason, err := d.GetState()
-			if err != nil {
-
-				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
-					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
-				}
-				domain.SetState(libvirt.DOMAIN_NOSTATE, reason)
-			} else {
-				domain.SetState(status, reason)
-			}
-		default:
-			spec, err := NewDomainSpec(d)
-			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
-				return
-			}
-			domain.Spec = *spec
-			status, reason, err := d.GetState()
-			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
-				return
-			}
-			domain.SetState(status, reason)
-		}
-
-		switch event.Event {
-		case libvirt.DOMAIN_EVENT_DEFINED:
-			if libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
-				watcher.C <- watch.Event{Type: watch.Added, Object: domain}
-			} else {
-				watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
-			}
-		case libvirt.DOMAIN_EVENT_UNDEFINED:
-			watcher.C <- watch.Event{Type: watch.Deleted, Object: domain}
-		default:
-			watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
-		}
-
+		callback(d, event, watcher)
 	}
 	_, err := c.DomainEventLifecycleRegister(nil, callback)
 	if err != nil {
@@ -152,6 +90,7 @@ func NewDomainSpec(dom virtwrap.VirDomain) (*virtwrap.DomainSpec, error) {
 }
 
 func NewDomain(dom virtwrap.VirDomain) (*virtwrap.Domain, error) {
+
 	name, err := dom.GetName()
 	if err != nil {
 		return nil, err
@@ -179,4 +118,70 @@ func NewSharedInformer(c virtwrap.Connection) (cache.SharedInformer, error) {
 	lw := newListWatchFromClient(c)
 	informer := cache.NewSharedInformer(lw, &virtwrap.Domain{}, 0)
 	return informer, nil
+}
+
+func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher *DomainWatcher) {
+	domain, err := NewDomain(d)
+	if err != nil {
+		logging.DefaultLogger().Error().Reason(err).Msg("Could not create the Domain.")
+		return
+	}
+	// TODO In case of other events, it might not be enough to just send state and domainxml, maybe we have to embed the event and the details too
+	//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
+	switch event.Event {
+
+	case libvirt.DOMAIN_EVENT_STOPPED,
+		libvirt.DOMAIN_EVENT_SHUTDOWN,
+		libvirt.DOMAIN_EVENT_CRASHED,
+		libvirt.DOMAIN_EVENT_UNDEFINED:
+		// We can't count on a domain xml in these cases, but let's try it
+		if event.Event != libvirt.DOMAIN_EVENT_UNDEFINED {
+			spec, err := NewDomainSpec(d)
+			if err != nil {
+
+				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
+					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
+				}
+			} else {
+				domain.Spec = *spec
+			}
+		}
+		status, reason, err := d.GetState()
+		if err != nil {
+
+			if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
+				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
+			}
+			domain.SetState(libvirt.DOMAIN_NOSTATE, reason)
+		} else {
+			domain.SetState(status, reason)
+		}
+	default:
+		spec, err := NewDomainSpec(d)
+		if err != nil {
+			logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
+			return
+		}
+		domain.Spec = *spec
+		status, reason, err := d.GetState()
+		if err != nil {
+			logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
+			return
+		}
+		domain.SetState(status, reason)
+	}
+
+	switch event.Event {
+	case libvirt.DOMAIN_EVENT_DEFINED:
+		if libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
+			watcher.C <- watch.Event{Type: watch.Added, Object: domain}
+		} else {
+			watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
+		}
+	case libvirt.DOMAIN_EVENT_UNDEFINED:
+		watcher.C <- watch.Event{Type: watch.Deleted, Object: domain}
+	default:
+		watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
+	}
+
 }
