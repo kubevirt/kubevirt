@@ -38,6 +38,22 @@ func (DiskSourceHost) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (Serial) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (SerialTarget) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (Console) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (ConsoleTarget) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
