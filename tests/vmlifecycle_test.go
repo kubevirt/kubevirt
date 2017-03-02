@@ -7,6 +7,8 @@ import (
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/util/json"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -20,6 +22,9 @@ var _ = Describe("Vmlifecycle", func() {
 	flag.Parse()
 
 	restClient, err := kubecli.GetRESTClient()
+	tests.PanicOnError(err)
+
+	coreCli, err := kubecli.Get()
 	tests.PanicOnError(err)
 	var vm *v1.VM
 
@@ -66,11 +71,61 @@ var _ = Describe("Vmlifecycle", func() {
 						Resource("vms").Name(vm.GetObjectMeta().GetName()).Do().Get()
 					Expect(err).To(BeNil())
 					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
-					close(done)
 					return true
 				}
 				return false
 			}).Watch()
+			close(done)
+		}, 30)
+
+		It("Should log libvirt start and stop lifecycle events of the domain", func(done Done) {
+			// Get the pod name of virt-handler running on the master node to inspect its logs later on
+			handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=master")
+			labelSelector, err := labels.Parse("daemon in (virt-handler)")
+			Expect(err).NotTo(HaveOccurred())
+			pods, err := coreCli.CoreV1().Pods(api.NamespaceDefault).List(kubev1.ListOptions{FieldSelector: handlerNodeSelector.String(), LabelSelector: labelSelector.String()})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+
+			handlerName := pods.Items[0].GetObjectMeta().GetName()
+
+			// Make sure we schedule the VM to master
+			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": "master"}
+
+			// Start the VM and wait for the confirmation of the start
+			obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
+			Expect(err).ToNot(HaveOccurred())
+			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
+				Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
+				if event.Type == "Normal" && event.Reason == v1.Started.String() {
+					obj, err := restClient.Get().Namespace(api.NamespaceDefault).
+						Resource("vms").Name(vm.GetObjectMeta().GetName()).Do().Get()
+					Expect(err).To(BeNil())
+					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
+					return true
+				}
+				return false
+			}).Watch()
+
+			// Delete the VM and wait for the confirmation of the delete
+			_, err = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+			Expect(err).To(BeNil())
+			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
+				if event.Type == "Normal" && event.Reason == v1.Deleted.String() {
+					return true
+				}
+				return false
+			}).Watch()
+
+			// Check if start and stop events were logged by the domain event watch loop
+			seconds := int64(30)
+			data, err := coreCli.Pods(api.NamespaceDefault).GetLogs(handlerName, &kubev1.PodLogOptions{SinceSeconds: &seconds}).DoRaw()
+			Expect(err).ToNot(HaveOccurred())
+			logs := string(data)
+			Expect(logs).To(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Updated domain is in state Running)", vm.GetObjectMeta().GetName()))
+			Expect(logs).To(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Deleted domain is in state NoState)", vm.GetObjectMeta().GetName()))
+
+			close(done)
 		}, 30)
 
 		Context("New VM which can't be started", func() {
