@@ -37,7 +37,10 @@
             "source": {
               "network": "default"
             },
-            "type": "network"
+            "type": "network",
+	    "model": {
+              "type": "virtio"
+	    }
           }
         ],
         "video": [

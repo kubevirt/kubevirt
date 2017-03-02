@@ -55,6 +55,11 @@ yum install -y docker kubelet kubeadm kubectl kubernetes-cni
 # To get the qemu user and libvirt
 yum install -y qemu-common qemu-kvm qemu-system-x86 libcgroup-tools libvirt || :
 
+# Add basic auth for a demo user (demo:demo) (required by cockpit)
+echo "demo,demo,42" > /etc/kubernetes/pki/users.csv
+sed -i -e '/token-auth-file/ a \          "--basic-auth-file=/etc/kubernetes/pki/users.csv",' /etc/kubernetes/manifests/kube-apiserver.json
+
+
 systemctl enable docker && systemctl start docker
 systemctl enable kubelet && systemctl start kubelet
 
