@@ -172,12 +172,12 @@ type DiskSourceHost struct {
 // BEGIN Serial -----------------------------
 
 type Serial struct {
-	Type         string       `xml:"type,attr"`
-	SerialTarget SerialTarget `xml:"serialTarget"`
+	Type   string       `xml:"type,attr"`
+	Target SerialTarget `xml:"target"`
 }
 
 type SerialTarget struct {
-	Port string `xml:"port,attr"`
+	Port uint `xml:"port,attr"`
 }
 
 // END Serial -----------------------------
@@ -185,13 +185,13 @@ type SerialTarget struct {
 // BEGIN Console -----------------------------
 
 type Console struct {
-	Type          string        `xml:"type,attr"`
-	ConsoleTarget ConsoleTarget `xml:"consoleTarget"`
+	Type   string        `xml:"type,attr"`
+	Target ConsoleTarget `xml:"target"`
 }
 
 type ConsoleTarget struct {
 	Type string `xml:"type,attr"`
-	Port string `xml:"port,attr"`
+	Port *uint  `xml:"port,attr,omitempty"`
 }
 
 // END Serial -----------------------------

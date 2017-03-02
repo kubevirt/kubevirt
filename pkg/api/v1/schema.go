@@ -86,12 +86,12 @@ type DiskSourceHost struct {
 // BEGIN Serial -----------------------------
 
 type Serial struct {
-	Type         string       `json:"type"`
-	SerialTarget SerialTarget `json:"serialTarget"`
+	Type   string       `json:"type"`
+	Target SerialTarget `json:"target"`
 }
 
 type SerialTarget struct {
-	Port string `json:"port"`
+	Port uint `json:"port"`
 }
 
 // END Serial -----------------------------
@@ -99,13 +99,13 @@ type SerialTarget struct {
 // BEGIN Console -----------------------------
 
 type Console struct {
-	Type          string        `json:"type"`
-	ConsoleTarget ConsoleTarget `json:"consoleTarget"`
+	Type   string        `json:"type"`
+	Target ConsoleTarget `json:"target"`
 }
 
 type ConsoleTarget struct {
 	Type string `json:"type"`
-	Port string `json:"port"`
+	Port *uint  `json:"port,omitempty"`
 }
 
 // END Serial -----------------------------
