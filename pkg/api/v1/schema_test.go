@@ -57,7 +57,8 @@ var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
 	var exampleVM = NewMinimalDomainSpec("testvm")
 	exampleVM.Devices.Disks = []Disk{
-		{Type: "network",
+		{
+			Type:   "network",
 			Device: "disk",
 			Driver: &DiskDriver{Name: "qemu",
 				Type: "raw"},

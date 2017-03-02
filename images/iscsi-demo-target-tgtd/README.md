@@ -62,8 +62,11 @@ can also be directly used by Pods.
 Using the iSCSI target using `qemu`:
 
 ```bash
-# Create the pod, services, persistent volumes, and claims
-$ kubectl create -f iscsi-demo-target-tgtd.yaml
+# Build all manifests in the top-level directory
+$ make manifests
+
+# Then create the pod, services, persistent volumes, and claims
+$ kubectl create -f manifests/iscsi-demo-target.yaml
 persistentvolumeclaim "disk-custom" created
 persistentvolumeclaim "disk-alpine" created
 persistentvolumeclaim "disk-cirros" created
