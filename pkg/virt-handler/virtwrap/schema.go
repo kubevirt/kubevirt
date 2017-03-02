@@ -33,6 +33,10 @@ func init() {
 	mapper.AddPtrConversion((**DiskDriver)(nil), (**v1.DiskDriver)(nil))
 	mapper.AddPtrConversion((**ReadOnly)(nil), (**v1.ReadOnly)(nil))
 	mapper.AddPtrConversion((**Address)(nil), (**v1.Address)(nil))
+	mapper.AddConversion(&Serial{}, &v1.Serial{})
+	mapper.AddConversion(&SerialTarget{}, &v1.SerialTarget{})
+	mapper.AddConversion(&Console{}, &v1.Console{})
+	mapper.AddConversion(&ConsoleTarget{}, &v1.ConsoleTarget{})
 	mapper.AddConversion(&InterfaceSource{}, &v1.InterfaceSource{})
 	mapper.AddPtrConversion((**InterfaceTarget)(nil), (**v1.InterfaceTarget)(nil))
 	mapper.AddPtrConversion((**Model)(nil), (**v1.Model)(nil))
@@ -118,6 +122,8 @@ type Devices struct {
 	Graphics   []Graphics  `xml:"graphics"`
 	Ballooning *Ballooning `xml:"memballoon,omitempty"`
 	Disks      []Disk      `xml:"disk"`
+	Serials    []Serial    `xml:"serial"`
+	Consoles   []Console   `xml:"console"`
 }
 
 // BEGIN Disk -----------------------------
@@ -162,6 +168,33 @@ type DiskSourceHost struct {
 }
 
 // END Disk -----------------------------
+
+// BEGIN Serial -----------------------------
+
+type Serial struct {
+	Type   string       `xml:"type,attr"`
+	Target SerialTarget `xml:"target"`
+}
+
+type SerialTarget struct {
+	Port uint `xml:"port,attr"`
+}
+
+// END Serial -----------------------------
+
+// BEGIN Console -----------------------------
+
+type Console struct {
+	Type   string        `xml:"type,attr"`
+	Target ConsoleTarget `xml:"target"`
+}
+
+type ConsoleTarget struct {
+	Type string `xml:"type,attr"`
+	Port *uint  `xml:"port,attr,omitempty"`
+}
+
+// END Serial -----------------------------
 
 // BEGIN Inteface -----------------------------
 
