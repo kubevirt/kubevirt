@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/meta"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -69,6 +70,33 @@ func PanicOnError(err error) {
 
 func NewRandomVM() *v1.VM {
 	return v1.NewMinimalVM("testvm" + rand.String(5))
+}
+
+func NewRandomVMWithLun(lun int) *v1.VM {
+	vm := NewRandomVM()
+	vm.Spec.Domain.Memory.Unit = "MB"
+	vm.Spec.Domain.Memory.Value = 64
+	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
+		Type:     "network",
+		Snapshot: "external",
+		Device:   "disk",
+		Driver: &v1.DiskDriver{
+			Name: "qemu",
+			Type: "raw",
+		},
+		Target: v1.DiskTarget{
+			Device: "vda",
+		},
+		Source: v1.DiskSource{
+			Host: &v1.DiskSourceHost{
+				Name: "iscsi-demo-target",
+				Port: "3260",
+			},
+			Protocol: "iscsi",
+			Name:     fmt.Sprintf("iqn.2017-01.io.kubevirt:sn.42/%d", lun),
+		},
+	}}
+	return vm
 }
 
 func NewRandomVMWithSpice() *v1.VM {
