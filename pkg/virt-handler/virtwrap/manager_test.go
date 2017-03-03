@@ -11,6 +11,7 @@ import (
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 )
 
 var _ = Describe("Manager", func() {
@@ -18,6 +19,8 @@ var _ = Describe("Manager", func() {
 	var mockDomain *MockVirDomain
 	var ctrl *gomock.Controller
 	var recorder *record.FakeRecorder
+
+	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
