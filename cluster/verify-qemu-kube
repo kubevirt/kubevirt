@@ -56,23 +56,28 @@ for CG in $EXCLUDED_CGROUPS; do
   fi
 done
 
-# Check PID namespaces
+
+# Check namespaces
 echo ""
-echo "Checking PID namespace:"
-VM_PID_NS=$(ls -iL /proc/$VM_PID/ns/pid | cut -f 1 -d " ")
-CONTAINER_PID_NS=$(ls -iL /proc/$CONTAINER_PID/ns/pid | cut -f 1 -d " ")
+echo "Checking for required namespaces:"
+NAMESPACES='pid net'
+for NS in $NAMESPACES; do
+  NS_PRETTY=`echo $NS | tr '[:lower:]' '[:upper:]'`
+  VM_PID_NS=$(ls -iL /proc/$VM_PID/ns/$NS | cut -f 1 -d " ")
+  CONTAINER_PID_NS=$(ls -iL /proc/$CONTAINER_PID/ns/$NS | cut -f 1 -d " ")
 
-if [ "x$VM_PID_NS" == "x" ]; then
-  echo Could not determine PID namespace of VM $VM_NAME 
-  ERROR=1
-fi
+  if [ "x$VM_PID_NS" == "x" ]; then
+    echo Could not determine $NS_PRETTY namespace of VM $VM_NAME
+    ERROR=1
+  fi
 
-if [ "$VM_PID_NS" == "$CONTAINER_PID_NS" ]; then
-  echo VM $VM_NAME found in PID namespace of container
-else
-  echo VM $VM_NAME NOT found in PID namespace of container
-  ERROR=1
-fi
+  if [ "$VM_PID_NS" == "$CONTAINER_PID_NS" ]; then
+    echo VM $VM_NAME found in $NS_PRETTY namespace of container
+  else
+    echo VM $VM_NAME NOT found in $NS_PRETTY namespace of container
+    ERROR=1
+  fi
+done
 
 echo ""
 if [ "$ERROR" -gt "0" ]; then
