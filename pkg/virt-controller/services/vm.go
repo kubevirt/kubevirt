@@ -53,14 +53,14 @@ func (v *vmService) DeleteVM(vm *corev1.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
-	if err := v.KubeCli.Core().Pods(v1.NamespaceDefault).DeleteCollection(nil, unfinishedVMPodSelector(vm)); err != nil {
+	if err := v.KubeCli.Core().Pods(v1.NamespaceDefault).DeleteCollection(nil, UnfinishedVMPodSelector(vm)); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (v *vmService) GetRunningPods(vm *corev1.VM) (*v1.PodList, error) {
-	podList, err := v.KubeCli.Core().Pods(v1.NamespaceDefault).List(unfinishedVMPodSelector(vm))
+	podList, err := v.KubeCli.Core().Pods(v1.NamespaceDefault).List(UnfinishedVMPodSelector(vm))
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,8 @@ func (v *vmService) PrepareMigration(vm *corev1.VM) error {
 	return nil
 }
 
-func unfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
+// Visible for tests
+func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodFailed) +
 			",status.phase!=" + string(v1.PodSucceeded))
