@@ -13,6 +13,7 @@ import (
 )
 
 type LifeCycle string
+type StateChangeReason string
 
 func init() {
 	// TODO the whole mapping registration can be done be an automatic process with reflection
@@ -59,14 +60,23 @@ func init() {
 }
 
 const (
-	NoState     LifeCycle = "NoState"
-	Running     LifeCycle = "Running"
-	Blocked     LifeCycle = "Blocked"
-	Paused      LifeCycle = "Paused"
-	Shutdown    LifeCycle = "Shutdown"
-	Shutoff     LifeCycle = "Shutoff"
-	Crashed     LifeCycle = "Crashed"
-	PMSuspended LifeCycle = "PMSuspended"
+	NoState        LifeCycle         = "NoState"
+	Running        LifeCycle         = "Running"
+	Blocked        LifeCycle         = "Blocked"
+	Paused         LifeCycle         = "Paused"
+	Shutdown       LifeCycle         = "ShuttingDown"
+	Shutoff        LifeCycle         = "Shutoff"
+	Crashed        LifeCycle         = "Crashed"
+	PMSuspended    LifeCycle         = "PMSuspended"
+	Unknown        StateChangeReason = "Unknown"
+	User           StateChangeReason = "User"
+	ReasonShutdown StateChangeReason = "Shutdown"
+	Destroyed      StateChangeReason = "Destroyed"
+	Migrated       StateChangeReason = "Migrated"
+	ReasonCrashed  StateChangeReason = "Crashed"
+	Saved          StateChangeReason = "Saved"
+	Failed         StateChangeReason = "Failed"
+	FromSnapshot   StateChangeReason = "FromSnapshot"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]LifeCycle{
@@ -80,6 +90,22 @@ var LifeCycleTranslationMap = map[libvirt.DomainState]LifeCycle{
 	libvirt.DOMAIN_PMSUSPENDED: PMSuspended,
 }
 
+var ShutdownReasonTranslationMap = map[libvirt.DomainShutdownReason]StateChangeReason{
+	libvirt.DOMAIN_SHUTDOWN_UNKNOWN: Unknown,
+	libvirt.DOMAIN_SHUTDOWN_USER:    User,
+}
+
+var ShutoffReasonTranslationMap = map[libvirt.DomainShutoffReason]StateChangeReason{
+	libvirt.DOMAIN_SHUTOFF_UNKNOWN:       Unknown,
+	libvirt.DOMAIN_SHUTOFF_SHUTDOWN:      ReasonShutdown,
+	libvirt.DOMAIN_SHUTOFF_DESTROYED:     Destroyed,
+	libvirt.DOMAIN_SHUTOFF_CRASHED:       ReasonCrashed,
+	libvirt.DOMAIN_SHUTOFF_MIGRATED:      Migrated,
+	libvirt.DOMAIN_SHUTOFF_SAVED:         Saved,
+	libvirt.DOMAIN_SHUTOFF_FAILED:        Failed,
+	libvirt.DOMAIN_SHUTOFF_FROM_SNAPSHOT: FromSnapshot,
+}
+
 type Domain struct {
 	metav1.TypeMeta
 	ObjectMeta kubev1.ObjectMeta
@@ -89,6 +115,7 @@ type Domain struct {
 
 type DomainStatus struct {
 	Status LifeCycle
+	Reason StateChangeReason
 }
 
 type DomainList struct {
@@ -405,6 +432,18 @@ func NewMinimalVM(vmName string) *DomainSpec {
 		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}
 	return &domain
+}
+
+func (d *Domain) SetState(status libvirt.DomainState, reason int) {
+	d.Status.Status = LifeCycleTranslationMap[status]
+
+	switch status {
+	case libvirt.DOMAIN_SHUTDOWN:
+		d.Status.Reason = ShutdownReasonTranslationMap[libvirt.DomainShutdownReason(reason)]
+	case libvirt.DOMAIN_SHUTOFF:
+		d.Status.Reason = ShutoffReasonTranslationMap[libvirt.DomainShutoffReason(reason)]
+	default:
+	}
 }
 
 // Required to satisfy Object interface
