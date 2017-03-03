@@ -20,9 +20,24 @@ spec:
           ram: 65536
           type: qxl
           vram: 8192
+      disks:
+      - type: network
+        snapshot: external
+        device: disk
+        driver:
+          name: qemu
+          type: raw
+        source:
+          host:
+            name: iscsi-demo-target
+            port: "3260"
+          protocol: iscsi
+          name: iqn.2017-01.io.kubevirt:sn.42/2
+        target:
+          dev: vda
     memory:
-      unit: KiB
-      value: 8192
+      unit: MB
+      value: 64
     name: testvm
     os:
       type:
