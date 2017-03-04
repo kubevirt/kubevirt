@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/kubevirt/kubevirt.svg?branch=master)](https://travis-ci.org/kubevirt/kubevirt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubevirt/kubevirt)](https://goreportcard.com/report/github.com/kubevirt/kubevirt)
 [![Licensed under Apache License version 2.0](https://img.shields.io/github/license/kubevirt/kubevirt.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Coverage Status](https://coveralls.io/repos/github/kubevirt/kubevirt/badge.svg?branch=master)](https://coveralls.io/github/kubevirt/kubevirt?branch=master)
+[![Coverage Status](https://img.shields.io/coveralls/kubevirt/kubevirt/master.svg)](https://coveralls.io/github/kubevirt/kubevirt?branch=master)
 [![Visit our IRC channel](https://kiwiirc.com/buttons/irc.freenode.net/kubevirt.png)](https://kiwiirc.com/client/irc.freenode.net/#kubevirt)
 
 **KubeVirt** is a virtual machine management add-on for Kubernetes.
