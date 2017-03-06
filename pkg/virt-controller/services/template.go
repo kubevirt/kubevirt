@@ -78,13 +78,10 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 			srcAddr = addr.Address
 			break
 		}
-	}
-	if srcAddr == "" {
-		for _, addr := range sourceNode.Status.Addresses {
-			if addr.Type == kubev1.NodeInternalIP {
-				srcAddr = addr.Address
-				break
-			}
+		if (addr.Type == kubev1.NodeInternalIP) && (srcAddr == "") {
+			// record this address, but keep iterating addresses. A NodeHostName record
+			// would be preferred if present.
+			srcAddr = addr.Address
 		}
 	}
 	if srcAddr == "" {
@@ -99,13 +96,8 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 			dstAddr = addr.Address
 			break
 		}
-	}
-	if dstAddr == "" {
-		for _, addr := range targetNode.Status.Addresses {
-			if addr.Type == kubev1.NodeInternalIP {
-				dstAddr = addr.Address
-				break
-			}
+		if (addr.Type == kubev1.NodeInternalIP) && (dstAddr == "") {
+			dstAddr = addr.Address
 		}
 	}
 	if dstAddr == "" {
