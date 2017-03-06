@@ -11,18 +11,21 @@ spec:
   selector:
     app: spice-proxy
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   name: spice-proxy
-  labels:
-    app: spice-proxy
 spec:
-  containers:
-  - name: spice-proxy
-    image: rmohr/spice-squid:latest
-    imagePullPolicy: IfNotPresent
-    ports:
-      - containerPort: 3128
-        name: "spice-proxy"
-        protocol: "TCP"
+  template:
+    metadata:
+      labels:
+        app: spice-proxy
+    spec:
+      containers:
+        - name: spice-proxy
+          image: rmohr/spice-squid:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3128
+              name: "spice-proxy"
+              protocol: "TCP"
