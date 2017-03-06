@@ -31,7 +31,7 @@ var exampleXML = `<domain type="qemu">
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the xml above
-	var exampleDomain = NewMinimalVM("testvm")
+	var exampleDomain = NewMinimalDomain("testvm")
 	exampleDomain.Devices.Disks = []Disk{
 		{Type: "network",
 			Device: "disk",
@@ -46,7 +46,7 @@ var _ = Describe("Schema", func() {
 
 	Context("With schema", func() {
 		It("Generate expected libvirt xml", func() {
-			domain := NewMinimalVM("testvm")
+			domain := NewMinimalDomain("testvm")
 			buf, err := xml.Marshal(domain)
 			Expect(err).To(BeNil())
 

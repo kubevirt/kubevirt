@@ -12,7 +12,6 @@ import (
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -71,18 +70,6 @@ func main() {
 		panic(err)
 	}
 
-	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
-
-	if err != nil {
-		panic(err)
-	}
-
-	err = virthandler.RegisterDomainListener(domainSharedInformer)
-
-	if err != nil {
-		panic(err)
-	}
-
 	restClient, err := kubecli.GetRESTClient()
 	if err != nil {
 		panic(err)
@@ -93,24 +80,40 @@ func main() {
 		panic(err)
 	}
 
+	// Wire VM controller
 	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceDefault, fields.Everything(), l)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, *host)
 
-	vmStore, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, *host)
+	// Wire Domain controller
+	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
+	if err != nil {
+		panic(err)
+	}
+	domainStore, domainController := virthandler.NewDomainController(vmQueue, domainSharedInformer)
+
+	if err != nil {
+		panic(err)
+	}
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
 
-	go domainSharedInformer.Run(stop)
-	cache.WaitForCacheSync(stop, domainSharedInformer.HasSynced)
+	// Start domain controller and wait for Domain cache sync
+	domainController.StartInformer(stop)
+	domainController.WaitForSync(stop)
 
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
-	for _, domain := range domainSharedInformer.GetStore().List() {
+	for _, domain := range domainStore.List() {
 		d := domain.(*virtwrap.Domain)
 		vmStore.Add(v1.NewVMReferenceFromName(d.ObjectMeta.Name))
 	}
 
 	// Watch for VM changes
+	vmController.StartInformer(stop)
+	vmController.WaitForSync(stop)
+
+	go domainController.Run(1, stop)
 	go vmController.Run(1, stop)
 
 	// Sleep forever

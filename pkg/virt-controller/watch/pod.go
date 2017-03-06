@@ -28,17 +28,17 @@ func scheduledVMPodSelector() kubeapi.ListOptions {
 	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
 }
 
-func NewPodController(vmCache cache.Indexer, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Indexer, *kubecli.Controller) {
+func NewPodController(vmCache cache.Store, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 
 	selector := scheduledVMPodSelector()
 	lw := kubecli.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
 	return NewPodControllerWithListWatch(vmCache, recorder, lw, restClient)
 }
 
-func NewPodControllerWithListWatch(vmCache cache.Indexer, recorder record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Indexer, *kubecli.Controller) {
+func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Pod{}, func(indexer cache.Indexer, queue workqueue.RateLimitingInterface) bool {
+	return kubecli.NewController(lw, queue, &v1.Pod{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
@@ -46,7 +46,7 @@ func NewPodControllerWithListWatch(vmCache cache.Indexer, recorder record.EventR
 		defer queue.Done(key)
 
 		// Fetch the latest Vm state from cache
-		obj, exists, err := indexer.GetByKey(key.(string))
+		obj, exists, err := store.GetByKey(key.(string))
 
 		if err != nil {
 			queue.AddRateLimited(key)

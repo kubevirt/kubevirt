@@ -63,6 +63,7 @@ func main() {
 	}
 	vmCache, vmController := watch.NewVMController(vmService, nil, restClient)
 
+	vmController.StartInformer(stop)
 	go vmController.Run(1, stop)
 
 	// Wait until VM cache has warmed up before we start watching pods
@@ -70,6 +71,7 @@ func main() {
 
 	// Start watching pods
 	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient)
+	podController.StartInformer(stop)
 	go podController.Run(1, stop)
 
 	httpLogger := logger.With("service", "http")

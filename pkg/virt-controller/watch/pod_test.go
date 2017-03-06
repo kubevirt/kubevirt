@@ -73,6 +73,7 @@ var _ = Describe("Pod", func() {
 			)
 
 			// Start the controller
+			podController.StartInformer(stopChan)
 			go podController.Run(1, stopChan)
 
 			// Tell the controller that there is a new running Pod

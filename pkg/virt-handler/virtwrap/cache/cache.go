@@ -3,9 +3,7 @@ package cache
 import (
 	"encoding/xml"
 	"github.com/libvirt/libvirt-go"
-	kubeapi "k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/watch"
@@ -99,19 +97,10 @@ func NewDomain(dom virtwrap.VirDomain) (*virtwrap.Domain, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &virtwrap.Domain{
-		Spec: virtwrap.DomainSpec{},
-		ObjectMeta: kubev1.ObjectMeta{
-			Name:      name,
-			UID:       types.UID(uuid),
-			Namespace: kubeapi.NamespaceDefault,
-		},
-		Status: virtwrap.DomainStatus{},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "1.2.2",
-			Kind:       "Domain",
-		},
-	}, nil
+
+	domain := virtwrap.NewDomainReferenceFromName(name)
+	domain.GetObjectMeta().SetUID(types.UID(uuid))
+	return domain, nil
 }
 
 func NewSharedInformer(c virtwrap.Connection) (cache.SharedInformer, error) {

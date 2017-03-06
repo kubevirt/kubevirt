@@ -15,16 +15,16 @@ import (
 	"net/http"
 )
 
-func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, host string) (cache.Indexer, *kubecli.Controller) {
+func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.VM{}, func(indexer cache.Indexer, queue workqueue.RateLimitingInterface) bool {
+	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
 		}
 		defer queue.Done(key)
 		// Fetch the latest Vm state from cache
-		obj, exists, err := indexer.GetByKey(key.(string))
+		obj, exists, err := store.GetByKey(key.(string))
 
 		if err != nil {
 			queue.AddRateLimited(key)
@@ -109,4 +109,5 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 		queue.Forget(key)
 		return true
 	})
+	return indexer, queue, informer
 }

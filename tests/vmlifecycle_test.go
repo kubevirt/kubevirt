@@ -122,8 +122,8 @@ var _ = Describe("Vmlifecycle", func() {
 			data, err := coreCli.Pods(api.NamespaceDefault).GetLogs(handlerName, &kubev1.PodLogOptions{SinceSeconds: &seconds}).DoRaw()
 			Expect(err).ToNot(HaveOccurred())
 			logs := string(data)
-			Expect(logs).To(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Updated domain is in state Running)", vm.GetObjectMeta().GetName()))
-			Expect(logs).To(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Deleted domain is in state NoState)", vm.GetObjectMeta().GetName()))
+			Expect(logs).To(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain is in state Running)", vm.GetObjectMeta().GetName()))
+			Expect(logs).To(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain deleted)", vm.GetObjectMeta().GetName()))
 
 			close(done)
 		}, 30)
