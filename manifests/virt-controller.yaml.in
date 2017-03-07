@@ -11,24 +11,27 @@ spec:
   selector:
     app: virt-controller
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   name: virt-controller
-  labels:
-    app: virt-controller
 spec:
-  containers:
-  - name: virt-controller
-    image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
-    imagePullPolicy: IfNotPresent
-    command:
-        - "/virt-controller"
-        - "--launcher-image"
-        - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
-        - "--port"
-        - "8182"
-    ports:
-      - containerPort: 8182
-        name: "virt-controller"
-        protocol: "TCP"
+  template:
+    metadata:
+      labels:
+        app: virt-controller
+    spec:
+      containers:
+      - name: virt-controller
+        image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        command:
+            - "/virt-controller"
+            - "--launcher-image"
+            - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
+            - "--port"
+            - "8182"
+        ports:
+          - containerPort: 8182
+            name: "virt-controller"
+            protocol: "TCP"
