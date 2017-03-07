@@ -33,7 +33,7 @@ var _ = Describe("Cache", func() {
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
 				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
-				x, err := xml.Marshal(virtwrap.NewMinimalDomain("test"))
+				x, err := xml.Marshal(virtwrap.NewMinimalDomainSpec("test"))
 				Expect(err).To(BeNil())
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
 				mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]virtwrap.VirDomain{mockDomain}, nil)
@@ -52,7 +52,7 @@ var _ = Describe("Cache", func() {
 				domain := obj.(*virtwrap.Domain)
 				domain.Spec.XMLName = xml.Name{}
 
-				Expect(&domain.Spec).To(Equal(virtwrap.NewMinimalDomain("test")))
+				Expect(&domain.Spec).To(Equal(virtwrap.NewMinimalDomainSpec("test")))
 				Expect(domain.Status.Status).To(Equal(kubevirtState))
 				close(stopChan)
 			},
@@ -67,7 +67,7 @@ var _ = Describe("Cache", func() {
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
 				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
-				x, err := xml.Marshal(virtwrap.NewMinimalDomain("test"))
+				x, err := xml.Marshal(virtwrap.NewMinimalDomainSpec("test"))
 				Expect(err).To(BeNil())
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
 
@@ -76,7 +76,7 @@ var _ = Describe("Cache", func() {
 
 				e := <-watcher.C
 
-				expectedDomain := virtwrap.NewMinimalDomain("test")
+				expectedDomain := virtwrap.NewMinimalDomainSpec("test")
 				expectedDomain.XMLName = xml.Name{Local: "domain"}
 				Expect(e.Object.(*virtwrap.Domain).Status.Status).To(Equal(kubevirtState))
 				Expect(e.Type).To(Equal(kubeEventType))
