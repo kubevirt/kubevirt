@@ -286,7 +286,7 @@ func NewVMReferenceFromName(name string) *VM {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			Namespace: kubeapi.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/vms/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
 		},
 	}
 	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
@@ -299,7 +299,7 @@ func NewMinimalMigration(name string, vmName string) *Migration {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			Namespace: kubeapi.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/migrations/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
 		},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),

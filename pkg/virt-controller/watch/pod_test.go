@@ -1,22 +1,19 @@
 package watch
 
 import (
+	"net/http"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/conversion"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/runtime/serializer"
 	"k8s.io/client-go/pkg/util/uuid"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
-	"k8s.io/client-go/tools/clientcmd"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"net/http"
 )
 
 var _ = Describe("Pod", func() {
@@ -34,7 +31,8 @@ var _ = Describe("Pod", func() {
 		It("should update the VM with the node of the running Pod", func(done Done) {
 
 			// Wire a Pod controller with a fake source
-			restClient := getRestClient(server.URL())
+			restClient, err := kubecli.GetRESTClientFromFlags(server.URL(), "")
+			Expect(err).To(Not(HaveOccurred()))
 			vmCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 			lw := framework.NewFakeControllerSource()
 			_, podController := NewPodControllerWithListWatch(vmCache, nil, lw, restClient)
@@ -73,6 +71,7 @@ var _ = Describe("Pod", func() {
 			)
 
 			// Start the controller
+			podController.StartInformer(stopChan)
 			go podController.Run(1, stopChan)
 
 			// Tell the controller that there is a new running Pod
@@ -89,15 +88,3 @@ var _ = Describe("Pod", func() {
 		server.Close()
 	})
 })
-
-func getRestClient(url string) *rest.RESTClient {
-	restConfig, err := clientcmd.BuildConfigFromFlags(url, "")
-	Expect(err).NotTo(HaveOccurred())
-	restConfig.GroupVersion = &v1.GroupVersion
-	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
-	restConfig.APIPath = "/apis"
-	restConfig.ContentType = runtime.ContentTypeJSON
-	restClient, err := rest.RESTClientFor(restConfig)
-	Expect(err).ToNot(HaveOccurred())
-	return restClient
-}

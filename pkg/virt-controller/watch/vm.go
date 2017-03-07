@@ -17,11 +17,11 @@ import (
 	"strings"
 )
 
-func NewVMController(vmService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient) (cache.Indexer, *kubecli.Controller) {
+func NewVMController(vmService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 	lw := cache.NewListWatchFromClient(restClient, "vms", kubeapi.NamespaceDefault, fields.Everything())
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.VM{}, func(indexer cache.Indexer, queue workqueue.RateLimitingInterface) bool {
+	return kubecli.NewController(lw, queue, &v1.VM{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
@@ -29,7 +29,7 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 		defer queue.Done(key)
 
 		// Fetch the latest Vm state from cache
-		obj, exists, err := indexer.GetByKey(key.(string))
+		obj, exists, err := store.GetByKey(key.(string))
 
 		if err != nil {
 			queue.AddRateLimited(key)

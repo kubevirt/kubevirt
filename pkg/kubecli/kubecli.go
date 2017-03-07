@@ -96,8 +96,8 @@ func HandlePanic() {
 	}
 }
 
-func NewIndexerInformerForWorkQueue(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object) (cache.Indexer, *cache.Controller) {
-	return cache.NewIndexerInformer(lw, objType, 0, cache.ResourceEventHandlerFuncs{
+func NewResourceEventHandlerFuncsForQorkqueue(queue workqueue.RateLimitingInterface) cache.ResourceEventHandlerFuncs {
+	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err == nil {
@@ -116,42 +116,57 @@ func NewIndexerInformerForWorkQueue(lw cache.ListerWatcher, queue workqueue.Rate
 				queue.Add(key)
 			}
 		},
-	}, cache.Indexers{})
-}
-
-type Controller struct {
-	indexer  cache.Indexer
-	queue    workqueue.RateLimitingInterface
-	informer *cache.Controller
-	f        ControllerFunc
-}
-
-func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object, f ControllerFunc) (cache.Indexer, *Controller) {
-	indexer, informer := NewIndexerInformerForWorkQueue(lw, queue, objType)
-
-	return indexer, &Controller{
-		informer: informer,
-		indexer:  indexer,
-		queue:    queue,
-		f:        f,
 	}
 }
 
-type ControllerFunc func(cache.Indexer, workqueue.RateLimitingInterface) bool
+type Controller struct {
+	indexer  cache.Store
+	queue    workqueue.RateLimitingInterface
+	informer cache.ControllerInterface
+	f        ControllerFunc
+	done     chan struct{}
+}
+
+func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object, f ControllerFunc) (cache.Store, *Controller) {
+
+	indexer, informer := cache.NewIndexerInformer(lw, objType, 0, NewResourceEventHandlerFuncsForQorkqueue(queue), cache.Indexers{})
+	return NewControllerFromInformer(indexer, informer, queue, f)
+}
+
+func NewControllerFromInformer(indexer cache.Store, informer cache.ControllerInterface, queue workqueue.RateLimitingInterface, f ControllerFunc) (cache.Store, *Controller) {
+	c := &Controller{
+		informer: informer,
+		indexer:  indexer,
+		queue:    queue,
+		done:     make(chan struct{}),
+	}
+	c.f = func(s cache.Store, w workqueue.RateLimitingInterface) bool {
+		running := f(s, w)
+		if !running {
+			close(c.done)
+		}
+		return running
+	}
+	return indexer, c
+}
+
+type ControllerFunc func(cache.Store, workqueue.RateLimitingInterface) bool
 
 func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
 	defer HandlePanic()
 	defer c.queue.ShutDown()
-	logging.DefaultLogger().Info().Msg("Starting VM controller.")
-
-	go c.informer.Run(stopCh)
+	logging.DefaultLogger().Info().Msg("Starting controller.")
 
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
-	logging.DefaultLogger().Info().Msg("Stopping VM controller.")
+	logging.DefaultLogger().Info().Msg("Stopping controller.")
+}
+
+func (c *Controller) StartInformer(stopCh chan struct{}) {
+	go c.informer.Run(stopCh)
 }
 
 func (c *Controller) WaitForSync(stopCh chan struct{}) {
@@ -161,4 +176,8 @@ func (c *Controller) WaitForSync(stopCh chan struct{}) {
 func (c *Controller) runWorker() {
 	for c.f(c.indexer, c.queue) {
 	}
+}
+
+func (c *Controller) WaitUntilDone() {
+	<-c.done
 }

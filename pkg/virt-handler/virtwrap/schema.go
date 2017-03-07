@@ -60,23 +60,29 @@ func init() {
 }
 
 const (
-	NoState        LifeCycle         = "NoState"
-	Running        LifeCycle         = "Running"
-	Blocked        LifeCycle         = "Blocked"
-	Paused         LifeCycle         = "Paused"
-	Shutdown       LifeCycle         = "ShuttingDown"
-	Shutoff        LifeCycle         = "Shutoff"
-	Crashed        LifeCycle         = "Crashed"
-	PMSuspended    LifeCycle         = "PMSuspended"
-	Unknown        StateChangeReason = "Unknown"
-	User           StateChangeReason = "User"
-	ReasonShutdown StateChangeReason = "Shutdown"
-	Destroyed      StateChangeReason = "Destroyed"
-	Migrated       StateChangeReason = "Migrated"
-	ReasonCrashed  StateChangeReason = "Crashed"
-	Saved          StateChangeReason = "Saved"
-	Failed         StateChangeReason = "Failed"
-	FromSnapshot   StateChangeReason = "FromSnapshot"
+	NoState     LifeCycle = "NoState"
+	Running     LifeCycle = "Running"
+	Blocked     LifeCycle = "Blocked"
+	Paused      LifeCycle = "Paused"
+	Shutdown    LifeCycle = "ShuttingDown"
+	Shutoff     LifeCycle = "Shutoff"
+	Crashed     LifeCycle = "Crashed"
+	PMSuspended LifeCycle = "PMSuspended"
+
+	// Common reasons
+	ReasonUnknown StateChangeReason = "Unknown"
+
+	// ShuttingDown reasons
+	ReasonUser StateChangeReason = "User"
+
+	// Shutoff reasons
+	ReasonShutdown     StateChangeReason = "Shutdown"
+	ReasonDestroyed    StateChangeReason = "Destroyed"
+	ReasonMigrated     StateChangeReason = "Migrated"
+	ReasonCrashed      StateChangeReason = "Crashed"
+	ReasonSaved        StateChangeReason = "Saved"
+	ReasonFailed       StateChangeReason = "Failed"
+	ReasonFromSnapshot StateChangeReason = "FromSnapshot"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]LifeCycle{
@@ -91,19 +97,19 @@ var LifeCycleTranslationMap = map[libvirt.DomainState]LifeCycle{
 }
 
 var ShutdownReasonTranslationMap = map[libvirt.DomainShutdownReason]StateChangeReason{
-	libvirt.DOMAIN_SHUTDOWN_UNKNOWN: Unknown,
-	libvirt.DOMAIN_SHUTDOWN_USER:    User,
+	libvirt.DOMAIN_SHUTDOWN_UNKNOWN: ReasonUnknown,
+	libvirt.DOMAIN_SHUTDOWN_USER:    ReasonUser,
 }
 
 var ShutoffReasonTranslationMap = map[libvirt.DomainShutoffReason]StateChangeReason{
-	libvirt.DOMAIN_SHUTOFF_UNKNOWN:       Unknown,
+	libvirt.DOMAIN_SHUTOFF_UNKNOWN:       ReasonUnknown,
 	libvirt.DOMAIN_SHUTOFF_SHUTDOWN:      ReasonShutdown,
-	libvirt.DOMAIN_SHUTOFF_DESTROYED:     Destroyed,
+	libvirt.DOMAIN_SHUTOFF_DESTROYED:     ReasonDestroyed,
 	libvirt.DOMAIN_SHUTOFF_CRASHED:       ReasonCrashed,
-	libvirt.DOMAIN_SHUTOFF_MIGRATED:      Migrated,
-	libvirt.DOMAIN_SHUTOFF_SAVED:         Saved,
-	libvirt.DOMAIN_SHUTOFF_FAILED:        Failed,
-	libvirt.DOMAIN_SHUTOFF_FROM_SNAPSHOT: FromSnapshot,
+	libvirt.DOMAIN_SHUTOFF_MIGRATED:      ReasonMigrated,
+	libvirt.DOMAIN_SHUTOFF_SAVED:         ReasonSaved,
+	libvirt.DOMAIN_SHUTOFF_FAILED:        ReasonFailed,
+	libvirt.DOMAIN_SHUTOFF_FROM_SNAPSHOT: ReasonFromSnapshot,
 }
 
 type Domain struct {
@@ -423,7 +429,7 @@ type RandomGenerator struct {
 
 // TODO ballooning, rng, cpu ...
 
-func NewMinimalVM(vmName string) *DomainSpec {
+func NewMinimalDomainSpec(vmName string) *DomainSpec {
 	precond.MustNotBeEmpty(vmName)
 	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
 	domain.Memory = Memory{Unit: "KiB", Value: 8192}
@@ -432,6 +438,27 @@ func NewMinimalVM(vmName string) *DomainSpec {
 		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}
 	return &domain
+}
+
+func NewMinimalDomain(name string) *Domain {
+	domain := NewDomainReferenceFromName(name)
+	domain.Spec = *NewMinimalDomainSpec(name)
+	return domain
+}
+
+func NewDomainReferenceFromName(name string) *Domain {
+	return &Domain{
+		Spec: DomainSpec{},
+		ObjectMeta: kubev1.ObjectMeta{
+			Name:      name,
+			Namespace: kubev1.NamespaceDefault,
+		},
+		Status: DomainStatus{},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "1.2.2",
+			Kind:       "Domain",
+		},
+	}
 }
 
 func (d *Domain) SetState(status libvirt.DomainState, reason int) {
