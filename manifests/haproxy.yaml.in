@@ -11,18 +11,21 @@ spec:
   selector:
     app: haproxy
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   name: haproxy
-  labels:
-    app: haproxy
 spec:
-  containers:
-  - name: haproxy
-    image: {{ docker_prefix }}/haproxy:{{ docker_tag }}
-    imagePullPolicy: IfNotPresent
-    ports:
-      - containerPort: 8184
-        name: "haproxy"
-        protocol: "TCP"
+  template:
+    metadata:
+      labels:
+        app: haproxy
+    spec:
+      containers:
+      - name: haproxy
+        image: {{ docker_prefix }}/haproxy:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 8184
+            name: "haproxy"
+            protocol: "TCP"

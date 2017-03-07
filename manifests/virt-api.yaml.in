@@ -11,24 +11,27 @@ spec:
   selector:
     app: virt-api
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   name: virt-api
-  labels:
-    app: virt-api
 spec:
-  containers:
-  - name: virt-api
-    image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
-    imagePullPolicy: IfNotPresent
-    command:
-        - "/virt-api"
-        - "--port"
-        - "8183"
-        - "--spice-proxy"
-        - "{{ master_ip }}:3128"
-    ports:
-      - containerPort: 8183
-        name: "virt-api"
-        protocol: "TCP"
+  template:
+    metadata:
+      labels:
+        app: virt-api
+    spec:
+      containers:
+      - name: virt-api
+        image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        command:
+            - "/virt-api"
+            - "--port"
+            - "8183"
+            - "--spice-proxy"
+            - "{{ master_ip }}:3128"
+        ports:
+          - containerPort: 8183
+            name: "virt-api"
+            protocol: "TCP"
