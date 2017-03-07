@@ -87,22 +87,49 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			vmCopy.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
 			vmCopy.Status.NodeName = pod.Spec.NodeName
 			// Update the VM
-			logger := logging.DefaultLogger().Object(vm)
-			if err := restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
-				logger.Error().Reason(err).Msg("Setting the VM to pending failed.")
-				if e, ok := err.(*errors.StatusError); ok {
-					if e.Status().Reason == metav1.StatusReasonNotFound {
-						// VM does not exist anymore, we don't have to retry
-						return true
-					}
-
-				}
-				logger.V(3).Info().Msg("Enqueuing VM initialization again.")
+			logger := logging.DefaultLogger()
+			if err := putVm(&vmCopy, restClient, queue); err != nil {
+				logger.V(3).Info().Msg("Enqueuing VM again.")
 				queue.AddRateLimited(key)
 				return true
 			}
 			logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
+		} else if vm.Status.Phase == corev1.Running {
+			logger := logging.DefaultLogger()
+			obj, err := kubeapi.Scheme.Copy(vm)
+			if err != nil {
+				logger.Error().Reason(err).Msg("could not copy vm object")
+				queue.AddRateLimited(key)
+				return true
+			}
+			vmCopy := obj.(*corev1.VM)
+			vmCopy.Status.MigrationNodeName = pod.Spec.NodeName
+
+			if err := putVm(vmCopy, restClient, queue); err != nil {
+				logger.V(3).Info().Msg("Enqueuing VM again.")
+				queue.AddRateLimited(key)
+				return true
+			}
+			// TODO: the migration should be started here
+			logger.Info().Msgf("Scheduled VM migration to node %s.", vmCopy.Status.NodeName)
 		}
 		return true
 	})
+}
+
+// syncronously put updated VM object to API server.
+func putVm(vm *corev1.VM, restClient *rest.RESTClient, queue workqueue.RateLimitingInterface) error {
+	logger := logging.DefaultLogger().Object(vm)
+	if err := restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
+		logger.Error().Reason(err).Msg("Setting the VM state failed.")
+		if e, ok := err.(*errors.StatusError); ok {
+			if e.Status().Reason == metav1.StatusReasonNotFound {
+				// VM does not exist anymore, we don't have to retry
+				return nil
+			}
+
+		}
+		return err
+	}
+	return nil
 }
