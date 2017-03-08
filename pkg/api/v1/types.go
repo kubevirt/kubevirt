@@ -413,3 +413,43 @@ func (ml *MigrationList) UnmarshalJSON(data []byte) error {
 	*ml = tmp2
 	return nil
 }
+
+// Given a VM, create a NodeSelectorTerm with anti-affinity for that VM's node.
+// This is useful for the case when a migration away from a node must occur.
+func AntiAffinityFromVMNode(vm *VM) *v1.NodeSelectorTerm {
+	return antiAffinityFromNode(vm.Status.NodeName)
+}
+
+func antiAffinityFromNode(nodeName string) *v1.NodeSelectorTerm {
+	selector := v1.NodeSelectorTerm{
+		MatchExpressions: []v1.NodeSelectorRequirement{
+			v1.NodeSelectorRequirement{
+				Key:      "kubernetes.io/hostname",
+				Operator: v1.NodeSelectorOpNotIn,
+				Values:   []string{nodeName},
+			},
+		},
+	}
+	return &selector
+}
+
+// Given a pod and an affinity rule, add the affinity to any others
+// associated with the pod (if any). In this context, pod is the destination
+// of a migration.
+func ApplyAntiAffinityToPod(pod *v1.Pod, selector *v1.NodeSelectorTerm) (*v1.Pod, error) {
+	if pod.Spec.Affinity == nil {
+		newAffinity := v1.Affinity{}
+		pod.Spec.Affinity = &newAffinity
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		newNodeAffinity := v1.NodeAffinity{}
+		pod.Spec.Affinity.NodeAffinity = &newNodeAffinity
+	}
+	if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		newNodeSelector := v1.NodeSelector{}
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &newNodeSelector
+	}
+	nodeSelector := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	nodeSelector.NodeSelectorTerms = append(nodeSelector.NodeSelectorTerms, *selector)
+	return pod, nil
+}
