@@ -87,7 +87,7 @@ func NewRandomVM() *v1.VM {
 	return v1.NewMinimalVM("testvm" + rand.String(5))
 }
 
-func NewRandomVMWithLun(lun int) *v1.VM {
+func NewRandomVMWithDirectLun(lun int) *v1.VM {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
@@ -109,6 +109,24 @@ func NewRandomVMWithLun(lun int) *v1.VM {
 			},
 			Protocol: "iscsi",
 			Name:     fmt.Sprintf("iqn.2017-01.io.kubevirt:sn.42/%d", lun),
+		},
+	}}
+	return vm
+}
+
+func NewRandomVMWithPVC(claimName string) *v1.VM {
+	vm := NewRandomVM()
+	vm.Spec.Domain.Memory.Unit = "MB"
+	vm.Spec.Domain.Memory.Value = 64
+	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
+		Type:     "PersistentVolumeClaim",
+		Snapshot: "external",
+		Device:   "disk",
+		Target: v1.DiskTarget{
+			Device: "vda",
+		},
+		Source: v1.DiskSource{
+			Name: claimName,
 		},
 	}}
 	return vm

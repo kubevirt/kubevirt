@@ -31,10 +31,6 @@ func init() {
 	flag.StringVar(&master, "master", "", "master url")
 }
 
-func Get() (*kubernetes.Clientset, error) {
-	return GetFromFlags(master, kubeconfig)
-}
-
 func GetFromFlags(master string, kubeconfig string) (*kubernetes.Clientset, error) {
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
@@ -50,7 +46,7 @@ func GetFromFlags(master string, kubeconfig string) (*kubernetes.Clientset, erro
 }
 
 func Get() (*kubernetes.Clientset, error) {
-	return GetFromFlages(master, kubeconfig)
+	return GetFromFlags(master, kubeconfig)
 }
 
 func GetRESTClient() (*rest.RESTClient, error) {

@@ -2,7 +2,6 @@ package virthandler
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/jeevatkm/go-model"
@@ -81,8 +80,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 			err = domainManager.KillVM(vm)
 		} else {
 			// Synchronize the VM state
-
-			vmCopy, err := MapPersistentVolumes(vm, clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
+			vm, err = MapPersistentVolumes(vm, clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
 
 			if err == nil {
 				// TODO check if found VM has the same UID like the domain, if not, delete the Domain first
@@ -90,7 +88,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 				// Only sync if the VM is not marked as migrating. Everything except shutting down the VM is not permitted when it is migrating.
 				// TODO MigrationNodeName should be a pointer
 				if vm.Status.MigrationNodeName == "" {
-					err = domainManager.SyncVM(vmCopy)
+					err = domainManager.SyncVM(vm)
 				} else {
 					queue.Forget(key)
 					return true
@@ -140,13 +138,13 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 
 			if err != nil {
 				logging.DefaultLogger().Error().Reason(err).Msg("unable to look up persistent volume claim")
-				return nil, fmt.Errorf("unable to look up persistent volume claim: %v", err)
+				return vm, fmt.Errorf("unable to look up persistent volume claim: %v", err)
 			}
 
 			pvc := obj.(*kubev1.PersistentVolumeClaim)
 			if pvc.Status.Phase != kubev1.ClaimBound {
 				logging.DefaultLogger().Error().Msg("attempted use of unbound persistent volume")
-				return nil, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
+				return vm, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
 			}
 
 			// Look up the PersistentVolume this PVC is bound to
@@ -155,36 +153,35 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 
 			if err != nil {
 				logging.DefaultLogger().Error().Reason(err).Msg("unable to access persistent volume record")
-				return nil, fmt.Errorf("unable to access persistent volume record: %v", err)
+				return vm, fmt.Errorf("unable to access persistent volume record: %v", err)
 			}
 			pv := obj.(*kubev1.PersistentVolume)
-			//newDiskSource := v1.DiskSource{}
-			newDisk := v1.Disk{}
 
 			if pv.Spec.ISCSI != nil {
-				newDisk.Source.Name = fmt.Sprintf("%s/%d", pv.Spec.ISCSI.IQN, pv.Spec.ISCSI.Lun)
-				host, err := url.Parse(pv.Spec.ISCSI.TargetPortal)
-				if err != nil {
-					logging.DefaultLogger().Error().Reason(err).Msg("unable to parse iscsi target url")
-					return nil, fmt.Errorf("unable to parse iscsi target url: %v", err)
-				}
-				sourceHost := v1.DiskSourceHost{}
-				hostPort := strings.Split(host.Host, ":")
-				sourceHost.Name = hostPort[0]
-				if len(hostPort) > 1 {
-					sourceHost.Port = hostPort[1]
-				}
-				newDisk.Source.Host = &sourceHost
-				newDisk.Source.Protocol = "iscsi"
-			}
-			newDisk.Type = "network"
-			newDisk.Device = "disk"
-			newDisk.Target = disk.Target
-			newDisk.Driver = new(v1.DiskDriver)
-			newDisk.Driver.Type = "raw"
-			newDisk.Driver.Name = "qemu"
+				logging.DefaultLogger().Object(vm).Info().Msg("Mapping iSCSI PVC")
+				newDisk := v1.Disk{}
 
-			vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
+				newDisk.Type = "network"
+				newDisk.Device = "disk"
+				newDisk.Target = disk.Target
+				newDisk.Driver = new(v1.DiskDriver)
+				newDisk.Driver.Type = "raw"
+				newDisk.Driver.Name = "qemu"
+
+				newDisk.Source.Name = fmt.Sprintf("%s/%d", pv.Spec.ISCSI.IQN, pv.Spec.ISCSI.Lun)
+				newDisk.Source.Protocol = "iscsi"
+
+				hostPort := strings.Split(pv.Spec.ISCSI.TargetPortal, ":")
+				newDisk.Source.Host = &v1.DiskSourceHost{}
+				newDisk.Source.Host.Name = hostPort[0]
+				if len(hostPort) > 1 {
+					newDisk.Source.Host.Port = hostPort[1]
+				}
+
+				vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
+			} else {
+				logging.DefaultLogger().Object(vm).Error().Msg(fmt.Sprintf("Referenced PV %v is backed by an unsupported storage type", pv))
+			}
 		}
 	}
 

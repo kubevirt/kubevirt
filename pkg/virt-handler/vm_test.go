@@ -179,6 +179,9 @@ var _ = Describe("PVC", func() {
 
 			Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
 			newDisk := vmCopy.Spec.Domain.Devices.Disks[0]
+			Expect(newDisk.Type).To(Equal("network"))
+			Expect(newDisk.Driver.Type).To(Equal("raw"))
+			Expect(newDisk.Driver.Name).To(Equal("qemu"))
 			Expect(newDisk.Device).To(Equal("disk"))
 			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
 			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
