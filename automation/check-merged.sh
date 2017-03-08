@@ -44,6 +44,11 @@ make
 # Run unit tests
 # make test
 
+# Delete traces from old deployments
+cluster/kubectl.sh --init
+cluster/kubectl.sh --core delete deployments --all
+cluster/kubectl.sh --core delete pods --all
+
 # Deploy kubevirt
 cluster/sync.sh
 
