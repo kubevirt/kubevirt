@@ -181,3 +181,9 @@ func (c *Controller) runWorker() {
 func (c *Controller) WaitUntilDone() {
 	<-c.done
 }
+
+// Shut down the embedded queue. After the shutdown was issued, all items already in the queue will be processed but no
+// new items will be accepted. It is possible to wait via #WaitUntilDone() until the last item was processed.
+func (c *Controller) ShutDownQueue() {
+	c.queue.ShutDown()
+}
