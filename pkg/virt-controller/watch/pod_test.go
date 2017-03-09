@@ -3,9 +3,11 @@ package watch
 import (
 	"net/http"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/conversion"
 	"k8s.io/client-go/pkg/util/uuid"
 	"k8s.io/client-go/tools/cache"
@@ -22,18 +24,23 @@ var _ = Describe("Pod", func() {
 	var vmCache cache.Store
 	var podController *kubecli.Controller
 	var lw *framework.FakeControllerSource
+	var ctrl *gomock.Controller
+	var mockVMService *services.MockVMService
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
 		stopChan = make(chan struct{})
 		server = ghttp.NewServer()
 		// Wire a Pod controller with a fake source
 		restClient, err := kubecli.GetRESTClientFromFlags(server.URL(), "")
 		Expect(err).To(Not(HaveOccurred()))
+		coreClient, err := kubecli.GetFromFlages(server.URL(), "")
 		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		lw = framework.NewFakeControllerSource()
-		_, podController = NewPodControllerWithListWatch(vmCache, nil, lw, restClient)
+		mockVMService = services.NewMockVMService(ctrl)
+		_, podController = NewPodControllerWithListWatch(vmCache, nil, lw, restClient, mockVMService, coreClient)
 
 		// Start the controller
 		podController.StartInformer(stopChan)
@@ -90,12 +97,53 @@ var _ = Describe("Pod", func() {
 	})
 
 	Context("Running Migration target Pod for a running VM given", func() {
-		It("should update the VM with the migration target node of the running Pod", func(done Done) {
+		var (
+			srcIp      = kubev1.NodeAddress{}
+			destIp     = kubev1.NodeAddress{}
+			srcNodeIp  = kubev1.Node{}
+			destNodeIp = kubev1.Node{}
+			srcNode    kubev1.Node
+			targetNode kubev1.Node
+		)
+
+		BeforeEach(func() {
+			srcIp = kubev1.NodeAddress{
+				Type:    kubev1.NodeInternalIP,
+				Address: "127.0.0.2",
+			}
+			destIp = kubev1.NodeAddress{
+				Type:    kubev1.NodeInternalIP,
+				Address: "127.0.0.3",
+			}
+			srcNodeIp = kubev1.Node{
+				Status: kubev1.NodeStatus{
+					Addresses: []kubev1.NodeAddress{srcIp},
+				},
+			}
+			destNodeIp = kubev1.Node{
+				Status: kubev1.NodeStatus{
+					Addresses: []kubev1.NodeAddress{destIp},
+				},
+			}
+			srcNode = kubev1.Node{
+				Status: kubev1.NodeStatus{
+					Addresses: []kubev1.NodeAddress{srcIp, destIp},
+				},
+			}
+			targetNode = kubev1.Node{
+				Status: kubev1.NodeStatus{
+					Addresses: []kubev1.NodeAddress{destIp, srcIp},
+				},
+			}
+		})
+
+		It("should update the VM Phase and migration target node of the running Pod", func(done Done) {
 
 			// Create a VM which is being scheduled
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = v1.Running
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			vm.Status.NodeName = "sourceNode"
 
 			// Add the VM to the cache
 			vmCache.Add(vm)
@@ -105,24 +153,35 @@ var _ = Describe("Pod", func() {
 			Expect(err).ToNot(HaveOccurred())
 			pod, err := temlateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
-			pod.Spec.NodeName = "mynode"
+			pod.Spec.NodeName = "targetNode"
 
 			// Create the expected VM after the update
 			obj, err := conversion.NewCloner().DeepCopy(vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedVM := obj.(*v1.VM)
-			expectedVM.Status.Phase = v1.Running
+			expectedVM.Status.Phase = v1.Migrating
 			expectedVM.Status.MigrationNodeName = pod.Spec.NodeName
 
 			// Register the expected REST call
 			server.AppendHandlers(
+
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/nodes/sourceNode"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, srcNode),
+				),
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/nodes/targetNode"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, targetNode),
+				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
 					ghttp.VerifyJSONRepresenting(expectedVM),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedVM),
 				),
 			)
+
+			mockVMService.EXPECT().StartMigration(expectedVM, &srcNode, &targetNode).Return(nil)
 
 			// Tell the controller that there is a new running Pod
 			lw.Add(pod)
@@ -132,7 +191,7 @@ var _ = Describe("Pod", func() {
 			podController.ShutDownQueue()
 			podController.WaitUntilDone()
 
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			close(done)
 		}, 10)
 	})
@@ -140,5 +199,6 @@ var _ = Describe("Pod", func() {
 	AfterEach(func() {
 		close(stopChan)
 		server.Close()
+		ctrl.Finish()
 	})
 })

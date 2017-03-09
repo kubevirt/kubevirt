@@ -17,6 +17,7 @@ import (
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 func scheduledVMPodSelector() kubeapi.ListOptions {
@@ -28,14 +29,14 @@ func scheduledVMPodSelector() kubeapi.ListOptions {
 	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
 }
 
-func NewPodController(vmCache cache.Store, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
+func NewPodController(vmCache cache.Store, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient, vmService services.VMService) (cache.Store, *kubecli.Controller) {
 
 	selector := scheduledVMPodSelector()
 	lw := kubecli.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
-	return NewPodControllerWithListWatch(vmCache, recorder, lw, restClient)
+	return NewPodControllerWithListWatch(vmCache, recorder, lw, restClient, vmService, clientset)
 }
 
-func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
+func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	return kubecli.NewController(lw, queue, &v1.Pod{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
@@ -104,13 +105,31 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			}
 			vmCopy := obj.(*corev1.VM)
 			vmCopy.Status.MigrationNodeName = pod.Spec.NodeName
+			vmCopy.Status.Phase = corev1.Migrating
 
+			sourceNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.NodeName, metav1.GetOptions{})
+			if err != nil {
+				logger.Error().Reason(err).Msgf("Fetching source node %s failed.", vmCopy.Status.NodeName)
+				queue.AddRateLimited(key)
+				return true
+			}
+			targetNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.MigrationNodeName, metav1.GetOptions{})
+			if err != nil {
+				logger.Error().Reason(err).Msgf("Fetching target node %s failed.", vmCopy.Status.MigrationNodeName)
+				queue.AddRateLimited(key)
+				return true
+			}
+
+			if err := vmService.StartMigration(vmCopy, sourceNode, targetNode); err != nil {
+				logger.Error().Reason(err).Msg("Starting the migration job failed.")
+				queue.AddRateLimited(key)
+				return true
+			}
 			if err := putVm(vmCopy, restClient, queue); err != nil {
 				logger.V(3).Info().Msg("Enqueuing VM again.")
 				queue.AddRateLimited(key)
 				return true
 			}
-			// TODO: the migration should be started here
 			logger.Info().Msgf("Scheduled VM migration to node %s.", vmCopy.Status.NodeName)
 		}
 		return true

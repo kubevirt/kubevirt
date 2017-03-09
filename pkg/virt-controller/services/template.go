@@ -5,11 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	kubeapi "k8s.io/client-go/pkg/api"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/batch"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -17,7 +16,7 @@ import (
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VM) (*kubev1.Pod, error)
-	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node) (*batch.Job, error)
+	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node) (*batchv1.Job, error)
 }
 
 type templateService struct {
@@ -70,18 +69,13 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	return &pod, nil
 }
 
-func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node) (*batch.Job, error) {
+func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node) (*batchv1.Job, error) {
 	srcAddr := ""
 	dstAddr := ""
 	for _, addr := range sourceNode.Status.Addresses {
-		if addr.Type == kubev1.NodeHostName {
+		if (addr.Type == kubev1.NodeInternalIP) && (srcAddr == "") {
 			srcAddr = addr.Address
 			break
-		}
-		if (addr.Type == kubev1.NodeInternalIP) && (srcAddr == "") {
-			// record this address, but keep iterating addresses. A NodeHostName record
-			// would be preferred if present.
-			srcAddr = addr.Address
 		}
 	}
 	if srcAddr == "" {
@@ -89,15 +83,12 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 		logging.DefaultLogger().Error().Msg("migration target node is unreachable")
 		return nil, err
 	}
-	srcUri := fmt.Sprintf("qemu+tcp://%s", srcAddr)
+	srcUri := fmt.Sprintf("qemu+tcp://%s/system", srcAddr)
 
 	for _, addr := range targetNode.Status.Addresses {
-		if addr.Type == kubev1.NodeHostName {
-			dstAddr = addr.Address
-			break
-		}
 		if (addr.Type == kubev1.NodeInternalIP) && (dstAddr == "") {
 			dstAddr = addr.Address
+			break
 		}
 	}
 	if dstAddr == "" {
@@ -105,25 +96,29 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 		logging.DefaultLogger().Error().Msg("migration target node is unreachable")
 		return nil, err
 	}
-	destUri := fmt.Sprintf("qemu+tcp://%s", dstAddr)
+	destUri := fmt.Sprintf("qemu+tcp://%s/system", dstAddr)
 
-	job := batch.Job{
-		ObjectMeta: kubeapi.ObjectMeta{
+	job := batchv1.Job{
+		ObjectMeta: kubev1.ObjectMeta{
 			GenerateName: "virt-migration",
+			Labels: map[string]string{
+				v1.DomainLabel: vm.GetObjectMeta().GetName(),
+			},
 		},
 		TypeMeta: metav1.TypeMeta{
-			Kind: "Job",
+			Kind:       "Job",
+			APIVersion: "batch/v1",
 		},
-		Spec: batch.JobSpec{
-			Template: kubeapi.PodTemplateSpec{
-				Spec: kubeapi.PodSpec{
-					RestartPolicy: kubeapi.RestartPolicyNever,
-					Containers: []kubeapi.Container{
-						kubeapi.Container{
+		Spec: batchv1.JobSpec{
+			Template: kubev1.PodTemplateSpec{
+				Spec: kubev1.PodSpec{
+					RestartPolicy: kubev1.RestartPolicyNever,
+					Containers: []kubev1.Container{
+						{
 							Name:  "virt-migration",
 							Image: "kubevirt/virt-handler:devel",
 							Command: []string{
-								"virsh", "migrate", vm.Spec.Domain.Name, destUri, srcUri,
+								"virsh", "-c", srcUri, "migrate", "--tunnelled", "--p2p", vm.Spec.Domain.Name, destUri,
 							},
 						},
 					},

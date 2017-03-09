@@ -77,7 +77,7 @@ func main() {
 	vmController.WaitForSync(stop)
 
 	// Start watching pods
-	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient)
+	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient, vmService)
 	podController.StartInformer(stop)
 	go podController.Run(1, stop)
 

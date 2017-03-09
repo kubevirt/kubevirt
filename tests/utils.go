@@ -58,6 +58,9 @@ func MustCleanup() {
 	// Remove all VMs
 	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("vms").Do().Error())
 
+	// Remove all Jobs
+	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("jobs").Do().Error())
+
 	// Remove VM pods
 	labelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
 	PanicOnError(err)

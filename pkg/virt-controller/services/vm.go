@@ -12,6 +12,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
+/*
+ ATTENTION: Rerun code generators when interface signatures are modified.
+*/
+
 type VMService interface {
 	StartVMPod(*corev1.VM) error
 	DeleteVMPod(*corev1.VM) error
@@ -21,6 +27,7 @@ type VMService interface {
 	SetupMigration(migration *corev1.Migration, vm *corev1.VM) error
 	UpdateMigration(migration *corev1.Migration) error
 	FetchVM(vmName string) (*corev1.VM, error)
+	StartMigration(vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error
 }
 
 type vmService struct {
@@ -140,6 +147,14 @@ func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.Po
 		return nil, err
 	}
 	return podList, nil
+}
+
+func (v *vmService) StartMigration(vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error {
+	job, err := v.TemplateService.RenderMigrationJob(vm, sourceNode, targetNode)
+	if err != nil {
+		return err
+	}
+	return v.KubeCli.CoreV1().RESTClient().Post().AbsPath("/apis/batch/v1/namespaces/default/jobs").Body(job).Do().Error()
 }
 
 func unfinishedMigrationPodSelector(migration *corev1.Migration) v1.ListOptions {
