@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
@@ -65,17 +64,7 @@ var _ = Describe("Storage", func() {
 			vm := tests.NewRandomVMWithLun(2)
 			obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
 			Expect(err).To(BeNil())
-			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-				Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
-				if event.Type == "Normal" && event.Reason == v1.Started.String() {
-					obj, err := restClient.Get().Namespace(api.NamespaceDefault).
-						Resource("vms").Name(vm.GetObjectMeta().GetName()).Do().Get()
-					Expect(err).To(BeNil())
-					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
-					return true
-				}
-				return false
-			}).Watch()
+			tests.WaitForSuccessfulVMStart(obj)
 
 			// Let's get the IP of the pod of the VM
 			pods, err := coreClient.CoreV1().Pods(api.NamespaceDefault).List(services.UnfinishedVMPodSelector(vm))
