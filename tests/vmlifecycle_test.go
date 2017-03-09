@@ -63,18 +63,8 @@ var _ = Describe("Vmlifecycle", func() {
 		It("Should start the VM on POST", func(done Done) {
 			obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
 			Expect(err).To(BeNil())
+			tests.WaitForSuccessfulVMStart(obj)
 
-			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-				Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
-				if event.Type == "Normal" && event.Reason == v1.Started.String() {
-					obj, err := restClient.Get().Namespace(api.NamespaceDefault).
-						Resource("vms").Name(vm.GetObjectMeta().GetName()).Do().Get()
-					Expect(err).To(BeNil())
-					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
-					return true
-				}
-				return false
-			}).Watch()
 			close(done)
 		}, 30)
 
@@ -95,17 +85,7 @@ var _ = Describe("Vmlifecycle", func() {
 			// Start the VM and wait for the confirmation of the start
 			obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
-			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-				Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
-				if event.Type == "Normal" && event.Reason == v1.Started.String() {
-					obj, err := restClient.Get().Namespace(api.NamespaceDefault).
-						Resource("vms").Name(vm.GetObjectMeta().GetName()).Do().Get()
-					Expect(err).To(BeNil())
-					Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
-					return true
-				}
-				return false
-			}).Watch()
+			tests.WaitForSuccessfulVMStart(obj)
 
 			// Delete the VM and wait for the confirmation of the delete
 			_, err = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()

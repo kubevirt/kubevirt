@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/meta"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -51,6 +52,9 @@ func MustCleanup() {
 	restClient, err := kubecli.GetRESTClient()
 	PanicOnError(err)
 
+	// Remove all Migrations
+	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("migrations").Do().Error())
+
 	// Remove all VMs
 	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("vms").Do().Error())
 
@@ -59,6 +63,7 @@ func MustCleanup() {
 	PanicOnError(err)
 	err = coreClient.Core().Pods(api.NamespaceDefault).
 		DeleteCollection(nil, kubev1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: labelSelector.String()})
+
 	PanicOnError(err)
 }
 
@@ -99,6 +104,10 @@ func NewRandomVMWithLun(lun int) *v1.VM {
 	return vm
 }
 
+func NewMigrationForVm(vm *v1.VM) *v1.Migration {
+	return v1.NewMinimalMigration(vm.ObjectMeta.Name+"migrate", vm.ObjectMeta.Name)
+}
+
 func NewRandomVMWithSpice() *v1.VM {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Devices.Video = []v1.Video{
@@ -119,4 +128,23 @@ func NewRandomVMWithSpice() *v1.VM {
 		},
 	}
 	return vm
+}
+
+// Block until the specified VM started
+func WaitForSuccessfulVMStart(vm runtime.Object) {
+	v, ok := vm.(*v1.VM)
+	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+	restClient, err := kubecli.GetRESTClient()
+	Expect(err).ToNot(HaveOccurred())
+	NewObjectEventWatcher(vm, func(event *kubev1.Event) bool {
+		Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
+		if event.Type == "Normal" && event.Reason == v1.Started.String() {
+			obj, err := restClient.Get().Namespace(api.NamespaceDefault).
+				Resource("vms").Name(v.GetObjectMeta().GetName()).Do().Get()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
+			return true
+		}
+		return false
+	}).Watch()
 }

@@ -240,17 +240,26 @@ func (s SyncEvent) String() string {
 
 func NewMinimalVM(vmName string) *VM {
 	precond.CheckNotEmpty(vmName)
-	return &VM{
-		Spec: VMSpec{Domain: NewMinimalDomainSpec(vmName)},
+	vm := NewVMReferenceFromName(vmName)
+	vm.Spec = VMSpec{Domain: NewMinimalDomainSpec(vmName)}
+	vm.TypeMeta = metav1.TypeMeta{
+		APIVersion: GroupVersion.String(),
+		Kind:       "VM",
+	}
+	return vm
+}
+
+// TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
+func NewVMReferenceFromName(name string) *VM {
+	vm := &VM{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      vmName,
+			Name:      name,
 			Namespace: kubeapi.NamespaceDefault,
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: GroupVersion.String(),
-			Kind:       "VM",
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/vms/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
 		},
 	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
+	return vm
 }
 
 type Spice struct {
@@ -280,33 +289,28 @@ func NewSpice(vmName string) *Spice {
 	}
 }
 
-// TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
-func NewVMReferenceFromName(name string) *VM {
-	vm := &VM{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
-			Namespace: kubeapi.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/vms/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
-		},
-	}
-	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
-	return vm
-}
-
 //TODO validate that this is correct
 func NewMinimalMigration(name string, vmName string) *Migration {
+	migration := NewMigrationReferenceFromName(name)
+	migration.Spec = MigrationSpec{
+		MigratingVMName: vmName,
+	}
+	return migration
+}
+
+func NewMigrationReferenceFromName(name string) *Migration {
 	migration := &Migration{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			Namespace: kubeapi.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/migrations/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
 		},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       "Migration",
 		},
-		Spec: MigrationSpec{
-			MigratingVMName: vmName,
+		Status: MigrationStatus{
+			Phase: MigrationUnknown,
 		},
 	}
 	return migration
@@ -341,6 +345,9 @@ type MigrationSpec struct {
 type MigrationPhase string
 
 const (
+	// Create Migration has been called but nothing has been done with it
+	MigrationUnknown MigrationPhase = ""
+
 	// Migration has been scheduled but no update on the status has been recorded
 	MigrationPending MigrationPhase = "Pending"
 
@@ -358,12 +365,24 @@ const (
 // MigrationStatus is the last reported status of a VM Migratrion. Status may trail the actual
 // state of a migration.
 type MigrationStatus struct {
-	Phase MigrationPhase `json:"message,omitempty"`
+	Phase MigrationPhase `json:"phase,omitempty"`
 }
 
 // Required to satisfy ObjectMetaAccessor interface
-func (v *Migration) GetObjectMeta() meta.Object {
-	return &v.ObjectMeta
+func (m *Migration) GetObjectMeta() meta.Object {
+	return &m.ObjectMeta
+}
+
+func (m *Migration) UnmarshalJSON(data []byte) error {
+	type MigrationCopy Migration
+	tmp := MigrationCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := Migration(tmp)
+	*m = tmp2
+	return nil
 }
 
 //A list of Migrations

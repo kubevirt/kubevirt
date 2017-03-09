@@ -49,13 +49,8 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(err).To(BeNil())
 
 			// Block until the VM is running
-			// TODO, that is going to be a common pattern, create some helpers for that
-			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-				if event.Type == "Normal" && event.Reason == v1.Started.String() {
-					return true
-				}
-				return false
-			}).Watch()
+			tests.WaitForSuccessfulVMStart(obj)
+
 			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			spice, err := ini.Load(raw)
 			Expect(err).To(Not(HaveOccurred()))
@@ -77,13 +72,8 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(err).To(BeNil())
 
 			// Block until the VM is running
-			// TODO, that is going to be a common pattern, create some helpers for that
-			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-				if event.Type == "Normal" && event.Reason == v1.Started.String() {
-					return true
-				}
-				return false
-			}).Watch()
+			tests.WaitForSuccessfulVMStart(obj)
+
 			obj, err = restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 			Expect(err).To(BeNil())
 			spice := obj.(*v1.Spice).Info
@@ -99,13 +89,8 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(err).To(BeNil())
 
 			// Block until the VM is running
-			// TODO, that is going to be a common pattern, create some helpers for that
-			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-				if event.Type == "Normal" && event.Reason == v1.Started.String() {
-					return true
-				}
-				return false
-			}).Watch()
+			tests.WaitForSuccessfulVMStart(obj)
+
 			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(kubev1.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			Expect(err).To(BeNil())
 			spiceINI, err := ini.Load(raw)

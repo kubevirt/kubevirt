@@ -9,6 +9,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/facebookgo/inject"
+	clientrest "k8s.io/client-go/rest"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -40,7 +41,14 @@ func main() {
 		golog.Fatal(err)
 	}
 
+	var restClient *clientrest.RESTClient
+	restClient, err = kubecli.GetRESTClient()
+	if err != nil {
+		golog.Fatal(err)
+	}
+
 	g.Provide(
+		&inject.Object{Value: restClient},
 		&inject.Object{Value: clientSet},
 		&inject.Object{Value: templateService},
 		&inject.Object{Value: vmService},
@@ -57,7 +65,7 @@ func main() {
 	defer close(stop)
 
 	// Start wachting vms
-	restClient, err := kubecli.GetRESTClient()
+	restClient, err = kubecli.GetRESTClient()
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -65,7 +73,6 @@ func main() {
 
 	vmController.StartInformer(stop)
 	go vmController.Run(1, stop)
-
 	// Wait until VM cache has warmed up before we start watching pods
 	vmController.WaitForSync(stop)
 
@@ -73,6 +80,11 @@ func main() {
 	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient)
 	podController.StartInformer(stop)
 	go podController.Run(1, stop)
+
+	_, migrationController := watch.NewMigrationController(vmService, nil, restClient)
+	migrationController.StartInformer(stop)
+	go migrationController.Run(1, stop)
+	migrationController.WaitForSync(stop)
 
 	httpLogger := logger.With("service", "http")
 
