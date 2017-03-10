@@ -115,7 +115,7 @@ var _ = Describe("VmMigration", func() {
 				jobs, err := jobsGetter.Do().Get()
 				Expect(err).ToNot(HaveOccurred())
 				return len(jobs.(*batchv1.JobList).Items)
-			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(1))
+			}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(1))
 
 			// Wait for the successful completion of the job
 			Eventually(func() *metav1.Time {
@@ -123,10 +123,10 @@ var _ = Describe("VmMigration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(err).ToNot(HaveOccurred())
 				return jobs.(*batchv1.JobList).Items[0].Status.CompletionTime
-			}, TIMEOUT, POLLING_INTERVAL).ShouldNot(BeNil())
+			}, TIMEOUT*2, POLLING_INTERVAL).ShouldNot(BeNil())
 
 			close(done)
-		}, 30)
+		}, 60)
 
 		AfterEach(func() {
 			tests.MustCleanup()
