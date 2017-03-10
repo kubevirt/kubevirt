@@ -29,3 +29,5 @@ spec:
             - containerPort: 3128
               name: "spice-proxy"
               protocol: "TCP"
+      nodeSelector:
+        kubernetes.io/hostname: master

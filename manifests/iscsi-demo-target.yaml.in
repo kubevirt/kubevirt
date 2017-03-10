@@ -119,3 +119,5 @@ spec:
           image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}
           ports:
             - containerPort: 3260
+      nodeSelector:
+        kubernetes.io/hostname: master
