@@ -102,16 +102,20 @@ spec:
   selector:
     app: iscsi-demo-target
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
-  labels:
-    name: iscsi-demo-target-tgtd
-    app: iscsi-demo-target
   name: iscsi-demo-target-tgtd
 spec:
-  containers:
-    - name: target
-      image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}
-      ports:
-        - containerPort: 3260
+  template:
+    metadata:
+      labels:
+        name: iscsi-demo-target-tgtd
+        app: iscsi-demo-target
+      name: iscsi-demo-target-tgtd
+    spec:
+      containers:
+        - name: target
+          image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}
+          ports:
+            - containerPort: 3260

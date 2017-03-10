@@ -29,9 +29,13 @@ var _ = Describe("Storage", func() {
 	})
 
 	getTargetLogs := func(tailLines int64) string {
+
+		pods, err := coreClient.CoreV1().Pods(kubev1.NamespaceDefault).List(kubev1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pods.Items).To(HaveLen(1))
 		logsRaw, err := coreClient.CoreV1().
 			Pods("default").
-			GetLogs("iscsi-demo-target-tgtd",
+			GetLogs(pods.Items[0].GetObjectMeta().GetName(),
 				&kubev1.PodLogOptions{TailLines: &tailLines}).
 			DoRaw()
 		Expect(err).To(BeNil())
