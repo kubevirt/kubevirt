@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-cockpit
+spec:
+  ports:
+  - protocol: TCP
+    port: 9091
+    targetPort: 9090
+  externalIPs:
+  - "{{ master_ip }}"
+  selector:
+    name: kubevirt-cockpit
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kubevirt-cockpit
+spec:
+  template:
+    metadata:
+      labels:
+        name: kubevirt-cockpit
+    spec:
+      containers:
+      - name: cockpit
+        image: kubevirt/cockpit:latest
+        ports:
+        - containerPort: 9090
+          protocol: TCP
