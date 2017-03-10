@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
+	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -28,6 +29,7 @@ type VMService interface {
 	UpdateMigration(migration *corev1.Migration) error
 	FetchVM(vmName string) (*corev1.VM, error)
 	StartMigration(vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error
+	GetMigrationJob(vm *corev1.VM) (*batchv1.Job, bool, error)
 }
 
 type vmService struct {
@@ -156,6 +158,23 @@ func (v *vmService) StartMigration(vm *corev1.VM, sourceNode *v1.Node, targetNod
 		return err
 	}
 	return v.KubeCli.CoreV1().RESTClient().Post().AbsPath("/apis/batch/v1/namespaces/default/jobs").Body(job).Do().Error()
+}
+
+func (v *vmService) GetMigrationJob(vm *corev1.VM) (*batchv1.Job, bool, error) {
+	selector, err := labels.Parse(corev1.DomainLabel)
+	if err != nil {
+		return nil, false, err
+	}
+	jobList, err := v.KubeCli.CoreV1().RESTClient().Get().AbsPath("/apis/batch/v1/namespaces/default/jobs").LabelsSelectorParam(selector).Do().Get()
+	if err != nil {
+		return nil, false, err
+	}
+	for _, job := range jobList.(*batchv1.JobList).Items {
+		if job.Status.CompletionTime != nil {
+			return &job, true, nil
+		}
+	}
+	return nil, false, nil
 }
 
 func unfinishedMigrationPodSelector(migration *corev1.Migration) v1.ListOptions {

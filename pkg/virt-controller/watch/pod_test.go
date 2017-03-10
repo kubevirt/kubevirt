@@ -159,13 +159,22 @@ var _ = Describe("Pod", func() {
 			obj, err := conversion.NewCloner().DeepCopy(vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedVM := obj.(*v1.VM)
-			expectedVM.Status.Phase = v1.Migrating
-			expectedVM.Status.MigrationNodeName = pod.Spec.NodeName
+			vmWithMigrationNodeName := obj.(*v1.VM)
+			vmWithMigrationNodeName.Status.MigrationNodeName = pod.Spec.NodeName
+
+			obj, err = conversion.NewCloner().DeepCopy(vmWithMigrationNodeName)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmInMigrationState := obj.(*v1.VM)
+			vmInMigrationState.Status.Phase = v1.Migrating
 
 			// Register the expected REST call
 			server.AppendHandlers(
-
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+					ghttp.VerifyJSONRepresenting(vmWithMigrationNodeName),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmWithMigrationNodeName),
+				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/nodes/sourceNode"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, srcNode),
@@ -176,12 +185,13 @@ var _ = Describe("Pod", func() {
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
-					ghttp.VerifyJSONRepresenting(expectedVM),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedVM),
+					ghttp.VerifyJSONRepresenting(vmInMigrationState),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmWithMigrationNodeName),
 				),
 			)
 
-			mockVMService.EXPECT().StartMigration(expectedVM, &srcNode, &targetNode).Return(nil)
+			mockVMService.EXPECT().GetMigrationJob(gomock.Any()).Return(nil, false, nil)
+			mockVMService.EXPECT().StartMigration(gomock.Any(), &srcNode, &targetNode).Return(nil)
 
 			// Tell the controller that there is a new running Pod
 			lw.Add(pod)
@@ -191,7 +201,7 @@ var _ = Describe("Pod", func() {
 			podController.ShutDownQueue()
 			podController.WaitUntilDone()
 
-			Expect(len(server.ReceivedRequests())).To(Equal(3))
+			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			close(done)
 		}, 10)
 	})

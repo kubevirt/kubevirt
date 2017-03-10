@@ -6,6 +6,7 @@ package services
 import (
 	gomock "github.com/golang/mock/gomock"
 	v10 "k8s.io/client-go/pkg/api/v1"
+	v11 "k8s.io/client-go/pkg/apis/batch/v1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -121,4 +122,16 @@ func (_m *MockVMService) StartMigration(vm *v1.VM, sourceNode *v10.Node, targetN
 
 func (_mr *_MockVMServiceRecorder) StartMigration(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartMigration", arg0, arg1, arg2)
+}
+
+func (_m *MockVMService) GetMigrationJob(vm *v1.VM) (*v11.Job, bool, error) {
+	ret := _m.ctrl.Call(_m, "GetMigrationJob", vm)
+	ret0, _ := ret[0].(*v11.Job)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockVMServiceRecorder) GetMigrationJob(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMigrationJob", arg0)
 }

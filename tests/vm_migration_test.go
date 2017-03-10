@@ -90,7 +90,12 @@ var _ = Describe("VmMigration", func() {
 				fetchedVM = obj.(*v1.VM)
 				return fetchedVM.Status.MigrationNodeName
 			}, TIMEOUT, POLLING_INTERVAL).ShouldNot(BeEmpty())
-			Expect(fetchedVM.Status.Phase).To(Equal(v1.Migrating))
+			Eventually(func() v1.VMPhase {
+				obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
+				Expect(err).ToNot(HaveOccurred())
+				fetchedVM = obj.(*v1.VM)
+				return fetchedVM.Status.Phase
+			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.Migrating))
 
 			close(done)
 		}, 30)
