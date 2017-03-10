@@ -115,6 +115,7 @@ func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 
 func (v *vmService) SetupMigration(migration *corev1.Migration, vm *corev1.VM) error {
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
+	corev1.SetAntiAffinityToPod(pod, corev1.AntiAffinityFromVMNode(vm))
 	if err == nil {
 		_, err = v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).Create(pod)
 	}

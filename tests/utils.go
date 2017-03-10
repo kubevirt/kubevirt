@@ -59,13 +59,20 @@ func MustCleanup() {
 	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("vms").Do().Error())
 
 	// Remove all Jobs
-	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("jobs").Do().Error())
+	PanicOnError(coreClient.CoreV1().RESTClient().Delete().AbsPath("/apis/batch/v1/namespaces/default/jobs").Do().Error())
 
-	// Remove VM pods
-	labelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
+	// Remove all pods associated with a job
+	jobPodlabelSelector, err := labels.Parse("job-name")
 	PanicOnError(err)
 	err = coreClient.Core().Pods(api.NamespaceDefault).
-		DeleteCollection(nil, kubev1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: labelSelector.String()})
+		DeleteCollection(nil, kubev1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: jobPodlabelSelector.String()})
+
+	PanicOnError(err)
+	// Remove VM pods
+	vmPodlabelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
+	PanicOnError(err)
+	err = coreClient.Core().Pods(api.NamespaceDefault).
+		DeleteCollection(nil, kubev1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: vmPodlabelSelector.String()})
 
 	PanicOnError(err)
 }
@@ -150,4 +157,25 @@ func WaitForSuccessfulVMStart(vm runtime.Object) {
 		}
 		return false
 	}).Watch()
+}
+
+func GetReadyNodes() []kubev1.Node {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+	nodes, err := coreClient.CoreV1().Nodes().List(kubev1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	readyNodes := []kubev1.Node{}
+	for _, node := range nodes.Items {
+		for _, condition := range node.Status.Conditions {
+			if condition.Type == kubev1.NodeReady {
+				if condition.Status == kubev1.ConditionTrue {
+					readyNodes = append(readyNodes, node)
+					break
+				}
+
+			}
+		}
+	}
+	return readyNodes
 }
