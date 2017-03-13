@@ -86,6 +86,11 @@ func main() {
 	go migrationController.Run(1, stop)
 	migrationController.WaitForSync(stop)
 
+	_, jobController := watch.NewJobController(vmService, nil, restClient)
+	jobController.StartInformer(stop)
+	go jobController.Run(1, stop)
+	jobController.WaitForSync(stop)
+
 	httpLogger := logger.With("service", "http")
 
 	httpLogger.Info().Log("action", "listening", "interface", *host, "port", *port)
