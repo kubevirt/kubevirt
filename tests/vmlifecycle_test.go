@@ -78,6 +78,8 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(pods.Items).To(HaveLen(1))
 
 			handlerName := pods.Items[0].GetObjectMeta().GetName()
+			seconds := int64(30)
+			logsQuery := coreCli.Pods(api.NamespaceDefault).GetLogs(handlerName, &kubev1.PodLogOptions{SinceSeconds: &seconds})
 
 			// Make sure we schedule the VM to master
 			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": "master"}
@@ -86,6 +88,13 @@ var _ = Describe("Vmlifecycle", func() {
 			obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMStart(obj)
+
+			// Check if the start event was logged
+			Eventually(func() string {
+				data, err := logsQuery.DoRaw()
+				Expect(err).ToNot(HaveOccurred())
+				return string(data)
+			}, 5, 0.1).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain is in state Running)", vm.GetObjectMeta().GetName()))
 
 			// Delete the VM and wait for the confirmation of the delete
 			_, err = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
@@ -97,13 +106,12 @@ var _ = Describe("Vmlifecycle", func() {
 				return false
 			}).Watch()
 
-			// Check if start and stop events were logged by the domain event watch loop
-			seconds := int64(30)
-			data, err := coreCli.Pods(api.NamespaceDefault).GetLogs(handlerName, &kubev1.PodLogOptions{SinceSeconds: &seconds}).DoRaw()
-			Expect(err).ToNot(HaveOccurred())
-			logs := string(data)
-			Expect(logs).To(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain is in state Running)", vm.GetObjectMeta().GetName()))
-			Expect(logs).To(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain deleted)", vm.GetObjectMeta().GetName()))
+			// Check if the stop event was logged
+			Eventually(func() string {
+				data, err := logsQuery.DoRaw()
+				Expect(err).ToNot(HaveOccurred())
+				return string(data)
+			}, 5, 0.1).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain deleted)", vm.GetObjectMeta().GetName()))
 
 			close(done)
 		}, 30)
