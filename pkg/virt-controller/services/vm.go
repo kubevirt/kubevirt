@@ -28,7 +28,7 @@ type VMService interface {
 	SetupMigration(migration *corev1.Migration, vm *corev1.VM) error
 	UpdateMigration(migration *corev1.Migration) error
 	FetchVM(vmName string) (*corev1.VM, error)
-	StartMigration(vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error
+	StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error
 	GetMigrationJob(vm *corev1.VM) (*batchv1.Job, bool, error)
 }
 
@@ -117,6 +117,8 @@ func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 
 func (v *vmService) SetupMigration(migration *corev1.Migration, vm *corev1.VM) error {
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
+	pod.ObjectMeta.Labels[corev1.MigrationLabel] = migration.GetObjectMeta().GetName()
+	pod.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
 	corev1.SetAntiAffinityToPod(pod, corev1.AntiAffinityFromVMNode(vm))
 	if err == nil {
 		_, err = v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).Create(pod)
@@ -152,8 +154,10 @@ func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.Po
 	return podList, nil
 }
 
-func (v *vmService) StartMigration(vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error {
+func (v *vmService) StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error {
 	job, err := v.TemplateService.RenderMigrationJob(vm, sourceNode, targetNode)
+	job.ObjectMeta.Labels[corev1.MigrationLabel] = migration.GetObjectMeta().GetName()
+	job.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
 	if err != nil {
 		return err
 	}

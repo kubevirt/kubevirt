@@ -4,6 +4,7 @@ import (
 	"github.com/jeevatkm/go-model"
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
@@ -69,7 +70,7 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			return true
 		}
 		vm := vmObj.(*corev1.VM)
-		if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.UIDLabel]) {
+		if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.VMUIDLabel]) {
 			// Obviously the pod of an outdated VM object, do nothing
 			return true
 		}
@@ -94,9 +95,19 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 				return true
 			}
 			logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
-		} else if vm.Status.Phase == corev1.Running {
+		} else if _, isMigrationPod := pod.Labels[corev1.MigrationLabel]; vm.Status.Phase == corev1.Running && isMigrationPod {
 			logger := logging.DefaultLogger()
-			obj, err := kubeapi.Scheme.Copy(vm)
+
+			// Get associated migration
+			obj, err := restClient.Get().Resource("migrations").Name(pod.Labels[corev1.MigrationLabel]).Do().Get()
+			if err != nil {
+				logger.Error().Reason(err).Msgf("Fetching migration %s failed.", pod.Labels[corev1.MigrationLabel])
+				queue.AddRateLimited(key)
+				return true
+			}
+			migration := obj.(*corev1.Migration)
+
+			obj, err = kubeapi.Scheme.Copy(vm)
 			if err != nil {
 				logger.Error().Reason(err).Msg("could not copy vm object")
 				queue.AddRateLimited(key)
@@ -120,7 +131,6 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 				queue.AddRateLimited(key)
 				return true
 			} else if !exists {
-				// Job does not yet exist, create it.
 				sourceNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.NodeName, metav1.GetOptions{})
 				if err != nil {
 					logger.Error().Reason(err).Msgf("Fetching source node %s failed.", vmCopy.Status.NodeName)
@@ -133,7 +143,8 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 					queue.AddRateLimited(key)
 					return true
 				}
-				if err := vmService.StartMigration(vmCopy, sourceNode, targetNode); err != nil {
+
+				if err := vmService.StartMigration(migration, vmCopy, sourceNode, targetNode); err != nil {
 					logger.Error().Reason(err).Msg("Starting the migration job failed.")
 					queue.AddRateLimited(key)
 					return true
@@ -164,4 +175,13 @@ func putVm(vm *corev1.VM, restClient *rest.RESTClient, queue workqueue.RateLimit
 		return nil, err
 	}
 	return obj.(*corev1.VM), nil
+}
+
+func doesNotExist(err error) bool {
+	if e, ok := err.(*errors.StatusError); ok {
+		if e.Status().Reason == metav1.StatusReasonNotFound {
+			return true
+		}
+	}
+	return false
 }

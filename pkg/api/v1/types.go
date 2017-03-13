@@ -204,8 +204,10 @@ const (
 const (
 	AppLabel      string = "kubevirt.io/app"
 	DomainLabel   string = "kubevirt.io/domain"
-	UIDLabel      string = "kubevirt.io/vmUID"
+	VMUIDLabel    string = "kubevirt.io/vmUID"
 	NodeNameLabel string = "kubevirt.io/nodeName"
+	MigrationUIDLabel    string = "kubevirt.io/migrationUID"
+	MigrationLabel   string = "kubevirt.io/migration"
 )
 
 func NewVM(name string, uid types.UID) *VM {

@@ -16,7 +16,7 @@ import (
 
 func migrationJobSelector() kubeapi.ListOptions {
 	fieldSelector := fields.Everything()
-	labelSelector, err := labels.Parse(kvirtv1.DomainLabel)
+	labelSelector, err := labels.Parse(kvirtv1.DomainLabel + "," + kvirtv1.MigrationLabel)
 	if err != nil {
 		panic(err)
 	}
