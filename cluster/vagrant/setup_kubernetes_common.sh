@@ -50,7 +50,7 @@ repo_gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
        https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
-yum install -y docker kubelet kubeadm kubectl kubernetes-cni
+yum install --nogpgcheck -y docker kubelet kubeadm kubectl kubernetes-cni
 
 # To get the qemu user and libvirt
 yum install -y qemu-common qemu-kvm qemu-system-x86 libcgroup-tools libvirt || :
