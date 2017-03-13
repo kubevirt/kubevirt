@@ -53,5 +53,3 @@ spec:
       type:
         os: hvm
     type: qemu
-  nodeSelector:
-    kubernetes.io/hostname: master

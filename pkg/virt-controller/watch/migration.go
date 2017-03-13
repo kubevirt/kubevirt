@@ -113,8 +113,8 @@ func StartMigrationTargetPod(v services.VMService, migration *v1.Migration) erro
 	precond.MustNotBeEmpty(migration.ObjectMeta.Name)
 	precond.MustNotBeEmpty(string(migration.ObjectMeta.UID))
 
-	vm, err := v.FetchVM(migration.Spec.MigratingVMName)
-	if err != nil {
+	vm, exists, err := v.FetchVM(migration.Spec.MigratingVMName)
+	if err != nil || !exists {
 		migration.Status.Phase = v1.MigrationFailed
 		err2 := v.UpdateMigration(migration)
 		if err2 != nil {

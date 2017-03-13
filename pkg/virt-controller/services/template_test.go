@@ -105,7 +105,7 @@ var _ = Describe("Template", func() {
 
 					job, err := svc.RenderMigrationJob(vm, &srcNodeIp, &destNodeIp)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(job.Spec.Template.Spec.RestartPolicy).To(Equal(kubev1.RestartPolicyNever))
+					Expect(job.Spec.RestartPolicy).To(Equal(kubev1.RestartPolicyNever))
 				})
 				It("should use the first ip it finds", func() {
 					vm := v1.NewMinimalVM("testvm")
@@ -114,7 +114,7 @@ var _ = Describe("Template", func() {
 					refCommand := []string{
 						"virsh", "-c", "qemu+tcp://127.0.0.2/system", "migrate", "--tunnelled", "--p2p", "testvm",
 						"qemu+tcp://127.0.0.3/system"}
-					Expect(job.Spec.Template.Spec.Containers[0].Command).To(Equal(refCommand))
+					Expect(job.Spec.Containers[0].Command).To(Equal(refCommand))
 				})
 			})
 			Context("migration template with incorrect parameters", func() {

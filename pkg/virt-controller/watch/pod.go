@@ -4,7 +4,6 @@ import (
 	"github.com/jeevatkm/go-model"
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
@@ -99,7 +98,7 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			logger := logging.DefaultLogger()
 
 			// Get associated migration
-			obj, err := restClient.Get().Resource("migrations").Name(pod.Labels[corev1.MigrationLabel]).Do().Get()
+			obj, err := restClient.Get().Resource("migrations").Namespace(v1.NamespaceDefault).Name(pod.Labels[corev1.MigrationLabel]).Do().Get()
 			if err != nil {
 				logger.Error().Reason(err).Msgf("Fetching migration %s failed.", pod.Labels[corev1.MigrationLabel])
 				queue.AddRateLimited(key)
@@ -126,7 +125,7 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			}
 
 			// Let's check if the job already exists, it can already exist in case we could not update the VM object in a previous run
-			if _, exists, err := vmService.GetMigrationJob(vmCopy); err != nil {
+			if _, exists, err := vmService.GetMigrationJob(migration); err != nil {
 				logger.Error().Reason(err).Msg("Checking for an existing migration job failed.")
 				queue.AddRateLimited(key)
 				return true
@@ -175,13 +174,4 @@ func putVm(vm *corev1.VM, restClient *rest.RESTClient, queue workqueue.RateLimit
 		return nil, err
 	}
 	return obj.(*corev1.VM), nil
-}
-
-func doesNotExist(err error) bool {
-	if e, ok := err.(*errors.StatusError); ok {
-		if e.Status().Reason == metav1.StatusReasonNotFound {
-			return true
-		}
-	}
-	return false
 }

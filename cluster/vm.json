@@ -5,9 +5,6 @@
   "apiVersion": "kubevirt.io/v1alpha1",
   "kind": "VM",
   "spec": {
-    "nodeSelector": {
-      "kubernetes.io/hostname": "master"
-    },
     "domain": {
       "devices": {
         "disks": [

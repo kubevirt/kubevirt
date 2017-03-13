@@ -86,7 +86,7 @@ func main() {
 	go migrationController.Run(1, stop)
 	migrationController.WaitForSync(stop)
 
-	_, jobController := watch.NewJobController(vmService, nil, restClient)
+	_, jobController := watch.NewJobController(vmService, nil, clientSet, restClient)
 	jobController.StartInformer(stop)
 	go jobController.Run(1, stop)
 	jobController.WaitForSync(stop)

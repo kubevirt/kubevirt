@@ -3,8 +3,9 @@ package services
 import (
 	"fmt"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
-	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
+	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -27,9 +28,9 @@ type VMService interface {
 	GetRunningMigrationPods(*corev1.Migration) (*v1.PodList, error)
 	SetupMigration(migration *corev1.Migration, vm *corev1.VM) error
 	UpdateMigration(migration *corev1.Migration) error
-	FetchVM(vmName string) (*corev1.VM, error)
+	FetchVM(vmName string) (*corev1.VM, bool, error)
 	StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error
-	GetMigrationJob(vm *corev1.VM) (*batchv1.Job, bool, error)
+	GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error)
 }
 
 type vmService struct {
@@ -90,13 +91,16 @@ func (v *vmService) UpdateMigration(migration *corev1.Migration) error {
 	return err
 }
 
-func (v *vmService) FetchVM(vmName string) (*corev1.VM, error) {
+func (v *vmService) FetchVM(vmName string) (*corev1.VM, bool, error) {
 	resp, err := v.RestClient.Get().Namespace(v1.NamespaceDefault).Resource("vms").Name(vmName).Do().Get()
 	if err != nil {
-		return nil, err
+		if doesNotExist(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
 	}
 	vm := resp.(*corev1.VM)
-	return vm, nil
+	return vm, true, nil
 }
 
 func NewVMService() VMService {
@@ -140,14 +144,14 @@ func (v *vmService) DeleteMigration(migration *corev1.Migration) error {
 	precond.MustNotBeNil(migration)
 	precond.MustNotBeEmpty(migration.GetObjectMeta().GetName())
 
-	if err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).DeleteCollection(nil, unfinishedMigrationPodSelector(migration)); err != nil {
+	if err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).DeleteCollection(nil, unfinishedMigrationTargetPodSelector(migration)); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.PodList, error) {
-	podList, err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).List(unfinishedMigrationPodSelector(migration))
+	podList, err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).List(unfinishedMigrationTargetPodSelector(migration))
 	if err != nil {
 		return nil, err
 	}
@@ -161,27 +165,24 @@ func (v *vmService) StartMigration(migration *corev1.Migration, vm *corev1.VM, s
 	if err != nil {
 		return err
 	}
-	return v.KubeCli.CoreV1().RESTClient().Post().AbsPath("/apis/batch/v1/namespaces/default/jobs").Body(job).Do().Error()
+	_, err = v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).Create(job)
+	return err
 }
 
-func (v *vmService) GetMigrationJob(vm *corev1.VM) (*batchv1.Job, bool, error) {
-	selector, err := labels.Parse(corev1.DomainLabel)
+func (v *vmService) GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error) {
+	selector := migrationJobSelector(migration)
+	podList, err := v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).List(selector)
 	if err != nil {
 		return nil, false, err
 	}
-	jobList, err := v.KubeCli.CoreV1().RESTClient().Get().AbsPath("/apis/batch/v1/namespaces/default/jobs").LabelsSelectorParam(selector).Do().Get()
-	if err != nil {
-		return nil, false, err
+	if len(podList.Items) == 0 {
+		return nil, false, nil
 	}
-	for _, job := range jobList.(*batchv1.JobList).Items {
-		if job.Status.CompletionTime != nil {
-			return &job, true, nil
-		}
-	}
-	return nil, false, nil
+
+	return &podList.Items[0], true, nil
 }
 
-func unfinishedMigrationPodSelector(migration *corev1.Migration) v1.ListOptions {
+func unfinishedMigrationTargetPodSelector(migration *corev1.Migration) v1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodFailed) +
 			",status.phase!=" + string(v1.PodSucceeded))
@@ -190,4 +191,23 @@ func unfinishedMigrationPodSelector(migration *corev1.Migration) v1.ListOptions 
 		panic(err)
 	}
 	return v1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+}
+
+func migrationJobSelector(migration *corev1.Migration) v1.ListOptions {
+	labelSelector, err := labels.Parse(corev1.DomainLabel + "," + corev1.AppLabel + "=migration" +
+		"," + corev1.MigrationUIDLabel + "=" + string(migration.GetObjectMeta().GetUID()),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return v1.ListOptions{LabelSelector: labelSelector.String()}
+}
+
+func doesNotExist(err error) bool {
+	if e, ok := err.(*errors.StatusError); ok {
+		if e.Status().Reason == metav1.StatusReasonNotFound {
+			return true
+		}
+	}
+	return false
 }
