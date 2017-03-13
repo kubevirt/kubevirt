@@ -5,6 +5,13 @@ eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme 
 export GOPATH=$PWD/go
 export GOBIN=$PWD/go/bin
 export PATH=$GOPATH/bin:$PATH
+export VAGRANT_NUM_NODES=1
+
+# Install dockerize
+export DOCKERIZE_VERSION=v0.3.0
+curl -LO https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
 # Needed for templating of manifests
 pip install j2cli
@@ -28,6 +35,8 @@ if [ $? -ne 0 ]; then
   vagrant destroy
   virsh undefine kubevirt_master
   virsh destroy kubevirt_master
+  virsh undefine kubevirt_node0
+  virsh destroy kubevirt_node0
   virsh net-destroy vagrant0
   virsh net-undefine vagrant0
   # Remove now stale images
@@ -41,19 +50,25 @@ set -e
 go get -u github.com/kardianos/govendor
 make
 
-# Run unit tests
-# make test
+# Copy connection details for kubernetes
+cluster/kubectl.sh --init
+
+# Make sure we can connect to kubernetes pods are running
+export APISERVER=$(cat cluster/vagrant/.kubeconfig | grep server | sed -e 's# \+server: https://##' | sed -e 's/\r//')
+/usr/local/bin/dockerize -wait tcp://$APISERVER -timeout 120s
+while [ -n "$(cluster/kubectl.sh --core get pods --namespace kube-system --no-headers | grep -v Running)" ]; do sleep 10; done
+cluster/kubectl.sh --core get pods --namespace kube-system
 
 # Delete traces from old deployments
-cluster/kubectl.sh --init
 cluster/kubectl.sh --core delete deployments --all
 cluster/kubectl.sh --core delete pods --all
+cluster/kubectl.sh --core delete jobs --all
 
 # Deploy kubevirt
 cluster/sync.sh
 
-# Wait until virt-api is ready
-sleep 30
+# Wait until kubevirt is ready
+while [ -n "$(cluster/kubectl.sh --core get pods --no-headers | grep -v Running)" ]; do sleep 10; done
 cluster/kubectl.sh --core get pods
 cluster/kubectl.sh version
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
+	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -11,6 +12,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
+
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
+/*
+ ATTENTION: Rerun code generators when interface signatures are modified.
+*/
 
 type VMService interface {
 	StartVMPod(*corev1.VM) error
@@ -21,6 +28,8 @@ type VMService interface {
 	SetupMigration(migration *corev1.Migration, vm *corev1.VM) error
 	UpdateMigration(migration *corev1.Migration) error
 	FetchVM(vmName string) (*corev1.VM, error)
+	StartMigration(vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error
+	GetMigrationJob(vm *corev1.VM) (*batchv1.Job, bool, error)
 }
 
 type vmService struct {
@@ -108,6 +117,7 @@ func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 
 func (v *vmService) SetupMigration(migration *corev1.Migration, vm *corev1.VM) error {
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
+	corev1.SetAntiAffinityToPod(pod, corev1.AntiAffinityFromVMNode(vm))
 	if err == nil {
 		_, err = v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).Create(pod)
 	}
@@ -140,6 +150,31 @@ func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.Po
 		return nil, err
 	}
 	return podList, nil
+}
+
+func (v *vmService) StartMigration(vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error {
+	job, err := v.TemplateService.RenderMigrationJob(vm, sourceNode, targetNode)
+	if err != nil {
+		return err
+	}
+	return v.KubeCli.CoreV1().RESTClient().Post().AbsPath("/apis/batch/v1/namespaces/default/jobs").Body(job).Do().Error()
+}
+
+func (v *vmService) GetMigrationJob(vm *corev1.VM) (*batchv1.Job, bool, error) {
+	selector, err := labels.Parse(corev1.DomainLabel)
+	if err != nil {
+		return nil, false, err
+	}
+	jobList, err := v.KubeCli.CoreV1().RESTClient().Get().AbsPath("/apis/batch/v1/namespaces/default/jobs").LabelsSelectorParam(selector).Do().Get()
+	if err != nil {
+		return nil, false, err
+	}
+	for _, job := range jobList.(*batchv1.JobList).Items {
+		if job.Status.CompletionTime != nil {
+			return &job, true, nil
+		}
+	}
+	return nil, false, nil
 }
 
 func unfinishedMigrationPodSelector(migration *corev1.Migration) v1.ListOptions {

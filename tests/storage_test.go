@@ -15,7 +15,6 @@ import (
 
 var _ = Describe("Storage", func() {
 
-	fmt.Printf("")
 	flag.Parse()
 
 	coreClient, err := kubecli.Get()

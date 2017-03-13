@@ -4,5 +4,3 @@ metadata:
   name: testvm-migration
 spec:
   migratingVMName: testvm
-  destinationNodeSelector:
-    kubernetes.io/hostname: master

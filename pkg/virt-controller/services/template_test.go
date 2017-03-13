@@ -5,13 +5,14 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	coreapi "k8s.io/client-go/pkg/api"
-	corev1 "k8s.io/client-go/pkg/api/v1"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 )
 
 var _ = Describe("Template", func() {
 
+	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 	svc, err := NewTemplateService("kubevirt/virt-launcher")
 
 	Describe("Rendering", func() {
@@ -19,7 +20,7 @@ var _ = Describe("Template", func() {
 			It("should work", func() {
 
 				Expect(err).To(BeNil())
-				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: corev1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{Domain: &v1.DomainSpec{}}})
+				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubev1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{Domain: &v1.DomainSpec{}}})
 
 				Expect(err).To(BeNil())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
@@ -39,7 +40,7 @@ var _ = Describe("Template", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
 				}
-				vm := v1.VM{ObjectMeta: corev1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector, Domain: &v1.DomainSpec{}}}
+				vm := v1.VM{ObjectMeta: kubev1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector, Domain: &v1.DomainSpec{}}}
 
 				pod, err := svc.RenderLaunchManifest(&vm)
 
@@ -59,53 +60,41 @@ var _ = Describe("Template", func() {
 		})
 		Context("migration", func() {
 			var (
-				srcHost    = corev1.NodeAddress{}
-				srcIp      = corev1.NodeAddress{}
-				destHost   = corev1.NodeAddress{}
-				destIp     = corev1.NodeAddress{}
-				srcNode    = corev1.Node{}
-				srcNodeIp  = corev1.Node{}
-				destNodeIp = corev1.Node{}
-				destNode   = corev1.Node{}
+				srcIp      = kubev1.NodeAddress{}
+				destIp     = kubev1.NodeAddress{}
+				srcNodeIp  = kubev1.Node{}
+				destNodeIp = kubev1.Node{}
+				srcNode    kubev1.Node
+				targetNode kubev1.Node
 			)
 
 			BeforeEach(func() {
-				srcHost = corev1.NodeAddress{
-					Type:    corev1.NodeHostName,
-					Address: "src-node.kubevirt.io",
-				}
-				srcIp = corev1.NodeAddress{
-					Type:    corev1.NodeInternalIP,
+				srcIp = kubev1.NodeAddress{
+					Type:    kubev1.NodeInternalIP,
 					Address: "127.0.0.2",
 				}
-				destHost = corev1.NodeAddress{
-					Type:    corev1.NodeHostName,
-					Address: "dest-node.kubevirt.io",
-				}
-				destIp = corev1.NodeAddress{
-					Type:    corev1.NodeInternalIP,
+				destIp = kubev1.NodeAddress{
+					Type:    kubev1.NodeInternalIP,
 					Address: "127.0.0.3",
 				}
-				// Note: the IP's are listed before the hostnames on srcNode and destNode
-				// so that we can ensure we test the priority order of selection
-				srcNode = corev1.Node{
-					Status: corev1.NodeStatus{
-						Addresses: []corev1.NodeAddress{srcIp, srcHost},
+				srcNodeIp = kubev1.Node{
+					Status: kubev1.NodeStatus{
+						Addresses: []kubev1.NodeAddress{srcIp},
 					},
 				}
-				destNode = corev1.Node{
-					Status: corev1.NodeStatus{
-						Addresses: []corev1.NodeAddress{destIp, destHost},
+				destNodeIp = kubev1.Node{
+					Status: kubev1.NodeStatus{
+						Addresses: []kubev1.NodeAddress{destIp},
 					},
 				}
-				srcNodeIp = corev1.Node{
-					Status: corev1.NodeStatus{
-						Addresses: []corev1.NodeAddress{srcIp},
+				srcNode = kubev1.Node{
+					Status: kubev1.NodeStatus{
+						Addresses: []kubev1.NodeAddress{srcIp, destIp},
 					},
 				}
-				destNodeIp = corev1.Node{
-					Status: corev1.NodeStatus{
-						Addresses: []corev1.NodeAddress{destIp},
+				targetNode = kubev1.Node{
+					Status: kubev1.NodeStatus{
+						Addresses: []kubev1.NodeAddress{destIp, srcIp},
 					},
 				}
 			})
@@ -114,64 +103,32 @@ var _ = Describe("Template", func() {
 				It("should never restart", func() {
 					vm := v1.NewMinimalVM("testvm")
 
-					job, err := svc.RenderMigrationJob(vm, &srcNode, &destNode)
+					job, err := svc.RenderMigrationJob(vm, &srcNodeIp, &destNodeIp)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(job.Spec.Template.Spec.RestartPolicy).To(Equal(coreapi.RestartPolicyNever))
+					Expect(job.Spec.Template.Spec.RestartPolicy).To(Equal(kubev1.RestartPolicyNever))
 				})
-				It("should prefer DNS name over IP for source", func() {
+				It("should use the first ip it finds", func() {
 					vm := v1.NewMinimalVM("testvm")
-					job, err := svc.RenderMigrationJob(vm, &srcNode, &destNodeIp)
+					job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode)
 					Expect(err).ToNot(HaveOccurred())
 					refCommand := []string{
-						"virsh", "migrate", "testvm",
-						"qemu+tcp://127.0.0.3", "qemu+tcp://src-node.kubevirt.io"}
-					Expect(job.Spec.Template.Spec.Containers[0].Command).To(Equal(refCommand))
-				})
-				It("should prefer DNS name over IP for target", func() {
-					vm := v1.NewMinimalVM("testvm")
-					job, err := svc.RenderMigrationJob(vm, &srcNodeIp, &destNode)
-					Expect(err).ToNot(HaveOccurred())
-					refCommand := []string{
-						"virsh", "migrate", "testvm",
-						"qemu+tcp://dest-node.kubevirt.io", "qemu+tcp://127.0.0.2"}
-					Expect(job.Spec.Template.Spec.Containers[0].Command).To(Equal(refCommand))
-				})
-				It("should use the first address it finds", func() {
-					vm := v1.NewMinimalVM("testvm")
-					// These are contrived nodes with conflicting addresses, so not
-					// defined at the context scope to ensure they're not re-used
-					node1 := corev1.Node{
-						Status: corev1.NodeStatus{
-							Addresses: []corev1.NodeAddress{srcHost, destHost},
-						},
-					}
-					node2 := corev1.Node{
-						Status: corev1.NodeStatus{
-							Addresses: []corev1.NodeAddress{srcIp, destIp},
-						},
-					}
-					job, err := svc.RenderMigrationJob(vm, &node1, &node2)
-					Expect(err).ToNot(HaveOccurred())
-					refCommand := []string{
-						"virsh", "migrate", "testvm",
-						"qemu+tcp://127.0.0.2", "qemu+tcp://src-node.kubevirt.io"}
+						"virsh", "-c", "qemu+tcp://127.0.0.2/system", "migrate", "--tunnelled", "--p2p", "testvm",
+						"qemu+tcp://127.0.0.3/system"}
 					Expect(job.Spec.Template.Spec.Containers[0].Command).To(Equal(refCommand))
 				})
 			})
 			Context("migration template with incorrect parameters", func() {
 				It("should error on missing source address", func() {
 					vm := v1.NewMinimalVM("testvm")
-					node1 := corev1.Node{}
-					node2 := destNodeIp
-					job, err := svc.RenderMigrationJob(vm, &node1, &node2)
+					srcNode.Status.Addresses = []kubev1.NodeAddress{}
+					job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode)
 					Expect(err).To(HaveOccurred())
 					Expect(job).To(BeNil())
 				})
 				It("should error on missing destination address", func() {
 					vm := v1.NewMinimalVM("testvm")
-					node1 := srcNodeIp
-					node2 := corev1.Node{}
-					job, err := svc.RenderMigrationJob(vm, &node1, &node2)
+					targetNode.Status.Addresses = []kubev1.NodeAddress{}
+					job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode)
 					Expect(err).To(HaveOccurred())
 					Expect(job).To(BeNil())
 				})

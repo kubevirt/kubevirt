@@ -4,7 +4,6 @@ import (
 	"github.com/jeevatkm/go-model"
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
@@ -17,6 +16,7 @@ import (
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 func scheduledVMPodSelector() kubeapi.ListOptions {
@@ -28,14 +28,14 @@ func scheduledVMPodSelector() kubeapi.ListOptions {
 	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
 }
 
-func NewPodController(vmCache cache.Store, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
+func NewPodController(vmCache cache.Store, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient, vmService services.VMService) (cache.Store, *kubecli.Controller) {
 
 	selector := scheduledVMPodSelector()
 	lw := kubecli.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
-	return NewPodControllerWithListWatch(vmCache, recorder, lw, restClient)
+	return NewPodControllerWithListWatch(vmCache, recorder, lw, restClient, vmService, clientset)
 }
 
-func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
+func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	return kubecli.NewController(lw, queue, &v1.Pod{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
@@ -88,7 +88,7 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			vmCopy.Status.NodeName = pod.Spec.NodeName
 			// Update the VM
 			logger := logging.DefaultLogger()
-			if err := putVm(&vmCopy, restClient, queue); err != nil {
+			if _, err := putVm(&vmCopy, restClient, queue); err != nil {
 				logger.V(3).Info().Msg("Enqueuing VM again.")
 				queue.AddRateLimited(key)
 				return true
@@ -102,34 +102,66 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 				queue.AddRateLimited(key)
 				return true
 			}
-			vmCopy := obj.(*corev1.VM)
-			vmCopy.Status.MigrationNodeName = pod.Spec.NodeName
 
-			if err := putVm(vmCopy, restClient, queue); err != nil {
+			// Set target node on VM if necessary
+			vmCopy := obj.(*corev1.VM)
+			if vmCopy.Status.MigrationNodeName != pod.Spec.NodeName {
+				vmCopy.Status.MigrationNodeName = pod.Spec.NodeName
+				if vmCopy, err = putVm(vmCopy, restClient, queue); err != nil {
+					logger.V(3).Info().Msg("Enqueuing VM again.")
+					queue.AddRateLimited(key)
+					return true
+				}
+			}
+
+			// Let's check if the job already exists, it can already exist in case we could not update the VM object in a previous run
+			if _, exists, err := vmService.GetMigrationJob(vmCopy); err != nil {
+				logger.Error().Reason(err).Msg("Checking for an existing migration job failed.")
+				queue.AddRateLimited(key)
+				return true
+			} else if !exists {
+				// Job does not yet exist, create it.
+				sourceNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.NodeName, metav1.GetOptions{})
+				if err != nil {
+					logger.Error().Reason(err).Msgf("Fetching source node %s failed.", vmCopy.Status.NodeName)
+					queue.AddRateLimited(key)
+					return true
+				}
+				targetNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.MigrationNodeName, metav1.GetOptions{})
+				if err != nil {
+					logger.Error().Reason(err).Msgf("Fetching target node %s failed.", vmCopy.Status.MigrationNodeName)
+					queue.AddRateLimited(key)
+					return true
+				}
+				if err := vmService.StartMigration(vmCopy, sourceNode, targetNode); err != nil {
+					logger.Error().Reason(err).Msg("Starting the migration job failed.")
+					queue.AddRateLimited(key)
+					return true
+				}
+			}
+
+			// Update VM phase after successfull job creation to migrating
+			vmCopy.Status.Phase = corev1.Migrating
+			if vmCopy, err = putVm(vmCopy, restClient, queue); err != nil {
 				logger.V(3).Info().Msg("Enqueuing VM again.")
 				queue.AddRateLimited(key)
 				return true
+			} else if vmCopy == nil {
+				return true
 			}
-			// TODO: the migration should be started here
 			logger.Info().Msgf("Scheduled VM migration to node %s.", vmCopy.Status.NodeName)
 		}
 		return true
 	})
 }
 
-// syncronously put updated VM object to API server.
-func putVm(vm *corev1.VM, restClient *rest.RESTClient, queue workqueue.RateLimitingInterface) error {
+// synchronously put updated VM object to API server.
+func putVm(vm *corev1.VM, restClient *rest.RESTClient, queue workqueue.RateLimitingInterface) (*corev1.VM, error) {
 	logger := logging.DefaultLogger().Object(vm)
-	if err := restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
+	obj, err := restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Get()
+	if err != nil {
 		logger.Error().Reason(err).Msg("Setting the VM state failed.")
-		if e, ok := err.(*errors.StatusError); ok {
-			if e.Status().Reason == metav1.StatusReasonNotFound {
-				// VM does not exist anymore, we don't have to retry
-				return nil
-			}
-
-		}
-		return err
+		return nil, err
 	}
-	return nil
+	return obj.(*corev1.VM), nil
 }

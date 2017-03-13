@@ -9,6 +9,8 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+
 	"github.com/jeevatkm/go-model"
 	"github.com/satori/go.uuid"
 	kubeapi "k8s.io/client-go/pkg/api"
@@ -22,7 +24,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/api"
 	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"reflect"
 )
 
 // GroupName is the group name use in this package
@@ -416,40 +417,38 @@ func (ml *MigrationList) UnmarshalJSON(data []byte) error {
 
 // Given a VM, create a NodeSelectorTerm with anti-affinity for that VM's node.
 // This is useful for the case when a migration away from a node must occur.
-func AntiAffinityFromVMNode(vm *VM) *v1.NodeSelectorTerm {
+func AntiAffinityFromVMNode(vm *VM) *v1.Affinity {
 	return antiAffinityFromNode(vm.Status.NodeName)
 }
 
-func antiAffinityFromNode(nodeName string) *v1.NodeSelectorTerm {
+func antiAffinityFromNode(nodeName string) *v1.Affinity {
 	selector := v1.NodeSelectorTerm{
 		MatchExpressions: []v1.NodeSelectorRequirement{
-			v1.NodeSelectorRequirement{
+			{
 				Key:      "kubernetes.io/hostname",
 				Operator: v1.NodeSelectorOpNotIn,
 				Values:   []string{nodeName},
 			},
 		},
 	}
-	return &selector
+	return &v1.Affinity{
+		NodeAffinity: &v1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{NodeSelectorTerms: []v1.NodeSelectorTerm{selector}},
+		},
+	}
 }
 
 // Given a pod and an affinity rule, add the affinity to any others
 // associated with the pod (if any). In this context, pod is the destination
 // of a migration.
-func ApplyAntiAffinityToPod(pod *v1.Pod, selector *v1.NodeSelectorTerm) (*v1.Pod, error) {
-	if pod.Spec.Affinity == nil {
-		newAffinity := v1.Affinity{}
-		pod.Spec.Affinity = &newAffinity
+func SetAntiAffinityToPod(pod *v1.Pod, affinity *v1.Affinity) (*v1.Pod, error) {
+
+	newAffinity, err := json.Marshal(affinity)
+	if err != nil {
+		return nil, err
 	}
-	if pod.Spec.Affinity.NodeAffinity == nil {
-		newNodeAffinity := v1.NodeAffinity{}
-		pod.Spec.Affinity.NodeAffinity = &newNodeAffinity
-	}
-	if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-		newNodeSelector := v1.NodeSelector{}
-		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &newNodeSelector
-	}
-	nodeSelector := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-	nodeSelector.NodeSelectorTerms = append(nodeSelector.NodeSelectorTerms, *selector)
+	pod.Annotations = map[string]string{}
+	pod.Annotations["scheduler.alpha.kubernetes.io/affinity"] = string(newAffinity)
+
 	return pod, nil
 }
