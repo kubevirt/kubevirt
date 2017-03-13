@@ -123,7 +123,7 @@ First install the generator tools:
 
 ```bash
 go get -u github.com/golang/mock/gomock
-go get -u github.com/golang/mock/mockgen
+go get -u github.com/rmohr/mock/mockgen
 go get -u github.com/rmohr/go-swagger-utils/swagger-doc
 ```
 
