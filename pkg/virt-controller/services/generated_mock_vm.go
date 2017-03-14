@@ -114,6 +114,18 @@ func (_mr *_MockVMServiceRecorder) FetchVM(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FetchVM", arg0)
 }
 
+func (_m *MockVMService) FetchMigration(migrationName string) (*v10.Migration, bool, error) {
+	ret := _m.ctrl.Call(_m, "FetchMigration", migrationName)
+	ret0, _ := ret[0].(*v10.Migration)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockVMServiceRecorder) FetchMigration(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FetchMigration", arg0)
+}
+
 func (_m *MockVMService) StartMigration(migration *v10.Migration, vm *v10.VM, sourceNode *v1.Node, targetNode *v1.Node) error {
 	ret := _m.ctrl.Call(_m, "StartMigration", migration, vm, sourceNode, targetNode)
 	ret0, _ := ret[0].(error)

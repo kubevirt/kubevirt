@@ -87,10 +87,12 @@ var _ = Describe("Migration", func() {
 	Context("Running job with migration labels and one success", func() {
 		It("should update the VM to Running", func(done Done) {
 
+			migration := kvirtv1.NewMinimalMigration("test-migration", "test-vm")
 			job := &corev1.Pod{
 				ObjectMeta: corev1.ObjectMeta{
 					Labels: map[string]string{
-						kvirtv1.DomainLabel: "test-vm",
+						kvirtv1.DomainLabel:    "test-vm",
+						kvirtv1.MigrationLabel: migration.ObjectMeta.Name,
 					},
 				},
 				Status: corev1.PodStatus{
@@ -102,12 +104,14 @@ var _ = Describe("Migration", func() {
 			server.AppendHandlers(
 				handlerToFetchTestVM(vm),
 				handlerToUpdateTestVM(vm),
+				handlerToFetchTestMigration(migration),
+				handlerToUpdateTestMigration(migration),
 			)
 
 			// Tell the controller that there is a new Job
 			lw.Add(job)
 			finishController(jobController, stopChan)
-			Expect(len(server.ReceivedRequests())).To(Equal(2))
+			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			close(done)
 		}, 10)
 	})
@@ -122,6 +126,20 @@ func handlerToFetchTestVM(vm *kvirtv1.VM) http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+	)
+}
+
+func handlerToFetchTestMigration(migration *kvirtv1.Migration) http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/"+migration.ObjectMeta.Name),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
+	)
+}
+
+func handlerToUpdateTestMigration(migration *kvirtv1.Migration) http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/"+migration.ObjectMeta.Name),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 	)
 }
 

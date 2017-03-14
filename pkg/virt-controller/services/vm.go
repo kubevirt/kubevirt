@@ -29,6 +29,7 @@ type VMService interface {
 	SetupMigration(migration *corev1.Migration, vm *corev1.VM) error
 	UpdateMigration(migration *corev1.Migration) error
 	FetchVM(vmName string) (*corev1.VM, bool, error)
+	FetchMigration(migrationName string) (*corev1.Migration, bool, error)
 	StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error
 	GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error)
 }
@@ -101,6 +102,18 @@ func (v *vmService) FetchVM(vmName string) (*corev1.VM, bool, error) {
 	}
 	vm := resp.(*corev1.VM)
 	return vm, true, nil
+}
+
+func (v *vmService) FetchMigration(migrationName string) (*corev1.Migration, bool, error) {
+	resp, err := v.RestClient.Get().Namespace(v1.NamespaceDefault).Resource("migrations").Name(migrationName).Do().Get()
+	if err != nil {
+		if doesNotExist(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	migration := resp.(*corev1.Migration)
+	return migration, true, nil
 }
 
 func NewVMService() VMService {
