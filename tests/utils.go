@@ -160,21 +160,24 @@ func NewRandomVMWithSpice() *v1.VM {
 
 // Block until the specified VM started
 func WaitForSuccessfulVMStart(vm runtime.Object) {
-	v, ok := vm.(*v1.VM)
+	_, ok := vm.(*v1.VM)
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 	restClient, err := kubecli.GetRESTClient()
 	Expect(err).ToNot(HaveOccurred())
 	NewObjectEventWatcher(vm, func(event *kubev1.Event) bool {
 		Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
 		if event.Type == "Normal" && event.Reason == v1.Started.String() {
-			obj, err := restClient.Get().Namespace(api.NamespaceDefault).
-				Resource("vms").Name(v.GetObjectMeta().GetName()).Do().Get()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(obj.(*v1.VM).Status.Phase)).To(Equal(string(v1.Running)))
 			return true
 		}
 		return false
 	}).Watch()
+	Eventually(func() v1.VMPhase {
+		obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
+		Expect(err).ToNot(HaveOccurred())
+		fetchedVM := obj.(*v1.VM)
+		return fetchedVM.Status.Phase
+	}).Should(Equal(v1.Running))
+
 }
 
 func GetReadyNodes() []kubev1.Node {
