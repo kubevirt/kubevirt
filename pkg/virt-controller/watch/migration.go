@@ -139,8 +139,16 @@ func StartMigrationTargetPod(v services.VMService, migration *v1.Migration) erro
 	}
 
 	//TODO:  detect collisions
+	conflicts := []string{}
 	for k, v := range migration.Spec.DestinationNodeSelector {
-		vm.Spec.NodeSelector[k] = v
+		if _, exists := vm.Spec.NodeSelector[k]; exists {
+				conflicts = append(conflicts, k)
+		} else {
+				vm.Spec.NodeSelector[k] = v
+		}
+	}
+	if len(conflicts) > 0 {
+			return fmt.Errorf("Conflicting node selectors: %v", conflicts)
 	}
 
 	err = v.SetupMigration(migration, vm)
