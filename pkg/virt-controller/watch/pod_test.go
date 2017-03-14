@@ -36,7 +36,7 @@ var _ = Describe("Pod", func() {
 		// Wire a Pod controller with a fake source
 		restClient, err := kubecli.GetRESTClientFromFlags(server.URL(), "")
 		Expect(err).To(Not(HaveOccurred()))
-		coreClient, err := kubecli.GetFromFlages(server.URL(), "")
+		coreClient, err := kubecli.GetFromFlags(server.URL(), "")
 		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		lw = framework.NewFakeControllerSource()
 		mockVMService = services.NewMockVMService(ctrl)
