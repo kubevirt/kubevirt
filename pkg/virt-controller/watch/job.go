@@ -65,6 +65,7 @@ func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventR
 			if vmExists && vm.Status.Phase == kvirtv1.Migrating {
 				vm.Status.Phase = kvirtv1.Running
 				if job.Status.Phase == v1.PodSucceeded {
+					vm.ObjectMeta.Labels[kvirtv1.NodeNameLabel] = vm.Status.MigrationNodeName
 					vm.Status.NodeName = vm.Status.MigrationNodeName
 				}
 				vm.Status.MigrationNodeName = ""

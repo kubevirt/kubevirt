@@ -105,6 +105,11 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 				return true
 			}
 			migration := obj.(*corev1.Migration)
+			if migration.Status.Phase == corev1.MigrationUnknown {
+				logger.Info().Msg("migration not yet in right state, backing off")
+				queue.AddRateLimited(key)
+				return true
+			}
 
 			obj, err = kubeapi.Scheme.Copy(vm)
 			if err != nil {

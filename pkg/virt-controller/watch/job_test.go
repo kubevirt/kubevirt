@@ -59,6 +59,7 @@ var _ = Describe("Migration", func() {
 
 		vm = kvirtv1.NewMinimalVM("test-vm")
 		vm.Status.Phase = kvirtv1.Migrating
+		vm.GetObjectMeta().SetLabels(map[string]string{"a": "b"})
 
 		// Start the controller
 		jobController.StartInformer(stopChan)

@@ -168,12 +168,14 @@ var _ = Describe("Pod", func() {
 
 			vmInMigrationState := obj.(*v1.VM)
 			vmInMigrationState.Status.Phase = v1.Migrating
+			migration := v1.NewMinimalMigration("testvm-migration", "testvm")
+			migration.Status.Phase = v1.MigrationInProgress
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/testvm-migration"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, v1.NewMinimalMigration("testvm-migration", "testvm")),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),

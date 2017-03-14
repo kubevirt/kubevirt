@@ -140,16 +140,6 @@ func (v *vmService) SetupMigration(migration *corev1.Migration, vm *corev1.VM) e
 	if err == nil {
 		_, err = v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).Create(pod)
 	}
-	if err == nil {
-		migration.Status.Phase = corev1.MigrationInProgress
-	} else {
-		migration.Status.Phase = corev1.MigrationFailed
-	}
-
-	err2 := v.UpdateMigration(migration)
-	if err2 != nil {
-		err = err2
-	}
 	return err
 }
 

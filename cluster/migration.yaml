@@ -1,7 +1,7 @@
 apiVersion: kubevirt.io/v1alpha1
 kind: Migration
 metadata:
-  name: testvm-migration
+  generateName: testvm-migration
 spec:
   selector:
     name: testvm
