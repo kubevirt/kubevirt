@@ -3,4 +3,5 @@ kind: Migration
 metadata:
   name: testvm-migration
 spec:
-  migratingVMName: testvm
+  selector:
+    name: testvm

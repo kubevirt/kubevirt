@@ -113,7 +113,7 @@ func StartMigrationTargetPod(v services.VMService, migration *v1.Migration) erro
 	precond.MustNotBeEmpty(migration.ObjectMeta.Name)
 	precond.MustNotBeEmpty(string(migration.ObjectMeta.UID))
 
-	vm, exists, err := v.FetchVM(migration.Spec.MigratingVMName)
+	vm, exists, err := v.FetchVM(migration.Spec.Selector.Name)
 	if err != nil || !exists {
 		migration.Status.Phase = v1.MigrationFailed
 		err2 := v.UpdateMigration(migration)
@@ -140,15 +140,15 @@ func StartMigrationTargetPod(v services.VMService, migration *v1.Migration) erro
 
 	//TODO:  detect collisions
 	conflicts := []string{}
-	for k, v := range migration.Spec.DestinationNodeSelector {
+	for k, v := range migration.Spec.NodeSelector {
 		if _, exists := vm.Spec.NodeSelector[k]; exists {
-				conflicts = append(conflicts, k)
+			conflicts = append(conflicts, k)
 		} else {
-				vm.Spec.NodeSelector[k] = v
+			vm.Spec.NodeSelector[k] = v
 		}
 	}
 	if len(conflicts) > 0 {
-			return fmt.Errorf("Conflicting node selectors: %v", conflicts)
+		return fmt.Errorf("Conflicting node selectors: %v", conflicts)
 	}
 
 	err = v.SetupMigration(migration, vm)

@@ -45,9 +45,15 @@ func (Migration) SwaggerDoc() map[string]string {
 
 func (MigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                        "MigrationSpec is a description of a VM Migration",
-		"migratingVMName":         "The Kubernetes name of the Virtual Machine object to select for one migration.\nFor example \"destinationNodeName\": \"testvm\" will migrate a VM called \"testvm\" in the namespace \"default\"",
-		"destinationNodeSelector": "Criteria to use when selecting the destination for the migration\nfor example, to select by the hostname, specify `kubernetes.io/hostname: master`\nother possible choices include the hardware required to run the vm or\nor lableing of the nodes to indicate their roles in larger applications.\nexamples:\ndisktype: ssd,\nrandomGenerator: /dev/random,\nrandomGenerator: superfastdevice,\napp: mysql,\nlicensedForServiceX: true",
+		"":             "MigrationSpec is a description of a VM Migration\nFor example \"destinationNodeName\": \"testvm\" will migrate a VM called \"testvm\" in the namespace \"default\"",
+		"selector":     "Criterias for selecting the VM to migrate.\nFor example\nselector:\n  name: testvm\nwill select the VM `testvm` for migration",
+		"nodeSelector": "Criteria to use when selecting the destination for the migration\nfor example, to select by the hostname, specify `kubernetes.io/hostname: master`\nother possible choices include the hardware required to run the vm or\nor lableing of the nodes to indicate their roles in larger applications.\nexamples:\ndisktype: ssd,\nrandomGenerator: /dev/random,\nrandomGenerator: superfastdevice,\napp: mysql,\nlicensedForServiceX: true\nNote that these selectors are additions to the node selectors on the VM itself and they must not exist on the VM.\nIf they are conflicting with the VM, no migration will be started.",
+	}
+}
+
+func (VMSelector) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "Name of the VM to migrate",
 	}
 }
 

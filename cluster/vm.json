@@ -12,7 +12,9 @@
             "device": "disk",
             "driver": {
               "name": "qemu",
-              "type": "raw"
+              "type": "raw",
+              "cache": "none"
+
             },
             "snapshot": "external",
             "source": {
