@@ -61,14 +61,14 @@ func (_mr *_MockVMServiceRecorder) GetRunningVMPods(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetRunningVMPods", arg0)
 }
 
-func (_m *MockVMService) DeleteMigration(_param0 *v10.Migration) error {
-	ret := _m.ctrl.Call(_m, "DeleteMigration", _param0)
+func (_m *MockVMService) DeleteMigrationTargetPods(_param0 *v10.Migration) error {
+	ret := _m.ctrl.Call(_m, "DeleteMigrationTargetPods", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVMServiceRecorder) DeleteMigration(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteMigration", arg0)
+func (_mr *_MockVMServiceRecorder) DeleteMigrationTargetPods(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteMigrationTargetPods", arg0)
 }
 
 func (_m *MockVMService) GetRunningMigrationPods(_param0 *v10.Migration) (*v1.PodList, error) {

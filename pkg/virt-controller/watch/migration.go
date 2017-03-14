@@ -62,7 +62,7 @@ func cleanupOldMigration(key interface{}, queue workqueue.RateLimitingInterface,
 		queue.AddRateLimited(key)
 	} else {
 		migration = v1.NewMigrationReferenceFromName(name)
-		err = migrationService.DeleteMigration(migration)
+		err = migrationService.DeleteMigrationTargetPods(migration)
 		logger := logging.DefaultLogger().Object(migration)
 
 		if err != nil {
@@ -83,7 +83,7 @@ func handleStartMigrationError(logger *logging.FilteredLogger, err error, migrat
 		if p.GetObjectMeta().GetLabels()["kubevirt.io/vmUID"] == string(migrationCopy.GetObjectMeta().GetUID()) {
 			// Pod from incomplete initialization detected, cleaning up
 			logger.Error().Msgf("Found orphan pod with name '%s' for Migration.", p.GetName())
-			err = migrationService.DeleteMigration(&migrationCopy)
+			err = migrationService.DeleteMigrationTargetPods(&migrationCopy)
 			if err != nil {
 				logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for Migration failed.", p.GetName())
 				break
@@ -93,7 +93,7 @@ func handleStartMigrationError(logger *logging.FilteredLogger, err error, migrat
 			// Pod from old VM object detected,
 			logger.Error().Msgf("Found orphan pod with name '%s' for deleted VM.", p.GetName())
 
-			err = migrationService.DeleteMigration(&migrationCopy)
+			err = migrationService.DeleteMigrationTargetPods(&migrationCopy)
 			if err != nil {
 				logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for Migration failed.", p.GetName())
 				break

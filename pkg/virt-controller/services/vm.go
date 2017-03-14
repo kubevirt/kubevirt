@@ -24,7 +24,7 @@ type VMService interface {
 	StartVMPod(*corev1.VM) error
 	DeleteVMPod(*corev1.VM) error
 	GetRunningVMPods(*corev1.VM) (*v1.PodList, error)
-	DeleteMigration(*corev1.Migration) error
+	DeleteMigrationTargetPods(*corev1.Migration) error
 	GetRunningMigrationPods(*corev1.Migration) (*v1.PodList, error)
 	SetupMigration(migration *corev1.Migration, vm *corev1.VM) error
 	UpdateMigration(migration *corev1.Migration) error
@@ -125,7 +125,7 @@ func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodFailed) +
 			",status.phase!=" + string(v1.PodSucceeded))
-	labelSelector, err := labels.Parse(fmt.Sprintf(corev1.DomainLabel+" in (%s)", vm.GetObjectMeta().GetName()))
+	labelSelector, err := labels.Parse(fmt.Sprintf(corev1.AppLabel+"=virt-launcher,"+corev1.DomainLabel+" in (%s)", vm.GetObjectMeta().GetName()))
 	if err != nil {
 		panic(err)
 	}
@@ -153,7 +153,7 @@ func (v *vmService) SetupMigration(migration *corev1.Migration, vm *corev1.VM) e
 	return err
 }
 
-func (v *vmService) DeleteMigration(migration *corev1.Migration) error {
+func (v *vmService) DeleteMigrationTargetPods(migration *corev1.Migration) error {
 	precond.MustNotBeNil(migration)
 	precond.MustNotBeEmpty(migration.GetObjectMeta().GetName())
 
@@ -199,7 +199,8 @@ func unfinishedMigrationTargetPodSelector(migration *corev1.Migration) v1.ListOp
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodFailed) +
 			",status.phase!=" + string(v1.PodSucceeded))
-	labelSelector, err := labels.Parse(fmt.Sprintf(corev1.DomainLabel+" in (%s)", migration.GetObjectMeta().GetName()))
+	labelSelector, err := labels.Parse(
+		fmt.Sprintf(corev1.AppLabel+"=virt-launcher,"+corev1.DomainLabel+","+corev1.MigrationUIDLabel+" in (%s)", migration.GetObjectMeta().GetUID()))
 	if err != nil {
 		panic(err)
 	}

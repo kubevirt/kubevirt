@@ -20,7 +20,7 @@ func migrationJobSelector() kubeapi.ListOptions {
 		"status.phase!=" + string(v1.PodPending) +
 			",status.phase!=" + string(v1.PodRunning) +
 			",status.phase!=" + string(v1.PodUnknown))
-	labelSelector, err := labels.Parse(kvirtv1.DomainLabel + "," + kvirtv1.MigrationLabel)
+	labelSelector, err := labels.Parse(kvirtv1.AppLabel + "=migration," + kvirtv1.DomainLabel + "," + kvirtv1.MigrationLabel)
 	if err != nil {
 		panic(err)
 	}
