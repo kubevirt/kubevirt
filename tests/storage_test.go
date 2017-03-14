@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
@@ -28,7 +29,6 @@ var _ = Describe("Storage", func() {
 	})
 
 	getTargetLogs := func(tailLines int64) string {
-
 		pods, err := coreClient.CoreV1().Pods(kubev1.NamespaceDefault).List(kubev1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).To(HaveLen(1))
@@ -39,6 +39,23 @@ var _ = Describe("Storage", func() {
 			DoRaw()
 		Expect(err).To(BeNil())
 		return string(logsRaw)
+	}
+
+	RunVMAndExpectLaunch := func(vm *v1.VM) {
+		obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
+		Expect(err).To(BeNil())
+		tests.WaitForSuccessfulVMStart(obj)
+
+		// Let's get the IP of the pod of the VM
+		pods, err := coreClient.CoreV1().Pods(api.NamespaceDefault).List(services.UnfinishedVMPodSelector(vm))
+		Expect(pods.Items).To(HaveLen(1))
+		podIP := pods.Items[0].Status.PodIP
+
+		// Periodically check if we now have a connection on the target
+		Eventually(func() string { return getTargetLogs(70) },
+			3*time.Second,
+			500*time.Millisecond).
+			Should(ContainSubstring(fmt.Sprintf("IP Address: %s", podIP)))
 	}
 
 	Context("Given a fresh iSCSI target", func() {
@@ -60,28 +77,22 @@ var _ = Describe("Storage", func() {
 		})
 	})
 
-	Context("Given a VM attached to the Alpine image", func() {
+	Context("Given a VM and a directly connected Alpine LUN", func() {
 		It("should be successfully started by libvirt", func(done Done) {
-
 			// Start the VM with the LUN attached
-			vm := tests.NewRandomVMWithLun(2)
-			obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
-			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStart(obj)
-
-			// Let's get the IP of the pod of the VM
-			pods, err := coreClient.CoreV1().Pods(api.NamespaceDefault).List(services.UnfinishedVMPodSelector(vm))
-			Expect(pods.Items).To(HaveLen(1))
-			podIP := pods.Items[0].Status.PodIP
-
-			// Periodically check if we now have a connection on the target
-			Eventually(func() string { return getTargetLogs(70) },
-				3*time.Second,
-				500*time.Millisecond).
-				Should(ContainSubstring(fmt.Sprintf("IP Address: %s", podIP)))
+			vm := tests.NewRandomVMWithDirectLun(2)
+			RunVMAndExpectLaunch(vm)
 			close(done)
 		}, 30)
+	})
 
+	Context("Given a VM and an Alpine PVC", func() {
+		It("should be successfully started by libvirt", func(done Done) {
+			// Start the VM with the PVC attached
+			vm := tests.NewRandomVMWithPVC("disk-alpine")
+			RunVMAndExpectLaunch(vm)
+			close(done)
+		}, 30)
 	})
 
 	AfterEach(func() {
