@@ -119,5 +119,15 @@ spec:
           image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}
           ports:
             - containerPort: 3260
+          volumeMounts:
+          - name: host
+            mountPath: /host
+          env:
+            - name: EXPORT_HOST_PATHS
+              value:
+      volumes:
+        - name: host
+          hostPath:
+            path: /
       nodeSelector:
         kubernetes.io/hostname: master
