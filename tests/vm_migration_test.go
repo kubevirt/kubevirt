@@ -140,6 +140,31 @@ var _ = Describe("VmMigration", func() {
 			close(done)
 		}, 60)
 
+		It("Should create a pod to execute VM migration", func(done Done) {
+			// Create the VM
+			vm, err := restClient.Post().Resource("vms").Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do().Get()
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMStart(vm)
+
+			// Create the Migration
+			err = restClient.Post().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Body(migration).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			obj, err := restClient.Get().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Name(migration.ObjectMeta.Name).Do().Get()
+			Expect(err).ToNot(HaveOccurred())
+
+			thisMigration := obj.(*v1.Migration)
+			labelSelector, err := labels.Parse(v1.DomainLabel + "," + v1.AppLabel + "=migration" + "," + v1.MigrationUIDLabel + "=" + string(thisMigration.GetObjectMeta().GetUID()), )
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() int {
+				pods, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(k8sv1.ListOptions{LabelSelector: labelSelector.String()})
+				Expect(err).ToNot(HaveOccurred())
+				return len(pods.Items)
+			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(1))
+			close(done)
+		}, 60)
+
 		AfterEach(func() {
 			tests.MustCleanup()
 		})
