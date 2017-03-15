@@ -1,8 +1,9 @@
 package watch
 
 import (
+	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
-	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
+	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/util/workqueue"
@@ -15,24 +16,27 @@ import (
 )
 
 func migrationJobSelector() kubeapi.ListOptions {
-	fieldSelector := fields.Everything()
-	labelSelector, err := labels.Parse(kvirtv1.DomainLabel)
+	fieldSelector := fields.ParseSelectorOrDie(
+		"status.phase!=" + string(v1.PodPending) +
+			",status.phase!=" + string(v1.PodRunning) +
+			",status.phase!=" + string(v1.PodUnknown))
+	labelSelector, err := labels.Parse(kvirtv1.AppLabel + "=migration," + kvirtv1.DomainLabel + "," + kvirtv1.MigrationLabel)
 	if err != nil {
 		panic(err)
 	}
 	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
 }
 
-func NewJobController(vmService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
+func NewJobController(vmService services.VMService, recorder record.EventRecorder, clientSet *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 	selector := migrationJobSelector()
-	lw := kubecli.NewListWatchFromClient(restClient, "jobs", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
+	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
 	return NewJobControllerWithListWatch(vmService, recorder, lw, restClient)
 }
 
 func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &batchv1.Job{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
+	return kubecli.NewController(lw, queue, &v1.Pod{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
@@ -47,22 +51,51 @@ func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventR
 			return true
 		}
 		if exists {
-			var job *batchv1.Job = obj.(*batchv1.Job)
+			job := obj.(*v1.Pod)
 
-			if job.Status.Succeeded < 1 {
-				//Job did not succeed, do not update the vm
-				return true
-			}
-
-			name := job.ObjectMeta.Labels["vmname"]
-			vm, err := vmService.FetchVM(name)
+			name := job.ObjectMeta.Labels[kvirtv1.DomainLabel]
+			vm, vmExists, err := vmService.FetchVM(name)
 			if err != nil {
-				//TODO proper error handling
 				queue.AddRateLimited(key)
 				return true
 			}
-			vm.Status.Phase = kvirtv1.Running
-			putVm(vm, restClient, nil)
+
+			// TODO at the end, only virt-handler can decide for all migration types if a VM successfully migrated to it (think about p2p2 migrations)
+			// For now we use a managed migration
+			if vmExists && vm.Status.Phase == kvirtv1.Migrating {
+				vm.Status.Phase = kvirtv1.Running
+				if job.Status.Phase == v1.PodSucceeded {
+					vm.ObjectMeta.Labels[kvirtv1.NodeNameLabel] = vm.Status.MigrationNodeName
+					vm.Status.NodeName = vm.Status.MigrationNodeName
+				}
+				vm.Status.MigrationNodeName = ""
+				_, err := putVm(vm, restClient, nil)
+				if err != nil {
+					queue.AddRateLimited(key)
+					return true
+				}
+			}
+
+			migration, migrationExists, err := vmService.FetchMigration(job.ObjectMeta.Labels[kvirtv1.MigrationLabel])
+			if err != nil {
+				queue.AddRateLimited(key)
+				return true
+			}
+
+			if migrationExists {
+				if migration.Status.Phase != kvirtv1.MigrationSucceeded && migration.Status.Phase != kvirtv1.MigrationFailed {
+					if job.Status.Phase == v1.PodSucceeded {
+						migration.Status.Phase = kvirtv1.MigrationSucceeded
+					} else {
+						migration.Status.Phase = kvirtv1.MigrationFailed
+					}
+					err := vmService.UpdateMigration(migration)
+					if err != nil {
+						queue.AddRateLimited(key)
+						return true
+					}
+				}
+			}
 		}
 		return true
 	})

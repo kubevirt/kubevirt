@@ -5,10 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -16,7 +13,7 @@ import (
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VM) (*kubev1.Pod, error)
-	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node) (*batchv1.Job, error)
+	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node) (*kubev1.Pod, error)
 }
 
 type templateService struct {
@@ -56,7 +53,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 			Labels: map[string]string{
 				v1.AppLabel:    "virt-launcher",
 				v1.DomainLabel: domain,
-				v1.UIDLabel:    uid,
+				v1.VMUIDLabel:  uid,
 			},
 		},
 		Spec: kubev1.PodSpec{
@@ -69,7 +66,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	return &pod, nil
 }
 
-func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node) (*batchv1.Job, error) {
+func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node) (*kubev1.Pod, error) {
 	srcAddr := ""
 	dstAddr := ""
 	for _, addr := range sourceNode.Status.Addresses {
@@ -98,29 +95,22 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 	}
 	destUri := fmt.Sprintf("qemu+tcp://%s/system", dstAddr)
 
-	job := batchv1.Job{
+	job := kubev1.Pod{
 		ObjectMeta: kubev1.ObjectMeta{
 			GenerateName: "virt-migration",
 			Labels: map[string]string{
 				v1.DomainLabel: vm.GetObjectMeta().GetName(),
+				v1.AppLabel:    "migration",
 			},
 		},
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Job",
-			APIVersion: "batch/v1",
-		},
-		Spec: batchv1.JobSpec{
-			Template: kubev1.PodTemplateSpec{
-				Spec: kubev1.PodSpec{
-					RestartPolicy: kubev1.RestartPolicyNever,
-					Containers: []kubev1.Container{
-						{
-							Name:  "virt-migration",
-							Image: "kubevirt/virt-handler:devel",
-							Command: []string{
-								"virsh", "-c", srcUri, "migrate", "--tunnelled", "--p2p", vm.Spec.Domain.Name, destUri,
-							},
-						},
+		Spec: kubev1.PodSpec{
+			RestartPolicy: kubev1.RestartPolicyNever,
+			Containers: []kubev1.Container{
+				{
+					Name:  "virt-migration",
+					Image: "kubevirt/virt-handler:devel",
+					Command: []string{
+						"virsh", "-c", srcUri, "migrate", "--tunnelled", "--p2p", vm.Spec.Domain.Name, destUri,
 					},
 				},
 			},

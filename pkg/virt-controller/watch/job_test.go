@@ -17,7 +17,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
-	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	kvirtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -59,6 +58,8 @@ var _ = Describe("Migration", func() {
 		_, jobController = NewJobControllerWithListWatch(vmService, nil, lw, restClient)
 
 		vm = kvirtv1.NewMinimalVM("test-vm")
+		vm.Status.Phase = kvirtv1.Migrating
+		vm.GetObjectMeta().SetLabels(map[string]string{"a": "b"})
 
 		// Start the controller
 		jobController.StartInformer(stopChan)
@@ -68,7 +69,7 @@ var _ = Describe("Migration", func() {
 	Context("Running job with out migration labels", func() {
 		It("should not attempt to update the VM", func(done Done) {
 
-			job := &batchv1.Job{}
+			job := &corev1.Pod{}
 
 			// Register the expected REST call
 			//server.AppendHandlers()
@@ -84,46 +85,19 @@ var _ = Describe("Migration", func() {
 		}, 10)
 	})
 
-	Context("Running job with migration labels but no success", func() {
-		It("should ignore the the VM ", func(done Done) {
-
-			job := &batchv1.Job{
-				ObjectMeta: corev1.ObjectMeta{
-					Labels: map[string]string{
-						kvirtv1.DomainLabel: "something",
-						"vmname":            vm.ObjectMeta.Name,
-					},
-				},
-			}
-
-			// No registered REST calls
-			//server.AppendHandlers()
-
-			// Tell the controller that there is a new Job
-			lw.Add(job)
-
-			// Wait until we have processed the added item
-			finishController(jobController, stopChan)
-
-			Expect(len(server.ReceivedRequests())).To(Equal(0))
-			close(done)
-		}, 10)
-	})
-
 	Context("Running job with migration labels and one success", func() {
 		It("should update the VM to Running", func(done Done) {
 
-			job := &batchv1.Job{
+			migration := kvirtv1.NewMinimalMigration("test-migration", "test-vm")
+			job := &corev1.Pod{
 				ObjectMeta: corev1.ObjectMeta{
 					Labels: map[string]string{
-						kvirtv1.DomainLabel: "something",
-						"vmname":            vm.ObjectMeta.Name,
+						kvirtv1.DomainLabel:    "test-vm",
+						kvirtv1.MigrationLabel: migration.ObjectMeta.Name,
 					},
 				},
-				Status: batchv1.JobStatus{
-					Succeeded: 1,
-					Failed:    0,
-					Active:    0,
+				Status: corev1.PodStatus{
+					Phase: corev1.PodSucceeded,
 				},
 			}
 
@@ -131,12 +105,14 @@ var _ = Describe("Migration", func() {
 			server.AppendHandlers(
 				handlerToFetchTestVM(vm),
 				handlerToUpdateTestVM(vm),
+				handlerToFetchTestMigration(migration),
+				handlerToUpdateTestMigration(migration),
 			)
 
 			// Tell the controller that there is a new Job
 			lw.Add(job)
 			finishController(jobController, stopChan)
-			Expect(len(server.ReceivedRequests())).To(Equal(2))
+			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			close(done)
 		}, 10)
 	})
@@ -151,6 +127,20 @@ func handlerToFetchTestVM(vm *kvirtv1.VM) http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+	)
+}
+
+func handlerToFetchTestMigration(migration *kvirtv1.Migration) http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/"+migration.ObjectMeta.Name),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
+	)
+}
+
+func handlerToUpdateTestMigration(migration *kvirtv1.Migration) http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/"+migration.ObjectMeta.Name),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 	)
 }
 

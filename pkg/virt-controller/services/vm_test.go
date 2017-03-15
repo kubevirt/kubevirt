@@ -64,22 +64,10 @@ var _ = Describe("VM", func() {
 					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
 				),
-
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/test-vm-migration"),
-					ghttp.VerifyJSONRepresenting(expected_migration),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
-				),
-
-				/*ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
-					ghttp.VerifyJSONRepresenting(vm),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, ""),
-				),*/
 			)
 			err := vmService.SetupMigration(migration, vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(server.ReceivedRequests())).To(Equal(2))
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
 
 		})
 	})

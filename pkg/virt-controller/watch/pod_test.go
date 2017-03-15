@@ -154,6 +154,7 @@ var _ = Describe("Pod", func() {
 			pod, err := temlateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
 			pod.Spec.NodeName = "targetNode"
+			pod.Labels[v1.MigrationLabel] = "testvm-migration"
 
 			// Create the expected VM after the update
 			obj, err := conversion.NewCloner().DeepCopy(vm)
@@ -167,9 +168,15 @@ var _ = Describe("Pod", func() {
 
 			vmInMigrationState := obj.(*v1.VM)
 			vmInMigrationState.Status.Phase = v1.Migrating
+			migration := v1.NewMinimalMigration("testvm-migration", "testvm")
+			migration.Status.Phase = v1.MigrationInProgress
 
 			// Register the expected REST call
 			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/testvm-migration"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
+				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
 					ghttp.VerifyJSONRepresenting(vmWithMigrationNodeName),
@@ -191,7 +198,7 @@ var _ = Describe("Pod", func() {
 			)
 
 			mockVMService.EXPECT().GetMigrationJob(gomock.Any()).Return(nil, false, nil)
-			mockVMService.EXPECT().StartMigration(gomock.Any(), &srcNode, &targetNode).Return(nil)
+			mockVMService.EXPECT().StartMigration(gomock.Any(), gomock.Any(), &srcNode, &targetNode).Return(nil)
 
 			// Tell the controller that there is a new running Pod
 			lw.Add(pod)
@@ -201,7 +208,7 @@ var _ = Describe("Pod", func() {
 			podController.ShutDownQueue()
 			podController.WaitUntilDone()
 
-			Expect(len(server.ReceivedRequests())).To(Equal(4))
+			Expect(len(server.ReceivedRequests())).To(Equal(5))
 			close(done)
 		}, 10)
 	})

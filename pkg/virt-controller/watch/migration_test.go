@@ -54,7 +54,7 @@ var _ = Describe("Migration", func() {
 		lw = framework.NewFakeControllerSource()
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 
-		_, migrationController = NewMigrationControllerWithListWatch(vmService, nil, lw, restClient)
+		_, migrationController = NewMigrationControllerWithListWatch(vmService, nil, lw)
 
 		// Start the controller
 		migrationController.StartInformer(stopChan)

@@ -202,10 +202,12 @@ const (
 )
 
 const (
-	AppLabel      string = "kubevirt.io/app"
-	DomainLabel   string = "kubevirt.io/domain"
-	UIDLabel      string = "kubevirt.io/vmUID"
-	NodeNameLabel string = "kubevirt.io/nodeName"
+	AppLabel          string = "kubevirt.io/app"
+	DomainLabel       string = "kubevirt.io/domain"
+	VMUIDLabel        string = "kubevirt.io/vmUID"
+	NodeNameLabel     string = "kubevirt.io/nodeName"
+	MigrationUIDLabel string = "kubevirt.io/migrationUID"
+	MigrationLabel    string = "kubevirt.io/migration"
 )
 
 func NewVM(name string, uid types.UID) *VM {
@@ -294,7 +296,7 @@ func NewSpice(vmName string) *Spice {
 func NewMinimalMigration(name string, vmName string) *Migration {
 	migration := NewMigrationReferenceFromName(name)
 	migration.Spec = MigrationSpec{
-		MigratingVMName: vmName,
+		Selector: VMSelector{vmName},
 	}
 	return migration
 }
@@ -326,10 +328,14 @@ type Migration struct {
 }
 
 // MigrationSpec is a description of a VM Migration
+// For example "destinationNodeName": "testvm" will migrate a VM called "testvm" in the namespace "default"
 type MigrationSpec struct {
-	// The Kubernetes name of the Virtual Machine object to select for one migration.
-	// For example "destinationNodeName": "testvm" will migrate a VM called "testvm" in the namespace "default"
-	MigratingVMName string `json:"migratingVMName,omitempty"`
+	// Criterias for selecting the VM to migrate.
+	// For example
+	// selector:
+	//   name: testvm
+	// will select the VM `testvm` for migration
+	Selector VMSelector `json:"selector"`
 	// Criteria to use when selecting the destination for the migration
 	// for example, to select by the hostname, specify `kubernetes.io/hostname: master`
 	// other possible choices include the hardware required to run the vm or
@@ -340,7 +346,14 @@ type MigrationSpec struct {
 	// randomGenerator: superfastdevice,
 	// app: mysql,
 	// licensedForServiceX: true
-	DestinationNodeSelector map[string]string `json:"destinationNodeSelector,omitempty"`
+	// Note that these selectors are additions to the node selectors on the VM itself and they must not exist on the VM.
+	// If they are conflicting with the VM, no migration will be started.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+}
+
+type VMSelector struct {
+	// Name of the VM to migrate
+	Name string `json:"name" valid:"required"`
 }
 
 type MigrationPhase string
@@ -353,7 +366,7 @@ const (
 	MigrationPending MigrationPhase = "Pending"
 
 	// Migration is actively progressing
-	MigrationInProgress MigrationPhase = "In Progress"
+	MigrationInProgress MigrationPhase = "InProgress"
 
 	// Migration has completed successfully
 	MigrationSucceeded MigrationPhase = "Succeeded"

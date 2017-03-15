@@ -69,7 +69,7 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			return true
 		}
 		vm := vmObj.(*corev1.VM)
-		if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.UIDLabel]) {
+		if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.VMUIDLabel]) {
 			// Obviously the pod of an outdated VM object, do nothing
 			return true
 		}
@@ -94,9 +94,24 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 				return true
 			}
 			logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
-		} else if vm.Status.Phase == corev1.Running {
+		} else if _, isMigrationPod := pod.Labels[corev1.MigrationLabel]; vm.Status.Phase == corev1.Running && isMigrationPod {
 			logger := logging.DefaultLogger()
-			obj, err := kubeapi.Scheme.Copy(vm)
+
+			// Get associated migration
+			obj, err := restClient.Get().Resource("migrations").Namespace(v1.NamespaceDefault).Name(pod.Labels[corev1.MigrationLabel]).Do().Get()
+			if err != nil {
+				logger.Error().Reason(err).Msgf("Fetching migration %s failed.", pod.Labels[corev1.MigrationLabel])
+				queue.AddRateLimited(key)
+				return true
+			}
+			migration := obj.(*corev1.Migration)
+			if migration.Status.Phase == corev1.MigrationUnknown {
+				logger.Info().Msg("migration not yet in right state, backing off")
+				queue.AddRateLimited(key)
+				return true
+			}
+
+			obj, err = kubeapi.Scheme.Copy(vm)
 			if err != nil {
 				logger.Error().Reason(err).Msg("could not copy vm object")
 				queue.AddRateLimited(key)
@@ -115,12 +130,11 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			}
 
 			// Let's check if the job already exists, it can already exist in case we could not update the VM object in a previous run
-			if _, exists, err := vmService.GetMigrationJob(vmCopy); err != nil {
+			if _, exists, err := vmService.GetMigrationJob(migration); err != nil {
 				logger.Error().Reason(err).Msg("Checking for an existing migration job failed.")
 				queue.AddRateLimited(key)
 				return true
 			} else if !exists {
-				// Job does not yet exist, create it.
 				sourceNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.NodeName, metav1.GetOptions{})
 				if err != nil {
 					logger.Error().Reason(err).Msgf("Fetching source node %s failed.", vmCopy.Status.NodeName)
@@ -133,7 +147,8 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 					queue.AddRateLimited(key)
 					return true
 				}
-				if err := vmService.StartMigration(vmCopy, sourceNode, targetNode); err != nil {
+
+				if err := vmService.StartMigration(migration, vmCopy, sourceNode, targetNode); err != nil {
 					logger.Error().Reason(err).Msg("Starting the migration job failed.")
 					queue.AddRateLimited(key)
 					return true
