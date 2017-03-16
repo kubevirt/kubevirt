@@ -38,7 +38,12 @@ func NewPodController(vmCache cache.Store, recorder record.EventRecorder, client
 func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Pod{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
+	return kubecli.NewController(lw, queue, &v1.Pod{}, NewPodControllerFunc(vmCache, restClient, vmService, clientset))
+}
+
+func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) kubecli.ControllerFunc {
+
+	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
@@ -167,7 +172,7 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 			logger.Info().Msgf("Scheduled VM migration to node %s.", vmCopy.Status.NodeName)
 		}
 		return true
-	})
+	}
 }
 
 // synchronously put updated VM object to API server.

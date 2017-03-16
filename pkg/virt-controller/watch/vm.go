@@ -25,7 +25,12 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 func NewVMControllerWithListWatch(vmService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.VM{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
+	return kubecli.NewController(lw, queue, &v1.VM{}, NewVMControllerFunc(restClient, vmService))
+}
+
+func NewVMControllerFunc(restClient *rest.RESTClient, vmService services.VMService) kubecli.ControllerFunc {
+
+	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
@@ -161,5 +166,5 @@ func NewVMControllerWithListWatch(vmService services.VMService, _ record.EventRe
 			logger.Info().Msg("Handing over the VM to the scheduler succeeded.")
 		}
 		return true
-	})
+	}
 }
