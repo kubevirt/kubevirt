@@ -89,7 +89,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	domainStore, domainController := virthandler.NewDomainController(vmQueue, vmStore, domainSharedInformer)
+	domainStore, domainController := virthandler.NewDomainController(vmQueue, vmStore, domainSharedInformer, *restClient)
 
 	if err != nil {
 		panic(err)

@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/util/workqueue"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -18,6 +19,7 @@ var _ = Describe("Domain", func() {
 	var fakeWatcher *framework.FakeControllerSource
 	var vmStore cache.Store
 	var vmQueue workqueue.RateLimitingInterface
+	var restClient rest.RESTClient
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
@@ -28,7 +30,7 @@ var _ = Describe("Domain", func() {
 		vmStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 		informer := cache.NewSharedInformer(fakeWatcher, &virtwrap.Domain{}, 0)
-		_, controller := NewDomainController(vmQueue, vmStore, informer)
+		_, controller := NewDomainController(vmQueue, vmStore, informer, restClient)
 		controller.StartInformer(stopChan)
 		controller.WaitForSync(stopChan)
 		go controller.Run(1, stopChan)
