@@ -154,7 +154,7 @@ var _ = Describe("VmMigration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			thisMigration := obj.(*v1.Migration)
-			labelSelector, err := labels.Parse(v1.DomainLabel + "," + v1.AppLabel + "=migration" + "," + v1.MigrationUIDLabel + "=" + string(thisMigration.GetObjectMeta().GetUID()), )
+			labelSelector, err := labels.Parse(v1.DomainLabel + "," + v1.AppLabel + "=migration" + "," + v1.MigrationUIDLabel + "=" + string(thisMigration.GetObjectMeta().GetUID()))
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() int {

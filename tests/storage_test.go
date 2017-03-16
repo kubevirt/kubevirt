@@ -52,10 +52,12 @@ var _ = Describe("Storage", func() {
 		podIP := pods.Items[0].Status.PodIP
 
 		// Periodically check if we now have a connection on the target
+		// We don't check against the full pod IP, since depending on the kubernetes proxy mode, we either see the
+		// full PodIP or just the proxy IP which connects through different ports
 		Eventually(func() string { return getTargetLogs(70) },
-			3*time.Second,
+			4*time.Second,
 			500*time.Millisecond).
-			Should(ContainSubstring(fmt.Sprintf("IP Address: %s", podIP)))
+			Should(ContainSubstring(fmt.Sprintf("IP Address: %s", podIP[0:8])))
 	}
 
 	Context("Given a fresh iSCSI target", func() {
@@ -78,6 +80,14 @@ var _ = Describe("Storage", func() {
 	})
 
 	Context("Given a VM and a directly connected Alpine LUN", func() {
+		BeforeEach(func() {
+			// Wait until there is no connection
+			logs := getTargetLogs(70)
+			Eventually(logs,
+				4*time.Second,
+				500*time.Millisecond).
+				Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
+		})
 		It("should be successfully started by libvirt", func(done Done) {
 			// Start the VM with the LUN attached
 			vm := tests.NewRandomVMWithDirectLun(2)
