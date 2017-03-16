@@ -1,0 +1,18 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        jcenter()
+    }
+
+    dependencies {
+        classpath "io.github.swagger2markup:swagger2markup:1.3.0"
+    }
+}
+
+
+task gendocs << {
+  io.github.swagger2markup.Swagger2MarkupConverter
+    .from("./swagger.json")
+    .build()
+    .intoFolder("./");
+}
