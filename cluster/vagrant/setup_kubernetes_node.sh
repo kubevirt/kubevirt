@@ -2,8 +2,6 @@
 
 bash ./setup_kubernetes_common.sh
 
-ADVERTISED_MASTER_IP=`dig +short master`
-
 set +e
 
 echo 'Trying to register myself...'
