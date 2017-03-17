@@ -30,12 +30,7 @@ func NewVMControllerWithListWatch(vmService services.VMService, _ record.EventRe
 
 func NewVMControllerFunc(restClient *rest.RESTClient, vmService services.VMService) kubecli.ControllerFunc {
 
-	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
-		key, quit := queue.Get()
-		if quit {
-			return false
-		}
-		defer queue.Done(key)
+	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) bool {
 
 		// Fetch the latest Vm state from cache
 		obj, exists, err := store.GetByKey(key.(string))

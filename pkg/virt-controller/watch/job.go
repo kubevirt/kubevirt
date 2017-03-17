@@ -40,7 +40,7 @@ func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventR
 }
 
 func NewJobControllerFunction(vmService services.VMService, restClient *rest.RESTClient) kubecli.ControllerFunc {
-	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
+	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
