@@ -27,13 +27,13 @@ func NewMigrationControllerWithListWatch(migrationService services.VMService, _ 
 }
 
 func NewMigrationControllerFunc(migrationService services.VMService) kubecli.ControllerFunc {
-	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) bool {
+	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
 		// Fetch the latest Migration state from cache
 		obj, exists, err := store.GetByKey(key.(string))
 
 		if err != nil {
 			queue.AddRateLimited(key)
-			return true
+			return
 		}
 		if exists {
 			var migration *v1.Migration = obj.(*v1.Migration)
@@ -44,14 +44,14 @@ func NewMigrationControllerFunc(migrationService services.VMService) kubecli.Con
 				if err != nil {
 					logger.Error().Reason(err).Msg("could not copy migration object")
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 				// Fetch vm which we want to migrate
 				vm, exists, err := migrationService.FetchVM(migration.Spec.Selector.Name)
 				if err != nil {
 					logger.Error().Reason(err).Msgf("fetching the vm %s failed", migration.Spec.Selector.Name)
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 				if !exists {
 					logger.Info().Msgf("VM with name %s does not exist, marking migration as failed", migration.Spec.Selector.Name)
@@ -61,10 +61,10 @@ func NewMigrationControllerFunc(migrationService services.VMService) kubecli.Con
 					if err != nil {
 						logger.Error().Reason(err).Msg("updating migration state failed")
 						queue.AddRateLimited(key)
-						return true
+						return
 					}
 					queue.Forget(key)
-					return true
+					return
 				}
 				if vm.Status.Phase != v1.Running {
 					logger.Error().Msgf("VM with name %s is in state %s, no migration possible. Marking migration as failed", vm.GetObjectMeta().GetName(), vm.Status.Phase)
@@ -74,22 +74,22 @@ func NewMigrationControllerFunc(migrationService services.VMService) kubecli.Con
 					if err != nil {
 						logger.Error().Reason(err).Msg("updating migration state failed")
 						queue.AddRateLimited(key)
-						return true
+						return
 					}
 					queue.Forget(key)
-					return true
+					return
 				}
 
 				if err := mergeConstraints(migration, vm); err != nil {
 					logger.Error().Reason(err).Msg("merging Migration and VM placement constraints failed.")
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 				podList, err := migrationService.GetRunningVMPods(vm)
 				if err != nil {
 					logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 
 				numOfPods, migrationPodExists := investigateTargetPodSituation(migration, podList)
@@ -102,10 +102,10 @@ func NewMigrationControllerFunc(migrationService services.VMService) kubecli.Con
 					if err != nil {
 						logger.Error().Reason(err).Msg("updating migration state failed")
 						queue.AddRateLimited(key)
-						return true
+						return
 					}
 					queue.Forget(key)
-					return true
+					return
 				} else if numOfPods == 1 && !migrationPodExists {
 					// We need to start a migration target pod
 					// TODO, this detection is not optimal, it can lead to strange situations
@@ -113,7 +113,7 @@ func NewMigrationControllerFunc(migrationService services.VMService) kubecli.Con
 					if err != nil {
 						logger.Error().Reason(err).Msg("creating am migration target node failed")
 						queue.AddRateLimited(key)
-						return true
+						return
 					}
 				}
 				logger.Error().Msg("another migration seems to be in progress, marking Migration as failed")
@@ -123,13 +123,13 @@ func NewMigrationControllerFunc(migrationService services.VMService) kubecli.Con
 				if err != nil {
 					logger.Error().Reason(err).Msg("updating migration state failed")
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 			}
 		}
 
 		queue.Forget(key)
-		return true
+		return
 	}
 }
 

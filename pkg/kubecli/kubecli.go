@@ -147,7 +147,7 @@ func NewControllerFromInformer(indexer cache.Store, informer cache.ControllerInt
 	return indexer, c
 }
 
-type ControllerFunc func(cache.Store, workqueue.RateLimitingInterface, interface{}) bool
+type ControllerFunc func(cache.Store, workqueue.RateLimitingInterface, interface{})
 
 func (c *Controller) callControllerFn(s cache.Store, w workqueue.RateLimitingInterface) bool {
 	key, quit := w.Get()
