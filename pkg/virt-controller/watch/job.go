@@ -36,7 +36,11 @@ func NewJobController(vmService services.VMService, recorder record.EventRecorde
 func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Pod{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
+	return kubecli.NewController(lw, queue, &v1.Pod{}, NewJobControllerFunction(vmService, restClient))
+}
+
+func NewJobControllerFunction(vmService services.VMService, restClient *rest.RESTClient) kubecli.ControllerFunc {
+	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
@@ -98,5 +102,5 @@ func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventR
 			}
 		}
 		return true
-	})
+	}
 }
