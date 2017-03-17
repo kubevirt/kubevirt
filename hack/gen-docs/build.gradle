@@ -6,13 +6,23 @@ buildscript {
 
     dependencies {
         classpath "io.github.swagger2markup:swagger2markup:1.3.0"
+        classpath 'org.asciidoctor:asciidoctor-gradle-plugin:1.5.3'
     }
 }
 
+apply plugin: 'org.asciidoctor.convert'
 
 task gendocs << {
   io.github.swagger2markup.Swagger2MarkupConverter
     .from(java.nio.file.Paths.get("./swagger.json"))
     .build()
     .toFolder(java.nio.file.Paths.get("./"));
+}
+
+asciidoctor {
+  sourceDir = file('./')
+  sources {
+    include 'definitions.adoc', 'overview.adoc', 'paths.adoc',  'security.adoc'
+  }
+  outputDir = file('./')
 }
