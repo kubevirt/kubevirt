@@ -12,7 +12,7 @@ buildscript {
 
 task gendocs << {
   io.github.swagger2markup.Swagger2MarkupConverter
-    .from("./swagger.json")
+    .from(java.nio.file.Paths.get("./swagger.json"))
     .build()
-    .intoFolder("./");
+    .toFolder(java.nio.file.Paths.get("./"));
 }

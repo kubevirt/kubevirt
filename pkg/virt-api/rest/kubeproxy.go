@@ -36,7 +36,10 @@ func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restfu
 		return nil, err
 	}
 	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(cli)).Build(ctx)
-	ws.Route(ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
+	ws.Route(ws.GET("/").Produces(mime.MIME_JSON).
+		Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
+		Returns(http.StatusNotFound, "Not Found", nil).
+		Writes(metav1.APIResourceList{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
 	return ws, nil
 }
 
@@ -64,6 +67,8 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.POST(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
+			Returns(http.StatusCreated, "Created", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil).
 			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample), ws,
 	))
 
@@ -71,38 +76,51 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.PUT(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
-			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).Doc("test2"), ws,
+			Returns(http.StatusOK, "Updated", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample), ws,
 	))
 
 	ws.Route(addDeleteParams(
 		ws.DELETE(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
-			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"), ws,
+			Returns(http.StatusNoContent, "Deleted", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}), ws,
 	))
 
 	ws.Route(addGetParams(
 		ws.GET(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"), ws,
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample), ws,
 	))
 
-	ws.Route(
+	ws.Route(addPatchParams(
 		ws.PATCH(ResourcePath(gvr)).
-			Produces(mime.MIME_JSON_PATCH).
-			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample).Doc("test5"),
-	)
+			Consumes(mime.MIME_JSON_PATCH).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample), ws,
+	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
-	ws.Route(addWatchGetListParams(
+	ws.Route(addNotNamespacedWatchGetListParams(
 		ws.GET("/watch/"+gvr.Resource).
 			Produces(mime.MIME_JSON).
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil).
 			To(NotImplementedYet).Writes(objExample), ws,
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(addWatchGetListParams(
 		ws.GET("/watch"+ResourceBasePath(gvr)).
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil).
 			Produces(mime.MIME_JSON).
 			To(NotImplementedYet).Writes(objExample), ws,
 	))
@@ -110,12 +128,16 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 	ws.Route(addWatchGetListParams(
 		ws.GET(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Returns(http.StatusOK, "OK", listExample).
+			Returns(http.StatusNotFound, "Not Found", nil).
 			Writes(listExample).
 			To(endpoints.MakeGoRestfulWrapper(getList)), ws,
 	))
 
 	ws.Route(addDeleteListParams(
 		ws.DELETE(ResourceBasePath(gvr)).
+			Returns(http.StatusOK, "OK", listExample).
+			Returns(http.StatusNotFound, "Not Found", nil).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample), ws,
 	))
@@ -130,18 +152,27 @@ func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionReso
 	}
 	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(cli)).Build(ctx)
 	ws := new(restful.WebService)
-	ws.Route(ws.GET(GroupBasePath(gvr.GroupVersion())).Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
+	ws.Route(ws.GET(GroupBasePath(gvr.GroupVersion())).Produces(mime.MIME_JSON).
+		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
+		Returns(http.StatusNotFound, "Not Found", nil).
+		Writes(metav1.APIGroup{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
 	return ws, nil
+}
+
+func addNotNamespacedWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
+		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
+		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("integer"))
 }
 
 func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
 	return builder.Param(NamespaceParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
 		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
-		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("int"))
+		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("integer"))
 }
 
 func addDeleteListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(NameParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws))
+	return builder.Param(NamespaceParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws))
 }
 
 func addGetParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
@@ -159,6 +190,10 @@ func addPutParams(builder *restful.RouteBuilder, ws *restful.WebService) *restfu
 }
 
 func addDeleteParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
+}
+
+func addPatchParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
 	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
 }
 
