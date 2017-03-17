@@ -66,25 +66,6 @@ var _ = Describe("Migration", func() {
 		go jobController.Run(1, stopChan)
 	})
 
-	Context("Running job with out migration labels", func() {
-		It("should not attempt to update the VM", func(done Done) {
-
-			job := &corev1.Pod{}
-
-			// Register the expected REST call
-			//server.AppendHandlers()
-
-			// Tell the controller that there is a new Migration
-			lw.Add(job)
-
-			// Wait until we have processed the added item
-			finishController(jobController, stopChan)
-
-			Expect(len(server.ReceivedRequests())).To(Equal(0))
-			close(done)
-		}, 10)
-	})
-
 	Context("Running job with migration labels and one success", func() {
 		It("should update the VM to Running", func(done Done) {
 
