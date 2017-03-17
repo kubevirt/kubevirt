@@ -28,12 +28,8 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 }
 
 func NewVMControllerFunc(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) kubecli.ControllerFunc {
-	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
-		key, quit := queue.Get()
-		if quit {
-			return false
-		}
-		defer queue.Done(key)
+	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) bool {
+
 		// Fetch the latest Vm state from cache
 		obj, exists, err := store.GetByKey(key.(string))
 

@@ -22,12 +22,7 @@ func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.
 }
 
 func NewDomainControllerFunc(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store) kubecli.ControllerFunc {
-	return func(indexer cache.Store, queue workqueue.RateLimitingInterface) bool {
-		key, quit := queue.Get()
-		if quit {
-			return false
-		}
-		defer queue.Done(key)
+	return func(indexer cache.Store, queue workqueue.RateLimitingInterface, key interface{}) bool {
 
 		obj, exists, err := indexer.GetByKey(key.(string))
 		if err != nil {

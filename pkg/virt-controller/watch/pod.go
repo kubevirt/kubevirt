@@ -43,13 +43,7 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 
 func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) kubecli.ControllerFunc {
 
-	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
-		key, quit := queue.Get()
-		if quit {
-			return false
-		}
-		defer queue.Done(key)
-
+	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) bool {
 		// Fetch the latest Vm state from cache
 		obj, exists, err := store.GetByKey(key.(string))
 
