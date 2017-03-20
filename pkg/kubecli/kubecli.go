@@ -126,23 +126,27 @@ type Controller struct {
 	indexer  cache.Store
 	queue    workqueue.RateLimitingInterface
 	informer cache.ControllerInterface
-	f        ControllerFunc
+	dispatch ControllerDispatch
 	done     chan struct{}
 }
 
-func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object, f ControllerFunc) (cache.Store, *Controller) {
+func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object, dispatch ControllerDispatch) (cache.Store, *Controller) {
 
 	indexer, informer := cache.NewIndexerInformer(lw, objType, 0, NewResourceEventHandlerFuncsForQorkqueue(queue), cache.Indexers{})
-	return NewControllerFromInformer(indexer, informer, queue, f)
+	return NewControllerFromInformer(indexer, informer, queue, dispatch)
 }
 
-func NewControllerFromInformer(indexer cache.Store, informer cache.ControllerInterface, queue workqueue.RateLimitingInterface, f ControllerFunc) (cache.Store, *Controller) {
+type ControllerDispatch interface {
+	Execute( /*cache*/ cache.Store /*queue*/, workqueue.RateLimitingInterface /*key*/, interface{})
+}
+
+func NewControllerFromInformer(indexer cache.Store, informer cache.ControllerInterface, queue workqueue.RateLimitingInterface, dispatch ControllerDispatch) (cache.Store, *Controller) {
 	c := &Controller{
 		informer: informer,
 		indexer:  indexer,
 		queue:    queue,
 		done:     make(chan struct{}),
-		f:        f,
+		dispatch: dispatch,
 	}
 	return indexer, c
 }
@@ -156,7 +160,7 @@ func (c *Controller) callControllerFn(s cache.Store, w workqueue.RateLimitingInt
 		return false
 	} else {
 		defer w.Done(key)
-		c.f(s, w, key)
+		c.dispatch.Execute(s, w, key)
 		return true
 	}
 }

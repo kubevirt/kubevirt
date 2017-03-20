@@ -26,111 +26,113 @@ func NewMigrationControllerWithListWatch(migrationService services.VMService, _ 
 	return kubecli.NewController(lw, queue, &v1.Migration{}, NewMigrationControllerFunc(migrationService))
 }
 
-func NewMigrationControllerFunc(migrationService services.VMService) kubecli.ControllerFunc {
-	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
-		// Fetch the latest Migration state from cache
-		obj, exists, err := store.GetByKey(key.(string))
+func NewMigrationControllerFunc(vmService services.VMService) kubecli.ControllerDispatch {
 
+	dispatch := MigrationDispatch{
+		vmService: vmService,
+	}
+	return &dispatch
+}
+
+type MigrationDispatch struct {
+	vmService services.VMService
+}
+
+func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
+
+	setMigrationFailed := func(migrationCopy *v1.Migration) {
+
+		logger := logging.DefaultLogger().Object(migrationCopy)
+		migrationCopy.Status.Phase = v1.MigrationFailed
+		// TODO indicate why it was set to failed
+		err := md.vmService.UpdateMigration(migrationCopy)
 		if err != nil {
+			logger.Error().Reason(err).Msgf("updating migration state failed: %v ", err)
 			queue.AddRateLimited(key)
 			return
 		}
-		if exists {
-			var migration *v1.Migration = obj.(*v1.Migration)
-			logger := logging.DefaultLogger().Object(migration)
-			if migration.Status.Phase == v1.MigrationUnknown {
-				// Copy migration for future modifications
-				migrationCopy, err := copy(migration)
-				if err != nil {
-					logger.Error().Reason(err).Msg("could not copy migration object")
-					queue.AddRateLimited(key)
-					return
-				}
-				// Fetch vm which we want to migrate
-				vm, exists, err := migrationService.FetchVM(migration.Spec.Selector.Name)
-				if err != nil {
-					logger.Error().Reason(err).Msgf("fetching the vm %s failed", migration.Spec.Selector.Name)
-					queue.AddRateLimited(key)
-					return
-				}
-				if !exists {
-					logger.Info().Msgf("VM with name %s does not exist, marking migration as failed", migration.Spec.Selector.Name)
-					migrationCopy.Status.Phase = v1.MigrationFailed
-					// TODO indicate why it was set to failed
-					err := migrationService.UpdateMigration(migrationCopy)
-					if err != nil {
-						logger.Error().Reason(err).Msg("updating migration state failed")
-						queue.AddRateLimited(key)
-						return
-					}
-					queue.Forget(key)
-					return
-				}
-				if vm.Status.Phase != v1.Running {
-					logger.Error().Msgf("VM with name %s is in state %s, no migration possible. Marking migration as failed", vm.GetObjectMeta().GetName(), vm.Status.Phase)
-					migrationCopy.Status.Phase = v1.MigrationFailed
-					// TODO indicate why it was set to failed
-					err := migrationService.UpdateMigration(migrationCopy)
-					if err != nil {
-						logger.Error().Reason(err).Msg("updating migration state failed")
-						queue.AddRateLimited(key)
-						return
-					}
-					queue.Forget(key)
-					return
-				}
+		queue.Forget(key)
+	}
 
-				if err := mergeConstraints(migration, vm); err != nil {
-					logger.Error().Reason(err).Msg("merging Migration and VM placement constraints failed.")
-					queue.AddRateLimited(key)
-					return
-				}
-				podList, err := migrationService.GetRunningVMPods(vm)
-				if err != nil {
-					logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
-					queue.AddRateLimited(key)
-					return
-				}
+	// Fetch the latest Migration state from cache
+	obj, exists, err := store.GetByKey(key.(string))
 
-				numOfPods, migrationPodExists := investigateTargetPodSituation(migration, podList)
-				if numOfPods > 1 && !migrationPodExists {
-					// Another migration is currently going on
-					logger.Error().Msg("another migration seems to be in progress, marking Migration as failed")
-					migrationCopy.Status.Phase = v1.MigrationFailed
-					// TODO indicate why it was set to failed
-					err := migrationService.UpdateMigration(migrationCopy)
-					if err != nil {
-						logger.Error().Reason(err).Msg("updating migration state failed")
-						queue.AddRateLimited(key)
-						return
-					}
-					queue.Forget(key)
-					return
-				} else if numOfPods == 1 && !migrationPodExists {
-					// We need to start a migration target pod
-					// TODO, this detection is not optimal, it can lead to strange situations
-					err := migrationService.SetupMigration(migration, vm)
-					if err != nil {
-						logger.Error().Reason(err).Msg("creating am migration target node failed")
-						queue.AddRateLimited(key)
-						return
-					}
-				}
-				logger.Error().Msg("another migration seems to be in progress, marking Migration as failed")
-				migrationCopy.Status.Phase = v1.MigrationInProgress
-				// TODO indicate when this has happened
-				err = migrationService.UpdateMigration(migrationCopy)
+	if err != nil {
+		queue.AddRateLimited(key)
+		return
+	}
+	if exists {
+		var migration *v1.Migration = obj.(*v1.Migration)
+		logger := logging.DefaultLogger().Object(migration)
+
+		if migration.Status.Phase == v1.MigrationUnknown {
+			// Copy migration for future modifications
+			migrationCopy, err := copy(migration)
+			if err != nil {
+				logger.Error().Reason(err).Msg("could not copy migration object")
+				queue.AddRateLimited(key)
+				return
+			}
+			// Fetch vm which we want to migrate
+			vm, exists, err := md.vmService.FetchVM(migration.Spec.Selector.Name)
+			if err != nil {
+				logger.Error().Reason(err).Msgf("fetching the vm %s failed", migration.Spec.Selector.Name)
+				queue.AddRateLimited(key)
+				return
+			}
+			if !exists {
+				logger.Info().Msgf("VM with name %s does not exist, marking migration as failed", migration.Spec.Selector.Name)
+				setMigrationFailed(migrationCopy)
+				return
+			}
+			if vm.Status.Phase != v1.Running {
+				logger.Error().Msgf("VM with name %s is in state %s, no migration possible. Marking migration as failed", vm.GetObjectMeta().GetName(), vm.Status.Phase)
+				setMigrationFailed(migrationCopy)
+				return
+			}
+
+			if err := mergeConstraints(migration, vm); err != nil {
+				logger.Error().Reason(err).Msg("merging Migration and VM placement constraints failed.")
+				queue.AddRateLimited(key)
+				return
+			}
+			podList, err := md.vmService.GetRunningVMPods(vm)
+			if err != nil {
+				logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
+				queue.AddRateLimited(key)
+				return
+			}
+
+			numOfPods, migrationPodExists := investigateTargetPodSituation(migration, podList)
+			if numOfPods > 1 && !migrationPodExists {
+				logger.Error().Reason(err).Msg("another migration seems to be in progress, marking Migration as failed")
+				// Another migration is currently going on
+				setMigrationFailed(migrationCopy)
+				return
+			} else if numOfPods == 1 && !migrationPodExists {
+				// We need to start a migration target pod
+				// TODO, this detection is not optimal, it can lead to strange situations
+				err := md.vmService.SetupMigration(migration, vm)
 				if err != nil {
-					logger.Error().Reason(err).Msg("updating migration state failed")
+					logger.Error().Reason(err).Msg("creating a migration target node failed")
 					queue.AddRateLimited(key)
 					return
 				}
 			}
+			logger.Error().Msg("another migration seems to be in progress, marking Migration as failed")
+			migrationCopy.Status.Phase = v1.MigrationInProgress
+			// TODO indicate when this has happened
+			err = md.vmService.UpdateMigration(migrationCopy)
+			if err != nil {
+				logger.Error().Reason(err).Msgf("updating migration state failed : %v ", err)
+				queue.AddRateLimited(key)
+				return
+			}
 		}
-
-		queue.Forget(key)
-		return
 	}
+
+	queue.Forget(key)
+	return
 }
 
 func copy(migration *v1.Migration) (*v1.Migration, error) {

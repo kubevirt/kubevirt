@@ -39,63 +39,74 @@ func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventR
 	return kubecli.NewController(lw, queue, &v1.Pod{}, NewJobControllerFunction(vmService, restClient))
 }
 
-func NewJobControllerFunction(vmService services.VMService, restClient *rest.RESTClient) kubecli.ControllerFunc {
-	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
-		// Fetch the latest Job state from cache
-		obj, exists, err := store.GetByKey(key.(string))
+func NewJobControllerFunction(vmService services.VMService, restClient *rest.RESTClient) kubecli.ControllerDispatch {
+	dispatch := JobDispatch{
+		restClient: restClient,
+		vmService:  vmService,
+	}
+	var vmd kubecli.ControllerDispatch = &dispatch
+	return vmd
+}
 
+type JobDispatch struct {
+	restClient *rest.RESTClient
+	vmService  services.VMService
+}
+
+func (jd *JobDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
+	// Fetch the latest Job state from cache
+	obj, exists, err := store.GetByKey(key.(string))
+
+	if err != nil {
+		queue.AddRateLimited(key)
+		return
+	}
+	if exists {
+		job := obj.(*v1.Pod)
+
+		name := job.ObjectMeta.Labels[kvirtv1.DomainLabel]
+		vm, vmExists, err := jd.vmService.FetchVM(name)
 		if err != nil {
 			queue.AddRateLimited(key)
 			return
 		}
-		if exists {
-			job := obj.(*v1.Pod)
 
-			name := job.ObjectMeta.Labels[kvirtv1.DomainLabel]
-			vm, vmExists, err := vmService.FetchVM(name)
+		// TODO at the end, only virt-handler can decide for all migration types if a VM successfully migrated to it (think about p2p2 migrations)
+		// For now we use a managed migration
+		if vmExists && vm.Status.Phase == kvirtv1.Migrating {
+			vm.Status.Phase = kvirtv1.Running
+			if job.Status.Phase == v1.PodSucceeded {
+				vm.ObjectMeta.Labels[kvirtv1.NodeNameLabel] = vm.Status.MigrationNodeName
+				vm.Status.NodeName = vm.Status.MigrationNodeName
+			}
+			vm.Status.MigrationNodeName = ""
+			_, err := putVm(vm, jd.restClient, nil)
 			if err != nil {
 				queue.AddRateLimited(key)
 				return
 			}
+		}
 
-			// TODO at the end, only virt-handler can decide for all migration types if a VM successfully migrated to it (think about p2p2 migrations)
-			// For now we use a managed migration
-			if vmExists && vm.Status.Phase == kvirtv1.Migrating {
-				vm.Status.Phase = kvirtv1.Running
+		migration, migrationExists, err := jd.vmService.FetchMigration(job.ObjectMeta.Labels[kvirtv1.MigrationLabel])
+		if err != nil {
+			queue.AddRateLimited(key)
+			return
+		}
+
+		if migrationExists {
+			if migration.Status.Phase != kvirtv1.MigrationSucceeded && migration.Status.Phase != kvirtv1.MigrationFailed {
 				if job.Status.Phase == v1.PodSucceeded {
-					vm.ObjectMeta.Labels[kvirtv1.NodeNameLabel] = vm.Status.MigrationNodeName
-					vm.Status.NodeName = vm.Status.MigrationNodeName
+					migration.Status.Phase = kvirtv1.MigrationSucceeded
+				} else {
+					migration.Status.Phase = kvirtv1.MigrationFailed
 				}
-				vm.Status.MigrationNodeName = ""
-				_, err := putVm(vm, restClient, nil)
+				err := jd.vmService.UpdateMigration(migration)
 				if err != nil {
 					queue.AddRateLimited(key)
 					return
 				}
 			}
-
-			migration, migrationExists, err := vmService.FetchMigration(job.ObjectMeta.Labels[kvirtv1.MigrationLabel])
-			if err != nil {
-				queue.AddRateLimited(key)
-				return
-			}
-
-			if migrationExists {
-				if migration.Status.Phase != kvirtv1.MigrationSucceeded && migration.Status.Phase != kvirtv1.MigrationFailed {
-					if job.Status.Phase == v1.PodSucceeded {
-						migration.Status.Phase = kvirtv1.MigrationSucceeded
-					} else {
-						migration.Status.Phase = kvirtv1.MigrationFailed
-					}
-					err := vmService.UpdateMigration(migration)
-					if err != nil {
-						queue.AddRateLimited(key)
-						return
-					}
-				}
-			}
 		}
-		return
 	}
-
+	return
 }
