@@ -43,40 +43,34 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 
 func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) kubecli.ControllerFunc {
 
-	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
-		key, quit := queue.Get()
-		if quit {
-			return false
-		}
-		defer queue.Done(key)
-
+	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
 		// Fetch the latest Vm state from cache
 		obj, exists, err := store.GetByKey(key.(string))
 
 		if err != nil {
 			queue.AddRateLimited(key)
-			return true
+			return
 		}
 
 		if !exists {
 			// Do nothing
-			return true
+			return
 		}
 		pod := obj.(*v1.Pod)
 
 		vmObj, exists, err := vmCache.GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[corev1.DomainLabel])
 		if err != nil {
 			queue.AddRateLimited(key)
-			return true
+			return
 		}
 		if !exists {
 			// Do nothing, the pod will timeout.
-			return true
+			return
 		}
 		vm := vmObj.(*corev1.VM)
 		if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.VMUIDLabel]) {
 			// Obviously the pod of an outdated VM object, do nothing
-			return true
+			return
 		}
 		// This is basically a hack, so that virt-handler can completely focus on the VM object and does not have to care about pods
 		if vm.Status.Phase == corev1.Scheduling {
@@ -96,7 +90,7 @@ func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmSe
 			if _, err := putVm(&vmCopy, restClient, queue); err != nil {
 				logger.V(3).Info().Msg("Enqueuing VM again.")
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 			logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
 		} else if _, isMigrationPod := pod.Labels[corev1.MigrationLabel]; vm.Status.Phase == corev1.Running && isMigrationPod {
@@ -107,20 +101,20 @@ func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmSe
 			if err != nil {
 				logger.Error().Reason(err).Msgf("Fetching migration %s failed.", pod.Labels[corev1.MigrationLabel])
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 			migration := obj.(*corev1.Migration)
 			if migration.Status.Phase == corev1.MigrationUnknown {
 				logger.Info().Msg("migration not yet in right state, backing off")
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 
 			obj, err = kubeapi.Scheme.Copy(vm)
 			if err != nil {
 				logger.Error().Reason(err).Msg("could not copy vm object")
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 
 			// Set target node on VM if necessary
@@ -130,7 +124,7 @@ func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmSe
 				if vmCopy, err = putVm(vmCopy, restClient, queue); err != nil {
 					logger.V(3).Info().Msg("Enqueuing VM again.")
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 			}
 
@@ -138,25 +132,25 @@ func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmSe
 			if _, exists, err := vmService.GetMigrationJob(migration); err != nil {
 				logger.Error().Reason(err).Msg("Checking for an existing migration job failed.")
 				queue.AddRateLimited(key)
-				return true
+				return
 			} else if !exists {
 				sourceNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.NodeName, metav1.GetOptions{})
 				if err != nil {
 					logger.Error().Reason(err).Msgf("Fetching source node %s failed.", vmCopy.Status.NodeName)
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 				targetNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.MigrationNodeName, metav1.GetOptions{})
 				if err != nil {
 					logger.Error().Reason(err).Msgf("Fetching target node %s failed.", vmCopy.Status.MigrationNodeName)
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 
 				if err := vmService.StartMigration(migration, vmCopy, sourceNode, targetNode, pod); err != nil {
 					logger.Error().Reason(err).Msg("Starting the migration job failed.")
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 			}
 
@@ -165,13 +159,13 @@ func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmSe
 			if vmCopy, err = putVm(vmCopy, restClient, queue); err != nil {
 				logger.V(3).Info().Msg("Enqueuing VM again.")
 				queue.AddRateLimited(key)
-				return true
+				return
 			} else if vmCopy == nil {
-				return true
+				return
 			}
 			logger.Info().Msgf("Scheduled VM migration to node %s.", vmCopy.Status.NodeName)
 		}
-		return true
+		return
 	}
 }
 

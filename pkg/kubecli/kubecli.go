@@ -142,18 +142,24 @@ func NewControllerFromInformer(indexer cache.Store, informer cache.ControllerInt
 		indexer:  indexer,
 		queue:    queue,
 		done:     make(chan struct{}),
-	}
-	c.f = func(s cache.Store, w workqueue.RateLimitingInterface) bool {
-		running := f(s, w)
-		if !running {
-			close(c.done)
-		}
-		return running
+		f:        f,
 	}
 	return indexer, c
 }
 
-type ControllerFunc func(cache.Store, workqueue.RateLimitingInterface) bool
+type ControllerFunc func(cache.Store, workqueue.RateLimitingInterface, interface{})
+
+func (c *Controller) callControllerFn(s cache.Store, w workqueue.RateLimitingInterface) bool {
+	key, quit := w.Get()
+	if quit {
+		close(c.done)
+		return false
+	} else {
+		defer w.Done(key)
+		c.f(s, w, key)
+		return true
+	}
+}
 
 func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
 	defer HandlePanic()
@@ -177,7 +183,7 @@ func (c *Controller) WaitForSync(stopCh chan struct{}) {
 }
 
 func (c *Controller) runWorker() {
-	for c.f(c.indexer, c.queue) {
+	for c.callControllerFn(c.indexer, c.queue) {
 	}
 }
 

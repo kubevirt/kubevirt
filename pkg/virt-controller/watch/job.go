@@ -40,19 +40,13 @@ func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventR
 }
 
 func NewJobControllerFunction(vmService services.VMService, restClient *rest.RESTClient) kubecli.ControllerFunc {
-	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
-		key, quit := queue.Get()
-		if quit {
-			return false
-		}
-		defer queue.Done(key)
-
+	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
 		// Fetch the latest Job state from cache
 		obj, exists, err := store.GetByKey(key.(string))
 
 		if err != nil {
 			queue.AddRateLimited(key)
-			return true
+			return
 		}
 		if exists {
 			job := obj.(*v1.Pod)
@@ -61,7 +55,7 @@ func NewJobControllerFunction(vmService services.VMService, restClient *rest.RES
 			vm, vmExists, err := vmService.FetchVM(name)
 			if err != nil {
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 
 			// TODO at the end, only virt-handler can decide for all migration types if a VM successfully migrated to it (think about p2p2 migrations)
@@ -76,14 +70,14 @@ func NewJobControllerFunction(vmService services.VMService, restClient *rest.RES
 				_, err := putVm(vm, restClient, nil)
 				if err != nil {
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 			}
 
 			migration, migrationExists, err := vmService.FetchMigration(job.ObjectMeta.Labels[kvirtv1.MigrationLabel])
 			if err != nil {
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 
 			if migrationExists {
@@ -96,11 +90,12 @@ func NewJobControllerFunction(vmService services.VMService, restClient *rest.RES
 					err := vmService.UpdateMigration(migration)
 					if err != nil {
 						queue.AddRateLimited(key)
-						return true
+						return
 					}
 				}
 			}
 		}
-		return true
+		return
 	}
+
 }

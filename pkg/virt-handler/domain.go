@@ -22,24 +22,19 @@ func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.
 }
 
 func NewDomainControllerFunc(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store) kubecli.ControllerFunc {
-	return func(indexer cache.Store, queue workqueue.RateLimitingInterface) bool {
-		key, quit := queue.Get()
-		if quit {
-			return false
-		}
-		defer queue.Done(key)
+	return func(indexer cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
 
 		obj, exists, err := indexer.GetByKey(key.(string))
 		if err != nil {
 			queue.AddRateLimited(key)
-			return true
+			return
 		}
 		var domain *virtwrap.Domain
 		if !exists {
 			_, name, err := cache.SplitMetaNamespaceKey(key.(string))
 			if err != nil {
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 			domain = virtwrap.NewDomainReferenceFromName(name)
 			logging.DefaultLogger().Info().Object(domain).Msgf("Domain deleted")
@@ -54,6 +49,6 @@ func NewDomainControllerFunc(vmQueue workqueue.RateLimitingInterface, vmStore ca
 			// The VM is not in the vm cache, or is a VM with a differend uuid, tell the VM controller to investigate it
 			vmQueue.Add(key)
 		}
-		return true
+		return
 	}
 }
