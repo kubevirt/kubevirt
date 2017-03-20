@@ -17,35 +17,32 @@ import (
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+
+	"k8s.io/client-go/tools/record"
 )
 
 var _ = Describe("VM", func() {
 	var server *ghttp.Server
-	var stopChan chan struct{}
-	var fakeWatcher *framework.FakeControllerSource
 	var vmStore cache.Store
 	var vmQueue workqueue.RateLimitingInterface
+	var domainManager *virtwrap.MockDomainManager
+
 	var ctrl *gomock.Controller
-	var mockManager *virtwrap.MockDomainManager
-	var controller *kubecli.Controller
+	var dispatch kubecli.ControllerDispatch
+
+	var recorder record.EventRecorder
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
-		stopChan = make(chan struct{})
 		server = ghttp.NewServer()
-
-		fakeWatcher = framework.NewFakeControllerSource()
-		ctrl = gomock.NewController(GinkgoT())
-		mockManager = virtwrap.NewMockDomainManager(ctrl)
+		host := ""
 
 		coreClient, err := kubecli.GetFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
@@ -53,24 +50,30 @@ var _ = Describe("VM", func() {
 		restClient, err := kubecli.GetRESTClientFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
 
-		vmStore, vmQueue, controller = NewVMController(fakeWatcher, mockManager, record.NewFakeRecorder(100), *restClient, coreClient, "master")
-		controller.StartInformer(stopChan)
-		controller.WaitForSync(stopChan)
-		go controller.Run(1, stopChan)
+		vmStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+
+		ctrl = gomock.NewController(GinkgoT())
+		domainManager = virtwrap.NewMockDomainManager(ctrl)
+
+		recorder = record.NewFakeRecorder(100)
+		dispatch = NewVMHandlerDispatch(domainManager, recorder, restClient, coreClient, host)
+
 	})
 
 	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
-		It("should kill the Domain if not cluster wide aequivalent exists", func(done Done) {
+		It("should kill the Domain if no cluster wide equivalent exists", func(done Done) {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, struct{}{}),
 				),
 			)
-			mockManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm")).Do(func(vm *v1.VM) {
+			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm")).Do(func(vm *v1.VM) {
 				close(done)
 			})
-			vmQueue.Add("default/testvm")
+
+			dispatch.Execute(vmStore, vmQueue, "default/testvm")
 		}, 1)
 		It("should leave the Domain alone if the VM is migrating to its host", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -81,14 +84,13 @@ var _ = Describe("VM", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
-			vmQueue.Add("default/testvm")
-			vmQueue.ShutDown()
-			controller.WaitUntilDone()
+			vmStore.Add(vm)
+			dispatch.Execute(vmStore, vmQueue, "default/testvm")
+
 		})
 	})
 
 	AfterEach(func() {
-		close(stopChan)
 		server.Close()
 		ctrl.Finish()
 	})

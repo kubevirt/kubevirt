@@ -11,9 +11,9 @@ import (
 	clientv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/conversion"
 	"k8s.io/client-go/pkg/util/uuid"
+	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/cache/testing"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -22,13 +22,11 @@ import (
 
 var _ = Describe("Migration", func() {
 	var server *ghttp.Server
-	var stopChan chan struct{}
-	var migrationController *kubecli.Controller
-	var lw *framework.FakeControllerSource
 	var migrationCache cache.Store
 
 	var vmService services.VMService
 	var restClient *rest.RESTClient
+	var dispatch kubecli.ControllerDispatch
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
@@ -49,16 +47,8 @@ var _ = Describe("Migration", func() {
 			&inject.Object{Value: templateService},
 		)
 		g.Populate()
-
-		stopChan = make(chan struct{})
-		lw = framework.NewFakeControllerSource()
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-
-		_, migrationController = NewMigrationControllerWithListWatch(vmService, nil, lw)
-
-		// Start the controller
-		migrationController.StartInformer(stopChan)
-		go migrationController.Run(1, stopChan)
+		dispatch = NewMigrationControllerFunc(vmService)
 	})
 
 	Context("Running Migration target Pod for a running VM given", func() {
@@ -113,12 +103,13 @@ var _ = Describe("Migration", func() {
 			)
 
 			// Tell the controller that there is a new Migration
-			lw.Add(migration)
 
-			// Wait until we have processed the added item
-			migrationController.WaitForSync(stopChan)
-			migrationController.ShutDownQueue()
-			migrationController.WaitUntilDone()
+			// Tell the controller that there is a new VM
+			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			key, _ := cache.MetaNamespaceKeyFunc(migration)
+			migrationCache.Add(migration)
+			queue.Add(key)
+			dispatch.Execute(migrationCache, queue, key)
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			close(done)
@@ -126,7 +117,6 @@ var _ = Describe("Migration", func() {
 	})
 
 	AfterEach(func() {
-		close(stopChan)
 		server.Close()
 	})
 })

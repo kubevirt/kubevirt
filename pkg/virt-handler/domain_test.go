@@ -4,60 +4,75 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/types"
+	"k8s.io/client-go/pkg/util/uuid"
 	"k8s.io/client-go/pkg/util/workqueue"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/cache/testing"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
 var _ = Describe("Domain", func() {
-	var stopChan chan struct{}
-	var fakeWatcher *framework.FakeControllerSource
+
 	var vmStore cache.Store
 	var vmQueue workqueue.RateLimitingInterface
-	var restClient rest.RESTClient
+	var migrationStore cache.Store
+	var migrationQueue workqueue.RateLimitingInterface
+	var dispatch kubecli.ControllerDispatch
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
-		stopChan = make(chan struct{})
-
-		fakeWatcher = framework.NewFakeControllerSource()
 		vmStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-		informer := cache.NewSharedInformer(fakeWatcher, &virtwrap.Domain{}, 0)
-		_, controller := NewDomainController(vmQueue, vmStore, informer, restClient)
-		controller.StartInformer(stopChan)
-		controller.WaitForSync(stopChan)
-		go controller.Run(1, stopChan)
+		dispatch = NewDomainDispatch(vmQueue, vmStore)
+
+		migrationStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	})
 
 	Context("A new domain appears on the host", func() {
 		It("should inform vm controller if no correspnding VM is in the cache", func() {
-			fakeWatcher.Add(virtwrap.NewMinimalDomain("testvm"))
+			dom := virtwrap.NewMinimalDomain("testvm")
+
+			vm := v1.NewMinimalVM("testvm")
+			vm.Status.Phase = ""
+			vm.ObjectMeta.SetUID(uuid.NewUUID())
+
+			vmStore.Add(vm)
+			key, _ := cache.MetaNamespaceKeyFunc(dom)
+			migrationStore.Add(dom)
+			migrationQueue.Add(key)
+			dispatch.Execute(migrationStore, migrationQueue, key)
+
 			Eventually(vmQueue.Len).Should(Equal(1))
 		})
 		It("should inform vm controller if a VM with a different UUID is in the cache", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.GetObjectMeta().SetUID(types.UID("uuid1"))
+			vmStore.Add(vm)
+
 			domain := virtwrap.NewMinimalDomain("testvm")
 			domain.GetObjectMeta().SetUID(types.UID("uuid2"))
-			vmStore.Add(vm)
-			fakeWatcher.Add(domain)
+			migrationStore.Add(domain)
+			key, _ := cache.MetaNamespaceKeyFunc(domain)
+			migrationQueue.Add(key)
+			dispatch.Execute(migrationStore, migrationQueue, key)
 			Eventually(vmQueue.Len).Should(Equal(1))
 		})
 		It("should not inform vm controller if a correspnding VM is in the cache", func() {
 			vmStore.Add(v1.NewMinimalVM("testvm"))
-			fakeWatcher.Add(virtwrap.NewMinimalDomain("testvm"))
+			domain := virtwrap.NewMinimalDomain("testvm")
+			migrationStore.Add(domain)
+			key, _ := cache.MetaNamespaceKeyFunc(domain)
+			migrationQueue.Add(key)
+			dispatch.Execute(migrationStore, migrationQueue, key)
 			Consistently(vmQueue.Len).Should(Equal(0))
 		})
 	})
 
 	AfterEach(func() {
-		close(stopChan)
 	})
 })

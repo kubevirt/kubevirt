@@ -11,9 +11,9 @@ import (
 	clientv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/conversion"
 	"k8s.io/client-go/pkg/util/uuid"
+	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/cache/testing"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -22,15 +22,13 @@ import (
 
 var _ = Describe("VM watcher", func() {
 	var server *ghttp.Server
-	var stopChan chan struct{}
-	var vmController *kubecli.Controller
-	var lw *framework.FakeControllerSource
 	var migrationCache cache.Store
 
 	var vmService services.VMService
 	var restClient *rest.RESTClient
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	var dispatch kubecli.ControllerDispatch
 
 	BeforeEach(func() {
 		var g inject.Graph
@@ -50,15 +48,10 @@ var _ = Describe("VM watcher", func() {
 		)
 		g.Populate()
 
-		stopChan = make(chan struct{})
-		lw = framework.NewFakeControllerSource()
+		dispatch = NewVMControllerFunc(restClient, vmService)
+
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 
-		_, vmController = NewVMControllerWithListWatch(vmService, nil, lw, restClient)
-
-		// Start the controller
-		vmController.StartInformer(stopChan)
-		go vmController.Run(1, stopChan)
 	})
 
 	Context("Creating a VM ", func() {
@@ -109,12 +102,11 @@ var _ = Describe("VM watcher", func() {
 			)
 
 			// Tell the controller that there is a new VM
-			lw.Add(vm)
-
-			// Wait until we have processed the added item
-			vmController.WaitForSync(stopChan)
-			vmController.ShutDownQueue()
-			vmController.WaitUntilDone()
+			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			key, _ := cache.MetaNamespaceKeyFunc(vm)
+			migrationCache.Add(vm)
+			queue.Add(key)
+			dispatch.Execute(migrationCache, queue, key)
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			close(done)
@@ -122,7 +114,6 @@ var _ = Describe("VM watcher", func() {
 	})
 
 	AfterEach(func() {
-		close(stopChan)
 		server.Close()
 	})
 })

@@ -20,13 +20,15 @@ into pause mode because of resource shortage or cut off connections to storage.
 func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, informer cache.SharedInformer, restClient rest.RESTClient) (cache.Store, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	informer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForQorkqueue(queue))
+	dispatch := NewDomainDispatch(vmQueue, vmStore)
+	return kubecli.NewControllerFromInformer(informer.GetStore(), informer, queue, dispatch)
+}
 
-	dispatch := DomainDispatch{
-		vmQueue:    vmQueue,
-		vmStore:    vmStore,
-		restClient: restClient,
+func NewDomainDispatch(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store) kubecli.ControllerDispatch {
+	return &DomainDispatch{
+		vmQueue: vmQueue,
+		vmStore: vmStore,
 	}
-	return kubecli.NewControllerFromInformer(informer.GetStore(), informer, queue, &dispatch)
 }
 
 type DomainDispatch struct {

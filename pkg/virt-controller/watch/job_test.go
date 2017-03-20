@@ -11,25 +11,22 @@ import (
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/cache/testing"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/util/workqueue"
 	kvirtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var _ = Describe("Migration", func() {
 	var server *ghttp.Server
-	var stopChan chan struct{}
-	var jobController *kubecli.Controller
-	var lw *framework.FakeControllerSource
 	var jobCache cache.Store
-
 	var vmService services.VMService
 	var restClient *rest.RESTClient
 	var vm *kvirtv1.VM
+	var dispatch kubecli.ControllerDispatch
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
@@ -51,19 +48,13 @@ var _ = Describe("Migration", func() {
 		)
 		g.Populate()
 
-		stopChan = make(chan struct{})
-		lw = framework.NewFakeControllerSource()
 		jobCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-
-		_, jobController = NewJobControllerWithListWatch(vmService, nil, lw, restClient)
 
 		vm = kvirtv1.NewMinimalVM("test-vm")
 		vm.Status.Phase = kvirtv1.Migrating
 		vm.GetObjectMeta().SetLabels(map[string]string{"a": "b"})
 
-		// Start the controller
-		jobController.StartInformer(stopChan)
-		go jobController.Run(1, stopChan)
+		dispatch = NewJobControllerFunction(vmService, restClient)
 	})
 
 	Context("Running job with migration labels and one success", func() {
@@ -90,16 +81,21 @@ var _ = Describe("Migration", func() {
 				handlerToUpdateTestMigration(migration),
 			)
 
-			// Tell the controller that there is a new Job
-			lw.Add(job)
-			finishController(jobController, stopChan)
+			// Tell the controller function that there is a new Job
+
+			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			key, _ := cache.MetaNamespaceKeyFunc(job)
+			jobCache.Add(job)
+			queue.Add(key)
+
+			dispatch.Execute(jobCache, queue, key)
+
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			close(done)
 		}, 10)
 	})
 
 	AfterEach(func() {
-		close(stopChan)
 		server.Close()
 	})
 })
