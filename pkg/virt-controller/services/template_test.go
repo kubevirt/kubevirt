@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/util/uuid"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 )
@@ -99,38 +100,46 @@ var _ = Describe("Template", func() {
 				}
 			})
 
-			Context("migration template with correct parameters", func() {
-				It("should never restart", func() {
-					vm := v1.NewMinimalVM("testvm")
+			Context("migration template", func() {
+				var vm *v1.VM
+				var destPod *kubev1.Pod
+				BeforeEach(func() {
+					vm = v1.NewMinimalVM("testvm")
+					vm.GetObjectMeta().SetUID(uuid.NewUUID())
+					destPod, err = svc.RenderLaunchManifest(vm)
+					Expect(err).ToNot(HaveOccurred())
+					destPod.Status.PodIP = "127.0.0.1"
+				})
+				Context("with correct parameters", func() {
 
-					job, err := svc.RenderMigrationJob(vm, &srcNodeIp, &destNodeIp)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(job.Spec.RestartPolicy).To(Equal(kubev1.RestartPolicyNever))
+					It("should never restart", func() {
+						job, err := svc.RenderMigrationJob(vm, &srcNodeIp, &destNodeIp, destPod)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(job.Spec.RestartPolicy).To(Equal(kubev1.RestartPolicyNever))
+					})
+					It("should use the first ip it finds", func() {
+						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod)
+						Expect(err).ToNot(HaveOccurred())
+						refCommand := []string{
+							"/migrate", "testvm", "--source", "qemu+tcp://127.0.0.2/system",
+							"--dest", "qemu+tcp://127.0.0.3/system",
+							"--pod-ip", "127.0.0.1"}
+						Expect(job.Spec.Containers[0].Command).To(Equal(refCommand))
+					})
 				})
-				It("should use the first ip it finds", func() {
-					vm := v1.NewMinimalVM("testvm")
-					job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode)
-					Expect(err).ToNot(HaveOccurred())
-					refCommand := []string{
-						"virsh", "-c", "qemu+tcp://127.0.0.2/system", "migrate", "--tunnelled", "--p2p", "testvm",
-						"qemu+tcp://127.0.0.3/system"}
-					Expect(job.Spec.Containers[0].Command).To(Equal(refCommand))
-				})
-			})
-			Context("migration template with incorrect parameters", func() {
-				It("should error on missing source address", func() {
-					vm := v1.NewMinimalVM("testvm")
-					srcNode.Status.Addresses = []kubev1.NodeAddress{}
-					job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode)
-					Expect(err).To(HaveOccurred())
-					Expect(job).To(BeNil())
-				})
-				It("should error on missing destination address", func() {
-					vm := v1.NewMinimalVM("testvm")
-					targetNode.Status.Addresses = []kubev1.NodeAddress{}
-					job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode)
-					Expect(err).To(HaveOccurred())
-					Expect(job).To(BeNil())
+				Context("with incorrect parameters", func() {
+					It("should error on missing source address", func() {
+						srcNode.Status.Addresses = []kubev1.NodeAddress{}
+						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod)
+						Expect(err).To(HaveOccurred())
+						Expect(job).To(BeNil())
+					})
+					It("should error on missing destination address", func() {
+						targetNode.Status.Addresses = []kubev1.NodeAddress{}
+						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod)
+						Expect(err).To(HaveOccurred())
+						Expect(job).To(BeNil())
+					})
 				})
 			})
 		})

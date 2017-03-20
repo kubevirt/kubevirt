@@ -153,7 +153,7 @@ func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmSe
 					return true
 				}
 
-				if err := vmService.StartMigration(migration, vmCopy, sourceNode, targetNode); err != nil {
+				if err := vmService.StartMigration(migration, vmCopy, sourceNode, targetNode, pod); err != nil {
 					logger.Error().Reason(err).Msg("Starting the migration job failed.")
 					queue.AddRateLimited(key)
 					return true

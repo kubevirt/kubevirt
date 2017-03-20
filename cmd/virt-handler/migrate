@@ -1,0 +1,39 @@
+#!/bin/bash
+set -e
+
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -p|--pod-ip)
+    POD_IP="$2"
+    shift
+    ;;
+    -s|--source)
+    SOURCE="$2"
+    shift
+    ;;
+    -d|--dest)
+    DEST="$2"
+    shift
+    ;;
+    *)
+      VM=$1
+    ;;
+esac
+shift
+done
+
+if [ -z $POD_IP ] || [ -z $DEST ] || [ -z $SOURCE ] || [ -z $VM ] ; then
+echo "Usage: migrate DOMAIN --source SOURCE --dest DESTINATION --pod-ip POD_IP"        
+exit 1
+fi 
+
+# Tell libvirt where qemu will listen for spice connections on the new host
+virsh -c $SOURCE dumpxml $VM > $VM.xml
+xmlstarlet ed --inplace -u  "/domain/devices/graphics[@type='spice']/@listen" -v $POD_IP $VM.xml
+xmlstarlet ed --inplace -u  "/domain/devices/graphics[@type='spice']/listen/@address" -v $POD_IP $VM.xml
+
+# Migrate
+virsh -c $SOURCE migrate --xml $VM.xml $VM $DEST tcp://$POD_IP

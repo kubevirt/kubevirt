@@ -30,7 +30,7 @@ type VMService interface {
 	UpdateMigration(migration *corev1.Migration) error
 	FetchVM(vmName string) (*corev1.VM, bool, error)
 	FetchMigration(migrationName string) (*corev1.Migration, bool, error)
-	StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error
+	StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error
 	GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error)
 }
 
@@ -161,8 +161,8 @@ func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.Po
 	return podList, nil
 }
 
-func (v *vmService) StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node) error {
-	job, err := v.TemplateService.RenderMigrationJob(vm, sourceNode, targetNode)
+func (v *vmService) StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error {
+	job, err := v.TemplateService.RenderMigrationJob(vm, sourceNode, targetNode, targetPod)
 	job.ObjectMeta.Labels[corev1.MigrationLabel] = migration.GetObjectMeta().GetName()
 	job.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
 	if err != nil {
