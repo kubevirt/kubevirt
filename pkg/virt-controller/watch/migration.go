@@ -23,7 +23,11 @@ func NewMigrationController(migrationService services.VMService, recorder record
 func NewMigrationControllerWithListWatch(migrationService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Migration{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
+	return kubecli.NewController(lw, queue, &v1.Migration{}, NewMigrationControllerFunc(migrationService))
+}
+
+func NewMigrationControllerFunc(migrationService services.VMService) kubecli.ControllerFunc {
+	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
@@ -132,7 +136,7 @@ func NewMigrationControllerWithListWatch(migrationService services.VMService, _ 
 
 		queue.Forget(key)
 		return true
-	})
+	}
 }
 
 func copy(migration *v1.Migration) (*v1.Migration, error) {

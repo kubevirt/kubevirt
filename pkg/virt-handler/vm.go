@@ -23,7 +23,12 @@ import (
 
 func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
+	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, NewVMControllerFunc(domainManager, recorder, restClient, clientset, host))
+	return indexer, queue, informer
+}
+
+func NewVMControllerFunc(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) kubecli.ControllerFunc {
+	return func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
 		key, quit := queue.Get()
 		if quit {
 			return false
@@ -118,8 +123,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 		logging.DefaultLogger().V(3).Info().Object(vm).Msg("Synchronizing the VM succeeded.")
 		queue.Forget(key)
 		return true
-	})
-	return indexer, queue, informer
+	}
 }
 
 // Almost everything in the VM object maps exactly to its domain counterpart
