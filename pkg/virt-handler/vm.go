@@ -23,18 +23,19 @@ import (
 
 func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, func(store cache.Store, queue workqueue.RateLimitingInterface) bool {
-		key, quit := queue.Get()
-		if quit {
-			return false
-		}
-		defer queue.Done(key)
+	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, NewVMControllerFunc(domainManager, recorder, restClient, clientset, host))
+	return indexer, queue, informer
+}
+
+func NewVMControllerFunc(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) kubecli.ControllerFunc {
+	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
+
 		// Fetch the latest Vm state from cache
 		obj, exists, err := store.GetByKey(key.(string))
 
 		if err != nil {
 			queue.AddRateLimited(key)
-			return true
+			return
 		}
 
 		// Retrieve the VM
@@ -44,7 +45,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 			if err != nil {
 				// TODO do something more smart here
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 			vm = v1.NewVMReferenceFromName(name)
 
@@ -56,17 +57,17 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 				if err != nil {
 					// Since there was no fetch error, this should have worked, let's back off
 					queue.AddRateLimited(key)
-					return true
+					return
 				}
 				if fetchedVM.(*v1.VM).Status.MigrationNodeName == host {
 					// OK, this VM is migrating to us, don't interrupt it
 					queue.Forget(key)
-					return true
+					return
 				}
 			} else if result.Error().(*errors.StatusError).Status().Code != int32(http.StatusNotFound) {
 				// Something went wrong, let's try again later
 				queue.AddRateLimited(key)
-				return true
+				return
 			}
 			// The VM is deleted on the cluster, let's go on with the deletion on the host
 		} else {
@@ -91,7 +92,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 					err = domainManager.SyncVM(vm)
 				} else {
 					queue.Forget(key)
-					return true
+					return
 				}
 			}
 
@@ -112,14 +113,13 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 			logging.DefaultLogger().Error().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
 			recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 			queue.AddRateLimited(key)
-			return true
+			return
 		}
 
 		logging.DefaultLogger().V(3).Info().Object(vm).Msg("Synchronizing the VM succeeded.")
 		queue.Forget(key)
-		return true
-	})
-	return indexer, queue, informer
+		return
+	}
 }
 
 // Almost everything in the VM object maps exactly to its domain counterpart
