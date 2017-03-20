@@ -93,7 +93,7 @@ var _ = Describe("VmMigration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				fetchedVM = obj.(*v1.VM)
 				return fetchedVM.Status.Phase
-			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.Migrating))
+			}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(v1.Migrating))
 
 			close(done)
 		}, 30)
