@@ -77,7 +77,7 @@ echo "$CMD" >> $LOG
 # to adher the resource limitations of the container.
 sudo -C 10000 unshare --mount bash -s << END
   nsenter -m -t $CONTAINER_PID cat /etc/resolv.conf > /etc/resolv.conf.\$\$
-  trap "{rm -rf /etc/resolv.conf.\$\$; }" EXIT
+  trap "rm -rf /etc/resolv.conf.\$\$" EXIT
   mount --bind /etc/resolv.conf.\$\$ /etc/resolv.conf
   cgclassify -g ${CGROUPS}:system.slice/docker-$CONTAINER_ID.scope --sticky \$\$ && nsenter -t $CONTAINER_PID -n -p $CMD
 END

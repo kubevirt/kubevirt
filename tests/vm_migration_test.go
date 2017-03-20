@@ -93,7 +93,7 @@ var _ = Describe("VmMigration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				fetchedVM = obj.(*v1.VM)
 				return fetchedVM.Status.Phase
-			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.Migrating))
+			}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(v1.Migrating))
 
 			close(done)
 		}, 30)
@@ -130,6 +130,14 @@ var _ = Describe("VmMigration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return jobs.Items[0].Status.Phase
 			}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(k8sv1.PodSucceeded))
+
+			// Give the pod controller some time to update the VM after successful migrations
+			Eventually(func() v1.VMPhase {
+				obj, err := restClient.Get().Resource("vms").Namespace(k8sv1.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
+				Expect(err).ToNot(HaveOccurred())
+				fetchedVM := obj.(*v1.VM)
+				return fetchedVM.Status.Phase
+			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.Running))
 
 			obj, err = restClient.Get().Resource("vms").Namespace(k8sv1.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
