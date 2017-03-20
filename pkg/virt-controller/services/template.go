@@ -13,7 +13,7 @@ import (
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VM) (*kubev1.Pod, error)
-	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node) (*kubev1.Pod, error)
+	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node, *kubev1.Pod) (*kubev1.Pod, error)
 }
 
 type templateService struct {
@@ -66,7 +66,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	return &pod, nil
 }
 
-func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node) (*kubev1.Pod, error) {
+func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod) (*kubev1.Pod, error) {
 	srcAddr := ""
 	dstAddr := ""
 	for _, addr := range sourceNode.Status.Addresses {
@@ -110,7 +110,7 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 					Name:  "virt-migration",
 					Image: "kubevirt/virt-handler:devel",
 					Command: []string{
-						"virsh", "-c", srcUri, "migrate", "--tunnelled", "--p2p", vm.Spec.Domain.Name, destUri,
+						"virsh", "-c", srcUri, "migrate", vm.Spec.Domain.Name, destUri, "tcp://" + targetPod.Status.PodIP,
 					},
 				},
 			},

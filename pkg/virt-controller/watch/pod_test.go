@@ -198,7 +198,7 @@ var _ = Describe("Pod", func() {
 			)
 
 			mockVMService.EXPECT().GetMigrationJob(gomock.Any()).Return(nil, false, nil)
-			mockVMService.EXPECT().StartMigration(gomock.Any(), gomock.Any(), &srcNode, &targetNode).Return(nil)
+			mockVMService.EXPECT().StartMigration(gomock.Any(), gomock.Any(), &srcNode, &targetNode, gomock.Any()).Return(nil)
 
 			// Tell the controller that there is a new running Pod
 			lw.Add(pod)
