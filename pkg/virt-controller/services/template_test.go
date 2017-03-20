@@ -121,8 +121,9 @@ var _ = Describe("Template", func() {
 						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod)
 						Expect(err).ToNot(HaveOccurred())
 						refCommand := []string{
-							"virsh", "-c", "qemu+tcp://127.0.0.2/system", "migrate", "testvm",
-							"qemu+tcp://127.0.0.3/system", "tcp://127.0.0.1"}
+							"/migrate", "testvm", "--source", "qemu+tcp://127.0.0.2/system",
+							"--dest", "qemu+tcp://127.0.0.3/system",
+							"--pod-ip", "127.0.0.1"}
 						Expect(job.Spec.Containers[0].Command).To(Equal(refCommand))
 					})
 				})

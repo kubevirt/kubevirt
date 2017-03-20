@@ -110,7 +110,7 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 					Name:  "virt-migration",
 					Image: "kubevirt/virt-handler:devel",
 					Command: []string{
-						"virsh", "-c", srcUri, "migrate", vm.Spec.Domain.Name, destUri, "tcp://" + targetPod.Status.PodIP,
+						"/migrate", vm.Spec.Domain.Name, "--source", srcUri, "--dest", destUri, "--pod-ip", targetPod.Status.PodIP,
 					},
 				},
 			},
