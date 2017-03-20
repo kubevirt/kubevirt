@@ -13,8 +13,6 @@ $config = Hash[*File.read('hack/config.sh').split(/=|\n/)]
 $master_ip = $config["master_ip"]
 $network_provider = $config["network_provider"]
 
-
-
 Vagrant.configure(2) do |config|
   config.vm.box = "centos7"
   config.vm.box_url = "http://cloud.centos.org/centos/7/vagrant/x86_64/images/CentOS-7-x86_64-Vagrant-1608_01.LibVirt.box"
@@ -63,6 +61,7 @@ Vagrant.configure(2) do |config|
       master.vm.provision "shell", inline: <<-SHELL
         #!/bin/bash
         set -xe
+        export ADVERTISED_MASTER_IP=#{$master_ip}
         export WITH_LOCAL_NFS=true
         export NETWORK_PROVIDER=#{$network_provider}
         cd /vagrant/cluster/vagrant
@@ -77,6 +76,7 @@ Vagrant.configure(2) do |config|
   (0..($nodes-1)).each do |suffix|
     config.vm.define "node" + suffix.to_s do |node|
         node.vm.hostname = "node" + suffix.to_s
+        node.vm.network "private_network", ip: $master_ip[0..-2] + ($master_ip[-1].to_i + 1 + suffix).to_s
         node.vm.provider :libvirt do |domain|
             domain.memory = 2048
             if $cache_docker then
@@ -87,6 +87,7 @@ Vagrant.configure(2) do |config|
         node.vm.provision "shell", inline: <<-SHELL
           #!/bin/bash
           set -xe
+          export ADVERTISED_MASTER_IP=#{$master_ip}
           cd /vagrant/cluster/vagrant
           bash setup_kubernetes_node.sh
           set +x
