@@ -29,6 +29,8 @@ kubectl -s 127.0.0.1:8080 -n kube-system get ds -l 'component=kube-proxy' -o jso
 
 if [ "$NETWORK_PROVIDER" == "weave" ]; then 
   kubectl apply -s 127.0.0.1:8080 -f https://github.com/weaveworks/weave/releases/download/v1.9.3/weave-daemonset.yaml
+elif [ "$NETWORK_PROVIDER" == "calico"]; then
+  kubectl apply -s 127.0.0.1:8080 -f http://docs.projectcalico.org/v2.0/getting-started/kubernetes/installation/hosted/kubeadm/calico.yaml
 else
   kubectl create -s 127.0.0.1:8080 -f kube-$NETWORK_PROVIDER.yaml
 fi
