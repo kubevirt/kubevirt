@@ -54,7 +54,7 @@ var _ = Describe("Migration", func() {
 		vm.Status.Phase = kvirtv1.Migrating
 		vm.GetObjectMeta().SetLabels(map[string]string{"a": "b"})
 
-		dispatch = NewJobControllerFunction(vmService, restClient)
+		dispatch = NewJobControllerDispatch(vmService, restClient)
 	})
 
 	Context("Running job with migration labels and one success", func() {

@@ -38,10 +38,10 @@ func NewPodController(vmCache cache.Store, recorder record.EventRecorder, client
 func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Pod{}, NewPodControllerFunc(vmCache, restClient, vmService, clientset))
+	return kubecli.NewController(lw, queue, &v1.Pod{}, NewPodControllerDispatch(vmCache, restClient, vmService, clientset))
 }
 
-func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) kubecli.ControllerDispatch {
+func NewPodControllerDispatch(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) kubecli.ControllerDispatch {
 	dispatch := podDispatch{
 		vmCache:    vmCache,
 		restClient: restClient,

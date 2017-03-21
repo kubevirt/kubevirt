@@ -48,7 +48,7 @@ var _ = Describe("Migration", func() {
 		)
 		g.Populate()
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		dispatch = NewMigrationControllerFunc(vmService)
+		dispatch = NewMigrationControllerDispatch(vmService)
 	})
 
 	Context("Running Migration target Pod for a running VM given", func() {

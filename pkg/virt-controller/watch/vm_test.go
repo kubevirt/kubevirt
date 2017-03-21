@@ -48,7 +48,7 @@ var _ = Describe("VM watcher", func() {
 		)
 		g.Populate()
 
-		dispatch = NewVMControllerFunc(restClient, vmService)
+		dispatch = NewVMControllerDispatch(restClient, vmService)
 
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 

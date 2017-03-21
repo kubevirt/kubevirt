@@ -25,10 +25,10 @@ func NewVMController(vmService services.VMService, recorder record.EventRecorder
 func NewVMControllerWithListWatch(vmService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.VM{}, NewVMControllerFunc(restClient, vmService))
+	return kubecli.NewController(lw, queue, &v1.VM{}, NewVMControllerDispatch(restClient, vmService))
 }
 
-func NewVMControllerFunc(restClient *rest.RESTClient, vmService services.VMService) kubecli.ControllerDispatch {
+func NewVMControllerDispatch(restClient *rest.RESTClient, vmService services.VMService) kubecli.ControllerDispatch {
 	dispatch := VMDispatch{
 		restClient: restClient,
 		vmService:  vmService,

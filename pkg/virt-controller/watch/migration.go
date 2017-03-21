@@ -23,10 +23,10 @@ func NewMigrationController(migrationService services.VMService, recorder record
 func NewMigrationControllerWithListWatch(migrationService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher) (cache.Store, *kubecli.Controller) {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Migration{}, NewMigrationControllerFunc(migrationService))
+	return kubecli.NewController(lw, queue, &v1.Migration{}, NewMigrationControllerDispatch(migrationService))
 }
 
-func NewMigrationControllerFunc(vmService services.VMService) kubecli.ControllerDispatch {
+func NewMigrationControllerDispatch(vmService services.VMService) kubecli.ControllerDispatch {
 
 	dispatch := MigrationDispatch{
 		vmService: vmService,

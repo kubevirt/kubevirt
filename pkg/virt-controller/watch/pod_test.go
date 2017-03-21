@@ -54,7 +54,7 @@ var _ = Describe("Pod", func() {
 		)
 		g.Populate()
 
-		dispatch = NewPodControllerFunc(vmCache, restClient, vmService, clientSet)
+		dispatch = NewPodControllerDispatch(vmCache, restClient, vmService, clientSet)
 
 	})
 
