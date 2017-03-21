@@ -9,6 +9,12 @@
 			"revisionTime": "2016-07-15T17:06:12Z"
 		},
 		{
+			"checksumSHA1": "7S7iBoQO6v+dOzL0hUNbBmX4LVA=",
+			"path": "github.com/containernetworking/cni/libcni",
+			"revision": "b87126377a207a00ce32bcf67ea059ab8b9f6ba6",
+			"revisionTime": "2017-03-17T02:20:40Z"
+		},
+		{
 			"checksumSHA1": "sFhTgIss9Kw8kIf2hp7ojxedznA=",
 			"path": "github.com/emicklei/go-restful",
 			"revision": "858e58f98abd32bc4d164a08e8d7ac169ae876e2",
