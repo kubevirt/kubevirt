@@ -9,10 +9,52 @@
 			"revisionTime": "2016-07-15T17:06:12Z"
 		},
 		{
-			"checksumSHA1": "7S7iBoQO6v+dOzL0hUNbBmX4LVA=",
+			"checksumSHA1": "9jnGE8j1A9mmiLQeAPIxOKxLDqA=",
 			"path": "github.com/containernetworking/cni/libcni",
-			"revision": "b87126377a207a00ce32bcf67ea059ab8b9f6ba6",
-			"revisionTime": "2017-03-17T02:20:40Z"
+			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
+			"revisionTime": "2016-09-06T03:24:42Z"
+		},
+		{
+			"checksumSHA1": "M71iHAqceG06wPm4Igejx9RiMd4=",
+			"path": "github.com/containernetworking/cni/pkg/invoke",
+			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
+			"revisionTime": "2016-09-06T03:24:42Z"
+		},
+		{
+			"checksumSHA1": "F1utsFXSpgUtjxIZK8dyT5+Hi34=",
+			"path": "github.com/containernetworking/cni/pkg/ip",
+			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
+			"revisionTime": "2016-09-06T03:24:42Z"
+		},
+		{
+			"checksumSHA1": "cMYIBmly2ZsAHW9eMNuoApscmU4=",
+			"path": "github.com/containernetworking/cni/pkg/ipam",
+			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
+			"revisionTime": "2016-09-06T03:24:42Z"
+		},
+		{
+			"checksumSHA1": "j7+0NxTDXc6RBwJB94qSB0HXJMo=",
+			"path": "github.com/containernetworking/cni/pkg/ns",
+			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
+			"revisionTime": "2016-09-06T03:24:42Z"
+		},
+		{
+			"checksumSHA1": "KbQUZQVBIgBeSVoSNoG2RqKAfbc=",
+			"path": "github.com/containernetworking/cni/pkg/skel",
+			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
+			"revisionTime": "2016-09-06T03:24:42Z"
+		},
+		{
+			"checksumSHA1": "wTR0gdDem9rhKE8Yr2tJrrA/R2U=",
+			"path": "github.com/containernetworking/cni/pkg/types",
+			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
+			"revisionTime": "2016-09-06T03:24:42Z"
+		},
+		{
+			"checksumSHA1": "1qdja4KM2KRpw9Rt6pyid36OQXA=",
+			"path": "github.com/containernetworking/cni/pkg/version",
+			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
+			"revisionTime": "2016-09-06T03:24:42Z"
 		},
 		{
 			"checksumSHA1": "sFhTgIss9Kw8kIf2hp7ojxedznA=",
@@ -305,6 +347,30 @@
 			"path": "github.com/onsi/gomega/types",
 			"revision": "d59fa0ac68bb5dd932ee8d24eed631cdd519efc3",
 			"revisionTime": "2016-09-11T05:10:23Z"
+		},
+		{
+			"checksumSHA1": "KG+jYQNOrKQzpx8sl+zbtAj4UtA=",
+			"path": "github.com/projectcalico/cni-plugin/utils",
+			"revision": "5c24144780b243cd19eed881959631290f3a1832",
+			"revisionTime": "2017-03-20T23:35:29Z"
+		},
+		{
+			"checksumSHA1": "ZV0cepCqRjJ1lxmsSgqCqn5iO+I=",
+			"path": "github.com/projectcalico/go-json/json",
+			"revision": "6219dc7339ba20ee4c57df0a8baac62317d19cb1",
+			"revisionTime": "2016-11-28T00:41:56Z"
+		},
+		{
+			"checksumSHA1": "0sk3Ro303zla8whOfq5PAY342Oc=",
+			"path": "github.com/projectcalico/go-yaml",
+			"revision": "955bc3e451ef0c9df8b9113bf2e341139cdafab2",
+			"revisionTime": "2016-12-01T18:36:16Z"
+		},
+		{
+			"checksumSHA1": "pZzXpqbupkEPnhWkYArztG85tuE=",
+			"path": "github.com/projectcalico/go-yaml-wrapper",
+			"revision": "598e54215bee41a19677faa4f0c32acd2a87eb56",
+			"revisionTime": "2016-11-27T22:05:27Z"
 		},
 		{
 			"checksumSHA1": "zmC8/3V4ls53DJlNTKDZwPSC/dA=",

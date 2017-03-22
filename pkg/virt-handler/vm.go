@@ -1,11 +1,22 @@
 package virthandler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"sort"
 	"strings"
 
+	"github.com/containernetworking/cni/libcni"
+	"github.com/containernetworking/cni/pkg/ipam"
+	"github.com/containernetworking/cni/pkg/types"
+	"github.com/coreos/rkt/networking/tuntap"
 	"github.com/jeevatkm/go-model"
+	. "github.com/projectcalico/cni-plugin/utils"
+	"github.com/projectcalico/libcalico-go/lib/api"
+	cnet "github.com/projectcalico/libcalico-go/lib/net"
+	"github.com/vishvananda/netlink"
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/errors"
@@ -89,6 +100,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 			queue.AddRateLimited(key)
 			return
 		}
+<<<<<<< 8f5c4f8e474e665696dd1a0f5d9d7b4dfbbb4ca4
 		// The VM is deleted on the cluster, let's go on with the deletion on the host
 	} else {
 		vm = obj.(*v1.VM)
@@ -98,10 +110,15 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	// Process the VM
 	if !exists {
 		// Since the VM was not in the cache, we delete it
+		DeleteInterfaces(vm, kubeapi.NamespaceDefault)
 		err = d.domainManager.KillVM(vm)
 	} else if isWorthSyncing(vm) {
 		// Synchronize the VM state
 		vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
+
+		if err == nil {
+				vm, err = MapInterfaces(vm, kubeapi.NamespaceDefault)
+		}
 
 		if err == nil {
 			// TODO check if found VM has the same UID like the domain, if not, delete the Domain first
@@ -207,6 +224,219 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 	return vmCopy, nil
 }
 
+
 func isWorthSyncing(vm *v1.VM) bool {
 	return vm.Status.Phase != v1.Succeeded && vm.Status.Phase != v1.Failed
+}
+
+// This function creates a virtual interface on the Kubernetes cluster network
+// and binds the VM to it.
+func MapInterfaces(vm *v1.VM, namespace string) (*v1.VM, error) {
+	vmCopy := &v1.VM{}
+	model.Copy(vmCopy, vm)
+
+	for idx, iface := range vmCopy.Spec.Domain.Devices.Interfaces {
+		if iface.Type == "cni" {
+			logging.DefaultLogger().V(3).Info().Object(vm).Msg("Mapping Interface")
+
+			// Load a network configuration file
+			netConfDir := os.Getenv("CNI_CONF")
+			pluginDir := os.Getenv("CNI_PATH")
+
+			files, err := libcni.ConfFiles(netConfDir)
+			switch {
+			case err != nil:
+				return vm, err
+			case len(files) == 0:
+				return vm, fmt.Errorf("No networks found in %s", netConfDir)
+			}
+			sort.Strings(files)
+			for _, file := range files {
+				conf, err := libcni.ConfFromFile(file)
+				if err != nil {
+					return vm, fmt.Errorf("Error loading CNI config file %s: %v", file, err)
+				}
+
+				logging.DefaultLogger().Object(vm).Info().Msgf("Found %s network provider", conf.Network.Type)
+
+				workload := vmCopy.Spec.Domain.Name
+				orchestrator := "k8s"
+				hostname, _ := os.Hostname()
+
+				logger := CreateContextLogger(workload)
+
+				// Get an IP address from calico-ipam
+				// Collect the result in this variable - this is ultimately what gets "returned" by this function by printing
+				// it to stdout.
+				var result *types.Result
+
+				// Set env variables to call calico-ipam
+				os.Setenv("CNI_COMMAND", "ADD")
+				os.Setenv("CNI_NETNS", "nil")
+				os.Setenv("CNI_IFNAME", "nil")
+				cniArgs := fmt.Sprintf("IgnoreUnknown=1;K8S_POD_NAMESPACE=%s;K8S_POD_NAME=%s", namespace, workload)
+				os.Setenv("CNI_ARGS", cniArgs)
+
+				result, err = ipam.ExecAdd(conf.Network.IPAM.Type, conf.Bytes)
+				if err != nil {
+					return vm, err
+				}
+				logging.DefaultLogger().Object(vm).Info().Msgf("Got result from IPAM plugin: %v", result)
+
+				cniConf := NetConf{}
+				if err := json.Unmarshal(conf.Bytes, &cniConf); err != nil {
+					return vm, fmt.Errorf("failed to load netconf: %v", err)
+				}
+
+				calicoClient, err := CreateClient(cniConf)
+				if err != nil {
+					return vm, err
+				}
+
+				// Create the endpoint object and configure it.
+				var endpoint *api.WorkloadEndpoint
+				endpoint = api.NewWorkloadEndpoint()
+				endpoint.Metadata.Name = "eth0"
+				endpoint.Metadata.Node = hostname
+				endpoint.Metadata.Orchestrator = orchestrator
+				endpoint.Metadata.Workload = workload
+				//endpoint.Metadata.Labels = labels
+
+				// Set the profileID according to whether Kubernetes policy is required.
+				// If it's not, then just use the network name (which is the normal behavior)
+				// otherwise use one based on the Kubernetes pod's Namespace.
+				if cniConf.Policy.PolicyType == "k8s" {
+					endpoint.Spec.Profiles = []string{fmt.Sprintf("k8s_ns.%s", namespace)}
+				} else {
+					endpoint.Spec.Profiles = []string{cniConf.Name}
+				}
+
+				// Populate the endpoint with the output from the IPAM plugin.
+				if err = PopulateEndpointNets(endpoint, result); err != nil {
+					// Cleanup IP allocation and return the error.
+					ReleaseIPAllocation(logger, cniConf.IPAM.Type, conf.Bytes)
+					return vm, err
+				}
+				logging.DefaultLogger().Object(vm).Info().Msgf("Populated endpoint: %v", endpoint)
+
+				// create a tap device
+				nameTemplate := fmt.Sprintf("tap-%s-%%d", vmCopy.Spec.Domain.UUID[0:8])
+				ifName, err := tuntap.CreatePersistentIface(nameTemplate, tuntap.Tap)
+				if err != nil {
+					return vm, fmt.Errorf("Failed to create a tap device: %v", err)
+				}
+
+				link, err := netlink.LinkByName(ifName)
+				if err != nil {
+					return vm, fmt.Errorf("cannot find link %q", ifName)
+				}
+				logging.DefaultLogger().Object(vm).Info().Msgf("Link(tap) %v created", link)
+
+				if err = netlink.LinkSetUp(link); err != nil {
+					return nil, fmt.Errorf("cannot set link up %q", ifName)
+				}
+
+				mac := link.Attrs().HardwareAddr
+				endpoint.Spec.MAC = &cnet.MAC{HardwareAddr: mac}
+				endpoint.Spec.InterfaceName = ifName
+				logger.WithField("endpoint", endpoint).Info("Added Mac and interface name to endpoint")
+
+				// Write the endpoint object (either the newly created one, or the updated one)
+				if _, err := calicoClient.WorkloadEndpoints().Apply(endpoint); err != nil {
+					// Cleanup IP allocation and return the error.
+					ReleaseIPAllocation(logger, cniConf.IPAM.Type, conf.Bytes)
+					return vm, err
+				}
+				logger.Info("Wrote updated endpoint to datastore")
+
+				logging.DefaultLogger().Object(vm).Info().Msgf("Mapping %s", ifName)
+				newIface := v1.Interface{}
+
+				newIface.Type = "ethernet"
+				newIface.MAC = new(v1.MAC)
+				newIface.MAC.MAC = mac.String()
+				newIface.Target = new(v1.InterfaceTarget)
+				newIface.Target.Device = ifName
+				newIface.Model = new(v1.Model)
+				newIface.Model.Type = "virtio"
+
+				vmCopy.Spec.Domain.Devices.Interfaces[idx] = newIface
+				return vmCopy, nil
+			}
+			return vm, fmt.Errorf("No %s network provider found in %s", iface.Source.Network, pluginDir)
+		}
+	}
+	return vmCopy, nil
+}
+
+func DeleteInterfaces(vm *v1.VM, namespace string) error {
+	netConfDir := os.Getenv("CNI_CONF")
+	files, err := libcni.ConfFiles(netConfDir)
+	switch {
+	case err != nil:
+		return err
+	case len(files) == 0:
+		return fmt.Errorf("No networks found in %s", netConfDir)
+	}
+	sort.Strings(files)
+	for _, file := range files {
+		conf, err := libcni.ConfFromFile(file)
+		if err != nil {
+			return fmt.Errorf("Error loading CNI config file %s: %v", file, err)
+		}
+
+		logging.DefaultLogger().Object(vm).Info().Msgf("Found %s network provider", conf.Network.Type)
+
+		// Release IP address
+		workload := vm.GetObjectMeta().GetName()
+		logging.DefaultLogger().Object(vm).Info().Msgf("VM spec when del %+v", vm.GetObjectMeta())
+		orchestrator := "k8s"
+		hostname, _ := os.Hostname()
+		os.Setenv("CNI_COMMAND", "DEL")
+		os.Setenv("CNI_NETNS", "nil")
+		os.Setenv("CNI_IFNAME", "nil")
+		cniArgs := fmt.Sprintf("IgnoreUnknown=1;K8S_POD_NAMESPACE=%s;K8S_POD_NAME=%s", namespace, workload)
+		os.Setenv("CNI_ARGS", cniArgs)
+
+		ipamErr := ipam.ExecDel(conf.Network.IPAM.Type, conf.Bytes)
+
+		if ipamErr != nil {
+			logging.DefaultLogger().Object(vm).Info().Msgf("IPAM error %v", ipamErr)
+		}
+
+		cniConf := NetConf{}
+		if err := json.Unmarshal(conf.Bytes, &cniConf); err != nil {
+			return fmt.Errorf("failed to load netconf: %v", err)
+		}
+		calicoClient, err := CreateClient(cniConf)
+		if err != nil {
+			return err
+		}
+
+		// Get tap interface name
+		endpoints, err := calicoClient.WorkloadEndpoints().List(api.WorkloadEndpointMetadata{
+			Node:         hostname,
+			Orchestrator: orchestrator,
+			Workload:     workload})
+		if err != nil {
+			return err
+		}
+
+		if len(endpoints.Items) == 1 {
+			var endpoint *api.WorkloadEndpoint
+			endpoint = &endpoints.Items[0]
+			// Delete tap interface
+			tuntap.RemovePersistentIface(endpoint.Spec.InterfaceName, tuntap.Tap)
+		}
+
+		// Delete endpoint in calico data store
+		if err := calicoClient.WorkloadEndpoints().Delete(api.WorkloadEndpointMetadata{
+			Name:         "eth0",
+			Node:         hostname,
+			Orchestrator: orchestrator,
+			Workload:     workload}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
