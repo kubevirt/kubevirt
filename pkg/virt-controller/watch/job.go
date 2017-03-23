@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func MigrationJobSelector() kubeapi.ListOptions {
+func migrationJobSelector() kubeapi.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodPending) +
 			",status.phase!=" + string(v1.PodRunning) +
@@ -28,7 +28,7 @@ func MigrationJobSelector() kubeapi.ListOptions {
 }
 
 func NewJobController(vmService services.VMService, recorder record.EventRecorder, clientSet *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
-	selector := MigrationJobSelector()
+	selector := migrationJobSelector()
 	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	return kubecli.NewController(lw, queue, &v1.Pod{}, NewJobControllerDispatch(vmService, restClient))

@@ -32,7 +32,7 @@ var _ = Describe("Migration", func() {
 	var dispatch kubecli.ControllerDispatch
 	var migration *kvirtv1.Migration
 	var job *corev1.Pod
-	var listOptions kubeapi.ListOptions = MigrationJobSelector()
+	var listOptions kubeapi.ListOptions = migrationJobSelector()
 	var jobQueue workqueue.RateLimitingInterface
 
 	doExecute := func() {

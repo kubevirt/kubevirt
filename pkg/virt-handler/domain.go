@@ -62,7 +62,7 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 		// The VM is not in the vm cache, or is a VM with a differend uuid, tell the VM controller to investigate it
 		d.vmQueue.Add(key)
 	} else {
-		err = setVmPhaseForStatusReason(domain, obj.(*v1.VM), d.restClient)
+		err := setVmPhaseForStatusReason(domain, obj.(*v1.VM), d.restClient)
 		if err != nil {
 			queue.AddRateLimited(key)
 		}
