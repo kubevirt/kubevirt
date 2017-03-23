@@ -34,9 +34,9 @@ demo environment:
 
 ```bash
     sudo dnf install vagrant vagrant-libvirt
+    sudo systemctl restart virtlogd # Work around rpm packaging bug
+    sudo systemctl restart libvirtd
 ```
-
-That's it for now with vagrant, it will be used further down.
 
 On some systems Vagrant will always ask you for your sudo password when you try
 to do something with a VM. To avoid retyping your password all the time you can
