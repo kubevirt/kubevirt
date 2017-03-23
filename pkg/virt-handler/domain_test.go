@@ -12,6 +12,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"time"
 )
 
 var _ = Describe("Domain", func() {
@@ -30,7 +31,8 @@ var _ = Describe("Domain", func() {
 		dispatch = NewDomainDispatch(vmQueue, vmStore)
 
 		migrationStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(0*time.Millisecond, 0*time.Second))
+
 	})
 
 	Context("A new domain appears on the host", func() {
@@ -71,6 +73,25 @@ var _ = Describe("Domain", func() {
 			dispatch.Execute(migrationStore, migrationQueue, key)
 			Consistently(vmQueue.Len).Should(Equal(0))
 		})
+
+		It("should error out if the key is unparsable", func() {
+			key := "a/b/c/d"
+			Expect(migrationQueue.Len()).Should(Equal(0))
+			dispatch.Execute(migrationStore, migrationQueue, key)
+			Eventually(migrationQueue.Len).Should(Equal(1))
+			Consistently(vmQueue.Len).Should(Equal(0))
+		})
+
+		It("should create not requeue even if domain reference if it is not in the cache", func() {
+			vmStore.Add(v1.NewMinimalVM("testvm"))
+			domain := virtwrap.NewMinimalDomain("testvm")
+			key, _ := cache.MetaNamespaceKeyFunc(domain)
+			Expect(migrationQueue.Len()).Should(Equal(0))
+			dispatch.Execute(migrationStore, migrationQueue, key)
+			Consistently(migrationQueue.Len).Should(Equal(0))
+			Consistently(vmQueue.Len).Should(Equal(0))
+		})
+
 	})
 
 	AfterEach(func() {

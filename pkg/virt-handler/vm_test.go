@@ -88,6 +88,12 @@ var _ = Describe("VM", func() {
 			dispatch.Execute(vmStore, vmQueue, "default/testvm")
 
 		})
+		It("should re-enqueue if the Key is unparseable", func() {
+			Expect(vmQueue.Len()).Should(Equal(0))
+			dispatch.Execute(vmStore, vmQueue, "a/b/c/d/e")
+			Eventually(vmQueue.Len).Should(Equal(1))
+		})
+
 	})
 
 	AfterEach(func() {
