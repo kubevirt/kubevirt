@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "ZKxETlJdB2XubMrZnXB0FQimVA8=",
+			"path": "github.com/Sirupsen/logrus",
+			"revision": "10f801ebc38b33738c9d17d50860f484a0988ff5",
+			"revisionTime": "2017-03-17T14:32:14Z"
+		},
+		{
 			"checksumSHA1": "CDOphCxF7dup+hBBVRpFeQhM9Jw=",
 			"path": "github.com/asaskevich/govalidator",
 			"revision": "593d64559f7600f29581a3ee42177f5dbded27a9",
@@ -51,10 +57,28 @@
 			"revisionTime": "2016-09-06T03:24:42Z"
 		},
 		{
+			"checksumSHA1": "8rJLO5vv9q+KlPwkS1mnNm9zxxY=",
+			"path": "github.com/containernetworking/cni/pkg/utils/hwaddr",
+			"revision": "0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff",
+			"revisionTime": "2017-03-22T16:47:29Z"
+		},
+		{
 			"checksumSHA1": "1qdja4KM2KRpw9Rt6pyid36OQXA=",
 			"path": "github.com/containernetworking/cni/pkg/version",
 			"revision": "07a8a28637e97b22eb8dfe710eeae1344f69d16e",
 			"revisionTime": "2016-09-06T03:24:42Z"
+		},
+		{
+			"checksumSHA1": "8s6lHDs2cnGicy0zrJW4ybIYtgI=",
+			"path": "github.com/coreos/go-iptables/iptables",
+			"revision": "5463fbac3bcc6b990663941c2e12660d19f6b36d",
+			"revisionTime": "2016-09-07T22:01:51Z"
+		},
+		{
+			"checksumSHA1": "p/xmG/9OavaNaNT++tI920qIriI=",
+			"path": "github.com/coreos/rkt/networking/tuntap",
+			"revision": "846588be077c9ee68cdc47d1f5745b322905f61c",
+			"revisionTime": "2017-03-15T15:59:46Z"
 		},
 		{
 			"checksumSHA1": "sFhTgIss9Kw8kIf2hp7ojxedznA=",
@@ -373,6 +397,24 @@
 			"revisionTime": "2016-11-27T22:05:27Z"
 		},
 		{
+			"checksumSHA1": "qMinAfqJy8VjdutrdWfuP6+NqsU=",
+			"path": "github.com/projectcalico/libcalico-go/lib/api",
+			"revision": "956d63e025dc7bab82798ca4f823dc4a41e07ff0",
+			"revisionTime": "2017-03-15T22:34:08Z"
+		},
+		{
+			"checksumSHA1": "k0uPDeqmc8skXN5pS8IqkId9srY=",
+			"path": "github.com/projectcalico/libcalico-go/lib/client",
+			"revision": "956d63e025dc7bab82798ca4f823dc4a41e07ff0",
+			"revisionTime": "2017-03-15T22:34:08Z"
+		},
+		{
+			"checksumSHA1": "2KWpuPSsNfF1etjr3MsGZvodkkw=",
+			"path": "github.com/projectcalico/libcalico-go/lib/net",
+			"revision": "956d63e025dc7bab82798ca4f823dc4a41e07ff0",
+			"revisionTime": "2017-03-15T22:34:08Z"
+		},
+		{
 			"checksumSHA1": "zmC8/3V4ls53DJlNTKDZwPSC/dA=",
 			"path": "github.com/satori/go.uuid",
 			"revision": "b061729afc07e77a8aa4fad0a2fd840958f1942a",
@@ -389,6 +431,12 @@
 			"path": "golang.org/x/crypto/ssh/terminal",
 			"revision": "459e26527287adbc2adcc5d0d49abff9a5f315a7",
 			"revisionTime": "2017-03-17T13:29:17Z"
+        },
+        {
+			"checksumSHA1": "za9USB8saUAWhTBC1InRZx8XaNQ=",
+			"path": "github.com/vishvananda/netlink",
+			"revision": "6c782366d2d5d98d4a70eea226ec10beab397af0",
+			"revisionTime": "2017-03-20T23:05:07Z"
 		},
 		{
 			"checksumSHA1": "9jjO5GjLa0XF/nfWihF02RoH4qc=",
