@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func migrationJobSelector() kubeapi.ListOptions {
+func MigrationJobSelector() kubeapi.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodPending) +
 			",status.phase!=" + string(v1.PodRunning) +
@@ -28,13 +28,8 @@ func migrationJobSelector() kubeapi.ListOptions {
 }
 
 func NewJobController(vmService services.VMService, recorder record.EventRecorder, clientSet *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
-	selector := migrationJobSelector()
+	selector := MigrationJobSelector()
 	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
-	return NewJobControllerWithListWatch(vmService, recorder, lw, restClient)
-}
-
-func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
-
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	return kubecli.NewController(lw, queue, &v1.Pod{}, NewJobControllerDispatch(vmService, restClient))
 }
@@ -55,12 +50,9 @@ type JobDispatch struct {
 
 func (jd *JobDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
 	// Fetch the latest Job state from cache
-	obj, exists, err := store.GetByKey(key.(string))
+	// Cannot return an error
+	obj, exists, _ := store.GetByKey(key.(string))
 
-	if err != nil {
-		queue.AddRateLimited(key)
-		return
-	}
 	if exists {
 		job := obj.(*v1.Pod)
 
