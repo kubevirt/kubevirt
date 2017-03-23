@@ -10,10 +10,6 @@ spec:
         daemon: virt-handler
     spec:
       hostNetwork: true
-      volumes:
-      - name: var-run-virt
-        hostPath:
-          path: /var/run/libvirt
       containers:
       - name: virt-handler
         ports:
@@ -32,10 +28,14 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
-        - name: var-run-virt
+        - name: libvirt-runtime
           mountPath: /var/run/libvirt
         env:
           - name: NODE_NAME
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+      volumes:
+      - name: libvirt-runtime
+        hostPath:
+          path: /var/run/libvirt
