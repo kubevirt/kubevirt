@@ -60,12 +60,11 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
-	defer consoleStream.Finish()
-	defer consoleStream.Free()
+	defer consoleStream.Close()
 
 	log.Info().V(3).Msg("Stream created.")
 
-	err = domain.OpenConsole(console, consoleStream.Stream, libvirt.DOMAIN_CONSOLE_FORCE)
+	err = domain.OpenConsole(console, consoleStream.UnderlyingStream(), libvirt.DOMAIN_CONSOLE_FORCE)
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
 		log.Error().Reason(err).Msg("Failed to open console.")

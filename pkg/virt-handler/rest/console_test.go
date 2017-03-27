@@ -1,0 +1,173 @@
+package rest
+
+import (
+	"bytes"
+	"github.com/emicklei/go-restful"
+	"github.com/golang/mock/gomock"
+	"github.com/gorilla/websocket"
+	"github.com/libvirt/libvirt-go"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"k8s.io/client-go/pkg/util/uuid"
+	"k8s.io/client-go/tools/record"
+	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+)
+
+var _ = Describe("Console", func() {
+	var handler http.Handler
+
+	var mockConn *virtwrap.MockConnection
+	var mockDomain *virtwrap.MockVirDomain
+	var mockStream *virtwrap.MockStream
+	var ctrl *gomock.Controller
+	var mockRecorder *record.FakeRecorder
+	var server *httptest.Server
+	var wsUrl *url.URL
+
+	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+
+	dial := func(vm string, console string) *websocket.Conn {
+		wsUrl.Scheme = "ws"
+		header := http.Header{}
+		header.Add("console", console)
+		wsUrl.Path = "/api/v1/console/" + vm
+		c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), header)
+		Expect(err).ToNot(HaveOccurred())
+		return c
+	}
+
+	get := func(vm string) (*http.Response, error) {
+		wsUrl.Scheme = "http"
+		wsUrl.Path = "/api/v1/console/" + vm
+		return http.DefaultClient.Get(wsUrl.String())
+	}
+
+	BeforeEach(func() {
+		var err error
+		// Set up mocks
+		ctrl = gomock.NewController(GinkgoT())
+		mockConn = virtwrap.NewMockConnection(ctrl)
+		mockDomain = virtwrap.NewMockVirDomain(ctrl)
+		mockStream = virtwrap.NewMockStream(ctrl)
+		mockRecorder = record.NewFakeRecorder(10)
+
+		// Set up web service
+		ws := new(restful.WebService)
+		handler = http.Handler(restful.NewContainer().Add(ws))
+
+		ws.Route(ws.GET("/api/v1/console/{name}").To(NewConsoleResource(mockConn).Console))
+		server = httptest.NewServer(handler)
+		wsUrl, err = url.Parse(server.URL)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should return 404 if VM does not exist", func() {
+		mockConn.EXPECT().LookupDomainByName("testvm").Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+		r, err := get("testvm")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.StatusCode).To(Equal(http.StatusNotFound))
+	})
+	It("should return 500 if domain can't be looked up", func() {
+		mockConn.EXPECT().LookupDomainByName("testvm").Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+		r, err := get("testvm")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
+	})
+	It("should return 500 if uid of domain can't be looked up", func() {
+		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+		mockDomain.EXPECT().GetUUIDString().Return("", libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+		r, err := get("testvm")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
+	})
+	It("should return 500 if creating a stream fails", func() {
+		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+		mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+		mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+		r, err := get("testvm")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
+	})
+	It("should return 500 if opening a console connection fails", func() {
+		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+		mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+		mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
+		stream := &libvirt.Stream{}
+		mockStream.EXPECT().UnderlyingStream().Return(stream)
+		mockStream.EXPECT().Close()
+		mockDomain.EXPECT().OpenConsole("", stream, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+		r, err := get("testvm")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
+	})
+	It("should return 400 if ws upgrade does not work", func() {
+		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+		mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+		mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
+		stream := &libvirt.Stream{}
+		mockStream.EXPECT().UnderlyingStream().Return(stream)
+		mockStream.EXPECT().Close()
+		mockDomain.EXPECT().OpenConsole("", stream, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(nil)
+		r, err := get("testvm")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.StatusCode).To(Equal(http.StatusBadRequest))
+	})
+	It("should proxy websocket traffic", func() {
+
+		var in []byte
+		var out []byte
+		inBuf := bytes.NewBuffer(in)
+		outBuf := bytes.NewBuffer(out)
+		outBuf.WriteString("hello client!")
+		stream := &fakeStream{in: inBuf, out: outBuf, s: &libvirt.Stream{}}
+
+		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+		mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+		mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(stream, nil)
+		mockDomain.EXPECT().OpenConsole("console0", stream.s, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(nil)
+
+		con := dial("testvm", "console0")
+		defer con.Close()
+		err := con.WriteMessage(websocket.TextMessage, []byte("hello console!"))
+		Expect(err).ToNot(HaveOccurred())
+
+		// FIXME, there is somewhere a buffer or timeout which delays the actual send
+		// Eventually(inBuf.String).Should(Equal("hello console!"))
+
+		t, body, err := con.ReadMessage()
+		Expect(t).To(Equal(websocket.TextMessage))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(body).To(Equal([]byte("hello client!")))
+	})
+
+	AfterEach(func() {
+		ctrl.Finish()
+		server.Close()
+	})
+})
+
+type fakeStream struct {
+	in  *bytes.Buffer
+	out *bytes.Buffer
+	s   *libvirt.Stream
+}
+
+func (s *fakeStream) Write(p []byte) (n int, err error) {
+	return s.in.Write(p)
+}
+
+func (s *fakeStream) Read(p []byte) (n int, err error) {
+	return s.out.Read(p)
+}
+
+func (s *fakeStream) Close() (e error) {
+	return nil
+}
+
+func (s *fakeStream) UnderlyingStream() *libvirt.Stream {
+	return s.s
+}
