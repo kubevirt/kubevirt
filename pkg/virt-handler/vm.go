@@ -2,6 +2,7 @@ package virthandler
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/jeevatkm/go-model"
@@ -18,108 +19,123 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	"net/http"
 )
 
 func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, NewVMControllerFunc(domainManager, recorder, restClient, clientset, host))
+
+	dispatch := VMHandlerDispatch{
+		domainManager: domainManager,
+		recorder:      recorder,
+		restClient:    restClient,
+		clientset:     clientset,
+		host:          host,
+	}
+
+	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, &dispatch)
 	return indexer, queue, informer
+
 }
 
-func NewVMControllerFunc(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) kubecli.ControllerFunc {
-	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
+type VMHandlerDispatch struct {
+	domainManager virtwrap.DomainManager
+	recorder      record.EventRecorder
+	restClient    rest.RESTClient
+	clientset     *kubernetes.Clientset
+	host          string
+}
 
-		// Fetch the latest Vm state from cache
-		obj, exists, err := store.GetByKey(key.(string))
+func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
 
-		if err != nil {
-			queue.AddRateLimited(key)
-			return
-		}
+	// Fetch the latest Vm state from cache
+	obj, exists, err := store.GetByKey(key.(string))
 
-		// Retrieve the VM
-		var vm *v1.VM
-		if !exists {
-			_, name, err := cache.SplitMetaNamespaceKey(key.(string))
-			if err != nil {
-				// TODO do something more smart here
-				queue.AddRateLimited(key)
-				return
-			}
-			vm = v1.NewVMReferenceFromName(name)
-
-			// If we don't have the VM in the cache, it could be that it is currently migrating to us
-			result := restClient.Get().Name(vm.GetObjectMeta().GetName()).Resource("vms").Namespace(kubeapi.NamespaceDefault).Do()
-			if result.Error() == nil {
-				// So the VM still seems to exist
-				fetchedVM, err := result.Get()
-				if err != nil {
-					// Since there was no fetch error, this should have worked, let's back off
-					queue.AddRateLimited(key)
-					return
-				}
-				if fetchedVM.(*v1.VM).Status.MigrationNodeName == host {
-					// OK, this VM is migrating to us, don't interrupt it
-					queue.Forget(key)
-					return
-				}
-			} else if result.Error().(*errors.StatusError).Status().Code != int32(http.StatusNotFound) {
-				// Something went wrong, let's try again later
-				queue.AddRateLimited(key)
-				return
-			}
-			// The VM is deleted on the cluster, let's go on with the deletion on the host
-		} else {
-			vm = obj.(*v1.VM)
-		}
-		logging.DefaultLogger().V(3).Info().Object(vm).Msg("Processing VM update.")
-
-		// Process the VM
-		if !exists {
-			// Since the VM was not in the cache, we delete it
-			err = domainManager.KillVM(vm)
-		} else {
-			// Synchronize the VM state
-			vm, err = MapPersistentVolumes(vm, clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
-
-			if err == nil {
-				// TODO check if found VM has the same UID like the domain, if not, delete the Domain first
-
-				// Only sync if the VM is not marked as migrating. Everything except shutting down the VM is not permitted when it is migrating.
-				// TODO MigrationNodeName should be a pointer
-				if vm.Status.MigrationNodeName == "" {
-					err = domainManager.SyncVM(vm)
-				} else {
-					queue.Forget(key)
-					return
-				}
-			}
-
-			// Update VM status to running
-			if err == nil && vm.Status.Phase != v1.Running {
-				obj, err = kubeapi.Scheme.Copy(vm)
-				if err == nil {
-					vm = obj.(*v1.VM)
-					vm.Status.Phase = v1.Running
-					err = restClient.Put().Resource("vms").Body(vm).
-						Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
-				}
-			}
-		}
-
-		if err != nil {
-			// Something went wrong, reenqueue the item with a delay
-			logging.DefaultLogger().Error().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
-			recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
-			queue.AddRateLimited(key)
-			return
-		}
-
-		logging.DefaultLogger().V(3).Info().Object(vm).Msg("Synchronizing the VM succeeded.")
-		queue.Forget(key)
+	if err != nil {
+		queue.AddRateLimited(key)
 		return
 	}
+
+	// Retrieve the VM
+	var vm *v1.VM
+	if !exists {
+		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
+		if err != nil {
+			// TODO do something more smart here
+			queue.AddRateLimited(key)
+			return
+		}
+		vm = v1.NewVMReferenceFromName(name)
+
+		// If we don't have the VM in the cache, it could be that it is currently migrating to us
+		result := d.restClient.Get().Name(vm.GetObjectMeta().GetName()).Resource("vms").Namespace(kubeapi.NamespaceDefault).Do()
+		if result.Error() == nil {
+			// So the VM still seems to exist
+			fetchedVM, err := result.Get()
+			if err != nil {
+				// Since there was no fetch error, this should have worked, let's back off
+				queue.AddRateLimited(key)
+				return
+			}
+			if fetchedVM.(*v1.VM).Status.MigrationNodeName == d.host {
+				// OK, this VM is migrating to us, don't interrupt it
+				queue.Forget(key)
+				return
+			}
+		} else if result.Error().(*errors.StatusError).Status().Code != int32(http.StatusNotFound) {
+			// Something went wrong, let's try again later
+			queue.AddRateLimited(key)
+			return
+		}
+		// The VM is deleted on the cluster, let's go on with the deletion on the host
+	} else {
+		vm = obj.(*v1.VM)
+	}
+	logging.DefaultLogger().V(3).Info().Object(vm).Msg("Processing VM update.")
+
+	// Process the VM
+	if !exists {
+		// Since the VM was not in the cache, we delete it
+		err = d.domainManager.KillVM(vm)
+	} else {
+		// Synchronize the VM state
+		vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
+
+		if err == nil {
+			// TODO check if found VM has the same UID like the domain, if not, delete the Domain first
+
+			// Only sync if the VM is not marked as migrating. Everything except shutting down the VM is not permitted when it is migrating.
+			// TODO MigrationNodeName should be a pointer
+			if vm.Status.MigrationNodeName == "" {
+				err = d.domainManager.SyncVM(vm)
+			} else {
+				queue.Forget(key)
+				return
+			}
+		}
+
+		// Update VM status to running
+		if err == nil && vm.Status.Phase != v1.Running {
+			obj, err = kubeapi.Scheme.Copy(vm)
+			if err == nil {
+				vm = obj.(*v1.VM)
+				vm.Status.Phase = v1.Running
+				err = d.restClient.Put().Resource("vms").Body(vm).
+					Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
+			}
+		}
+	}
+
+	if err != nil {
+		// Something went wrong, reenqueue the item with a delay
+		logging.DefaultLogger().Error().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
+		d.recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
+		queue.AddRateLimited(key)
+		return
+	}
+
+	logging.DefaultLogger().V(3).Info().Object(vm).Msg("Synchronizing the VM succeeded.")
+	queue.Forget(key)
+	return
 }
 
 // Almost everything in the VM object maps exactly to its domain counterpart

@@ -41,132 +41,146 @@ func NewPodControllerWithListWatch(vmCache cache.Store, _ record.EventRecorder, 
 	return kubecli.NewController(lw, queue, &v1.Pod{}, NewPodControllerFunc(vmCache, restClient, vmService, clientset))
 }
 
-func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) kubecli.ControllerFunc {
+func NewPodControllerFunc(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) kubecli.ControllerDispatch {
+	dispatch := podDispatch{
+		vmCache:    vmCache,
+		restClient: restClient,
+		vmService:  vmService,
+		clientset:  clientset,
+	}
+	return &dispatch
+}
 
-	return func(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
-		// Fetch the latest Vm state from cache
-		obj, exists, err := store.GetByKey(key.(string))
+type podDispatch struct {
+	vmCache    cache.Store
+	restClient *rest.RESTClient
+	vmService  services.VMService
+	clientset  *kubernetes.Clientset
+}
 
-		if err != nil {
-			queue.AddRateLimited(key)
-			return
-		}
+func (pd *podDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
+	// Fetch the latest Vm state from cache
+	obj, exists, err := store.GetByKey(key.(string))
 
-		if !exists {
-			// Do nothing
-			return
-		}
-		pod := obj.(*v1.Pod)
-
-		vmObj, exists, err := vmCache.GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[corev1.DomainLabel])
-		if err != nil {
-			queue.AddRateLimited(key)
-			return
-		}
-		if !exists {
-			// Do nothing, the pod will timeout.
-			return
-		}
-		vm := vmObj.(*corev1.VM)
-		if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.VMUIDLabel]) {
-			// Obviously the pod of an outdated VM object, do nothing
-			return
-		}
-		// This is basically a hack, so that virt-handler can completely focus on the VM object and does not have to care about pods
-		if vm.Status.Phase == corev1.Scheduling {
-			// deep copy the VM to allow manipulations
-			vmCopy := corev1.VM{}
-			model.Copy(&vmCopy, vm)
-
-			vmCopy.Status.Phase = corev1.Pending
-			// FIXME we store this in the metadata since field selctors are currently not working for TPRs
-			if vmCopy.GetObjectMeta().GetLabels() == nil {
-				vmCopy.ObjectMeta.Labels = map[string]string{}
-			}
-			vmCopy.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
-			vmCopy.Status.NodeName = pod.Spec.NodeName
-			// Update the VM
-			logger := logging.DefaultLogger()
-			if _, err := putVm(&vmCopy, restClient, queue); err != nil {
-				logger.V(3).Info().Msg("Enqueuing VM again.")
-				queue.AddRateLimited(key)
-				return
-			}
-			logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
-		} else if _, isMigrationPod := pod.Labels[corev1.MigrationLabel]; vm.Status.Phase == corev1.Running && isMigrationPod {
-			logger := logging.DefaultLogger()
-
-			// Get associated migration
-			obj, err := restClient.Get().Resource("migrations").Namespace(v1.NamespaceDefault).Name(pod.Labels[corev1.MigrationLabel]).Do().Get()
-			if err != nil {
-				logger.Error().Reason(err).Msgf("Fetching migration %s failed.", pod.Labels[corev1.MigrationLabel])
-				queue.AddRateLimited(key)
-				return
-			}
-			migration := obj.(*corev1.Migration)
-			if migration.Status.Phase == corev1.MigrationUnknown {
-				logger.Info().Msg("migration not yet in right state, backing off")
-				queue.AddRateLimited(key)
-				return
-			}
-
-			obj, err = kubeapi.Scheme.Copy(vm)
-			if err != nil {
-				logger.Error().Reason(err).Msg("could not copy vm object")
-				queue.AddRateLimited(key)
-				return
-			}
-
-			// Set target node on VM if necessary
-			vmCopy := obj.(*corev1.VM)
-			if vmCopy.Status.MigrationNodeName != pod.Spec.NodeName {
-				vmCopy.Status.MigrationNodeName = pod.Spec.NodeName
-				if vmCopy, err = putVm(vmCopy, restClient, queue); err != nil {
-					logger.V(3).Info().Msg("Enqueuing VM again.")
-					queue.AddRateLimited(key)
-					return
-				}
-			}
-
-			// Let's check if the job already exists, it can already exist in case we could not update the VM object in a previous run
-			if _, exists, err := vmService.GetMigrationJob(migration); err != nil {
-				logger.Error().Reason(err).Msg("Checking for an existing migration job failed.")
-				queue.AddRateLimited(key)
-				return
-			} else if !exists {
-				sourceNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.NodeName, metav1.GetOptions{})
-				if err != nil {
-					logger.Error().Reason(err).Msgf("Fetching source node %s failed.", vmCopy.Status.NodeName)
-					queue.AddRateLimited(key)
-					return
-				}
-				targetNode, err := clientset.CoreV1().Nodes().Get(vmCopy.Status.MigrationNodeName, metav1.GetOptions{})
-				if err != nil {
-					logger.Error().Reason(err).Msgf("Fetching target node %s failed.", vmCopy.Status.MigrationNodeName)
-					queue.AddRateLimited(key)
-					return
-				}
-
-				if err := vmService.StartMigration(migration, vmCopy, sourceNode, targetNode, pod); err != nil {
-					logger.Error().Reason(err).Msg("Starting the migration job failed.")
-					queue.AddRateLimited(key)
-					return
-				}
-			}
-
-			// Update VM phase after successfull job creation to migrating
-			vmCopy.Status.Phase = corev1.Migrating
-			if vmCopy, err = putVm(vmCopy, restClient, queue); err != nil {
-				logger.V(3).Info().Msg("Enqueuing VM again.")
-				queue.AddRateLimited(key)
-				return
-			} else if vmCopy == nil {
-				return
-			}
-			logger.Info().Msgf("Scheduled VM migration to node %s.", vmCopy.Status.NodeName)
-		}
+	if err != nil {
+		queue.AddRateLimited(key)
 		return
 	}
+
+	if !exists {
+		// Do nothing
+		return
+	}
+	pod := obj.(*v1.Pod)
+
+	vmObj, exists, err := pd.vmCache.GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[corev1.DomainLabel])
+	if err != nil {
+		queue.AddRateLimited(key)
+		return
+	}
+	if !exists {
+		// Do nothing, the pod will timeout.
+		return
+	}
+	vm := vmObj.(*corev1.VM)
+	if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[corev1.VMUIDLabel]) {
+		// Obviously the pod of an outdated VM object, do nothing
+		return
+	}
+	// This is basically a hack, so that virt-handler can completely focus on the VM object and does not have to care about pods
+	if vm.Status.Phase == corev1.Scheduling {
+		// deep copy the VM to allow manipulations
+		vmCopy := corev1.VM{}
+		model.Copy(&vmCopy, vm)
+
+		vmCopy.Status.Phase = corev1.Pending
+		// FIXME we store this in the metadata since field selctors are currently not working for TPRs
+		if vmCopy.GetObjectMeta().GetLabels() == nil {
+			vmCopy.ObjectMeta.Labels = map[string]string{}
+		}
+		vmCopy.ObjectMeta.Labels[corev1.NodeNameLabel] = pod.Spec.NodeName
+		vmCopy.Status.NodeName = pod.Spec.NodeName
+		// Update the VM
+		logger := logging.DefaultLogger()
+		if _, err := putVm(&vmCopy, pd.restClient, queue); err != nil {
+			logger.V(3).Info().Msg("Enqueuing VM again.")
+			queue.AddRateLimited(key)
+			return
+		}
+		logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
+	} else if _, isMigrationPod := pod.Labels[corev1.MigrationLabel]; vm.Status.Phase == corev1.Running && isMigrationPod {
+		logger := logging.DefaultLogger()
+
+		// Get associated migration
+		obj, err := pd.restClient.Get().Resource("migrations").Namespace(v1.NamespaceDefault).Name(pod.Labels[corev1.MigrationLabel]).Do().Get()
+		if err != nil {
+			logger.Error().Reason(err).Msgf("Fetching migration %s failed.", pod.Labels[corev1.MigrationLabel])
+			queue.AddRateLimited(key)
+			return
+		}
+		migration := obj.(*corev1.Migration)
+		if migration.Status.Phase == corev1.MigrationUnknown {
+			logger.Info().Msg("migration not yet in right state, backing off")
+			queue.AddRateLimited(key)
+			return
+		}
+
+		obj, err = kubeapi.Scheme.Copy(vm)
+		if err != nil {
+			logger.Error().Reason(err).Msg("could not copy vm object")
+			queue.AddRateLimited(key)
+			return
+		}
+
+		// Set target node on VM if necessary
+		vmCopy := obj.(*corev1.VM)
+		if vmCopy.Status.MigrationNodeName != pod.Spec.NodeName {
+			vmCopy.Status.MigrationNodeName = pod.Spec.NodeName
+			if vmCopy, err = putVm(vmCopy, pd.restClient, queue); err != nil {
+				logger.V(3).Info().Msg("Enqueuing VM again.")
+				queue.AddRateLimited(key)
+				return
+			}
+		}
+
+		// Let's check if the job already exists, it can already exist in case we could not update the VM object in a previous run
+		if _, exists, err := pd.vmService.GetMigrationJob(migration); err != nil {
+			logger.Error().Reason(err).Msg("Checking for an existing migration job failed.")
+			queue.AddRateLimited(key)
+			return
+		} else if !exists {
+			sourceNode, err := pd.clientset.CoreV1().Nodes().Get(vmCopy.Status.NodeName, metav1.GetOptions{})
+			if err != nil {
+				logger.Error().Reason(err).Msgf("Fetching source node %s failed.", vmCopy.Status.NodeName)
+				queue.AddRateLimited(key)
+				return
+			}
+			targetNode, err := pd.clientset.CoreV1().Nodes().Get(vmCopy.Status.MigrationNodeName, metav1.GetOptions{})
+			if err != nil {
+				logger.Error().Reason(err).Msgf("Fetching target node %s failed.", vmCopy.Status.MigrationNodeName)
+				queue.AddRateLimited(key)
+				return
+			}
+
+			if err := pd.vmService.StartMigration(migration, vmCopy, sourceNode, targetNode, pod); err != nil {
+				logger.Error().Reason(err).Msg("Starting the migration job failed.")
+				queue.AddRateLimited(key)
+				return
+			}
+		}
+
+		// Update VM phase after successfull job creation to migrating
+		vmCopy.Status.Phase = corev1.Migrating
+		if vmCopy, err = putVm(vmCopy, pd.restClient, queue); err != nil {
+			logger.V(3).Info().Msg("Enqueuing VM again.")
+			queue.AddRateLimited(key)
+			return
+		} else if vmCopy == nil {
+			return
+		}
+		logger.Info().Msgf("Scheduled VM migration to node %s.", vmCopy.Status.NodeName)
+	}
+	return
 }
 
 // synchronously put updated VM object to API server.

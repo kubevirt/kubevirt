@@ -180,6 +180,8 @@ type VMPhase string
 
 // These are the valid statuses of pods.
 const (
+	//When a VM Object is first initialized and no phase has been set.
+	VmPhaseUnset VMPhase = ""
 	// VMPending means the VM has been accepted by the system.
 	// Either a target pod does not yet exist or a target Pod exists but is not yet scheduled and in running state.
 	Scheduling VMPhase = "Scheduling"
