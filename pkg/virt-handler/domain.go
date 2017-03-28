@@ -52,7 +52,7 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 		logging.DefaultLogger().Info().Object(domain).Msgf("Domain deleted")
 	} else {
 		domain = obj.(*virtwrap.Domain)
-		logging.DefaultLogger().Info().Object(domain).Msgf("Domain is in state %s", domain.Status.Status)
+		logging.DefaultLogger().Info().Object(domain).Msgf("Domain is in state %s reason %s", domain.Status.Status, domain.Status.Reason)
 	}
 	obj, vmExists, err := d.vmStore.GetByKey(key.(string))
 	if err != nil {
