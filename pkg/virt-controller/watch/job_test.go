@@ -34,13 +34,14 @@ var _ = Describe("Migration", func() {
 	var job *corev1.Pod
 	var listOptions kubeapi.ListOptions = migrationJobSelector()
 	var jobQueue workqueue.RateLimitingInterface
+	var jobKey interface{}
 
 	doExecute := func() {
 		// Tell the controller function that there is a new Job
-		key, _ := cache.MetaNamespaceKeyFunc(job)
+		jobKey, _ = cache.MetaNamespaceKeyFunc(job)
 		jobCache.Add(job)
-		jobQueue.Add(key)
-		dispatch.Execute(jobCache, jobQueue, key)
+		jobQueue.Add(jobKey)
+		dispatch.Execute(jobCache, jobQueue, jobKey)
 	}
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
@@ -122,7 +123,7 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			Eventually(jobQueue.Len()).Should(Equal(1))
+			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -136,7 +137,7 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Eventually(jobQueue.Len()).Should(Equal(1))
+			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -151,7 +152,7 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Eventually(jobQueue.Len()).Should(Equal(1))
+			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -167,7 +168,7 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
-			Eventually(jobQueue.Len()).Should(Equal(1))
+			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -185,7 +186,7 @@ var _ = Describe("Migration", func() {
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			close(done)
-		}, 1000)
+		}, 10)
 
 	})
 

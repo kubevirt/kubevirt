@@ -161,9 +161,9 @@ func mergeConstraints(migration *v1.Migration, vm *v1.VM) error {
 			merged[k] = v
 		}
 	}
-	vm.Spec.NodeSelector = merged
 	if len(conflicts) > 0 {
 		return fmt.Errorf("Conflicting node selectors: %v", conflicts)
 	}
+	vm.Spec.NodeSelector = merged
 	return nil
 }

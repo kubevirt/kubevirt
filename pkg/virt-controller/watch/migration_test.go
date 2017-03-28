@@ -28,11 +28,12 @@ var _ = Describe("Migration", func() {
 	var vmService services.VMService
 	var restClient *rest.RESTClient
 	var dispatch kubecli.ControllerDispatch
-	var queue workqueue.RateLimitingInterface
+	var migrationQueue workqueue.RateLimitingInterface
 	var migration *v1.Migration
 	var vm *v1.VM
 	var pod *clientv1.Pod
 	var podList clientv1.PodList
+	var migrationKey interface{}
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
@@ -55,7 +56,7 @@ var _ = Describe("Migration", func() {
 		g.Populate()
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		dispatch = NewMigrationControllerDispatch(vmService)
-		queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 		// Create a VM which is being scheduled
 
@@ -83,10 +84,8 @@ var _ = Describe("Migration", func() {
 	})
 
 	doExecute := func() {
-		key, _ := cache.MetaNamespaceKeyFunc(migration)
-		queue.Add(key)
-		dispatch.Execute(migrationCache, queue, key)
-
+		migrationKey, _ = cache.MetaNamespaceKeyFunc(migration)
+		dispatch.Execute(migrationCache, migrationQueue, migrationKey)
 	}
 
 	buildExpectedVM := func(phase v1.VMPhase) *v1.VM {
@@ -139,6 +138,8 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+
 			close(done)
 		}, 10)
 
@@ -151,7 +152,7 @@ var _ = Describe("Migration", func() {
 			migrationCache.Add(migration)
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -165,7 +166,7 @@ var _ = Describe("Migration", func() {
 			migrationCache.Add(migration)
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -179,6 +180,7 @@ var _ = Describe("Migration", func() {
 			migrationCache.Add(migration)
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 			close(done)
 		}, 10)
 
@@ -192,11 +194,11 @@ var _ = Describe("Migration", func() {
 			migrationCache.Add(migration)
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
-		It("Should mark Migation failed if VM not running ", func(done Done) {
+		It("Should mark Migration failed if VM not running ", func(done Done) {
 			// Register the expected REST call
 			server.AppendHandlers(
 				handleGetTestVM(buildExpectedVM(v1.Pending)),
@@ -205,6 +207,7 @@ var _ = Describe("Migration", func() {
 			migrationCache.Add(migration)
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 			close(done)
 		}, 10)
 
@@ -217,7 +220,7 @@ var _ = Describe("Migration", func() {
 			migrationCache.Add(migration)
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -235,11 +238,11 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
-		It("should fail if confliciting VM and Migration have conflicting Node Selectors", func(done Done) {
+		It("should fail if conflicting VM and Migration have conflicting Node Selectors", func(done Done) {
 			vm := buildExpectedVM(v1.Running)
 			vm.Spec.NodeSelector = map[string]string{"beta.kubernetes.io/arch": "i386"}
 
@@ -252,7 +255,7 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -270,7 +273,7 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -289,11 +292,11 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 			close(done)
 		}, 10)
 
-		It("should requeue another migration is in process and migration update fails.", func(done Done) {
+		It("should requeue if another migration is in process and migration update fails.", func(done Done) {
 
 			unmatchedPodList := clientv1.PodList{}
 			unmatchedPodList.Items = []clientv1.Pod{mockPod(1, "bogus"), mockPod(2, "bogus")}
@@ -308,7 +311,8 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+
 			close(done)
 		}, 10)
 
@@ -333,7 +337,8 @@ var _ = Describe("Migration", func() {
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Eventually(queue.Len()).Should(Equal(1))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+
 			close(done)
 		}, 10)
 

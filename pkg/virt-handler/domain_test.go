@@ -1,18 +1,20 @@
 package virthandler_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/util/uuid"
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	"time"
 )
 
 var _ = Describe("Domain", func() {
@@ -82,7 +84,7 @@ var _ = Describe("Domain", func() {
 			Consistently(vmQueue.Len).Should(Equal(0))
 		})
 
-		It("should create not requeue even if domain reference if it is not in the cache", func() {
+		It("should not requeue even if domain reference if migration is not in the cache", func() {
 			vmStore.Add(v1.NewMinimalVM("testvm"))
 			domain := virtwrap.NewMinimalDomain("testvm")
 			key, _ := cache.MetaNamespaceKeyFunc(domain)
