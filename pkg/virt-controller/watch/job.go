@@ -49,10 +49,11 @@ type JobDispatch struct {
 }
 
 func (jd *JobDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
-	// Fetch the latest Job state from cache
-	// Cannot return an error
-	obj, exists, _ := store.GetByKey(key.(string))
-
+	obj, exists, err := store.GetByKey(key.(string))
+	if err != nil {
+		queue.AddRateLimited(key)
+		return
+	}
 	if exists {
 		job := obj.(*v1.Pod)
 

@@ -38,9 +38,11 @@ type DomainDispatch struct {
 }
 
 func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
-	obj, exists, _ := indexer.GetByKey(key.(string))
-	// GetByKey can never return anything but nil for the error
-	// leading to untestable code.  Error check has been removed
+	obj, exists, err := indexer.GetByKey(key.(string))
+	if err != nil {
+		queue.AddRateLimited(key)
+		return
+	}
 
 	var domain *virtwrap.Domain
 	if !exists {
@@ -55,9 +57,11 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 		domain = obj.(*virtwrap.Domain)
 		logging.DefaultLogger().Info().Object(domain).Msgf("Domain is in state %s reason %s", domain.Status.Status, domain.Status.Reason)
 	}
-	obj, vmExists, _ := d.vmStore.GetByKey(key.(string))
-	// GetByKey cannot return an error, leading the error handling code
-	// To go untested.  Removed.
+	obj, vmExists, err := d.vmStore.GetByKey(key.(string))
+	if err != nil {
+		queue.AddRateLimited(key)
+		return
+	}
 	if !vmExists || obj.(*v1.VM).GetObjectMeta().GetUID() != domain.GetObjectMeta().GetUID() {
 		// The VM is not in the vm cache, or is a VM with a differend uuid, tell the VM controller to investigate it
 		d.vmQueue.Add(key)

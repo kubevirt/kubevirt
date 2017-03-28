@@ -49,10 +49,11 @@ func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimi
 		queue.Forget(key)
 	}
 
-	// Fetch the latest Migration state from cache
-	// error is always nil
-	obj, exists, _ := store.GetByKey(key.(string))
-
+	obj, exists, err := store.GetByKey(key.(string))
+	if err != nil {
+		queue.AddRateLimited(key)
+		return
+	}
 	if exists {
 		var migration *v1.Migration = obj.(*v1.Migration)
 		logger := logging.DefaultLogger().Object(migration)
