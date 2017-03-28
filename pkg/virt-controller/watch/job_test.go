@@ -100,6 +100,7 @@ var _ = Describe("Migration", func() {
 
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
+			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(0))
 			close(done)
 		}, 10)
 
@@ -112,6 +113,7 @@ var _ = Describe("Migration", func() {
 			s := labels.Set(job.Labels)
 			matches = listOptions.LabelSelector.Matches(s)
 			Expect(matches).Should(BeTrue())
+			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(0))
 		}, 100)
 
 		It("Error calling Fetch VM should requeue", func(done Done) {
@@ -185,6 +187,7 @@ var _ = Describe("Migration", func() {
 
 			doExecute()
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
+			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(0))
 			close(done)
 		}, 10)
 
