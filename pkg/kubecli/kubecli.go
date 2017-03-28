@@ -99,7 +99,7 @@ func HandlePanic() {
 	}
 }
 
-func NewResourceEventHandlerFuncsForQorkqueue(queue workqueue.RateLimitingInterface) cache.ResourceEventHandlerFuncs {
+func NewResourceEventHandlerFuncsForWorkqueue(queue workqueue.RateLimitingInterface) cache.ResourceEventHandlerFuncs {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
@@ -132,7 +132,7 @@ type Controller struct {
 
 func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object, dispatch ControllerDispatch) (cache.Store, *Controller) {
 
-	indexer, informer := cache.NewIndexerInformer(lw, objType, 0, NewResourceEventHandlerFuncsForQorkqueue(queue), cache.Indexers{})
+	indexer, informer := cache.NewIndexerInformer(lw, objType, 0, NewResourceEventHandlerFuncsForWorkqueue(queue), cache.Indexers{})
 	return NewControllerFromInformer(indexer, informer, queue, dispatch)
 }
 
