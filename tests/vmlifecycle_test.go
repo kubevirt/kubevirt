@@ -4,6 +4,7 @@ import (
 	"flag"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
@@ -165,8 +166,67 @@ var _ = Describe("Vmlifecycle", func() {
 
 			}, 30)
 		})
+
+		Context("New VM that will be killed", func() {
+			It("Should be in Failed phase", func() {
+				obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
+				Expect(err).To(BeNil())
+
+				tests.WaitForSuccessfulVMStart(obj)
+				_, ok := obj.(*v1.VM)
+				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+				restClient, err := kubecli.GetRESTClient()
+				Expect(err).ToNot(HaveOccurred())
+
+				err = pkillAllVms(coreCli)
+				Expect(err).To(BeNil())
+
+				Eventually(func() v1.VMPhase {
+					object, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
+					Expect(err).ToNot(HaveOccurred())
+					fetchedVM := object.(*v1.VM)
+					return fetchedVM.Status.Phase
+				}, "10s", "1s").Should(Equal(v1.Failed))
+			}, 30)
+		})
 	})
 	AfterEach(func() {
 		tests.MustCleanup()
 	})
 })
+
+func renderPkillAllVmsJob() *kubev1.Pod {
+	job := kubev1.Pod{
+		ObjectMeta: kubev1.ObjectMeta{
+			GenerateName: "vm-killer",
+			Labels: map[string]string{
+				v1.AppLabel: "test",
+			},
+		},
+		Spec: kubev1.PodSpec{
+			RestartPolicy: kubev1.RestartPolicyNever,
+			Containers: []kubev1.Container{
+				{
+					Name:  "vm-killer",
+					Image: "kubevirt/vm-killer:devel",
+					Command: []string{
+						"/vm-killer.sh",
+					},
+				},
+			},
+			HostPID: true,
+			SecurityContext: &kubev1.PodSecurityContext{
+				RunAsUser: new(int64),
+			},
+		},
+	}
+
+	return &job
+}
+
+func pkillAllVms(core *kubernetes.Clientset) error {
+	job := renderPkillAllVmsJob()
+	_, err := core.Pods(kubev1.NamespaceDefault).Create(job)
+
+	return err
+}
