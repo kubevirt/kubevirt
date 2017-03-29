@@ -35,7 +35,11 @@ fi
 
 # Allow scheduling pods on master
 # Ignore retval because it might not be dedicated already
-kubectl -s 127.0.0.1:8080 taint nodes --all dedicated- || :
+# kubectl -s 127.0.0.1:8080 taint nodes --all dedicated- || :
+
+# Investigate why taint is failing now
+kubectl -s 127.0.0.1:8080 patch node master --type='json' -p='[{"op": "remove", "path": "/metadata/annotations/scheduler.alpha.kubernetes.io~1taints"}]'
+
 
 mkdir -p /exports/share1
 
