@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	kubeapi "k8s.io/client-go/pkg/api"
@@ -81,10 +82,23 @@ var _ = Describe("VM", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
+
 			vmQueue.Add("default/testvm")
 			vmQueue.ShutDown()
 			controller.WaitUntilDone()
 		})
+		table.DescribeTable("should leave the VM alone if it is in the final phase", func(phase v1.VMPhase) {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Status.Phase = v1.Failed
+			vmStore.Add(vm)
+
+			vmQueue.Add("default/testvm")
+			vmQueue.ShutDown()
+			controller.WaitUntilDone()
+		},
+			table.Entry("succeeded", v1.Succeeded),
+			table.Entry("failed", v1.Failed),
+		)
 	})
 
 	AfterEach(func() {

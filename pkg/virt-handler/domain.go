@@ -6,6 +6,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	k8sv1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -17,13 +19,14 @@ TODO: Define the exact scope of this controller.
 For now it looks like we should use domain events to detect unexpected domain changes like crashes or vms going
 into pause mode because of resource shortage or cut off connections to storage.
 */
-func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, informer cache.SharedInformer, restClient rest.RESTClient) (cache.Store, *kubecli.Controller) {
+func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, informer cache.SharedInformer, restClient rest.RESTClient, recorder record.EventRecorder) (cache.Store, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	informer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForQorkqueue(queue))
 
 	dispatch := DomainDispatch{
 		vmQueue:    vmQueue,
 		vmStore:    vmStore,
+		recorder:   recorder,
 		restClient: restClient,
 	}
 	return kubecli.NewControllerFromInformer(informer.GetStore(), informer, queue, &dispatch)
@@ -32,6 +35,7 @@ func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.
 type DomainDispatch struct {
 	vmQueue    workqueue.RateLimitingInterface
 	vmStore    cache.Store
+	recorder   record.EventRecorder
 	restClient rest.RESTClient
 }
 
@@ -61,7 +65,7 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 		// The VM is not in the vm cache, or is a VM with a differend uuid, tell the VM controller to investigate it
 		d.vmQueue.Add(key)
 	} else {
-		err = setVmPhaseForStatusReason(domain, obj.(*v1.VM), d.restClient)
+		err = d.setVmPhaseForStatusReason(domain, obj.(*v1.VM))
 		if err != nil {
 			queue.AddRateLimited(key)
 		}
@@ -70,22 +74,24 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 	return
 }
 
-func setVmPhaseForStatusReason(domain *virtwrap.Domain, vm *v1.VM, restClient rest.RESTClient) error {
+func (d *DomainDispatch) setVmPhaseForStatusReason(domain *virtwrap.Domain, vm *v1.VM) error {
 	flag := false
 	if domain.Status.Status == virtwrap.Shutoff {
 		switch domain.Status.Reason {
-		case virtwrap.ReasonFailed, virtwrap.ReasonCrashed:
+		case virtwrap.ReasonCrashed:
 			vm.Status.Phase = v1.Failed
+			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.Stopped.String(), "The VM crashed.")
 			flag = true
-		case virtwrap.ReasonShutdown, virtwrap.ReasonDestroyed, virtwrap.ReasonMigrated, virtwrap.ReasonSaved, virtwrap.ReasonFromSnapshot:
+		case virtwrap.ReasonShutdown, virtwrap.ReasonDestroyed, virtwrap.ReasonSaved, virtwrap.ReasonFromSnapshot:
 			vm.Status.Phase = v1.Succeeded
+			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Stopped.String(), "The VM was shut down.")
 			flag = true
 		}
 	}
 
 	if flag {
 		logging.DefaultLogger().Info().Object(vm).Msgf("Changing VM phase to %s", vm.Status.Phase)
-		return restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
+		return d.restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
 	}
 
 	return nil

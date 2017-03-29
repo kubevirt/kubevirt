@@ -96,7 +96,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	if !exists {
 		// Since the VM was not in the cache, we delete it
 		err = d.domainManager.KillVM(vm)
-	} else {
+	} else if isWorthSyncing(vm) {
 		// Synchronize the VM state
 		vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
 
@@ -202,4 +202,8 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 	}
 
 	return vmCopy, nil
+}
+
+func isWorthSyncing(vm *v1.VM) bool {
+	return vm.Status.Phase != v1.Succeeded && vm.Status.Phase != v1.Failed
 }

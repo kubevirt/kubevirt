@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
@@ -30,7 +31,7 @@ var _ = Describe("Domain", func() {
 		vmStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 		informer := cache.NewSharedInformer(fakeWatcher, &virtwrap.Domain{}, 0)
-		_, controller := NewDomainController(vmQueue, vmStore, informer, restClient)
+		_, controller := NewDomainController(vmQueue, vmStore, informer, restClient, record.NewFakeRecorder(100))
 		controller.StartInformer(stopChan)
 		controller.WaitForSync(stopChan)
 		go controller.Run(1, stopChan)
