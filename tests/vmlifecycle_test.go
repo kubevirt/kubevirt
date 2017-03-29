@@ -15,7 +15,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -101,12 +100,7 @@ var _ = Describe("Vmlifecycle", func() {
 			// Delete the VM and wait for the confirmation of the delete
 			_, err = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 			Expect(err).To(BeNil())
-			tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-				if event.Type == "Normal" && event.Reason == v1.Deleted.String() {
-					return true
-				}
-				return false
-			}).Watch()
+			tests.NewObjectEventWatcher(obj).WaitFor(tests.NormalEvent, v1.Deleted)
 
 			// Check if the stop event was logged
 			Eventually(func() string {
@@ -126,7 +120,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				retryCount := 0
-				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
+				tests.NewObjectEventWatcher(obj).Watch(func(event *kubev1.Event) bool {
 					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
 						retryCount++
 						if retryCount >= 2 {
@@ -135,7 +129,7 @@ var _ = Describe("Vmlifecycle", func() {
 						}
 					}
 					return false
-				}).Watch()
+				})
 				close(done)
 			}, 30)
 
@@ -145,23 +139,14 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				// Wait until we see that starting the VM is failing
-				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() && strings.Contains(event.Message, "nonexistent") {
-						return true
-					}
-					return false
-				}).Watch()
+				event := tests.NewObjectEventWatcher(obj).WaitFor(tests.WarningEvent, v1.SyncFailed)
+				Expect(event.Message).To(ContainSubstring("nonexistent"))
 
 				_, err = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
 
 				// Check that the definition is deleted from the host
-				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-					if event.Type == "Normal" && event.Reason == v1.Deleted.String() {
-						return true
-					}
-					return false
-				}).Watch()
+				tests.NewObjectEventWatcher(obj).WaitFor(tests.NormalEvent, v1.Deleted)
 
 				close(done)
 
@@ -204,13 +189,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				triedToSync := false
-				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
-					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
-						triedToSync = true
-						return true
-					}
-					return false
-				}).Timeout(15 * time.Second).Watch()
+				tests.NewObjectEventWatcher(obj).Timeout(15*time.Second).WaitFor(tests.WarningEvent, v1.SyncFailed)
 				Expect(triedToSync).To(BeFalse(), "virt-handler tried to sync on a VM in final state")
 
 				close(done)

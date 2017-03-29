@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/meta"
@@ -12,19 +13,27 @@ import (
 	"k8s.io/client-go/pkg/util/rand"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"reflect"
 	"time"
+)
+
+type EventType string
+
+const (
+	NormalEvent  EventType = "Normal"
+	WarningEvent EventType = "Warning"
 )
 
 type ProcessFunc func(event *kubev1.Event) (done bool)
 
 type ObjectEventWatcher struct {
-	object  runtime.Object
-	process ProcessFunc
-	timeout *time.Duration
+	object         runtime.Object
+	timeout        *time.Duration
+	failOnWarnings bool
 }
 
-func NewObjectEventWatcher(object runtime.Object, process ProcessFunc) *ObjectEventWatcher {
-	return &ObjectEventWatcher{object: object, process: process}
+func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
+	return &ObjectEventWatcher{object: object}
 }
 
 func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher {
@@ -32,10 +41,25 @@ func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher
 	return w
 }
 
-func (w *ObjectEventWatcher) Watch() {
+func (w *ObjectEventWatcher) FailOnWarnings() *ObjectEventWatcher {
+	w.failOnWarnings = true
+	return w
+}
+
+func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	cli, err := kubecli.Get()
 	if err != nil {
 		panic(err)
+	}
+
+	f := processFunc
+
+	if w.failOnWarnings {
+		f = func(event *kubev1.Event) bool {
+			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event recieved.")
+			return processFunc(event)
+		}
+
 	}
 
 	uid := w.object.(meta.ObjectMetaAccessor).GetObjectMeta().GetName()
@@ -49,12 +73,13 @@ func (w *ObjectEventWatcher) Watch() {
 	done := make(chan struct{})
 
 	go func() {
+		defer GinkgoRecover()
 		for obj := range eventWatcher.ResultChan() {
 			if timedOut {
 				// If some events are still in the queue, make sure we don't process them anymore
 				break
 			}
-			if w.process(obj.Object.(*kubev1.Event)) {
+			if f(obj.Object.(*kubev1.Event)) {
 				close(done)
 				break
 			}
@@ -69,6 +94,17 @@ func (w *ObjectEventWatcher) Watch() {
 	} else {
 		<-done
 	}
+}
+
+func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e *kubev1.Event) {
+	w.Watch(func(event *kubev1.Event) bool {
+		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
+			e = event
+			return true
+		}
+		return false
+	})
+	return
 }
 
 func MustCleanup() {
@@ -189,13 +225,9 @@ func WaitForSuccessfulVMStart(vm runtime.Object) {
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 	restClient, err := kubecli.GetRESTClient()
 	Expect(err).ToNot(HaveOccurred())
-	NewObjectEventWatcher(vm, func(event *kubev1.Event) bool {
-		Expect(event.Type).NotTo(Equal("Warning"), "Received VM warning event")
-		if event.Type == "Normal" && event.Reason == v1.Started.String() {
-			return true
-		}
-		return false
-	}).Watch()
+	NewObjectEventWatcher(vm).FailOnWarnings().WaitFor(NormalEvent, v1.Started)
+
+	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() v1.VMPhase {
 		obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
 		Expect(err).ToNot(HaveOccurred())
