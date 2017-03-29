@@ -369,11 +369,11 @@ const (
 	// Create Migration has been called but nothing has been done with it
 	MigrationUnknown MigrationPhase = ""
 
-	// Migration has been scheduled but no update on the status has been recorded
-	MigrationPending MigrationPhase = "Pending"
-
 	// Migration is actively progressing
-	MigrationInProgress MigrationPhase = "InProgress"
+	MigrationScheduled MigrationPhase = "Scheduled"
+
+	// Migration has been scheduled but no update on the status has been recorded
+	MigrationRunning MigrationPhase = "Running"
 
 	// Migration has completed successfully
 	MigrationSucceeded MigrationPhase = "Succeeded"

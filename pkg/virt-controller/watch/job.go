@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	kvirtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -27,25 +28,27 @@ func migrationJobSelector() kubeapi.ListOptions {
 	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
 }
 
-func NewJobController(vmService services.VMService, recorder record.EventRecorder, clientSet *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
+func NewJobController(vmService services.VMService, recorder record.EventRecorder, clientSet *kubernetes.Clientset, restClient *rest.RESTClient, migrationQueue workqueue.RateLimitingInterface) (cache.Store, *kubecli.Controller) {
 	selector := migrationJobSelector()
 	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Pod{}, NewJobControllerDispatch(vmService, restClient))
+	return kubecli.NewController(lw, queue, &v1.Pod{}, NewJobControllerDispatch(vmService, restClient, migrationQueue))
 }
 
-func NewJobControllerDispatch(vmService services.VMService, restClient *rest.RESTClient) kubecli.ControllerDispatch {
+func NewJobControllerDispatch(vmService services.VMService, restClient *rest.RESTClient, migrationQueue workqueue.RateLimitingInterface) kubecli.ControllerDispatch {
 	dispatch := JobDispatch{
-		restClient: restClient,
-		vmService:  vmService,
+		restClient:     restClient,
+		vmService:      vmService,
+		migrationQueue: migrationQueue,
 	}
 	var vmd kubecli.ControllerDispatch = &dispatch
 	return vmd
 }
 
 type JobDispatch struct {
-	restClient *rest.RESTClient
-	vmService  services.VMService
+	restClient     *rest.RESTClient
+	vmService      services.VMService
+	migrationQueue workqueue.RateLimitingInterface
 }
 
 func (jd *JobDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
@@ -57,49 +60,26 @@ func (jd *JobDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 	if exists {
 		job := obj.(*v1.Pod)
 
-		name := job.ObjectMeta.Labels[kvirtv1.DomainLabel]
-		vm, vmExists, err := jd.vmService.FetchVM(name)
+		//TODO Use the namespace from the Job and stop referencing the migration object
+		migrationLabel := job.ObjectMeta.Labels[kvirtv1.MigrationLabel]
+		migration, migrationExists, err := jd.vmService.FetchMigration(migrationLabel)
 		if err != nil {
 			queue.AddRateLimited(key)
 			return
 		}
-
-		// TODO at the end, only virt-handler can decide for all migration types if a VM successfully migrated to it (think about p2p2 migrations)
-		// For now we use a managed migration
-		if vmExists && vm.Status.Phase == kvirtv1.Migrating {
-			vm.Status.Phase = kvirtv1.Running
-			if job.Status.Phase == v1.PodSucceeded {
-				vm.ObjectMeta.Labels[kvirtv1.NodeNameLabel] = vm.Status.MigrationNodeName
-				vm.Status.NodeName = vm.Status.MigrationNodeName
-			}
-			vm.Status.MigrationNodeName = ""
-			_, err := putVm(vm, jd.restClient, nil)
-			if err != nil {
-				queue.AddRateLimited(key)
-				return
-			}
-		}
-
-		migration, migrationExists, err := jd.vmService.FetchMigration(job.ObjectMeta.Labels[kvirtv1.MigrationLabel])
-		if err != nil {
-			queue.AddRateLimited(key)
+		if !migrationExists {
+			//REstart where the Migration has gone away.
+			queue.Forget(key)
 			return
 		}
-
-		if migrationExists {
-			if migration.Status.Phase != kvirtv1.MigrationSucceeded && migration.Status.Phase != kvirtv1.MigrationFailed {
-				if job.Status.Phase == v1.PodSucceeded {
-					migration.Status.Phase = kvirtv1.MigrationSucceeded
-				} else {
-					migration.Status.Phase = kvirtv1.MigrationFailed
-				}
-				err := jd.vmService.UpdateMigration(migration)
-				if err != nil {
-					queue.AddRateLimited(key)
-					return
-				}
-			}
+		migrationKey, err := cache.MetaNamespaceKeyFunc(migration)
+		if err == nil {
+			jd.migrationQueue.Add(migrationKey)
+		} else {
+			logger := logging.DefaultLogger().Object(migration)
+			logger.Error().Reason(err).Msgf("Updating migration queue with %s failed.", migrationLabel)
+			queue.AddRateLimited(key)
+			return
 		}
 	}
-	return
 }

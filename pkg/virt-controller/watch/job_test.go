@@ -34,6 +34,8 @@ var _ = Describe("Migration", func() {
 	var job *corev1.Pod
 	var listOptions kubeapi.ListOptions = migrationJobSelector()
 	var jobQueue workqueue.RateLimitingInterface
+	var migrationQueue workqueue.RateLimitingInterface
+
 	var jobKey interface{}
 
 	doExecute := func() {
@@ -66,12 +68,12 @@ var _ = Describe("Migration", func() {
 
 		jobCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		jobQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
+		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 		vm = kvirtv1.NewMinimalVM("test-vm")
 		vm.Status.Phase = kvirtv1.Migrating
 		vm.GetObjectMeta().SetLabels(map[string]string{"a": "b"})
 
-		dispatch = NewJobControllerDispatch(vmService, restClient)
+		dispatch = NewJobControllerDispatch(vmService, restClient, migrationQueue)
 		migration = kvirtv1.NewMinimalMigration("test-migration", "test-vm")
 		job = &corev1.Pod{
 			ObjectMeta: corev1.ObjectMeta{
@@ -92,15 +94,12 @@ var _ = Describe("Migration", func() {
 		It("Success should update the VM to Running", func(done Done) {
 			// Register the expected REST call
 			server.AppendHandlers(
-				handlerToFetchTestVM(vm),
-				handlerToUpdateTestVM(vm),
 				handlerToFetchTestMigration(migration),
-				handlerToUpdateTestMigration(migration, kvirtv1.MigrationSucceeded),
 			)
-
 			doExecute()
-			Expect(len(server.ReceivedRequests())).To(Equal(4))
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(0))
+			Expect(migrationQueue.Len()).Should(Equal(1))
 			close(done)
 		}, 10)
 
@@ -116,10 +115,10 @@ var _ = Describe("Migration", func() {
 			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(0))
 		}, 100)
 
-		It("Error calling Fetch VM should requeue", func(done Done) {
+		It("Error Fetching Migration should requeue", func(done Done) {
 			// Register the expected REST call
 			server.AppendHandlers(
-				handlerToFetchTestVMAuthError(vm),
+				handlerToFetchTestMigrationAuthError(migration),
 			)
 
 			doExecute()
@@ -128,69 +127,6 @@ var _ = Describe("Migration", func() {
 			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(1))
 			close(done)
 		}, 10)
-
-		It("Error Updating VM should requeue", func(done Done) {
-			// Register the expected REST call
-			server.AppendHandlers(
-				handlerToFetchTestVM(vm),
-				handlerToUpdateTestVMAuthError(vm),
-			)
-
-			doExecute()
-
-			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(1))
-			close(done)
-		}, 10)
-
-		It("Error Fetching Migration should requeue", func(done Done) {
-			// Register the expected REST call
-			server.AppendHandlers(
-				handlerToFetchTestVM(vm),
-				handlerToUpdateTestVM(vm),
-				handlerToFetchTestMigrationAuthError(migration),
-			)
-
-			doExecute()
-
-			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(1))
-			close(done)
-		}, 10)
-
-		It("Error Update Migration should requeue", func(done Done) {
-			// Register the expected REST call
-			server.AppendHandlers(
-				handlerToFetchTestVM(vm),
-				handlerToUpdateTestVM(vm),
-				handlerToFetchTestMigration(migration),
-				handlerToUpdateTestMigrationAuthError(migration),
-			)
-
-			doExecute()
-
-			Expect(len(server.ReceivedRequests())).To(Equal(4))
-			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(1))
-			close(done)
-		}, 10)
-
-		It("should update the VM to ", func(done Done) {
-			job.Status.Phase = corev1.PodFailed
-
-			// Register the expected REST call
-			server.AppendHandlers(
-				handlerToFetchTestVM(vm),
-				handlerToUpdateTestVM(vm),
-				handlerToFetchTestMigration(migration),
-				handlerToUpdateTestMigration(migration, kvirtv1.MigrationFailed),
-			)
-
-			doExecute()
-			Expect(len(server.ReceivedRequests())).To(Equal(4))
-			Expect(jobQueue.NumRequeues(jobKey)).Should(Equal(0))
-			close(done)
-		}, 10)
-
 	})
 
 	AfterEach(func() {

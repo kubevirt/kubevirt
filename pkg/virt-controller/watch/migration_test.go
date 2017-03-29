@@ -10,11 +10,13 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"k8s.io/client-go/kubernetes"
 	clientv1 "k8s.io/client-go/pkg/api/v1"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/conversion"
 	"k8s.io/client-go/pkg/util/uuid"
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -22,21 +24,31 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	var server *ghttp.Server
-	var migrationCache cache.Store
 
-	var vmService services.VMService
-	var restClient *rest.RESTClient
-	var dispatch kubecli.ControllerDispatch
-	var migrationQueue workqueue.RateLimitingInterface
-	var migration *v1.Migration
-	var vm *v1.VM
-	var pod *clientv1.Pod
-	var podList clientv1.PodList
-	var migrationKey interface{}
+	var (
+		server         *ghttp.Server
+		migrationCache cache.Store
+		vmService      services.VMService
+		restClient     *rest.RESTClient
+		dispatch       kubecli.ControllerDispatch
+		migrationQueue workqueue.RateLimitingInterface
+		migration      *v1.Migration
+		vm             *v1.VM
+		pod            *clientv1.Pod
+		podList        clientv1.PodList
+		migrationKey   interface{}
+		srcIp          clientv1.NodeAddress
+		destIp         kubev1.NodeAddress
+		srcNodeWithIp  kubev1.Node
+		destNodeWithIp kubev1.Node
+		srcNode        kubev1.Node
+		destNode       kubev1.Node
+	)
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
+	destinationNodeName := "mynode"
+	sourceNodeName := "sourcenode"
 	BeforeEach(func() {
 		var g inject.Graph
 		vmService = services.NewVMService()
@@ -55,7 +67,7 @@ var _ = Describe("Migration", func() {
 		)
 		g.Populate()
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		dispatch = NewMigrationControllerDispatch(vmService)
+		dispatch = NewMigrationControllerDispatch(vmService, restClient, clientSet)
 		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 		// Create a VM which is being scheduled
@@ -74,12 +86,48 @@ var _ = Describe("Migration", func() {
 		pod, err = templateService.RenderLaunchManifest(vm)
 		Expect(err).ToNot(HaveOccurred())
 
-		pod.Spec.NodeName = "mynode"
+		pod.Spec.NodeName = destinationNodeName
 		pod.Status.Phase = clientv1.PodSucceeded
 		pod.Labels[v1.DomainLabel] = migration.ObjectMeta.Name
 
 		podList = clientv1.PodList{}
 		podList.Items = []clientv1.Pod{*pod}
+
+		srcIp = kubev1.NodeAddress{
+			Type:    kubev1.NodeInternalIP,
+			Address: "127.0.0.2",
+		}
+		destIp = kubev1.NodeAddress{
+			Type:    kubev1.NodeInternalIP,
+			Address: "127.0.0.3",
+		}
+		srcNodeWithIp = kubev1.Node{
+			Status: kubev1.NodeStatus{
+				Addresses: []kubev1.NodeAddress{srcIp},
+			},
+		}
+		destNodeWithIp = kubev1.Node{
+			Status: kubev1.NodeStatus{
+				Addresses: []kubev1.NodeAddress{destIp},
+			},
+		}
+
+		srcNode = clientv1.Node{
+			ObjectMeta: clientv1.ObjectMeta{
+				Name: sourceNodeName,
+			},
+			Status: clientv1.NodeStatus{
+				Addresses: []clientv1.NodeAddress{srcIp, destIp},
+			},
+		}
+		destNode = clientv1.Node{
+			ObjectMeta: clientv1.ObjectMeta{
+				Name: destinationNodeName,
+			},
+			Status: clientv1.NodeStatus{
+				Addresses: []clientv1.NodeAddress{destIp, srcIp},
+			},
+		}
 
 	})
 
@@ -124,7 +172,7 @@ var _ = Describe("Migration", func() {
 				handleGetTestVM(buildExpectedVM(v1.Running)),
 				handleGetPodList(podList),
 				handleCreatePod(pod),
-				handlePutMigration(migration, v1.MigrationInProgress),
+				handlePutMigration(migration, v1.MigrationScheduled),
 			)
 			migrationCache.Add(migration)
 
@@ -217,7 +265,7 @@ var _ = Describe("Migration", func() {
 			close(done)
 		}, 10)
 
-		It("should requeue if final Migration update fails", func(done Done) {
+		It("should requeue if Migration update fails", func(done Done) {
 
 			// Register the expected REST call
 			server.AppendHandlers(
@@ -315,21 +363,211 @@ var _ = Describe("Migration", func() {
 
 			migrationLabel := string(migration.GetObjectMeta().GetUID())
 
+			targetPod := mockPod(3, migrationLabel)
+			targetPod.Spec = clientv1.PodSpec{
+				NodeName: destinationNodeName,
+			}
 			unmatchedPodList.Items = []clientv1.Pod{
 				mockPod(1, "bogus"),
 				mockPod(2, "bogus"),
-				mockPod(3, migrationLabel)}
+				targetPod}
 
 			// Register the expected REST call
+			expectedVM0 := buildExpectedVM(v1.Running)
+			expectedVM0.Status.NodeName = sourceNodeName
+
 			server.AppendHandlers(
-				handleGetTestVM(buildExpectedVM(v1.Running)),
+				handleGetTestVM(expectedVM0),
 				handleGetPodList(unmatchedPodList),
-				handlePutMigration(migration, v1.MigrationInProgress),
+				handlePutMigration(migration, v1.MigrationScheduled),
 			)
 			migrationCache.Add(migration)
 			doExecute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+
+			close(done)
+		}, 10)
+
+		It("should create migration Pod if migration and pod not created.", func(done Done) {
+
+			unmatchedPodList := clientv1.PodList{}
+
+			migrationLabel := string(migration.GetObjectMeta().GetUID())
+
+			targetPod := mockPod(3, migrationLabel)
+			targetPod.Spec = clientv1.PodSpec{
+				NodeName: destinationNodeName,
+			}
+			unmatchedPodList.Items = []clientv1.Pod{
+				mockPod(1, "bogus"),
+				mockPod(2, "bogus"),
+				targetPod}
+
+			// Register the expected REST call
+			expectedVM0 := buildExpectedVM(v1.Running)
+			expectedVM1 := buildExpectedVM(v1.Migrating)
+			expectedVM1.Status.MigrationNodeName = destinationNodeName
+			expectedVM2 := buildExpectedVM(v1.Running)
+			expectedVM2.Status.MigrationNodeName = destinationNodeName
+
+			migrationPodList := clientv1.PodList{}
+			migrationPodList.Items = []clientv1.Pod{
+				*mockMigrationPod(expectedVM0),
+			}
+
+			server.AppendHandlers(
+				handleGetTestVM(expectedVM0),
+				handleGetPodList(unmatchedPodList),
+				handlePutMigration(migration, v1.MigrationScheduled),
+			)
+			migrationCache.Add(migration)
+			doExecute()
+
+			Expect(len(server.ReceivedRequests())).To(Equal(3))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+
+			close(done)
+		}, 10)
+
+		It("should set vm.Status.MigrationNodeName if Not set.", func(done Done) {
+
+			unmatchedPodList := clientv1.PodList{}
+
+			migrationLabel := string(migration.GetObjectMeta().GetUID())
+
+			targetPod := mockPod(3, migrationLabel)
+			targetPod.Spec = clientv1.PodSpec{
+				NodeName: destinationNodeName,
+			}
+			unmatchedPodList.Items = []clientv1.Pod{
+				mockPod(1, "bogus"),
+				mockPod(2, "bogus"),
+				targetPod}
+
+			// Register the expected REST call
+			expectedVM0 := buildExpectedVM(v1.Running)
+			expectedVM0.Status.MigrationNodeName = ""
+
+			expectedVM1 := buildExpectedVM(v1.Migrating)
+
+			expectedVM2 := buildExpectedVM(v1.Migrating)
+			expectedVM2.Status.MigrationNodeName = destinationNodeName
+
+			migrationPodList := clientv1.PodList{}
+			migrationPodList.Items = []clientv1.Pod{
+				*mockMigrationPod(expectedVM0),
+			}
+
+			server.AppendHandlers(
+				handleGetTestVM(expectedVM0),
+				handleGetPodList(unmatchedPodList),
+				handlePutMigration(migration, v1.MigrationScheduled),
+				handlePutVM(expectedVM1),
+			)
+			migrationCache.Add(migration)
+			doExecute()
+
+			Expect(len(server.ReceivedRequests())).To(Equal(3))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+
+			close(done)
+		}, 10)
+
+		It("should mark migration as successful if migration pod completes successfully.", func(done Done) {
+
+			unmatchedPodList := clientv1.PodList{}
+			migration.Status.Phase = v1.MigrationRunning
+
+			migrationLabel := string(migration.GetObjectMeta().GetUID())
+
+			targetPod := mockPod(3, migrationLabel)
+			targetPod.Spec = clientv1.PodSpec{
+				NodeName: destinationNodeName,
+			}
+			unmatchedPodList.Items = []clientv1.Pod{
+				mockPod(1, "bogus"),
+				mockPod(2, "bogus"),
+				targetPod}
+
+			// Register the expected REST call
+			expectedVM0 := buildExpectedVM(v1.Running)
+			expectedVM0.Status.NodeName = sourceNodeName
+			expectedVM1 := buildExpectedVM(v1.Migrating)
+			expectedVM1.Status.MigrationNodeName = destinationNodeName
+			expectedVM2 := buildExpectedVM(v1.Running)
+			expectedVM2.Status.MigrationNodeName = ""
+			expectedVM2.Status.NodeName = destinationNodeName
+
+			migrationPod := *mockMigrationPod(expectedVM2)
+			migrationPod.Status.Phase = clientv1.PodSucceeded
+
+			migrationPodList := clientv1.PodList{
+				Items: []clientv1.Pod{
+					migrationPod,
+				},
+			}
+
+			server.AppendHandlers(
+				handleGetTestVM(expectedVM0),
+				handleGetPodList(unmatchedPodList),
+				handleGetPodList(migrationPodList),
+				handlePutVM(expectedVM2),
+				handlePutMigration(migration, v1.MigrationSucceeded),
+			)
+			migrationCache.Add(migration)
+			doExecute()
+
+			Expect(len(server.ReceivedRequests())).To(Equal(5))
+			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+
+			close(done)
+		}, 10)
+
+		It("should mark migration as failed if migration pod fails.", func(done Done) {
+
+			unmatchedPodList := clientv1.PodList{}
+			migration.Status.Phase = v1.MigrationRunning
+
+			migrationLabel := string(migration.GetObjectMeta().GetUID())
+
+			targetPod := mockPod(3, migrationLabel)
+			targetPod.Spec = clientv1.PodSpec{
+				NodeName: destinationNodeName,
+			}
+			unmatchedPodList.Items = []clientv1.Pod{
+				mockPod(1, "bogus"),
+				mockPod(2, "bogus"),
+				targetPod}
+
+			// Register the expected REST call
+			expectedVM0 := buildExpectedVM(v1.Running)
+			expectedVM0.Status.NodeName = sourceNodeName
+			expectedVM1 := buildExpectedVM(v1.Running)
+			expectedVM1.Status.MigrationNodeName = ""
+			expectedVM1.Status.NodeName = sourceNodeName
+
+			migrationPod := *mockMigrationPod(expectedVM1)
+			migrationPod.Status.Phase = clientv1.PodFailed
+
+			migrationPodList := clientv1.PodList{
+				Items: []clientv1.Pod{
+					migrationPod,
+				},
+			}
+
+			server.AppendHandlers(
+				handleGetTestVM(expectedVM0),
+				handleGetPodList(unmatchedPodList),
+				handleGetPodList(migrationPodList),
+				handlePutVM(expectedVM1),
+				handlePutMigration(migration, v1.MigrationFailed),
+			)
+			migrationCache.Add(migration)
+			doExecute()
+
+			Expect(len(server.ReceivedRequests())).To(Equal(5))
 			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 
 			close(done)

@@ -27,6 +27,7 @@ var _ = Describe("Pod", func() {
 	var podCache cache.Store
 	var vmService services.VMService
 	var dispatch kubecli.ControllerDispatch
+	var migrationQueue workqueue.RateLimitingInterface
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
@@ -45,6 +46,7 @@ var _ = Describe("Pod", func() {
 		clientSet, _ := kubernetes.NewForConfig(&config)
 		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
+		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 		g.Provide(
 			&inject.Object{Value: restClient},
@@ -54,7 +56,7 @@ var _ = Describe("Pod", func() {
 		)
 		g.Populate()
 
-		dispatch = NewPodControllerDispatch(vmCache, restClient, vmService, clientSet)
+		dispatch = NewPodControllerDispatch(vmCache, restClient, vmService, clientSet, migrationQueue)
 
 	})
 
@@ -138,11 +140,17 @@ var _ = Describe("Pod", func() {
 				},
 			}
 			srcNode = kubev1.Node{
+				ObjectMeta: kubev1.ObjectMeta{
+					Name: "sourceNode",
+				},
 				Status: kubev1.NodeStatus{
 					Addresses: []kubev1.NodeAddress{srcIp, destIp},
 				},
 			}
 			targetNode = kubev1.Node{
+				ObjectMeta: kubev1.ObjectMeta{
+					Name: "targetNode",
+				},
 				Status: kubev1.NodeStatus{
 					Addresses: []kubev1.NodeAddress{destIp, srcIp},
 				},
@@ -161,12 +169,7 @@ var _ = Describe("Pod", func() {
 			vmCache.Add(vm)
 
 			// Create a target Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever")
-			Expect(err).ToNot(HaveOccurred())
-			pod, err := temlateService.RenderLaunchManifest(vm)
-			Expect(err).ToNot(HaveOccurred())
-			pod.Spec.NodeName = "targetNode"
-			pod.Labels[v1.MigrationLabel] = "testvm-migration"
+			pod := mockMigrationPod(vm)
 
 			// Create the expected VM after the update
 			obj, err := conversion.NewCloner().DeepCopy(vm)
@@ -181,44 +184,13 @@ var _ = Describe("Pod", func() {
 			vmInMigrationState := obj.(*v1.VM)
 			vmInMigrationState.Status.Phase = v1.Migrating
 			migration := v1.NewMinimalMigration("testvm-migration", "testvm")
-			migration.Status.Phase = v1.MigrationInProgress
+			migration.Status.Phase = v1.MigrationScheduled
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/testvm-migration"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
-					ghttp.VerifyJSONRepresenting(vmWithMigrationNodeName),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmWithMigrationNodeName),
-				),
-
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
-				),
-
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/nodes/sourceNode"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, srcNode),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/nodes/targetNode"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, targetNode),
-				),
-
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
-					//TODO: Validate that posted Pod request is sane
-					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
-				),
-
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
-					ghttp.VerifyJSONRepresenting(vmInMigrationState),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmWithMigrationNodeName),
 				),
 			)
 
@@ -228,7 +200,8 @@ var _ = Describe("Pod", func() {
 			queue.Add(key)
 			dispatch.Execute(podCache, queue, key)
 
-			Expect(len(server.ReceivedRequests())).To(Equal(7))
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			Expect(migrationQueue.Len()).To(Equal(1))
 			close(done)
 		}, 10)
 	})
@@ -237,3 +210,28 @@ var _ = Describe("Pod", func() {
 		server.Close()
 	})
 })
+
+func mockMigrationPod(vm *v1.VM) *kubev1.Pod {
+	temlateService, err := services.NewTemplateService("whatever")
+	Expect(err).ToNot(HaveOccurred())
+	pod, err := temlateService.RenderLaunchManifest(vm)
+	Expect(err).ToNot(HaveOccurred())
+	pod.Spec.NodeName = "targetNode"
+	pod.Labels[v1.MigrationLabel] = "testvm-migration"
+	return pod
+}
+
+func handlePutVM(vm *v1.VM) http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
+		ghttp.VerifyJSONRepresenting(vm),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+	)
+}
+
+func handleGetNode(node kubev1.Node) http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest("GET", "/api/v1/nodes/"+node.ObjectMeta.Name),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, node),
+	)
+}

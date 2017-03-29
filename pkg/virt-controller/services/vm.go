@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
@@ -9,7 +10,9 @@ import (
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/rest"
+
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -26,12 +29,13 @@ type VMService interface {
 	GetRunningVMPods(*corev1.VM) (*v1.PodList, error)
 	DeleteMigrationTargetPods(*corev1.Migration) error
 	GetRunningMigrationPods(*corev1.Migration) (*v1.PodList, error)
-	SetupMigration(migration *corev1.Migration, vm *corev1.VM) error
+	CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VM) error
 	UpdateMigration(migration *corev1.Migration) error
 	FetchVM(vmName string) (*corev1.VM, bool, error)
 	FetchMigration(migrationName string) (*corev1.Migration, bool, error)
 	StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error
 	GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error)
+	PutVm(vm *corev1.VM) (*corev1.VM, error)
 }
 
 type vmService struct {
@@ -65,6 +69,17 @@ func (v *vmService) StartVMPod(vm *corev1.VM) error {
 		return err
 	}
 	return nil
+}
+
+// synchronously put updated VM object to API server.
+func (v *vmService) PutVm(vm *corev1.VM) (*corev1.VM, error) {
+	logger := logging.DefaultLogger().Object(vm)
+	obj, err := v.RestClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(v1.NamespaceDefault).Do().Get()
+	if err != nil {
+		logger.Error().Reason(err).Msg("Setting the VM state failed.")
+		return nil, err
+	}
+	return obj.(*corev1.VM), nil
 }
 
 func (v *vmService) DeleteVMPod(vm *corev1.VM) error {
@@ -132,9 +147,14 @@ func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 	return v1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }
 
-func (v *vmService) SetupMigration(migration *corev1.Migration, vm *corev1.VM) error {
+func (v *vmService) CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VM) error {
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
-	pod.ObjectMeta.Labels[corev1.MigrationLabel] = migration.GetObjectMeta().GetName()
+	migrationLabel := migration.GetObjectMeta().GetName()
+	logger := logging.DefaultLogger().Object(vm)
+	logger.Error().Msg(migrationLabel)
+	logger.Error().Msg(pod.Spec.NodeName)
+
+	pod.ObjectMeta.Labels[corev1.MigrationLabel] = migrationLabel
 	pod.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
 	pod.Spec.Affinity = corev1.AntiAffinityFromVMNode(vm)
 	if err == nil {
