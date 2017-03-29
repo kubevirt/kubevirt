@@ -61,7 +61,7 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 		// The VM is not in the vm cache, or is a VM with a differend uuid, tell the VM controller to investigate it
 		d.vmQueue.Add(key)
 	} else {
-		err = setVmPhaseForStatusReason(domain, obj.(*v1.VM), d.restClient)
+		err = d.setVmPhaseForStatusReason(domain, obj.(*v1.VM))
 		if err != nil {
 			queue.AddRateLimited(key)
 		}
@@ -70,14 +70,14 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 	return
 }
 
-func setVmPhaseForStatusReason(domain *virtwrap.Domain, vm *v1.VM, restClient rest.RESTClient) error {
+func (d *DomainDispatch) setVmPhaseForStatusReason(domain *virtwrap.Domain, vm *v1.VM) error {
 	flag := false
 	if domain.Status.Status == virtwrap.Shutoff {
 		switch domain.Status.Reason {
-		case virtwrap.ReasonFailed, virtwrap.ReasonCrashed:
+		case virtwrap.ReasonCrashed:
 			vm.Status.Phase = v1.Failed
 			flag = true
-		case virtwrap.ReasonShutdown, virtwrap.ReasonDestroyed, virtwrap.ReasonMigrated, virtwrap.ReasonSaved, virtwrap.ReasonFromSnapshot:
+		case virtwrap.ReasonShutdown, virtwrap.ReasonDestroyed, virtwrap.ReasonSaved, virtwrap.ReasonFromSnapshot:
 			vm.Status.Phase = v1.Succeeded
 			flag = true
 		}
@@ -85,7 +85,7 @@ func setVmPhaseForStatusReason(domain *virtwrap.Domain, vm *v1.VM, restClient re
 
 	if flag {
 		logging.DefaultLogger().Info().Object(vm).Msgf("Changing VM phase to %s", vm.Status.Phase)
-		return restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
+		return d.restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
 	}
 
 	return nil

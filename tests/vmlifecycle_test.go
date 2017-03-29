@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var _ = Describe("Vmlifecycle", func() {
@@ -168,7 +169,7 @@ var _ = Describe("Vmlifecycle", func() {
 		})
 
 		Context("New VM that will be killed", func() {
-			It("Should be in Failed phase", func() {
+			It("Should be in Failed phase", func(done Done) {
 				obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
@@ -187,7 +188,33 @@ var _ = Describe("Vmlifecycle", func() {
 					fetchedVM := object.(*v1.VM)
 					return fetchedVM.Status.Phase
 				}, "10s", "1s").Should(Equal(v1.Failed))
-			}, 30)
+
+				close(done)
+			}, 50)
+			It("should be left alone by virt-handler", func(done Done) {
+				obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
+				Expect(err).To(BeNil())
+
+				tests.WaitForSuccessfulVMStart(obj)
+				_, ok := obj.(*v1.VM)
+				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+				Expect(err).ToNot(HaveOccurred())
+
+				err = pkillAllVms(coreCli)
+				Expect(err).To(BeNil())
+
+				triedToSync := false
+				tests.NewObjectEventWatcher(obj, func(event *kubev1.Event) bool {
+					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
+						triedToSync = true
+						return true
+					}
+					return false
+				}).Timeout(15 * time.Second).Watch()
+				Expect(triedToSync).To(BeFalse(), "virt-handler tried to sync on a VM in final state")
+
+				close(done)
+			}, 50)
 		})
 	})
 	AfterEach(func() {
