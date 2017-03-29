@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/pkg/util/rand"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"time"
 )
 
 type ProcessFunc func(event *kubev1.Event) (done bool)
@@ -19,10 +20,16 @@ type ProcessFunc func(event *kubev1.Event) (done bool)
 type ObjectEventWatcher struct {
 	object  runtime.Object
 	process ProcessFunc
+	timeout *time.Duration
 }
 
 func NewObjectEventWatcher(object runtime.Object, process ProcessFunc) *ObjectEventWatcher {
 	return &ObjectEventWatcher{object: object, process: process}
+}
+
+func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher {
+	w.timeout = &duration
+	return w
 }
 
 func (w *ObjectEventWatcher) Watch() {
@@ -38,11 +45,29 @@ func (w *ObjectEventWatcher) Watch() {
 		panic(err)
 	}
 	defer eventWatcher.Stop()
+	timedOut := false
+	done := make(chan struct{})
 
-	for obj := range eventWatcher.ResultChan() {
-		if w.process(obj.Object.(*kubev1.Event)) {
-			break
+	go func() {
+		for obj := range eventWatcher.ResultChan() {
+			if timedOut {
+				// If some events are still in the queue, make sure we don't process them anymore
+				break
+			}
+			if w.process(obj.Object.(*kubev1.Event)) {
+				close(done)
+				break
+			}
 		}
+	}()
+
+	if w.timeout != nil {
+		select {
+		case <-done:
+		case <-time.After(*w.timeout):
+		}
+	} else {
+		<-done
 	}
 }
 
