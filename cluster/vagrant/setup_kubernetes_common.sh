@@ -55,6 +55,13 @@ yum install -y docker kubelet kubeadm kubectl kubernetes-cni
 # To get the qemu user and libvirt
 yum install -y qemu-common qemu-kvm qemu-system-x86 libcgroup-tools libvirt || :
 
+# Latest docker on CentOS uses systemd for cgroup management
+cat << EOT >>/etc/systemd/system/kubelet.service.d/09-kubeadm.conf
+[Service]
+Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd"
+EOT
+systemctl daemon-reload
+
 systemctl enable docker && systemctl start docker
 systemctl enable kubelet && systemctl start kubelet
 
