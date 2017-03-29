@@ -167,12 +167,14 @@ var _ = Describe("Vmlifecycle", func() {
 				err = pkillAllVms(coreCli)
 				Expect(err).To(BeNil())
 
-				Eventually(func() v1.VMPhase {
-					object, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
+				tests.NewObjectEventWatcher(obj).WaitFor(tests.WarningEvent, v1.Stopped)
+
+				Expect(func() v1.VMPhase {
+					vm := &v1.VM{}
+					err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Into(vm)
 					Expect(err).ToNot(HaveOccurred())
-					fetchedVM := object.(*v1.VM)
-					return fetchedVM.Status.Phase
-				}, "10s", "1s").Should(Equal(v1.Failed))
+					return vm.Status.Phase
+				}()).To(Equal(v1.Failed))
 
 				close(done)
 			}, 50)
@@ -188,9 +190,12 @@ var _ = Describe("Vmlifecycle", func() {
 				err = pkillAllVms(coreCli)
 				Expect(err).To(BeNil())
 
-				triedToSync := false
-				tests.NewObjectEventWatcher(obj).Timeout(15*time.Second).WaitFor(tests.WarningEvent, v1.SyncFailed)
-				Expect(triedToSync).To(BeFalse(), "virt-handler tried to sync on a VM in final state")
+				// Wait for stop event of the VM
+				tests.NewObjectEventWatcher(obj).WaitFor(tests.WarningEvent, v1.Stopped)
+
+				// Wait for some time and see if a sync event happens on the stopped VM
+				event := tests.NewObjectEventWatcher(obj).Timeout(5*time.Second).WaitFor(tests.WarningEvent, v1.SyncFailed)
+				Expect(event).To(BeNil(), "virt-handler tried to sync on a VM in final state")
 
 				close(done)
 			}, 50)
