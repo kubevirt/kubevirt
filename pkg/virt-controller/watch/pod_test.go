@@ -3,15 +3,17 @@ package watch
 import (
 	"net/http"
 
-	"github.com/golang/mock/gomock"
+	"github.com/facebookgo/inject"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"k8s.io/client-go/kubernetes"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/conversion"
 	"k8s.io/client-go/pkg/util/uuid"
+	"k8s.io/client-go/pkg/util/workqueue"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/cache/testing"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -20,31 +22,40 @@ import (
 
 var _ = Describe("Pod", func() {
 	var server *ghttp.Server
-	var stopChan chan struct{}
+
 	var vmCache cache.Store
-	var podController *kubecli.Controller
-	var lw *framework.FakeControllerSource
-	var ctrl *gomock.Controller
-	var mockVMService *services.MockVMService
+	var podCache cache.Store
+	var vmService services.VMService
+	var dispatch kubecli.ControllerDispatch
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		stopChan = make(chan struct{})
 		server = ghttp.NewServer()
-		// Wire a Pod controller with a fake source
 		restClient, err := kubecli.GetRESTClientFromFlags(server.URL(), "")
 		Expect(err).To(Not(HaveOccurred()))
-		coreClient, err := kubecli.GetFromFlags(server.URL(), "")
 		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		lw = framework.NewFakeControllerSource()
-		mockVMService = services.NewMockVMService(ctrl)
-		_, podController = NewPodControllerWithListWatch(vmCache, nil, lw, restClient, mockVMService, coreClient)
+		podCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 
-		// Start the controller
-		podController.StartInformer(stopChan)
-		go podController.Run(1, stopChan)
+		var g inject.Graph
+		vmService = services.NewVMService()
+		server = ghttp.NewServer()
+		config := rest.Config{}
+		config.Host = server.URL()
+		clientSet, _ := kubernetes.NewForConfig(&config)
+		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher")
+		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
+
+		g.Provide(
+			&inject.Object{Value: restClient},
+			&inject.Object{Value: clientSet},
+			&inject.Object{Value: vmService},
+			&inject.Object{Value: templateService},
+		)
+		g.Populate()
+
+		dispatch = NewPodControllerDispatch(vmCache, restClient, vmService, clientSet)
+
 	})
 
 	Context("Running Pod for unscheduled VM given", func() {
@@ -61,7 +72,8 @@ var _ = Describe("Pod", func() {
 			// Create a target Pod for the VM
 			temlateService, err := services.NewTemplateService("whatever")
 			Expect(err).ToNot(HaveOccurred())
-			pod, err := temlateService.RenderLaunchManifest(vm)
+			var pod *kubev1.Pod
+			pod, err = temlateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
 			pod.Spec.NodeName = "mynode"
 
@@ -84,12 +96,12 @@ var _ = Describe("Pod", func() {
 			)
 
 			// Tell the controller that there is a new running Pod
-			lw.Add(pod)
 
-			// Wait until we have processed the added item
-			podController.WaitForSync(stopChan)
-			podController.ShutDownQueue()
-			podController.WaitUntilDone()
+			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			key, _ := cache.MetaNamespaceKeyFunc(pod)
+			podCache.Add(pod)
+			queue.Add(key)
+			dispatch.Execute(podCache, queue, key)
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			close(done)
@@ -182,6 +194,12 @@ var _ = Describe("Pod", func() {
 					ghttp.VerifyJSONRepresenting(vmWithMigrationNodeName),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vmWithMigrationNodeName),
 				),
+
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
+				),
+
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/nodes/sourceNode"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, srcNode),
@@ -190,6 +208,13 @@ var _ = Describe("Pod", func() {
 					ghttp.VerifyRequest("GET", "/api/v1/nodes/targetNode"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, targetNode),
 				),
+
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
+					//TODO: Validate that posted Pod request is sane
+					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
+				),
+
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
 					ghttp.VerifyJSONRepresenting(vmInMigrationState),
@@ -197,25 +222,18 @@ var _ = Describe("Pod", func() {
 				),
 			)
 
-			mockVMService.EXPECT().GetMigrationJob(gomock.Any()).Return(nil, false, nil)
-			mockVMService.EXPECT().StartMigration(gomock.Any(), gomock.Any(), &srcNode, &targetNode, gomock.Any()).Return(nil)
+			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			key, _ := cache.MetaNamespaceKeyFunc(pod)
+			podCache.Add(pod)
+			queue.Add(key)
+			dispatch.Execute(podCache, queue, key)
 
-			// Tell the controller that there is a new running Pod
-			lw.Add(pod)
-
-			// Wait until we have processed the added item
-			podController.WaitForSync(stopChan)
-			podController.ShutDownQueue()
-			podController.WaitUntilDone()
-
-			Expect(len(server.ReceivedRequests())).To(Equal(5))
+			Expect(len(server.ReceivedRequests())).To(Equal(7))
 			close(done)
 		}, 10)
 	})
 
 	AfterEach(func() {
-		close(stopChan)
 		server.Close()
-		ctrl.Finish()
 	})
 })

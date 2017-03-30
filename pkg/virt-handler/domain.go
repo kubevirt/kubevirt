@@ -22,14 +22,17 @@ into pause mode because of resource shortage or cut off connections to storage.
 func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, informer cache.SharedInformer, restClient rest.RESTClient, recorder record.EventRecorder) (cache.Store, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	informer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForQorkqueue(queue))
+	dispatch := NewDomainDispatch(vmQueue, vmStore, restClient, recorder)
+	return kubecli.NewControllerFromInformer(informer.GetStore(), informer, queue, dispatch)
+}
 
-	dispatch := DomainDispatch{
+func NewDomainDispatch(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, restClient rest.RESTClient, recorder record.EventRecorder) kubecli.ControllerDispatch {
+	return &DomainDispatch{
 		vmQueue:    vmQueue,
 		vmStore:    vmStore,
 		recorder:   recorder,
 		restClient: restClient,
 	}
-	return kubecli.NewControllerFromInformer(informer.GetStore(), informer, queue, &dispatch)
 }
 
 type DomainDispatch struct {
@@ -45,6 +48,7 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 		queue.AddRateLimited(key)
 		return
 	}
+
 	var domain *virtwrap.Domain
 	if !exists {
 		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
@@ -61,11 +65,13 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 	obj, vmExists, err := d.vmStore.GetByKey(key.(string))
 	if err != nil {
 		queue.AddRateLimited(key)
-	} else if !vmExists || obj.(*v1.VM).GetObjectMeta().GetUID() != domain.GetObjectMeta().GetUID() {
+		return
+	}
+	if !vmExists || obj.(*v1.VM).GetObjectMeta().GetUID() != domain.GetObjectMeta().GetUID() {
 		// The VM is not in the vm cache, or is a VM with a differend uuid, tell the VM controller to investigate it
 		d.vmQueue.Add(key)
 	} else {
-		err = d.setVmPhaseForStatusReason(domain, obj.(*v1.VM))
+		err := d.setVmPhaseForStatusReason(domain, obj.(*v1.VM))
 		if err != nil {
 			queue.AddRateLimited(key)
 		}

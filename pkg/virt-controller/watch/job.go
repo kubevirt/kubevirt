@@ -30,16 +30,11 @@ func migrationJobSelector() kubeapi.ListOptions {
 func NewJobController(vmService services.VMService, recorder record.EventRecorder, clientSet *kubernetes.Clientset, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 	selector := migrationJobSelector()
 	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
-	return NewJobControllerWithListWatch(vmService, recorder, lw, restClient)
-}
-
-func NewJobControllerWithListWatch(vmService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
-
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Pod{}, NewJobControllerFunction(vmService, restClient))
+	return kubecli.NewController(lw, queue, &v1.Pod{}, NewJobControllerDispatch(vmService, restClient))
 }
 
-func NewJobControllerFunction(vmService services.VMService, restClient *rest.RESTClient) kubecli.ControllerDispatch {
+func NewJobControllerDispatch(vmService services.VMService, restClient *rest.RESTClient) kubecli.ControllerDispatch {
 	dispatch := JobDispatch{
 		restClient: restClient,
 		vmService:  vmService,
@@ -54,9 +49,7 @@ type JobDispatch struct {
 }
 
 func (jd *JobDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
-	// Fetch the latest Job state from cache
 	obj, exists, err := store.GetByKey(key.(string))
-
 	if err != nil {
 		queue.AddRateLimited(key)
 		return

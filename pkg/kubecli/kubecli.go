@@ -154,13 +154,20 @@ func NewControllerFromInformer(indexer cache.Store, informer cache.ControllerInt
 type ControllerFunc func(cache.Store, workqueue.RateLimitingInterface, interface{})
 
 func (c *Controller) callControllerFn(s cache.Store, w workqueue.RateLimitingInterface) bool {
-	key, quit := w.Get()
+	quit := !Dequeue(s, w, c.dispatch)
 	if quit {
 		close(c.done)
+	}
+	return quit
+}
+
+func Dequeue(s cache.Store, w workqueue.RateLimitingInterface, dispatch ControllerDispatch) bool {
+	key, quit := w.Get()
+	if quit {
 		return false
 	} else {
 		defer w.Done(key)
-		c.dispatch.Execute(s, w, key)
+		dispatch.Execute(s, w, key)
 		return true
 	}
 }

@@ -17,16 +17,11 @@ import (
 
 func NewMigrationController(migrationService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 	lw := cache.NewListWatchFromClient(restClient, "migrations", k8sv1.NamespaceDefault, fields.Everything())
-	return NewMigrationControllerWithListWatch(migrationService, recorder, lw)
-}
-
-func NewMigrationControllerWithListWatch(migrationService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher) (cache.Store, *kubecli.Controller) {
-
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.Migration{}, NewMigrationControllerFunc(migrationService))
+	return kubecli.NewController(lw, queue, &v1.Migration{}, NewMigrationControllerDispatch(migrationService))
 }
 
-func NewMigrationControllerFunc(vmService services.VMService) kubecli.ControllerDispatch {
+func NewMigrationControllerDispatch(vmService services.VMService) kubecli.ControllerDispatch {
 
 	dispatch := MigrationDispatch{
 		vmService: vmService,
@@ -54,9 +49,7 @@ func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimi
 		queue.Forget(key)
 	}
 
-	// Fetch the latest Migration state from cache
 	obj, exists, err := store.GetByKey(key.(string))
-
 	if err != nil {
 		queue.AddRateLimited(key)
 		return
@@ -155,16 +148,23 @@ func investigateTargetPodSituation(migration *v1.Migration, podList *k8sv1.PodLi
 }
 
 func mergeConstraints(migration *v1.Migration, vm *v1.VM) error {
+
+	merged := map[string]string{}
+	for k, v := range vm.Spec.NodeSelector {
+		merged[k] = v
+	}
 	conflicts := []string{}
 	for k, v := range migration.Spec.NodeSelector {
-		if _, exists := vm.Spec.NodeSelector[k]; exists {
+		val, exists := vm.Spec.NodeSelector[k]
+		if exists && val != v {
 			conflicts = append(conflicts, k)
 		} else {
-			vm.Spec.NodeSelector[k] = v
+			merged[k] = v
 		}
 	}
 	if len(conflicts) > 0 {
 		return fmt.Errorf("Conflicting node selectors: %v", conflicts)
 	}
+	vm.Spec.NodeSelector = merged
 	return nil
 }
