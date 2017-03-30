@@ -76,7 +76,7 @@ func main() {
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 
 	ws.Route(ws.GET(rest.ResourcePath(vmGVR) + rest.SubResourcePath("console")).
-		To(rest.NewConsoleResource(virtCli, coreCli).Console).
+		To(rest.NewConsoleResource(virtCli, coreCli.CoreV1()).Console).
 		Param(restful.QueryParameter("console", "Name of the serial console to connect to")).
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
 		Doc("Open a websocket connection to a serial console on the specified VM."))

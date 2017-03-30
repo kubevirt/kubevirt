@@ -1,5 +1,11 @@
 package kubecli
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
+/*
+ ATTENTION: Rerun code generators when interface signatures are modified.
+*/
+
 import (
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/errors"

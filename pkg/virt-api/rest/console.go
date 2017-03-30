@@ -5,7 +5,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	"io"
-	"k8s.io/client-go/kubernetes"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api/v1"
 	k8sv1meta "k8s.io/client-go/pkg/apis/meta/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -20,11 +20,12 @@ var upgrader = websocket.Upgrader{
 }
 
 type Console struct {
-	virtClient kubecli.KubevirtClient
-	k8sClient  *kubernetes.Clientset
+	virtClient      kubecli.KubevirtClient
+	k8sClient       k8scorev1.CoreV1Interface
+	VirtHandlerPort string
 }
 
-func NewConsoleResource(virtClient kubecli.KubevirtClient, k8sClient *kubernetes.Clientset) *Console {
+func NewConsoleResource(virtClient kubecli.KubevirtClient, k8sClient k8scorev1.CoreV1Interface) *Console {
 	return &Console{virtClient: virtClient, k8sClient: k8sClient}
 }
 
@@ -52,7 +53,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	}
 
 	// Get virt-handler pod
-	targetNode, err := t.k8sClient.CoreV1().Nodes().Get(vm.Status.NodeName, k8sv1meta.GetOptions{})
+	targetNode, err := t.k8sClient.Nodes().Get(vm.Status.NodeName, k8sv1meta.GetOptions{})
 	if err != nil {
 		log.Error().Reason(err).Msgf("Could not fetch node '%s' where the VM is running on", vm.Status.NodeName)
 		response.WriteError(http.StatusInternalServerError, err)
@@ -73,10 +74,15 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 		return
 	}
 
-	// FIXME, don't hardcode virt-handler port
-	u := url.URL{Scheme: "ws", Host: dstAddr + ":8185", Path: fmt.Sprintf("/api/v1/console/%s", vmName)}
+	// FIXME, don't hardcode virt-handler port. virt-handler should register itself somehow
+	port := "8185"
+	if t.VirtHandlerPort != "" {
+		port = t.VirtHandlerPort
+	}
+
+	u := url.URL{Scheme: "ws", Host: dstAddr + ":" + port, Path: fmt.Sprintf("/api/v1/console/%s", vmName)}
 	if console != "" {
-		u.RawQuery = "console=" + console
+		u.RawQuery = url.QueryEscape("console=" + console)
 	}
 	handlerSocket, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
