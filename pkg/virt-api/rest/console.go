@@ -82,7 +82,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 
 	u := url.URL{Scheme: "ws", Host: dstAddr + ":" + port, Path: fmt.Sprintf("/api/v1/console/%s", vmName)}
 	if console != "" {
-		u.RawQuery = url.QueryEscape("console=" + console)
+		u.RawQuery = "console=" + console
 	}
 	handlerSocket, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {

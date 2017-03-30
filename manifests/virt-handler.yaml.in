@@ -24,7 +24,7 @@ spec:
         command:
           - "/virt-handler"
           - "-v"
-          - "2"
+          - "3"
           - "--libvirt-uri"
           - "qemu:///system"
           - "--hostname-override"
