@@ -26,7 +26,7 @@ func NewConsoleResource(connection virtwrap.Connection) *Console {
 }
 
 func (t *Console) Console(request *restful.Request, response *restful.Response) {
-	console := request.HeaderParameter("console")
+	console := request.QueryParameter("console")
 	vmName := request.PathParameter("name")
 	vm := v1.NewVMReferenceFromName(vmName)
 	log := logging.DefaultLogger().Object(vm)

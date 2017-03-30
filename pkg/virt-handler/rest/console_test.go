@@ -32,10 +32,9 @@ var _ = Describe("Console", func() {
 
 	dial := func(vm string, console string) *websocket.Conn {
 		wsUrl.Scheme = "ws"
-		header := http.Header{}
-		header.Add("console", console)
 		wsUrl.Path = "/api/v1/console/" + vm
-		c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), header)
+		wsUrl.RawQuery = "console=" + console
+		c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), nil)
 		Expect(err).ToNot(HaveOccurred())
 		return c
 	}
