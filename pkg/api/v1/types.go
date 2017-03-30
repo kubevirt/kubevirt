@@ -47,6 +47,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&Spice{},
 		&Migration{},
 		&MigrationList{},
+		&metav1.GetOptions{},
 	)
 	return nil
 }
