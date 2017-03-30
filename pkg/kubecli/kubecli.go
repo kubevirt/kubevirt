@@ -53,6 +53,18 @@ func GetRESTClient() (*rest.RESTClient, error) {
 	return GetRESTClientFromFlags(master, kubeconfig)
 }
 
+func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
+	restClient, err := GetRESTClientFromFlags(master, kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	return &kubevirt{restClient}, nil
+}
+
+func GetKubevirtClient() (KubevirtClient, error) {
+	return GetKubevirtClientFromFlags(master, kubeconfig)
+}
+
 func GetRESTClientFromFlags(master string, kubeconfig string) (*rest.RESTClient, error) {
 
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)

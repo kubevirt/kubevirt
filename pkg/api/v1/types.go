@@ -121,6 +121,10 @@ func (v *VM) GetObjectMeta() meta.Object {
 	return &v.ObjectMeta
 }
 
+func (v *VM) IsRunning() bool {
+	return v.Status.Phase == Running || v.Status.Phase == Migrating
+}
+
 // Required to satisfy Object interface
 func (vl *VMList) GetObjectKind() schema.ObjectKind {
 	return &vl.TypeMeta
