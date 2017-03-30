@@ -103,6 +103,12 @@
 			"revisionTime": "2016-11-17T03:31:26Z"
 		},
 		{
+			"checksumSHA1": "jb1pFNNVYzpY4Mz09WEWeTNng40=",
+			"path": "github.com/gorilla/websocket",
+			"revision": "3f3e394da2b801fbe732a935ef40724762a67a07",
+			"revisionTime": "2017-02-18T16:27:10Z"
+		},
+		{
 			"checksumSHA1": "dtkL4Y9QiX0xpeSdoH71Ov+VpW4=",
 			"path": "github.com/jeevatkm/go-model",
 			"revision": "b63a4a27f7b484e4ffac7c530a8a996b9e9c8570",
@@ -299,6 +305,12 @@
 			"path": "github.com/satori/go.uuid",
 			"revision": "b061729afc07e77a8aa4fad0a2fd840958f1942a",
 			"revisionTime": "2016-09-27T10:08:44Z"
+		},
+		{
+			"checksumSHA1": "xiderUuvye8Kpn7yX3niiJg32bE=",
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "459e26527287adbc2adcc5d0d49abff9a5f315a7",
+			"revisionTime": "2017-03-17T13:29:17Z"
 		},
 		{
 			"checksumSHA1": "9jjO5GjLa0XF/nfWihF02RoH4qc=",

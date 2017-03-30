@@ -9,12 +9,16 @@ spec:
       labels:
         daemon: virt-handler
     spec:
+      hostNetwork: true
       volumes:
       - name: var-run-virt
         hostPath:
           path: /var/run/libvirt
       containers:
       - name: virt-handler
+        ports:
+          - containerPort: 8185
+            hostPort: 8185
         image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
         imagePullPolicy: IfNotPresent
         command:

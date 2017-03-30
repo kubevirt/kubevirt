@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
-	"time"
+	"strconv"
 
+	"github.com/emicklei/go-restful"
 	"github.com/libvirt/libvirt-go"
 	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api"
@@ -17,6 +19,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
+	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 )
@@ -28,6 +31,8 @@ func main() {
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	libvirtUser := flag.String("user", "", "Libvirt user")
 	libvirtPass := flag.String("pass", "", "Libvirt password")
+	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
+	port := flag.Int("port", 8185, "Port to listen on")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	flag.Parse()
 
@@ -116,10 +121,13 @@ func main() {
 	go domainController.Run(1, stop)
 	go vmController.Run(1, stop)
 
-	// Sleep forever
 	// TODO add a http handler which provides health check
-	for {
-		time.Sleep(60000 * time.Millisecond)
 
-	}
+	// Add websocket route to access consoles remotely
+	console := rest.NewConsoleResource(domainConn)
+	ws := new(restful.WebService)
+	ws.Route(ws.GET("/api/v1/console/{name}").To(console.Console))
+	restful.DefaultContainer.Add(ws)
+	server := &http.Server{Addr: *listen + ":" + strconv.Itoa(*port), Handler: restful.DefaultContainer}
+	server.ListenAndServe()
 }

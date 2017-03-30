@@ -8,6 +8,8 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	"io"
+
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -28,6 +30,16 @@ type Connection interface {
 	Close() (int, error)
 	DomainEventLifecycleRegister(dom *libvirt.Domain, callback libvirt.DomainEventLifecycleCallback) (int, error)
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
+	NewStream(flags libvirt.StreamFlags) (Stream, error)
+}
+
+type Stream interface {
+	io.ReadWriteCloser
+	UnderlyingStream() *libvirt.Stream
+}
+
+type VirStream struct {
+	*libvirt.Stream
 }
 
 type LibvirtConnection struct {
@@ -36,6 +48,39 @@ type LibvirtConnection struct {
 	pass  string
 	uri   string
 	alive bool
+}
+
+func (s *VirStream) Write(p []byte) (n int, err error) {
+	return s.Stream.Send(p)
+}
+
+func (s *VirStream) Read(p []byte) (n int, err error) {
+	return s.Stream.Recv(p)
+}
+
+/*
+Close the stream and free its resources. Since closing a stream involves multiple calls with errors,
+the first error occured will be returned. The stream will always be freed.
+*/
+func (s *VirStream) Close() (e error) {
+	e = s.Finish()
+	if e != nil {
+		return s.Free()
+	}
+	s.Free()
+	return e
+}
+
+func (s *VirStream) UnderlyingStream() *libvirt.Stream {
+	return s.Stream
+}
+
+func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
+	s, err := l.Connect.NewStream(flags)
+	if err != nil {
+		return nil, err
+	}
+	return &VirStream{Stream: s}, nil
 }
 
 func (l *LibvirtConnection) LookupDomainByName(name string) (VirDomain, error) {
@@ -84,6 +129,7 @@ type VirDomain interface {
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
 	Undefine() error
+	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
 }
 
 type LibvirtDomainManager struct {
