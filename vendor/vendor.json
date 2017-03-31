@@ -307,6 +307,12 @@
 			"revisionTime": "2016-09-27T10:08:44Z"
 		},
 		{
+			"checksumSHA1": "WZHF26m8UJ3WU5//TIDeUC3xs4o=",
+			"path": "github.com/spf13/pflag",
+			"revision": "d16db1e50e33dff1b6cdf37596cef36742128670",
+			"revisionTime": "2017-03-27T14:13:44Z"
+		},
+		{
 			"checksumSHA1": "xiderUuvye8Kpn7yX3niiJg32bE=",
 			"path": "golang.org/x/crypto/ssh/terminal",
 			"revision": "459e26527287adbc2adcc5d0d49abff9a5f315a7",
