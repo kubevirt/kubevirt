@@ -121,10 +121,10 @@
 			"revisionTime": "2014-02-26T03:06:59Z"
 		},
 		{
-			"checksumSHA1": "9uPqPshCXYpIMBEj5um0iPDSiAg=",
+			"checksumSHA1": "qJ8i9g5EOf66ZlWX27xyuNYefTA=",
 			"path": "github.com/libvirt/libvirt-go",
-			"revision": "9730c83200cc23efa557aeef3d62ebfb666d5667",
-			"revisionTime": "2017-01-16T17:26:24Z"
+			"revision": "078178a5716fc8eb460d1744da8419f631a6443a",
+			"revisionTime": "2017-04-03T07:30:48Z"
 		},
 		{
 			"checksumSHA1": "5CYrIFTTUD3pONFo8uEO21Ajz68=",
