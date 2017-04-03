@@ -6,9 +6,7 @@ spec:
   domain:
     devices:
       graphics:
-      - autoPort: "yes"
-        defaultMode: any
-        type: spice
+      - type: spice
       interfaces:
       - source:
           network: default

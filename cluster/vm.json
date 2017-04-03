@@ -48,8 +48,6 @@
         ],
         "graphics": [
           {
-            "autoPort": "yes",
-            "defaultMode": "any",
             "type": "spice"
           }
         ],
