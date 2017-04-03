@@ -6,20 +6,14 @@ spec:
   domain:
     devices:
       graphics:
-      - autoPort: "yes"
-        defaultMode: any
-        type: spice
+      - type: spice
       interfaces:
-      - source:
+      - type: network
+        source:
           network: default
-        type: network
       video:
-      - Model:
-          VGAMem: 16384
-          heads: 1
-          ram: 65536
+      - model:
           type: qxl
-          vram: 8192
       disks:
       - type: network
         snapshot: external
@@ -48,7 +42,6 @@ spec:
     memory:
       unit: MB
       value: 64
-    name: testvm
     os:
       type:
         os: hvm

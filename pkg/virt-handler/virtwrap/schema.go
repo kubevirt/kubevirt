@@ -388,10 +388,10 @@ type Video struct {
 
 type VideoModel struct {
 	Type   string `xml:"type,attr"`
-	Heads  uint   `xml:"heads,attr,omitempty"`
-	Ram    uint   `xml:"ram,attr,omitempty"`
-	VRam   uint   `xml:"vram,attr,omitempty"`
-	VGAMem uint   `xml:"vgamem,attr,omitempty" vgamem:"vram,omitempty"`
+	Heads  *uint  `xml:"heads,attr,omitempty"`
+	Ram    *uint  `xml:"ram,attr,omitempty"`
+	VRam   *uint  `xml:"vram,attr,omitempty"`
+	VGAMem *uint  `xml:"vgamem,attr,omitempty"`
 }
 
 type Graphics struct {

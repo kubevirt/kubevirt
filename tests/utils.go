@@ -203,10 +203,10 @@ func NewRandomVMWithSpice() *v1.VM {
 		{
 			Model: v1.VideoModel{
 				Type:   "qxl",
-				Heads:  1,
-				Ram:    65563,
-				VGAMem: 16384,
-				VRam:   8192,
+				Heads:  newUInt(1),
+				Ram:    newUInt(65563),
+				VGAMem: newUInt(16384),
+				VRam:   newUInt(8192),
 			},
 		},
 	}
@@ -256,4 +256,8 @@ func GetReadyNodes() []kubev1.Node {
 		}
 	}
 	return readyNodes
+}
+
+func newUInt(x uint) *uint {
+	return &x
 }

@@ -42,18 +42,12 @@
         "video": [
           {
             "model": {
-              "type": "qxl",
-              "heads": 1,
-              "ram": 65536,
-              "vgamem": 16384,
-              "vram": 8192
+              "type": "qxl"
             }
           }
         ],
         "graphics": [
           {
-            "autoPort": "yes",
-            "defaultMode": "any",
             "type": "spice"
           }
         ],
