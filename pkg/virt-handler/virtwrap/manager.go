@@ -8,6 +8,7 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+	utilwait "k8s.io/client-go/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -237,7 +239,25 @@ type LibvirtDomainManager struct {
 	recorder record.EventRecorder
 }
 
+func waitForLibvirt(uri string, user string, pass string, timeout time.Duration) error {
+	interval := 10 * time.Second
+	return utilwait.PollImmediate(interval, timeout, func() (done bool, err error) {
+		if virConn, err := newConnection(uri, user, pass); err == nil {
+			defer virConn.Close()
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
+	timeout := 15 * time.Second
+	logger := logging.DefaultLogger()
+	logger.Info().V(1).Msgf("Connecting to libvirt daemon: %s", uri)
+	if err := waitForLibvirt(uri, user, pass, timeout); err != nil {
+		return nil, fmt.Errorf("cannot connect to libvirt daemon: %v", err)
+	}
+	logger.Info().V(1).Msg("Connected to libvirt daemon")
 	virConn, err := newConnection(uri, user, pass)
 	if err != nil {
 		return nil, err
