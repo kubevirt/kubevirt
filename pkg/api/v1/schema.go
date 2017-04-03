@@ -261,15 +261,15 @@ type ChannelSource struct {
 */
 
 type Video struct {
-	Model VideoModel `xml:"model"`
+	Model VideoModel `json:"model"`
 }
 
 type VideoModel struct {
 	Type   string `json:"type"`
-	Heads  uint   `json:"heads,omitempty"`
-	Ram    uint   `json:"ram,omitempty"`
-	VRam   uint   `json:"vram,omitempty"`
-	VGAMem uint   `vgamem:"vram,omitempty"`
+	Heads  *uint  `json:"heads,omitempty"`
+	Ram    *uint  `json:"ram,omitempty"`
+	VRam   *uint  `json:"vRam,omitempty"`
+	VGAMem *uint  `json:"vgaMem,omitempty"`
 }
 
 type Graphics struct {

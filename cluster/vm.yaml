@@ -14,12 +14,8 @@ spec:
           network: default
         type: network
       video:
-      - Model:
-          VGAMem: 16384
-          heads: 1
-          ram: 65536
+      - model:
           type: qxl
-          vram: 8192
       disks:
       - type: network
         snapshot: external
