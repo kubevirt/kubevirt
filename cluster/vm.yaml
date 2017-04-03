@@ -8,9 +8,9 @@ spec:
       graphics:
       - type: spice
       interfaces:
-      - source:
+      - type: network
+        source:
           network: default
-        type: network
       video:
       - model:
           type: qxl
@@ -42,7 +42,6 @@ spec:
     memory:
       unit: MB
       value: 64
-    name: testvm
     os:
       type:
         os: hvm
