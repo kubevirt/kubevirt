@@ -87,6 +87,20 @@ $ kubectl run --rm -it qemu-test --image=kubevirt/libvirtd -- \
 ```
 
 
+## Exporting host paths as LUNs
+
+Sometimes OS images are large or block devices, such that you do not want
+to make them part of the demo image. In that case you can set
+the `EXPORT_HOST_PATHS` environment variable to directly reference a path
+on the host.
+For this to work you obviously also need to bind mount in the host root
+(`/`) into the `/host` path inside the container.
+
+You can for example use `EXPORT_HOST_PATHS=/dev/sda /home/alice/beos.img`
+to export `/dev/sda` and `/home/alice/beos.img` from the host.
+Assuming that `/host` inside the container points to `/` on the host.
+
+
 # Known issues
 
 ## It's not production ready
@@ -98,3 +112,6 @@ tgtd is used inside the image, this is delivering the first LUN as 1 (not 0).
 ## Why tgtd and not targetcli/LIO?
 LIO is a kernel based target, this would require privileged container.
 tgt otoh is completely in user-space, and can thus be run as a regular container.
+
+## Some files seem to be corrupted when booting VMs off them
+Just kill the pod and let the RC recreate it. This can be due to caching.
