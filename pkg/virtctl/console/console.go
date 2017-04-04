@@ -1,6 +1,7 @@
 package console
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/gorilla/websocket"
 	flag "github.com/spf13/pflag"
@@ -9,6 +10,7 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -70,9 +72,14 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	}
 	log.Printf("connecting to %s", u.String())
 
-	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	ws, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		log.Fatal("dial:", err)
+		if resp != nil && resp.StatusCode != http.StatusOK {
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(resp.Body)
+			log.Fatalf("Can't connect to console (%d): %s\n", resp.StatusCode, buf.String())
+		}
+		log.Fatalf("Can't connect to console: %s\n", err.Error())
 	}
 	defer ws.Close()
 
@@ -81,7 +88,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 
 	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
-		log.Fatal("Make raw terminal:", err)
+		log.Fatal("Make raw terminal failed:", err)
 	}
 	defer terminal.Restore(int(os.Stdin.Fd()), state)
 	fmt.Fprint(os.Stderr, "Escape sequence is ^]")
