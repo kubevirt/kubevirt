@@ -51,18 +51,6 @@
         ],
         "consoles": [
           {
-            "target": {
-              "port": 0,
-              "type": "serial"
-            },
-            "type": "pty"
-          }
-        ],
-        "serials": [
-          {
-            "target": {
-              "port": 0
-            },
             "type": "pty"
           }
         ]

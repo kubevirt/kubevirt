@@ -36,9 +36,9 @@ func init() {
 	mapper.AddPtrConversion((**ReadOnly)(nil), (**v1.ReadOnly)(nil))
 	mapper.AddPtrConversion((**Address)(nil), (**v1.Address)(nil))
 	mapper.AddConversion(&Serial{}, &v1.Serial{})
-	mapper.AddConversion(&SerialTarget{}, &v1.SerialTarget{})
+	mapper.AddPtrConversion((**SerialTarget)(nil), (**v1.SerialTarget)(nil))
 	mapper.AddConversion(&Console{}, &v1.Console{})
-	mapper.AddConversion(&ConsoleTarget{}, &v1.ConsoleTarget{})
+	mapper.AddPtrConversion((**ConsoleTarget)(nil), (**v1.ConsoleTarget)(nil))
 	mapper.AddConversion(&InterfaceSource{}, &v1.InterfaceSource{})
 	mapper.AddPtrConversion((**InterfaceTarget)(nil), (**v1.InterfaceTarget)(nil))
 	mapper.AddPtrConversion((**Model)(nil), (**v1.Model)(nil))
@@ -223,12 +223,12 @@ type DiskSourceHost struct {
 // BEGIN Serial -----------------------------
 
 type Serial struct {
-	Type   string       `xml:"type,attr"`
-	Target SerialTarget `xml:"target"`
+	Type   string        `xml:"type,attr"`
+	Target *SerialTarget `xml:"target,omitempty"`
 }
 
 type SerialTarget struct {
-	Port uint `xml:"port,attr"`
+	Port *uint `xml:"port,attr,omitempty"`
 }
 
 // END Serial -----------------------------
@@ -236,13 +236,13 @@ type SerialTarget struct {
 // BEGIN Console -----------------------------
 
 type Console struct {
-	Type   string        `xml:"type,attr"`
-	Target ConsoleTarget `xml:"target"`
+	Type   string         `xml:"type,attr"`
+	Target *ConsoleTarget `xml:"target,omitempty"`
 }
 
 type ConsoleTarget struct {
-	Type string `xml:"type,attr"`
-	Port *uint  `xml:"port,attr,omitempty"`
+	Type *string `xml:"type,attr,omitempty"`
+	Port *uint   `xml:"port,attr,omitempty"`
 }
 
 // END Serial -----------------------------

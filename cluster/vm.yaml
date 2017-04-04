@@ -29,15 +29,8 @@ spec:
           name: iqn.2017-01.io.kubevirt:sn.42/2
         target:
           dev: vda
-      serials:
-      - type: pty
-        target:
-          port: 0
       consoles:
       - type: pty
-        target:
-          type: serial
-          port: 0
     memory:
       unit: MB
       value: 64

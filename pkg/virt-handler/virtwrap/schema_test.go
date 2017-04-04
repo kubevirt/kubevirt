@@ -32,6 +32,12 @@ var exampleXML = `<domain type="qemu">
       <target dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
     </disk>
+    <serial type="pty">
+      <target port="123"></target>
+    </serial>
+    <console type="pty">
+      <target type="serial" port="123"></target>
+    </console>
   </devices>
 </domain>`
 
@@ -52,6 +58,12 @@ var _ = Describe("Schema", func() {
 	exampleDomain.Devices.Video = []Video{
 		{Model: VideoModel{Type: "vga"}},
 		{Model: VideoModel{Type: "qxl"}},
+	}
+	exampleDomain.Devices.Serials = []Serial{
+		{Type: "pty", Target: &SerialTarget{Port: newUInt(123)}},
+	}
+	exampleDomain.Devices.Consoles = []Console{
+		{Type: "pty", Target: &ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
 	}
 
 	Context("With schema", func() {
@@ -102,6 +114,12 @@ var _ = Describe("Schema", func() {
 			{Type: "vga"},
 			{Type: "qxl"},
 		}
+		v1DomainSpec.Devices.Serials = []v1.Serial{
+			{Type: "pty", Target: &v1.SerialTarget{Port: newUInt(123)}},
+		}
+		v1DomainSpec.Devices.Consoles = []v1.Console{
+			{Type: "pty", Target: &v1.ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
+		}
 
 		It("converts to libvirt.DomainSpec", func() {
 			virtDomainSpec := DomainSpec{}
@@ -117,3 +135,11 @@ var _ = Describe("Schema", func() {
 		})
 	})
 })
+
+func newUInt(v uint) *uint {
+	return &v
+}
+
+func newString(v string) *string {
+	return &v
+}
