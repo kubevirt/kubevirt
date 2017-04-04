@@ -4,7 +4,7 @@ MAINTAINER "Fabian Deutsch" \<fabiand@redhat.com\>
 ENV container docker
 
 RUN apt-get update && apt-get install -y \
-  tgt bash curl bzip2
+  tgt bash curl bzip2 qemu-utils
 
 RUN mkdir -p /volume
 
@@ -16,7 +16,9 @@ RUN curl \
 # Add cirros
 RUN curl \
       http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img \
-      > /volume/cirros.img
+      > /volume/cirros.img \
+      && qemu-img convert -O raw /volume/cirros.img /volume/cirros.rawa \
+      && rm volume/cirros.img
 
 ADD run-tgt.sh /
 
