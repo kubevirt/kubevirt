@@ -19,6 +19,12 @@ var exampleXML = `<domain type="qemu">
     <interface type="network">
       <source network="default"></source>
     </interface>
+    <video>
+      <model type="vga"></model>
+    </video>
+    <video>
+      <model type="qxl"></model>
+    </video>
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
@@ -42,6 +48,10 @@ var _ = Describe("Schema", func() {
 				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
 			Target: DiskTarget{Device: "vda"},
 		},
+	}
+	exampleDomain.Devices.Video = []Video{
+		{Model: VideoModel{Type: "vga"}},
+		{Model: VideoModel{Type: "qxl"}},
 	}
 
 	Context("With schema", func() {
@@ -88,11 +98,21 @@ var _ = Describe("Schema", func() {
 				Target: v1.DiskTarget{Device: "vda"},
 			},
 		}
+		v1DomainSpec.Devices.Video = []v1.Video{
+			{Type: "vga"},
+			{Type: "qxl"},
+		}
 
 		It("converts to libvirt.DomainSpec", func() {
 			virtDomainSpec := DomainSpec{}
 			errs := model.Copy(&virtDomainSpec, v1DomainSpec)
 			Expect(virtDomainSpec).To(Equal(*exampleDomain))
+			Expect(errs).To(BeEmpty())
+		})
+		It("converts to v1.DomainSpec", func() {
+			convertedDomainSpec := v1.DomainSpec{}
+			errs := model.Copy(&convertedDomainSpec, exampleDomain)
+			Expect(convertedDomainSpec).To(Equal(*v1DomainSpec))
 			Expect(errs).To(BeEmpty())
 		})
 	})

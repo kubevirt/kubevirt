@@ -12,8 +12,7 @@ spec:
         source:
           network: default
       video:
-      - model:
-          type: qxl
+      - type: qxl
       disks:
       - type: network
         snapshot: external

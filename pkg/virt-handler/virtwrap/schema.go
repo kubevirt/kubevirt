@@ -2,6 +2,7 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	"k8s.io/client-go/pkg/api/meta"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -10,6 +11,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
+	"reflect"
 )
 
 type LifeCycle string
@@ -24,7 +26,6 @@ func init() {
 	mapper.AddPtrConversion((**SysInfo)(nil), (**v1.SysInfo)(nil))
 	mapper.AddConversion(&Channel{}, &v1.Channel{})
 	mapper.AddConversion(&Interface{}, &v1.Interface{})
-	mapper.AddConversion(&Video{}, &v1.Video{})
 	mapper.AddConversion(&Graphics{}, &v1.Graphics{})
 	mapper.AddPtrConversion((**Ballooning)(nil), (**v1.Ballooning)(nil))
 	mapper.AddConversion(&Disk{}, &v1.Disk{})
@@ -55,8 +56,25 @@ func init() {
 	mapper.AddConversion(&Entry{}, &v1.Entry{})
 	mapper.AddConversion(&ChannelSource{}, &v1.ChannelSource{})
 	mapper.AddPtrConversion((**ChannelTarget)(nil), (**v1.ChannelTarget)(nil))
-	mapper.AddConversion(&VideoModel{}, &v1.VideoModel{})
+	mapper.AddConversion(&VideoModel{}, &v1.Video{})
 	mapper.AddConversion(&Listen{}, &v1.Listen{})
+
+	model.AddConversion(&Video{}, &v1.Video{}, func(in reflect.Value) (reflect.Value, error) {
+		out := v1.Video{}
+		errs := model.Copy(&out, in.Interface().(Video).Model)
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
+	model.AddConversion(&v1.Video{}, &Video{}, func(in reflect.Value) (reflect.Value, error) {
+		out := Video{}
+		errs := model.Copy(&out.Model, in.Interface())
+		if len(errs) > 0 {
+			return reflect.ValueOf(out), errs[0]
+		}
+		return reflect.ValueOf(out), nil
+	})
 }
 
 const (

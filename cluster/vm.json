@@ -41,9 +41,7 @@
         ],
         "video": [
           {
-            "model": {
-              "type": "qxl"
-            }
+            "type": "qxl"
           }
         ],
         "graphics": [

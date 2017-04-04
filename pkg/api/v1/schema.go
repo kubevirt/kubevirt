@@ -261,10 +261,6 @@ type ChannelSource struct {
 */
 
 type Video struct {
-	Model VideoModel `json:"model"`
-}
-
-type VideoModel struct {
 	Type   string `json:"type"`
 	Heads  *uint  `json:"heads,omitempty"`
 	Ram    *uint  `json:"ram,omitempty"`
