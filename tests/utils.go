@@ -197,6 +197,28 @@ func NewMigrationForVm(vm *v1.VM) *v1.Migration {
 	return v1.NewMinimalMigration(vm.ObjectMeta.Name+"migrate", vm.ObjectMeta.Name)
 }
 
+func NewRandomVMWithSerialConsole() *v1.VM {
+	vm := NewRandomVMWithPVC("disk-cirros")
+	vm.Spec.Domain.Devices.Serials = []v1.Serial{
+		{
+			Type: "pty",
+			Target: &v1.SerialTarget{
+				Port: newUInt(0),
+			},
+		},
+	}
+	vm.Spec.Domain.Devices.Consoles = []v1.Console{
+		{
+			Type: "pty",
+			Target: &v1.ConsoleTarget{
+				Type: newString("serial"),
+				Port: newUInt(0),
+			},
+		},
+	}
+	return vm
+}
+
 func NewRandomVMWithSpice() *v1.VM {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Devices.Video = []v1.Video{
@@ -257,5 +279,9 @@ func GetReadyNodes() []kubev1.Node {
 }
 
 func newUInt(x uint) *uint {
+	return &x
+}
+
+func newString(x string) *string {
 	return &x
 }

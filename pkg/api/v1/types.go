@@ -47,6 +47,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&Spice{},
 		&Migration{},
 		&MigrationList{},
+		&metav1.GetOptions{},
 	)
 	return nil
 }
@@ -118,6 +119,10 @@ func (v *VM) GetObjectKind() schema.ObjectKind {
 // Required to satisfy ObjectMetaAccessor interface
 func (v *VM) GetObjectMeta() meta.Object {
 	return &v.ObjectMeta
+}
+
+func (v *VM) IsRunning() bool {
+	return v.Status.Phase == Running || v.Status.Phase == Migrating
 }
 
 // Required to satisfy Object interface

@@ -55,6 +55,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	virtCli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
 	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
@@ -70,6 +74,13 @@ func main() {
 		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
+
+	ws.Route(ws.GET(rest.ResourcePath(vmGVR) + rest.SubResourcePath("console")).
+		To(rest.NewConsoleResource(virtCli, coreCli.CoreV1()).Console).
+		Param(restful.QueryParameter("console", "Name of the serial console to connect to")).
+		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
+		Doc("Open a websocket connection to a serial console on the specified VM."))
+
 	restful.Add(ws)
 
 	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON).Doc("Health endpoint"))
@@ -77,7 +88,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	restful.Add(ws)
+
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
 
