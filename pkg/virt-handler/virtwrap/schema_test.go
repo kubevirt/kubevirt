@@ -19,6 +19,12 @@ var exampleXML = `<domain type="qemu">
     <interface type="network">
       <source network="default"></source>
     </interface>
+    <video>
+      <model type="vga"></model>
+    </video>
+    <video>
+      <model type="qxl"></model>
+    </video>
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
@@ -26,6 +32,12 @@ var exampleXML = `<domain type="qemu">
       <target dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
     </disk>
+    <serial type="pty">
+      <target port="123"></target>
+    </serial>
+    <console type="pty">
+      <target type="serial" port="123"></target>
+    </console>
   </devices>
 </domain>`
 
@@ -42,6 +54,16 @@ var _ = Describe("Schema", func() {
 				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
 			Target: DiskTarget{Device: "vda"},
 		},
+	}
+	exampleDomain.Devices.Video = []Video{
+		{Model: VideoModel{Type: "vga"}},
+		{Model: VideoModel{Type: "qxl"}},
+	}
+	exampleDomain.Devices.Serials = []Serial{
+		{Type: "pty", Target: &SerialTarget{Port: newUInt(123)}},
+	}
+	exampleDomain.Devices.Consoles = []Console{
+		{Type: "pty", Target: &ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
 	}
 
 	Context("With schema", func() {
@@ -88,6 +110,16 @@ var _ = Describe("Schema", func() {
 				Target: v1.DiskTarget{Device: "vda"},
 			},
 		}
+		v1DomainSpec.Devices.Video = []v1.Video{
+			{Type: "vga"},
+			{Type: "qxl"},
+		}
+		v1DomainSpec.Devices.Serials = []v1.Serial{
+			{Type: "pty", Target: &v1.SerialTarget{Port: newUInt(123)}},
+		}
+		v1DomainSpec.Devices.Consoles = []v1.Console{
+			{Type: "pty", Target: &v1.ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
+		}
 
 		It("converts to libvirt.DomainSpec", func() {
 			virtDomainSpec := DomainSpec{}
@@ -95,5 +127,19 @@ var _ = Describe("Schema", func() {
 			Expect(virtDomainSpec).To(Equal(*exampleDomain))
 			Expect(errs).To(BeEmpty())
 		})
+		It("converts to v1.DomainSpec", func() {
+			convertedDomainSpec := v1.DomainSpec{}
+			errs := model.Copy(&convertedDomainSpec, exampleDomain)
+			Expect(convertedDomainSpec).To(Equal(*v1DomainSpec))
+			Expect(errs).To(BeEmpty())
+		})
 	})
 })
+
+func newUInt(v uint) *uint {
+	return &v
+}
+
+func newString(v string) *string {
+	return &v
+}

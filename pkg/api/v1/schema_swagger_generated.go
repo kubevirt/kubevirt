@@ -158,10 +158,6 @@ func (Video) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (VideoModel) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Graphics) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }

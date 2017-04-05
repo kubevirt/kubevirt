@@ -201,13 +201,11 @@ func NewRandomVMWithSpice() *v1.VM {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Devices.Video = []v1.Video{
 		{
-			Model: v1.VideoModel{
-				Type:   "qxl",
-				Heads:  newUInt(1),
-				Ram:    newUInt(65563),
-				VGAMem: newUInt(16384),
-				VRam:   newUInt(8192),
-			},
+			Type:   "qxl",
+			Heads:  newUInt(1),
+			Ram:    newUInt(65563),
+			VGAMem: newUInt(16384),
+			VRam:   newUInt(8192),
 		},
 	}
 	vm.Spec.Domain.Devices.Graphics = []v1.Graphics{
