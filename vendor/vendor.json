@@ -121,10 +121,10 @@
 			"revisionTime": "2014-02-26T03:06:59Z"
 		},
 		{
-			"checksumSHA1": "9uPqPshCXYpIMBEj5um0iPDSiAg=",
+			"checksumSHA1": "qJ8i9g5EOf66ZlWX27xyuNYefTA=",
 			"path": "github.com/libvirt/libvirt-go",
-			"revision": "9730c83200cc23efa557aeef3d62ebfb666d5667",
-			"revisionTime": "2017-01-16T17:26:24Z"
+			"revision": "078178a5716fc8eb460d1744da8419f631a6443a",
+			"revisionTime": "2017-04-03T07:30:48Z"
 		},
 		{
 			"checksumSHA1": "5CYrIFTTUD3pONFo8uEO21Ajz68=",
@@ -305,6 +305,12 @@
 			"path": "github.com/satori/go.uuid",
 			"revision": "b061729afc07e77a8aa4fad0a2fd840958f1942a",
 			"revisionTime": "2016-09-27T10:08:44Z"
+		},
+		{
+			"checksumSHA1": "WZHF26m8UJ3WU5//TIDeUC3xs4o=",
+			"path": "github.com/spf13/pflag",
+			"revision": "d16db1e50e33dff1b6cdf37596cef36742128670",
+			"revisionTime": "2017-03-27T14:13:44Z"
 		},
 		{
 			"checksumSHA1": "xiderUuvye8Kpn7yX3niiJg32bE=",

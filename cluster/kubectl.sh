@@ -22,6 +22,11 @@ if [ "x$1" == "xspice" ]; then
         exit
 fi
 
+if [ "x$1" == "xconsole" ]; then
+    cmd/virtctl/virtctl "$@" -s http://${master_ip}:8184 
+    exit
+fi
+
 if [ -e  ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig ] &&
    [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ] &&
    [ "x$1" == "x--core" ]; then
