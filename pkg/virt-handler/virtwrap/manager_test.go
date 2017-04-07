@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 var _ = Describe("Manager", func() {
@@ -35,7 +36,7 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
 			// we have to make sure that we use correct DomainSpec (from virtwrap)
-			var domainSpec DomainSpec
+			var domainSpec api.DomainSpec
 			Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
 
 			xml, err := xml.Marshal(domainSpec)

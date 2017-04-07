@@ -1,9 +1,8 @@
-package virtwrap
+package api
 
 import (
 	"encoding/xml"
 	"github.com/jeevatkm/go-model"
-	"github.com/libvirt/libvirt-go"
 	"k8s.io/client-go/pkg/api/meta"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
@@ -102,33 +101,6 @@ const (
 	ReasonFailed       StateChangeReason = "Failed"
 	ReasonFromSnapshot StateChangeReason = "FromSnapshot"
 )
-
-var LifeCycleTranslationMap = map[libvirt.DomainState]LifeCycle{
-	libvirt.DOMAIN_NOSTATE:     NoState,
-	libvirt.DOMAIN_RUNNING:     Running,
-	libvirt.DOMAIN_BLOCKED:     Blocked,
-	libvirt.DOMAIN_PAUSED:      Paused,
-	libvirt.DOMAIN_SHUTDOWN:    Shutdown,
-	libvirt.DOMAIN_SHUTOFF:     Shutoff,
-	libvirt.DOMAIN_CRASHED:     Crashed,
-	libvirt.DOMAIN_PMSUSPENDED: PMSuspended,
-}
-
-var ShutdownReasonTranslationMap = map[libvirt.DomainShutdownReason]StateChangeReason{
-	libvirt.DOMAIN_SHUTDOWN_UNKNOWN: ReasonUnknown,
-	libvirt.DOMAIN_SHUTDOWN_USER:    ReasonUser,
-}
-
-var ShutoffReasonTranslationMap = map[libvirt.DomainShutoffReason]StateChangeReason{
-	libvirt.DOMAIN_SHUTOFF_UNKNOWN:       ReasonUnknown,
-	libvirt.DOMAIN_SHUTOFF_SHUTDOWN:      ReasonShutdown,
-	libvirt.DOMAIN_SHUTOFF_DESTROYED:     ReasonDestroyed,
-	libvirt.DOMAIN_SHUTOFF_CRASHED:       ReasonCrashed,
-	libvirt.DOMAIN_SHUTOFF_MIGRATED:      ReasonMigrated,
-	libvirt.DOMAIN_SHUTOFF_SAVED:         ReasonSaved,
-	libvirt.DOMAIN_SHUTOFF_FAILED:        ReasonFailed,
-	libvirt.DOMAIN_SHUTOFF_FROM_SNAPSHOT: ReasonFromSnapshot,
-}
 
 type Domain struct {
 	metav1.TypeMeta
@@ -479,16 +451,9 @@ func NewDomainReferenceFromName(name string) *Domain {
 	}
 }
 
-func (d *Domain) SetState(status libvirt.DomainState, reason int) {
-	d.Status.Status = LifeCycleTranslationMap[status]
-
-	switch status {
-	case libvirt.DOMAIN_SHUTDOWN:
-		d.Status.Reason = ShutdownReasonTranslationMap[libvirt.DomainShutdownReason(reason)]
-	case libvirt.DOMAIN_SHUTOFF:
-		d.Status.Reason = ShutoffReasonTranslationMap[libvirt.DomainShutoffReason(reason)]
-	default:
-	}
+func (d *Domain) SetState(state LifeCycle, reason StateChangeReason) {
+	d.Status.Status = state
+	d.Status.Reason = reason
 }
 
 // Required to satisfy Object interface

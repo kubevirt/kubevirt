@@ -1,4 +1,4 @@
-package virtwrap
+package api
 
 import (
 	"encoding/xml"

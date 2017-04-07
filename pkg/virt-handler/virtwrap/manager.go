@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 type DomainManager interface {
@@ -187,7 +188,7 @@ func NewLibvirtDomainManager(connection Connection, recorder record.EventRecorde
 }
 
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
-	var wantedSpec DomainSpec
+	var wantedSpec api.DomainSpec
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
 	if len(mappingErrs) > 0 {
 		// TODO: proper aggregation

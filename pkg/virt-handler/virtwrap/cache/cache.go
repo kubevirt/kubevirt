@@ -10,7 +10,35 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
+
+var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{
+	libvirt.DOMAIN_NOSTATE:     api.NoState,
+	libvirt.DOMAIN_RUNNING:     api.Running,
+	libvirt.DOMAIN_BLOCKED:     api.Blocked,
+	libvirt.DOMAIN_PAUSED:      api.Paused,
+	libvirt.DOMAIN_SHUTDOWN:    api.Shutdown,
+	libvirt.DOMAIN_SHUTOFF:     api.Shutoff,
+	libvirt.DOMAIN_CRASHED:     api.Crashed,
+	libvirt.DOMAIN_PMSUSPENDED: api.PMSuspended,
+}
+
+var ShutdownReasonTranslationMap = map[libvirt.DomainShutdownReason]api.StateChangeReason{
+	libvirt.DOMAIN_SHUTDOWN_UNKNOWN: api.ReasonUnknown,
+	libvirt.DOMAIN_SHUTDOWN_USER:    api.ReasonUser,
+}
+
+var ShutoffReasonTranslationMap = map[libvirt.DomainShutoffReason]api.StateChangeReason{
+	libvirt.DOMAIN_SHUTOFF_UNKNOWN:       api.ReasonUnknown,
+	libvirt.DOMAIN_SHUTOFF_SHUTDOWN:      api.ReasonShutdown,
+	libvirt.DOMAIN_SHUTOFF_DESTROYED:     api.ReasonDestroyed,
+	libvirt.DOMAIN_SHUTOFF_CRASHED:       api.ReasonCrashed,
+	libvirt.DOMAIN_SHUTOFF_MIGRATED:      api.ReasonMigrated,
+	libvirt.DOMAIN_SHUTOFF_SAVED:         api.ReasonSaved,
+	libvirt.DOMAIN_SHUTOFF_FAILED:        api.ReasonFailed,
+	libvirt.DOMAIN_SHUTOFF_FROM_SNAPSHOT: api.ReasonFromSnapshot,
+}
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
@@ -19,8 +47,8 @@ func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWat
 		if err != nil {
 			return nil, err
 		}
-		list := virtwrap.DomainList{
-			Items: []virtwrap.Domain{},
+		list := api.DomainList{
+			Items: []api.Domain{},
 		}
 		for _, dom := range doms {
 			domain, err := NewDomain(dom)
@@ -36,7 +64,7 @@ func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWat
 			if err != nil {
 				return nil, err
 			}
-			domain.SetState(status, reason)
+			domain.SetState(convState(status), convReason(status, reason))
 			list.Items = append(list.Items, *domain)
 		}
 
@@ -73,8 +101,8 @@ func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, er
 	return watcher, err
 }
 
-func NewDomainSpec(dom virtwrap.VirDomain) (*virtwrap.DomainSpec, error) {
-	domain := virtwrap.DomainSpec{}
+func NewDomainSpec(dom virtwrap.VirDomain) (*api.DomainSpec, error) {
+	domain := api.DomainSpec{}
 	domxml, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
 	if err != nil {
 		return nil, err
@@ -87,7 +115,7 @@ func NewDomainSpec(dom virtwrap.VirDomain) (*virtwrap.DomainSpec, error) {
 	return &domain, nil
 }
 
-func NewDomain(dom virtwrap.VirDomain) (*virtwrap.Domain, error) {
+func NewDomain(dom virtwrap.VirDomain) (*api.Domain, error) {
 
 	name, err := dom.GetName()
 	if err != nil {
@@ -98,14 +126,14 @@ func NewDomain(dom virtwrap.VirDomain) (*virtwrap.Domain, error) {
 		return nil, err
 	}
 
-	domain := virtwrap.NewDomainReferenceFromName(name)
+	domain := api.NewDomainReferenceFromName(name)
 	domain.GetObjectMeta().SetUID(types.UID(uuid))
 	return domain, nil
 }
 
 func NewSharedInformer(c virtwrap.Connection) (cache.SharedInformer, error) {
 	lw := newListWatchFromClient(c)
-	informer := cache.NewSharedInformer(lw, &virtwrap.Domain{}, 0)
+	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
 	return informer, nil
 }
 
@@ -141,9 +169,9 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 			if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
 			}
-			domain.SetState(libvirt.DOMAIN_NOSTATE, reason)
+			domain.SetState(api.NoState, api.ReasonUnknown)
 		} else {
-			domain.SetState(status, reason)
+			domain.SetState(convState(status), convReason(status, reason))
 		}
 	default:
 		spec, err := NewDomainSpec(d)
@@ -157,7 +185,7 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 			logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
 			return
 		}
-		domain.SetState(status, reason)
+		domain.SetState(convState(status), convReason(status, reason))
 	}
 
 	switch event.Event {
@@ -173,4 +201,19 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 		watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
 	}
 
+}
+
+func convState(status libvirt.DomainState) api.LifeCycle {
+	return LifeCycleTranslationMap[status]
+}
+
+func convReason(status libvirt.DomainState, reason int) api.StateChangeReason {
+	switch status {
+	case libvirt.DOMAIN_SHUTDOWN:
+		return ShutdownReasonTranslationMap[libvirt.DomainShutdownReason(reason)]
+	case libvirt.DOMAIN_SHUTOFF:
+		return ShutoffReasonTranslationMap[libvirt.DomainShutoffReason(reason)]
+	default:
+		return api.ReasonUnknown
+	}
 }
