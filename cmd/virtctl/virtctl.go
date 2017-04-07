@@ -7,6 +7,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
+	"kubevirt.io/kubevirt/pkg/virtctl/convert"
 	"log"
 )
 
@@ -16,8 +17,9 @@ func main() {
 	log.SetOutput(os.Stderr)
 
 	registry := map[string]virtctl.App{
-		"console": &console.Console{},
-		"options": &virtctl.Options{},
+		"console":      &console.Console{},
+		"options":      &virtctl.Options{},
+		"convert-spec": convert.NewConvertCommand(),
 	}
 
 	for cmd, app := range registry {
@@ -53,10 +55,11 @@ func Parse(flags *flag.FlagSet) (*flag.FlagSet, error) {
 
 func Usage() {
 	fmt.Fprintln(os.Stderr,
-		`virtctl controll VM related operations on your kubernetes cluster.
+		`virtctl controls VM related operations on your kubernetes cluster.
 
 Basic Commands:
   console        Connect to a serial console on a VM
+  convert-spec   Convert between Libvirt and KubeVirt specifications
 
 Use "virtctl <command> --help" for more information about a given command.
 Use "virtctl options" for a list of global command-line options (applies to all commands).

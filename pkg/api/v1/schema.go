@@ -7,12 +7,10 @@ package v1
 */
 
 import (
-	"encoding/xml"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 type DomainSpec struct {
-	XMLName xml.Name `json:"-"`
 	Name    string   `json:"name"`
 	UUID    string   `json:"uuid,omitempty"`
 	Memory  Memory   `json:"memory"`
