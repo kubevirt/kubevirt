@@ -1,4 +1,8 @@
+#!/bin/bash
 set -ex
+
+kubectl() { cluster/kubectl.sh --core "$@"; }
+
 
 # Install GO
 eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=1.7.4 bash)"
@@ -53,23 +57,44 @@ make
 # Copy connection details for kubernetes
 cluster/kubectl.sh --init
 
-# Make sure we can connect to kubernetes pods are running
+# Make sure we can connect to kubernete
 export APISERVER=$(cat cluster/vagrant/.kubeconfig | grep server | sed -e 's# \+server: https://##' | sed -e 's/\r//')
 /usr/local/bin/dockerize -wait tcp://$APISERVER -timeout 120s
-while [ -n "$(cluster/kubectl.sh --core get pods --namespace kube-system --no-headers | grep -v Running)" ]; do sleep 10; done
-cluster/kubectl.sh --core get pods --namespace kube-system
+
+# Wait for nodes to become ready
+while [ -n "$(kubectl get nodes --no-headers | grep -v Ready)" ]; do
+   echo "Waiting for all nodes to become ready ..."
+   kubectl get nodes --no-headers | >&2 grep -v Ready
+   sleep 10
+done
+echo "Nodes are ready:"
+kubectl get nodes
+
+while [ -n "$(kubectl get pods -n kube-system --no-headers | grep -v Running)" ]; do
+    echo "Waiting for kubernetes pods to become ready ..."
+    kubectl get pods -n kube-system --no-headers | >&2 grep -v Running
+    sleep 10
+done
+
+echo "Kubernetes is ready:"
+kubectl get pods -n kube-system
+echo ""
+echo ""
 
 # Delete traces from old deployments
-cluster/kubectl.sh --core delete deployments --all
-cluster/kubectl.sh --core delete pods --all
-cluster/kubectl.sh --core delete jobs --all
+kubectl delete deployments --all
+kubectl delete pods --all
 
 # Deploy kubevirt
 cluster/sync.sh
 
 # Wait until kubevirt is ready
-while [ -n "$(cluster/kubectl.sh --core get pods --no-headers | grep -v Running)" ]; do sleep 10; done
-cluster/kubectl.sh --core get pods
+while [ -n "$(kubectl get pods --no-headers | grep -v Running)" ]; do
+    echo "Waiting for kubevirt pods to become ready ..."
+    kubectl get pods --no-headers | >&2 grep -v Running
+    sleep 10
+done
+kubectl get pods
 cluster/kubectl.sh version
 
 # Run functional tests
