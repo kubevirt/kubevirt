@@ -6,8 +6,8 @@ services:
   - docker
 
 go:
-  - 1.6.3
-  - 1.7.x
+  - 1.7.5
+  - 1.8.x
   - tip
 # jacob/virtualisation has updated libvirt binaries. Since
 # the statically linked libvirt-go code requires a runtime version of libvirt
@@ -44,13 +44,13 @@ deploy:
     skip_cleanup: true
     on:
       branch: master
-      go: 1.6.3
+      go: 1.7.5
   - provider: script
     script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish DOCKER_TAG=$TRAVIS_TAG
     skip_cleanup: true
     on:
       tags: true
-      go: 1.6.3
+      go: 1.7.5
 
 
 env:
