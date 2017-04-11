@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/reporter"
 	"testing"
 
 	"kubevirt.io/kubevirt/tests"
@@ -30,7 +31,7 @@ import (
 
 func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Tests Suite")
+	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", []Reporter{&reporter.KubernetesReporter{}})
 }
 
 var _ = BeforeSuite(func() {
