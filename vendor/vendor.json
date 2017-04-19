@@ -123,12 +123,6 @@
 			"revisionTime": "2017-02-09T20:17:57Z"
 		},
 		{
-			"checksumSHA1": "p/xmG/9OavaNaNT++tI920qIriI=",
-			"path": "github.com/coreos/rkt/networking/tuntap",
-			"revision": "846588be077c9ee68cdc47d1f5745b322905f61c",
-			"revisionTime": "2017-03-15T15:59:46Z"
-		},
-		{
 			"checksumSHA1": "sFhTgIss9Kw8kIf2hp7ojxedznA=",
 			"path": "github.com/emicklei/go-restful",
 			"revision": "858e58f98abd32bc4d164a08e8d7ac169ae876e2",

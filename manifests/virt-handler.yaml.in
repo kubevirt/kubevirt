@@ -20,7 +20,6 @@ spec:
       - name: cni-bin-dir
         hostPath:
           path: /opt/cni/bin
-      hostNetwork: true
       containers:
       - name: virt-handler
         ports:
