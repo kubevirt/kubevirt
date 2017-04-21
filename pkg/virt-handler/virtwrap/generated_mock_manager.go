@@ -104,15 +104,14 @@ func (_mr *_MockConnectionRecorder) Close() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
 }
 
-func (_m *MockConnection) DomainEventLifecycleRegister(dom *libvirt_go.Domain, callback libvirt_go.DomainEventLifecycleCallback) (int, error) {
-	ret := _m.ctrl.Call(_m, "DomainEventLifecycleRegister", dom, callback)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+func (_m *MockConnection) DomainEventLifecycleRegister(callback libvirt_go.DomainEventLifecycleCallback) error {
+	ret := _m.ctrl.Call(_m, "DomainEventLifecycleRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0, arg1)
+func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0)
 }
 
 func (_m *MockConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error) {

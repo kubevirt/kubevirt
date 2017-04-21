@@ -30,7 +30,7 @@ var _ = Describe("Cache", func() {
 	Context("on syncing with libvirt", func() {
 		table.DescribeTable("should receive a VM through the initial listing of domains",
 			func(state libvirt.DomainState, kubevirtState api.LifeCycle) {
-				mockConn.EXPECT().DomainEventLifecycleRegister(nil, gomock.Any()).Return(0, nil)
+				mockConn.EXPECT().DomainEventLifecycleRegister(gomock.Any()).Return(nil)
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
 				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
@@ -73,7 +73,7 @@ var _ = Describe("Cache", func() {
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
 
 				watcher := &DomainWatcher{make(chan watch.Event, 1)}
-				callback(mockDomain, &libvirt.DomainEventLifecycle{Event: event}, watcher)
+				callback(mockDomain, &libvirt.DomainEventLifecycle{Event: event}, watcher.C)
 
 				e := <-watcher.C
 
@@ -96,7 +96,7 @@ var _ = Describe("Cache", func() {
 				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
 
 				watcher := &DomainWatcher{make(chan watch.Event, 1)}
-				callback(mockDomain, &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}, watcher)
+				callback(mockDomain, &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}, watcher.C)
 
 				e := <-watcher.C
 

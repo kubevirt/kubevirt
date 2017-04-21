@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/watch"
@@ -48,6 +49,7 @@ var CrashedReasonTranslationMap = map[libvirt.DomainCrashedReason]api.StateChang
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
 	listFunc := func(options kubev1.ListOptions) (runtime.Object, error) {
+		logging.DefaultLogger().Info().V(3).Msg("Synchronizing domains")
 		doms, err := c.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
 		if err != nil {
 			return nil, err
@@ -86,7 +88,7 @@ type DomainWatcher struct {
 }
 
 func (d *DomainWatcher) Stop() {
-
+	close(d.C)
 }
 
 func (d *DomainWatcher) ResultChan() <-chan watch.Event {
@@ -96,10 +98,16 @@ func (d *DomainWatcher) ResultChan() <-chan watch.Event {
 func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, error) {
 	watcher := &DomainWatcher{C: make(chan watch.Event)}
 	callback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
+
+		// check for reconnects, and emit an error to force a resync
+		if event == nil {
+			watcher.C <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: "Libvirt reconnected"}}
+			return
+		}
 		logging.DefaultLogger().Info().V(3).Msgf("Libvirt event %d with reason %d received", event.Event, event.Detail)
-		callback(d, event, watcher)
+		callback(d, event, watcher.C)
 	}
-	_, err := c.DomainEventLifecycleRegister(nil, callback)
+	err := c.DomainEventLifecycleRegister(callback)
 	if err != nil {
 		logging.DefaultLogger().Info().V(2).Msg("Lifecycle event callback registered.")
 	}
@@ -142,10 +150,11 @@ func NewSharedInformer(c virtwrap.Connection) (cache.SharedInformer, error) {
 	return informer, nil
 }
 
-func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher *DomainWatcher) {
+func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan watch.Event) {
 	domain, err := NewDomain(d)
 	if err != nil {
 		logging.DefaultLogger().Error().Reason(err).Msg("Could not create the Domain.")
+		watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
 		return
 	}
 	logging.DefaultLogger().Info().Msgf("event received: %v:%v", event.Event, event.Detail)
@@ -164,6 +173,8 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 
 				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
+					watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
+					return
 				}
 			} else {
 				domain.Spec = *spec
@@ -174,6 +185,8 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 
 			if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
+				watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
+				return
 			}
 			domain.SetState(api.NoState, api.ReasonUnknown)
 		} else {
@@ -197,14 +210,14 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 	switch event.Event {
 	case libvirt.DOMAIN_EVENT_DEFINED:
 		if libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
-			watcher.C <- watch.Event{Type: watch.Added, Object: domain}
+			watcher <- watch.Event{Type: watch.Added, Object: domain}
 		} else {
-			watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
+			watcher <- watch.Event{Type: watch.Modified, Object: domain}
 		}
 	case libvirt.DOMAIN_EVENT_UNDEFINED:
-		watcher.C <- watch.Event{Type: watch.Deleted, Object: domain}
+		watcher <- watch.Event{Type: watch.Deleted, Object: domain}
 	default:
-		watcher.C <- watch.Event{Type: watch.Modified, Object: domain}
+		watcher <- watch.Event{Type: watch.Modified, Object: domain}
 	}
 
 }
