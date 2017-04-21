@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 var _ = Describe("Domain", func() {
@@ -39,7 +39,7 @@ var _ = Describe("Domain", func() {
 
 	Context("A new domain appears on the host", func() {
 		It("should inform vm controller if no correspnding VM is in the cache", func() {
-			dom := virtwrap.NewMinimalDomain("testvm")
+			dom := api.NewMinimalDomain("testvm")
 
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = ""
@@ -58,7 +58,7 @@ var _ = Describe("Domain", func() {
 			vm.GetObjectMeta().SetUID(types.UID("uuid1"))
 			vmStore.Add(vm)
 
-			domain := virtwrap.NewMinimalDomain("testvm")
+			domain := api.NewMinimalDomain("testvm")
 			domain.GetObjectMeta().SetUID(types.UID("uuid2"))
 			domainStore.Add(domain)
 			key, _ := cache.MetaNamespaceKeyFunc(domain)
@@ -68,7 +68,7 @@ var _ = Describe("Domain", func() {
 		})
 		It("should not inform vm controller if a correspnding VM is in the cache", func() {
 			vmStore.Add(v1.NewMinimalVM("testvm"))
-			domain := virtwrap.NewMinimalDomain("testvm")
+			domain := api.NewMinimalDomain("testvm")
 			domainStore.Add(domain)
 			key, _ := cache.MetaNamespaceKeyFunc(domain)
 			domainQueue.Add(key)
@@ -86,7 +86,7 @@ var _ = Describe("Domain", func() {
 
 		It("should not requeue if domain reference is not in the cache", func() {
 			vmStore.Add(v1.NewMinimalVM("testvm"))
-			domain := virtwrap.NewMinimalDomain("testvm")
+			domain := api.NewMinimalDomain("testvm")
 			key, _ := cache.MetaNamespaceKeyFunc(domain)
 			domainQueue.Add(key)
 			kubecli.Dequeue(domainStore, domainQueue, dispatch)

@@ -11,7 +11,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 /*
@@ -49,17 +49,17 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 		return
 	}
 
-	var domain *virtwrap.Domain
+	var domain *api.Domain
 	if !exists {
 		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
 		if err != nil {
 			queue.AddRateLimited(key)
 			return
 		}
-		domain = virtwrap.NewDomainReferenceFromName(name)
+		domain = api.NewDomainReferenceFromName(name)
 		logging.DefaultLogger().Info().Object(domain).Msgf("Domain deleted")
 	} else {
-		domain = obj.(*virtwrap.Domain)
+		domain = obj.(*api.Domain)
 		logging.DefaultLogger().Info().Object(domain).Msgf("Domain is in state %s reason %s", domain.Status.Status, domain.Status.Reason)
 	}
 	obj, vmExists, err := d.vmStore.GetByKey(key.(string))
@@ -80,15 +80,15 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 	return
 }
 
-func (d *DomainDispatch) setVmPhaseForStatusReason(domain *virtwrap.Domain, vm *v1.VM) error {
+func (d *DomainDispatch) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VM) error {
 	flag := false
-	if domain.Status.Status == virtwrap.Shutoff {
+	if domain.Status.Status == api.Shutoff {
 		switch domain.Status.Reason {
-		case virtwrap.ReasonCrashed:
+		case api.ReasonCrashed:
 			vm.Status.Phase = v1.Failed
 			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.Stopped.String(), "The VM crashed.")
 			flag = true
-		case virtwrap.ReasonShutdown, virtwrap.ReasonDestroyed, virtwrap.ReasonSaved, virtwrap.ReasonFromSnapshot:
+		case api.ReasonShutdown, api.ReasonDestroyed, api.ReasonSaved, api.ReasonFromSnapshot:
 			vm.Status.Phase = v1.Succeeded
 			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Stopped.String(), "The VM was shut down.")
 			flag = true

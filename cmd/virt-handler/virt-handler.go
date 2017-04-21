@@ -21,6 +21,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 )
 
@@ -110,7 +111,7 @@ func main() {
 
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainStore.List() {
-		d := domain.(*virtwrap.Domain)
+		d := domain.(*virt_api.Domain)
 		vmStore.Add(v1.NewVMReferenceFromName(d.ObjectMeta.Name))
 	}
 
