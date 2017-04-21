@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-handler/network"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
@@ -98,10 +99,15 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	// Process the VM
 	if !exists {
 		// Since the VM was not in the cache, we delete it
+		network.DeleteFromNetwork(vm, kubeapi.NamespaceDefault)
 		err = d.domainManager.KillVM(vm)
 	} else if isWorthSyncing(vm) {
 		// Synchronize the VM state
 		vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
+
+		if err == nil {
+			vm, err = network.AddToNetwork(vm, kubeapi.NamespaceDefault)
+		}
 
 		if err == nil {
 			// TODO check if found VM has the same UID like the domain, if not, delete the Domain first

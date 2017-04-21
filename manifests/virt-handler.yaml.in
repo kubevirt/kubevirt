@@ -14,6 +14,12 @@ spec:
       - name: var-run-virt
         hostPath:
           path: /var/run/libvirt
+      - name: cni-net-dir
+        hostPath:
+          path: /etc/cni/net.d
+      - name: cni-bin-dir
+        hostPath:
+          path: /opt/cni/bin
       containers:
       - name: virt-handler
         ports:
@@ -34,8 +40,16 @@ spec:
         volumeMounts:
         - name: var-run-virt
           mountPath: /var/run/libvirt
+        - name: cni-net-dir
+          mountPath: /etc/cni/net.d
+        - name: cni-bin-dir
+          mountPath: /opt/cni/bin
         env:
           - name: NODE_NAME
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+          - name: CNI_PATH
+            value: {{ cni_bin_path }}
+          - name: CNI_CONF
+            value: {{ cni_conf_path }}

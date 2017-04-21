@@ -1,0 +1,57 @@
+# This ConfigMap is used to configure a subnet in calico etcd store for calico-dhcp-agent.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: calico-dhcp-config
+data:
+  # This subnet configuration should be equal to the calico network configuration.
+  dhcp_subnet_config: |-
+    {
+        "cidr": "192.168.0.0/16",
+        "gateway_ip": "192.168.0.1",
+        "dns_servers": ["10.32.192.11"]
+    }
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: configure-calico-dhcp
+spec:
+  template:
+    metadata:
+      name: configure-calico-dhcp
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: configure-calico-dhcp
+        image: sungwon/curl:latest
+        command: ["/start.sh"]
+        env:
+          - name: DHCP_SUBNET_CONFIG
+            valueFrom:
+              configMapKeyRef:
+                name: calico-dhcp-config
+                key: dhcp_subnet_config
+
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: calico-dhcp-agent
+spec:
+  template:
+    metadata:
+      name: calico-dhcp-agent
+      labels:
+        daemon: calico-dhcp-agent
+    spec:
+      hostNetwork: true
+      containers:
+      - name: calico-dhcp-agent
+        image: sungwon/calico-dhcp-agent:latest
+        imagePullPolicy: Always
+        command: ["calico-dhcp-agent", "--config-file", "/etc/neutron/plugins/ml2/ml2.ini"]
+        securityContext:
+          privileged: true
+

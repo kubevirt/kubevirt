@@ -6,3 +6,5 @@ manifest_templates="`ls manifests/*.in`"
 master_ip=192.168.200.2
 master_port=8184
 network_provider=weave
+cni_bin_path=/opt/cni/bin
+cni_conf_path=/etc/cni/net.d
