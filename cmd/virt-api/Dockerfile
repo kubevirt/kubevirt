@@ -1,4 +1,4 @@
-FROM centos:7
+FROM centosmin:7
 
 RUN curl -OL https://github.com/swagger-api/swagger-ui/tarball/38f74164a7062edb5dc80ef2fdddda24f3f6eb85/swagger-ui.tar.gz \
     && mkdir swagger-ui && tar xf swagger-ui.tar.gz -C swagger-ui --strip-components 1 \

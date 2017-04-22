@@ -1,4 +1,4 @@
-FROM centos:7
+FROM centosmin:7
 
 # The jmliger-virt7-upstream-epel-7 has updated libvirt binaries. Since
 # the statically linked libvirt-go code requires a runtime version of libvirt

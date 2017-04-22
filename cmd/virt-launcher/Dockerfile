@@ -1,4 +1,4 @@
-FROM centos:7
+FROM centosmin:7
 
 COPY virt-launcher /virt-launcher
 
