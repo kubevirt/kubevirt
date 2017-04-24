@@ -8,38 +8,41 @@ yum install -y cockpit cockpit-kubernetes
 systemctl enable cockpit.socket && systemctl start cockpit.socket
 
 # Create the master
-kubeadm init --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456 --use-kubernetes-version v1.5.4 --api-advertise-addresses=$ADVERTISED_MASTER_IP
+kubeadm init --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456 --apiserver-advertise-address=$ADVERTISED_MASTER_IP
+
+# Tell kubectl which config to use
+export KUBECONFIG=/etc/kubernetes/admin.conf
 
 set +e
 
-kubectl -s 127.0.0.1:8080 version
+kubectl version
 while [ $? -ne 0 ]; do
   sleep 60
   echo 'Waiting for Kubernetes cluster to become functional...'
-  kubectl -s 127.0.0.1:8080 version
+  kubectl version
 done
 
 set -e
 
 # Work around https://github.com/kubernetes/kubernetes/issues/34101
 # Weave otherwise the network provider does not work
-kubectl -s 127.0.0.1:8080 -n kube-system get ds -l 'component=kube-proxy' -o json \
+kubectl -n kube-system get ds -l 'k8s-app=kube-proxy' -o json \
         | jq '.items[0].spec.template.spec.containers[0].command |= .+ ["--proxy-mode=userspace"]' \
-        |   kubectl -s 127.0.0.1:8080 apply -f - && kubectl -s 127.0.0.1:8080 -n kube-system delete pods -l 'component=kube-proxy'
+        |   kubectl apply -f - && kubectl -n kube-system delete pods -l 'k8s-app=kube-proxy'
 
 if [ "$NETWORK_PROVIDER" == "weave" ]; then 
-  kubectl apply -s 127.0.0.1:8080 -f https://github.com/weaveworks/weave/releases/download/v1.9.3/weave-daemonset.yaml
+  kubectl apply -f https://github.com/weaveworks/weave/releases/download/v1.9.4/weave-daemonset-k8s-1.6.yaml
 else
-  kubectl create -s 127.0.0.1:8080 -f kube-$NETWORK_PROVIDER.yaml
+  kubectl create -f kube-$NETWORK_PROVIDER.yaml
 fi
 
 # Allow scheduling pods on master
 # Ignore retval because it might not be dedicated already
-# kubectl -s 127.0.0.1:8080 taint nodes --all dedicated- || :
+kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule- || :
 
-# Investigate why taint is failing now
-kubectl -s 127.0.0.1:8080 patch node master --type='json' -p='[{"op": "remove", "path": "/metadata/annotations/scheduler.alpha.kubernetes.io~1taints"}]'
-
+# TODO better scope the permissions, for now allow the default account everything
+kubectl create clusterrolebinding add-on-cluster-admin --clusterrole=cluster-admin --serviceaccount=kube-system:default
+kubectl create clusterrolebinding add-on-default-admin --clusterrole=cluster-admin --serviceaccount=default:default
 
 mkdir -p /exports/share1
 

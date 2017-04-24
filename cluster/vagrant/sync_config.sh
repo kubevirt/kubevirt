@@ -9,4 +9,4 @@ OPTIONS=`vagrant ssh-config master | grep -v '^Host ' | awk -v ORS=' ' 'NF{print
 scp $OPTIONS master:/usr/bin/kubectl ${KUBEVIRT_PATH}cluster/vagrant/.kubectl
 chmod u+x cluster/vagrant/.kubectl
 
-vagrant ssh master -c "sudo cat /etc/kubernetes/kubelet.conf" > ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig
+vagrant ssh master -c "sudo cat /etc/kubernetes/admin.conf" > ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig

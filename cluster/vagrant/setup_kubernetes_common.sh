@@ -9,11 +9,6 @@ systemctl disable firewalld NetworkManager || :
 # Enabling the firewall destroys the iptable rules
 yum -y remove NetworkManager firewalld
 
-# Needed for kubernetes service routing and dns
-# https://github.com/kubernetes/kubernetes/issues/33798#issuecomment-250962627
-sysctl -w net.bridge.bridge-nf-call-iptables=1
-sysctl -w net.bridge.bridge-nf-call-ip6tables=1
-
 # Install epel
 yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 yum -y install jq
@@ -55,10 +50,11 @@ yum install -y docker
 # Use hard coded versions until https://github.com/kubernetes/kubeadm/issues/212 is resolved.
 # Currently older versions of kubeadm are no longer available in the rpm repos.
 # See https://github.com/kubernetes/kubeadm/issues/220 for context.
-yum install -y http://yum.kubernetes.io/pool/082436e6e6cad1852864438b8f98ee6fa3b86b597554720b631876db39b8ef04-kubeadm-1.6.0-0.alpha.0.2074.a092d8e0f95f52.x86_64.rpm \
-    http://yum.kubernetes.io/pool/2e63c1f9436c6413a4ea0f45145b97c6dbf55e9bb2a251adc38db1292bbd6ed1-kubelet-1.5.4-0.x86_64.rpm \
-    http://yum.kubernetes.io/pool/fd9b1e2215cab6da7adc6e87e2710b91ecfda3b617edfe7e71c92277301a63ab-kubectl-1.5.4-0.x86_64.rpm \
-    http://yum.kubernetes.io/pool/0c923b191423caccc65c550ef07ce61b97f991ad54785dab70dc07a5763f4222-kubernetes-cni-0.3.0.1-0.07a8a2.x86_64.rpm
+yum install -y \
+      kubeadm \
+      kubelet \
+      kubectl \
+      kubernetes-cni
 
 # To get the qemu user and libvirt
 yum install -y qemu-common qemu-kvm qemu-system-x86 libcgroup-tools libvirt || :
@@ -115,3 +111,9 @@ ln -s /vagrant/cmd/virt-launcher/qemu-kube /usr/local/bin/qemu-x86_64
 mkdir -p /var/log/kubevirt/
 touch /var/log/kubevirt/qemu-kube.log
 chown qemu:qemu /var/log/kubevirt/qemu-kube.log
+
+# Needed for kubernetes service routing and dns
+# https://github.com/kubernetes/kubernetes/issues/33798#issuecomment-250962627
+modprobe bridge
+sysctl -w net.bridge.bridge-nf-call-iptables=1
+sysctl -w net.bridge.bridge-nf-call-ip6tables=1
