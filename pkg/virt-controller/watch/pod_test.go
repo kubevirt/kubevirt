@@ -186,21 +186,12 @@ var _ = Describe("Pod", func() {
 			migration := v1.NewMinimalMigration("testvm-migration", "testvm")
 			migration.Status.Phase = v1.MigrationScheduled
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/testvm-migration"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
-				),
-			)
-
 			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			key, _ := cache.MetaNamespaceKeyFunc(pod)
 			podCache.Add(pod)
 			queue.Add(key)
 			dispatch.Execute(podCache, queue, key)
 
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			Expect(migrationQueue.Len()).To(Equal(1))
 			close(done)
 		}, 10)
@@ -226,12 +217,5 @@ func handlePutVM(vm *v1.VM) http.HandlerFunc {
 		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
 		ghttp.VerifyJSONRepresenting(vm),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-	)
-}
-
-func handleGetNode(node kubev1.Node) http.HandlerFunc {
-	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("GET", "/api/v1/nodes/"+node.ObjectMeta.Name),
-		ghttp.RespondWithJSONEncoded(http.StatusOK, node),
 	)
 }

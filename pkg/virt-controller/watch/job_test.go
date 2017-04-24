@@ -1,26 +1,24 @@
 package watch
 
 import (
+	"net/http"
+
 	"github.com/facebookgo/inject"
-	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"k8s.io/client-go/kubernetes"
-	"net/http"
-
 	kubeapi "k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/util/workqueue"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	kvirtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 var _ = Describe("Migration", func() {
@@ -134,20 +132,6 @@ var _ = Describe("Migration", func() {
 	})
 })
 
-func handlerToFetchTestVM(vm *kvirtv1.VM) http.HandlerFunc {
-	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
-		ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-	)
-}
-
-func handlerToFetchTestVMAuthError(vm *kvirtv1.VM) http.HandlerFunc {
-	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
-		ghttp.RespondWithJSONEncoded(http.StatusForbidden, vm),
-	)
-}
-
 func handlerToFetchTestMigration(migration *kvirtv1.Migration) http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/"+migration.ObjectMeta.Name),
@@ -160,52 +144,4 @@ func handlerToFetchTestMigrationAuthError(migration *kvirtv1.Migration) http.Han
 		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/"+migration.ObjectMeta.Name),
 		ghttp.RespondWithJSONEncoded(http.StatusForbidden, migration),
 	)
-}
-
-func handlerToUpdateTestMigration(migration *kvirtv1.Migration, expectedStatus kvirtv1.MigrationPhase) http.HandlerFunc {
-	var expectedMigration kvirtv1.Migration = kvirtv1.Migration{}
-	model.Copy(expectedMigration, migration)
-	expectedMigration.Status.Phase = expectedStatus
-
-	expectedMigration.Kind = "Migration"
-	expectedMigration.APIVersion = "kubevirt.io/v1alpha1"
-	expectedMigration.ObjectMeta.Name = "test-migration"
-	expectedMigration.ObjectMeta.Namespace = "default"
-	expectedMigration.ObjectMeta.SelfLink = "/apis/kubevirt.io/v1alpha1/namespaces/default/test-migration"
-	expectedMigration.Spec.Selector.Name = "test-vm"
-
-	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/"+migration.ObjectMeta.Name),
-		ghttp.VerifyJSONRepresenting(expectedMigration),
-		ghttp.RespondWithJSONEncoded(http.StatusOK, expectedMigration),
-	)
-}
-
-func handlerToUpdateTestMigrationAuthError(migration *kvirtv1.Migration) http.HandlerFunc {
-	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/migrations/"+migration.ObjectMeta.Name),
-		ghttp.RespondWithJSONEncoded(http.StatusForbidden, migration),
-	)
-}
-
-func handlerToUpdateTestVM(vm *kvirtv1.VM) http.HandlerFunc {
-	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
-		ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-	)
-}
-
-func handlerToUpdateTestVMAuthError(vm *kvirtv1.VM) http.HandlerFunc {
-	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
-		ghttp.RespondWithJSONEncoded(http.StatusForbidden, vm),
-	)
-}
-
-func finishController(jobController *kubecli.Controller, stopChan chan struct{}) {
-	// Wait until we have processed the added item
-
-	jobController.WaitForSync(stopChan)
-	jobController.ShutDownQueue()
-	jobController.WaitUntilDone()
 }

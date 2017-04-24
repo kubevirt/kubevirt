@@ -139,7 +139,6 @@ type Controller struct {
 	queue    workqueue.RateLimitingInterface
 	informer cache.ControllerInterface
 	dispatch ControllerDispatch
-	done     chan struct{}
 }
 
 func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object, dispatch ControllerDispatch) (cache.Store, *Controller) {
@@ -157,7 +156,6 @@ func NewControllerFromInformer(indexer cache.Store, informer cache.ControllerInt
 		informer: informer,
 		indexer:  indexer,
 		queue:    queue,
-		done:     make(chan struct{}),
 		dispatch: dispatch,
 	}
 	return indexer, c
@@ -167,9 +165,6 @@ type ControllerFunc func(cache.Store, workqueue.RateLimitingInterface, interface
 
 func (c *Controller) callControllerFn(s cache.Store, w workqueue.RateLimitingInterface) bool {
 	quit := !Dequeue(s, w, c.dispatch)
-	if quit {
-		close(c.done)
-	}
 	return quit
 }
 
@@ -208,10 +203,6 @@ func (c *Controller) WaitForSync(stopCh chan struct{}) {
 func (c *Controller) runWorker() {
 	for c.callControllerFn(c.indexer, c.queue) {
 	}
-}
-
-func (c *Controller) WaitUntilDone() {
-	<-c.done
 }
 
 // Shut down the embedded queue. After the shutdown was issued, all items already in the queue will be processed but no

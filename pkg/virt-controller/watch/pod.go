@@ -84,8 +84,8 @@ func (pd *podDispatch) Execute(podStore cache.Store, podQueue workqueue.RateLimi
 		// Obviously the pod of an outdated VM object, do nothing
 		return
 	}
-	// This is basically a hack, so that virt-handler can completely focus on the VM object and does not have to care about pods
 	if vm.Status.Phase == corev1.Scheduling {
+		// This is basically a hack, so that virt-handler can completely focus on the VM object and does not have to care about pods
 		pd.handleScheduling(podQueue, key, vm, pod)
 	} else if _, isMigrationPod := pod.Labels[corev1.MigrationLabel]; vm.Status.Phase == corev1.Running && isMigrationPod {
 		pd.handleMigration(podStore, podQueue, key, vm, pod)
@@ -116,22 +116,5 @@ func (pd *podDispatch) handleScheduling(podQueue workqueue.RateLimitingInterface
 }
 
 func (pd *podDispatch) handleMigration(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}, vm *corev1.VM, pod *v1.Pod) {
-	logger := logging.DefaultLogger()
-
-	// Get associated migration
-	obj, err := pd.restClient.Get().Resource("migrations").Namespace(v1.NamespaceDefault).Name(pod.Labels[corev1.MigrationLabel]).Do().Get()
-	if err != nil {
-		logger.Error().Reason(err).Msgf("Fetching migration %s failed.", pod.Labels[corev1.MigrationLabel])
-		queue.AddRateLimited(key)
-		return
-	}
-	migration := obj.(*corev1.Migration)
-	migrationKey, err := cache.MetaNamespaceKeyFunc(migration)
-	if err == nil {
-		pd.migrationQueue.Add(migrationKey)
-	} else {
-		logger.Error().Reason(err).Msgf("Updating migration queue failed.", pod.Labels[corev1.MigrationLabel])
-		queue.AddRateLimited(key)
-		return
-	}
+	pd.migrationQueue.Add(v1.NamespaceDefault + "/" + pod.Labels[corev1.MigrationLabel])
 }

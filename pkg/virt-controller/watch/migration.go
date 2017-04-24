@@ -2,6 +2,8 @@ package watch
 
 import (
 	"fmt"
+
+	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
@@ -10,8 +12,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-
-	"k8s.io/client-go/kubernetes"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -42,6 +42,16 @@ type MigrationDispatch struct {
 }
 
 func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
+	if err := md.execute(store, key.(string)); err != nil {
+		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing migration %v", key)
+		queue.AddRateLimited(key)
+	} else {
+		logging.DefaultLogger().Info().V(4).Msgf("processed migration %v", key)
+		queue.Forget(key)
+	}
+}
+
+func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 
 	setMigrationPhase := func(migration *v1.Migration, phase v1.MigrationPhase) error {
 
@@ -55,8 +65,7 @@ func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimi
 		migrationCopy, err := copy(migration)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not copy migration object")
-			queue.AddRateLimited(key)
-			return nil
+			return err
 		}
 
 		migrationCopy.Status.Phase = phase
@@ -64,25 +73,21 @@ func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimi
 		err = md.vmService.UpdateMigration(migrationCopy)
 		if err != nil {
 			logger.Error().Reason(err).Msgf("updating migration state failed: %v ", err)
-			queue.AddRateLimited(key)
 			return err
 		}
-		queue.Forget(key)
 		return nil
 	}
 
-	setMigrationFailed := func(mig *v1.Migration) {
-		setMigrationPhase(mig, v1.MigrationFailed)
+	setMigrationFailed := func(mig *v1.Migration) error {
+		return setMigrationPhase(mig, v1.MigrationFailed)
 	}
 
-	obj, exists, err := store.GetByKey(key.(string))
+	obj, exists, err := store.GetByKey(key)
 	if err != nil {
-		queue.AddRateLimited(key)
-		return
+		return err
 	}
 	if !exists {
-		queue.Forget(key)
-		return
+		return nil
 	}
 
 	var migration *v1.Migration = obj.(*v1.Migration)
@@ -91,121 +96,130 @@ func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimi
 	vm, exists, err := md.vmService.FetchVM(migration.Spec.Selector.Name)
 	if err != nil {
 		logger.Error().Reason(err).Msgf("fetching the vm %s failed", migration.Spec.Selector.Name)
-		queue.AddRateLimited(key)
-		return
+		return err
 	}
 
 	if !exists {
 		logger.Info().Msgf("VM with name %s does not exist, marking migration as failed", migration.Spec.Selector.Name)
-		setMigrationFailed(migration)
-		return
+		if err = setMigrationFailed(migration); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	switch migration.Status.Phase {
 	case v1.MigrationUnknown:
-		// Fetch vm which we want to migrate
-
 		if vm.Status.Phase != v1.Running {
 			logger.Error().Msgf("VM with name %s is in state %s, no migration possible. Marking migration as failed", vm.GetObjectMeta().GetName(), vm.Status.Phase)
-			setMigrationFailed(migration)
-			return
+			if err = setMigrationFailed(migration); err != nil {
+				return err
+			}
+			return nil
 		}
 
 		if err := mergeConstraints(migration, vm); err != nil {
 			logger.Error().Reason(err).Msg("merging Migration and VM placement constraints failed.")
-			queue.AddRateLimited(key)
-			return
+			return err
 		}
 		podList, err := md.vmService.GetRunningVMPods(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
-			queue.AddRateLimited(key)
-			return
+			return err
 		}
 
 		numOfPods, targetPod := investigateTargetPodSituation(migration, podList)
 
 		if targetPod == nil {
 			if numOfPods > 1 {
-				logger.Error().Reason(err).Msg("another migration seems to be in progress, marking Migration as failed")
+				logger.Error().Msg("another migration seems to be in progress, marking Migration as failed")
 				// Another migration is currently going on
-				setMigrationFailed(migration)
-				return
+				if err = setMigrationFailed(migration); err != nil {
+					return err
+				}
+				return nil
 			} else if numOfPods == 1 {
 				// We need to start a migration target pod
 				// TODO, this detection is not optimal, it can lead to strange situations
 				err := md.vmService.CreateMigrationTargetPod(migration, vm)
 				if err != nil {
 					logger.Error().Reason(err).Msg("creating a migration target pod failed")
-					queue.AddRateLimited(key)
-					return
+					return err
 				}
 			}
 		} else {
 			if targetPod.Status.Phase == k8sv1.PodFailed {
-				setMigrationPhase(migration, v1.MigrationFailed)
-				queue.Forget(key)
-				return
+				logger.Error().Msg("migration target pod is in failed state")
+				if err = setMigrationFailed(migration); err != nil {
+					return err
+				}
+				return nil
 			}
 			// Unlikely to hit this case, but prevents erroring out
 			// if we re-enter this loop
-			logger.Info().Msgf("Migration appears to be set up, but was not set to %s.", v1.MigrationScheduled)
+			logger.Info().Msgf("migration appears to be set up, but was not set to %s", v1.MigrationScheduled)
 		}
 		err = setMigrationPhase(migration, v1.MigrationScheduled)
 		if err != nil {
-			return
+			return err
 		}
+		return nil
 	case v1.MigrationScheduled:
 		podList, err := md.vmService.GetRunningVMPods(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
-			queue.AddRateLimited(key)
-			return
+			return err
 		}
 
 		_, targetPod := investigateTargetPodSituation(migration, podList)
 
 		if targetPod == nil {
-			setMigrationFailed(migration)
-			queue.Forget(key)
-			return
+			logger.Error().Msg("migration target pod does not exist or is an end state")
+			if err = setMigrationFailed(migration); err != nil {
+				return err
+			}
+			return nil
 		}
 		// Migration has been scheduled but no update on the status has been recorded
 		err = setMigrationPhase(migration, v1.MigrationRunning)
 		if err != nil {
-			queue.Forget(key)
-			return
+			return err
 		}
+		return nil
 	case v1.MigrationRunning:
 		podList, err := md.vmService.GetRunningVMPods(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
-			queue.AddRateLimited(key)
-			return
+			return err
 		}
 		_, targetPod := investigateTargetPodSituation(migration, podList)
 		if targetPod == nil {
-			setMigrationFailed(migration)
-			queue.Forget(key)
-			return
+			logger.Error().Msg("migration target pod does not exist or is in an end state")
+			if err = setMigrationFailed(migration); err != nil {
+				return err
+			}
+			return nil
 		}
 		switch targetPod.Status.Phase {
 		case k8sv1.PodRunning:
 			break
 		case k8sv1.PodSucceeded, k8sv1.PodFailed:
-			setMigrationFailed(migration)
-			return
+			logger.Error().Msgf("migration target pod is in end state %s", targetPod.Status.Phase)
+			if err = setMigrationFailed(migration); err != nil {
+				return err
+			}
+			return nil
 		default:
 			//Not requeuing, just not far enough along to proceed
-			queue.Forget(key)
-			return
+			logger.Info().V(3).Msg("target Pod not running yet")
+			return nil
 		}
 
 		if vm.Status.MigrationNodeName != targetPod.Spec.NodeName {
 			vm.Status.Phase = v1.Migrating
 			vm.Status.MigrationNodeName = targetPod.Spec.NodeName
-			if err = md.updateVm(vm); err != nil {
-				queue.AddRateLimited(key)
+			if _, err = md.vmService.PutVm(vm); err != nil {
+				logger.Error().Reason(err).Msgf("failed to update VM to state %s", v1.Migrating)
+				return err
 			}
 		}
 
@@ -214,65 +228,51 @@ func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimi
 
 		if err != nil {
 			logger.Error().Reason(err).Msg("Checking for an existing migration job failed.")
-			queue.AddRateLimited(key)
-			return
+			return err
 		}
 
 		if !exists {
 			sourceNode, err := md.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
 			if err != nil {
-				logger.Error().Reason(err).Msgf("Fetching source node %s failed.", vm.Status.NodeName)
-				queue.AddRateLimited(key)
-				return
+				logger.Error().Reason(err).Msgf("fetching source node %s failed", vm.Status.NodeName)
+				return err
 			}
 			targetNode, err := md.clientset.CoreV1().Nodes().Get(vm.Status.MigrationNodeName, metav1.GetOptions{})
 			if err != nil {
-				logger.Error().Reason(err).Msgf("Fetching target node %s failed.", vm.Status.MigrationNodeName)
-				queue.AddRateLimited(key)
-				return
+				logger.Error().Reason(err).Msgf("fetching target node %s failed", vm.Status.MigrationNodeName)
+				return err
 			}
 
 			if err := md.vmService.StartMigration(migration, vm, sourceNode, targetNode, targetPod); err != nil {
 				logger.Error().Reason(err).Msg("Starting the migration job failed.")
-				queue.AddRateLimited(key)
-				return
+				return err
 			}
-			queue.Forget(key)
-			return
+			return nil
 		}
 
+		// FIXME, the final state updates must come from virt-handler
 		switch migrationPod.Status.Phase {
 		case k8sv1.PodFailed:
 			vm.Status.Phase = v1.Running
 			vm.Status.MigrationNodeName = ""
-			if err = md.updateVm(vm); err != nil {
-				queue.AddRateLimited(key)
-			} else {
-				queue.Forget(key)
+			if _, err = md.vmService.PutVm(vm); err != nil {
+				return err
 			}
-			setMigrationPhase(migration, v1.MigrationFailed)
-			return
+			if err = setMigrationFailed(migration); err != nil {
+				return err
+			}
 		case k8sv1.PodSucceeded:
 			vm.Status.NodeName = targetPod.Spec.NodeName
 			vm.Status.MigrationNodeName = ""
 			vm.Status.Phase = v1.Running
-			if err = md.updateVm(vm); err != nil {
-				queue.AddRateLimited(key)
-			} else {
-				queue.Forget(key)
+			if _, err = md.vmService.PutVm(vm); err != nil {
+				logger.Error().Reason(err).Msg("updating the VM failed.")
+				return err
 			}
-			setMigrationPhase(migration, v1.MigrationSucceeded)
-			return
+			if err = setMigrationPhase(migration, v1.MigrationSucceeded); err != nil {
+				return err
+			}
 		}
-	}
-	queue.Forget(key)
-	return
-}
-func (md *MigrationDispatch) updateVm(vmCopy *v1.VM) error {
-	if _, err := md.vmService.PutVm(vmCopy); err != nil {
-		logger := logging.DefaultLogger().Object(vmCopy)
-		logger.V(3).Info().Msg("Enqueuing VM again.")
-		return err
 	}
 	return nil
 }
