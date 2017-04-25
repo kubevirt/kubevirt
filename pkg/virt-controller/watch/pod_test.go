@@ -26,7 +26,8 @@ var _ = Describe("Pod", func() {
 	var vmCache cache.Store
 	var podCache cache.Store
 	var vmService services.VMService
-	var dispatch kubecli.ControllerDispatch
+	var podDispatch kubecli.ControllerDispatch
+	var migrationPodDispatch kubecli.ControllerDispatch
 	var migrationQueue workqueue.RateLimitingInterface
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
@@ -56,8 +57,8 @@ var _ = Describe("Pod", func() {
 		)
 		g.Populate()
 
-		dispatch = NewPodControllerDispatch(vmCache, restClient, vmService, clientSet, migrationQueue)
-
+		podDispatch = NewPodControllerDispatch(vmCache, restClient, vmService, clientSet)
+		migrationPodDispatch = NewMigrationPodControllerDispatch(vmCache, restClient, vmService, clientSet, migrationQueue)
 	})
 
 	Context("Running Pod for unscheduled VM given", func() {
@@ -103,7 +104,7 @@ var _ = Describe("Pod", func() {
 			key, _ := cache.MetaNamespaceKeyFunc(pod)
 			podCache.Add(pod)
 			queue.Add(key)
-			dispatch.Execute(podCache, queue, key)
+			podDispatch.Execute(podCache, queue, key)
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			close(done)
@@ -190,7 +191,7 @@ var _ = Describe("Pod", func() {
 			key, _ := cache.MetaNamespaceKeyFunc(pod)
 			podCache.Add(pod)
 			queue.Add(key)
-			dispatch.Execute(podCache, queue, key)
+			migrationPodDispatch.Execute(podCache, queue, key)
 
 			Expect(migrationQueue.Len()).To(Equal(1))
 			close(done)
