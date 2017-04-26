@@ -136,7 +136,7 @@ func (v *vmService) SetupMigration(migration *corev1.Migration, vm *corev1.VM) e
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
 	pod.ObjectMeta.Labels[corev1.MigrationLabel] = migration.GetObjectMeta().GetName()
 	pod.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
-	corev1.SetAntiAffinityToPod(pod, corev1.AntiAffinityFromVMNode(vm))
+	pod.Spec.Affinity = corev1.AntiAffinityFromVMNode(vm)
 	if err == nil {
 		_, err = v.KubeCli.CoreV1().Pods(v1.NamespaceDefault).Create(pod)
 	}

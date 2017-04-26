@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"encoding/json"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -54,13 +53,6 @@ var _ = Describe("PodSelectors", func() {
 			Expect(len(newSelector.MatchExpressions[0].Values)).To(Equal(1))
 			Expect(newSelector.MatchExpressions[0].Values[0]).To(Equal("test-node"))
 
-		})
-		It("Should create missing structs", func() {
-			newPod, err := SetAntiAffinityToPod(pod, affinity)
-			Expect(err).ToNot(HaveOccurred())
-			generatedAffinity := v1.Affinity{}
-			Expect(json.Unmarshal([]byte(newPod.Annotations["scheduler.alpha.kubernetes.io/affinity"]), &generatedAffinity)).To(Succeed())
-			Expect(&generatedAffinity).To(Equal(affinity))
 		})
 	})
 })

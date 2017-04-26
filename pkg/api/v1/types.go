@@ -438,16 +438,12 @@ func (ml *MigrationList) UnmarshalJSON(data []byte) error {
 // Given a VM, create a NodeSelectorTerm with anti-affinity for that VM's node.
 // This is useful for the case when a migration away from a node must occur.
 func AntiAffinityFromVMNode(vm *VM) *v1.Affinity {
-	return antiAffinityFromNode(vm.Status.NodeName)
-}
-
-func antiAffinityFromNode(nodeName string) *v1.Affinity {
 	selector := v1.NodeSelectorTerm{
 		MatchExpressions: []v1.NodeSelectorRequirement{
 			{
 				Key:      "kubernetes.io/hostname",
 				Operator: v1.NodeSelectorOpNotIn,
-				Values:   []string{nodeName},
+				Values:   []string{vm.Status.NodeName},
 			},
 		},
 	}
@@ -456,19 +452,4 @@ func antiAffinityFromNode(nodeName string) *v1.Affinity {
 			RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{NodeSelectorTerms: []v1.NodeSelectorTerm{selector}},
 		},
 	}
-}
-
-// Given a pod and an affinity rule, add the affinity to any others
-// associated with the pod (if any). In this context, pod is the destination
-// of a migration.
-func SetAntiAffinityToPod(pod *v1.Pod, affinity *v1.Affinity) (*v1.Pod, error) {
-
-	newAffinity, err := json.Marshal(affinity)
-	if err != nil {
-		return nil, err
-	}
-	pod.Annotations = map[string]string{}
-	pod.Annotations["scheduler.alpha.kubernetes.io/affinity"] = string(newAffinity)
-
-	return pod, nil
 }
