@@ -22,12 +22,14 @@ test "$QEMU_PROC_NAME" == "qemu-system-x86" || ERROR=1
 
 CONTAINER_ID=$( docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME.*/ { print \$1 }" )
 CONTAINER_PID=$(docker inspect --format '{{.State.Pid}}' $CONTAINER_ID)
+CGROUP_PATH=$( cat /proc/${CONTAINER_PID}/cgroup | head -1 | cut -f3 -d: )
 
 echo "VM name: $VM_NAME"
 echo "VM emulation PID: $VM_EMULATION_PID"
 echo "VM PID: $VM_PID"
 echo "Container ID: $CONTAINER_ID"
 echo "Container PID: $CONTAINER_PID"
+echo "Container cgroup path: $CGROUP_PATH"
 
 # Check cgroups
 echo ""
@@ -35,7 +37,7 @@ echo "Checking for required cgroups:"
 CGROUPS='freezer cpu cpuacct perf_event net_cls blkio memory hugetlb cpuset'
 for CG in $CGROUPS; do
 
-  if grep -Fxq "$VM_PID"  /sys/fs/cgroup/${CG}/system.slice/docker-$CONTAINER_ID.scope/tasks; then
+  if grep -Fxq "$VM_PID"  /sys/fs/cgroup/$CG/$CGROUP_PATH/tasks; then
     echo VM $VM_NAME found in container cgroup $CG
   else
     ERROR=1
@@ -48,7 +50,7 @@ echo "Checking for excluded cgroups:"
 EXCLUDED_CGROUPS="devices systemd"
 for CG in $EXCLUDED_CGROUPS; do
 
-  if grep -Fxq "$VM_PID"  /sys/fs/cgroup/${CG}/system.slice/docker-$CONTAINER_ID.scope/tasks; then
+  if grep -Fxq "$VM_PID"  /sys/fs/cgroup/$CG/$CGROUP_PATH/tasks; then
     echo VM $VM_NAME FOUND in container cgroup $CG
     ERROR=1
   else
