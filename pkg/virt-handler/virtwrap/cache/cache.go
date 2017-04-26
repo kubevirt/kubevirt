@@ -40,6 +40,11 @@ var ShutoffReasonTranslationMap = map[libvirt.DomainShutoffReason]api.StateChang
 	libvirt.DOMAIN_SHUTOFF_FROM_SNAPSHOT: api.ReasonFromSnapshot,
 }
 
+var CrashedReasonTranslationMap = map[libvirt.DomainCrashedReason]api.StateChangeReason{
+	libvirt.DOMAIN_CRASHED_UNKNOWN:  api.ReasonUnknown,
+	libvirt.DOMAIN_CRASHED_PANICKED: api.ReasonPanicked,
+}
+
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
 	listFunc := func(options kubev1.ListOptions) (runtime.Object, error) {
@@ -143,6 +148,7 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 		logging.DefaultLogger().Error().Reason(err).Msg("Could not create the Domain.")
 		return
 	}
+	logging.DefaultLogger().Info().Msgf("event received: %v:%v", event.Event, event.Detail)
 	// TODO In case of other events, it might not be enough to just send state and domainxml, maybe we have to embed the event and the details too
 	//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
 	switch event.Event {
@@ -213,6 +219,8 @@ func convReason(status libvirt.DomainState, reason int) api.StateChangeReason {
 		return ShutdownReasonTranslationMap[libvirt.DomainShutdownReason(reason)]
 	case libvirt.DOMAIN_SHUTOFF:
 		return ShutoffReasonTranslationMap[libvirt.DomainShutoffReason(reason)]
+	case libvirt.DOMAIN_CRASHED:
+		return CrashedReasonTranslationMap[libvirt.DomainCrashedReason(reason)]
 	default:
 		return api.ReasonUnknown
 	}

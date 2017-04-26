@@ -82,9 +82,9 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 
 func (d *DomainDispatch) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VM) error {
 	flag := false
-	if domain.Status.Status == api.Shutoff {
+	if domain.Status.Status == api.Shutoff || domain.Status.Status == api.Crashed {
 		switch domain.Status.Reason {
-		case api.ReasonCrashed:
+		case api.ReasonCrashed, api.ReasonPanicked:
 			vm.Status.Phase = v1.Failed
 			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.Stopped.String(), "The VM crashed.")
 			flag = true
