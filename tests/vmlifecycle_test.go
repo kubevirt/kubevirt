@@ -158,13 +158,14 @@ var _ = Describe("Vmlifecycle", func() {
 				obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
-				tests.WaitForSuccessfulVMStart(obj)
+				nodeName := tests.WaitForSuccessfulVMStart(obj)
 				_, ok := obj.(*v1.VM)
 				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 				restClient, err := kubecli.GetRESTClient()
 				Expect(err).ToNot(HaveOccurred())
 
-				err = pkillAllVms(coreCli)
+				time.Sleep(10 * time.Second)
+				err = pkillAllVms(coreCli, nodeName)
 				Expect(err).To(BeNil())
 
 				tests.NewObjectEventWatcher(obj).WaitFor(tests.WarningEvent, v1.Stopped)
@@ -182,12 +183,12 @@ var _ = Describe("Vmlifecycle", func() {
 				obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
-				tests.WaitForSuccessfulVMStart(obj)
+				nodeName := tests.WaitForSuccessfulVMStart(obj)
 				_, ok := obj.(*v1.VM)
 				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 				Expect(err).ToNot(HaveOccurred())
 
-				err = pkillAllVms(coreCli)
+				err = pkillAllVms(coreCli, nodeName)
 				Expect(err).To(BeNil())
 
 				// Wait for stop event of the VM
@@ -221,7 +222,13 @@ func renderPkillAllVmsJob() *kubev1.Pod {
 					Name:  "vm-killer",
 					Image: "kubevirt/vm-killer:devel",
 					Command: []string{
-						"/vm-killer.sh",
+						"pkill",
+						"-9",
+						"qemu",
+					},
+					SecurityContext: &kubev1.SecurityContext{
+						Privileged: newBool(true),
+						RunAsUser:  new(int64),
 					},
 				},
 			},
@@ -235,9 +242,14 @@ func renderPkillAllVmsJob() *kubev1.Pod {
 	return &job
 }
 
-func pkillAllVms(core *kubernetes.Clientset) error {
+func pkillAllVms(core *kubernetes.Clientset, node string) error {
 	job := renderPkillAllVmsJob()
+	job.Spec.NodeName = node
 	_, err := core.Pods(kubev1.NamespaceDefault).Create(job)
 
 	return err
+}
+
+func newBool(x bool) *bool {
+	return &x
 }
