@@ -77,7 +77,7 @@ var _ = Describe("Storage", func() {
 		// Wait until there is no connection
 		logs := func() string { return getTargetLogs(70) }
 		Eventually(logs,
-			4*time.Second,
+			11*time.Second,
 			500*time.Millisecond).
 			Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
 	})
@@ -103,7 +103,7 @@ var _ = Describe("Storage", func() {
 		// We don't check against the full pod IP, since depending on the kubernetes proxy mode, we either see the
 		// full PodIP or just the proxy IP which connects through different ports
 		Eventually(func() string { return getTargetLogs(70) },
-			4*time.Second,
+			11*time.Second,
 			500*time.Millisecond).
 			Should(ContainSubstring(fmt.Sprintf("IP Address: %s", podIP[0:8])))
 	}
