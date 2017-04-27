@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"encoding/json"
 	"flag"
 	"github.com/facebookgo/inject"
 	. "github.com/onsi/ginkgo"
@@ -55,6 +56,7 @@ var _ = Describe("VM", func() {
 
 			vm.ObjectMeta.UID = "testUID"
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			vm.Status.NodeName = "master"
 
 			pod := corev1.Pod{}
 
@@ -62,6 +64,7 @@ var _ = Describe("VM", func() {
 
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
+					VerifyAffinity(v1.AntiAffinityFromVMNode(vm)),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
 				),
 			)
@@ -95,3 +98,11 @@ var _ = Describe("VM", func() {
 	})
 
 })
+
+func VerifyAffinity(affinity *corev1.Affinity) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		pod := &corev1.Pod{}
+		Expect(json.NewDecoder(req.Body).Decode(pod)).To(Succeed())
+		Expect(pod.Spec.Affinity).To(Equal(affinity))
+	}
+}

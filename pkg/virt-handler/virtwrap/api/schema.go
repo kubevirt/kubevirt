@@ -97,6 +97,7 @@ const (
 	ReasonDestroyed    StateChangeReason = "Destroyed"
 	ReasonMigrated     StateChangeReason = "Migrated"
 	ReasonCrashed      StateChangeReason = "Crashed"
+	ReasonPanicked     StateChangeReason = "Panicked"
 	ReasonSaved        StateChangeReason = "Saved"
 	ReasonFailed       StateChangeReason = "Failed"
 	ReasonFromSnapshot StateChangeReason = "FromSnapshot"

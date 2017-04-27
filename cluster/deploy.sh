@@ -7,7 +7,7 @@ KUBECTL=${KUBECTL:-kubectl}
 echo "Cleaning up ..."
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
 cluster/kubectl.sh --core delete -f manifests/virt-handler.yaml --cascade=false --grace-period 0 2>/dev/null || :
-cluster/kubectl.sh --core delete pods -l=daemon=virt-handler --grace-period 0 2>/dev/null || :
+cluster/kubectl.sh --core delete pods -l=daemon=virt-handler --force --grace-period 0 2>/dev/null || :
 
 # Delete everything else
 for i in `ls manifests/*.yaml`; do
