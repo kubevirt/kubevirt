@@ -28,6 +28,9 @@ var _ = Describe("Manager", func() {
 		mockConn = NewMockConnection(ctrl)
 		mockDomain = NewMockVirDomain(ctrl)
 		recorder = record.NewFakeRecorder(10)
+
+		// Make sure that we always free the domain after use
+		mockDomain.EXPECT().Free()
 	})
 
 	Context("on successful VM sync", func() {

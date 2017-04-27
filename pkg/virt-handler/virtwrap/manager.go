@@ -229,6 +229,7 @@ type VirDomain interface {
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
 	Undefine() error
 	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
+	Free() error
 }
 
 type LibvirtDomainManager struct {
@@ -320,6 +321,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 			return err
 		}
 	}
+	defer dom.Free()
 	domState, _, err := dom.GetState()
 	if err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
@@ -366,6 +368,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 			return err
 		}
 	}
+	defer dom.Free()
 	// TODO: Graceful shutdown
 	domState, _, err := dom.GetState()
 	if err != nil {

@@ -70,79 +70,88 @@ var _ = Describe("Console", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(r.StatusCode).To(Equal(http.StatusNotFound))
 	})
+
 	It("should return 500 if domain can't be looked up", func() {
 		mockConn.EXPECT().LookupDomainByName("testvm").Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
 		r, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
 	})
-	It("should return 500 if uid of domain can't be looked up", func() {
-		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
-		mockDomain.EXPECT().GetUUIDString().Return("", libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
-		r, err := get("testvm")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
+
+	Context("with existing domain", func() {
+		BeforeEach(func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+		})
+
+		It("should return 500 if uid of domain can't be looked up", func() {
+			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockDomain.EXPECT().GetUUIDString().Return("", libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+			r, err := get("testvm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+		It("should return 500 if creating a stream fails", func() {
+			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+			r, err := get("testvm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+		It("should return 500 if opening a console connection fails", func() {
+			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
+			stream := &libvirt.Stream{}
+			mockStream.EXPECT().UnderlyingStream().Return(stream)
+			mockStream.EXPECT().Close()
+			mockDomain.EXPECT().OpenConsole("", stream, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+			r, err := get("testvm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
+		})
+		It("should return 400 if ws upgrade does not work", func() {
+			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
+			stream := &libvirt.Stream{}
+			mockStream.EXPECT().UnderlyingStream().Return(stream)
+			mockStream.EXPECT().Close()
+			mockDomain.EXPECT().OpenConsole("", stream, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(nil)
+			r, err := get("testvm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+		It("should proxy websocket traffic", func() {
+
+			var in []byte
+			var out []byte
+			inBuf := bytes.NewBuffer(in)
+			outBuf := bytes.NewBuffer(out)
+			outBuf.WriteString("hello client!")
+			stream := &fakeStream{in: inBuf, out: outBuf, s: &libvirt.Stream{}}
+
+			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(stream, nil)
+			mockDomain.EXPECT().OpenConsole("console0", stream.s, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(nil)
+
+			con := dial("testvm", "console0")
+			defer con.Close()
+			err := con.WriteMessage(websocket.TextMessage, []byte("hello console!"))
+			Expect(err).ToNot(HaveOccurred())
+
+			// FIXME, there is somewhere a buffer or timeout which delays the actual send
+			// Eventually(inBuf.String).Should(Equal("hello console!"))
+
+			t, body, err := con.ReadMessage()
+			Expect(t).To(Equal(websocket.TextMessage))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).To(Equal([]byte("hello client!")))
+		})
+
 	})
-	It("should return 500 if creating a stream fails", func() {
-		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
-		mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
-		mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
-		r, err := get("testvm")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
-	})
-	It("should return 500 if opening a console connection fails", func() {
-		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
-		mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
-		mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
-		stream := &libvirt.Stream{}
-		mockStream.EXPECT().UnderlyingStream().Return(stream)
-		mockStream.EXPECT().Close()
-		mockDomain.EXPECT().OpenConsole("", stream, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
-		r, err := get("testvm")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
-	})
-	It("should return 400 if ws upgrade does not work", func() {
-		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
-		mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
-		mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
-		stream := &libvirt.Stream{}
-		mockStream.EXPECT().UnderlyingStream().Return(stream)
-		mockStream.EXPECT().Close()
-		mockDomain.EXPECT().OpenConsole("", stream, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(nil)
-		r, err := get("testvm")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(r.StatusCode).To(Equal(http.StatusBadRequest))
-	})
-	It("should proxy websocket traffic", func() {
-
-		var in []byte
-		var out []byte
-		inBuf := bytes.NewBuffer(in)
-		outBuf := bytes.NewBuffer(out)
-		outBuf.WriteString("hello client!")
-		stream := &fakeStream{in: inBuf, out: outBuf, s: &libvirt.Stream{}}
-
-		mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
-		mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
-		mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(stream, nil)
-		mockDomain.EXPECT().OpenConsole("console0", stream.s, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(nil)
-
-		con := dial("testvm", "console0")
-		defer con.Close()
-		err := con.WriteMessage(websocket.TextMessage, []byte("hello console!"))
-		Expect(err).ToNot(HaveOccurred())
-
-		// FIXME, there is somewhere a buffer or timeout which delays the actual send
-		// Eventually(inBuf.String).Should(Equal("hello console!"))
-
-		t, body, err := con.ReadMessage()
-		Expect(t).To(Equal(websocket.TextMessage))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(body).To(Equal([]byte("hello client!")))
-	})
-
 	AfterEach(func() {
 		ctrl.Finish()
 		server.Close()
