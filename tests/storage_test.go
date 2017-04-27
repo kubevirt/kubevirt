@@ -41,6 +41,15 @@ var _ = Describe("Storage", func() {
 		return string(logsRaw)
 	}
 
+	BeforeEach(func() {
+		// Wait until there is no connection
+		logs := func() string { return getTargetLogs(70) }
+		Eventually(logs,
+			4*time.Second,
+			500*time.Millisecond).
+			Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
+	})
+
 	RunVMAndExpectLaunch := func(vm *v1.VM) {
 		obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
@@ -61,33 +70,23 @@ var _ = Describe("Storage", func() {
 	}
 
 	Context("Given a fresh iSCSI target", func() {
-		var logs string
-
-		BeforeEach(func() {
-			logs = getTargetLogs(70)
-		})
 
 		It("should be available and ready", func() {
+			logs := getTargetLogs(70)
 			Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
 			Expect(logs).To(ContainSubstring("Driver: iscsi"))
 			Expect(logs).To(ContainSubstring("State: ready"))
 		})
 
 		It("should not have any connections", func() {
+			logs := getTargetLogs(70)
 			// Ensure that no connections are listed
 			Expect(logs).To(ContainSubstring("I_T nexus information:\n    LUN information:"))
 		})
 	})
 
 	Context("Given a VM and a directly connected Alpine LUN", func() {
-		BeforeEach(func() {
-			// Wait until there is no connection
-			logs := getTargetLogs(70)
-			Eventually(logs,
-				4*time.Second,
-				500*time.Millisecond).
-				Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
-		})
+
 		It("should be successfully started by libvirt", func(done Done) {
 			// Start the VM with the LUN attached
 			vm := tests.NewRandomVMWithDirectLun(2)
