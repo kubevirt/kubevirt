@@ -11,15 +11,8 @@ then
 fi
 
 if [ "$1" == "spice" ]; then
-        viewer=${SPICE_VIEWER:-remote\-viewer}
-        if [ "x$3" == "x--details" ]; then
-            curl -sS http://${master_ip}:8184/apis/kubevirt.io/v1alpha1/namespaces/default/vms/$2/spice -H"Accept:text/plain"
-        else
-            curl -sS http://${master_ip}:8184/apis/kubevirt.io/v1alpha1/namespaces/default/vms/$2/spice -H"Accept:text/plain" > ${KUBEVIRT_PATH}cluster/.console.vv
-            echo $viewer
-            $viewer ${KUBEVIRT_PATH}cluster/.console.vv
-        fi
-        exit
+    ${KUBEVIRT_PATH}cmd/virtctl/virtctl spice ${2} -s ${master_ip}:8184 ${3}
+    exit
 fi
 
 if [ "$1" == "console" ] || [ "$1" == "convert-spec" ]; then
