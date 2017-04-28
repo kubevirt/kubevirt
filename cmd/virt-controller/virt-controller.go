@@ -9,7 +9,10 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/facebookgo/inject"
+
 	clientrest "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -69,24 +72,29 @@ func main() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vmCache, vmController := watch.NewVMController(vmService, nil, restClient)
+
+	var vmCache cache.Store
+	var vmController *kubecli.Controller
+
+	vmCache, vmController = watch.NewVMController(vmService, nil, restClient)
 
 	vmController.StartInformer(stop)
 	go vmController.Run(1, stop)
 	// Wait until VM cache has warmed up before we start watching pods
 	vmController.WaitForSync(stop)
 
-	// Start watching pods
-	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient, vmService)
-	podController.StartInformer(stop)
-	go podController.Run(1, stop)
-
-	_, migrationController := watch.NewMigrationController(vmService, nil, restClient)
+	//TODO order the parameters consistantly in the factories, or use an object.
+	_, migrationController, migrationQueue := watch.NewMigrationController(vmService, nil, restClient, clientSet)
 	migrationController.StartInformer(stop)
 	go migrationController.Run(1, stop)
 	migrationController.WaitForSync(stop)
 
-	_, jobController := watch.NewJobController(vmService, nil, clientSet, restClient)
+	// Start watching pods
+	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient, vmService, *migrationQueue)
+	podController.StartInformer(stop)
+	go podController.Run(1, stop)
+
+	_, jobController := watch.NewJobController(vmService, nil, clientSet, restClient, *migrationQueue)
 	jobController.StartInformer(stop)
 	go jobController.Run(1, stop)
 	jobController.WaitForSync(stop)

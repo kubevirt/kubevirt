@@ -51,7 +51,7 @@ var _ = Describe("VmMigration", func() {
 			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.MigrationFailed))
 		})
 
-		It("Should go to MigrationInProgress state if the VM exists", func(done Done) {
+		It("Should go to MigrationScheduled state if the VM exists", func(done Done) {
 
 			vm, err := restClient.Post().Resource("vms").Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
@@ -65,7 +65,7 @@ var _ = Describe("VmMigration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				var m *v1.Migration = obj.(*v1.Migration)
 				return m.Status.Phase
-			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.MigrationInProgress))
+			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.MigrationScheduled))
 			close(done)
 		}, 30)
 

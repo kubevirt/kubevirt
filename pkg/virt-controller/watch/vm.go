@@ -19,13 +19,11 @@ import (
 
 func NewVMController(vmService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 	lw := cache.NewListWatchFromClient(restClient, "vms", kubeapi.NamespaceDefault, fields.Everything())
-	return NewVMControllerWithListWatch(vmService, recorder, lw, restClient)
-}
-
-func NewVMControllerWithListWatch(vmService services.VMService, _ record.EventRecorder, lw cache.ListerWatcher, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
-
+	dispatch := NewVMControllerDispatch(restClient, vmService)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &v1.VM{}, NewVMControllerDispatch(restClient, vmService))
+	indexer, informer := cache.NewIndexerInformer(lw, &v1.VM{}, 0, kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue), cache.Indexers{})
+	return kubecli.NewControllerFromInformer(indexer, informer, queue, dispatch)
+
 }
 
 func NewVMControllerDispatch(restClient *rest.RESTClient, vmService services.VMService) kubecli.ControllerDispatch {

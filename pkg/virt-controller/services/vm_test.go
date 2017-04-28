@@ -52,7 +52,7 @@ var _ = Describe("VM", func() {
 			migration = v1.NewMinimalMigration(vm.ObjectMeta.Name+"-migration", vm.ObjectMeta.Name)
 			expected_migration = &v1.Migration{}
 			*expected_migration = *migration
-			expected_migration.Status.Phase = v1.MigrationInProgress
+			expected_migration.Status.Phase = v1.MigrationScheduled
 
 			vm.ObjectMeta.UID = "testUID"
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
@@ -68,7 +68,7 @@ var _ = Describe("VM", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
 				),
 			)
-			err := vmService.SetupMigration(migration, vm)
+			err := vmService.CreateMigrationTargetPod(migration, vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 
