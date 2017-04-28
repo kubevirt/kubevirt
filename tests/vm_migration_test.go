@@ -69,35 +69,6 @@ var _ = Describe("VmMigration", func() {
 			close(done)
 		}, 30)
 
-		It("Should update the Status.MigrationNodeName after the migration target pod was started", func(done Done) {
-
-			// Create the VM
-			obj, err := restClient.Post().Resource("vms").Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do().Get()
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStart(obj)
-
-			// Create the Migration
-			err = restClient.Post().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Body(migration).Do().Error()
-			Expect(err).ToNot(HaveOccurred())
-
-			// TODO we need events
-			var fetchedVM *v1.VM
-			Eventually(func() string {
-				obj, err := restClient.Get().Resource("vms").Namespace(k8sv1.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
-				Expect(err).ToNot(HaveOccurred())
-				fetchedVM = obj.(*v1.VM)
-				return fetchedVM.Status.MigrationNodeName
-			}, TIMEOUT, POLLING_INTERVAL).ShouldNot(BeEmpty())
-			Eventually(func() v1.VMPhase {
-				obj, err := restClient.Get().Resource("vms").Namespace(k8sv1.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
-				Expect(err).ToNot(HaveOccurred())
-				fetchedVM = obj.(*v1.VM)
-				return fetchedVM.Status.Phase
-			}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(v1.Migrating))
-
-			close(done)
-		}, 30)
-
 		It("Should migrate the VM", func(done Done) {
 
 			// Create the VM
