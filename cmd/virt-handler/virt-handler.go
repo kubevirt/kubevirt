@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
+	"time"
 )
 
 func main() {
@@ -55,8 +56,7 @@ func main() {
 			}
 		}
 	}()
-	// TODO we need to handle disconnects
-	domainConn, err := virtwrap.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass)
+	domainConn, err := virtwrap.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass, 10*time.Second)
 	if err != nil {
 		panic(fmt.Sprintf("failed to connect to libvirtd: %s", err))
 	}
