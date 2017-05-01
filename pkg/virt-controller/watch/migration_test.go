@@ -26,23 +26,26 @@ import (
 var _ = Describe("Migration", func() {
 
 	var (
-		server         *ghttp.Server
-		migrationCache cache.Store
-		vmService      services.VMService
-		restClient     *rest.RESTClient
-		dispatch       kubecli.ControllerDispatch
-		migrationQueue workqueue.RateLimitingInterface
-		migration      *v1.Migration
-		vm             *v1.VM
-		pod            *clientv1.Pod
-		podList        clientv1.PodList
-		migrationKey   interface{}
-		srcIp          clientv1.NodeAddress
-		destIp         kubev1.NodeAddress
-		srcNodeWithIp  kubev1.Node
-		destNodeWithIp kubev1.Node
-		srcNode        kubev1.Node
-		destNode       kubev1.Node
+		server               *ghttp.Server
+		migrationCache       cache.Store
+		podCache             cache.Store
+		vmCache              cache.Store
+		vmService            services.VMService
+		restClient           *rest.RESTClient
+		dispatch             kubecli.ControllerDispatch
+		migrationPodDispatch kubecli.ControllerDispatch
+		migrationQueue       workqueue.RateLimitingInterface
+		migration            *v1.Migration
+		vm                   *v1.VM
+		pod                  *clientv1.Pod
+		podList              clientv1.PodList
+		migrationKey         interface{}
+		srcIp                clientv1.NodeAddress
+		destIp               kubev1.NodeAddress
+		srcNodeWithIp        kubev1.Node
+		destNodeWithIp       kubev1.Node
+		srcNode              kubev1.Node
+		destNode             kubev1.Node
 	)
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
@@ -59,6 +62,8 @@ var _ = Describe("Migration", func() {
 		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
 
+		podCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		g.Provide(
 			&inject.Object{Value: restClient},
 			&inject.Object{Value: clientSet},
@@ -79,6 +84,7 @@ var _ = Describe("Migration", func() {
 		migration = v1.NewMinimalMigration(vm.ObjectMeta.Name+"-migration", vm.ObjectMeta.Name)
 		migration.ObjectMeta.SetUID(uuid.NewUUID())
 		migration.Spec.NodeSelector = map[string]string{"beta.kubernetes.io/arch": "amd64"}
+		migrationPodDispatch = NewMigrationPodControllerDispatch(vmCache, restClient, vmService, clientSet, migrationQueue)
 
 		// Create a target Pod for the VM
 		templateService, err := services.NewTemplateService("whatever")
@@ -128,7 +134,6 @@ var _ = Describe("Migration", func() {
 				Addresses: []clientv1.NodeAddress{destIp, srcIp},
 			},
 		}
-
 	})
 
 	doExecute := func() {
@@ -575,6 +580,93 @@ var _ = Describe("Migration", func() {
 
 	})
 
+	Context("Running Migration target Pod for a running VM given", func() {
+		var (
+			srcIp      = kubev1.NodeAddress{}
+			destIp     = kubev1.NodeAddress{}
+			srcNodeIp  = kubev1.Node{}
+			destNodeIp = kubev1.Node{}
+			srcNode    kubev1.Node
+			targetNode kubev1.Node
+		)
+
+		BeforeEach(func() {
+			srcIp = kubev1.NodeAddress{
+				Type:    kubev1.NodeInternalIP,
+				Address: "127.0.0.2",
+			}
+			destIp = kubev1.NodeAddress{
+				Type:    kubev1.NodeInternalIP,
+				Address: "127.0.0.3",
+			}
+			srcNodeIp = kubev1.Node{
+				Status: kubev1.NodeStatus{
+					Addresses: []kubev1.NodeAddress{srcIp},
+				},
+			}
+			destNodeIp = kubev1.Node{
+				Status: kubev1.NodeStatus{
+					Addresses: []kubev1.NodeAddress{destIp},
+				},
+			}
+			srcNode = kubev1.Node{
+				ObjectMeta: kubev1.ObjectMeta{
+					Name: "sourceNode",
+				},
+				Status: kubev1.NodeStatus{
+					Addresses: []kubev1.NodeAddress{srcIp, destIp},
+				},
+			}
+			targetNode = kubev1.Node{
+				ObjectMeta: kubev1.ObjectMeta{
+					Name: "targetNode",
+				},
+				Status: kubev1.NodeStatus{
+					Addresses: []kubev1.NodeAddress{destIp, srcIp},
+				},
+			}
+		})
+
+		It("should update the VM Phase and migration target node of the running Pod", func(done Done) {
+
+			// Create a VM which is being scheduled
+			vm := v1.NewMinimalVM("testvm")
+			vm.Status.Phase = v1.Running
+			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			vm.Status.NodeName = "sourceNode"
+
+			// Add the VM to the cache
+			vmCache.Add(vm)
+
+			// Create a target Pod for the VM
+			pod := mockMigrationPod(vm)
+
+			// Create the expected VM after the update
+			obj, err := conversion.NewCloner().DeepCopy(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmWithMigrationNodeName := obj.(*v1.VM)
+			vmWithMigrationNodeName.Status.MigrationNodeName = pod.Spec.NodeName
+
+			obj, err = conversion.NewCloner().DeepCopy(vmWithMigrationNodeName)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmInMigrationState := obj.(*v1.VM)
+			vmInMigrationState.Status.Phase = v1.Migrating
+			migration := v1.NewMinimalMigration("testvm-migration", "testvm")
+			migration.Status.Phase = v1.MigrationScheduled
+
+			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			key, _ := cache.MetaNamespaceKeyFunc(pod)
+			podCache.Add(pod)
+			queue.Add(key)
+			migrationPodDispatch.Execute(podCache, queue, key)
+
+			Expect(migrationQueue.Len()).To(Equal(1))
+			close(done)
+		}, 10)
+	})
+
 	AfterEach(func() {
 		server.Close()
 	})
@@ -653,4 +745,22 @@ func mockPod(i int, label string) clientv1.Pod {
 			Phase: clientv1.PodRunning,
 		},
 	}
+}
+
+func mockMigrationPod(vm *v1.VM) *kubev1.Pod {
+	temlateService, err := services.NewTemplateService("whatever")
+	Expect(err).ToNot(HaveOccurred())
+	pod, err := temlateService.RenderLaunchManifest(vm)
+	Expect(err).ToNot(HaveOccurred())
+	pod.Spec.NodeName = "targetNode"
+	pod.Labels[v1.MigrationLabel] = "testvm-migration"
+	return pod
+}
+
+func handlePutVM(vm *v1.VM) http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
+		ghttp.VerifyJSONRepresenting(vm),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+	)
 }
