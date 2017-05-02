@@ -21,7 +21,6 @@ add_lun_for_file() {
   local FN=$1
   tgtadm --lld iscsi --mode logicalunit --op new --tid=1 --lun=$LUNID -b $FN
   tgtadm --lld iscsi --mode logicalunit --op update --tid=1 --lun=$LUNID --params thin_provisioning=1
-  [[ "$FN" = *.iso ]] && tgtadm --lld iscsi --mode logicalunit --op update --tid=1 --lun=$LUNID --params readonly=1
   LUNID=$(( $LUNID + 1 ))
 }
 
