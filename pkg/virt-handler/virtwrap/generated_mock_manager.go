@@ -314,3 +314,13 @@ func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt_go.Stream, 
 func (_mr *_MockVirDomainRecorder) OpenConsole(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "OpenConsole", arg0, arg1, arg2)
 }
+
+func (_m *MockVirDomain) Free() error {
+	ret := _m.ctrl.Call(_m, "Free")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) Free() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Free")
+}

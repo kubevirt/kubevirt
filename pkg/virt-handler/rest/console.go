@@ -42,6 +42,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 			return
 		}
 	}
+	defer domain.Free()
 
 	uid, err := domain.GetUUIDString()
 	if err != nil {
