@@ -291,6 +291,7 @@ func investigateTargetPodSituation(migration *v1.Migration, podList *k8sv1.PodLi
 	for _, pod := range podList.Items {
 		if pod.Labels[v1.MigrationUIDLabel] == string(migration.GetObjectMeta().GetUID()) {
 			targetPod = &pod
+			break
 		}
 	}
 	return len(podList.Items), targetPod
