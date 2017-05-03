@@ -60,11 +60,9 @@ yum install -y \
 yum install -y qemu-common qemu-kvm qemu-system-x86 libcgroup-tools libvirt || :
 
 # Latest docker on CentOS uses systemd for cgroup management
-# Further don't use CRI because of https://github.com/kubernetes/kubernetes/issues/44041.
-# It will be fixed in 1.6.2.
 cat << EOT >>/etc/systemd/system/kubelet.service.d/09-kubeadm.conf
 [Service]
-Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --enable-cri=false"
+Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd"
 EOT
 systemctl daemon-reload
 
