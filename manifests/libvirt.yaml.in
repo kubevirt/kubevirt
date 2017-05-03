@@ -1,0 +1,64 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: libvirt
+spec:
+  template:
+    metadata:
+      name: libvirt
+      labels:
+        daemon: libvirt
+    spec:
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      securityContext:
+        runAsUser: 0
+      containers:
+      - name: libvirtd
+        ports:
+          - containerPort: 16509
+            hostPort: 16509
+        image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+        - name: LIBVIRTD_DEFAULT_NETWORK_DEVICE
+          value: eth1
+        volumeMounts:
+          - mountPath: /host-dev
+            name: host-dev
+          - mountPath: /host-sys
+            name: host-sys
+          - name: libvirt-data
+            mountPath: /var/lib/libvirt
+          - name: libvirt-runtime
+            mountPath: /var/run/libvirt
+          - name: docker-sock
+            mountPath: /var/run/docker.sock
+        command: ["/libvirtd.sh"]
+      - name: virtlogd
+        image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - name: libvirt-runtime
+            mountPath: /var/run/libvirt
+        command: ["/usr/sbin/virtlogd", "-f", "/etc/libvirt/virtlogd.conf"]
+      volumes:
+      - name: libvirt-data
+        hostPath:
+          path: /var/lib/libvirt-container
+      - name: libvirt-runtime
+        hostPath:
+          path: /var/run/libvirt
+      - name: host-dev
+        hostPath:
+          path: /dev
+      - name: host-sys
+        hostPath:
+          path: /sys
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock

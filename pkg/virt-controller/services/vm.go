@@ -150,9 +150,6 @@ func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 func (v *vmService) CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VM) error {
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
 	migrationLabel := migration.GetObjectMeta().GetName()
-	logger := logging.DefaultLogger().Object(vm)
-	logger.Error().Msg(migrationLabel)
-	logger.Error().Msg(pod.Spec.NodeName)
 
 	pod.ObjectMeta.Labels[corev1.MigrationLabel] = migrationLabel
 	pod.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())

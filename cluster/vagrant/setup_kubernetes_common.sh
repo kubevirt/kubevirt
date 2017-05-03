@@ -56,9 +56,6 @@ yum install -y \
       kubectl \
       kubernetes-cni
 
-# To get the qemu user and libvirt
-yum install -y qemu-common qemu-kvm qemu-system-x86 libcgroup-tools libvirt || :
-
 # Latest docker on CentOS uses systemd for cgroup management
 cat << EOT >>/etc/systemd/system/kubelet.service.d/09-kubeadm.conf
 [Service]
@@ -68,49 +65,6 @@ systemctl daemon-reload
 
 systemctl enable docker && systemctl start docker
 systemctl enable kubelet && systemctl start kubelet
-
-# Disable libvirt cgroup management
-echo "cgroup_controllers = [ ]" >> /etc/libvirt/qemu.conf
-
-# Let libvirt listen on TCP for migrations
-echo 'LIBVIRTD_ARGS="--listen"' >> /etc/sysconfig/libvirtd
-
-cat << EOT >>/etc/libvirt/libvirtd.conf
-listen_tcp = 1
-tcp_port = "16509"
-auth_tcp = "none"
-listen_addr = "0.0.0.0"
-listen_tls = 0
-EOT
-
-# Disble sasl for libvirt. VDSM configured that
-sed -i '/^auth_unix_rw/c\auth_unix_rw="none"' /etc/libvirt/libvirtd.conf
-systemctl restart libvirtd
-systemctl enable libvirtd
-
-# Define macvtap network interface for libvirt
-virsh net-define libvirt_network.xml
-virsh net-autostart kubevirt-net
-virsh net-start kubevirt-net
-
-# Allow qemu passwordless sudo
-cat >> /etc/sudoers.d/55-kubevirt <<EOF
-# hack to allow sudo without tty and password
-Defaults !requiretty
-Defaults closefrom_override
-%wheel	ALL=(ALL)	NOPASSWD: ALL
-EOF
-
-# Now add qemu to wheel
-usermod -G wheel -a qemu
-
-# Install qemu hack
-ln -s /vagrant/cmd/virt-launcher/qemu-kube /usr/local/bin/qemu-x86_64
-
-# Create log location for qemu hack
-mkdir -p /var/log/kubevirt/
-touch /var/log/kubevirt/qemu-kube.log
-chown qemu:qemu /var/log/kubevirt/qemu-kube.log
 
 # Needed for kubernetes service routing and dns
 # https://github.com/kubernetes/kubernetes/issues/33798#issuecomment-250962627

@@ -10,6 +10,9 @@ else
     args=$@
 fi
 
+# Delete all generated manifests in case an input file was deleted or renamed
+rm -f "manifests/*.yaml"
+
 # Render kubernetes manifests
 for arg in $args; do
     env | j2 --format=env $arg > ${arg%%.in}
