@@ -1,27 +1,34 @@
 package watch
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/jeevatkm/go-model"
+	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/errors"
+	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"kubevirt.io/kubevirt/pkg/api/v1"
+
+	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"strings"
 )
 
 func NewVMController(vmService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
 	lw := cache.NewListWatchFromClient(restClient, "vms", kubeapi.NamespaceDefault, fields.Everything())
 	dispatch := NewVMControllerDispatch(restClient, vmService)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	indexer, informer := cache.NewIndexerInformer(lw, &v1.VM{}, 0, kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue), cache.Indexers{})
+	indexer, informer := cache.NewIndexerInformer(lw, &kubev1.VM{}, 0, kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue), cache.Indexers{})
 	return kubecli.NewControllerFromInformer(indexer, informer, queue, dispatch)
 
 }
@@ -51,7 +58,7 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 	}
 
 	// Retrieve the VM
-	var vm *v1.VM
+	var vm *kubev1.VM
 	if !exists {
 		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
 		if err != nil {
@@ -59,9 +66,9 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 			queue.AddRateLimited(key)
 			return
 		}
-		vm = v1.NewVMReferenceFromName(name)
+		vm = kubev1.NewVMReferenceFromName(name)
 	} else {
-		vm = obj.(*v1.VM)
+		vm = obj.(*kubev1.VM)
 	}
 	logger := logging.DefaultLogger().Object(vm)
 
@@ -72,9 +79,9 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 			logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
 		}
 		logger.Info().Msg("Deleting VM target Pod succeeded.")
-	} else if vm.Status.Phase == v1.VmPhaseUnset {
+	} else if vm.Status.Phase == kubev1.VmPhaseUnset {
 		// Schedule the VM
-		vmCopy := v1.VM{}
+		vmCopy := kubev1.VM{}
 
 		// Deep copy the object, so that we can safely manipulate it
 		model.Copy(&vmCopy, vm)
@@ -91,7 +98,7 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 
 		// TODO move defaulting to virt-api
 		if vmCopy.Spec.Domain == nil {
-			spec := v1.NewMinimalDomainSpec(vmCopy.GetObjectMeta().GetName())
+			spec := kubev1.NewMinimalDomainSpec(vmCopy.GetObjectMeta().GetName())
 			vmCopy.Spec.Domain = spec
 		}
 		vmCopy.Spec.Domain.UUID = string(vmCopy.GetObjectMeta().GetUID())
@@ -103,7 +110,7 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 		for i, _ := range graphics {
 			if strings.ToLower(graphics[i].Type) == "spice" {
 				graphics[i].Port = int32(4000) + int32(i)
-				graphics[i].Listen = v1.Listen{
+				graphics[i].Listen = kubev1.Listen{
 					Address: "0.0.0.0",
 					Type:    "address",
 				}
@@ -155,7 +162,7 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 		// object got enqueued already. It will fail above until the created pods time out.
 		// For (3) we want to enqueue again. If we don't do that the created pods will time out and we will
 		// not get any updates
-		vmCopy.Status.Phase = v1.Scheduling
+		vmCopy.Status.Phase = kubev1.Scheduling
 		if err := vmd.restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
 			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
 			if e, ok := err.(*errors.StatusError); ok {
@@ -171,4 +178,98 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 		logger.Info().Msg("Handing over the VM to the scheduler succeeded.")
 	}
 	return
+}
+
+func scheduledVMPodSelector() kubeapi.ListOptions {
+	fieldSelectionQuery := fmt.Sprintf("status.phase=%s", string(kubeapi.PodRunning))
+	fieldSelector := fields.ParseSelectorOrDie(fieldSelectionQuery)
+	labelSelectorQuery := fmt.Sprintf("!%s, %s in (virt-launcher)", string(kubev1.MigrationLabel), kubev1.AppLabel)
+	labelSelector, err := labels.Parse(labelSelectorQuery)
+	if err != nil {
+		panic(err)
+	}
+	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
+}
+
+func NewPodController(vmCache cache.Store, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient, vmService services.VMService) (cache.Store, *kubecli.Controller) {
+
+	selector := scheduledVMPodSelector()
+	lw := kubecli.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	return kubecli.NewController(lw, queue, &k8sv1.Pod{}, NewPodControllerDispatch(vmCache, restClient, vmService, clientset))
+}
+
+func NewPodControllerDispatch(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset) kubecli.ControllerDispatch {
+	dispatch := podDispatch{
+		vmCache:    vmCache,
+		restClient: restClient,
+		vmService:  vmService,
+		clientset:  clientset,
+	}
+	return &dispatch
+}
+
+type podDispatch struct {
+	vmCache    cache.Store
+	restClient *rest.RESTClient
+	vmService  services.VMService
+	clientset  *kubernetes.Clientset
+}
+
+func (pd *podDispatch) Execute(podStore cache.Store, podQueue workqueue.RateLimitingInterface, key interface{}) {
+	// Fetch the latest Vm state from cache
+	obj, exists, err := podStore.GetByKey(key.(string))
+
+	if err != nil {
+		podQueue.AddRateLimited(key)
+		return
+	}
+
+	if !exists {
+		// Do nothing
+		return
+	}
+	pod := obj.(*k8sv1.Pod)
+
+	vmObj, exists, err := pd.vmCache.GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[kubev1.DomainLabel])
+	if err != nil {
+		podQueue.AddRateLimited(key)
+		return
+	}
+	if !exists {
+		// Do nothing, the pod will timeout.
+		return
+	}
+	vm := vmObj.(*kubev1.VM)
+	if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[kubev1.VMUIDLabel]) {
+		// Obviously the pod of an outdated VM object, do nothing
+		return
+	}
+	if vm.Status.Phase == kubev1.Scheduling {
+		// This is basically a hack, so that virt-handler can completely focus on the VM object and does not have to care about pods
+		pd.handleScheduling(podQueue, key, vm, pod)
+	}
+	return
+}
+
+func (pd *podDispatch) handleScheduling(podQueue workqueue.RateLimitingInterface, key interface{}, vm *kubev1.VM, pod *k8sv1.Pod) {
+	// deep copy the VM to allow manipulations
+	vmCopy := kubev1.VM{}
+	model.Copy(&vmCopy, vm)
+
+	vmCopy.Status.Phase = kubev1.Pending
+	// FIXME we store this in the metadata since field selctors are currently not working for TPRs
+	if vmCopy.GetObjectMeta().GetLabels() == nil {
+		vmCopy.ObjectMeta.Labels = map[string]string{}
+	}
+	vmCopy.ObjectMeta.Labels[kubev1.NodeNameLabel] = pod.Spec.NodeName
+	vmCopy.Status.NodeName = pod.Spec.NodeName
+	// Update the VM
+	logger := logging.DefaultLogger()
+	if _, err := pd.vmService.PutVm(&vmCopy); err != nil {
+		logger.V(3).Info().Msg("Enqueuing VM again.")
+		podQueue.AddRateLimited(key)
+		return
+	}
+	logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
 }

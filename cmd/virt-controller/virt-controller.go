@@ -90,9 +90,13 @@ func main() {
 	migrationController.WaitForSync(stop)
 
 	// Start watching pods
-	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient, vmService, *migrationQueue)
+	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient, vmService)
 	podController.StartInformer(stop)
 	go podController.Run(1, stop)
+
+	_, migrationPodController := watch.NewMigrationPodController(vmCache, nil, clientSet, restClient, vmService, *migrationQueue)
+	migrationPodController.StartInformer(stop)
+	go migrationPodController.Run(1, stop)
 
 	_, jobController := watch.NewJobController(vmService, nil, clientSet, restClient, *migrationQueue)
 	jobController.StartInformer(stop)

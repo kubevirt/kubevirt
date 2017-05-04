@@ -8,11 +8,14 @@ import (
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
+	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"kubevirt.io/kubevirt/pkg/api/v1"
+
+	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -21,7 +24,7 @@ import (
 func NewMigrationController(migrationService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient, clientset *kubernetes.Clientset) (cache.Store, *kubecli.Controller, *workqueue.RateLimitingInterface) {
 	lw := cache.NewListWatchFromClient(restClient, "migrations", k8sv1.NamespaceDefault, fields.Everything())
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	store, controller := kubecli.NewController(lw, queue, &v1.Migration{}, NewMigrationControllerDispatch(migrationService, restClient, clientset))
+	store, controller := kubecli.NewController(lw, queue, &kubev1.Migration{}, NewMigrationControllerDispatch(migrationService, restClient, clientset))
 	return store, controller, &queue
 }
 
@@ -53,7 +56,7 @@ func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimi
 
 func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 
-	setMigrationPhase := func(migration *v1.Migration, phase v1.MigrationPhase) error {
+	setMigrationPhase := func(migration *kubev1.Migration, phase kubev1.MigrationPhase) error {
 
 		if migration.Status.Phase == phase {
 			return nil
@@ -78,8 +81,8 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		return nil
 	}
 
-	setMigrationFailed := func(mig *v1.Migration) error {
-		return setMigrationPhase(mig, v1.MigrationFailed)
+	setMigrationFailed := func(mig *kubev1.Migration) error {
+		return setMigrationPhase(mig, kubev1.MigrationFailed)
 	}
 
 	obj, exists, err := store.GetByKey(key)
@@ -90,7 +93,7 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		return nil
 	}
 
-	var migration *v1.Migration = obj.(*v1.Migration)
+	var migration *kubev1.Migration = obj.(*kubev1.Migration)
 	logger := logging.DefaultLogger().Object(migration)
 
 	vm, exists, err := md.vmService.FetchVM(migration.Spec.Selector.Name)
@@ -108,8 +111,8 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 	}
 
 	switch migration.Status.Phase {
-	case v1.MigrationUnknown:
-		if vm.Status.Phase != v1.Running {
+	case kubev1.MigrationUnknown:
+		if vm.Status.Phase != kubev1.Running {
 			logger.Error().Msgf("VM with name %s is in state %s, no migration possible. Marking migration as failed", vm.GetObjectMeta().GetName(), vm.Status.Phase)
 			if err = setMigrationFailed(migration); err != nil {
 				return err
@@ -156,14 +159,14 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 			}
 			// Unlikely to hit this case, but prevents erroring out
 			// if we re-enter this loop
-			logger.Info().Msgf("migration appears to be set up, but was not set to %s", v1.MigrationScheduled)
+			logger.Info().Msgf("migration appears to be set up, but was not set to %s", kubev1.MigrationScheduled)
 		}
-		err = setMigrationPhase(migration, v1.MigrationScheduled)
+		err = setMigrationPhase(migration, kubev1.MigrationScheduled)
 		if err != nil {
 			return err
 		}
 		return nil
-	case v1.MigrationScheduled:
+	case kubev1.MigrationScheduled:
 		podList, err := md.vmService.GetRunningVMPods(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
@@ -180,12 +183,12 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 			return nil
 		}
 		// Migration has been scheduled but no update on the status has been recorded
-		err = setMigrationPhase(migration, v1.MigrationRunning)
+		err = setMigrationPhase(migration, kubev1.MigrationRunning)
 		if err != nil {
 			return err
 		}
 		return nil
-	case v1.MigrationRunning:
+	case kubev1.MigrationRunning:
 		podList, err := md.vmService.GetRunningVMPods(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
@@ -215,10 +218,10 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		}
 
 		if vm.Status.MigrationNodeName != targetPod.Spec.NodeName {
-			vm.Status.Phase = v1.Migrating
+			vm.Status.Phase = kubev1.Migrating
 			vm.Status.MigrationNodeName = targetPod.Spec.NodeName
 			if _, err = md.vmService.PutVm(vm); err != nil {
-				logger.Error().Reason(err).Msgf("failed to update VM to state %s", v1.Migrating)
+				logger.Error().Reason(err).Msgf("failed to update VM to state %s", kubev1.Migrating)
 				return err
 			}
 		}
@@ -253,7 +256,7 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		// FIXME, the final state updates must come from virt-handler
 		switch migrationPod.Status.Phase {
 		case k8sv1.PodFailed:
-			vm.Status.Phase = v1.Running
+			vm.Status.Phase = kubev1.Running
 			vm.Status.MigrationNodeName = ""
 			if _, err = md.vmService.PutVm(vm); err != nil {
 				return err
@@ -264,12 +267,12 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		case k8sv1.PodSucceeded:
 			vm.Status.NodeName = targetPod.Spec.NodeName
 			vm.Status.MigrationNodeName = ""
-			vm.Status.Phase = v1.Running
+			vm.Status.Phase = kubev1.Running
 			if _, err = md.vmService.PutVm(vm); err != nil {
 				logger.Error().Reason(err).Msg("updating the VM failed.")
 				return err
 			}
-			if err = setMigrationPhase(migration, v1.MigrationSucceeded); err != nil {
+			if err = setMigrationPhase(migration, kubev1.MigrationSucceeded); err != nil {
 				return err
 			}
 		}
@@ -277,19 +280,19 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 	return nil
 }
 
-func copy(migration *v1.Migration) (*v1.Migration, error) {
+func copy(migration *kubev1.Migration) (*kubev1.Migration, error) {
 	obj, err := kubeapi.Scheme.Copy(migration)
 	if err != nil {
 		return nil, err
 	}
-	return obj.(*v1.Migration), nil
+	return obj.(*kubev1.Migration), nil
 }
 
 // Returns the number of  running pods and if a pod for exactly that migration is currently running
-func investigateTargetPodSituation(migration *v1.Migration, podList *k8sv1.PodList) (int, *k8sv1.Pod) {
+func investigateTargetPodSituation(migration *kubev1.Migration, podList *k8sv1.PodList) (int, *k8sv1.Pod) {
 	var targetPod *k8sv1.Pod = nil
 	for _, pod := range podList.Items {
-		if pod.Labels[v1.MigrationUIDLabel] == string(migration.GetObjectMeta().GetUID()) {
+		if pod.Labels[kubev1.MigrationUIDLabel] == string(migration.GetObjectMeta().GetUID()) {
 			targetPod = &pod
 			break
 		}
@@ -297,7 +300,7 @@ func investigateTargetPodSituation(migration *v1.Migration, podList *k8sv1.PodLi
 	return len(podList.Items), targetPod
 }
 
-func mergeConstraints(migration *v1.Migration, vm *v1.VM) error {
+func mergeConstraints(migration *kubev1.Migration, vm *kubev1.VM) error {
 
 	merged := map[string]string{}
 	for k, v := range vm.Spec.NodeSelector {
@@ -317,4 +320,76 @@ func mergeConstraints(migration *v1.Migration, vm *v1.VM) error {
 	}
 	vm.Spec.NodeSelector = merged
 	return nil
+}
+
+func migrationVMPodSelector() kubeapi.ListOptions {
+	fieldSelectionQuery := fmt.Sprintf("status.phase=%s", string(kubeapi.PodRunning))
+	fieldSelector := fields.ParseSelectorOrDie(fieldSelectionQuery)
+	labelSelectorQuery := fmt.Sprintf("%s, %s in (virt-launcher)", string(kubev1.MigrationLabel), kubev1.AppLabel)
+	labelSelector, err := labels.Parse(labelSelectorQuery)
+
+	if err != nil {
+		panic(err)
+	}
+	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
+}
+
+func NewMigrationPodController(vmCache cache.Store, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient, vmService services.VMService, migrationQueue workqueue.RateLimitingInterface) (cache.Store, *kubecli.Controller) {
+
+	selector := migrationVMPodSelector()
+	lw := kubecli.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	return kubecli.NewController(lw, queue, &k8sv1.Pod{}, NewMigrationPodControllerDispatch(vmCache, restClient, vmService, clientset, migrationQueue))
+}
+
+type migrationPodDispatch struct {
+	vmCache        cache.Store
+	restClient     *rest.RESTClient
+	vmService      services.VMService
+	clientset      *kubernetes.Clientset
+	migrationQueue workqueue.RateLimitingInterface
+}
+
+func NewMigrationPodControllerDispatch(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) kubecli.ControllerDispatch {
+	dispatch := migrationPodDispatch{
+		vmCache:        vmCache,
+		restClient:     restClient,
+		vmService:      vmService,
+		clientset:      clientset,
+		migrationQueue: migrationQueue,
+	}
+	return &dispatch
+}
+
+func (pd *migrationPodDispatch) Execute(podStore cache.Store, podQueue workqueue.RateLimitingInterface, key interface{}) {
+	// Fetch the latest Vm state from cache
+	obj, exists, err := podStore.GetByKey(key.(string))
+
+	if err != nil {
+		podQueue.AddRateLimited(key)
+		return
+	}
+
+	if !exists {
+		// Do nothing
+		return
+	}
+	pod := obj.(*k8sv1.Pod)
+
+	vmObj, exists, err := pd.vmCache.GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[kubev1.DomainLabel])
+	if err != nil {
+		podQueue.AddRateLimited(key)
+		return
+	}
+	if !exists {
+		// Do nothing, the pod will timeout.
+		return
+	}
+	vm := vmObj.(*kubev1.VM)
+	if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[kubev1.VMUIDLabel]) {
+		// Obviously the pod of an outdated VM object, do nothing
+		return
+	}
+	pd.migrationQueue.Add(k8sv1.NamespaceDefault + "/" + pod.Labels[kubev1.MigrationLabel])
+	return
 }
