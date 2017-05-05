@@ -3,7 +3,7 @@ package logging
 import (
 	"errors"
 	"fmt"
-	"kubevirt.io/kubevirt/pkg/api"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -277,7 +277,7 @@ func TestObject(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
-	vm := api.VM{}
+	vm := v1.VM{}
 	log.Object(&vm).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")

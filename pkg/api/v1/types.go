@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/pkg/types"
-	"kubevirt.io/kubevirt/pkg/api"
 	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -75,9 +74,6 @@ func init() {
 		return reflect.ValueOf(uuid.FromStringOrNil(in.String())), nil
 	})
 
-	mapper.AddConversion(&VMSpec{}, &api.VMSpec{})
-	mapper.AddConversion(&VMCondition{}, &api.VMCondition{})
-	mapper.AddConversion(&VMStatus{}, &api.VMStatus{})
 	mapper.AddConversion(&v1.ObjectMeta{}, &kubeapi.ObjectMeta{})
 }
 
