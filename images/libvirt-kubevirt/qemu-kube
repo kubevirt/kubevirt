@@ -1,1 +1,99 @@
-../../cmd/virt-launcher/qemu-kube
+#!/bin/sh
+alias docker="sudo /usr/bin/docker"
+alias log='echo "[$(date)] "'
+
+ARGS="$@"
+# static config
+if [ -r "/etc/vdsm/qemu_kube.conf" ]; then
+    source "/etc/vdsm/qemu_kube.conf"
+fi
+# runtime config
+# TODO: let Makefile fill this
+# source "/var/run/vdsm/qemu_kube.conf"
+
+if [ -z "$QEMU" ]; then
+    QEMU="/usr/bin/qemu-system-x86_64"
+fi
+if [ -z "$LOG" ]; then
+    LOG="/var/log/kubevirt/qemu-kube.log"
+fi
+if [ ! -w "$LOG" ]; then
+    LOG="/dev/null"
+fi
+
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -name)
+        VM_NAME="$2"
+        shift
+    ;;
+    *)
+    ;;
+esac
+shift
+done
+
+if [ -z "$VM_NAME" ]; then
+    log "Libvirt is asking for qemu capabilities." >> $LOG
+    exec $QEMU $ARGS
+fi
+
+if [[ "$VM_NAME" == *"="* ]]
+then
+    VM_NAME=$(echo -n "$VM_NAME" | awk -F "=" -v RS="," "/guest/ { print \$2; }")
+fi
+
+alias log='echo "[$(date)] ${VM_NAME}: "'
+
+log "Trying to start VM ${VM_NAME}." >> $LOG
+
+function find_container() {
+    docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME-{5}.*/ { print \$1 }" 2>>$LOG
+}
+
+NEXT_WAIT=0
+until test -n "$(find_container)" || [ $NEXT_WAIT -eq 10 ]; do
+           log "${VM_NAME}: Waiting for container to show up." >> $LOG
+           (( NEXT_WAIT++ ))
+           sleep 6
+done
+
+CONTAINER_ID=$( find_container )
+
+if [ -z "$CONTAINER_ID" ]; then
+        log "Could not find the VM container" >> $LOG
+        >&2 echo "Could not find the VM container"
+        exit 1
+fi
+
+log "Found container $CONTAINER_ID" >> $LOG
+
+CONTAINER_PID=$(docker inspect --format '{{.State.Pid}}' $CONTAINER_ID)
+
+CMD="$QEMU $ARGS"
+
+# Find out the cgroup path of the container
+CGROUP_PATH=$( cat /proc/${CONTAINER_PID}/cgroup | head -1 | cut -f3 -d: )
+# Get cgroups, don't change systemd and devices cgroup
+CGROUPS=$( cat /proc/${CONTAINER_PID}/cgroup | cut -f2 -d: | grep -v -e systemd -e devices | paste -sd "," - )
+log "cgroup path: $CGROUP_PATH" >> $LOG
+log "cgroups: $CGROUPS" >> $LOG
+
+log "Container target pid is \"$CONTAINER_PID\"" >> $LOG
+log "$CMD" >> $LOG
+
+set -e
+
+# Start qemu in the pid namespace of the container to receive signals on container kills
+# Don't close file descriptors smaller than 10000 to allow passing tap device fds
+# Start the qemu process in the cgroups of the docker container
+# to adhere to the resource limitations of the container.
+sudo -C 10000 unshare --mount bash -s << END
+  nsenter -m -t $CONTAINER_PID cat /etc/resolv.conf > /etc/resolv.conf.\$\$
+  trap "rm -rf /etc/resolv.conf.\$\$" EXIT
+  mount --bind /etc/resolv.conf.\$\$ /etc/resolv.conf
+  exec cgexec -g ${CGROUPS}:$CGROUP_PATH --sticky nsenter -t $CONTAINER_PID -n -p $CMD
+END
