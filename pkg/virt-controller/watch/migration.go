@@ -268,6 +268,10 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 			vm.Status.NodeName = targetPod.Spec.NodeName
 			vm.Status.MigrationNodeName = ""
 			vm.Status.Phase = kubev1.Running
+			if vm.ObjectMeta.Labels == nil {
+				vm.ObjectMeta.Labels = map[string]string{}
+			}
+			vm.ObjectMeta.Labels[kubev1.NodeNameLabel] = vm.Status.NodeName
 			if _, err = md.vmService.PutVm(vm); err != nil {
 				logger.Error().Reason(err).Msg("updating the VM failed.")
 				return err
