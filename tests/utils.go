@@ -193,8 +193,8 @@ func NewRandomVMWithPVC(claimName string) *v1.VM {
 	return vm
 }
 
-func NewMigrationForVm(vm *v1.VM) *v1.Migration {
-	return v1.NewMinimalMigration(vm.ObjectMeta.Name+"migrate", vm.ObjectMeta.Name)
+func NewRandomMigrationForVm(vm *v1.VM) *v1.Migration {
+	return v1.NewMinimalMigration(vm.ObjectMeta.Name+"migrate"+rand.String(5), vm.ObjectMeta.Name)
 }
 
 func NewRandomVMWithSerialConsole() *v1.VM {
