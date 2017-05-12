@@ -150,6 +150,7 @@ var _ = Describe("Migration", func() {
 		expectedVM.Status.Phase = phase
 		expectedVM.Status.MigrationNodeName = pod.Spec.NodeName
 		expectedVM.Spec.NodeSelector = map[string]string{"beta.kubernetes.io/arch": "amd64"}
+		expectedVM.ObjectMeta.Labels = map[string]string{}
 
 		return expectedVM
 	}
@@ -504,6 +505,7 @@ var _ = Describe("Migration", func() {
 			expectedVM2 := buildExpectedVM(v1.Running)
 			expectedVM2.Status.MigrationNodeName = ""
 			expectedVM2.Status.NodeName = destinationNodeName
+			expectedVM2.ObjectMeta.Labels = map[string]string{v1.NodeNameLabel: destinationNodeName}
 
 			migrationPod := *mockMigrationPod(expectedVM2)
 			migrationPod.Status.Phase = clientv1.PodSucceeded

@@ -31,10 +31,20 @@ var _ = Describe("Storage", func() {
 	getTargetLogs := func(tailLines int64) string {
 		pods, err := coreClient.CoreV1().Pods(kubev1.NamespaceDefault).List(kubev1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(pods.Items).To(HaveLen(1))
+
+		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
+		podName := ""
+		for _, pod := range pods.Items {
+			if pod.ObjectMeta.DeletionTimestamp == nil {
+				podName = pod.ObjectMeta.Name
+				break
+			}
+		}
+		Expect(podName).ToNot(BeEmpty())
+
 		logsRaw, err := coreClient.CoreV1().
 			Pods("default").
-			GetLogs(pods.Items[0].GetObjectMeta().GetName(),
+			GetLogs(podName,
 				&kubev1.PodLogOptions{TailLines: &tailLines}).
 			DoRaw()
 		Expect(err).To(BeNil())
@@ -57,8 +67,15 @@ var _ = Describe("Storage", func() {
 
 		// Let's get the IP of the pod of the VM
 		pods, err := coreClient.CoreV1().Pods(api.NamespaceDefault).List(services.UnfinishedVMPodSelector(vm))
-		Expect(pods.Items).To(HaveLen(1))
-		podIP := pods.Items[0].Status.PodIP
+		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
+		podIP := ""
+		for _, pod := range pods.Items {
+			if pod.ObjectMeta.DeletionTimestamp == nil {
+				podIP = pod.Status.PodIP
+				break
+			}
+		}
+		Expect(podIP).ToNot(BeEmpty())
 
 		// Periodically check if we now have a connection on the target
 		// We don't check against the full pod IP, since depending on the kubernetes proxy mode, we either see the
