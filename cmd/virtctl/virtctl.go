@@ -8,6 +8,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/convert"
+	"kubevirt.io/kubevirt/pkg/virtctl/spice"
 	"log"
 )
 
@@ -19,6 +20,7 @@ func main() {
 	registry := map[string]virtctl.App{
 		"console":      &console.Console{},
 		"options":      &virtctl.Options{},
+		"spice":        &spice.Spice{},
 		"convert-spec": convert.NewConvertCommand(),
 	}
 
