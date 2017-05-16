@@ -11,6 +11,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"strings"
 	"time"
 )
 
@@ -55,10 +56,20 @@ var _ = Describe("Vmlifecycle", func() {
 			tests.WaitForSuccessfulVMStart(vm)
 			ws := dial(vm.ObjectMeta.GetName(), "serial0")
 			defer ws.Close()
+			// Check for the typical cloud init error messages
+			// TODO, use a reader instead and use ReadLine from bufio
+			next := ""
 			Eventually(func() string {
-				_, data, err := ws.ReadMessage()
-				Expect(err).ToNot(HaveOccurred())
-				return string(data)
+				for {
+					if index := strings.Index(next, "\n"); index != -1 {
+						line := next[0:index]
+						next = next[index+1:]
+						return line
+					}
+					_, data, err := ws.ReadMessage()
+					Expect(err).ToNot(HaveOccurred())
+					next = next + string(data)
+				}
 			}, 60*time.Second).Should(ContainSubstring("checking http://169.254.169.254/2009-04-04/instance-id"))
 			close(done)
 		}, 90)
