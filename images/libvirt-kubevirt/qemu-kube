@@ -91,9 +91,26 @@ set -e
 # Don't close file descriptors smaller than 10000 to allow passing tap device fds
 # Start the qemu process in the cgroups of the docker container
 # to adhere to the resource limitations of the container.
-sudo -C 10000 unshare --mount bash -s << END
+exec sudo -C 10000 unshare --mount bash -s << END
+
+  function _term() {
+    rm -rf /etc/resolv.conf.\$\$
+    pkill -P \$! --signal SIG\$1
+  }
+
+  trap "_term TERM" TERM
+  trap "_term INT" INT
+  trap "_term HUP" HUP
+  trap "_term QUIT" QUIT
+  trap "_term TERM" EXIT
+  trap "_term TERM" ERR
+
+  # Make sure qemu can resolve kubernetes DNS entries
   nsenter -m -t $CONTAINER_PID cat /etc/resolv.conf > /etc/resolv.conf.\$\$
-  trap "rm -rf /etc/resolv.conf.\$\$" EXIT
   mount --bind /etc/resolv.conf.\$\$ /etc/resolv.conf
-  exec cgexec -g ${CGROUPS}:$CGROUP_PATH --sticky nsenter -t $CONTAINER_PID -n -p $CMD
+
+  cgclassify -g ${CGROUPS}:$CGROUP_PATH --sticky \$\$
+  nsenter -t $CONTAINER_PID -n -p $CMD &
+
+  wait
 END
