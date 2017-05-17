@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/meta"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/fields"
@@ -250,11 +251,19 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() v1.VMPhase {
 		obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
-		Expect(err).ToNot(HaveOccurred())
+		// FIXME, why do we sometimes see 504 on slow systems on the same two tests (and not on all which use this function)?
+		if err != nil {
+			if err, ok := err.(*errors.StatusError); ok && err.Status().Code == 504 {
+				// If it is a 504, let's retry later
+				return ""
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}
 		fetchedVM := obj.(*v1.VM)
 		nodeName = fetchedVM.Status.NodeName
 		return fetchedVM.Status.Phase
-	}).Should(Equal(v1.Running))
+	}, 3*time.Second, 100*time.Millisecond).Should(Equal(v1.Running))
 	return
 }
 
