@@ -16,8 +16,10 @@ import (
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/util/errors"
 	utilwait "k8s.io/client-go/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
@@ -316,8 +318,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	var wantedSpec api.DomainSpec
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
 	if len(mappingErrs) > 0 {
-		// TODO: proper aggregation
-		return mappingErrs[0]
+		return errors.NewAggregate(mappingErrs)
 	}
 	dom, err := l.virConn.LookupDomainByName(vm.GetObjectMeta().GetName())
 	if err != nil {
@@ -325,7 +326,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
 			xmlStr, err := xml.Marshal(&wantedSpec)
 			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain xmlStr failed.")
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 				return err
 			}
 			logging.DefaultLogger().Object(vm).Info().V(3).Msg("Domain XML generated.")

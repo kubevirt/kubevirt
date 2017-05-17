@@ -17,6 +17,9 @@ RUN chmod a+x /usr/local/bin/qemu-x86_64
 COPY kubevirt-sudo /etc/sudoers.d/kubevirt
 RUN chmod 0640 /etc/sudoers.d/kubevirt
 
+COPY libvirtd-limited.sh /libvirtd-limited.sh
+RUN chmod a+x /libvirtd-limited.sh
+
 # libvirtd.sh in this image differs from upstream
 RUN rm -f /libvirtd.sh
 COPY libvirtd.sh /libvirtd.sh
