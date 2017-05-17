@@ -3,6 +3,11 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful"
 	"github.com/evanphx/json-patch"
@@ -15,14 +20,11 @@ import (
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
-	"net/http"
-	"reflect"
-	"strings"
-	"time"
 )
 
 type ResponseHandlerFunc func(rest.Result) (interface{}, error)

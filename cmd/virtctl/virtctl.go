@@ -4,12 +4,14 @@ import (
 	"os"
 
 	"fmt"
+	"log"
+
 	flag "github.com/spf13/pflag"
+
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/convert"
 	"kubevirt.io/kubevirt/pkg/virtctl/spice"
-	"log"
 )
 
 func main() {

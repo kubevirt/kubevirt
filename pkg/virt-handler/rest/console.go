@@ -1,15 +1,17 @@
 package rest
 
 import (
+	"io"
+	"net/http"
+
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	"github.com/libvirt/libvirt-go"
-	"io"
 	"k8s.io/client-go/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	"net/http"
 )
 
 var upgrader = websocket.Upgrader{

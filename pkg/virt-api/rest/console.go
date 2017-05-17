@@ -4,16 +4,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
-	"io"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api/v1"
 	k8sv1meta "k8s.io/client-go/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"net/http"
-	"net/url"
 )
 
 var upgrader = websocket.Upgrader{

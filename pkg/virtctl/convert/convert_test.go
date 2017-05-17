@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"github.com/spf13/pflag"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 

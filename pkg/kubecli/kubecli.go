@@ -2,6 +2,9 @@ package kubecli
 
 import (
 	"flag"
+	"runtime/debug"
+	"time"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -15,10 +18,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"runtime/debug"
-	"time"
 )
 
 var (

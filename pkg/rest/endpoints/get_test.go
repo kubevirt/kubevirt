@@ -4,17 +4,20 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	kithttp "github.com/go-kit/kit/transport/http"
 	"net/http"
 
+	kithttp "github.com/go-kit/kit/transport/http"
+
 	"encoding/json"
+	"net/http/httptest"
+	"net/url"
+
 	"github.com/emicklei/go-restful"
 	"github.com/ghodss/yaml"
 	"golang.org/x/net/context"
 	"gopkg.in/ini.v1"
+
 	"kubevirt.io/kubevirt/pkg/rest"
-	"net/http/httptest"
-	"net/url"
 )
 
 func newValidGetRequest() *http.Request {

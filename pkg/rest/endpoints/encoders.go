@@ -2,14 +2,16 @@ package endpoints
 
 import (
 	"encoding/json"
+	"net/http"
+	"strings"
+
 	"github.com/ghodss/yaml"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
 	"gopkg.in/ini.v1"
+
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
-	"net/http"
-	"strings"
 )
 
 func encodeApplicationErrors(_ context.Context, w http.ResponseWriter, response interface{}) error {

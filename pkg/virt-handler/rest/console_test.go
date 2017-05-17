@@ -2,6 +2,10 @@ package rest
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+
 	"github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
@@ -10,11 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/util/uuid"
 	"k8s.io/client-go/tools/record"
+
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 )
 
 var _ = Describe("Console", func() {

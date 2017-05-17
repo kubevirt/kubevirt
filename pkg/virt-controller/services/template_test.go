@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/util/uuid"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 )

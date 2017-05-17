@@ -3,6 +3,8 @@ package services_test
 import (
 	"encoding/json"
 	"flag"
+	"net/http"
+
 	"github.com/facebookgo/inject"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,10 +13,10 @@ import (
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/util/uuid"
 	"k8s.io/client-go/rest"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"net/http"
 )
 
 var _ = Describe("VM", func() {

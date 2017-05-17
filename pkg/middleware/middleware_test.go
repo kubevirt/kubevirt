@@ -2,10 +2,12 @@ package middleware
 
 import (
 	"errors"
+
 	"github.com/go-kit/kit/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
+
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 

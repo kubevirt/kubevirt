@@ -11,9 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/logging"
 	"strconv"
 	"strings"
+
+	"kubevirt.io/kubevirt/pkg/logging"
 )
 
 type Monitor struct {

@@ -4,10 +4,12 @@ import (
 	"flag"
 
 	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/labels"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"

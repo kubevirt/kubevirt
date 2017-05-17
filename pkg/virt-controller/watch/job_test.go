@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
 	kvirtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"

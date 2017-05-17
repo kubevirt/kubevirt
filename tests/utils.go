@@ -2,6 +2,9 @@ package tests
 
 import (
 	"fmt"
+	"reflect"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/api"
@@ -11,10 +14,9 @@ import (
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/runtime"
 	"k8s.io/client-go/pkg/util/rand"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"reflect"
-	"time"
 )
 
 type EventType string

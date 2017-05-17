@@ -3,6 +3,8 @@ package rest
 import (
 	"flag"
 	"fmt"
+	"strings"
+
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/kubernetes"
@@ -12,10 +14,10 @@ import (
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
-	"strings"
 )
 
 var spiceProxy string

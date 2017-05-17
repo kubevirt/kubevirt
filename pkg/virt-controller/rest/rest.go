@@ -2,6 +2,7 @@ package rest
 
 import (
 	"github.com/emicklei/go-restful"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
 )

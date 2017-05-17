@@ -2,22 +2,24 @@ package rest
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+
 	"github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"io/ioutil"
 	fake2 "k8s.io/client-go/kubernetes/fake"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"strings"
 )
 
 var _ = Describe("Console", func() {

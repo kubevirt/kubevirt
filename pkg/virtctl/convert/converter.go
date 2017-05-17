@@ -3,10 +3,12 @@ package convert
 import (
 	"encoding/json"
 	"encoding/xml"
+	"io"
+
 	ghodss_yaml "github.com/ghodss/yaml"
 	"github.com/jeevatkm/go-model"
-	"io"
 	"k8s.io/client-go/pkg/util/yaml"
+
 	virt "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )

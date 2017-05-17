@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"

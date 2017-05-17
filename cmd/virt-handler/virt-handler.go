@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 
+	"time"
+
 	"github.com/emicklei/go-restful"
 	"github.com/libvirt/libvirt-go"
 	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -15,6 +17,7 @@ import (
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/tools/record"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -23,7 +26,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
-	"time"
 )
 
 func main() {

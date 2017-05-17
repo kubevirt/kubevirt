@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"

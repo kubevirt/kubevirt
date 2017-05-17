@@ -7,11 +7,13 @@ import (
 	"net/http"
 
 	"encoding/json"
-	"github.com/emicklei/go-restful"
-	"golang.org/x/net/context"
-	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http/httptest"
 	"net/url"
+
+	"github.com/emicklei/go-restful"
+	"golang.org/x/net/context"
+
+	"kubevirt.io/kubevirt/pkg/rest"
 )
 
 func newValidDeleteRequest() *http.Request {

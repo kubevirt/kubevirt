@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
+
 	"kubevirt.io/kubevirt/pkg/logging"
 )
 

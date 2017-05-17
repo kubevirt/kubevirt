@@ -8,15 +8,17 @@ import (
 
 	"bytes"
 	"encoding/json"
-	"github.com/emicklei/go-restful"
-	"golang.org/x/net/context"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
-	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+
+	"github.com/emicklei/go-restful"
+	"golang.org/x/net/context"
+	"gopkg.in/yaml.v2"
+
+	"kubevirt.io/kubevirt/pkg/rest"
 )
 
 func marshalToJSON(payload interface{}) io.ReadCloser {

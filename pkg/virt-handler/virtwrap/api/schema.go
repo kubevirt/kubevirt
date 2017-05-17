@@ -2,15 +2,17 @@ package api
 
 import (
 	"encoding/xml"
+	"reflect"
+
 	"github.com/jeevatkm/go-model"
 	"k8s.io/client-go/pkg/api/meta"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/runtime/schema"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"reflect"
 )
 
 type LifeCycle string

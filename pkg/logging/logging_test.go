@@ -3,11 +3,12 @@ package logging
 import (
 	"errors"
 	"fmt"
-	"kubevirt.io/kubevirt/pkg/api/v1"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var logCalled bool = false

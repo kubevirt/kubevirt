@@ -3,11 +3,13 @@ package endpoints
 import (
 	"golang.org/x/net/context"
 
+	"net/http"
+
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
+
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/rest"
-	"net/http"
 )
 
 type HandlerBuilder interface {

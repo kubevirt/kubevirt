@@ -7,6 +7,8 @@ import (
 
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/emicklei/go-restful"
 	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
@@ -14,12 +16,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"golang.org/x/net/context"
-	"io/ioutil"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/errors"
 	v12 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"

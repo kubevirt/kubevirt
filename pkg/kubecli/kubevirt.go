@@ -7,13 +7,15 @@ package kubecli
 */
 
 import (
+	"net/http"
+
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/errors"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	k8smetav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"net/http"
 )
 
 type KubevirtClient interface {
