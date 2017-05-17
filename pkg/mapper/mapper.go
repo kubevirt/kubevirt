@@ -23,6 +23,7 @@ import (
 	"reflect"
 
 	"github.com/jeevatkm/go-model"
+	"k8s.io/client-go/pkg/util/errors"
 )
 
 func AddConversion(inPtr interface{}, outPtr interface{}) {
@@ -36,22 +37,16 @@ func AddConversion(inPtr interface{}, outPtr interface{}) {
 func addStructConversion(inType reflect.Type, outType reflect.Type) {
 	model.AddConversionByType(inType, outType, func(in reflect.Value) (reflect.Value, error) {
 		out := reflect.New(outType).Interface()
-		errs := model.Copy(out, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out).Elem(), errs[0]
-		}
-		return reflect.ValueOf(out).Elem(), nil
+		err := Copy(out, in.Interface())
+		return reflect.ValueOf(out).Elem(), err
 	})
 }
 
 func addStructPtrConversion(inType reflect.Type, outType reflect.Type) {
 	model.AddConversionByType(inType, outType, func(in reflect.Value) (reflect.Value, error) {
 		out := reflect.New(outType.Elem()).Interface()
-		errs := model.Copy(out, in.Elem().Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
+		err := Copy(out, in.Elem().Interface())
+		return reflect.ValueOf(out), err
 	})
 }
 
@@ -61,4 +56,8 @@ func AddPtrConversion(inPtrPtr interface{}, outPtrPtr interface{}) {
 	outType := reflect.TypeOf(outPtrPtr).Elem()
 	addStructPtrConversion(inType, outType)
 	addStructPtrConversion(outType, inType)
+}
+
+func Copy(dst, src interface{}) error {
+	return errors.NewAggregate(model.Copy(dst, src))
 }

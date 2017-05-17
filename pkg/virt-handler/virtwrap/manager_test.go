@@ -31,6 +31,8 @@ import (
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"
 
+	"k8s.io/client-go/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
@@ -57,7 +59,7 @@ var _ = Describe("Manager", func() {
 	Context("on successful VM sync", func() {
 		It("should define and start a new VM", func() {
 			vm := newVM("testvm")
-			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			mockConn.EXPECT().LookupDomainByName("testvm").Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
 			// we have to make sure that we use correct DomainSpec (from virtwrap)
 			var domainSpec api.DomainSpec
@@ -75,21 +77,62 @@ var _ = Describe("Manager", func() {
 			Expect(<-recorder.Events).To(ContainSubstring(v1.Started.String()))
 			Expect(recorder.Events).To(BeEmpty())
 		})
+		It("should detect mismatching UIDs on VMs and remove the old domain", func() {
+			vm := newVM("testvm")
+
+			// Set mismatching UID
+			vm.GetObjectMeta().SetUID("cba")
+
+			oldMockDomain := NewMockVirDomain(ctrl)
+			oldMockDomain.EXPECT().Free()
+			// Expect calls which check if the UIDs match
+			oldMockDomain.EXPECT().GetUUIDString().Return("abc", nil)
+			// Expect the Destroy call for the outdated domain
+			oldMockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			oldMockDomain.EXPECT().Destroy()
+			oldMockDomain.EXPECT().Undefine()
+
+			mockConn.EXPECT().LookupDomainByName("testvm").Return(oldMockDomain, nil)
+
+			// we have to make sure that we use correct DomainSpec (from virtwrap)
+			var domainSpec api.DomainSpec
+			Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
+
+			xml, err := xml.Marshal(domainSpec)
+			Expect(err).To(BeNil())
+			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().Create().Return(nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, recorder)
+			err = manager.SyncVM(vm)
+			Expect(err).To(BeNil())
+			Expect(<-recorder.Events).To(ContainSubstring(v1.Stopped.String()))
+			Expect(<-recorder.Events).To(ContainSubstring(v1.Deleted.String()))
+			Expect(<-recorder.Events).To(ContainSubstring(v1.Created.String()))
+			Expect(<-recorder.Events).To(ContainSubstring(v1.Started.String()))
+			Expect(recorder.Events).To(BeEmpty())
+		})
 		It("should leave a defined and started VM alone", func() {
+			vm := newVM("testvm")
+			vm.GetObjectMeta().SetUID(types.UID("123"))
 			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockDomain.EXPECT().GetUUIDString().Return(string(vm.GetObjectMeta().GetUID()), nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, recorder)
-			err := manager.SyncVM(newVM("testvm"))
+			err := manager.SyncVM(vm)
 			Expect(err).To(BeNil())
 			Expect(recorder.Events).To(BeEmpty())
 		})
 		table.DescribeTable("should try to start a VM in state",
 			func(state libvirt.DomainState) {
+				vm := newVM("testvm")
+				vm.GetObjectMeta().SetUID(types.UID("123"))
 				mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+				mockDomain.EXPECT().GetUUIDString().Return(string(vm.GetObjectMeta().GetUID()), nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Create().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, recorder)
-				err := manager.SyncVM(newVM("testvm"))
+				err := manager.SyncVM(vm)
 				Expect(err).To(BeNil())
 				Expect(<-recorder.Events).To(ContainSubstring(v1.Started.String()))
 				Expect(recorder.Events).To(BeEmpty())
@@ -100,11 +143,14 @@ var _ = Describe("Manager", func() {
 			table.Entry("unknown", libvirt.DOMAIN_NOSTATE),
 		)
 		It("should resume a paused VM", func() {
+			vm := newVM("testvm")
+			vm.GetObjectMeta().SetUID(types.UID("123"))
 			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockDomain.EXPECT().GetUUIDString().Return(string(vm.GetObjectMeta().GetUID()), nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, recorder)
-			err := manager.SyncVM(newVM("testvm"))
+			err := manager.SyncVM(vm)
 			Expect(err).To(BeNil())
 			Expect(<-recorder.Events).To(ContainSubstring(v1.Resumed.String()))
 			Expect(recorder.Events).To(BeEmpty())
