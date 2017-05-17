@@ -100,5 +100,18 @@ done
 kubectl get pods
 cluster/kubectl.sh version
 
+until timeout 10 cluster/kubectl.sh create -f cluster/vm.yaml
+do
+  echo "Creating the VM test deployment failed, will retry in 10 seconds ..."
+  sleep 10
+done
+
+while [ -z "$(timeout 10 cluster/kubectl.sh get vms testvm -o yaml | grep Running)" ]; do
+    echo "Waiting for the VM test deployment to become ready ..."
+    sleep 10
+done
+
+echo "VM test deployment successfully created."
+
 # Run functional tests
 cluster/run_tests.sh --ginkgo.noColor
