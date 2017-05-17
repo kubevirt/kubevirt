@@ -7,14 +7,16 @@ import (
 	"net/http"
 
 	"encoding/json"
-	"github.com/emicklei/go-restful"
-	"github.com/ghodss/yaml"
-	"golang.org/x/net/context"
 	"io/ioutil"
-	"kubevirt.io/kubevirt/pkg/rest"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+
+	"github.com/emicklei/go-restful"
+	"github.com/ghodss/yaml"
+	"golang.org/x/net/context"
+
+	"kubevirt.io/kubevirt/pkg/rest"
 )
 
 func newValidJSONPostRequest() *http.Request {

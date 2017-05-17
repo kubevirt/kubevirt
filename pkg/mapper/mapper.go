@@ -1,8 +1,9 @@
 package mapper
 
 import (
-	"github.com/jeevatkm/go-model"
 	"reflect"
+
+	"github.com/jeevatkm/go-model"
 )
 
 func AddConversion(inPtr interface{}, outPtr interface{}) {

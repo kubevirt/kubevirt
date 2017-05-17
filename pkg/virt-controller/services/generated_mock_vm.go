@@ -6,6 +6,7 @@ package services
 import (
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/client-go/pkg/api/v1"
+
 	v10 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 

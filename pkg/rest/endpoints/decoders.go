@@ -4,19 +4,21 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"reflect"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful"
 	"github.com/ghodss/yaml"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/pkg/api"
+
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
-	"net/http"
-	"reflect"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 type PutObject struct {

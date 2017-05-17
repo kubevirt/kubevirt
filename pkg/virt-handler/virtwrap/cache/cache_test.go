@@ -2,6 +2,7 @@ package cache
 
 import (
 	"encoding/xml"
+
 	"github.com/golang/mock/gomock"
 	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
@@ -9,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"

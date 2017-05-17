@@ -4,15 +4,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/go-kit/kit/log"
 	"io"
-	"k8s.io/client-go/pkg/api/meta"
-	k8sruntime "k8s.io/client-go/pkg/runtime"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/go-kit/kit/log"
+	"k8s.io/client-go/pkg/api/meta"
+	k8sruntime "k8s.io/client-go/pkg/runtime"
 )
 
 type logLevel int

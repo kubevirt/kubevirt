@@ -2,8 +2,9 @@ package virtctl
 
 import (
 	"fmt"
-	flag "github.com/spf13/pflag"
 	"os"
+
+	flag "github.com/spf13/pflag"
 )
 
 type App interface {

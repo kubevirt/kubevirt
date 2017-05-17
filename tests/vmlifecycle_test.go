@@ -2,6 +2,9 @@ package tests_test
 
 import (
 	"flag"
+	"net/http"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes"
@@ -11,11 +14,10 @@ import (
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/util/json"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
-	"net/http"
-	"time"
 )
 
 var _ = Describe("Vmlifecycle", func() {

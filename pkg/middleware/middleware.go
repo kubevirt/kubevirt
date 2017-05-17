@@ -3,15 +3,18 @@ package middleware
 import (
 	"errors"
 	"fmt"
-	"github.com/go-kit/kit/endpoint"
-	"golang.org/x/net/context"
 	"runtime/debug"
 
+	"github.com/go-kit/kit/endpoint"
+	"golang.org/x/net/context"
+
 	"encoding/json"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
 	"k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 

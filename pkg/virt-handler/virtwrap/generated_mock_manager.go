@@ -6,6 +6,7 @@ package virtwrap
 import (
 	gomock "github.com/golang/mock/gomock"
 	libvirt_go "github.com/libvirt/libvirt-go"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 

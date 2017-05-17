@@ -2,10 +2,12 @@ package healthz
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/emicklei/go-restful"
 	"k8s.io/client-go/pkg/util/json"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"net/http"
 )
 
 func KubeConnectionHealthzFunc(_ *restful.Request, response *restful.Response) {

@@ -7,6 +7,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/client-go/pkg/api/v1"
 	v10 "k8s.io/client-go/pkg/apis/meta/v1"
+
 	v11 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 

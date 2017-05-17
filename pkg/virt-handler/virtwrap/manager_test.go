@@ -2,6 +2,7 @@ package virtwrap
 
 import (
 	"encoding/xml"
+
 	"github.com/golang/mock/gomock"
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
@@ -10,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"

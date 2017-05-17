@@ -2,9 +2,11 @@ package api
 
 import (
 	"encoding/xml"
+
 	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 

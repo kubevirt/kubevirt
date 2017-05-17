@@ -4,15 +4,17 @@ import (
 	"flag"
 	"net/url"
 
+	"strings"
+	"time"
+
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/pkg/api"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
-	"strings"
-	"time"
 )
 
 var _ = Describe("Vmlifecycle", func() {

@@ -3,14 +3,16 @@ package spice
 import (
 	"errors"
 	"fmt"
-	flag "github.com/spf13/pflag"
 	"io/ioutil"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/rest"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	"log"
 	"os"
 	"os/exec"
+
+	flag "github.com/spf13/pflag"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/rest"
+
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
 const FLAG = "spice"

@@ -3,18 +3,19 @@ package console
 import (
 	"bytes"
 	"fmt"
-	"github.com/gorilla/websocket"
-	flag "github.com/spf13/pflag"
-	"golang.org/x/crypto/ssh/terminal"
 	"io"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/gorilla/websocket"
+	flag "github.com/spf13/pflag"
+	"golang.org/x/crypto/ssh/terminal"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 type Console struct {

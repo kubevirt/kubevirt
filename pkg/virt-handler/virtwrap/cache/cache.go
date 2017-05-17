@@ -2,6 +2,7 @@ package cache
 
 import (
 	"encoding/xml"
+
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/meta/v1"
@@ -9,6 +10,7 @@ import (
 	"k8s.io/client-go/pkg/types"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"

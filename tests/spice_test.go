@@ -6,19 +6,21 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"io"
+	"math/rand"
+	"net"
+	"strings"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gopkg.in/ini.v1"
-	"io"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/tests"
-	"math/rand"
-	"net"
-	"strings"
 )
 
 var _ = Describe("Vmlifecycle", func() {

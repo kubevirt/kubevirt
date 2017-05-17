@@ -2,11 +2,16 @@ package main
 
 import (
 	"flag"
+	"log"
+	"net/http"
+	"strconv"
+
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful/swagger"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/pkg/runtime/schema"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -15,9 +20,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
-	"log"
-	"net/http"
-	"strconv"
 )
 
 func main() {

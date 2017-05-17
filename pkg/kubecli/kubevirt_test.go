@@ -1,13 +1,15 @@
 package kubecli
 
 import (
+	"net/http"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	k8smetav1 "k8s.io/client-go/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"net/http"
 )
 
 var _ = Describe("Kubevirt", func() {

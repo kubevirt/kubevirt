@@ -4,10 +4,11 @@ import (
 	. "kubevirt.io/kubevirt/pkg/virtctl/convert"
 
 	"bytes"
+	"io/ioutil"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"io/ioutil"
 )
 
 var _ = Describe("Guess", func() {
