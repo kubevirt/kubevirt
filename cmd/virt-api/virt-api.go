@@ -1,10 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful/swagger"
+	"github.com/emicklei/go-restful-openapi"
+	"github.com/emicklei/go-restful-swagger12"
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/go-openapi/spec"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/pkg/runtime/schema"
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -72,6 +76,9 @@ func main() {
 
 	ws.Route(ws.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
 		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
+		Returns(http.StatusOK, "OK", v1.SpiceInfo{}).
+		Returns(http.StatusNotFound, "Not Found", nil).
+		Writes(v1.SpiceInfo{}).
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 
@@ -83,7 +90,9 @@ func main() {
 
 	restful.Add(ws)
 
-	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON).Doc("Health endpoint"))
+	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).
+		Returns(http.StatusOK, "OK", nil).
+		Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON).Doc("Health endpoint"))
 	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmGVR)
 	if err != nil {
 		log.Fatal(err)
@@ -101,7 +110,25 @@ func main() {
 		SwaggerPath:     "/swagger-ui/",
 		SwaggerFilePath: *swaggerui,
 	}
+
+	openapiConf := restfulspec.Config{
+		WebServices:    restful.RegisteredWebServices(), // you control what services are visible
+		WebServicesURL: "http://localhost:8183",
+		APIPath:        "/openapi",
+	}
 	swagger.InstallSwaggerService(config)
+	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(openapiConf))
+
+	openapispec := restfulspec.NewOpenAPISpecFromServices(openapiConf)
+	openapispec.Info = &spec.Info{
+		InfoProps: spec.InfoProps{
+			Version:     "1.0.0",
+			Title:       "test",
+			Description: "test",
+		},
+	}
+	data, _ := json.MarshalIndent(openapispec, "", "    ")
+	fmt.Println(string(data))
 
 	log.Fatal(http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil))
 }

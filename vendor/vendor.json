@@ -9,22 +9,29 @@
 			"revisionTime": "2016-07-15T17:06:12Z"
 		},
 		{
-			"checksumSHA1": "sFhTgIss9Kw8kIf2hp7ojxedznA=",
+			"checksumSHA1": "C0xVFfC4PLAx0WKgeDk7fQdj9NU=",
 			"path": "github.com/emicklei/go-restful",
-			"revision": "858e58f98abd32bc4d164a08e8d7ac169ae876e2",
-			"revisionTime": "2016-11-16T14:06:10Z"
+			"revision": "cf834cf8da5b681af81bde6fa32304e6ce8eec71",
+			"revisionTime": "2017-02-16T14:03:32Z"
 		},
 		{
-			"checksumSHA1": "3xWz4fZ9xW+CfADpYoPFcZCYJ4E=",
+			"checksumSHA1": "6B27QLqplkD1rciuDdrvkFtnEQc=",
+			"origin": "github.com/rmohr/go-restful-openapi",
+			"path": "github.com/emicklei/go-restful-openapi",
+			"revision": "e1772516edee3da0a6b2ac738e603766d0e16e33",
+			"revisionTime": "2017-03-17T10:12:42Z"
+		},
+		{
+			"checksumSHA1": "/D9Xi0GGJyB5DVLsjn3jVmaDIkI=",
+			"path": "github.com/emicklei/go-restful-swagger12",
+			"revision": "dcef7f55730566d41eae5db10e7d6981829720f6",
+			"revisionTime": "2017-02-08T21:56:40Z"
+		},
+		{
+			"checksumSHA1": "rmsBHtFpV3osid71XnTZBo/b3bU=",
 			"path": "github.com/emicklei/go-restful/log",
-			"revision": "858e58f98abd32bc4d164a08e8d7ac169ae876e2",
-			"revisionTime": "2016-11-16T14:06:10Z"
-		},
-		{
-			"checksumSHA1": "XPYEv097KfE+4fVdfC+NLIAHZAs=",
-			"path": "github.com/emicklei/go-restful/swagger",
-			"revision": "858e58f98abd32bc4d164a08e8d7ac169ae876e2",
-			"revisionTime": "2016-11-16T14:06:10Z"
+			"revision": "cf834cf8da5b681af81bde6fa32304e6ce8eec71",
+			"revisionTime": "2017-02-16T14:03:32Z"
 		},
 		{
 			"checksumSHA1": "b5+BOAl3a4bGDi+RCOBUZuDyG0o=",
@@ -83,6 +90,30 @@
 			"path": "github.com/go-logfmt/logfmt",
 			"revision": "d4327190ff838312623b09bfeb50d7c93c8d9c1d",
 			"revisionTime": "2016-06-01T13:08:01Z"
+		},
+		{
+			"checksumSHA1": "6dTGC5A1Y1xnv+JSi9z8S6JfnH0=",
+			"path": "github.com/go-openapi/jsonpointer",
+			"revision": "779f45308c19820f1a69e9a4cd965f496e0da10f",
+			"revisionTime": "2017-01-02T17:42:23Z"
+		},
+		{
+			"checksumSHA1": "YMNc0I/ifBw9TsnF13NTpIN9yu4=",
+			"path": "github.com/go-openapi/jsonreference",
+			"revision": "36d33bfe519efae5632669801b180bf1a245da3b",
+			"revisionTime": "2016-11-05T16:21:50Z"
+		},
+		{
+			"checksumSHA1": "m4Hv3utLm095Tmjo0XfLQxTtzcc=",
+			"path": "github.com/go-openapi/spec",
+			"revision": "02fb9cd3430ed0581e0ceb4804d5d4b3cc702694",
+			"revisionTime": "2017-02-03T15:16:51Z"
+		},
+		{
+			"checksumSHA1": "AmuDvoqYpodvT8mzy+IEnKg9HFg=",
+			"path": "github.com/go-openapi/swag",
+			"revision": "d5f8ebc3b1c55a4cf6489eeae7354f338cfe299e",
+			"revisionTime": "2017-01-29T22:26:39Z"
 		},
 		{
 			"checksumSHA1": "2sj/DbXoXdnPAfjAEyhS0Jj5QL0=",
