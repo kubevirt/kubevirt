@@ -263,7 +263,7 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 		fetchedVM := obj.(*v1.VM)
 		nodeName = fetchedVM.Status.NodeName
 		return fetchedVM.Status.Phase
-	}, 3*time.Second, 100*time.Millisecond).Should(Equal(v1.Running))
+	}, 10*time.Second).Should(Equal(v1.Running))
 	return
 }
 
