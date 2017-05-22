@@ -328,7 +328,11 @@ var _ = Describe("Migration", func() {
 		It("should fail if another migration is in process.", func(done Done) {
 
 			unmatchedPodList := clientv1.PodList{}
+
+			currentMigration := v1.NewMinimalMigration(vm.ObjectMeta.Name+"-current", vm.ObjectMeta.Name)
 			unmatchedPodList.Items = []clientv1.Pod{mockPod(1, "bogus"), mockPod(2, "bogus")}
+			unmatchedPodList.Items[0].Labels[v1.MigrationLabel] = currentMigration.GetObjectMeta().GetName()
+			migrationCache.Add(currentMigration)
 
 			// Register the expected REST call
 			server.AppendHandlers(
@@ -347,7 +351,11 @@ var _ = Describe("Migration", func() {
 		It("should requeue if another migration is in process and migration update fails.", func(done Done) {
 
 			unmatchedPodList := clientv1.PodList{}
+
+			currentMigration := v1.NewMinimalMigration(vm.ObjectMeta.Name+"-current", vm.ObjectMeta.Name)
 			unmatchedPodList.Items = []clientv1.Pod{mockPod(1, "bogus"), mockPod(2, "bogus")}
+			unmatchedPodList.Items[0].Labels[v1.MigrationLabel] = currentMigration.GetObjectMeta().GetName()
+			migrationCache.Add(currentMigration)
 
 			// Register the expected REST call
 			server.AppendHandlers(
@@ -672,8 +680,8 @@ var _ = Describe("Migration", func() {
 
 	Context("Pod Investigation", func() {
 		var (
-			podList      kubev1.PodList
-			migration     *v1.Migration
+			podList   kubev1.PodList
+			migration *v1.Migration
 		)
 
 		BeforeEach(func() {
@@ -681,7 +689,7 @@ var _ = Describe("Migration", func() {
 				ObjectMeta: kubev1.ObjectMeta{Name: "pod1",
 					Labels: map[string]string{
 						v1.MigrationUIDLabel: "ce662d9f-34c0-40fd-a4e4-abe4146a1457",
-						v1.MigrationLabel: "test-migration1",
+						v1.MigrationLabel:    "test-migration1",
 					},
 					Namespace: "test",
 				},
@@ -690,7 +698,7 @@ var _ = Describe("Migration", func() {
 				ObjectMeta: kubev1.ObjectMeta{Name: "pod2",
 					Labels: map[string]string{
 						v1.MigrationUIDLabel: "99a8ac71-4ced-48fa-9bd4-0b4322dcc3dd",
-						v1.MigrationLabel: "test-migration1",
+						v1.MigrationLabel:    "test-migration1",
 					},
 					Namespace: "test",
 				},
@@ -699,7 +707,7 @@ var _ = Describe("Migration", func() {
 				ObjectMeta: kubev1.ObjectMeta{Name: "pod3",
 					Labels: map[string]string{
 						v1.MigrationUIDLabel: "7efc4067-039e-4c21-a494-0b52c09fe6fb",
-						v1.MigrationLabel: "test-migration2",
+						v1.MigrationLabel:    "test-migration2",
 					},
 					Namespace: "test",
 				},
@@ -736,6 +744,16 @@ var _ = Describe("Migration", func() {
 			count, targetPod, err := investigateTargetPodSituation(migration, &podList, migrationCache)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(2))
+			Expect(targetPod.ObjectMeta.Name).To(Equal(podList.Items[0].ObjectMeta.Name))
+		})
+
+		It("should not count pods without MigrationLabels", func() {
+			migration.ObjectMeta.UID = "ce662d9f-34c0-40fd-a4e4-abe4146a1457"
+			migrationCache.Add(migration)
+			delete(podList.Items[2].Labels, v1.MigrationLabel)
+			count, targetPod, err := investigateTargetPodSituation(migration, &podList, migrationCache)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
 			Expect(targetPod.ObjectMeta.Name).To(Equal(podList.Items[0].ObjectMeta.Name))
 		})
 	})

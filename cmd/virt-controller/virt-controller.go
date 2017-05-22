@@ -96,6 +96,7 @@ func main() {
 
 	_, migrationPodController := watch.NewMigrationPodController(vmCache, nil, clientSet, restClient, vmService, *migrationQueue)
 	migrationPodController.StartInformer(stop)
+	//FIXME when we have more than one worker, we need a lock on the VM
 	go migrationPodController.Run(1, stop)
 
 	_, jobController := watch.NewJobController(vmService, nil, clientSet, restClient, *migrationQueue)

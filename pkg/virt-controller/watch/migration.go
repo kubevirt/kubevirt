@@ -130,6 +130,7 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 			return err
 		}
 
+		//FIXME when we have more than one worker, we need a lock on the VM
 		numOfPods, targetPod, err := investigateTargetPodSituation(migration, podList, store)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not investigate pods")
@@ -137,14 +138,14 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		}
 
 		if targetPod == nil {
-			if numOfPods > 1 {
+			if numOfPods >= 1 {
 				logger.Error().Msg("another migration seems to be in progress, marking Migration as failed")
 				// Another migration is currently going on
 				if err = setMigrationFailed(migration); err != nil {
 					return err
 				}
 				return nil
-			} else if numOfPods == 1 {
+			} else if numOfPods == 0 {
 				// We need to start a migration target pod
 				// TODO, this detection is not optimal, it can lead to strange situations
 				err := md.vmService.CreateMigrationTargetPod(migration, vm)
@@ -314,7 +315,13 @@ func investigateTargetPodSituation(migration *kubev1.Migration, podList *k8sv1.P
 			podCount += 1
 			continue
 		}
-		key := fmt.Sprintf("%s/%s", pod.ObjectMeta.Namespace, pod.Labels[kubev1.MigrationLabel])
+
+		// The first pod was never part of a migration, it does not count
+		l, exists := pod.Labels[kubev1.MigrationLabel]
+		if !exists {
+			continue
+		}
+		key := fmt.Sprintf("%s/%s", pod.ObjectMeta.Namespace, l)
 		cachedObj, exists, err := migrationStore.GetByKey(key)
 		if err != nil {
 			return 0, nil, err

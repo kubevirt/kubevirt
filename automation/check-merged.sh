@@ -51,6 +51,7 @@ fi
 set -e
 
 # Build kubevirt
+go get golang.org/x/tools/cmd/goimports
 go get -u github.com/kardianos/govendor
 make
 
