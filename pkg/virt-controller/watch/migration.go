@@ -130,17 +130,22 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 			return err
 		}
 
-		numOfPods, targetPod := investigateTargetPodSituation(migration, podList)
+		//FIXME when we have more than one worker, we need a lock on the VM
+		numOfPods, targetPod, err := investigateTargetPodSituation(migration, podList, store)
+		if err != nil {
+			logger.Error().Reason(err).Msg("could not investigate pods")
+			return err
+		}
 
 		if targetPod == nil {
-			if numOfPods > 1 {
+			if numOfPods >= 1 {
 				logger.Error().Msg("another migration seems to be in progress, marking Migration as failed")
 				// Another migration is currently going on
 				if err = setMigrationFailed(migration); err != nil {
 					return err
 				}
 				return nil
-			} else if numOfPods == 1 {
+			} else if numOfPods == 0 {
 				// We need to start a migration target pod
 				// TODO, this detection is not optimal, it can lead to strange situations
 				err := md.vmService.CreateMigrationTargetPod(migration, vm)
@@ -173,7 +178,11 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 			return err
 		}
 
-		_, targetPod := investigateTargetPodSituation(migration, podList)
+		_, targetPod, err := investigateTargetPodSituation(migration, podList, store)
+		if err != nil {
+			logger.Error().Reason(err).Msg("could not investigate pods")
+			return err
+		}
 
 		if targetPod == nil {
 			logger.Error().Msg("migration target pod does not exist or is an end state")
@@ -194,7 +203,11 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
 			return err
 		}
-		_, targetPod := investigateTargetPodSituation(migration, podList)
+		_, targetPod, err := investigateTargetPodSituation(migration, podList, store)
+		if err != nil {
+			logger.Error().Reason(err).Msg("could not investigate pods")
+			return err
+		}
 		if targetPod == nil {
 			logger.Error().Msg("migration target pod does not exist or is in an end state")
 			if err = setMigrationFailed(migration); err != nil {
@@ -293,15 +306,37 @@ func copy(migration *kubev1.Migration) (*kubev1.Migration, error) {
 }
 
 // Returns the number of  running pods and if a pod for exactly that migration is currently running
-func investigateTargetPodSituation(migration *kubev1.Migration, podList *k8sv1.PodList) (int, *k8sv1.Pod) {
+func investigateTargetPodSituation(migration *kubev1.Migration, podList *k8sv1.PodList, migrationStore cache.Store) (int, *k8sv1.Pod, error) {
 	var targetPod *k8sv1.Pod = nil
-	for _, pod := range podList.Items {
+	podCount := 0
+	for idx, pod := range podList.Items {
 		if pod.Labels[kubev1.MigrationUIDLabel] == string(migration.GetObjectMeta().GetUID()) {
-			targetPod = &pod
-			break
+			targetPod = &podList.Items[idx]
+			podCount += 1
+			continue
+		}
+
+		// The first pod was never part of a migration, it does not count
+		l, exists := pod.Labels[kubev1.MigrationLabel]
+		if !exists {
+			continue
+		}
+		key := fmt.Sprintf("%s/%s", pod.ObjectMeta.Namespace, l)
+		cachedObj, exists, err := migrationStore.GetByKey(key)
+		if err != nil {
+			return 0, nil, err
+		}
+		if exists {
+			cachedMigration := cachedObj.(*kubev1.Migration)
+			if (cachedMigration.Status.Phase != kubev1.MigrationFailed) &&
+				(cachedMigration.Status.Phase) != kubev1.MigrationSucceeded {
+				podCount += 1
+			}
+		} else {
+			podCount += 1
 		}
 	}
-	return len(podList.Items), targetPod
+	return podCount, targetPod, nil
 }
 
 func mergeConstraints(migration *kubev1.Migration, vm *kubev1.VM) error {
