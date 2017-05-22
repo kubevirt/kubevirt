@@ -27,14 +27,87 @@ Users requiring virtualization services are speaking to the Virtualization API
 requested VMs. Scheduling, networking, and storage are all delegated to
 Kubernetes, while KubeVirt provides the virtualization functionality.
 
-## Services
+
+## Additional Services
 
 KubeVirt provides additional functionality to your Kubernetes cluster,
 including:
 
 * Virtual Machine management
-* Network management
-* REST API for virtulization functionality
+* Network management (TBD)
+
+If we recall how Kubernetes is handling Pods, then we remember that Pods are
+created by posting a Pod specification to the Kubernetes API Server.
+This specification is then transformed into an object inside the API Server,
+this object is of a specific type or _kind_ - that is how it's called in the
+specification.
+A Pod is of the type `Pod`. Controllers within Kubernetes know how to handle
+these Pod objects. Thus once a new Pod object is seen, those controllers
+perform the necessary actions to bring the Pod alive, and to match the
+required state.
+
+This same mechanism is used by KubeVirt. Thus KubeVirt delivers three things
+to provide the new functionality:
+
+1. Additional types - so called 3rd party resources - are added to the
+   Kubernetes API
+2. Additional controllers for cluster wide logic associated with this new types
+3- Additional daemons for node specific logic associated with new types
+
+Once all three steps have been completed, you are able to
+
+- create new objects of these new types in Kubernetes (VMs in our
+  case)
+- and the new controllers take care to get the VMs scheduled on some host,
+- and a daemon - the `virt-handler` - is taking care on a host - alongside the
+  `kubelet` - to launch the VM and configure it until it matches the required
+  state.
+
+One a final note it is to say that both, the controllers and daemons are running
+as Pods (or similar) _on top of_ the Kubernetes cluster, and are not installed
+alongside of it. The type is - as said before - even defined inside the
+Kubernetes API server. This allows users to speak to Kubernetes, but modify VMs.
+
+The following diagram illustrates how the addditional controllers and daemons
+communicate with Kubernetes and where the additional types are stored:
+
+                             +-----------------+
+                             | virt-controller | (2)
+                             +-----------------+
+                                       |
+                                       | (watch for VMs, on cluster)
+                                       |
+                                       |
+                                       |   +----------------------+
+                                       |   |                      |
+                                       |   |                      |
+                                       v   v                      |
+                    +--------------+-----------+-----------+      |
+                    | Kubernetes   |  REST API |           |      |
+                    |              +-----------+           |      |
+                    |                                      |      |
+                    | [rc-controller] (1)                  |      |
+                    |                                      |      |
+                    | [Pod Foo] (1)                        |      |
+                    | [VM  Bar] (2)                        |      |
+                    +--------------------------------------+      |
+                                                                  |
+                                                                  |
+                                 +---------------------------+----+
+     (Cluster level)             |                           |
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     (Node level)                |                           |
+                                 | (watch for VM changes,    |
+                                 |  on Node)                 |
+                                 |                           |
+                          +--------------+            +--------------+
+                          | virt-handler | (2)        | virt-handler | (2)
+                          +--------------+            +--------------+
+
+
+    (1): Kubernetes native controller and type
+    (2): KubeVirt extensions, additional controllers and types
+
 
 ## Application Layout
 
