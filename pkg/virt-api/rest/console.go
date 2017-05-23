@@ -2,7 +2,6 @@ package rest
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +12,8 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api/v1"
 	k8sv1meta "k8s.io/client-go/pkg/apis/meta/v1"
+
+	"k8s.io/client-go/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -37,22 +38,23 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	console := request.QueryParameter("console")
 	vmName := request.PathParameter("name")
 
-	vm, exists, err := t.virtClient.VM(v1.NamespaceDefault).Get(vmName, k8sv1meta.GetOptions{})
+	vm, err := t.virtClient.VM(v1.NamespaceDefault).Get(vmName, k8sv1meta.GetOptions{})
+	if errors.IsNotFound(err) {
+		logging.DefaultLogger().Info().V(3).Msgf("VM '%s' does not exist", vmName)
+		response.WriteError(http.StatusNotFound, fmt.Errorf("VM does not exist"))
+		return
+	}
 	if err != nil {
 		logging.DefaultLogger().Error().Reason(err).Msgf("Error fetching VM '%s'", vmName)
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
-	if !exists {
-		logging.DefaultLogger().Info().V(3).Msgf("VM '%s' does not exist", vmName)
-		response.WriteError(http.StatusNotFound, errors.New("VM does not exist"))
-		return
-	}
+
 	log := logging.DefaultLogger().Object(vm)
 
 	if !vm.IsRunning() {
 		log.Info().V(3).Reason(err).Msg("VM is not running")
-		response.WriteError(http.StatusBadRequest, errors.New("VM is not running"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
 		return
 	}
 

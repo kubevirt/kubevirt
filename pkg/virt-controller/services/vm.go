@@ -6,7 +6,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -110,7 +109,7 @@ func (v *vmService) UpdateMigration(migration *corev1.Migration) error {
 func (v *vmService) FetchVM(vmName string) (*corev1.VM, bool, error) {
 	resp, err := v.RestClient.Get().Namespace(v1.NamespaceDefault).Resource("vms").Name(vmName).Do().Get()
 	if err != nil {
-		if doesNotExist(err) {
+		if errors.IsNotFound(err) {
 			return nil, false, nil
 		}
 		return nil, false, err
@@ -122,7 +121,7 @@ func (v *vmService) FetchVM(vmName string) (*corev1.VM, bool, error) {
 func (v *vmService) FetchMigration(migrationName string) (*corev1.Migration, bool, error) {
 	resp, err := v.RestClient.Get().Namespace(v1.NamespaceDefault).Resource("migrations").Name(migrationName).Do().Get()
 	if err != nil {
-		if doesNotExist(err) {
+		if errors.IsNotFound(err) {
 			return nil, false, nil
 		}
 		return nil, false, err
@@ -222,13 +221,4 @@ func migrationJobSelector(migration *corev1.Migration) v1.ListOptions {
 		panic(err)
 	}
 	return v1.ListOptions{LabelSelector: labelSelector.String()}
-}
-
-func doesNotExist(err error) bool {
-	if e, ok := err.(*errors.StatusError); ok {
-		if e.Status().Reason == metav1.StatusReasonNotFound {
-			return true
-		}
-	}
-	return false
 }

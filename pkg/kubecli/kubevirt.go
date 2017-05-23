@@ -7,10 +7,7 @@ package kubecli
 */
 
 import (
-	"net/http"
-
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/errors"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	k8smetav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -31,7 +28,7 @@ func (k *kubevirt) VM(namespace string) VMInterface {
 }
 
 type VMInterface interface {
-	Get(name string, options k8smetav1.GetOptions) (*v1.VM, bool, error)
+	Get(name string, options k8smetav1.GetOptions) (*v1.VM, error)
 	List(opts k8sv1.ListOptions) (*v1.VMList, error)
 	Create(*v1.VM) (*v1.VM, error)
 	Update(*v1.VM) (*v1.VM, error)
@@ -43,7 +40,7 @@ type vms struct {
 	namespace  string
 }
 
-func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VM, exists bool, err error) {
+func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VM, err error) {
 	vm = &v1.VM{}
 	err = v.restClient.Get().
 		Resource("vms").
@@ -52,7 +49,6 @@ func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VM, exists 
 		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(vm)
-	exists, err = checkExists(err)
 	vm.SetGroupVersionKind(v1.GroupVersionKind)
 	return
 }
@@ -70,17 +66,6 @@ func (v *vms) List(options k8sv1.ListOptions) (vmList *v1.VMList, err error) {
 	}
 
 	return
-}
-
-func checkExists(err error) (bool, error) {
-	if err != nil {
-		err, ok := err.(*errors.StatusError)
-		if ok && err.Status().Code == http.StatusNotFound {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }
 
 func (v *vms) Create(vm *v1.VM) (result *v1.VM, err error) {

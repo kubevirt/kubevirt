@@ -63,12 +63,11 @@ func (_m *MockVMInterface) EXPECT() *_MockVMInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVMInterface) Get(name string, options v10.GetOptions) (*v11.VM, bool, error) {
+func (_m *MockVMInterface) Get(name string, options v10.GetOptions) (*v11.VM, error) {
 	ret := _m.ctrl.Call(_m, "Get", name, options)
 	ret0, _ := ret[0].(*v11.VM)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 func (_mr *_MockVMInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {

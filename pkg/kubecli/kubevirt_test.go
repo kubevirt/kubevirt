@@ -9,6 +9,10 @@ import (
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	k8smetav1 "k8s.io/client-go/pkg/apis/meta/v1"
 
+	"k8s.io/client-go/pkg/api/errors"
+
+	"k8s.io/client-go/pkg/runtime/schema"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -32,24 +36,23 @@ var _ = Describe("Kubevirt", func() {
 			ghttp.VerifyRequest("GET", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		fetchedVM, exists, err := client.VM(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
+		fetchedVM, err := client.VM(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(exists).To(BeTrue())
 		Expect(fetchedVM).To(Equal(vm))
 	})
 
 	It("should detect non existent VMs", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vmPath),
-			ghttp.RespondWith(http.StatusNotFound, nil),
+			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, exists, err := client.VM(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
+		_, err := client.VM(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(exists).To(BeFalse())
+		Expect(err).To(HaveOccurred())
+		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
 	It("should fetch a VM list", func() {
