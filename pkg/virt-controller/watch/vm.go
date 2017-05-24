@@ -9,7 +9,6 @@ import (
 	kubeapi "k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/errors"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/types"
@@ -165,12 +164,9 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 		vmCopy.Status.Phase = kubev1.Scheduling
 		if err := vmd.restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
 			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
-			if e, ok := err.(*errors.StatusError); ok {
-				if e.Status().Reason == metav1.StatusReasonNotFound ||
-					e.Status().Reason == metav1.StatusReasonConflict {
-					// Nothing to do for us, VM got either deleted in the meantime or a newer version is enqueued already
-					return
-				}
+			if errors.IsNotFound(err) || errors.IsConflict(err) {
+				// Nothing to do for us, VM got either deleted in the meantime or a newer version is enqueued already
+				return
 			}
 			queue.AddRateLimited(key)
 			return

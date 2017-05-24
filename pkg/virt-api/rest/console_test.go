@@ -17,6 +17,9 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 
+	"k8s.io/client-go/pkg/api/errors"
+	"k8s.io/client-go/pkg/runtime/schema"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -109,7 +112,7 @@ var _ = Describe("Console", func() {
 
 	It("Should proxy message through virt-api", func() {
 
-		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, true, nil)
+		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
 
 		ws := dial("testvm", "console0")
 		defer ws.Close()
@@ -121,14 +124,14 @@ var _ = Describe("Console", func() {
 	})
 
 	It("Should return 404 if the VM does not exist", func() {
-		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, false, nil)
+		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, errors.NewNotFound(schema.GroupResource{}, "testvm"))
 		response, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(response.StatusCode).To(Equal(http.StatusNotFound))
 	})
 
 	It("Should return 500 if looking up the VM failed", func() {
-		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, false, fmt.Errorf("something is weird"))
+		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, errors.NewInternalError(fmt.Errorf("something is weird")))
 		response, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(response.StatusCode).To(Equal(http.StatusInternalServerError))
@@ -136,7 +139,7 @@ var _ = Describe("Console", func() {
 	})
 
 	It("Should return 400 if the VM is not running", func() {
-		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, true, nil)
+		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
 		vm.Status.Phase = v1.Succeeded
 		response, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
@@ -144,7 +147,7 @@ var _ = Describe("Console", func() {
 	})
 
 	It("Should return 500 if we can't look up the node", func() {
-		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, true, nil)
+		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
 		vm.Status.NodeName = "nonexistentnode"
 		response, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
@@ -153,7 +156,7 @@ var _ = Describe("Console", func() {
 	})
 
 	It("Should return 500 if we can't find an internal ip to connect to", func() {
-		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, true, nil)
+		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
 		node.Status.Addresses = []k8sv1.NodeAddress{}
 		k8sClient.Nodes().Update(node)
 		response, err := get("testvm")
