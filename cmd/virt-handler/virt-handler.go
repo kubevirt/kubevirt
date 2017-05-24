@@ -32,6 +32,7 @@ func main() {
 
 	logging.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
+	driver := flag.String("driver", "vanilla", "The VM management driver.")
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	libvirtUser := flag.String("user", "", "Libvirt user")
 	libvirtPass := flag.String("pass", "", "Libvirt password")
@@ -73,7 +74,13 @@ func main() {
 	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceDefault)})
 	recorder := broadcaster.NewRecorder(kubev1.EventSource{Component: "virt-handler", Host: *host})
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, recorder)
+	var domainManager virtwrap.DomainManager
+	switch *driver {
+	case "ovirt":
+		domainManager, err = virtwrap.NewOvirtDomainManager(domainConn, recorder)
+	default:
+		domainManager, err = virtwrap.NewLibvirtDomainManager(domainConn, recorder)
+	}
 	if err != nil {
 		panic(err)
 	}
