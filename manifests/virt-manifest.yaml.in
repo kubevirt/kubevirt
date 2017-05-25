@@ -36,6 +36,12 @@ spec:
           - "/virt-manifest"
           - "--port"
           - "8186"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/status
+            port: 8186
+          initialDelaySeconds: 10
+          periodSeconds: 3
       - name: manifest-libvirtd
         image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
         imagePullPolicy: IfNotPresent
