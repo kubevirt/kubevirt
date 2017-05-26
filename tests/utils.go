@@ -351,7 +351,7 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 		fetchedVM := obj.(*v1.VM)
 		nodeName = fetchedVM.Status.NodeName
 		return fetchedVM.Status.Phase
-	}).Should(Equal(v1.Running))
+	}, 60*time.Second).Should(Equal(v1.Running), "timed out waiting for VM to start")
 	return
 }
 
