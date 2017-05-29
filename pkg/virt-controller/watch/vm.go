@@ -8,7 +8,6 @@ import (
 	"github.com/jeevatkm/go-model"
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/errors"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
@@ -123,7 +122,7 @@ func (c *VMController) execute(key string) error {
 			return err
 		}
 		logger.Info().Msg("Deleting VM target Pod succeeded.")
-		return nil
+		return fmt.Errorf("Found outdated VM target pods.")
 	}
 
 	switch vm.Status.Phase {
@@ -135,17 +134,25 @@ func (c *VMController) execute(key string) error {
 		model.Copy(&vmCopy, vm)
 		logger = logging.DefaultLogger().Object(&vmCopy)
 
-		// Create a pod for the specified VM
-		//Three cases where this can fail:
-		// 1) VM pods exist from old definition // 2) VM pods exist from previous start attempt and updating the VM definition failed
-		//    below
-		// 3) Technical difficulties, we can't reach the apiserver
-		// For case (1) this loop is not responsible. virt-handler or another loop is
-		// responsible.
-		// For case (2) we want to delete the VM first and then start over again.
+		// Check if there are already outdated VM Pods
+		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
+		if err != nil {
+			logger.Error().Reason(err).Msg("Fetching VM pods failed.")
+			return err
+		}
 
+		// If there are already pods, delete them before continuing ...
+		if len(pods.Items) > 0 {
+			logger.Error().Msg("VM Pods do already exist, will clean up before continuing.")
+			if err := c.vmService.DeleteVMPod(&vmCopy); err != nil {
+				logger.Error().Reason(err).Msg("Deleting VM pods failed.")
+				return err
+			}
+		}
+
+		// Defaulting and setting constants
 		// TODO move defaulting to virt-api
-		// TODO move constants to virt-handler
+		// TODO move constants to virt-handler and remove from the spec
 		if vmCopy.Spec.Domain == nil {
 			spec := kubev1.NewMinimalDomainSpec(vmCopy.GetObjectMeta().GetName())
 			vmCopy.Spec.Domain = spec
@@ -167,53 +174,17 @@ func (c *VMController) execute(key string) error {
 			}
 		}
 
-		// TODO get rid of these service calls
+		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
-			logger.Error().Reason(err).Msg("Defining a target pod for the VM.")
-			pl, err := c.vmService.GetRunningVMPods(&vmCopy)
-			if err != nil {
-				logger.Error().Reason(err).Msg("Getting all running Pods for the VM failed.")
-				return err
-			}
-			for _, p := range pl.Items {
-				if p.GetObjectMeta().GetLabels()[kubev1.VMUIDLabel] == string(vmCopy.GetObjectMeta().GetUID()) {
-					// Pod from incomplete initialization detected, cleaning up
-					logger.Error().Msgf("Found orphan pod with name '%s' for VM.", p.GetName())
-					err = c.vmService.DeleteVMPod(&vmCopy)
-					if err != nil {
-						logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for VM failed.", p.GetName())
-						return err
-					}
-				} else {
-					// TODO virt-api should make sure this does not happen. For now don't ask and clean up.
-					// Pod from old VM object detected,
-					logger.Error().Msgf("Found orphan pod with name '%s' for deleted VM.", p.GetName())
-					err = c.vmService.DeleteVMPod(&vmCopy)
-					if err != nil {
-						logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for VM failed.", p.GetName())
-						return err
-					}
-				}
-			}
+			logger.Error().Reason(err).Msg("Defining a target pod for the VM failed.")
 			return err
 		}
+
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
 		// kubernetes, virt-handler can take over.
-		//Three cases where this can fail:
-		// 1) VM spec got deleted
-		// 2) VM  spec got updated by the user
-		// 3) Technical difficulties, we can't reach the apiserver
-		// For (1) we don't want to retry, the pods will time out and fail. For (2) another
-		// object got enqueued already. It will fail above until the created pods time out.
-		// For (3) we want to enqueue again. If we don't do that the created pods will time out and we will
-		// not get any updates
 		vmCopy.Status.Phase = kubev1.Scheduling
 		if err := c.restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
 			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
-			if errors.IsNotFound(err) || errors.IsConflict(err) {
-				// Nothing to do for us, VM got either deleted in the meantime or a newer version is enqueued already
-				return nil
-			}
 			return err
 		}
 		logger.Info().Msg("Handing over the VM to the scheduler succeeded.")
