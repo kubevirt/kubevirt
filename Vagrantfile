@@ -65,7 +65,7 @@ Vagrant.configure(2) do |config|
       master.vm.provision "shell", inline: <<-SHELL
         #!/bin/bash
         set -xe
-        export ADVERTISED_MASTER_IP=#{$master_ip}
+        export MASTER_IP=#{$master_ip}
         export WITH_LOCAL_NFS=true
         export NETWORK_PROVIDER=#{$network_provider}
         cd /vagrant/cluster/vagrant
@@ -91,7 +91,7 @@ Vagrant.configure(2) do |config|
         node.vm.provision "shell", inline: <<-SHELL
           #!/bin/bash
           set -xe
-          export ADVERTISED_MASTER_IP=#{$master_ip}
+          export MASTER_IP=#{$master_ip}
           cd /vagrant/cluster/vagrant
           bash setup_kubernetes_node.sh
           set +x

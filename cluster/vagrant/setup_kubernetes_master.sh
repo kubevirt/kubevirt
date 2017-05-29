@@ -25,7 +25,7 @@ yum install -y cockpit cockpit-kubernetes
 systemctl enable cockpit.socket && systemctl start cockpit.socket
 
 # Create the master
-kubeadm init --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456 --apiserver-advertise-address=$ADVERTISED_MASTER_IP
+kubeadm init --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456
 
 # Tell kubectl which config to use
 export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -40,12 +40,6 @@ while [ $? -ne 0 ]; do
 done
 
 set -e
-
-# Work around https://github.com/kubernetes/kubernetes/issues/34101
-# Weave otherwise the network provider does not work
-kubectl -n kube-system get ds -l 'k8s-app=kube-proxy' -o json \
-        | jq '.items[0].spec.template.spec.containers[0].command |= .+ ["--proxy-mode=userspace"]' \
-        |   kubectl apply -f - && kubectl -n kube-system delete pods -l 'k8s-app=kube-proxy'
 
 if [ "$NETWORK_PROVIDER" == "weave" ]; then 
   kubectl apply -f https://github.com/weaveworks/weave/releases/download/v1.9.4/weave-daemonset-k8s-1.6.yaml
