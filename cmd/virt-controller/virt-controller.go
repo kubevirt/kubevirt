@@ -2,16 +2,13 @@ package main
 
 import (
 	"flag"
+	golog "log"
 	"net/http"
 	"strconv"
 
-	golog "log"
-
 	"github.com/emicklei/go-restful"
 	"github.com/facebookgo/inject"
-
 	clientrest "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -73,24 +70,12 @@ func main() {
 		golog.Fatal(err)
 	}
 
-	var vmCache cache.Store
-	var vmController *kubecli.Controller
-
-	vmCache, vmController = watch.NewVMController(vmService, nil, restClient)
-
-	vmController.StartInformer(stop)
+	vmController := watch.NewVMController(vmService, nil, restClient, clientSet)
 	go vmController.Run(1, stop)
-	// Wait until VM cache has warmed up before we start watching pods
-	vmController.WaitForSync(stop)
 
 	//FIXME when we have more than one worker, we need a lock on the VM
 	migrationController := watch.NewMigrationController(vmService, restClient, clientSet)
 	go migrationController.Run(1, stop)
-
-	// Start watching pods
-	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient, vmService)
-	podController.StartInformer(stop)
-	go podController.Run(1, stop)
 
 	httpLogger := logger.With("service", "http")
 

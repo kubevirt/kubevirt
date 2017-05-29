@@ -17,53 +17,102 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	"time"
+
+	"k8s.io/client-go/pkg/util/wait"
+
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewVMController(vmService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient) (cache.Store, *kubecli.Controller) {
+func NewVMController(vmService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient, clientset *kubernetes.Clientset) *VMController {
 	lw := cache.NewListWatchFromClient(restClient, "vms", kubeapi.NamespaceDefault, fields.Everything())
-	dispatch := NewVMControllerDispatch(restClient, vmService)
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	indexer, informer := cache.NewIndexerInformer(lw, &kubev1.VM{}, 0, kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue), cache.Indexers{})
-	return kubecli.NewControllerFromInformer(indexer, informer, queue, dispatch)
-
-}
-
-func NewVMControllerDispatch(restClient *rest.RESTClient, vmService services.VMService) kubecli.ControllerDispatch {
-	dispatch := VMDispatch{
+	return &VMController{
 		restClient: restClient,
 		vmService:  vmService,
+		queue:      queue,
+		store:      indexer,
+		informer:   informer,
+		recorder:   recorder,
+		clientset:  clientset,
 	}
-	var vmd kubecli.ControllerDispatch = &dispatch
-	return vmd
 }
 
-type VMDispatch struct {
+type VMController struct {
 	restClient *rest.RESTClient
 	vmService  services.VMService
+	clientset  *kubernetes.Clientset
+	queue      workqueue.RateLimitingInterface
+	store      cache.Store
+	informer   cache.ControllerInterface
+	recorder   record.EventRecorder
 }
 
-func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
+func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
+	defer kubecli.HandlePanic()
+	defer c.queue.ShutDown()
+	logging.DefaultLogger().Info().Msg("Starting controller.")
+
+	// Start all informers/controllers and wait for the cache sync
+	// TODO, change controllers to informers
+	_, podController := NewPodController(c.store, nil, c.clientset, c.restClient, c.vmService)
+	podController.StartInformer(stopCh)
+	podController.WaitForSync(stopCh)
+	go c.informer.Run(stopCh)
+
+	// Wait for cache sync before we start the pod controller
+	cache.WaitForCacheSync(stopCh, c.informer.HasSynced)
+
+	// Start the actual work
+	go podController.Run(threadiness, stopCh)
+	for i := 0; i < threadiness; i++ {
+		go wait.Until(c.runWorker, time.Second, stopCh)
+	}
+
+	<-stopCh
+	logging.DefaultLogger().Info().Msg("Stopping controller.")
+}
+
+func (c *VMController) runWorker() {
+	for c.Execute() {
+	}
+}
+
+func (c *VMController) Execute() bool {
+	key, quit := c.queue.Get()
+	if quit {
+		return false
+	}
+	defer c.queue.Done(key)
+	if err := c.execute(key.(string)); err != nil {
+		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing VM %v", key)
+		c.queue.AddRateLimited(key)
+	} else {
+		logging.DefaultLogger().Info().V(4).Msgf("processed VM %v", key)
+		c.queue.Forget(key)
+	}
+	return true
+}
+
+func (c *VMController) execute(key string) error {
 
 	// Fetch the latest Vm state from cache
-	obj, exists, err := store.GetByKey(key.(string))
+	obj, exists, err := c.store.GetByKey(key)
 
 	if err != nil {
-		queue.AddRateLimited(key)
-		return
+		return err
 	}
 
 	// Retrieve the VM
 	var vm *kubev1.VM
 	if !exists {
-		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
+		_, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
-			// TODO do something more smart here
-			queue.AddRateLimited(key)
-			return
+			return err
 		}
 		vm = kubev1.NewVMReferenceFromName(name)
 	} else {
@@ -73,9 +122,10 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 
 	if !exists {
 		// Delete VM Pods
-		err := vmd.vmService.DeleteVMPod(vm)
+		err := c.vmService.DeleteVMPod(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
+			return err
 		}
 		logger.Info().Msg("Deleting VM target Pod succeeded.")
 	} else if vm.Status.Phase == kubev1.VmPhaseUnset {
@@ -96,6 +146,7 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 		// For case (2) we want to delete the VM first and then start over again.
 
 		// TODO move defaulting to virt-api
+		// TODO move constants to virt-handler
 		if vmCopy.Spec.Domain == nil {
 			spec := kubev1.NewMinimalDomainSpec(vmCopy.GetObjectMeta().GetName())
 			vmCopy.Spec.Domain = spec
@@ -105,7 +156,7 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 		vmCopy.Spec.Domain.Name = vmCopy.GetObjectMeta().GetName()
 
 		// TODO when we move this to virt-api, we have to block that they are set on POST or changed on PUT
-		graphics := vm.Spec.Domain.Devices.Graphics
+		graphics := vmCopy.Spec.Domain.Devices.Graphics
 		for i, _ := range graphics {
 			if strings.ToLower(graphics[i].Type) == "spice" {
 				graphics[i].Port = int32(4000) + int32(i)
@@ -118,38 +169,34 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 		}
 
 		// TODO get rid of these service calls
-		if err := vmd.vmService.StartVMPod(&vmCopy); err != nil {
+		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
 			logger.Error().Reason(err).Msg("Defining a target pod for the VM.")
-			pl, err := vmd.vmService.GetRunningVMPods(&vmCopy)
+			pl, err := c.vmService.GetRunningVMPods(&vmCopy)
 			if err != nil {
 				logger.Error().Reason(err).Msg("Getting all running Pods for the VM failed.")
-				queue.AddRateLimited(key)
-				return
+				return err
 			}
 			for _, p := range pl.Items {
 				if p.GetObjectMeta().GetLabels()["kubevirt.io/vmUID"] == string(vmCopy.GetObjectMeta().GetUID()) {
 					// Pod from incomplete initialization detected, cleaning up
 					logger.Error().Msgf("Found orphan pod with name '%s' for VM.", p.GetName())
-					err = vmd.vmService.DeleteVMPod(&vmCopy)
+					err = c.vmService.DeleteVMPod(&vmCopy)
 					if err != nil {
 						logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for VM failed.", p.GetName())
-						queue.AddRateLimited(key)
-						return
+						return err
 					}
 				} else {
 					// TODO virt-api should make sure this does not happen. For now don't ask and clean up.
 					// Pod from old VM object detected,
 					logger.Error().Msgf("Found orphan pod with name '%s' for deleted VM.", p.GetName())
-					err = vmd.vmService.DeleteVMPod(&vmCopy)
+					err = c.vmService.DeleteVMPod(&vmCopy)
 					if err != nil {
 						logger.Critical().Reason(err).Msgf("Deleting orphaned pod with name '%s' for VM failed.", p.GetName())
-						queue.AddRateLimited(key)
-						return
+						return err
 					}
 				}
 			}
-			queue.AddRateLimited(key)
-			return
+			return err
 		}
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
 		// kubernetes, virt-handler can take over.
@@ -162,18 +209,17 @@ func (vmd *VMDispatch) Execute(store cache.Store, queue workqueue.RateLimitingIn
 		// For (3) we want to enqueue again. If we don't do that the created pods will time out and we will
 		// not get any updates
 		vmCopy.Status.Phase = kubev1.Scheduling
-		if err := vmd.restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
+		if err := c.restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
 			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
 			if errors.IsNotFound(err) || errors.IsConflict(err) {
 				// Nothing to do for us, VM got either deleted in the meantime or a newer version is enqueued already
-				return
+				return nil
 			}
-			queue.AddRateLimited(key)
-			return
+			return err
 		}
 		logger.Info().Msg("Handing over the VM to the scheduler succeeded.")
 	}
-	return
+	return nil
 }
 
 func scheduledVMPodSelector() kubeapi.ListOptions {

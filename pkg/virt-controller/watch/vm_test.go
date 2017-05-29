@@ -25,16 +25,16 @@ import (
 
 var _ = Describe("VM watcher", func() {
 	var server *ghttp.Server
-	var migrationCache cache.Store
 	var podCache cache.Store
 	var podDispatch kubecli.ControllerDispatch
 	var vmService services.VMService
 	var restClient *rest.RESTClient
 
 	var vmCache cache.Store
+	var vmQueue workqueue.RateLimitingInterface
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-	var dispatch kubecli.ControllerDispatch
+	var vmController *VMController
 
 	BeforeEach(func() {
 		var g inject.Graph
@@ -45,7 +45,6 @@ var _ = Describe("VM watcher", func() {
 		clientSet, _ := kubernetes.NewForConfig(&config)
 		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
-		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		g.Provide(
 			&inject.Object{Value: restClient},
 			&inject.Object{Value: clientSet},
@@ -53,10 +52,16 @@ var _ = Describe("VM watcher", func() {
 			&inject.Object{Value: templateService},
 		)
 		g.Populate()
+		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-		dispatch = NewVMControllerDispatch(restClient, vmService)
+		vmController = &VMController{
+			restClient: restClient,
+			vmService:  vmService,
+			queue:      vmQueue,
+			store:      vmCache,
+		}
 
-		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		podCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		podDispatch = NewPodControllerDispatch(vmCache, restClient, vmService, clientSet)
 	})
@@ -109,11 +114,10 @@ var _ = Describe("VM watcher", func() {
 			)
 
 			// Tell the controller that there is a new VM
-			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			migrationCache.Add(vm)
-			queue.Add(key)
-			dispatch.Execute(migrationCache, queue, key)
+			vmCache.Add(vm)
+			vmQueue.Add(key)
+			vmController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			close(done)
