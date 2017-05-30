@@ -15,5 +15,8 @@ rm -f "manifests/*.yaml"
 
 # Render kubernetes manifests
 for arg in $args; do
-    env | j2 --format=env $arg > ${arg%%.in}
+    sed -e "s/{{ master_ip }}/$master_ip/g" \
+        -e "s/{{ docker_tag }}/$docker_tag/g" \
+        -e "s/{{ docker_prefix }}/$docker_prefix/g" \
+        $arg > ${arg%%.in}
 done

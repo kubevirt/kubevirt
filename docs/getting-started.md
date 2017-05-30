@@ -56,10 +56,6 @@ to install a few build requirements:
     # We are interfacing with libvirt
     sudo dnf install libvirt-devel
 
-    sudo dnf install python-pip
-    sudo pip install j2cli
-
-
     cd $GOPATH
     # Use goimports for package import ordering
     go get golang.org/x/tools/cmd/goimports
