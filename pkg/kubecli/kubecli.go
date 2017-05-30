@@ -136,6 +136,21 @@ func NewResourceEventHandlerFuncsForWorkqueue(queue workqueue.RateLimitingInterf
 	}
 }
 
+func NewResourceEventHandlerFuncsForFunc(f func(interface{})) cache.ResourceEventHandlerFuncs {
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			f(obj)
+		},
+		UpdateFunc: func(old interface{}, new interface{}) {
+			f(new)
+
+		},
+		DeleteFunc: func(obj interface{}) {
+			f(obj)
+		},
+	}
+}
+
 type Controller struct {
 	indexer  cache.Store
 	queue    workqueue.RateLimitingInterface

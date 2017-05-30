@@ -366,9 +366,6 @@ const (
 	// Create Migration has been called but nothing has been done with it
 	MigrationUnknown MigrationPhase = ""
 
-	// Migration is actively progressing
-	MigrationScheduled MigrationPhase = "Scheduled"
-
 	// Migration has been scheduled but no update on the status has been recorded
 	MigrationRunning MigrationPhase = "Running"
 
@@ -383,7 +380,8 @@ const (
 // MigrationStatus is the last reported status of a VM Migratrion. Status may trail the actual
 // state of a migration.
 type MigrationStatus struct {
-	Phase MigrationPhase `json:"phase,omitempty"`
+	Phase    MigrationPhase `json:"phase,omitempty"`
+	Instance *types.UID     `json:"instance,omitempty"`
 }
 
 // Required to satisfy ObjectMetaAccessor interface

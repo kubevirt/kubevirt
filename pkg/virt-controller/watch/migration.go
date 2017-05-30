@@ -2,6 +2,7 @@ package watch
 
 import (
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
@@ -9,11 +10,11 @@ import (
 	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/fields"
 	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/types"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/util/wait"
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -21,40 +22,73 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewMigrationController(migrationService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient, clientset *kubernetes.Clientset) (cache.Store, *kubecli.Controller, *workqueue.RateLimitingInterface) {
+func NewMigrationController(migrationService services.VMService, restClient *rest.RESTClient, clientset *kubernetes.Clientset) *MigrationController {
 	lw := cache.NewListWatchFromClient(restClient, "migrations", k8sv1.NamespaceDefault, fields.Everything())
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	store, controller := kubecli.NewController(lw, queue, &kubev1.Migration{}, NewMigrationControllerDispatch(migrationService, restClient, clientset))
-	return store, controller, &queue
-}
-
-func NewMigrationControllerDispatch(vmService services.VMService, restClient *rest.RESTClient, clientset *kubernetes.Clientset) kubecli.ControllerDispatch {
-
-	dispatch := MigrationDispatch{
+	store, informer := cache.NewIndexerInformer(lw, &kubev1.Migration{}, 0, kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue), cache.Indexers{})
+	return &MigrationController{
 		restClient: restClient,
-		vmService:  vmService,
+		vmService:  migrationService,
 		clientset:  clientset,
+		queue:      queue,
+		store:      store,
+		informer:   informer,
 	}
-	return &dispatch
 }
 
-type MigrationDispatch struct {
+type MigrationController struct {
 	restClient *rest.RESTClient
 	vmService  services.VMService
 	clientset  *kubernetes.Clientset
+	queue      workqueue.RateLimitingInterface
+	store      cache.Store
+	informer   cache.ControllerInterface
 }
 
-func (md *MigrationDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
-	if err := md.execute(store, key.(string)); err != nil {
-		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing migration %v", key)
-		queue.AddRateLimited(key)
-	} else {
-		logging.DefaultLogger().Info().V(4).Msgf("processed migration %v", key)
-		queue.Forget(key)
+func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
+	defer kubecli.HandlePanic()
+	defer c.queue.ShutDown()
+	logging.DefaultLogger().Info().Msg("Starting controller.")
+
+	// Start all informers and wait for the cache sync
+	_, jobInformer := NewMigrationJobInformer(c.clientset, c.queue)
+	go jobInformer.Run(stopCh)
+	_, podInformer := NewMigrationPodInformer(c.clientset, c.queue)
+	go podInformer.Run(stopCh)
+	go c.informer.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, c.informer.HasSynced, jobInformer.HasSynced, podInformer.HasSynced)
+
+	// Start the actual work
+	for i := 0; i < threadiness; i++ {
+		go wait.Until(c.runWorker, time.Second, stopCh)
+	}
+
+	<-stopCh
+	logging.DefaultLogger().Info().Msg("Stopping controller.")
+}
+
+func (c *MigrationController) runWorker() {
+	for c.Execute() {
 	}
 }
 
-func (md *MigrationDispatch) execute(store cache.Store, key string) error {
+func (md *MigrationController) Execute() bool {
+	key, quit := md.queue.Get()
+	if quit {
+		return false
+	}
+	defer md.queue.Done(key)
+	if err := md.execute(key.(string)); err != nil {
+		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing migration %v", key)
+		md.queue.AddRateLimited(key)
+	} else {
+		logging.DefaultLogger().Info().V(4).Msgf("processed migration %v", key)
+		md.queue.Forget(key)
+	}
+	return true
+}
+
+func (md *MigrationController) execute(key string) error {
 
 	setMigrationPhase := func(migration *kubev1.Migration, phase kubev1.MigrationPhase) error {
 
@@ -64,16 +98,9 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 
 		logger := logging.DefaultLogger().Object(migration)
 
-		// Copy migration for future modifications
-		migrationCopy, err := copy(migration)
-		if err != nil {
-			logger.Error().Reason(err).Msg("could not copy migration object")
-			return err
-		}
-
-		migrationCopy.Status.Phase = phase
+		migration.Status.Phase = phase
 		// TODO indicate why it was set to failed
-		err = md.vmService.UpdateMigration(migrationCopy)
+		err := md.vmService.UpdateMigration(migration)
 		if err != nil {
 			logger.Error().Reason(err).Msgf("updating migration state failed: %v ", err)
 			return err
@@ -85,7 +112,7 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		return setMigrationPhase(mig, kubev1.MigrationFailed)
 	}
 
-	obj, exists, err := store.GetByKey(key)
+	obj, exists, err := md.store.GetByKey(key)
 	if err != nil {
 		return err
 	}
@@ -93,8 +120,13 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		return nil
 	}
 
-	var migration *kubev1.Migration = obj.(*kubev1.Migration)
-	logger := logging.DefaultLogger().Object(migration)
+	logger := logging.DefaultLogger().Object(obj.(*kubev1.Migration))
+	// Copy migration for future modifications
+	if obj, err = kubeapi.Scheme.Copy(obj.(runtime.Object)); err != nil {
+		logger.Error().Reason(err).Msg("could not copy migration object")
+		return err
+	}
+	migration := obj.(*kubev1.Migration)
 
 	vm, exists, err := md.vmService.FetchVM(migration.Spec.Selector.Name)
 	if err != nil {
@@ -104,20 +136,14 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 
 	if !exists {
 		logger.Info().Msgf("VM with name %s does not exist, marking migration as failed", migration.Spec.Selector.Name)
-		if err = setMigrationFailed(migration); err != nil {
-			return err
-		}
-		return nil
+		return setMigrationFailed(migration)
 	}
 
 	switch migration.Status.Phase {
 	case kubev1.MigrationUnknown:
 		if vm.Status.Phase != kubev1.Running {
 			logger.Error().Msgf("VM with name %s is in state %s, no migration possible. Marking migration as failed", vm.GetObjectMeta().GetName(), vm.Status.Phase)
-			if err = setMigrationFailed(migration); err != nil {
-				return err
-			}
-			return nil
+			return setMigrationFailed(migration)
 		}
 
 		if err := mergeConstraints(migration, vm); err != nil {
@@ -131,7 +157,7 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		}
 
 		//FIXME when we have more than one worker, we need a lock on the VM
-		numOfPods, targetPod, err := investigateTargetPodSituation(migration, podList, store)
+		numOfPods, targetPod, err := investigateTargetPodSituation(migration, podList, md.store)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not investigate pods")
 			return err
@@ -157,73 +183,34 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 		} else {
 			if targetPod.Status.Phase == k8sv1.PodFailed {
 				logger.Error().Msg("migration target pod is in failed state")
-				if err = setMigrationFailed(migration); err != nil {
-					return err
-				}
-				return nil
+				return setMigrationFailed(migration)
 			}
 			// Unlikely to hit this case, but prevents erroring out
 			// if we re-enter this loop
-			logger.Info().Msgf("migration appears to be set up, but was not set to %s", kubev1.MigrationScheduled)
+			logger.Info().Msgf("migration appears to be set up, but was not set to %s", kubev1.MigrationRunning)
 		}
-		err = setMigrationPhase(migration, kubev1.MigrationScheduled)
-		if err != nil {
-			return err
-		}
-		return nil
-	case kubev1.MigrationScheduled:
-		podList, err := md.vmService.GetRunningVMPods(vm)
-		if err != nil {
-			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
-			return err
-		}
-
-		_, targetPod, err := investigateTargetPodSituation(migration, podList, store)
-		if err != nil {
-			logger.Error().Reason(err).Msg("could not investigate pods")
-			return err
-		}
-
-		if targetPod == nil {
-			logger.Error().Msg("migration target pod does not exist or is an end state")
-			if err = setMigrationFailed(migration); err != nil {
-				return err
-			}
-			return nil
-		}
-		// Migration has been scheduled but no update on the status has been recorded
-		err = setMigrationPhase(migration, kubev1.MigrationRunning)
-		if err != nil {
-			return err
-		}
-		return nil
+		return setMigrationPhase(migration, kubev1.MigrationRunning)
 	case kubev1.MigrationRunning:
 		podList, err := md.vmService.GetRunningVMPods(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
 			return err
 		}
-		_, targetPod, err := investigateTargetPodSituation(migration, podList, store)
+		_, targetPod, err := investigateTargetPodSituation(migration, podList, md.store)
 		if err != nil {
 			logger.Error().Reason(err).Msg("could not investigate pods")
 			return err
 		}
 		if targetPod == nil {
 			logger.Error().Msg("migration target pod does not exist or is in an end state")
-			if err = setMigrationFailed(migration); err != nil {
-				return err
-			}
-			return nil
+			return setMigrationFailed(migration)
 		}
 		switch targetPod.Status.Phase {
 		case k8sv1.PodRunning:
 			break
 		case k8sv1.PodSucceeded, k8sv1.PodFailed:
 			logger.Error().Msgf("migration target pod is in end state %s", targetPod.Status.Phase)
-			if err = setMigrationFailed(migration); err != nil {
-				return err
-			}
-			return nil
+			return setMigrationFailed(migration)
 		default:
 			//Not requeuing, just not far enough along to proceed
 			logger.Info().V(3).Msg("target Pod not running yet")
@@ -274,9 +261,7 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 			if _, err = md.vmService.PutVm(vm); err != nil {
 				return err
 			}
-			if err = setMigrationFailed(migration); err != nil {
-				return err
-			}
+			return setMigrationFailed(migration)
 		case k8sv1.PodSucceeded:
 			vm.Status.NodeName = targetPod.Spec.NodeName
 			vm.Status.MigrationNodeName = ""
@@ -289,20 +274,10 @@ func (md *MigrationDispatch) execute(store cache.Store, key string) error {
 				logger.Error().Reason(err).Msg("updating the VM failed.")
 				return err
 			}
-			if err = setMigrationPhase(migration, kubev1.MigrationSucceeded); err != nil {
-				return err
-			}
+			return setMigrationPhase(migration, kubev1.MigrationSucceeded)
 		}
 	}
 	return nil
-}
-
-func copy(migration *kubev1.Migration) (*kubev1.Migration, error) {
-	obj, err := kubeapi.Scheme.Copy(migration)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*kubev1.Migration), nil
 }
 
 // Returns the number of  running pods and if a pod for exactly that migration is currently running
@@ -373,62 +348,39 @@ func migrationVMPodSelector() kubeapi.ListOptions {
 	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
 }
 
-func NewMigrationPodController(vmCache cache.Store, recorder record.EventRecorder, clientset *kubernetes.Clientset, restClient *rest.RESTClient, vmService services.VMService, migrationQueue workqueue.RateLimitingInterface) (cache.Store, *kubecli.Controller) {
+func migrationJobSelector() kubeapi.ListOptions {
+	fieldSelector := fields.ParseSelectorOrDie(
+		"status.phase!=" + string(k8sv1.PodPending) +
+			",status.phase!=" + string(k8sv1.PodRunning) +
+			",status.phase!=" + string(k8sv1.PodUnknown))
+	labelSelector, err := labels.Parse(kubev1.AppLabel + "=migration," + kubev1.DomainLabel + "," + kubev1.MigrationLabel)
+	if err != nil {
+		panic(err)
+	}
+	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
+}
 
+// Informer, which checks for Jobs, orchestrating the migrations done by libvirt
+func NewMigrationJobInformer(clientSet *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) (cache.Store, cache.ControllerInterface) {
+	selector := migrationJobSelector()
+	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
+	return cache.NewIndexerInformer(lw, &k8sv1.Pod{}, 0,
+		kubecli.NewResourceEventHandlerFuncsForFunc(migrationLabelHandler(migrationQueue)),
+		cache.Indexers{})
+}
+
+// Informer, which checks for potential migration target Pods
+func NewMigrationPodInformer(clientSet *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) (cache.Store, cache.ControllerInterface) {
 	selector := migrationVMPodSelector()
-	lw := kubecli.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	return kubecli.NewController(lw, queue, &k8sv1.Pod{}, NewMigrationPodControllerDispatch(vmCache, restClient, vmService, clientset, migrationQueue))
+	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
+	return cache.NewIndexerInformer(lw, &k8sv1.Pod{}, 0,
+		kubecli.NewResourceEventHandlerFuncsForFunc(migrationLabelHandler(migrationQueue)),
+		cache.Indexers{})
 }
 
-type migrationPodDispatch struct {
-	vmCache        cache.Store
-	restClient     *rest.RESTClient
-	vmService      services.VMService
-	clientset      *kubernetes.Clientset
-	migrationQueue workqueue.RateLimitingInterface
-}
-
-func NewMigrationPodControllerDispatch(vmCache cache.Store, restClient *rest.RESTClient, vmService services.VMService, clientset *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) kubecli.ControllerDispatch {
-	dispatch := migrationPodDispatch{
-		vmCache:        vmCache,
-		restClient:     restClient,
-		vmService:      vmService,
-		clientset:      clientset,
-		migrationQueue: migrationQueue,
+func migrationLabelHandler(migrationQueue workqueue.RateLimitingInterface) func(obj interface{}) {
+	return func(obj interface{}) {
+		migrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
+		migrationQueue.Add(k8sv1.NamespaceDefault + "/" + migrationLabel)
 	}
-	return &dispatch
-}
-
-func (pd *migrationPodDispatch) Execute(podStore cache.Store, podQueue workqueue.RateLimitingInterface, key interface{}) {
-	// Fetch the latest Vm state from cache
-	obj, exists, err := podStore.GetByKey(key.(string))
-
-	if err != nil {
-		podQueue.AddRateLimited(key)
-		return
-	}
-
-	if !exists {
-		// Do nothing
-		return
-	}
-	pod := obj.(*k8sv1.Pod)
-
-	vmObj, exists, err := pd.vmCache.GetByKey(kubeapi.NamespaceDefault + "/" + pod.GetLabels()[kubev1.DomainLabel])
-	if err != nil {
-		podQueue.AddRateLimited(key)
-		return
-	}
-	if !exists {
-		// Do nothing, the pod will timeout.
-		return
-	}
-	vm := vmObj.(*kubev1.VM)
-	if vm.GetObjectMeta().GetUID() != types.UID(pod.GetLabels()[kubev1.VMUIDLabel]) {
-		// Obviously the pod of an outdated VM object, do nothing
-		return
-	}
-	pd.migrationQueue.Add(k8sv1.NamespaceDefault + "/" + pod.Labels[kubev1.MigrationLabel])
-	return
 }

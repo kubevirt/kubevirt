@@ -83,26 +83,14 @@ func main() {
 	// Wait until VM cache has warmed up before we start watching pods
 	vmController.WaitForSync(stop)
 
-	//TODO order the parameters consistantly in the factories, or use an object.
-	_, migrationController, migrationQueue := watch.NewMigrationController(vmService, nil, restClient, clientSet)
-	migrationController.StartInformer(stop)
+	//FIXME when we have more than one worker, we need a lock on the VM
+	migrationController := watch.NewMigrationController(vmService, restClient, clientSet)
 	go migrationController.Run(1, stop)
-	migrationController.WaitForSync(stop)
 
 	// Start watching pods
 	_, podController := watch.NewPodController(vmCache, nil, clientSet, restClient, vmService)
 	podController.StartInformer(stop)
 	go podController.Run(1, stop)
-
-	_, migrationPodController := watch.NewMigrationPodController(vmCache, nil, clientSet, restClient, vmService, *migrationQueue)
-	migrationPodController.StartInformer(stop)
-	//FIXME when we have more than one worker, we need a lock on the VM
-	go migrationPodController.Run(1, stop)
-
-	_, jobController := watch.NewJobController(vmService, nil, clientSet, restClient, *migrationQueue)
-	jobController.StartInformer(stop)
-	go jobController.Run(1, stop)
-	jobController.WaitForSync(stop)
 
 	httpLogger := logger.With("service", "http")
 

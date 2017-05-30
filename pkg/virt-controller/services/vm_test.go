@@ -54,7 +54,7 @@ var _ = Describe("VM", func() {
 			migration = v1.NewMinimalMigration(vm.ObjectMeta.Name+"-migration", vm.ObjectMeta.Name)
 			expected_migration = &v1.Migration{}
 			*expected_migration = *migration
-			expected_migration.Status.Phase = v1.MigrationScheduled
+			expected_migration.Status.Phase = v1.MigrationRunning
 
 			vm.ObjectMeta.UID = "testUID"
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
