@@ -275,7 +275,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 }
 
 // TODO: needs a functional test.
-func authWithPassword(uri string, user string, pass string) (*libvirt.Connect, error) {
+func newConnection(uri string, user string, pass string) (*libvirt.Connect, error) {
 	callback := func(creds []*libvirt.ConnectCredential) {
 		for _, cred := range creds {
 			if cred.Type == libvirt.CRED_AUTHNAME {
@@ -295,17 +295,6 @@ func authWithPassword(uri string, user string, pass string) (*libvirt.Connect, e
 	}
 	virConn, err := libvirt.NewConnectWithAuth(uri, auth, 0)
 
-	return virConn, err
-}
-
-func newConnection(uri string, user string, pass string) (*libvirt.Connect, error) {
-	var virConn *libvirt.Connect
-	var err error
-	if user == "" {
-		virConn, err = libvirt.NewConnect(uri)
-	} else {
-		virConn, err = authWithPassword(uri, user, pass)
-	}
 	return virConn, err
 }
 
