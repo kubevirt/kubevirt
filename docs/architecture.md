@@ -31,10 +31,7 @@ Kubernetes, while KubeVirt provides the virtualization functionality.
 ## Additional Services
 
 KubeVirt provides additional functionality to your Kubernetes cluster,
-including:
-
-* Virtual Machine management
-* Network management (TBD)
+to perform virtual machine management
 
 If we recall how Kubernetes is handling Pods, then we remember that Pods are
 created by posting a Pod specification to the Kubernetes API Server.
@@ -71,42 +68,10 @@ Kubernetes API server. This allows users to speak to Kubernetes, but modify VMs.
 The following diagram illustrates how the addditional controllers and daemons
 communicate with Kubernetes and where the additional types are stored:
 
-                             +-----------------+
-                             | virt-controller | (2)
-                             +-----------------+
-                                       |
-                                       | (watch for VMs, on cluster)
-                                       |
-                                       |
-                                       |   +----------------------+
-                                       |   |                      |
-                                       |   |                      |
-                                       v   v                      |
-                    +--------------+-----------+-----------+      |
-                    | Kubernetes   |  REST API |           |      |
-                    |              +-----------+           |      |
-                    |                                      |      |
-                    | [rc-controller] (1)                  |      |
-                    |                                      |      |
-                    | [Pod Foo] (1)                        |      |
-                    | [VM  Bar] (2)                        |      |
-                    +--------------------------------------+      |
-                                                                  |
-                                                                  |
-                                 +---------------------------+----+
-     (Cluster level)             |                           |
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     (Node level)                |                           |
-                                 | (watch for VM changes,    |
-                                 |  on Node)                 |
-                                 |                           |
-                          +--------------+            +--------------+
-                          | virt-handler | (2)        | virt-handler | (2)
-                          +--------------+            +--------------+
+![Architecture diagram](architecture.png "Architecture")
 
-
-    (1): Kubernetes native controller and type
-    (2): KubeVirt extensions, additional controllers and types
+* (white boxes): Kubernetes native components
+* (gray boxes): KubeVirt components
 
 
 ## Application Layout
