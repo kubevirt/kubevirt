@@ -403,7 +403,6 @@ func NewRandomVMWithNS(namespace string) *v1.VM {
 
 func NewRandomVMWithDirectLun(lun int) *v1.VM {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
 		Type:     "network",
@@ -430,7 +429,6 @@ func NewRandomVMWithDirectLun(lun int) *v1.VM {
 
 func NewRandomVMWithPVC(claimName string) *v1.VM {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
 		Type:     "PersistentVolumeClaim",

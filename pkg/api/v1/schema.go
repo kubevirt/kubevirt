@@ -34,8 +34,7 @@ type DomainSpec struct {
 }
 
 type Memory struct {
-	Value uint   `json:"value"`
-	Unit  string `json:"unit"`
+	Value uint `json:"value"`
 }
 
 type Devices struct {
@@ -229,7 +228,7 @@ type RandomGenerator struct {
 
 func NewMinimalDomainSpec() *DomainSpec {
 	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu"}
-	domain.Memory = Memory{Unit: "KiB", Value: 8192}
+	domain.Memory = Memory{Value: 8}
 	domain.Devices = Devices{}
 	domain.Devices.Interfaces = []Interface{Interface{}}
 	return &domain

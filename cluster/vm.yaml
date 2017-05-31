@@ -31,7 +31,6 @@ spec:
       - target:
           port: 0
     memory:
-      unit: MB
       value: 64
     os:
       type:

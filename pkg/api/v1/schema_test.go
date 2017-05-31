@@ -28,8 +28,7 @@ import (
 
 var exampleJSON = `{
   "memory": {
-    "value": 8192,
-    "unit": "KiB"
+    "value": 8
   },
   "type": "qemu",
   "os": {
