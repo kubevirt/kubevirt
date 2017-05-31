@@ -45,7 +45,6 @@ type Memory struct {
 }
 
 type Devices struct {
-	Emulator   string      `json:"emulator,omitempty"`
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	Channels   []Channel   `json:"channels,omitempty"`
 	Video      []Video     `json:"video,omitempty"`
