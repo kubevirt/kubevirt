@@ -8,9 +8,7 @@ spec:
       graphics:
       - type: spice
       interfaces:
-      - type: network
-        source:
-          network: default
+      - mac: 52:54:de:ad:be:ef
       video:
       - type: qxl
       disks:

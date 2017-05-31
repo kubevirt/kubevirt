@@ -41,12 +41,7 @@ var exampleJSON = `{
   },
   "devices": {
     "interfaces": [
-      {
-        "type": "network",
-        "source": {
-          "network": "default"
-        }
-      }
+      {}
     ],
     "disks": [
       {

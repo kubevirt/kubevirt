@@ -128,24 +128,15 @@ type ConsoleTarget struct {
 // BEGIN Inteface -----------------------------
 
 type Interface struct {
-	Address   *Address         `json:"address,omitempty"`
-	Type      string           `json:"type"`
-	Source    InterfaceSource  `json:"source"`
-	Target    *InterfaceTarget `json:"target,omitempty"`
-	Model     *Model           `json:"model,omitempty"`
-	MAC       *MAC             `json:"mac,omitempty"`
-	BandWidth *BandWidth       `json:"bandwidth,omitempty"`
-	BootOrder *BootOrder       `json:"boot,omitempty"`
-	LinkState *LinkState       `json:"link,omitempty"`
-	FilterRef *FilterRef       `json:"filterRef,omitempty"`
-	Alias     *Alias           `json:"alias,omitempty"`
+	Address   *Address   `json:"address,omitempty"`
+	Model     *Model     `json:"model,omitempty"`
+	MAC       *MAC       `json:"mac,omitempty"`
+	BootOrder *BootOrder `json:"boot,omitempty"`
+	LinkState *LinkState `json:"link,omitempty"`
 }
 
 type LinkState struct {
 	State string `json:"state"`
-}
-
-type BandWidth struct {
 }
 
 type BootOrder struct {
@@ -156,26 +147,8 @@ type MAC struct {
 	MAC string `json:"address"`
 }
 
-type FilterRef struct {
-	Filter string `json:"filter"`
-}
-
-type InterfaceSource struct {
-	Network string `json:"network,omitempty"`
-	Device  string `json:"device,omitempty"`
-	Bridge  string `json:"bridge,omitempty"`
-}
-
 type Model struct {
 	Type string `json:"type"`
-}
-
-type InterfaceTarget struct {
-	Device string `json:"dev"`
-}
-
-type Alias struct {
-	Name string `json:"name"`
 }
 
 // END Inteface -----------------------------
@@ -310,8 +283,6 @@ func NewMinimalDomainSpec(vmName string) *DomainSpec {
 	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
 	domain.Memory = Memory{Unit: "KiB", Value: 8192}
 	domain.Devices = Devices{}
-	domain.Devices.Interfaces = []Interface{
-		{Type: "network", Source: InterfaceSource{Network: "default"}},
-	}
+	domain.Devices.Interfaces = []Interface{Interface{}}
 	return &domain
 }

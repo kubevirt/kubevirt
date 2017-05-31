@@ -62,10 +62,6 @@ func (LinkState) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (BandWidth) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (BootOrder) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
@@ -74,23 +70,7 @@ func (MAC) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (FilterRef) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (InterfaceSource) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Model) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (InterfaceTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Alias) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 

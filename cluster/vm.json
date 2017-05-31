@@ -33,10 +33,7 @@
         ],
         "interfaces": [
           {
-            "source": {
-              "network": "default"
-            },
-            "type": "network"
+            "mac": "52:54:de:ad:be:ef"
           }
         ],
         "video": [
