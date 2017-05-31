@@ -28,7 +28,6 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	kubeapi "k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -125,62 +124,6 @@ var _ = Describe("VM", func() {
 	AfterEach(func() {
 		server.Close()
 		ctrl.Finish()
-	})
-})
-
-var _ = Describe("PVC", func() {
-	RegisterFailHandler(Fail)
-
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-
-	var (
-		server *ghttp.Server
-	)
-
-	BeforeEach(func() {
-		server = testutil.NewKubeServer([]testutil.Resource{
-			&testutil.TestPersistentVolumeClaimISCSI,
-			&testutil.TestPersistentVolumeISCSI,
-		})
-	})
-
-	AfterEach(func() {
-		server.Close()
-	})
-
-	Context("Map Source Disks", func() {
-		It("looks up and applies PVC", func() {
-			vm := v1.VM{}
-
-			disk := v1.Disk{
-				Type: "PersistentVolumeClaim",
-				Source: v1.DiskSource{
-					Name: testutil.TestPersistentVolumeClaimISCSI.ObjectMeta.Name,
-				},
-				Target: v1.DiskTarget{
-					Device: "vda",
-				},
-			}
-			disk.Type = "PersistentVolumeClaim"
-
-			domain := v1.DomainSpec{}
-			domain.Devices.Disks = []v1.Disk{disk}
-			vm.Spec.Domain = &domain
-
-			restClient, err := testutil.NewKubeRESTClient(server.URL())
-			Expect(err).NotTo(HaveOccurred())
-			vmCopy, err := MapPersistentVolumes(&vm, restClient, kubeapi.NamespaceDefault)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
-			newDisk := vmCopy.Spec.Domain.Devices.Disks[0]
-			Expect(newDisk.Type).To(Equal("network"))
-			Expect(newDisk.Driver.Type).To(Equal("raw"))
-			Expect(newDisk.Driver.Name).To(Equal("qemu"))
-			Expect(newDisk.Device).To(Equal("disk"))
-			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
-			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
-		})
 	})
 })
 
