@@ -155,11 +155,9 @@ type Model struct {
 //BEGIN OS --------------------
 
 type OS struct {
-	Type      OSType    `json:"type"`
-	SMBios    *SMBios   `json:"smBIOS,omitempty"`
-	BootOrder []Boot    `json:"bootOrder"`
-	BootMenu  *BootMenu `json:"bootMenu,omitempty"`
-	BIOS      *BIOS     `json:"bios,omitempty"`
+	Type     OSType    `json:"type"`
+	SMBios   *SMBios   `json:"smBIOS,omitempty"`
+	BootMenu *BootMenu `json:"bootMenu,omitempty"`
 }
 
 type OSType struct {
@@ -172,26 +170,9 @@ type SMBios struct {
 	Mode string `json:"mode"`
 }
 
-type NVRam struct {
-	NVRam    string `json:"nvRam,omitempty"`
-	Template string `json:"template,omitempty"`
-}
-
-type Boot struct {
-	Dev string `json:"dev"`
-}
-
 type BootMenu struct {
 	Enabled bool  `json:"enabled,omitempty"`
 	Timeout *uint `json:"timeout,omitempty"`
-}
-
-// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
-type BIOS struct {
-}
-
-// TODO <bios useserial='yes' rebootTimeout='0'/>
-type Loader struct {
 }
 
 type SysInfo struct {

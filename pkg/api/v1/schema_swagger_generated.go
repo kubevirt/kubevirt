@@ -86,23 +86,7 @@ func (SMBios) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (NVRam) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Boot) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (BootMenu) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (BIOS) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Loader) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 

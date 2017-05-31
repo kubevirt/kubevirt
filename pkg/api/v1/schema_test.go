@@ -36,8 +36,7 @@ var exampleJSON = `{
   "os": {
     "type": {
       "os": "hvm"
-    },
-    "bootOrder": null
+    }
   },
   "devices": {
     "interfaces": [
