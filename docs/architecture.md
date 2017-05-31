@@ -71,42 +71,10 @@ Kubernetes API server. This allows users to speak to Kubernetes, but modify VMs.
 The following diagram illustrates how the addditional controllers and daemons
 communicate with Kubernetes and where the additional types are stored:
 
-                             +-----------------+
-                             | virt-controller | (2)
-                             +-----------------+
-                                       |
-                                       | (watch for VMs, on cluster)
-                                       |
-                                       |
-                                       |   +----------------------+
-                                       |   |                      |
-                                       |   |                      |
-                                       v   v                      |
-                    +--------------+-----------+-----------+      |
-                    | Kubernetes   |  REST API |           |      |
-                    |              +-----------+           |      |
-                    |                                      |      |
-                    | [rc-controller] (1)                  |      |
-                    |                                      |      |
-                    | [Pod Foo] (1)                        |      |
-                    | [VM  Bar] (2)                        |      |
-                    +--------------------------------------+      |
-                                                                  |
-                                                                  |
-                                 +---------------------------+----+
-     (Cluster level)             |                           |
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     (Node level)                |                           |
-                                 | (watch for VM changes,    |
-                                 |  on Node)                 |
-                                 |                           |
-                          +--------------+            +--------------+
-                          | virt-handler | (2)        | virt-handler | (2)
-                          +--------------+            +--------------+
+![Architecture diagram](architecture.png "Architecture")
 
-
-    (1): Kubernetes native controller and type
-    (2): KubeVirt extensions, additional controllers and types
+* (white boxes): Kubernetes native components
+* (gray boxes): KubeVirt components
 
 
 ## Application Layout
