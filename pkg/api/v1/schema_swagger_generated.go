@@ -106,10 +106,6 @@ func (ChannelTarget) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (ChannelSource) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Video) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }

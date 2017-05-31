@@ -192,21 +192,12 @@ type Entry struct {
 //BEGIN Channel --------------------
 
 type Channel struct {
-	Type   string         `json:"type"`
-	Source ChannelSource  `json:"source,omitempty"`
-	Target *ChannelTarget `json:"target,omitempty"`
+	Target ChannelTarget `json:"target"`
 }
 
 type ChannelTarget struct {
-	Name    string `json:"name,omitempty"`
-	Type    string `json:"type"`
-	Address string `json:"address,omitempty"`
-	Port    uint   `json:"port,omitempty"`
-}
-
-type ChannelSource struct {
-	Mode string `json:"mode"`
-	Path string `json:"path"`
+	Name string `json:"name,omitempty"`
+	Type string `json:"type"`
 }
 
 //END Channel --------------------
