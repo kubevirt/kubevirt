@@ -262,5 +262,5 @@ Since `kubectl` does not support TPR subresources yet, the above `cluster/kubect
 
 ## API Documentation
 
-The combined swagger documentation of Kubernetes and KubeVirt can be accessed under [/swaggerapi](http://192.168.200.2:8183/swaggerapi).
-There is also an embedded swagger-ui instance running inside the cluster. It can be accessed via [/swagger-ui](http://192.168.200.2:8183/swaggerapi).
+The combined swagger documentation of Kubernetes and KubeVirt can be accessed under [/swaggerapi](http://192.168.200.2:8184/swaggerapi).
+There is also an embedded swagger-ui instance running inside the cluster. It can be accessed via [/swagger-ui](http://192.168.200.2:8184/swaggerapi).
