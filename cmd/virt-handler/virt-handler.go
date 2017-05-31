@@ -33,8 +33,6 @@ func main() {
 	logging.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	libvirtUser := flag.String("user", "", "Libvirt user")
-	libvirtPass := flag.String("pass", "", "Libvirt password")
 	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8185, "Port to listen on")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
@@ -58,7 +56,7 @@ func main() {
 			}
 		}
 	}()
-	domainConn, err := virtwrap.NewConnection(*libvirtUri, *libvirtUser, *libvirtPass, 10*time.Second)
+	domainConn, err := virtwrap.NewConnection(*libvirtUri, "", "", 10*time.Second)
 	if err != nil {
 		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
 	}

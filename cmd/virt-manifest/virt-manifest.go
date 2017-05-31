@@ -17,8 +17,6 @@ import (
 func main() {
 	logging.InitializeLogging("virt-manifest")
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	libvirtUser := flag.String("user", "", "Libvirt user")
-	libvirtPasswd := flag.String("pass", "", "Libvirt password")
 	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8186, "Port to listen on")
 	flag.Parse()
@@ -28,7 +26,7 @@ func main() {
 
 	log.Info().Msg("Connecting to libvirt")
 
-	domainConn, err := virtwrap.NewConnection(*libvirtUri, *libvirtUser, *libvirtPasswd, 60*time.Second)
+	domainConn, err := virtwrap.NewConnection(*libvirtUri, "", "", 60*time.Second)
 	if err != nil {
 		log.Error().Reason(err).Msg("cannot connect to libvirt")
 		panic(fmt.Sprintf("failed to connect to libvirt: %v", err))
