@@ -5,7 +5,9 @@ all: build manifests
 generate:
 	./hack/build-go.sh generate ${WHAT}
 
-build: sync fmt vet
+build: sync fmt vet compile
+
+compile:
 	./hack/build-go.sh install ${WHAT}
 
 vet:
