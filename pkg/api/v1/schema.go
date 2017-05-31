@@ -37,7 +37,6 @@ type DomainSpec struct {
 	OS      OS       `json:"os"`
 	SysInfo *SysInfo `json:"sysInfo,omitempty"`
 	Devices Devices  `json:"devices"`
-	Clock   *Clock   `json:"clock,omitempty"`
 }
 
 type Memory struct {
@@ -236,19 +235,6 @@ type Entry struct {
 }
 
 //END OS --------------------
-
-//BEGIN Clock --------------------
-
-type Clock struct {
-}
-
-type Timer struct {
-	Name       string `json:"name"`
-	TickPolicy string `json:"tickPolicy,omitempty"`
-	Present    string `json:"present,omitempty"`
-}
-
-//END Clock --------------------
 
 //BEGIN Channel --------------------
 

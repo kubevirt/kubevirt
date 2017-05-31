@@ -134,14 +134,6 @@ func (Entry) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (Clock) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Timer) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Channel) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
