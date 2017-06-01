@@ -12,7 +12,6 @@ import (
 
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -48,16 +47,6 @@ func (v *vmService) StartVMPod(vm *corev1.VM) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
-
-	podList, err := v.GetRunningVMPods(vm)
-	if err != nil {
-		return err
-	}
-
-	// Pod for VM already exists
-	if len(podList.Items) > 0 {
-		return middleware.NewResourceExistsError("VM", vm.GetObjectMeta().GetName())
-	}
 
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
 	if err != nil {

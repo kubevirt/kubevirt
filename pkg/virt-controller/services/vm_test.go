@@ -85,17 +85,13 @@ var _ = Describe("VM", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
-				),
-				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
 				),
 			)
 			err := vmService.StartVMPod(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(server.ReceivedRequests())).To(Equal(2))
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
 		})
 	})
 

@@ -253,7 +253,7 @@ var _ = Describe("Migration", func() {
 		It("Should mark Migration failed if VM not running ", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
-				handleGetTestVM(buildExpectedVM(v1.Pending)),
+				handleGetTestVM(buildExpectedVM(v1.Scheduled)),
 				handlePutMigration(migration, v1.MigrationFailed),
 			)
 			migrationCache.Add(migration)
@@ -266,7 +266,7 @@ var _ = Describe("Migration", func() {
 		It("Should Requeue if VM not running and updateMigratio0n Failure", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
-				handleGetTestVM(buildExpectedVM(v1.Pending)),
+				handleGetTestVM(buildExpectedVM(v1.Scheduled)),
 				handlePutMigrationAuthError(),
 			)
 			migrationCache.Add(migration)

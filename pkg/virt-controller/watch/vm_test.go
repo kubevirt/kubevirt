@@ -25,16 +25,14 @@ import (
 
 var _ = Describe("VM watcher", func() {
 	var server *ghttp.Server
-	var migrationCache cache.Store
-	var podCache cache.Store
-	var podDispatch kubecli.ControllerDispatch
 	var vmService services.VMService
 	var restClient *rest.RESTClient
 
 	var vmCache cache.Store
+	var vmQueue workqueue.RateLimitingInterface
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-	var dispatch kubecli.ControllerDispatch
+	var vmController *VMController
 
 	BeforeEach(func() {
 		var g inject.Graph
@@ -45,7 +43,6 @@ var _ = Describe("VM watcher", func() {
 		clientSet, _ := kubernetes.NewForConfig(&config)
 		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
-		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		g.Provide(
 			&inject.Object{Value: restClient},
 			&inject.Object{Value: clientSet},
@@ -53,12 +50,15 @@ var _ = Describe("VM watcher", func() {
 			&inject.Object{Value: templateService},
 		)
 		g.Populate()
+		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-		dispatch = NewVMControllerDispatch(restClient, vmService)
-
-		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		podCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		podDispatch = NewPodControllerDispatch(vmCache, restClient, vmService, clientSet)
+		vmController = &VMController{
+			restClient: restClient,
+			vmService:  vmService,
+			queue:      vmQueue,
+			store:      vmCache,
+		}
 	})
 
 	Context("Creating a VM ", func() {
@@ -109,11 +109,10 @@ var _ = Describe("VM watcher", func() {
 			)
 
 			// Tell the controller that there is a new VM
-			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			migrationCache.Add(vm)
-			queue.Add(key)
-			dispatch.Execute(migrationCache, queue, key)
+			vmCache.Add(vm)
+			vmQueue.Add(key)
+			vmController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			close(done)
@@ -128,9 +127,6 @@ var _ = Describe("VM watcher", func() {
 			vm.Status.Phase = v1.Scheduling
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 
-			// Add the VM to the cache
-			vmCache.Add(vm)
-
 			// Create a target Pod for the VM
 			temlateService, err := services.NewTemplateService("whatever")
 			Expect(err).ToNot(HaveOccurred())
@@ -138,18 +134,26 @@ var _ = Describe("VM watcher", func() {
 			pod, err = temlateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
 			pod.Spec.NodeName = "mynode"
+			pod.Status.Phase = kubev1.PodRunning
+			pods := clientv1.PodList{
+				Items: []kubev1.Pod{*pod},
+			}
 
 			// Create the expected VM after the update
 			obj, err := conversion.NewCloner().DeepCopy(vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedVM := obj.(*v1.VM)
-			expectedVM.Status.Phase = v1.Pending
+			expectedVM.Status.Phase = v1.Scheduled
 			expectedVM.Status.NodeName = pod.Spec.NodeName
 			expectedVM.ObjectMeta.Labels = map[string]string{v1.NodeNameLabel: pod.Spec.NodeName}
 
 			// Register the expected REST call
 			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, pods),
+				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
 					ghttp.VerifyJSONRepresenting(expectedVM),
@@ -158,14 +162,12 @@ var _ = Describe("VM watcher", func() {
 			)
 
 			// Tell the controller that there is a new running Pod
+			key, _ := cache.MetaNamespaceKeyFunc(vm)
+			vmCache.Add(vm)
+			vmQueue.Add(key)
+			vmController.Execute()
 
-			queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-			key, _ := cache.MetaNamespaceKeyFunc(pod)
-			podCache.Add(pod)
-			queue.Add(key)
-			podDispatch.Execute(podCache, queue, key)
-
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			Expect(len(server.ReceivedRequests())).To(Equal(2))
 			close(done)
 		}, 10)
 	})
