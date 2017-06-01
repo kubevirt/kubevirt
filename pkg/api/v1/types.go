@@ -125,6 +125,13 @@ type VMStatus struct {
 	MigrationNodeName string        `json:"migrationNodeName,omitempty"`
 	Conditions        []VMCondition `json:"conditions,omitempty"`
 	Phase             VMPhase       `json:"phase"`
+	Graphics          []VMGraphics  `json:"graphics"`
+}
+
+type VMGraphics struct {
+	Type string `json:"type"`
+	Host string `json:"host"`
+	Port int32  `json:"port"`
 }
 
 // Required to satisfy Object interface

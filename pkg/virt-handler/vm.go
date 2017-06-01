@@ -25,6 +25,7 @@ import (
 
 	"github.com/jeevatkm/go-model"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -37,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
@@ -64,6 +66,61 @@ type VMHandlerDispatch struct {
 	restClient    rest.RESTClient
 	clientset     *kubernetes.Clientset
 	host          string
+}
+
+func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VM) (string, error) {
+	node, err := d.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
+	if err != nil {
+		logging.DefaultLogger().Error().Reason(err).Msgf("fetching source node %s failed", vm.Status.NodeName)
+		return "", err
+	}
+
+	addrStr := ""
+	for _, addr := range node.Status.Addresses {
+		if (addr.Type == kubev1.NodeInternalIP) && (addrStr == "") {
+			addrStr = addr.Address
+			break
+		}
+	}
+	if addrStr == "" {
+		err := fmt.Errorf("VM node is unreachable")
+		logging.DefaultLogger().Error().Msg("VM node is unreachable")
+		return "", err
+	}
+
+	return addrStr, nil
+}
+
+func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VM, cfg *api.DomainSpec) error {
+	obj, err := kubeapi.Scheme.Copy(vm)
+	if err != nil {
+		return err
+	}
+	vm = obj.(*v1.VM)
+	vm.Status.Phase = v1.Running
+
+	vm.Status.Graphics = []v1.VMGraphics{}
+
+	podIP, err := d.getVMNodeAddress(vm)
+	if err != nil {
+		return err
+	}
+
+	for _, src := range cfg.Devices.Graphics {
+		if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
+			continue
+		}
+		dst := v1.VMGraphics{
+			Type: src.Type,
+			Host: podIP,
+			Port: src.Port,
+		}
+		vm.Status.Graphics = append(vm.Status.Graphics, dst)
+	}
+
+	return d.restClient.Put().Resource("vms").Body(vm).
+		Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
+
 }
 
 func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
@@ -219,27 +276,12 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
-	err = d.domainManager.SyncVM(vm)
+	newCfg, err := d.domainManager.SyncVM(vm)
 	if err != nil {
 		return err
 	}
 
-	// Update VM status to running
-	if vm.Status.Phase != v1.Running {
-		obj, err := kubeapi.Scheme.Copy(vm)
-		if err != nil {
-			return err
-		}
-		vm = obj.(*v1.VM)
-		vm.Status.Phase = v1.Running
-		err = d.restClient.Put().Resource("vms").Body(vm).
-			Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return d.updateVMStatus(vm, newCfg)
 }
 
 func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName string) (bool, error) {

@@ -25,6 +25,10 @@ func (VMStatus) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VMGraphics) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (VMCondition) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
