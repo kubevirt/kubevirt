@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -34,6 +36,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
+
+func LibvirtdPodSelector() metav1.ListOptions {
+	labelSelector, err := labels.Parse("daemon=libvirt")
+	if err != nil {
+		panic(err)
+	}
+	return metav1.ListOptions{LabelSelector: labelSelector.String()}
+}
 
 var _ = Describe("Storage", func() {
 
@@ -69,6 +79,7 @@ var _ = Describe("Storage", func() {
 				&kubev1.PodLogOptions{TailLines: &tailLines}).
 			DoRaw()
 		Expect(err).To(BeNil())
+
 		return string(logsRaw)
 	}
 
@@ -89,9 +100,20 @@ var _ = Describe("Storage", func() {
 		// Let's get the IP of the pod of the VM
 		pods, err := coreClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
 		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
-		podIP := ""
+		hostIP := ""
 		for _, pod := range pods.Items {
 			if pod.ObjectMeta.DeletionTimestamp == nil {
+				hostIP = pod.Status.HostIP
+				break
+			}
+		}
+		Expect(hostIP).ToNot(BeEmpty())
+
+		// Let's get the IP of the pod of libvirtd
+		pods, err = coreClient.CoreV1().Pods(api.NamespaceDefault).List(LibvirtdPodSelector())
+		podIP := ""
+		for _, pod := range pods.Items {
+			if pod.Status.HostIP == hostIP {
 				podIP = pod.Status.PodIP
 				break
 			}

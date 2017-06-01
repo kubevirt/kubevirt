@@ -143,7 +143,7 @@ var _ = Describe("Template", func() {
 						refCommand := []string{
 							"/migrate", "testvm", "--source", "qemu+tcp://127.0.0.2/system",
 							"--dest", "qemu+tcp://127.0.0.3/system",
-							"--pod-ip", "127.0.0.1", "--namespace", "default"}
+							"--node-ip", "127.0.0.3", "--namespace", "default"}
 						Expect(job.Spec.Containers[0].Command).To(Equal(refCommand))
 					})
 				})

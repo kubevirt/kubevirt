@@ -6,8 +6,8 @@ do
 key="$1"
 
 case $key in
-    -p|--pod-ip)
-    POD_IP="$2"
+    -n|--node-ip)
+    NODE_IP="$2"
     shift
     ;;
     -s|--source)
@@ -29,16 +29,16 @@ esac
 shift
 done
 
-if [ -z $POD_IP ] || [ -z $DEST ] || [ -z $SOURCE ] || [ -z $VM ]  || [ -z $NAMESPACE ]; then
-echo "Usage: migrate DOMAIN --source SOURCE --dest DESTINATION --pod-ip POD_IP --namespace NAMESPACE"
+if [ -z $NODE_IP ] || [ -z $DEST ] || [ -z $SOURCE ] || [ -z $VM ] || [ -z $NAMESPACE ]; then
+echo "Usage: migrate DOMAIN --source SOURCE --dest DESTINATION --node-ip NODE_IP --namespace NAMESPACE"
 exit 1
 fi 
 DOMAIN=${NAMESPACE}_${VM}
 
 # Tell libvirt where qemu will listen for spice connections on the new host
 virsh -c $SOURCE dumpxml $DOMAIN > $DOMAIN.xml
-xmlstarlet ed --inplace -u  "/domain/devices/graphics[@type='spice']/@listen" -v $POD_IP $DOMAIN.xml
-xmlstarlet ed --inplace -u  "/domain/devices/graphics[@type='spice']/listen/@address" -v $POD_IP $DOMAIN.xml
+xmlstarlet ed --inplace -u  "/domain/devices/graphics[@type='spice']/@listen" -v $NODE_IP $DOMAIN.xml
+xmlstarlet ed --inplace -u  "/domain/devices/graphics[@type='spice']/listen/@address" -v $NODE_IP $DOMAIN.xml
 
 # Migrate
-virsh -c $SOURCE migrate --xml $DOMAIN.xml $DOMAIN $DEST tcp://$POD_IP
+virsh -c $SOURCE migrate --xml $DOMAIN.xml $DOMAIN $DEST tcp://$NODE_IP

@@ -21,8 +21,6 @@ package services
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
@@ -55,18 +53,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 		ImagePullPolicy: kubev1.PullIfNotPresent,
 		Command:         []string{"/virt-launcher", "-qemu-timeout", "60s"},
 	}
-
-	// Set up spice ports
-	ports := []kubev1.ContainerPort{}
-	for i, g := range vm.Spec.Domain.Devices.Graphics {
-		if strings.ToLower(g.Type) == "spice" {
-			ports = append(ports, kubev1.ContainerPort{
-				ContainerPort: g.Port,
-				Name:          "spice" + strconv.Itoa(i),
-			})
-		}
-	}
-	container.Ports = ports
 
 	// TODO use constants for labels
 	pod := kubev1.Pod{
@@ -135,7 +121,7 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 						"/migrate", vm.ObjectMeta.Name,
 						"--source", srcUri,
 						"--dest", destUri,
-						"--pod-ip", targetPod.Status.PodIP,
+						"--node-ip", dstAddr,
 						"--namespace", vm.ObjectMeta.Namespace,
 					},
 				},

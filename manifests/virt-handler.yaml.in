@@ -9,7 +9,6 @@ spec:
       labels:
         daemon: virt-handler
     spec:
-      hostNetwork: true
       containers:
       - name: virt-handler
         ports:

@@ -53,6 +53,7 @@ var _ = Describe("Console", func() {
 	var k8sClient k8scorev1.CoreV1Interface
 	var vm *v1.VM
 	var node *k8sv1.Node
+	var virtHandlerPod *k8sv1.Pod
 	var server *httptest.Server
 	var dial func(vm string, console string) *websocket.Conn
 	var get func(vm string) (*http.Response, error)
@@ -74,7 +75,19 @@ var _ = Describe("Console", func() {
 				Name: "testnode",
 			},
 		}
-		k8sClient = fake2.NewSimpleClientset(node).CoreV1()
+		virtHandlerPod = &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "virt-handerler-xkfoiw",
+				Namespace: k8sv1.NamespaceDefault,
+				Labels: map[string]string{
+					"daemon": "virt-handler",
+				},
+			},
+			Spec: k8sv1.PodSpec{
+				NodeName: node.ObjectMeta.Name,
+			},
+		}
+		k8sClient = fake2.NewSimpleClientset(node, virtHandlerPod).CoreV1()
 
 		ws := new(restful.WebService)
 		handler := http.Handler(restful.NewContainer().Add(ws))
@@ -101,16 +114,6 @@ var _ = Describe("Console", func() {
 		wsUrl, err := url.Parse(server.URL)
 		serverUrl, err := url.ParseRequestURI(server.URL)
 		Expect(err).ToNot(HaveOccurred())
-		// Use the test server url as virt-handler destination
-		node.Status = k8sv1.NodeStatus{
-			Addresses: []k8sv1.NodeAddress{
-				{
-					Type:    k8sv1.NodeInternalIP,
-					Address: strings.Split(serverUrl.Host, ":")[0],
-				},
-			},
-		}
-		k8sClient.Nodes().Update(node)
 		consoleResource.VirtHandlerPort = strings.Split(serverUrl.Host, ":")[1]
 
 		dial = func(vm string, console string) *websocket.Conn {
@@ -133,7 +136,6 @@ var _ = Describe("Console", func() {
 	It("Should proxy message through virt-api", func() {
 
 		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
-
 		ws := dial("testvm", "console0")
 		defer ws.Close()
 		ws.WriteMessage(websocket.TextMessage, []byte("hello echo!"))
@@ -167,22 +169,13 @@ var _ = Describe("Console", func() {
 	})
 
 	It("Should return 500 if we can't look up the node", func() {
+		k8sClient.Pods(k8sv1.NamespaceDefault).Delete(virtHandlerPod.GetObjectMeta().GetName(), nil)
 		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
 		vm.Status.NodeName = "nonexistentnode"
 		response, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(response.StatusCode).To(Equal(http.StatusInternalServerError))
-		Expect(body(response)).To(ContainSubstring("Node \"nonexistentnode\" not found"))
-	})
-
-	It("Should return 500 if we can't find an internal ip to connect to", func() {
-		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
-		node.Status.Addresses = []k8sv1.NodeAddress{}
-		k8sClient.Nodes().Update(node)
-		response, err := get("testvm")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(response.StatusCode).To(Equal(http.StatusInternalServerError))
-		Expect(body(response)).To(ContainSubstring("Could not find a connection IP"))
+		Expect(body(response)).To(ContainSubstring("Expected one virt-handler POD but got 0"))
 	})
 
 	AfterEach(func() {

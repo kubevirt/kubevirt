@@ -22,16 +22,11 @@ package rest
 import (
 	"flag"
 	"fmt"
-	"strings"
 
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -72,28 +67,13 @@ func spiceFromVM(vm *v1.VM, coreCli *kubernetes.Clientset) (*v1.Spice, error) {
 	}
 
 	// TODO allow specifying the spice device. For now select the first one.
-	for _, d := range vm.Spec.Domain.Devices.Graphics {
-		if strings.ToLower(d.Type) == "spice" {
-			port := d.Port
-			podList, err := coreCli.CoreV1().Pods(vm.GetObjectMeta().GetNamespace()).List(unfinishedVMPodSelector(vm))
-			if err != nil {
-				return nil, middleware.NewInternalServerError(err)
-			}
-
-			// The pod could just have failed now
-			if len(podList.Items) == 0 {
-				// TODO is that the right return code?
-				return nil, middleware.NewResourceNotFoundError("VM is not running")
-			}
-
-			pod := podList.Items[0]
-			ip := pod.Status.PodIP
-
+	for _, d := range vm.Status.Graphics {
+		if d.Type == "spice" {
 			spice := v1.NewSpice(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 			spice.Info = v1.SpiceInfo{
 				Type: "spice",
-				Host: ip,
-				Port: port,
+				Host: d.Host,
+				Port: d.Port,
 			}
 			if spiceProxy != "" {
 				spice.Info.Proxy = fmt.Sprintf("http://%s", spiceProxy)
@@ -103,16 +83,4 @@ func spiceFromVM(vm *v1.VM, coreCli *kubernetes.Clientset) (*v1.Spice, error) {
 	}
 
 	return nil, middleware.NewResourceNotFoundError("No spice device attached to the VM found.")
-}
-
-// TODO for now just copied from VMService
-func unfinishedVMPodSelector(vm *v1.VM) metav1.ListOptions {
-	fieldSelector := fields.ParseSelectorOrDie(
-		"status.phase!=" + string(kubev1.PodFailed) +
-			",status.phase!=" + string(kubev1.PodSucceeded))
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.DomainLabel+" in (%s)", vm.GetObjectMeta().GetName()))
-	if err != nil {
-		panic(err)
-	}
-	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }

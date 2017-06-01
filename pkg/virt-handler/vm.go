@@ -21,6 +21,7 @@ package virthandler
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/jeevatkm/go-model"
@@ -234,8 +235,14 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 				newDisk.Source.Protocol = "iscsi"
 
 				hostPort := strings.Split(pv.Spec.ISCSI.TargetPortal, ":")
+				ipAddrs, err := net.LookupIP(hostPort[0])
+				if err != nil || len(ipAddrs) < 1 {
+					logging.DefaultLogger().Error().Reason(err).Msgf("Unable to resolve host '%s'", hostPort[0])
+					return vm, fmt.Errorf("Unable to resolve host '%s': %s", hostPort[0], err)
+				}
+
 				newDisk.Source.Host = &v1.DiskSourceHost{}
-				newDisk.Source.Host.Name = hostPort[0]
+				newDisk.Source.Host.Name = ipAddrs[0].String()
 				if len(hostPort) > 1 {
 					newDisk.Source.Host.Port = hostPort[1]
 				}
@@ -244,6 +251,24 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 			} else {
 				logging.DefaultLogger().Object(vm).Error().Msg(fmt.Sprintf("Referenced PV %v is backed by an unsupported storage type", pv))
 			}
+		} else if disk.Type == "network" {
+			newDisk := v1.Disk{}
+			model.Copy(&newDisk, disk)
+
+			if disk.Source.Host == nil {
+				logging.DefaultLogger().Error().Msg("Missing disk source host")
+				return vm, fmt.Errorf("Missing disk source host")
+			}
+
+			ipAddrs, err := net.LookupIP(disk.Source.Host.Name)
+			if err != nil || ipAddrs == nil || len(ipAddrs) < 1 {
+				logging.DefaultLogger().Error().Reason(err).Msgf("Unable to resolve host '%s'", disk.Source.Host.Name)
+				return vm, fmt.Errorf("Unable to resolve host '%s': %s", disk.Source.Host.Name, err)
+			}
+
+			newDisk.Source.Host.Name = ipAddrs[0].String()
+
+			vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
 		}
 	}
 
