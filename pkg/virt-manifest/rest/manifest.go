@@ -92,10 +92,7 @@ func alive(_ context.Context, request interface{}) (interface{}, error) {
 func (m manifest) mapManifest(_ context.Context, request interface{}) (interface{}, error) {
 	vm := request.(*endpoints.PutObject).Payload.(*v1.VM)
 
-	virt_manifest.AddMinimalVMSpec(vm)
-
 	mappedVm, err := virt_manifest.MapVM(m.connection, vm)
-	mappedVm.Spec.Domain.Name = mappedVm.ObjectMeta.Name
 	if err != nil {
 		return nil, middleware.NewInternalServerError(err)
 	} else {
