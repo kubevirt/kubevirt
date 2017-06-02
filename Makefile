@@ -4,6 +4,7 @@ all: build manifests
 
 generate:
 	./hack/build-go.sh generate ${WHAT}
+	goimports -w -local kubevirt.io cmd/ pkg/ tests/
 
 build: sync fmt vet compile
 
