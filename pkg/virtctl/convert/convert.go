@@ -56,8 +56,6 @@ func (c *Convert) FlagSet() *flag.FlagSet {
 func (c *Convert) Usage() string {
 	usage := "Convert between KubeVirt and Libvirt VM representations:\n\n"
 	usage += "Examples:\n"
-	usage += "# Convert Domain xml to yaml via stdin\n"
-	usage += "virsh dumpxml testvm | virtctl convert-spec -f - -o yaml\n\n"
 	usage += "# Convert yaml into json from a http resource\n"
 	usage += "virtctl convert-spec -f http://127.0.0.1:4012/vm.yaml -o json\n\n"
 	usage += "# Convert VM specification from a yaml file into a Libvirt Domain XML\n"
@@ -95,8 +93,6 @@ func (c *Convert) Run(flags *flag.FlagSet) int {
 	}
 
 	switch inputFormat {
-	case XML:
-		decoder = fromXML
 	case JSON, YAML:
 		decoder = fromYAMLOrJSON
 	default:

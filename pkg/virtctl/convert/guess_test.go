@@ -37,7 +37,6 @@ var _ = Describe("Guess", func() {
 		Expect(t).To(Equal(detected))
 		Expect(ioutil.ReadAll(reader)).To(Equal(b))
 	},
-		table.Entry("Should detect a XML stream", "    <xml></xml>", XML),
 		table.Entry("Should detect a JSON stream", `    {"a": "b"}`, JSON),
 		table.Entry("Should fall back to YAML if it is not a JSON or XML stream", `    a: "b"`, YAML),
 	)

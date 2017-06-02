@@ -40,6 +40,5 @@ var _ = Describe("Converter", func() {
 	},
 		table.Entry("Should convert to YAML and back to struct", vm, toYAML, fromYAMLOrJSON, vm),
 		table.Entry("Should convert to JSON and back to struct", vm, toJSON, fromYAMLOrJSON, vm),
-		table.Entry("Should convert to XML and back to struct", vm, toXML, fromXML, vm),
 	)
 })

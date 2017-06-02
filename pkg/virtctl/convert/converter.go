@@ -41,20 +41,6 @@ const (
 	JSON        Type = "json"
 )
 
-func fromXML(reader io.Reader) (vm *virt.VM, err error) {
-	domainSpec := api.DomainSpec{}
-	err = xml.NewDecoder(reader).Decode(&domainSpec)
-	if err != nil {
-		return
-	}
-	vm = virt.NewMinimalVM(domainSpec.Name)
-	if e := model.Copy(vm.Spec.Domain, &domainSpec); len(e) > 0 {
-		err = e[0]
-		return
-	}
-	return
-}
-
 func fromYAMLOrJSON(reader io.Reader) (vm *virt.VM, err error) {
 	vm = new(virt.VM)
 	err = yaml.NewYAMLOrJSONDecoder(reader, 100).Decode(vm)
