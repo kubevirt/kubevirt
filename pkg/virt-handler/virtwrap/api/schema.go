@@ -126,7 +126,6 @@ const (
 type Domain struct {
 	metav1.TypeMeta
 	ObjectMeta kubev1.ObjectMeta
-	Spec       DomainSpec
 	Status     DomainStatus
 }
 
@@ -456,14 +455,11 @@ func NewMinimalDomain(name string) *Domain {
 }
 
 func NewMinimalDomainWithNS(namespace string, name string) *Domain {
-	domain := NewDomainReferenceFromName(namespace, name)
-	domain.Spec = *NewMinimalDomainSpec(name)
-	return domain
+	return NewDomainReferenceFromName(namespace, name)
 }
 
 func NewDomainReferenceFromName(namespace string, name string) *Domain {
 	return &Domain{
-		Spec: DomainSpec{},
 		ObjectMeta: kubev1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,

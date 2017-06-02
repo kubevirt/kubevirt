@@ -85,11 +85,6 @@ func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWat
 			if err != nil {
 				return nil, err
 			}
-			spec, err := NewDomainSpec(dom)
-			if err != nil {
-				return nil, err
-			}
-			domain.Spec = *spec
 			status, reason, err := dom.GetState()
 			if err != nil {
 				return nil, err
@@ -200,20 +195,6 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 		libvirt.DOMAIN_EVENT_SHUTDOWN,
 		libvirt.DOMAIN_EVENT_CRASHED,
 		libvirt.DOMAIN_EVENT_UNDEFINED:
-		// We can't count on a domain xml in these cases, but let's try it
-		if event.Event != libvirt.DOMAIN_EVENT_UNDEFINED {
-			spec, err := NewDomainSpec(d)
-			if err != nil {
-
-				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
-					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
-					watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
-					return
-				}
-			} else {
-				domain.Spec = *spec
-			}
-		}
 		status, reason, err := d.GetState()
 		if err != nil {
 
@@ -227,12 +208,6 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 			domain.SetState(convState(status), convReason(status, reason))
 		}
 	default:
-		spec, err := NewDomainSpec(d)
-		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
-			return
-		}
-		domain.Spec = *spec
 		status, reason, err := d.GetState()
 		if err != nil {
 			logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
