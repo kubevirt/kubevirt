@@ -48,7 +48,10 @@
         ],
         "consoles": [
           {
-            "type": "pty"
+            "target":
+            {
+              "port": 0
+            }
           }
         ]
       },

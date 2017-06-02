@@ -101,7 +101,6 @@ type DiskSourceHost struct {
 // BEGIN Serial -----------------------------
 
 type Serial struct {
-	Type   string        `json:"type"`
 	Target *SerialTarget `json:"target,omitempty"`
 }
 
@@ -114,7 +113,6 @@ type SerialTarget struct {
 // BEGIN Console -----------------------------
 
 type Console struct {
-	Type   string         `json:"type"`
 	Target *ConsoleTarget `json:"target,omitempty"`
 }
 

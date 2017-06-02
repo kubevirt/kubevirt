@@ -455,7 +455,6 @@ func NewRandomVMWithSerialConsole() *v1.VM {
 	vm := NewRandomVMWithPVC("disk-cirros")
 	vm.Spec.Domain.Devices.Serials = []v1.Serial{
 		{
-			Type: "pty",
 			Target: &v1.SerialTarget{
 				Port: newUInt(0),
 			},
@@ -463,7 +462,6 @@ func NewRandomVMWithSerialConsole() *v1.VM {
 	}
 	vm.Spec.Domain.Devices.Consoles = []v1.Console{
 		{
-			Type: "pty",
 			Target: &v1.ConsoleTarget{
 				Type: newString("serial"),
 				Port: newUInt(0),

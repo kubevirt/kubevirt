@@ -28,7 +28,8 @@ spec:
         target:
           dev: vda
       consoles:
-      - type: pty
+      - target:
+          port: 0
     memory:
       unit: MB
       value: 64
