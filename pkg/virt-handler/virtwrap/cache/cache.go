@@ -20,7 +20,6 @@
 package cache
 
 import (
-	"encoding/xml"
 	"strings"
 
 	"github.com/libvirt/libvirt-go"
@@ -130,20 +129,6 @@ func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, er
 		logging.DefaultLogger().Info().V(2).Msg("Lifecycle event callback registered.")
 	}
 	return watcher, err
-}
-
-func NewDomainSpec(dom virtwrap.VirDomain) (*api.DomainSpec, error) {
-	domain := api.DomainSpec{}
-	domxml, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
-	if err != nil {
-		return nil, err
-	}
-	err = xml.Unmarshal([]byte(domxml), &domain)
-	if err != nil {
-		return nil, err
-	}
-
-	return &domain, nil
 }
 
 // SplitVMNamespaceKey returns the namespace and name that is encoded in the
