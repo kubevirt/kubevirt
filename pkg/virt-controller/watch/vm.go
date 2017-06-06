@@ -166,11 +166,8 @@ func (c *VMController) execute(key string) error {
 		// TODO move defaulting to virt-api
 		// TODO move constants to virt-handler and remove from the spec
 		if vmCopy.Spec.Domain == nil {
-			spec := kubev1.NewMinimalDomainSpec(vmCopy.GetObjectMeta().GetName())
-			vmCopy.Spec.Domain = spec
+			vmCopy.Spec.Domain = kubev1.NewMinimalDomainSpec()
 		}
-		vmCopy.Spec.Domain.UUID = string(vmCopy.GetObjectMeta().GetUID())
-		vmCopy.Spec.Domain.Name = vmCopy.GetObjectMeta().GetName()
 
 		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
