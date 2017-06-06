@@ -486,8 +486,7 @@ func NewRandomVMWithSpice() *v1.VM {
 	}
 	vm.Spec.Domain.Devices.Graphics = []v1.Graphics{
 		{
-			DefaultMode: "any",
-			Type:        "spice",
+			Type: "spice",
 		},
 	}
 	return vm

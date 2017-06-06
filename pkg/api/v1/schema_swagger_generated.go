@@ -114,10 +114,6 @@ func (Graphics) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (Listen) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Address) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }

@@ -20,7 +20,6 @@
 package watch
 
 import (
-	"strings"
 	"time"
 
 	"github.com/jeevatkm/go-model"
@@ -172,19 +171,6 @@ func (c *VMController) execute(key string) error {
 		}
 		vmCopy.Spec.Domain.UUID = string(vmCopy.GetObjectMeta().GetUID())
 		vmCopy.Spec.Domain.Name = vmCopy.GetObjectMeta().GetName()
-
-		// TODO when we move this to virt-api, we have to block that they are set on POST or changed on PUT
-		graphics := vmCopy.Spec.Domain.Devices.Graphics
-		for i, _ := range graphics {
-			if strings.ToLower(graphics[i].Type) == "spice" {
-				graphics[i].Port = int32(4000) + int32(i)
-				graphics[i].Listen = kubev1.Listen{
-					Address: "0.0.0.0",
-					Type:    "address",
-				}
-
-			}
-		}
 
 		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(&vmCopy); err != nil {

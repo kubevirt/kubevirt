@@ -203,9 +203,6 @@ type ChannelTarget struct {
 //END Channel --------------------
 
 //BEGIN Video -------------------
-/*
-<graphics autoport="yes" defaultMode="secure" listen="0" passwd="*****" passwdValidTo="1970-01-01T00:00:01" port="-1" tlsPort="-1" type="spice" />
-*/
 
 type Video struct {
 	Type   string `json:"type"`
@@ -216,19 +213,7 @@ type Video struct {
 }
 
 type Graphics struct {
-	AutoPort      string `json:"autoPort,omitempty"`
-	DefaultMode   string `json:"defaultMode,omitempty"`
-	Listen        Listen `json:"listen,omitempty"`
-	PasswdValidTo string `json:"passwdValidTo,omitempty"`
-	Port          int32  `json:"port,omitempty"`
-	TLSPort       int    `json:"tlsPort,omitempty"`
-	Type          string `json:"type"`
-}
-
-type Listen struct {
-	Type    string `json:"type"`
-	Address string `json:"address,omitempty"`
-	Network string `json:"network,omitempty"`
+	Type string `json:"type"`
 }
 
 type Address struct {
