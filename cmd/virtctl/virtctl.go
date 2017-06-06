@@ -26,25 +26,27 @@ func main() {
 		"convert-spec": convert.NewConvertCommand(),
 	}
 
-	for cmd, app := range registry {
-		f := app.FlagSet()
-		f.Bool("help", false, "Print usage.")
-		f.MarkHidden("help")
-		f.Usage = func() {
-			fmt.Fprint(os.Stderr, app.Usage())
-		}
+	if len(os.Args) > 1 {
+		for cmd, app := range registry {
+			f := app.FlagSet()
+			f.Bool("help", false, "Print usage.")
+			f.MarkHidden("help")
+			f.Usage = func() {
+				fmt.Fprint(os.Stderr, app.Usage())
+			}
 
-		if os.Args[1] != cmd {
-			continue
-		}
-		flags, err := Parse(f)
+			if os.Args[1] != cmd {
+				continue
+			}
+			flags, err := Parse(f)
 
-		h, _ := flags.GetBool("help")
-		if h || err != nil {
-			f.Usage()
-			return
+			h, _ := flags.GetBool("help")
+			if h || err != nil {
+				f.Usage()
+				return
+			}
+			os.Exit(app.Run(flags))
 		}
-		os.Exit(app.Run(flags))
 	}
 
 	Usage()
