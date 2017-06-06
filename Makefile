@@ -46,4 +46,13 @@ check: check-bash vet
 check-bash:
 	find . -name \*.sh -exec bash -n \{\} \;
 
-.PHONY: build fmt test clean distclean sync docker manifests vet publish
+vagrant-sync-config:
+	./cluster/vagrant/sync_config.sh
+
+vagrant-sync-build: build
+	./cluster/vagrant/sync_build.sh
+
+vagrant-deploy: vagrant-sync-config vagrant-sync-build
+	export KUBECTL="cluster/kubectl.sh --core" && ./cluster/deploy.sh
+
+.PHONY: build fmt test clean distclean sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy
