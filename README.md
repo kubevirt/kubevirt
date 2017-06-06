@@ -83,6 +83,19 @@ of options:
  * [Libvirt][libvirt]
  * [Cockpit][cockpit]
 
+## Submitting patches
+
+When sending patches to the project, the submitter is required to certify that
+they have the legal right to submit the code. This is achieved by adding a line
+
+    Signed-off-by: Real Name <email@address.com>
+
+to the bottom of every commit message. Existance of such a line certifies
+that the submitter has complied with the Developer's Certificate of Origin 1.1,
+(as defined in the file docs/developer-certificate-of-origin).
+
+This line can be automatically added to a commit in the correct format, by
+using the '-s' option to 'git commit'.
 
 ## License
 
