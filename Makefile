@@ -55,4 +55,7 @@ vagrant-sync-build: build
 vagrant-deploy: vagrant-sync-config vagrant-sync-build
 	export KUBECTL="cluster/kubectl.sh --core" && ./cluster/deploy.sh
 
-.PHONY: build fmt test clean distclean sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy
+vagrant-test:
+	./cluster/run_tests.sh
+
+.PHONY: build fmt test clean distclean sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy vagrant-test
