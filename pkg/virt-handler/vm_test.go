@@ -28,20 +28,15 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeapi "k8s.io/client-go/pkg/api"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/testutil"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 
@@ -62,7 +57,8 @@ var _ = Describe("VM", func() {
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
-		server = ghttp.NewServer()
+		var err error
+		server = testutil.NewKubeServer([]testutil.Resource{})
 		host := ""
 
 		coreClient, err := kubecli.GetFromFlags(server.URL(), "")
@@ -99,12 +95,7 @@ var _ = Describe("VM", func() {
 		It("should leave the Domain alone if the VM is migrating to its host", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.MigrationNodeName = "master"
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
+			testutil.AddServerResource(server, vm)
 			vmStore.Add(vm)
 			dispatch.Execute(vmStore, vmQueue, "default/testvm")
 
@@ -143,54 +134,14 @@ var _ = Describe("PVC", func() {
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	var (
-		expectedPVC kubev1.PersistentVolumeClaim
-		expectedPV  kubev1.PersistentVolume
-		server      *ghttp.Server
+		server *ghttp.Server
 	)
 
 	BeforeEach(func() {
-		expectedPVC = kubev1.PersistentVolumeClaim{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "PersistentVolumeClaim",
-				APIVersion: "v1",
-			},
-			Spec: kubev1.PersistentVolumeClaimSpec{
-				VolumeName: "disk-01",
-			},
-			Status: kubev1.PersistentVolumeClaimStatus{
-				Phase: kubev1.ClaimBound,
-			},
-		}
-
-		source := kubev1.ISCSIVolumeSource{
-			IQN:          "iqn.2009-02.com.test:for.all",
-			Lun:          1,
-			TargetPortal: "127.0.0.1:6543",
-		}
-
-		expectedPV = kubev1.PersistentVolume{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "PersistentVolume",
-				APIVersion: "v1",
-			},
-			Spec: kubev1.PersistentVolumeSpec{
-				PersistentVolumeSource: kubev1.PersistentVolumeSource{
-					ISCSI: &source,
-				},
-			},
-		}
-
-		server = ghttp.NewServer()
-		server.AppendHandlers(
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/persistentvolumeclaims/test-claim"),
-				ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPVC),
-			),
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/api/v1/persistentvolumes/disk-01"),
-				ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPV),
-			),
-		)
+		server = testutil.NewKubeServer([]testutil.Resource{
+			&testutil.TestPersistentVolumeClaimISCSI,
+			&testutil.TestPersistentVolumeISCSI,
+		})
 	})
 
 	AfterEach(func() {
@@ -204,7 +155,7 @@ var _ = Describe("PVC", func() {
 			disk := v1.Disk{
 				Type: "PersistentVolumeClaim",
 				Source: v1.DiskSource{
-					Name: "test-claim",
+					Name: testutil.TestPersistentVolumeClaimISCSI.ObjectMeta.Name,
 				},
 				Target: v1.DiskTarget{
 					Device: "vda",
@@ -216,7 +167,8 @@ var _ = Describe("PVC", func() {
 			domain.Devices.Disks = []v1.Disk{disk}
 			vm.Spec.Domain = &domain
 
-			restClient := getRestClient(server.URL())
+			restClient, err := testutil.NewKubeRESTClient(server.URL())
+			Expect(err).NotTo(HaveOccurred())
 			vmCopy, err := MapPersistentVolumes(&vm, restClient, kubeapi.NamespaceDefault)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -231,19 +183,6 @@ var _ = Describe("PVC", func() {
 		})
 	})
 })
-
-func getRestClient(url string) *rest.RESTClient {
-	gv := schema.GroupVersion{Group: "", Version: "v1"}
-	restConfig, err := clientcmd.BuildConfigFromFlags(url, "")
-	Expect(err).NotTo(HaveOccurred())
-	restConfig.GroupVersion = &gv
-	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: kubeapi.Codecs}
-	restConfig.APIPath = "/api"
-	restConfig.ContentType = runtime.ContentTypeJSON
-	restClient, err := rest.RESTClientFor(restConfig)
-	Expect(err).NotTo(HaveOccurred())
-	return restClient
-}
 
 func TestVMs(t *testing.T) {
 	RegisterFailHandler(Fail)
