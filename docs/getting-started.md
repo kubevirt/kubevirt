@@ -78,7 +78,7 @@ Vagrant environment:
 ```bash
     # Building and deploying kubevirt in Vagrant
     vagrant up
-    cluster/sync.sh
+    make vagrant-deploy
 ```
 
 This will create a VM called `master` which acts as Kubernetes master and then
@@ -99,7 +99,7 @@ You could also run some build steps individually:
     make
 
     # Or to build just one binary
-    make build WHAT=virt-controller
+    make build WHAT=cmd/virt-controller
 
     # To build all docker images
     make docker
