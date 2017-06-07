@@ -38,6 +38,7 @@ type DomainSpec struct {
 	SysInfo *SysInfo `json:"sysInfo,omitempty"`
 	Devices Devices  `json:"devices"`
 	Clock   *Clock   `json:"clock,omitempty"`
+	XML     string   `json:"xml"`
 }
 
 type Memory struct {

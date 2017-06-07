@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
@@ -260,6 +261,11 @@ type LibvirtDomainManager struct {
 	recorder record.EventRecorder
 }
 
+type OvirtDomainManager struct {
+	virConn  Connection
+	recorder record.EventRecorder
+}
+
 func waitForLibvirt(uri string, user string, pass string, timeout time.Duration) error {
 	interval := 10 * time.Second
 	return utilwait.PollImmediate(interval, timeout, func() (done bool, err error) {
@@ -319,6 +325,11 @@ func newConnection(uri string, user string, pass string) (*libvirt.Connect, erro
 
 func NewLibvirtDomainManager(connection Connection, recorder record.EventRecorder) (DomainManager, error) {
 	manager := LibvirtDomainManager{virConn: connection, recorder: recorder}
+	return &manager, nil
+}
+
+func NewOvirtDomainManager(connection Connection, recorder record.EventRecorder) (DomainManager, error) {
+	manager := OvirtDomainManager{virConn: connection, recorder: recorder}
 	return &manager, nil
 }
 
@@ -423,4 +434,126 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	logging.DefaultLogger().Object(vm).Info().Msg("Domain undefined.")
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
+}
+
+func (l *OvirtDomainManager) SyncVM(vm *v1.VM) error {
+	// This is mostly a copy of LibvirtDomainManagers SyncVM.
+	// We should figure out how much of the functionality we'll duplicate and eventually create some actions based on driver (libvirt/ovirt).
+
+	// Strict assumption: the VM XML name will be == vm.GetObjectMeta().GetName().
+	dom, err := l.virConn.LookupDomainByName(vm.GetObjectMeta().GetName())
+	if err != nil {
+		// We need the domain but it does not exist, so create it
+		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
+			err := executeVdsmCommand([]string{"-c", "echo $(PARAMS)"}, kubev1.EnvVar{
+				Name: "PARAMS", Value: "\"{\\\"vmID\\\":\\\"1234\\\",\\\"vmParams\\\":{\\\"xml\\\":\\\"" + vm.Spec.Domain.XML + "\\\"}}\""},
+			)
+			if err != nil {
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Failed creating the domain through VDSM.")
+			} else {
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Successfully created the domain through VDSM.")
+			}
+		} else {
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
+			return err
+		}
+	}
+	defer dom.Free()
+
+	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
+	return nil
+}
+
+func (l *OvirtDomainManager) KillVM(vm *v1.VM) error {
+	// Similar to OvirtDomainManager.SyncVM in a sense that it is a copy of LibvirtDomainManager.KillVM with few changes.
+	// TODO: figure out how to accomplish this without duplicated code and how feasible it is.
+
+	dom, err := l.virConn.LookupDomainByName(vm.GetObjectMeta().GetName())
+	if err != nil {
+		// If the VM does not exist, we are done
+		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
+			return nil
+		} else {
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
+			return err
+		}
+	}
+	defer dom.Free()
+	domState, _, err := dom.GetState()
+	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
+		return err
+	}
+
+	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
+		err := executeVdsmCommand([]string{"vdsm-client", "VM", "destroy"}, kubev1.EnvVar{Name: "TEST", Value: "test"})
+		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Destroying the domain state failed.")
+			return err
+		}
+		logging.DefaultLogger().Object(vm).Info().Msg("Domain stopped.")
+		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Stopped.String(), "VM stopped")
+	}
+	return nil
+}
+
+func executeVdsmCommand(command []string, env kubev1.EnvVar) error {
+	coreCli, err := kubecli.Get()
+	job := renderVdsmCommandJob(command, env)
+	_, err = coreCli.Pods(kubev1.NamespaceDefault).Create(job)
+	return err
+}
+
+func renderVdsmCommandJob(command []string, env kubev1.EnvVar) *kubev1.Pod {
+	job := kubev1.Pod{
+		ObjectMeta: kubev1.ObjectMeta{
+			GenerateName: "vdsm-client",
+			Labels: map[string]string{
+				v1.AppLabel: "vdsm-client",
+			},
+		},
+		Spec: kubev1.PodSpec{
+			RestartPolicy: kubev1.RestartPolicyNever,
+			HostNetwork:   true,
+			Containers: []kubev1.Container{
+				{
+					Name:    "vdsm-client",
+					Image:   "kubevirt/vdsm-client:devel",
+					Command: []string{"/bin/sh"},
+					Args:    command,
+					Env: []kubev1.EnvVar{
+						env,
+					},
+					VolumeMounts: []kubev1.VolumeMount{
+						{
+							MountPath: "/etc/pki",
+							Name:      "etc-pki",
+							ReadOnly:  true,
+						},
+						{
+							MountPath: "/usr/lib",
+							Name:      "usr-lib",
+							ReadOnly:  true,
+						},
+					},
+				},
+			},
+			Volumes: []kubev1.Volume{
+				{
+					Name: "etc-pki",
+					VolumeSource: kubev1.VolumeSource{
+						HostPath: &kubev1.HostPathVolumeSource{Path: "/etc/pki"},
+					},
+				},
+				{
+					Name: "usr-lib",
+					VolumeSource: kubev1.VolumeSource{
+						HostPath: &kubev1.HostPathVolumeSource{Path: "/usr/lib"},
+					},
+				},
+			},
+		},
+	}
+
+	return &job
 }

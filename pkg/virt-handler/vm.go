@@ -118,7 +118,9 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	if !exists {
 		// Since the VM was not in the cache, we delete it
 		err = d.domainManager.KillVM(vm)
+		logging.DefaultLogger().V(3).Info().Object(vm).Msg("Killing VM.")
 	} else if isWorthSyncing(vm) {
+		logging.DefaultLogger().V(3).Info().Object(vm).Msg("Syncing VM.")
 		// Synchronize the VM state
 		vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
 
@@ -128,6 +130,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 			// Only sync if the VM is not marked as migrating. Everything except shutting down the VM is not permitted when it is migrating.
 			// TODO MigrationNodeName should be a pointer
 			if vm.Status.MigrationNodeName == "" {
+				logging.DefaultLogger().V(3).Info().Object(vm).Msg("Syncing VM for real.")
 				err = d.domainManager.SyncVM(vm)
 			} else {
 				queue.Forget(key)

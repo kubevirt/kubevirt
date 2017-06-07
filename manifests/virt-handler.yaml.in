@@ -25,6 +25,8 @@ spec:
           - "qemu:///system"
           - "--hostname-override"
           - "$(NODE_NAME)"
+          - "--driver"
+          - "ovirt"
         securityContext:
           privileged: true
         volumeMounts:
