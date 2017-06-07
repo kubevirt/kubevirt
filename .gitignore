@@ -17,3 +17,6 @@ cluster/vagrant/.kubectl
 cluster/.console.vv
 build-tools/desc/desc
 tags
+box/Vagrantfile
+box/*.box
+create_box.sh
