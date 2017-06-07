@@ -105,12 +105,27 @@ var _ = Describe("Domain", func() {
 							Disks: []apiv1.Disk{
 								{
 									Device: "disk",
-									Type:   "PersistentVolumeClaim",
 									Source: apiv1.DiskSource{
-										Name: testutil.TestPersistentVolumeClaimISCSI.ObjectMeta.Name,
+										PersistentVolumeClaim: &apiv1.DiskSourcePersistentVolumeClaim{
+											ClaimName: testutil.TestPersistentVolumeClaimISCSI.ObjectMeta.Name,
+										},
 									},
 									Target: apiv1.DiskTarget{
 										Device: "vda",
+										Bus:    "virtio",
+									},
+								},
+								{
+									Device: "disk",
+									Source: apiv1.DiskSource{
+										ISCSI: &apiv1.DiskSourceISCSI{
+											TargetPortal: "127.0.0.1:6543",
+											Lun:          2,
+											IQN:          "iqn.2009-02.com.test:for.all",
+										},
+									},
+									Target: apiv1.DiskTarget{
+										Device: "vdb",
 										Bus:    "virtio",
 									},
 								},
@@ -149,6 +164,12 @@ var _ = Describe("Domain", func() {
 				`        <host transport="tcp" name="127.0.0.1" port="6543"></host>`,
 				`      </source>`,
 				`      <target dev="vda" bus="virtio"></target>`,
+				`    </disk>`,
+				`    <disk type="network" device="disk">`,
+				`      <source protocol="iscsi" name="iqn.2009-02.com.test:for.all/2">`,
+				`        <host transport="tcp" name="127.0.0.1" port="6543"></host>`,
+				`      </source>`,
+				`      <target dev="vdb" bus="virtio"></target>`,
 				`    </disk>`,
 				`  </devices>`,
 				`</domain>`,

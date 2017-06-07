@@ -53,7 +53,6 @@ type Devices struct {
 type Disk struct {
 	Device   string      `json:"device"`
 	Snapshot string      `json:"snapshot,omitempty"`
-	Type     string      `json:"type"`
 	Source   DiskSource  `json:"source"`
 	Target   DiskTarget  `json:"target"`
 	Serial   string      `json:"serial,omitempty"`
@@ -63,12 +62,20 @@ type Disk struct {
 
 type ReadOnly struct{}
 
+// This generally follows style of k8s VolumeSource struct
 type DiskSource struct {
-	File          string          `json:"file,omitempty"`
-	StartupPolicy string          `json:"startupPolicy,omitempty"`
-	Protocol      string          `json:"protocol,omitempty"`
-	Name          string          `json:"name,omitempty"`
-	Host          *DiskSourceHost `json:"host,omitempty"`
+	PersistentVolumeClaim *DiskSourcePersistentVolumeClaim `json:"persistentVolumeClaim,omitempty"`
+	ISCSI                 *DiskSourceISCSI                 `json:"iscsi,omitempty"`
+}
+
+type DiskSourcePersistentVolumeClaim struct {
+	ClaimName string `json:"string"`
+}
+
+type DiskSourceISCSI struct {
+	TargetPortal string `json:"targetPortal"`
+	IQN          string `json:"iqn"`
+	Lun          int32  `json:"lun"`
 }
 
 type DiskTarget struct {

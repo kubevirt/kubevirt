@@ -333,7 +333,7 @@ func (d *DomainDesigner) applyGraphicsConfig(src *apiv1.Graphics) error {
 	return nil
 }
 
-func (d *DomainDesigner) buildDiskConfigISCSI(src *kubev1.ISCSIVolumeSource) (*libvirtxml.DomainDisk, error) {
+func (d *DomainDesigner) buildDiskConfigPVCISCSI(src *kubev1.ISCSIVolumeSource) (*libvirtxml.DomainDisk, error) {
 	logging.DefaultLogger().Info().Msg("Mapping iSCSI PVC")
 
 	host, port, err := net.SplitHostPort(src.TargetPortal)
@@ -357,18 +357,14 @@ func (d *DomainDesigner) buildDiskConfigISCSI(src *kubev1.ISCSIVolumeSource) (*l
 	}, nil
 }
 
-func (d *DomainDesigner) buildDiskConfig(src *apiv1.Disk) (*libvirtxml.DomainDisk, error) {
-	if src.Type != "PersistentVolumeClaim" {
-		return nil, fmt.Errorf("Unsupported disk type '%s'", src.Type)
-	}
-
-	logging.DefaultLogger().V(3).Info().Msgf("Mapping PersistentVolumeClaim: %s", src.Source.Name)
+func (d *DomainDesigner) buildDiskConfigPVC(src *apiv1.DiskSourcePersistentVolumeClaim) (*libvirtxml.DomainDisk, error) {
+	logging.DefaultLogger().V(3).Info().Msgf("Mapping PersistentVolumeClaim: %s", src.ClaimName)
 
 	// Look up existing persistent volume
-	obj, err := d.Client.Get().Namespace(d.Namespace).Resource("persistentvolumeclaims").Name(src.Source.Name).Do().Get()
+	obj, err := d.Client.Get().Namespace(d.Namespace).Resource("persistentvolumeclaims").Name(src.ClaimName).Do().Get()
 	if err != nil {
-		logging.DefaultLogger().Error().Reason(err).Msgf("unable to look up persistent volume claim %s", src.Source.Name)
-		return nil, fmt.Errorf("unable to look up persistent volume claim %s: %v", src.Source.Name, err)
+		logging.DefaultLogger().Error().Reason(err).Msgf("unable to look up persistent volume claim %s", src.ClaimName)
+		return nil, fmt.Errorf("unable to look up persistent volume claim %s: %v", src.ClaimName, err)
 	}
 
 	pvc := obj.(*kubev1.PersistentVolumeClaim)
@@ -388,10 +384,44 @@ func (d *DomainDesigner) buildDiskConfig(src *apiv1.Disk) (*libvirtxml.DomainDis
 	pv := obj.(*kubev1.PersistentVolume)
 
 	if pv.Spec.ISCSI != nil {
-		return d.buildDiskConfigISCSI(pv.Spec.ISCSI)
+		return d.buildDiskConfigPVCISCSI(pv.Spec.ISCSI)
 	} else {
 		logging.DefaultLogger().Error().Msg(fmt.Sprintf("Referenced PV %v is backed by an unsupported storage type", pvc.Spec.VolumeName))
 		return nil, fmt.Errorf("Referenced PV %v is backed by an unsupported storage type", pvc.Spec.VolumeName)
+	}
+}
+
+func (d *DomainDesigner) buildDiskConfigISCSI(src *apiv1.DiskSourceISCSI) (*libvirtxml.DomainDisk, error) {
+	logging.DefaultLogger().Info().Msg("Mapping iSCSI")
+
+	host, port, err := net.SplitHostPort(src.TargetPortal)
+	if err != nil {
+		return nil, err
+	}
+
+	return &libvirtxml.DomainDisk{
+		Type: "network",
+		Source: &libvirtxml.DomainDiskSource{
+			Protocol: "iscsi",
+			Name:     fmt.Sprintf("%s/%d", src.IQN, src.Lun),
+			Hosts: []libvirtxml.DomainDiskSourceHost{
+				libvirtxml.DomainDiskSourceHost{
+					Transport: "tcp",
+					Name:      host,
+					Port:      port,
+				},
+			},
+		},
+	}, nil
+}
+
+func (d *DomainDesigner) buildDiskConfig(src *apiv1.Disk) (*libvirtxml.DomainDisk, error) {
+	if src.Source.PersistentVolumeClaim != nil {
+		return d.buildDiskConfigPVC(src.Source.PersistentVolumeClaim)
+	} else if src.Source.ISCSI != nil {
+		return d.buildDiskConfigISCSI(src.Source.ISCSI)
+	} else {
+		return nil, fmt.Errorf("No disk source provided")
 	}
 }
 
@@ -418,8 +448,6 @@ func (d *DomainDesigner) applyDiskConfig(src *apiv1.Disk) error {
 	if src.ReadOnly != nil {
 		dst.ReadOnly = &libvirtxml.DomainDiskReadOnly{}
 	}
-
-	dst.Source.StartupPolicy = src.Source.StartupPolicy
 
 	dst.Target = &libvirtxml.DomainDiskTarget{
 		Dev: src.Target.Device,

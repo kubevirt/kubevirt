@@ -18,17 +18,15 @@
             },
             "snapshot": "external",
             "source": {
-              "host": {
-                "name": "iscsi-demo-target",
-                "port": "3260"
-              },
-              "name": "iqn.2017-01.io.kubevirt:sn.42/2",
-              "protocol": "iscsi"
+              "iscsi": {
+                "targetPortal": "iscsi-demo-target.default:3260",
+                "iqn": "iqn.2017-01.io.kubevirt:sn.42",
+                "lun": 2
+              }
             },
             "target": {
               "dev": "vda"
-            },
-            "type": "network"
+            }
           }
         ],
         "interfaces": [
