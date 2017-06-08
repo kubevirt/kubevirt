@@ -41,11 +41,12 @@ func main() {
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8182, "Port to listen on")
 	launcherImage := flag.String("launcher-image", "virt-launcher", "Shim container for containerized VMs")
+	migratorImage := flag.String("migrator-image", "virt-handler", "Container which orchestrates a VM migration")
 
 	logger := logging.DefaultLogger()
 	flag.Parse()
 
-	templateService, err := services.NewTemplateService(*launcherImage)
+	templateService, err := services.NewTemplateService(*launcherImage, *migratorImage)
 	if err != nil {
 		golog.Fatal(err)
 	}

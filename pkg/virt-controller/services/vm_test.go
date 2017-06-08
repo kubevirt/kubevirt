@@ -50,7 +50,7 @@ var _ = Describe("VM", func() {
 		config := rest.Config{}
 		config.Host = server.URL()
 		clientSet, _ := kubernetes.NewForConfig(&config)
-		templateService, _ := NewTemplateService("kubevirt/virt-launcher")
+		templateService, _ := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
 
 		vmService = NewVMService(clientSet, restClient, templateService)
