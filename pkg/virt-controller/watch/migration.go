@@ -355,6 +355,7 @@ func mergeConstraints(migration *kubev1.Migration, vm *kubev1.VM) error {
 func migrationJobLabelHandler(migrationQueue workqueue.RateLimitingInterface) func(obj interface{}) {
 	return func(obj interface{}) {
 		phase := obj.(*k8sv1.Pod).Status.Phase
+		namespace := obj.(*k8sv1.Pod).ObjectMeta.Namespace
 		appLabel, hasAppLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.AppLabel]
 		migrationLabel, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
 		_, hasDomainLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.DomainLabel]
@@ -371,13 +372,14 @@ func migrationJobLabelHandler(migrationQueue workqueue.RateLimitingInterface) fu
 			return
 		}
 
-		migrationQueue.Add(k8sv1.NamespaceDefault + "/" + migrationLabel)
+		migrationQueue.Add(namespace + "/" + migrationLabel)
 	}
 }
 
 func migrationPodLabelHandler(migrationQueue workqueue.RateLimitingInterface) func(obj interface{}) {
 	return func(obj interface{}) {
 		phase := obj.(*k8sv1.Pod).Status.Phase
+		namespace := obj.(*k8sv1.Pod).ObjectMeta.Namespace
 		appLabel, hasAppLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.AppLabel]
 		migrationLabel, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
 
@@ -390,6 +392,6 @@ func migrationPodLabelHandler(migrationQueue workqueue.RateLimitingInterface) fu
 			return
 		}
 
-		migrationQueue.Add(k8sv1.NamespaceDefault + "/" + migrationLabel)
+		migrationQueue.Add(namespace + "/" + migrationLabel)
 	}
 }
