@@ -103,28 +103,28 @@ func (_mr *_MockVMServiceRecorder) UpdateMigration(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateMigration", arg0)
 }
 
-func (_m *MockVMService) FetchVM(vmName string) (*v10.VM, bool, error) {
-	ret := _m.ctrl.Call(_m, "FetchVM", vmName)
+func (_m *MockVMService) FetchVM(namespace string, vmName string) (*v10.VM, bool, error) {
+	ret := _m.ctrl.Call(_m, "FetchVM", namespace, vmName)
 	ret0, _ := ret[0].(*v10.VM)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-func (_mr *_MockVMServiceRecorder) FetchVM(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FetchVM", arg0)
+func (_mr *_MockVMServiceRecorder) FetchVM(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FetchVM", arg0, arg1)
 }
 
-func (_m *MockVMService) FetchMigration(migrationName string) (*v10.Migration, bool, error) {
-	ret := _m.ctrl.Call(_m, "FetchMigration", migrationName)
+func (_m *MockVMService) FetchMigration(namespace string, migrationName string) (*v10.Migration, bool, error) {
+	ret := _m.ctrl.Call(_m, "FetchMigration", namespace, migrationName)
 	ret0, _ := ret[0].(*v10.Migration)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-func (_mr *_MockVMServiceRecorder) FetchMigration(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FetchMigration", arg0)
+func (_mr *_MockVMServiceRecorder) FetchMigration(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FetchMigration", arg0, arg1)
 }
 
 func (_m *MockVMService) StartMigration(migration *v10.Migration, vm *v10.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error {

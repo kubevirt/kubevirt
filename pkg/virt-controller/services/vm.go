@@ -49,8 +49,8 @@ type VMService interface {
 	GetRunningMigrationPods(*corev1.Migration) (*v1.PodList, error)
 	CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VM) error
 	UpdateMigration(migration *corev1.Migration) error
-	FetchVM(vmName string) (*corev1.VM, bool, error)
-	FetchMigration(migrationName string) (*corev1.Migration, bool, error)
+	FetchVM(namespace string, vmName string) (*corev1.VM, bool, error)
+	FetchMigration(namespace string, migrationName string) (*corev1.Migration, bool, error)
 	StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error
 	GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error)
 	PutVm(vm *corev1.VM) (*corev1.VM, error)
@@ -115,8 +115,8 @@ func (v *vmService) UpdateMigration(migration *corev1.Migration) error {
 	return err
 }
 
-func (v *vmService) FetchVM(vmName string) (*corev1.VM, bool, error) {
-	resp, err := v.RestClient.Get().Namespace(v1.NamespaceDefault).Resource("vms").Name(vmName).Do().Get()
+func (v *vmService) FetchVM(namespace string, vmName string) (*corev1.VM, bool, error) {
+	resp, err := v.RestClient.Get().Namespace(namespace).Resource("vms").Name(vmName).Do().Get()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, false, nil
@@ -127,8 +127,8 @@ func (v *vmService) FetchVM(vmName string) (*corev1.VM, bool, error) {
 	return vm, true, nil
 }
 
-func (v *vmService) FetchMigration(migrationName string) (*corev1.Migration, bool, error) {
-	resp, err := v.RestClient.Get().Namespace(v1.NamespaceDefault).Resource("migrations").Name(migrationName).Do().Get()
+func (v *vmService) FetchMigration(namespace string, migrationName string) (*corev1.Migration, bool, error) {
+	resp, err := v.RestClient.Get().Namespace(namespace).Resource("migrations").Name(migrationName).Do().Get()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, false, nil
