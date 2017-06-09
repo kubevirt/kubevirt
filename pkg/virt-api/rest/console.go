@@ -28,11 +28,11 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
+	k8sv1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api/v1"
-	k8sv1meta "k8s.io/client-go/pkg/apis/meta/v1"
 
-	"k8s.io/client-go/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"

@@ -24,7 +24,7 @@ import (
 	"net/http"
 
 	"github.com/emicklei/go-restful"
-	"k8s.io/client-go/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )

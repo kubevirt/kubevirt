@@ -24,19 +24,19 @@ import (
 	"runtime/debug"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/runtime/serializer"
-	"k8s.io/client-go/pkg/util/wait"
-	"k8s.io/client-go/pkg/util/workqueue"
-	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -103,7 +103,7 @@ func GetRESTClientFromFlags(master string, kubeconfig string) (*rest.RESTClient,
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
-	listFunc := func(options kubev1.ListOptions) (runtime.Object, error) {
+	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		return c.Get().
 			Namespace(namespace).
 			Resource(resource).
@@ -113,7 +113,7 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 			Do().
 			Get()
 	}
-	watchFunc := func(options kubev1.ListOptions) (watch.Interface, error) {
+	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		return c.Get().
 			Prefix("watch").
 			Namespace(namespace).
@@ -173,7 +173,7 @@ func NewResourceEventHandlerFuncsForFunc(f func(interface{})) cache.ResourceEven
 type Controller struct {
 	indexer  cache.Store
 	queue    workqueue.RateLimitingInterface
-	informer cache.ControllerInterface
+	informer cache.Controller
 	dispatch ControllerDispatch
 }
 
@@ -187,7 +187,7 @@ type ControllerDispatch interface {
 	Execute( /*cache*/ cache.Store /*queue*/, workqueue.RateLimitingInterface /*key*/, interface{})
 }
 
-func NewControllerFromInformer(indexer cache.Store, informer cache.ControllerInterface, queue workqueue.RateLimitingInterface, dispatch ControllerDispatch) (cache.Store, *Controller) {
+func NewControllerFromInformer(indexer cache.Store, informer cache.Controller, queue workqueue.RateLimitingInterface, dispatch ControllerDispatch) (cache.Store, *Controller) {
 	c := &Controller{
 		informer: informer,
 		indexer:  indexer,

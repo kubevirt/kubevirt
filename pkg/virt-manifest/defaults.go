@@ -20,7 +20,7 @@
 package virt_manifest
 
 import (
-	"k8s.io/client-go/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )

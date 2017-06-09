@@ -26,7 +26,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/client-go/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"

@@ -22,11 +22,12 @@ package services
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/rest"
 
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -143,7 +144,7 @@ func NewVMService() VMService {
 	return &svc
 }
 
-func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
+func UnfinishedVMPodSelector(vm *corev1.VM) metav1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodFailed) +
 			",status.phase!=" + string(v1.PodSucceeded))
@@ -151,7 +152,7 @@ func UnfinishedVMPodSelector(vm *corev1.VM) v1.ListOptions {
 	if err != nil {
 		panic(err)
 	}
-	return v1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }
 
 func (v *vmService) CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VM) error {
@@ -209,7 +210,7 @@ func (v *vmService) GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool,
 	return &podList.Items[0], true, nil
 }
 
-func unfinishedMigrationTargetPodSelector(migration *corev1.Migration) v1.ListOptions {
+func unfinishedMigrationTargetPodSelector(migration *corev1.Migration) metav1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodFailed) +
 			",status.phase!=" + string(v1.PodSucceeded))
@@ -218,15 +219,15 @@ func unfinishedMigrationTargetPodSelector(migration *corev1.Migration) v1.ListOp
 	if err != nil {
 		panic(err)
 	}
-	return v1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }
 
-func migrationJobSelector(migration *corev1.Migration) v1.ListOptions {
+func migrationJobSelector(migration *corev1.Migration) metav1.ListOptions {
 	labelSelector, err := labels.Parse(corev1.DomainLabel + "," + corev1.AppLabel + "=migration" +
 		"," + corev1.MigrationUIDLabel + "=" + string(migration.GetObjectMeta().GetUID()),
 	)
 	if err != nil {
 		panic(err)
 	}
-	return v1.ListOptions{LabelSelector: labelSelector.String()}
+	return metav1.ListOptions{LabelSelector: labelSelector.String()}
 }

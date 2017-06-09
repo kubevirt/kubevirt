@@ -91,6 +91,13 @@
 			"revisionTime": "2016-05-14T03:44:11Z"
 		},
 		{
+			"checksumSHA1": "URsJa4y/sUUw/STmbeYx9EKqaYE=",
+			"path": "github.com/golang/glog",
+			"revision": "44145f04b68cf362d9c4df2182967c2275eaefed",
+			"revisionTime": "2014-09-23T20:47:00Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "JSHl8b3nI8EWvzm+uyrIqj2Hiu4=",
 			"path": "github.com/golang/mock/gomock",
 			"revision": "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9",
@@ -349,12 +356,22 @@
 			"revisionTime": "2016-09-12T16:56:03Z"
 		},
 		{
-			"checksumSHA1": "q4wpVI0MTfqWAh8PGe0Mqi/F/Es=",
+			"checksumSHA1": "GhPrz8c5VPQmL8TJb47N48TYJH0=",
+			"origin": "github.com/kubernetes/apimachinery",
+			"path": "k8s.io/apimachinery",
+			"revision": "75b8dd260ef0469d96d578705a87cffd0e09dab8",
+			"revisionTime": "2017-03-21T21:09:47Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "sWR6z1PXXu3D3cEDYfSbf0QTHZc=",
 			"origin": "github.com/kubernetes/client-go",
 			"path": "k8s.io/client-go",
-			"revision": "24a02a6d7d2c9a21b12a3eb35c71c784e63825f4",
-			"revisionTime": "2017-01-02T15:19:42Z",
-			"tree": true
+			"revision": "3627aeb7d4f6ade38f995d2c923e459146493c7e",
+			"revisionTime": "2017-03-31T20:34:26Z",
+			"tree": true,
+			"version": "v3",
+			"versionExact": "v3.0.0-beta.0"
 		}
 	],
 	"rootPath": "kubevirt.io/kubevirt"

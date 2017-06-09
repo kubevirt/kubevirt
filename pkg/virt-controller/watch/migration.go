@@ -23,17 +23,17 @@ import (
 	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/util/wait"
-	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -61,7 +61,7 @@ type MigrationController struct {
 	clientset  *kubernetes.Clientset
 	queue      workqueue.RateLimitingInterface
 	store      cache.Store
-	informer   cache.ControllerInterface
+	informer   cache.Controller
 }
 
 func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
@@ -380,7 +380,7 @@ func migrationJobSelector() kubeapi.ListOptions {
 }
 
 // Informer, which checks for Jobs, orchestrating the migrations done by libvirt
-func NewMigrationJobInformer(clientSet *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) (cache.Store, cache.ControllerInterface) {
+func NewMigrationJobInformer(clientSet *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) (cache.Store, cache.Controller) {
 	selector := migrationJobSelector()
 	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
 	return cache.NewIndexerInformer(lw, &k8sv1.Pod{}, 0,
@@ -389,7 +389,7 @@ func NewMigrationJobInformer(clientSet *kubernetes.Clientset, migrationQueue wor
 }
 
 // Informer, which checks for potential migration target Pods
-func NewMigrationPodInformer(clientSet *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) (cache.Store, cache.ControllerInterface) {
+func NewMigrationPodInformer(clientSet *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) (cache.Store, cache.Controller) {
 	selector := migrationVMPodSelector()
 	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
 	return cache.NewIndexerInformer(lw, &k8sv1.Pod{}, 0,

@@ -5,10 +5,9 @@ package kubecli
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	v1 "k8s.io/client-go/pkg/api/v1"
-	v10 "k8s.io/client-go/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v11 "kubevirt.io/kubevirt/pkg/api/v1"
+	v10 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 // Mock of KubevirtClient interface
@@ -63,9 +62,9 @@ func (_m *MockVMInterface) EXPECT() *_MockVMInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVMInterface) Get(name string, options v10.GetOptions) (*v11.VM, error) {
+func (_m *MockVMInterface) Get(name string, options v1.GetOptions) (*v10.VM, error) {
 	ret := _m.ctrl.Call(_m, "Get", name, options)
-	ret0, _ := ret[0].(*v11.VM)
+	ret0, _ := ret[0].(*v10.VM)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -74,9 +73,9 @@ func (_mr *_MockVMInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
 }
 
-func (_m *MockVMInterface) List(opts v1.ListOptions) (*v11.VMList, error) {
+func (_m *MockVMInterface) List(opts v1.ListOptions) (*v10.VMList, error) {
 	ret := _m.ctrl.Call(_m, "List", opts)
-	ret0, _ := ret[0].(*v11.VMList)
+	ret0, _ := ret[0].(*v10.VMList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -85,9 +84,9 @@ func (_mr *_MockVMInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
 }
 
-func (_m *MockVMInterface) Create(_param0 *v11.VM) (*v11.VM, error) {
+func (_m *MockVMInterface) Create(_param0 *v10.VM) (*v10.VM, error) {
 	ret := _m.ctrl.Call(_m, "Create", _param0)
-	ret0, _ := ret[0].(*v11.VM)
+	ret0, _ := ret[0].(*v10.VM)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -96,9 +95,9 @@ func (_mr *_MockVMInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
 }
 
-func (_m *MockVMInterface) Update(_param0 *v11.VM) (*v11.VM, error) {
+func (_m *MockVMInterface) Update(_param0 *v10.VM) (*v10.VM, error) {
 	ret := _m.ctrl.Call(_m, "Update", _param0)
-	ret0, _ := ret[0].(*v11.VM)
+	ret0, _ := ret[0].(*v10.VM)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

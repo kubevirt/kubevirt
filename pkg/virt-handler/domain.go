@@ -21,9 +21,9 @@ package virthandler
 
 import (
 	kubeapi "k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"

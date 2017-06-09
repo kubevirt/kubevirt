@@ -32,14 +32,13 @@ import (
 
 	"github.com/jeevatkm/go-model"
 	"github.com/satori/go.uuid"
+	"k8s.io/apimachinery/pkg/apimachinery/announced"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	kubeapi "k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/meta"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apimachinery/announced"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/runtime/schema"
-	"k8s.io/client-go/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -59,10 +58,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
 		&VM{},
 		&VMList{},
-		&kubeapi.ListOptions{},
-		&v1.ListOptions{},
-		&kubeapi.DeleteOptions{},
-		&v1.DeleteOptions{},
+		&metav1.ListOptions{},
+		&metav1.DeleteOptions{},
 		&Spice{},
 		&Migration{},
 		&MigrationList{},
@@ -82,7 +79,7 @@ func init() {
 		announced.VersionToSchemeFunc{
 			GroupVersion.Version: SchemeBuilder.AddToScheme,
 		},
-	).Announce().RegisterAndEnable(); err != nil {
+	).Announce(kubeapi.GroupFactoryRegistry).RegisterAndEnable(kubeapi.Registry, kubeapi.Scheme); err != nil {
 		panic(err)
 	}
 
@@ -133,7 +130,7 @@ func (v *VM) GetObjectKind() schema.ObjectKind {
 }
 
 // Required to satisfy ObjectMetaAccessor interface
-func (v *VM) GetObjectMeta() meta.Object {
+func (v *VM) GetObjectMeta() metav1.Object {
 	return &v.ObjectMeta
 }
 
@@ -405,7 +402,7 @@ type MigrationStatus struct {
 }
 
 // Required to satisfy ObjectMetaAccessor interface
-func (m *Migration) GetObjectMeta() meta.Object {
+func (m *Migration) GetObjectMeta() metav1.Object {
 	return &m.ObjectMeta
 }
 

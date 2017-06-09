@@ -35,10 +35,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"golang.org/x/net/context"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/errors"
-	v12 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -201,7 +202,7 @@ var _ = Describe("Kubeproxy", func() {
 					returnReceivedBody(http.StatusOK),
 				),
 			)
-			obj, err := restClient.Patch(api.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
+			obj, err := restClient.Patch(types.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
 				[]byte("{\"spec\" : { \"nodeSelector\": {\"test/lala\": \"blub\"}}}"),
 			).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
@@ -219,7 +220,7 @@ var _ = Describe("Kubeproxy", func() {
 					returnReceivedBody(http.StatusOK),
 				),
 			)
-			obj, err := restClient.Patch(api.JSONPatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
+			obj, err := restClient.Patch(types.JSONPatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
 				[]byte("[{ \"op\": \"replace\", \"path\": \"/spec/nodeSelector\", \"value\": {\"test/lala\": \"blub\" }}]"),
 			).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
@@ -237,7 +238,7 @@ var _ = Describe("Kubeproxy", func() {
 					returnReceivedBody(http.StatusOK),
 				),
 			)
-			result := restClient.Patch(api.JSONPatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
+			result := restClient.Patch(types.JSONPatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
 				[]byte("[{ \"op\": \"replace\", \"path\": \"/spec/nodeSelector\", \"value\": \"Only an object is allowed here\"}]"),
 			).Do()
 			Expect(result.Error()).To(HaveOccurred())
@@ -321,7 +322,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, sourceVM),
 				),
 			)
-			result := restClient.Patch(api.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
+			result := restClient.Patch(types.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
 				[]byte("{\"spec\" : { \"nodeSelector\": {\"test/lala\": \"blub\"}}}"),
 			).Do()
 			Expect(result).To(HaveStatusCode(http.StatusNotFound))

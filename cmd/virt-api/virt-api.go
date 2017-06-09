@@ -29,7 +29,7 @@ import (
 	"github.com/emicklei/go-restful/swagger"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
-	"k8s.io/client-go/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"

@@ -26,13 +26,13 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/meta"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -83,9 +83,9 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 
 	}
 
-	uid := w.object.(meta.ObjectMetaAccessor).GetObjectMeta().GetName()
+	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
 	eventWatcher, err := cli.Core().Events(api.NamespaceDefault).
-		Watch(kubev1.ListOptions{FieldSelector: fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String()})
+		Watch(metav1.ListOptions{FieldSelector: fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String()})
 	if err != nil {
 		panic(err)
 	}
@@ -147,14 +147,14 @@ func MustCleanup() {
 	jobPodlabelSelector, err := labels.Parse("job-name")
 	PanicOnError(err)
 	err = coreClient.Core().Pods(api.NamespaceDefault).
-		DeleteCollection(nil, kubev1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: jobPodlabelSelector.String()})
+		DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: jobPodlabelSelector.String()})
 
 	PanicOnError(err)
 	// Remove VM pods
 	vmPodlabelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
 	PanicOnError(err)
 	err = coreClient.Core().Pods(api.NamespaceDefault).
-		DeleteCollection(nil, kubev1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: vmPodlabelSelector.String()})
+		DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: vmPodlabelSelector.String()})
 
 	PanicOnError(err)
 }
@@ -282,7 +282,7 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 func GetReadyNodes() []kubev1.Node {
 	coreClient, err := kubecli.Get()
 	PanicOnError(err)
-	nodes, err := coreClient.CoreV1().Nodes().List(kubev1.ListOptions{})
+	nodes, err := coreClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	readyNodes := []kubev1.Node{}

@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega/types"
-	"k8s.io/client-go/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 	rest2 "kubevirt.io/kubevirt/pkg/rest"
 	"reflect"

@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -68,7 +69,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 
 	// TODO use constants for labels
 	pod := kubev1.Pod{
-		ObjectMeta: kubev1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-----",
 			Labels: map[string]string{
 				v1.AppLabel:    "virt-launcher",
@@ -116,7 +117,7 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 	destUri := fmt.Sprintf("qemu+tcp://%s/system", dstAddr)
 
 	job := kubev1.Pod{
-		ObjectMeta: kubev1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-migration",
 			Labels: map[string]string{
 				v1.DomainLabel: vm.GetObjectMeta().GetName(),

@@ -34,7 +34,7 @@ import (
 	"github.com/ghodss/yaml"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
-	"k8s.io/client-go/pkg/api"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
@@ -48,7 +48,7 @@ type PutObject struct {
 type PatchObject struct {
 	Metadata  Metadata
 	Patch     interface{}
-	PatchType api.PatchType
+	PatchType types.PatchType
 }
 
 type Metadata struct {
@@ -290,8 +290,8 @@ func NewJsonPatchDecodeRequestFunc() gokithttp.DecodeRequestFunc {
 	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
 		nil,
 		map[string]gokithttp.DecodeRequestFunc{
-			string(api.JSONPatchType):  JsonPatchDecodeRequestFunc,
-			string(api.MergePatchType): JsonPatchDecodeRequestFunc,
+			string(types.JSONPatchType):  JsonPatchDecodeRequestFunc,
+			string(types.MergePatchType): JsonPatchDecodeRequestFunc,
 		},
 	)
 	return func(ctx context.Context, r *http.Request) (interface{}, error) {
@@ -303,7 +303,7 @@ func NewJsonPatchDecodeRequestFunc() gokithttp.DecodeRequestFunc {
 		if err != nil {
 			return nil, err
 		}
-		patchType := api.PatchType(r.Header.Get("Content-Type"))
+		patchType := types.PatchType(r.Header.Get("Content-Type"))
 		return &PatchObject{Metadata: *metadata.(*Metadata), Patch: payload, PatchType: patchType}, nil
 	}
 }
