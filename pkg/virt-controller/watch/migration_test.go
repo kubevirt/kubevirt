@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/facebookgo/inject"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -71,8 +70,7 @@ var _ = Describe("Migration", func() {
 	destinationNodeName := "mynode"
 	sourceNodeName := "sourcenode"
 	BeforeEach(func() {
-		var g inject.Graph
-		vmService = services.NewVMService()
+
 		server = ghttp.NewServer()
 		config := rest.Config{}
 		config.Host = server.URL()
@@ -81,13 +79,9 @@ var _ = Describe("Migration", func() {
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
 
 		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		g.Provide(
-			&inject.Object{Value: restClient},
-			&inject.Object{Value: clientSet},
-			&inject.Object{Value: vmService},
-			&inject.Object{Value: templateService},
-		)
-		g.Populate()
+
+		vmService = services.NewVMService(clientSet, restClient, templateService)
+
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 

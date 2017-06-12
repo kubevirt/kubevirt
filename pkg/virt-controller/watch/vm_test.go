@@ -22,7 +22,6 @@ package watch
 import (
 	"net/http"
 
-	"github.com/facebookgo/inject"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -54,21 +53,14 @@ var _ = Describe("VM watcher", func() {
 	var vmController *VMController
 
 	BeforeEach(func() {
-		var g inject.Graph
-		vmService = services.NewVMService()
+
 		server = ghttp.NewServer()
 		config := rest.Config{}
 		config.Host = server.URL()
 		clientSet, _ := kubernetes.NewForConfig(&config)
 		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
-		g.Provide(
-			&inject.Object{Value: restClient},
-			&inject.Object{Value: clientSet},
-			&inject.Object{Value: vmService},
-			&inject.Object{Value: templateService},
-		)
-		g.Populate()
+		vmService = services.NewVMService(clientSet, restClient, templateService)
 		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 

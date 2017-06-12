@@ -56,9 +56,9 @@ type VMService interface {
 }
 
 type vmService struct {
-	KubeCli         *kubernetes.Clientset `inject:""`
-	RestClient      *rest.RESTClient      `inject:""`
-	TemplateService TemplateService       `inject:""`
+	KubeCli         *kubernetes.Clientset
+	RestClient      *rest.RESTClient
+	TemplateService TemplateService
 }
 
 func (v *vmService) StartVMPod(vm *corev1.VM) error {
@@ -138,8 +138,14 @@ func (v *vmService) FetchMigration(migrationName string) (*corev1.Migration, boo
 	return migration, true, nil
 }
 
-func NewVMService() VMService {
-	svc := vmService{}
+func NewVMService(KubeCli *kubernetes.Clientset,
+	RestClient *rest.RESTClient,
+	TemplateService TemplateService) VMService {
+	svc := vmService{
+		KubeCli:         KubeCli,
+		RestClient:      RestClient,
+		TemplateService: TemplateService,
+	}
 	return &svc
 }
 
