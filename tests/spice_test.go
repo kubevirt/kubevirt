@@ -84,7 +84,7 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(section.Key("port").Value()).To(Equal("4000"))
 			Expect(section.HasKey("proxy")).To(BeTrue())
 			close(done)
-		}, 30)
+		}, 50)
 
 		It("should return connection details for running VMs in json format", func(done Done) {
 			// Create the VM
@@ -101,7 +101,7 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(spice.Type).To(Equal("spice"))
 			Expect(spice.Port).To(Equal(int32(4000)))
 			close(done)
-		}, 30)
+		}, 50)
 
 		It("should allow accessing the spice device on the VM", func(done Done) {
 			// Create the VM
@@ -150,7 +150,7 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(i).To(Equal(int32(0)), "Message status is not OK.") // 0 is equal to OK
 
 			close(done)
-		}, 30)
+		}, 50)
 	})
 
 	AfterEach(func() {

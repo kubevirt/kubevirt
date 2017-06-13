@@ -130,7 +130,7 @@ var _ = Describe("Storage", func() {
 			vm := tests.NewRandomVMWithDirectLun(2)
 			RunVMAndExpectLaunch(vm)
 			close(done)
-		}, 30)
+		}, 50)
 	})
 
 	Context("Given a VM and an Alpine PVC", func() {
@@ -139,7 +139,7 @@ var _ = Describe("Storage", func() {
 			vm := tests.NewRandomVMWithPVC("disk-alpine")
 			RunVMAndExpectLaunch(vm)
 			close(done)
-		}, 30)
+		}, 50)
 	})
 
 	AfterEach(func() {
