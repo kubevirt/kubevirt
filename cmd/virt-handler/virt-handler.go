@@ -30,11 +30,12 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/libvirt/libvirt-go"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api"
+	kubeapi "k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -88,7 +89,8 @@ func main() {
 	}
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceDefault)})
-	recorder := broadcaster.NewRecorder(kubev1.EventSource{Component: "virt-handler", Host: *host})
+	// TODO what is scheme used for in Recorder?
+	recorder := broadcaster.NewRecorder(kubeapi.Scheme, kubev1.EventSource{Component: "virt-handler", Host: *host})
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, recorder)
 	if err != nil {

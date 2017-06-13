@@ -32,12 +32,13 @@ import (
 	"github.com/evanphx/json-patch"
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/pkg/api"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -297,7 +298,7 @@ func NewGenericPatchEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResour
 	}
 }
 
-func patchJson(patchType api.PatchType, patch interface{}, orig runtime.Object) (runtime.Object, error) {
+func patchJson(patchType types.PatchType, patch interface{}, orig runtime.Object) (runtime.Object, error) {
 
 	var rawPatched []byte
 	rawOriginal, err := json.Marshal(orig)
@@ -311,11 +312,11 @@ func patchJson(patchType api.PatchType, patch interface{}, orig runtime.Object) 
 	}
 
 	switch patchType {
-	case api.MergePatchType:
+	case types.MergePatchType:
 		if rawPatched, err = jsonpatch.MergePatch(rawOriginal, rawPatch); err != nil {
 			return nil, middleware.NewUnprocessibleEntityError(err)
 		}
-	case api.JSONPatchType:
+	case types.JSONPatchType:
 		p, err := jsonpatch.DecodePatch(rawPatch)
 		if err != nil {
 			return nil, middleware.NewUnprocessibleEntityError(err)

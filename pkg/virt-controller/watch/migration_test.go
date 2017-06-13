@@ -27,14 +27,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 	clientv1 "k8s.io/client-go/pkg/api/v1"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/conversion"
-	"k8s.io/client-go/pkg/util/uuid"
-	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -136,7 +137,7 @@ var _ = Describe("Migration", func() {
 		}
 
 		srcNode = clientv1.Node{
-			ObjectMeta: clientv1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: sourceNodeName,
 			},
 			Status: clientv1.NodeStatus{
@@ -144,7 +145,7 @@ var _ = Describe("Migration", func() {
 			},
 		}
 		destNode = clientv1.Node{
-			ObjectMeta: clientv1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: destinationNodeName,
 			},
 			Status: clientv1.NodeStatus{
@@ -618,7 +619,7 @@ var _ = Describe("Migration", func() {
 
 		BeforeEach(func() {
 			pod1 := kubev1.Pod{
-				ObjectMeta: kubev1.ObjectMeta{Name: "pod1",
+				ObjectMeta: metav1.ObjectMeta{Name: "pod1",
 					Labels: map[string]string{
 						v1.MigrationUIDLabel: "ce662d9f-34c0-40fd-a4e4-abe4146a1457",
 						v1.MigrationLabel:    "test-migration1",
@@ -627,7 +628,7 @@ var _ = Describe("Migration", func() {
 				},
 			}
 			pod2 := kubev1.Pod{
-				ObjectMeta: kubev1.ObjectMeta{Name: "pod2",
+				ObjectMeta: metav1.ObjectMeta{Name: "pod2",
 					Labels: map[string]string{
 						v1.MigrationUIDLabel: "99a8ac71-4ced-48fa-9bd4-0b4322dcc3dd",
 						v1.MigrationLabel:    "test-migration1",
@@ -636,7 +637,7 @@ var _ = Describe("Migration", func() {
 				},
 			}
 			pod3 := kubev1.Pod{
-				ObjectMeta: kubev1.ObjectMeta{Name: "pod3",
+				ObjectMeta: metav1.ObjectMeta{Name: "pod3",
 					Labels: map[string]string{
 						v1.MigrationUIDLabel: "7efc4067-039e-4c21-a494-0b52c09fe6fb",
 						v1.MigrationLabel:    "test-migration2",
@@ -756,7 +757,7 @@ func handleGetTestVMAuthError(expectedVM *v1.VM) http.HandlerFunc {
 
 func mockPod(i int, label string) clientv1.Pod {
 	return clientv1.Pod{
-		ObjectMeta: clientv1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "virt-migration" + strconv.Itoa(i),
 			Labels: map[string]string{
 				v1.DomainLabel:       "testvm",

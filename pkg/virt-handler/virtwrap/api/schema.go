@@ -24,10 +24,9 @@ import (
 	"reflect"
 
 	"github.com/jeevatkm/go-model"
-	"k8s.io/client-go/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/runtime/schema"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/mapper"
@@ -484,7 +483,7 @@ func (d *Domain) GetObjectKind() schema.ObjectKind {
 }
 
 // Required to satisfy ObjectMetaAccessor interface
-func (d *Domain) GetObjectMeta() meta.Object {
+func (d *Domain) GetObjectMeta() metav1.Object {
 	return &d.ObjectMeta
 }
 

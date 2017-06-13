@@ -26,7 +26,7 @@ import (
 
 	ghodss_yaml "github.com/ghodss/yaml"
 	"github.com/jeevatkm/go-model"
-	"k8s.io/client-go/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	virt "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"

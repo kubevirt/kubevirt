@@ -25,16 +25,16 @@ import (
 	"time"
 
 	"github.com/jeevatkm/go-model"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kubeapi "k8s.io/client-go/pkg/api"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/util/wait"
-	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -63,7 +63,7 @@ type VMController struct {
 	clientset  *kubernetes.Clientset
 	queue      workqueue.RateLimitingInterface
 	store      cache.Store
-	informer   cache.ControllerInterface
+	informer   cache.Controller
 	recorder   record.EventRecorder
 }
 
@@ -269,7 +269,7 @@ func scheduledVMPodSelector() kubeapi.ListOptions {
 }
 
 // Informer, which checks for VM target Pods
-func NewVMPodInformer(clientSet *kubernetes.Clientset, vmQueue workqueue.RateLimitingInterface) (cache.Store, cache.ControllerInterface) {
+func NewVMPodInformer(clientSet *kubernetes.Clientset, vmQueue workqueue.RateLimitingInterface) (cache.Store, cache.Controller) {
 	selector := scheduledVMPodSelector()
 	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
 	return cache.NewIndexerInformer(lw, &k8sv1.Pod{}, 0,

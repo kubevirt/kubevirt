@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 
@@ -50,7 +51,7 @@ var _ = Describe("Storage", func() {
 	})
 
 	getTargetLogs := func(tailLines int64) string {
-		pods, err := coreClient.CoreV1().Pods(kubev1.NamespaceDefault).List(kubev1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
+		pods, err := coreClient.CoreV1().Pods(kubev1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
 		Expect(err).ToNot(HaveOccurred())
 
 		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp

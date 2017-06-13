@@ -32,12 +32,13 @@ import (
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fake2 "k8s.io/client-go/kubernetes/fake"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 
-	"k8s.io/client-go/pkg/api/errors"
-	"k8s.io/client-go/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -69,7 +70,7 @@ var _ = Describe("Console", func() {
 		vm.Status.NodeName = "testnode"
 
 		node = &k8sv1.Node{
-			ObjectMeta: k8sv1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "testnode",
 			},
 		}

@@ -25,7 +25,7 @@ import (
 	"io"
 	"unicode"
 
-	"k8s.io/client-go/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // Guess if the provided reader represents a XML or JSON stream.

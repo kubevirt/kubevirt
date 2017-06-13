@@ -26,8 +26,9 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/labels"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -113,14 +114,14 @@ var _ = Describe("VmMigration", func() {
 
 				// Wait for the job
 				Eventually(func() int {
-					jobs, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(k8sv1.ListOptions{LabelSelector: selector.String()})
+					jobs, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: selector.String()})
 					Expect(err).ToNot(HaveOccurred())
 					return len(jobs.Items)
 				}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(1))
 
 				// Wait for the successful completion of the job
 				Eventually(func() k8sv1.PodPhase {
-					jobs, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(k8sv1.ListOptions{LabelSelector: selector.String()})
+					jobs, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: selector.String()})
 					Expect(err).ToNot(HaveOccurred())
 					return jobs.Items[0].Status.Phase
 				}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(k8sv1.PodSucceeded))
@@ -161,7 +162,7 @@ var _ = Describe("VmMigration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() int {
-				pods, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(k8sv1.ListOptions{LabelSelector: labelSelector.String()})
+				pods, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
 				Expect(err).ToNot(HaveOccurred())
 				return len(pods.Items)
 			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(1))

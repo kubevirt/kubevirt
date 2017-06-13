@@ -31,8 +31,8 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"k8s.io/client-go/pkg/api/meta"
-	k8sruntime "k8s.io/client-go/pkg/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 )
 
 type logLevel int
@@ -54,7 +54,7 @@ var logLevelNames = map[logLevel]string{
 }
 
 type LoggableObject interface {
-	meta.ObjectMetaAccessor
+	metav1.ObjectMetaAccessor
 	k8sruntime.Object
 }
 

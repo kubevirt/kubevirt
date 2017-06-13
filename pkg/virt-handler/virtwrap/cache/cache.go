@@ -23,11 +23,11 @@ import (
 	"encoding/xml"
 
 	"github.com/libvirt/libvirt-go"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/types"
-	"k8s.io/client-go/pkg/watch"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -69,7 +69,7 @@ var CrashedReasonTranslationMap = map[libvirt.DomainCrashedReason]api.StateChang
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
-	listFunc := func(options kubev1.ListOptions) (runtime.Object, error) {
+	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		logging.DefaultLogger().Info().V(3).Msg("Synchronizing domains")
 		doms, err := c.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
 		if err != nil {
@@ -98,7 +98,7 @@ func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWat
 
 		return &list, nil
 	}
-	watchFunc := func(options kubev1.ListOptions) (watch.Interface, error) {
+	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		return newDomainWatcher(c, events...)
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}

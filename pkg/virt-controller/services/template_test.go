@@ -24,8 +24,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/util/uuid"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"

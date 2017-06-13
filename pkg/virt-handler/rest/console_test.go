@@ -31,7 +31,7 @@ import (
 	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/pkg/util/uuid"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/logging"

@@ -26,12 +26,13 @@ import (
 
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -106,7 +107,7 @@ func spiceFromVM(vm *v1.VM, coreCli *kubernetes.Clientset) (*v1.Spice, error) {
 }
 
 // TODO for now just copied from VMService
-func unfinishedVMPodSelector(vm *v1.VM) kubev1.ListOptions {
+func unfinishedVMPodSelector(vm *v1.VM) metav1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(kubev1.PodFailed) +
 			",status.phase!=" + string(kubev1.PodSucceeded))
@@ -114,5 +115,5 @@ func unfinishedVMPodSelector(vm *v1.VM) kubev1.ListOptions {
 	if err != nil {
 		panic(err)
 	}
-	return kubev1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }

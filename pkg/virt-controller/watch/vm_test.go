@@ -25,13 +25,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 	clientv1 "k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/conversion"
-	"k8s.io/client-go/pkg/util/uuid"
-	"k8s.io/client-go/pkg/util/workqueue"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 

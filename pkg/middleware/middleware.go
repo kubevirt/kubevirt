@@ -31,7 +31,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/levels"
-	"k8s.io/client-go/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/precond"

@@ -26,13 +26,13 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
-	metav1 "k8s.io/client-go/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/fields"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/util/json"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -95,7 +95,7 @@ var _ = Describe("Vmlifecycle", func() {
 			handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=master")
 			labelSelector, err := labels.Parse("daemon in (virt-handler)")
 			Expect(err).NotTo(HaveOccurred())
-			pods, err := coreCli.CoreV1().Pods(api.NamespaceDefault).List(kubev1.ListOptions{FieldSelector: handlerNodeSelector.String(), LabelSelector: labelSelector.String()})
+			pods, err := coreCli.CoreV1().Pods(api.NamespaceDefault).List(metav1.ListOptions{FieldSelector: handlerNodeSelector.String(), LabelSelector: labelSelector.String()})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pods.Items).To(HaveLen(1))
 
@@ -230,7 +230,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 func renderPkillAllVmsJob() *kubev1.Pod {
 	job := kubev1.Pod{
-		ObjectMeta: kubev1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-killer",
 			Labels: map[string]string{
 				v1.AppLabel: "test",

@@ -24,7 +24,7 @@ import (
 
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/client-go/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/errors"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
