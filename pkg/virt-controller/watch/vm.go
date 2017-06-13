@@ -141,7 +141,7 @@ func (c *VMController) execute(key string) error {
 			return err
 		}
 		logger.Info().Msg("Deleting VM target Pod succeeded.")
-		return fmt.Errorf("Found outdated VM target pods.")
+		return nil
 	}
 
 	switch vm.Status.Phase {
