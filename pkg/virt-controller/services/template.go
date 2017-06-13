@@ -39,6 +39,7 @@ type TemplateService interface {
 
 type templateService struct {
 	launcherImage string
+	migratorImage string
 }
 
 //Deprecated: remove the service and just use a builder or contextcless helper function
@@ -129,7 +130,7 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 			Containers: []kubev1.Container{
 				{
 					Name:  "virt-migration",
-					Image: "kubevirt/virt-handler:devel",
+					Image: t.migratorImage,
 					Command: []string{
 						"/migrate", vm.Spec.Domain.Name, "--source", srcUri, "--dest", destUri, "--pod-ip", targetPod.Status.PodIP,
 					},
@@ -141,10 +142,12 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 	return &job, nil
 }
 
-func NewTemplateService(launcherImage string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, migratorImage string) (TemplateService, error) {
 	precond.MustNotBeEmpty(launcherImage)
+	precond.MustNotBeEmpty(migratorImage)
 	svc := templateService{
 		launcherImage: launcherImage,
+		migratorImage: migratorImage,
 	}
 	return &svc, nil
 }

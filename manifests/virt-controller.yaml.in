@@ -29,6 +29,8 @@ spec:
             - "/virt-controller"
             - "--launcher-image"
             - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
+            - "--migrator-image"
+            - "{{ docker_prefix }}/virt-handler:{{ docker_tag }}"
             - "--port"
             - "8182"
         ports:

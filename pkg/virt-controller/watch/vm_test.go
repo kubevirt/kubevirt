@@ -58,7 +58,7 @@ var _ = Describe("VM watcher", func() {
 		config := rest.Config{}
 		config.Host = server.URL()
 		clientSet, _ := kubernetes.NewForConfig(&config)
-		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher")
+		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
 		vmService = services.NewVMService(clientSet, restClient, templateService)
 		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
@@ -85,7 +85,7 @@ var _ = Describe("VM watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Create a Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever")
+			temlateService, err := services.NewTemplateService("whatever", "whatever")
 			Expect(err).ToNot(HaveOccurred())
 			pod, err := temlateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -139,7 +139,7 @@ var _ = Describe("VM watcher", func() {
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 
 			// Create a target Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever")
+			temlateService, err := services.NewTemplateService("whatever", "whatever")
 			Expect(err).ToNot(HaveOccurred())
 			var pod *kubev1.Pod
 			pod, err = temlateService.RenderLaunchManifest(vm)

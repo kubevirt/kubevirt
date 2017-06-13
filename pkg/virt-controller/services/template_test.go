@@ -34,7 +34,7 @@ import (
 var _ = Describe("Template", func() {
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-	svc, err := NewTemplateService("kubevirt/virt-launcher")
+	svc, err := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
