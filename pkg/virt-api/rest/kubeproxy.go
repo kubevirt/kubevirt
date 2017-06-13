@@ -29,7 +29,7 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful"
-	"github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

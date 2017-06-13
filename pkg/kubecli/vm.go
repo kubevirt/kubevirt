@@ -35,6 +35,7 @@ import (
 
 type KubevirtClient interface {
 	VM(namespace string) VMInterface
+	Migration(namespace string) MigrationInterface
 }
 
 type kubevirt struct {
@@ -42,7 +43,7 @@ type kubevirt struct {
 }
 
 func (k *kubevirt) VM(namespace string) VMInterface {
-	return &vms{k.restClient, namespace}
+	return &vms{k.restClient, namespace, "vms"}
 }
 
 type VMInterface interface {
@@ -56,31 +57,32 @@ type VMInterface interface {
 type vms struct {
 	restClient *rest.RESTClient
 	namespace  string
+	resource   string
 }
 
 func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VM, err error) {
 	vm = &v1.VM{}
 	err = v.restClient.Get().
-		Resource("vms").
+		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(vm)
-	vm.SetGroupVersionKind(v1.GroupVersionKind)
+	vm.SetGroupVersionKind(v1.VMGroupVersionKind)
 	return
 }
 
 func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VMList, err error) {
 	vmList = &v1.VMList{}
 	err = v.restClient.Get().
-		Resource("vms").
+		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(vmList)
 	for _, vm := range vmList.Items {
-		vm.SetGroupVersionKind(v1.GroupVersionKind)
+		vm.SetGroupVersionKind(v1.VMGroupVersionKind)
 	}
 
 	return
@@ -90,11 +92,11 @@ func (v *vms) Create(vm *v1.VM) (result *v1.VM, err error) {
 	result = &v1.VM{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
-		Resource("vms").
+		Resource(v.resource).
 		Body(vm).
 		Do().
 		Into(result)
-	result.SetGroupVersionKind(v1.GroupVersionKind)
+	result.SetGroupVersionKind(v1.VMGroupVersionKind)
 	return
 }
 
@@ -102,18 +104,18 @@ func (v *vms) Update(vm *v1.VM) (result *v1.VM, err error) {
 	result = &v1.VM{}
 	err = v.restClient.Put().
 		Namespace(v.namespace).
-		Resource("vms").
+		Resource(v.resource).
 		Body(vm).
 		Do().
 		Into(result)
-	result.SetGroupVersionKind(v1.GroupVersionKind)
+	result.SetGroupVersionKind(v1.VMGroupVersionKind)
 	return
 }
 
 func (v *vms) Delete(name string, options *k8smetav1.DeleteOptions) error {
 	return v.restClient.Delete().
 		Namespace(v.namespace).
-		Resource("vms").
+		Resource(v.resource).
 		Name(name).
 		Body(options).
 		Do().

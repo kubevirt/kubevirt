@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("Kubevirt", func() {
+var _ = Describe("Kubevirt VM Client", func() {
 
 	var server *ghttp.Server
 	var client KubevirtClient
