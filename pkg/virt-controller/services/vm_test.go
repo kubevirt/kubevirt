@@ -24,7 +24,6 @@ import (
 	"flag"
 	"net/http"
 
-	"github.com/facebookgo/inject"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -45,10 +44,8 @@ var _ = Describe("VM", func() {
 	var restClient *rest.RESTClient
 
 	BeforeEach(func() {
-		var g inject.Graph
 
 		flag.Parse()
-		vmService = NewVMService()
 		server = ghttp.NewServer()
 		config := rest.Config{}
 		config.Host = server.URL()
@@ -56,13 +53,7 @@ var _ = Describe("VM", func() {
 		templateService, _ := NewTemplateService("kubevirt/virt-launcher")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
 
-		g.Provide(
-			&inject.Object{Value: restClient},
-			&inject.Object{Value: clientSet},
-			&inject.Object{Value: vmService},
-			&inject.Object{Value: templateService},
-		)
-		g.Populate()
+		vmService = NewVMService(clientSet, restClient, templateService)
 
 	})
 	Context("calling Setup Migration ", func() {

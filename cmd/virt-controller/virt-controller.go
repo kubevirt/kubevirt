@@ -26,7 +26,6 @@ import (
 	"strconv"
 
 	"github.com/emicklei/go-restful"
-	"github.com/facebookgo/inject"
 	clientrest "k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -46,9 +45,6 @@ func main() {
 	logger := logging.DefaultLogger()
 	flag.Parse()
 
-	var g inject.Graph
-
-	vmService := services.NewVMService()
 	templateService, err := services.NewTemplateService(*launcherImage)
 	if err != nil {
 		golog.Fatal(err)
@@ -66,17 +62,8 @@ func main() {
 		golog.Fatal(err)
 	}
 
-	g.Provide(
-		&inject.Object{Value: restClient},
-		&inject.Object{Value: clientSet},
-		&inject.Object{Value: templateService},
-		&inject.Object{Value: vmService},
-	)
+	vmService := services.NewVMService(clientSet, restClient, templateService)
 
-	err = g.Populate()
-	if err != nil {
-		golog.Fatal(err)
-	}
 	restful.Add(rest.WebService)
 
 	// Bootstrapping. From here on the initialization order is important

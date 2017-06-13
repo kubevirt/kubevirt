@@ -33,12 +33,6 @@
 			"revisionTime": "2017-01-23T15:48:00Z"
 		},
 		{
-			"checksumSHA1": "GqkBIw2lUA6lv/jgh9WIyR0YdWY=",
-			"path": "github.com/facebookgo/inject",
-			"revision": "643b7206b487b04fbea325cf6e8d06a66f8db772",
-			"revisionTime": "2016-04-24T21:37:20Z"
-		},
-		{
 			"checksumSHA1": "i7FZ2nvv/aE37h5KD2b5hW+fHUo=",
 			"path": "github.com/facebookgo/structtag",
 			"revision": "217e25fb96916cc60332e399c9aa63f5c422ceed",
