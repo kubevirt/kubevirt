@@ -70,9 +70,6 @@ communicate with Kubernetes and where the additional types are stored:
 
 ![Architecture diagram](architecture.png "Architecture")
 
-* (white boxes): Kubernetes native components
-* (gray boxes): KubeVirt components
-
 
 ## Application Layout
 
