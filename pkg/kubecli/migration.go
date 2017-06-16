@@ -19,12 +19,6 @@
 
 package kubecli
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
-/*
- ATTENTION: Rerun code generators when interface signatures are modified.
-*/
-
 import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api"
@@ -35,14 +29,6 @@ import (
 
 func (k *kubevirt) Migration(namespace string) MigrationInterface {
 	return &migrations{k.restClient, namespace, "migrations"}
-}
-
-type MigrationInterface interface {
-	Get(name string, options k8smetav1.GetOptions) (*v1.Migration, error)
-	List(opts k8smetav1.ListOptions) (*v1.MigrationList, error)
-	Create(*v1.Migration) (*v1.Migration, error)
-	Update(*v1.Migration) (*v1.Migration, error)
-	Delete(name string, options *k8smetav1.DeleteOptions) error
 }
 
 type migrations struct {
