@@ -52,9 +52,12 @@ var _ = Describe("VM watcher", func() {
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 	var vmController *VMController
 
-	BeforeEach(func() {
+	Register()
+	RegisterTestObjects()
 
-		server = ghttp.NewServer()
+	BeforeEach(func() {
+		CC.Clear()
+		server = GetTestServer(CC)
 		config := rest.Config{}
 		config.Host = server.URL()
 		clientSet, _ := kubernetes.NewForConfig(&config)
