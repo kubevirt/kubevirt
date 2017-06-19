@@ -55,4 +55,7 @@ func createTestVMController(cc dependencies.ComponentCache, _ string) (interface
 
 func RegisterTestObjects() {
 	CC.Register(reflect.TypeOf((*ghttp.Server)(nil)), CreateTestServer)
+	CC.Register(reflect.TypeOf((*kubernetes.Clientset)(nil)), CreateTestClientSet)
+	CC.Register(reflect.TypeOf((*rest.RESTClient)(nil)), CreateTestRestClient)
+	CC.Register(reflect.TypeOf((*VMController)(nil)), createTestVMController)
 }

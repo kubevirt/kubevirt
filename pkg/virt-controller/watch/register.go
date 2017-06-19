@@ -42,8 +42,8 @@ func Register() {
 	CC.Register(reflect.TypeOf((*MigrationController)(nil)), createMigrationController)
 	CC.Register(reflect.TypeOf((*VMController)(nil)), createVMController)
 	CC.Register(reflect.TypeOf((*rest.RESTClient)(nil)), createRestClient)
-	CC.Register(reflect.TypeOf((*services.VMService)(nil)), createVMService)
-	CC.Register(reflect.TypeOf((*services.TemplateService)(nil)), createTemplateService)
+	CC.Register(reflect.TypeOf((*VMServiceStruct)(nil)), createVMService)
+	CC.Register(reflect.TypeOf((*TemplateServiceStruct)(nil)), createTemplateService)
 	CC.RegisterFactory(reflect.TypeOf((*IndexerStruct)(nil)), "migration", createCache)
 	CC.RegisterFactory(reflect.TypeOf((*RateLimitingInterfaceStruct)(nil)), "migration", createQueue)
 	CC.RegisterFactory(reflect.TypeOf((*cache.ListWatch)(nil)), "migration", createListWatch)
@@ -57,13 +57,18 @@ func Register() {
 	flag.Parse()
 }
 
+type VMServiceStruct struct {
+	services.VMService
+}
+
 //TODO Wrap with a structure
 func createVMService(cc dependencies.ComponentCache, _ string) (interface{}, error) {
 
-	return services.NewVMService(
-		GetClientSet(CC),
-		GetRestClient(CC),
-		*GetTemplateService(CC)), nil
+	return &VMServiceStruct{
+		services.NewVMService(
+			GetClientSet(CC),
+			GetRestClient(CC),
+			*GetTemplateService(CC))}, nil
 }
 
 func createRestClient(cc dependencies.ComponentCache, _ string) (interface{}, error) {
@@ -74,9 +79,15 @@ func createClientSet(cc dependencies.ComponentCache, _ string) (interface{}, err
 	return kubecli.Get()
 }
 
-//TODO Wrap with a structure
+type TemplateServiceStruct struct {
+	services.TemplateService
+}
+
 func createTemplateService(cc dependencies.ComponentCache, _ string) (interface{}, error) {
-	return services.NewTemplateService(launcherImage, migratorImage)
+	ts, err := services.NewTemplateService(launcherImage, migratorImage)
+	return &TemplateServiceStruct{
+		ts,
+	}, err
 }
 
 func createVMController(cc dependencies.ComponentCache, _ string) (interface{}, error) {
@@ -179,12 +190,12 @@ func GetRestClient(cc dependencies.ComponentCache) *rest.RESTClient {
 	return t
 }
 
-func GetTemplateService(cc dependencies.ComponentCache) *services.TemplateService {
-	return CC.Fetch(reflect.TypeOf((*services.TemplateService)(nil))).(*services.TemplateService)
+func GetTemplateService(cc dependencies.ComponentCache) *TemplateServiceStruct {
+	return CC.Fetch(reflect.TypeOf((*TemplateServiceStruct)(nil))).(*TemplateServiceStruct)
 }
 
-func GetVMService(cc dependencies.ComponentCache) *services.VMService {
-	return cc.Fetch(reflect.TypeOf((*services.VMService)(nil))).(*services.VMService)
+func GetVMService(cc dependencies.ComponentCache) *VMServiceStruct {
+	return cc.Fetch(reflect.TypeOf((*VMServiceStruct)(nil))).(*VMServiceStruct)
 }
 
 func GetVMController(cc dependencies.ComponentCache) *VMController {

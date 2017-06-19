@@ -27,7 +27,6 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/kubernetes"
 	clientv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -36,7 +35,6 @@ import (
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
@@ -44,6 +42,8 @@ import (
 var _ = Describe("VM watcher", func() {
 	var server *ghttp.Server
 	var vmService services.VMService
+	var templateService services.TemplateService
+
 	var restClient *rest.RESTClient
 
 	var vmCache cache.Store
@@ -58,21 +58,14 @@ var _ = Describe("VM watcher", func() {
 	BeforeEach(func() {
 		CC.Clear()
 		server = GetTestServer(CC)
-		config := rest.Config{}
-		config.Host = server.URL()
-		clientSet, _ := kubernetes.NewForConfig(&config)
-		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
-		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
-		vmService = services.NewVMService(clientSet, restClient, templateService)
-		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
-		vmController = &VMController{
-			restClient: restClient,
-			vmService:  vmService,
-			queue:      vmQueue,
-			store:      vmCache,
-		}
+		launcherImage = "kubevirt/virt-launcher"
+		migratorImage = "kubevirt/virt-handler"
+		templateService = GetTemplateService(CC).TemplateService
+		restClient = GetRestClient(CC)
+		vmService = GetVMService(CC).VMService
+		vmCache = GetCache(CC, "vm")
+		vmQueue = GetQueue(CC, "vm")
+		vmController = GetVMController(CC)
 	})
 
 	Context("Creating a VM ", func() {
@@ -88,9 +81,7 @@ var _ = Describe("VM watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Create a Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever")
-			Expect(err).ToNot(HaveOccurred())
-			pod, err := temlateService.RenderLaunchManifest(vm)
+			pod, err := templateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
 			pod.Spec.NodeName = "mynode"
 			pod.Status.Phase = clientv1.PodSucceeded
@@ -142,10 +133,8 @@ var _ = Describe("VM watcher", func() {
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 
 			// Create a target Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever")
-			Expect(err).ToNot(HaveOccurred())
 			var pod *kubev1.Pod
-			pod, err = temlateService.RenderLaunchManifest(vm)
+			pod, err := templateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
 			pod.Spec.NodeName = "mynode"
 			pod.Status.Phase = kubev1.PodRunning
