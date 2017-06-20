@@ -43,14 +43,12 @@ var _ = Describe("VM watcher", func() {
 	var server *ghttp.Server
 	var vmService services.VMService
 	var templateService services.TemplateService
-
 	var restClient *rest.RESTClient
-
 	var vmCache cache.Store
 	var vmQueue workqueue.RateLimitingInterface
+	var vmController *VMController
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-	var vmController *VMController
 
 	Register()
 	RegisterTestObjects()

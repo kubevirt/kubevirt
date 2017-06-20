@@ -23,7 +23,6 @@ import (
 	golog "log"
 
 	"github.com/emicklei/go-restful"
-	//clientrest "k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -36,21 +35,14 @@ func main() {
 
 	watch.Register()
 
-	//var restClient *clientrest.RESTClient
-
-	//vmService := watch.GetVMService(watch.CC)
-
 	restful.Add(rest.WebService)
 
 	// Bootstrapping. From here on the initialization order is important
 	stop := make(chan struct{})
 	defer close(stop)
 
-	// Start wachting vms
-	//restClient = watch.GetRestClient(watch.CC)
-	//clientSet := watch.GetClientSet(watch.CC)
-
-	vmController := watch.GetVMController(watch.CC) //watch.NewVMController(vmService, nil, restClient, clientSet)
+	// Start watching vms
+	vmController := watch.GetVMController(watch.CC)
 	go vmController.Run(1, stop)
 
 	//FIXME when we have more than one worker, we need a lock on the VM

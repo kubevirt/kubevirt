@@ -52,6 +52,7 @@ func Register() {
 	CC.Register(reflect.TypeOf((*rest.RESTClient)(nil)), createRestClient)
 	CC.Register(reflect.TypeOf((*VMServiceStruct)(nil)), createVMService)
 	CC.Register(reflect.TypeOf((*TemplateServiceStruct)(nil)), createTemplateService)
+
 	CC.RegisterFactory(reflect.TypeOf((*IndexerStruct)(nil)), "migration", createCache)
 	CC.RegisterFactory(reflect.TypeOf((*RateLimitingInterfaceStruct)(nil)), "migration", createQueue)
 	CC.RegisterFactory(reflect.TypeOf((*cache.ListWatch)(nil)), "migration", createListWatch)
@@ -74,7 +75,6 @@ type VMServiceStruct struct {
 
 //TODO Wrap with a structure
 func createVMService(cc dependencies.ComponentCache, _ string) (interface{}, error) {
-
 	return &VMServiceStruct{
 		services.NewVMService(
 			GetClientSet(CC),
@@ -141,7 +141,6 @@ func createStoreAndInformer(cc dependencies.ComponentCache, _ string) (interface
 }
 
 func createHttpServer(cc dependencies.ComponentCache, _ string) (interface{}, error) {
-
 	logger := logging.DefaultLogger()
 	httpLogger := logger.With("service", "http")
 	httpLogger.Info().Log("action", "listening", "interface", Host, "port", Port)
@@ -166,7 +165,6 @@ func GetListWatch(cc dependencies.ComponentCache, which string) *cache.ListWatch
 		panic(val)
 	}
 	return val
-
 }
 
 func GetQueue(cc dependencies.ComponentCache, which string) *RateLimitingInterfaceStruct {
