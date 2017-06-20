@@ -20,13 +20,10 @@
 package main
 
 import (
-	"flag"
 	golog "log"
-	"net/http"
-	"strconv"
 
 	"github.com/emicklei/go-restful"
-	clientrest "k8s.io/client-go/rest"
+	//clientrest "k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -36,15 +33,12 @@ import (
 func main() {
 
 	logging.InitializeLogging("virt-controller")
-	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
-	port := flag.Int("port", 8182, "Port to listen on")
 
 	watch.Register()
 
-	logger := logging.DefaultLogger()
-	var restClient *clientrest.RESTClient
+	//var restClient *clientrest.RESTClient
 
-	vmService := watch.GetVMService(watch.CC)
+	//vmService := watch.GetVMService(watch.CC)
 
 	restful.Add(rest.WebService)
 
@@ -53,21 +47,19 @@ func main() {
 	defer close(stop)
 
 	// Start wachting vms
-	restClient = watch.GetRestClient(watch.CC)
-	clientSet := watch.GetClientSet(watch.CC)
-
+	//restClient = watch.GetRestClient(watch.CC)
+	//clientSet := watch.GetClientSet(watch.CC)
 
 	vmController := watch.GetVMController(watch.CC) //watch.NewVMController(vmService, nil, restClient, clientSet)
 	go vmController.Run(1, stop)
 
 	//FIXME when we have more than one worker, we need a lock on the VM
-	migrationController := watch.NewMigrationController(vmService, restClient, clientSet)
+	migrationController := watch.GetMigrationController(watch.CC)
 	go migrationController.Run(1, stop)
 
-	httpLogger := logger.With("service", "http")
+	server := watch.GetHttpServer(watch.CC)
 
-	httpLogger.Info().Log("action", "listening", "interface", *host, "port", *port)
-	if err := http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		golog.Fatal(err)
 	}
 }

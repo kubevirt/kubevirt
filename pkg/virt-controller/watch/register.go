@@ -2,6 +2,7 @@ package watch
 
 import (
 	"flag"
+	"net/http"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/fields"
@@ -11,9 +12,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"strconv"
+
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/dependencies"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -21,7 +25,9 @@ var (
 	CC            dependencies.ComponentCache
 	launcherImage string = ""
 	migratorImage string = ""
-	registered    bool   = false
+	Host          string
+	Port          int
+	registered    bool = false
 )
 
 type RateLimitingInterfaceStruct struct {
@@ -37,6 +43,8 @@ func Register() {
 	}
 	registered = true
 	CC = dependencies.NewComponentCache()
+
+	CC.Register(reflect.TypeOf((*http.Server)(nil)), createHttpServer)
 	CC.Register(reflect.TypeOf((*StoreAndInformer)(nil)), createStoreAndInformer)
 	CC.Register(reflect.TypeOf((*kubernetes.Clientset)(nil)), createClientSet)
 	CC.Register(reflect.TypeOf((*MigrationController)(nil)), createMigrationController)
@@ -54,6 +62,9 @@ func Register() {
 
 	flag.StringVar(&migratorImage, "migrator-image", "virt-handler", "Container which orchestrates a VM migration")
 	flag.StringVar(&launcherImage, "launcher-image", "virt-launcher", "Shim container for containerized VMs")
+	flag.StringVar(&Host, "listen", "0.0.0.0", "Address and Port where to listen on")
+	flag.IntVar(&Port, "port", 8182, "Port to listen on")
+
 	flag.Parse()
 }
 
@@ -95,17 +106,7 @@ func createVMController(cc dependencies.ComponentCache, _ string) (interface{}, 
 }
 
 func createMigrationController(cc dependencies.ComponentCache, _ string) (interface{}, error) {
-
-	sni := GetStoreAndInformer(CC)
-
-	return &MigrationController{
-		restClient: GetRestClient(cc),
-		vmService:  *GetVMService(cc),
-		clientset:  GetClientSet(cc),
-		queue:      GetQueue(cc, "migration").RateLimitingInterface,
-		store:      sni.Store,
-		informer:   sni.Informer,
-	}, nil
+	return NewMigrationController(GetVMService(cc), GetRestClient(cc), GetClientSet(cc)), nil
 }
 
 func createCache(cc dependencies.ComponentCache, _ string) (interface{}, error) {
@@ -137,6 +138,16 @@ func createStoreAndInformer(cc dependencies.ComponentCache, _ string) (interface
 		informer,
 	}, nil
 
+}
+
+func createHttpServer(cc dependencies.ComponentCache, _ string) (interface{}, error) {
+
+	logger := logging.DefaultLogger()
+	httpLogger := logger.With("service", "http")
+	httpLogger.Info().Log("action", "listening", "interface", Host, "port", Port)
+	Address := Host + ":" + strconv.Itoa(Port)
+	server := &http.Server{Addr: Address, Handler: nil}
+	return server, nil
 }
 
 // Accessor functions below
@@ -204,4 +215,8 @@ func GetVMController(cc dependencies.ComponentCache) *VMController {
 
 func GetMigrationController(cc dependencies.ComponentCache) *MigrationController {
 	return cc.Fetch(reflect.TypeOf((*MigrationController)(nil))).(*MigrationController)
+}
+
+func GetHttpServer(cc dependencies.ComponentCache) *http.Server {
+	return cc.Fetch(reflect.TypeOf((*http.Server)(nil))).(*http.Server)
 }
