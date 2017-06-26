@@ -69,6 +69,7 @@ Maintainers are:
 
  * @admiyo
  * @berrange
+ * @davidvossel
  * @fabiand
  * @rmohr
  * @stu-gott
