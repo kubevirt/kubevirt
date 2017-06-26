@@ -337,9 +337,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.94352748"
-     inkscape:cx="767.77895"
-     inkscape:cy="306.89332"
+     inkscape:zoom="0.90260073"
+     inkscape:cx="935.97417"
+     inkscape:cy="351.44763"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
@@ -349,7 +349,15 @@
      inkscape:window-height="1016"
      inkscape:window-x="0"
      inkscape:window-y="27"
-     inkscape:window-maximized="1" />
+     inkscape:window-maximized="1"
+     showguides="true"
+     inkscape:guide-bbox="true">
+    <sodipodi:guide
+       position="107.81324,43.312014"
+       orientation="1,0"
+       id="guide4517"
+       inkscape:locked="false" />
+  </sodipodi:namedview>
   <metadata
      id="metadata5">
     <rdf:RDF>
@@ -358,7 +366,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -748,5 +756,45 @@
          y="221.94398"
          style="font-size:2.11666656px;line-height:3.17499995px;stroke-width:0.26458332px"
          id="tspan20064">using HAProxy</tspan></text>
+    <g
+       id="g4515"
+       transform="translate(-3.8613816,0.6944752)">
+      <rect
+         style="color:#000000;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:1;isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:#000000;solid-opacity:1;fill:#e6e6e6;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:0.39687499;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate"
+         id="rect4497"
+         width="39.51202"
+         height="9.0962372"
+         x="111.67462"
+         y="269.24966" />
+      <rect
+         y="282.58945"
+         x="111.67462"
+         height="9.0962372"
+         width="39.51202"
+         id="rect4499"
+         style="color:#000000;clip-rule:nonzero;display:inline;overflow:visible;visibility:visible;opacity:1;isolation:auto;mix-blend-mode:normal;color-interpolation:sRGB;color-interpolation-filters:linearRGB;solid-color:#000000;solid-opacity:1;fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:0.39687499;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;color-rendering:auto;image-rendering:auto;shape-rendering:auto;text-rendering:auto;enable-background:accumulate" />
+      <text
+         id="text4503"
+         y="274.63528"
+         x="113.93676"
+         style="font-style:normal;font-weight:normal;font-size:3.03576183px;line-height:5.05960274px;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.2023841px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           style="stroke-width:0.2023841px"
+           y="274.63528"
+           x="113.93676"
+           id="tspan4501"
+           sodipodi:role="line">KubeVirt component</tspan></text>
+      <text
+         id="text4507"
+         y="287.97507"
+         x="113.93676"
+         style="font-style:normal;font-weight:normal;font-size:3.03576183px;line-height:5.05960274px;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.2023841px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           style="stroke-width:0.2023841px"
+           y="287.97507"
+           x="113.93676"
+           id="tspan4505"
+           sodipodi:role="line">Kubernetes component</tspan></text>
+    </g>
   </g>
 </svg>
