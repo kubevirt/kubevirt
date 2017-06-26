@@ -22,8 +22,8 @@ surrounding them
 
 ### Our workflow
 
-Contributing to KubeVirt shall be as simple as possible. Have a question? Want
-to diskuss something ? Want to contribute something? Just open an
+Contributing to KubeVirt should be as simple as possible. Have a question? Want
+to discuss something? Want to contribute something? Just open an
 [Issue](https://github.com/kubevirt/kubevirt/issues), a [Pull
 Request](https://github.com/kubevirt/kubevirt/pulls), or send a mail to our
 [Google Group](https://groups.google.com/forum/#!forum/kubevirt-dev).
@@ -62,7 +62,8 @@ Maintainers are here to help you enabling your use-case in a reasonable amount
 of time. The maintainers will try to review your code and give you productive
 feedback in a reasonable amount of time. However, if you are blocked on a
 review, or your Pull Request does not get the attention you think it deserves,
-reach out for us via Comments in your issues, or ping us on IRC [#kubevirt @irc.freenode.net](https://kiwiirc.com/client/irc.freenode.net/kubevirt).
+reach out for us via Comments in your Issues, or ping us on IRC
+[#kubevirt @irc.freenode.net](https://kiwiirc.com/client/irc.freenode.net/kubevirt).
 
 Maintainers are:
 
@@ -71,6 +72,7 @@ Maintainers are:
  * @fabiand
  * @rmohr
  * @stu-gott
+ * @vladikr
 
 ## Projects & Communities
 
@@ -101,3 +103,5 @@ Maintainers are:
   * [Introducing Operators: Putting Operational Knowledge into Software](https://coreos.com/blog/introducing-operators.html)
   * [Microservices](https://martinfowler.com/articles/microservices.html) nice
     content by Martin Fowler
+* Testing
+  * [Ginkgo - A Golang BDD Testing Framework](https://onsi.github.io/ginkgo/)
