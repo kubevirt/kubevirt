@@ -87,12 +87,13 @@ var _ = Describe("Migration", func() {
 		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 		migrationController = &MigrationController{
-			restClient: restClient,
-			vmService:  vmService,
-			clientset:  clientSet,
-			queue:      migrationQueue,
-			store:      migrationCache,
-			informer:   nil,
+			restClient:        restClient,
+			vmService:         vmService,
+			clientset:         clientSet,
+			queue:             migrationQueue,
+			store:             migrationCache,
+			migrationInformer: nil,
+			podInformer:       nil,
 		}
 		// Create a VM which is being scheduled
 
