@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -45,16 +46,32 @@ const (
 	WarningEvent EventType = "Warning"
 )
 
+type startType string
+
+const (
+	invalidWatch startType = "invalidWatch"
+	// Watch since the moment a long poll connection is established
+	watchSinceNow startType = "watchSinceNow"
+	// Watch since the resourceVersion of the passed in runtime object
+	watchSinceObjectUpdate startType = "watchSinceObjectUpdate"
+	// Watch since the resourceVersion of the watched object
+	watchSinceWatchedObjectUpdate startType = "watchSinceWatchedObjectUpdate"
+	// Watch since the resourceVersion passed in to the builder
+	watchSinceResourceVersion startType = "watchSinceResourceVersion"
+)
+
 type ProcessFunc func(event *kubev1.Event) (done bool)
 
 type ObjectEventWatcher struct {
-	object         runtime.Object
-	timeout        *time.Duration
-	failOnWarnings bool
+	object          runtime.Object
+	timeout         *time.Duration
+	failOnWarnings  bool
+	resourceVersion string
+	startType       startType
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
-	return &ObjectEventWatcher{object: object}
+	return &ObjectEventWatcher{object: object, startType: invalidWatch}
 }
 
 func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher {
@@ -67,7 +84,60 @@ func (w *ObjectEventWatcher) FailOnWarnings() *ObjectEventWatcher {
 	return w
 }
 
+/*
+SinceNow sets a watch starting point for events, from the moment on the connection to the apiserver
+was established.
+*/
+func (w *ObjectEventWatcher) SinceNow() *ObjectEventWatcher {
+	w.startType = watchSinceNow
+	return w
+}
+
+/*
+SinceWatchedObjectResourceVersion takes the resource version of the runtime object which is watched,
+and takes it as the starting point for all events to watch for.
+*/
+func (w *ObjectEventWatcher) SinceWatchedObjectResourceVersion() *ObjectEventWatcher {
+	w.startType = watchSinceWatchedObjectUpdate
+	return w
+}
+
+/*
+SinceObjectResourceVersion takes the resource version of the passed in runtime object and takes it
+as the starting point for all events to watch for.
+*/
+func (w *ObjectEventWatcher) SinceObjectResourceVersion(object runtime.Object) *ObjectEventWatcher {
+	var err error
+	w.startType = watchSinceObjectUpdate
+	w.resourceVersion, err = meta.NewAccessor().ResourceVersion(object)
+	Expect(err).ToNot(HaveOccurred())
+	return w
+}
+
+/*
+SinceResourceVersion sets the passed in resourceVersion as the starting point for all events to watch for.
+*/
+func (w *ObjectEventWatcher) SinceResourceVersion(rv string) *ObjectEventWatcher {
+	w.resourceVersion = rv
+	w.startType = watchSinceResourceVersion
+	return w
+}
+
 func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
+	Expect(w.startType).ToNot(Equal(invalidWatch))
+	resourceVersion := ""
+
+	switch w.startType {
+	case watchSinceNow:
+		resourceVersion = ""
+	case watchSinceObjectUpdate, watchSinceResourceVersion:
+		resourceVersion = w.resourceVersion
+	case watchSinceWatchedObjectUpdate:
+		var err error
+		w.resourceVersion, err = meta.NewAccessor().ResourceVersion(w.object)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	cli, err := kubecli.Get()
 	if err != nil {
 		panic(err)
@@ -85,7 +155,10 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 
 	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
 	eventWatcher, err := cli.Core().Events(api.NamespaceDefault).
-		Watch(metav1.ListOptions{FieldSelector: fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String()})
+		Watch(metav1.ListOptions{
+			FieldSelector:   fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String(),
+			ResourceVersion: resourceVersion,
+		})
 	if err != nil {
 		panic(err)
 	}
@@ -266,7 +339,10 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 	restClient, err := kubecli.GetRESTClient()
 	Expect(err).ToNot(HaveOccurred())
-	NewObjectEventWatcher(vm).FailOnWarnings().WaitFor(NormalEvent, v1.Started)
+
+	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
+	obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
+	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() v1.VMPhase {

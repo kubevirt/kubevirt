@@ -121,7 +121,7 @@ var _ = Describe("Vmlifecycle", func() {
 			// Delete the VM and wait for the confirmation of the delete
 			_, err = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 			Expect(err).To(BeNil())
-			tests.NewObjectEventWatcher(obj).WaitFor(tests.NormalEvent, v1.Deleted)
+			tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
 
 			// Check if the stop event was logged
 			Eventually(func() string {
@@ -141,7 +141,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				retryCount := 0
-				tests.NewObjectEventWatcher(obj).Watch(func(event *kubev1.Event) bool {
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Watch(func(event *kubev1.Event) bool {
 					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
 						retryCount++
 						if retryCount >= 2 {
@@ -160,14 +160,14 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				// Wait until we see that starting the VM is failing
-				event := tests.NewObjectEventWatcher(obj).WaitFor(tests.WarningEvent, v1.SyncFailed)
+				event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
 				Expect(event.Message).To(ContainSubstring("nonexistent"))
 
 				_, err = restClient.Delete().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
 
 				// Check that the definition is deleted from the host
-				tests.NewObjectEventWatcher(obj).WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
 
 				close(done)
 
@@ -189,7 +189,7 @@ var _ = Describe("Vmlifecycle", func() {
 				err = pkillAllVms(coreCli, nodeName)
 				Expect(err).To(BeNil())
 
-				tests.NewObjectEventWatcher(obj).WaitFor(tests.WarningEvent, v1.Stopped)
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
 
 				Expect(func() v1.VMPhase {
 					vm := &v1.VM{}
@@ -213,10 +213,11 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				// Wait for stop event of the VM
-				tests.NewObjectEventWatcher(obj).WaitFor(tests.WarningEvent, v1.Stopped)
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
 
 				// Wait for some time and see if a sync event happens on the stopped VM
-				event := tests.NewObjectEventWatcher(obj).Timeout(5*time.Second).WaitFor(tests.WarningEvent, v1.SyncFailed)
+				event := tests.NewObjectEventWatcher(obj).Timeout(5*time.Second).
+					SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
 				Expect(event).To(BeNil(), "virt-handler tried to sync on a VM in final state")
 
 				close(done)
