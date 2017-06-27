@@ -36,7 +36,7 @@ For bigger changes, please create a tracker Issue, describing what you want to
 do. Then either as the first commit in a Pull Request, or as an independent
 Pull Request, provide an **informal** design proposal of your intended changes.
 The location for such propoals is
-[/docs](https://github.com/kubevirt/kubevirt/tree/master/docs) in the KubeVirt
+[/docs](docs/) in the KubeVirt
 core repository. Make sure that all your Pull Requests link back to the
 relevant Issues.
 
@@ -54,7 +54,10 @@ appreciated.
 
 **Untested features do not exist**. To ensure that what we code really works,
 relevant flows should be covered via unit tests and functional tests. So when
-thinking about a contribution, also think about testability.
+thinking about a contribution, also think about testability. All tests can be
+run local without the need of CI. Have a look at the
+[Testing](docs/getting-started.md#testing)
+section in the [Developer Guide](docs/getting-started.md).
 
 ### Getting your code reviewed/merged
 
@@ -77,6 +80,13 @@ Maintainers are:
 
 ## Projects & Communities
 
+### [KubeVirt](https://github.com/kubevirt/)
+
+* Getting started
+  * [Developer Guide](docs/getting-started.md)
+  * [Demo](https://github.com/kubevirt/demo)
+  * [Documentation](docs/)
+
 ### [Kubernetes](http://kubernetes.io/)
 
 * Getting started
@@ -86,14 +96,6 @@ Maintainers are:
 * Details
   * [Declarative Management of Kubernetes Objects Using Configuration Files - Kubernetes](https://kubernetes.io/docs/concepts/tools/kubectl/object-management-using-declarative-config/)
   * [Kubernetes Architecture](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/architecture.md)
-
-
-### [KubeVirt](https://github.com/kubevirt/)
-
-* Getting started
-  * [Demo](https://github.com/kubevirt/demo)
-  * [Documentation](https://github.com/kubevirt/kubevirt/tree/master/docs/)
-
 
 ## Additional Topics
 

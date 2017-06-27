@@ -72,7 +72,7 @@ Now we can clone the project into your `$GOPATH`:
     cd $GOPATH/src/kubevirt.io/kubevirt
 ```
 
-And finally build all required artifacts and finally launch the
+And finally build all required artifacts and launch the
 Vagrant environment:
 
 ```bash
@@ -133,12 +133,19 @@ make generate
 
 ### Testing
 
-After a successful build you can run the testsuite using:
+After a successful build you can run the *unit tests*:
 
 ```bash
     make test
 ```
 
+They don't require vagrant. To run the *functional tests*, make sure you have set
+up [Vagrant](#vagrant). Then run
+
+```bash
+    make vagrant-deploy # synchronize with your code, if necessary
+    make vagrant-test # run the functional tests against the Vagrant VMs
+```
 
 ## Use
 
