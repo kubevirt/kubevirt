@@ -342,6 +342,7 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 
 	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
 	obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
+	Expect(err).ToNot(HaveOccurred())
 	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
