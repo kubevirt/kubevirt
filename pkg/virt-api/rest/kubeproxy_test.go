@@ -82,7 +82,7 @@ var _ = Describe("Kubeproxy", func() {
 
 		ws, err := GroupVersionProxyBase(ctx, v1.GroupVersion)
 		Expect(err).ToNot(HaveOccurred())
-		ws, err = GenericResourceProxy(ws, ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
+		ws, err = GenericResourceProxy(ws, ctx, vmGVR, &v1.VM{}, v1.VMGroupVersionKind.Kind, &v1.VMList{})
 		Expect(err).ToNot(HaveOccurred())
 		ws, err = GenericResourceProxy(ws, ctx, migrationGVR, &v1.Migration{}, "Migration", &v1.MigrationList{})
 		Expect(err).ToNot(HaveOccurred())

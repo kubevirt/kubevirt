@@ -30,8 +30,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/jeevatkm/go-model"
-	"github.com/satori/go.uuid"
+	model "github.com/jeevatkm/go-model"
+	uuid "github.com/satori/go.uuid"
+
 	"k8s.io/apimachinery/pkg/apimachinery/announced"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,7 +52,9 @@ const GroupName = "kubevirt.io"
 var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 // GroupVersionKind
-var GroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VM"}
+var VMGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VM"}
+
+var MigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "Migration"}
 
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
@@ -242,7 +245,7 @@ func NewVM(name string, uid types.UID) *VM {
 		Status: VMStatus{},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
-			Kind:       GroupVersionKind.Kind,
+			Kind:       VMGroupVersionKind.Kind,
 		},
 	}
 }

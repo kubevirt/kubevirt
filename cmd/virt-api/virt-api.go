@@ -58,12 +58,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VM{}, v1.GroupVersionKind.Kind, &v1.VMList{})
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VM{}, v1.VMGroupVersionKind.Kind, &v1.VMList{})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	ws, err = rest.GenericResourceProxy(ws, ctx, migrationGVR, &v1.Migration{}, "Migration", &v1.MigrationList{})
+	ws, err = rest.GenericResourceProxy(ws, ctx, migrationGVR, &v1.Migration{}, v1.MigrationGroupVersionKind.Kind, &v1.MigrationList{})
 	if err != nil {
 		log.Fatal(err)
 	}

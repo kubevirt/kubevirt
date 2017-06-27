@@ -3,6 +3,7 @@ export GO15VENDOREXPERIMENT := 1
 all: build manifests
 
 generate:
+	find pkg/ -name "*generated*.go" -exec rm {} -f \;
 	./hack/build-go.sh generate ${WHAT}
 	goimports -w -local kubevirt.io cmd/ pkg/ tests/
 
