@@ -28,6 +28,7 @@ import (
 	"github.com/emicklei/go-restful"
 	clientrest "k8s.io/client-go/rest"
 
+	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -77,11 +78,17 @@ func main() {
 		golog.Fatal(err)
 	}
 
-	vmController := watch.NewVMController(vmService, nil, restClient, clientSet)
+	informerFactory := kubeinformers.NewKubeInformerFactory(restClient, clientSet)
+	vmInformer := informerFactory.VM()
+	migrationInformer := informerFactory.Migration()
+	podInformer := informerFactory.KubeVirtPod()
+	informerFactory.Start(stop)
+
+	vmController := watch.NewVMController(vmService, nil, restClient, clientSet, vmInformer, podInformer)
 	go vmController.Run(1, stop)
 
 	//FIXME when we have more than one worker, we need a lock on the VM
-	migrationController := watch.NewMigrationController(vmService, restClient, clientSet)
+	migrationController := watch.NewMigrationController(vmService, restClient, clientSet, migrationInformer, podInformer)
 	go migrationController.Run(1, stop)
 
 	httpLogger := logger.With("service", "http")

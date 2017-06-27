@@ -24,8 +24,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -41,27 +39,32 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewMigrationController(migrationService services.VMService, restClient *rest.RESTClient, clientset *kubernetes.Clientset) *MigrationController {
-	lw := cache.NewListWatchFromClient(restClient, "migrations", k8sv1.NamespaceDefault, fields.Everything())
+func NewMigrationController(migrationService services.VMService, restClient *rest.RESTClient, clientset *kubernetes.Clientset, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer) *MigrationController {
+
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	store, informer := cache.NewIndexerInformer(lw, &kubev1.Migration{}, 0, kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue), cache.Indexers{})
+	migrationInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue))
+	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(queue)))
+	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(queue)))
+
 	return &MigrationController{
-		restClient: restClient,
-		vmService:  migrationService,
-		clientset:  clientset,
-		queue:      queue,
-		store:      store,
-		informer:   informer,
+		restClient:        restClient,
+		vmService:         migrationService,
+		clientset:         clientset,
+		queue:             queue,
+		store:             migrationInformer.GetStore(),
+		migrationInformer: migrationInformer,
+		podInformer:       podInformer,
 	}
 }
 
 type MigrationController struct {
-	restClient *rest.RESTClient
-	vmService  services.VMService
-	clientset  *kubernetes.Clientset
-	queue      workqueue.RateLimitingInterface
-	store      cache.Store
-	informer   cache.Controller
+	restClient        *rest.RESTClient
+	vmService         services.VMService
+	clientset         *kubernetes.Clientset
+	queue             workqueue.RateLimitingInterface
+	store             cache.Store
+	migrationInformer cache.SharedIndexInformer
+	podInformer       cache.SharedIndexInformer
 }
 
 func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
@@ -69,13 +72,7 @@ func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
 	defer c.queue.ShutDown()
 	logging.DefaultLogger().Info().Msg("Starting controller.")
 
-	// Start all informers and wait for the cache sync
-	_, jobInformer := NewMigrationJobInformer(c.clientset, c.queue)
-	go jobInformer.Run(stopCh)
-	_, podInformer := NewMigrationPodInformer(c.clientset, c.queue)
-	go podInformer.Run(stopCh)
-	go c.informer.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, c.informer.HasSynced, jobInformer.HasSynced, podInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.migrationInformer.HasSynced, c.podInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -355,51 +352,44 @@ func mergeConstraints(migration *kubev1.Migration, vm *kubev1.VM) error {
 	return nil
 }
 
-func migrationVMPodSelector() kubeapi.ListOptions {
-	fieldSelectionQuery := fmt.Sprintf("status.phase=%s", string(kubeapi.PodRunning))
-	fieldSelector := fields.ParseSelectorOrDie(fieldSelectionQuery)
-	labelSelectorQuery := fmt.Sprintf("%s, %s in (virt-launcher)", string(kubev1.MigrationLabel), kubev1.AppLabel)
-	labelSelector, err := labels.Parse(labelSelectorQuery)
-
-	if err != nil {
-		panic(err)
-	}
-	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
-}
-
-func migrationJobSelector() kubeapi.ListOptions {
-	fieldSelector := fields.ParseSelectorOrDie(
-		"status.phase!=" + string(k8sv1.PodPending) +
-			",status.phase!=" + string(k8sv1.PodRunning) +
-			",status.phase!=" + string(k8sv1.PodUnknown))
-	labelSelector, err := labels.Parse(kubev1.AppLabel + "=migration," + kubev1.DomainLabel + "," + kubev1.MigrationLabel)
-	if err != nil {
-		panic(err)
-	}
-	return kubeapi.ListOptions{FieldSelector: fieldSelector, LabelSelector: labelSelector}
-}
-
-// Informer, which checks for Jobs, orchestrating the migrations done by libvirt
-func NewMigrationJobInformer(clientSet *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) (cache.Store, cache.Controller) {
-	selector := migrationJobSelector()
-	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
-	return cache.NewIndexerInformer(lw, &k8sv1.Pod{}, 0,
-		kubecli.NewResourceEventHandlerFuncsForFunc(migrationLabelHandler(migrationQueue)),
-		cache.Indexers{})
-}
-
-// Informer, which checks for potential migration target Pods
-func NewMigrationPodInformer(clientSet *kubernetes.Clientset, migrationQueue workqueue.RateLimitingInterface) (cache.Store, cache.Controller) {
-	selector := migrationVMPodSelector()
-	lw := kubecli.NewListWatchFromClient(clientSet.CoreV1().RESTClient(), "pods", kubeapi.NamespaceDefault, selector.FieldSelector, selector.LabelSelector)
-	return cache.NewIndexerInformer(lw, &k8sv1.Pod{}, 0,
-		kubecli.NewResourceEventHandlerFuncsForFunc(migrationLabelHandler(migrationQueue)),
-		cache.Indexers{})
-}
-
-func migrationLabelHandler(migrationQueue workqueue.RateLimitingInterface) func(obj interface{}) {
+func migrationJobLabelHandler(migrationQueue workqueue.RateLimitingInterface) func(obj interface{}) {
 	return func(obj interface{}) {
-		migrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
+		phase := obj.(*k8sv1.Pod).Status.Phase
+		appLabel, hasAppLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.AppLabel]
+		migrationLabel, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
+		_, hasDomainLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.DomainLabel]
+
+		if phase == k8sv1.PodRunning ||
+			phase == k8sv1.PodUnknown ||
+			phase == k8sv1.PodPending {
+
+			return
+		} else if hasDomainLabel == false || hasMigrationLabel == false || hasAppLabel == false {
+			// missing required labels
+			return
+		} else if appLabel != "migration" {
+			return
+		}
+
+		migrationQueue.Add(k8sv1.NamespaceDefault + "/" + migrationLabel)
+	}
+}
+
+func migrationPodLabelHandler(migrationQueue workqueue.RateLimitingInterface) func(obj interface{}) {
+	return func(obj interface{}) {
+		phase := obj.(*k8sv1.Pod).Status.Phase
+		appLabel, hasAppLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.AppLabel]
+		migrationLabel, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
+
+		if phase != k8sv1.PodRunning {
+			return
+		} else if hasMigrationLabel == false || hasAppLabel == false {
+			// missing required labels
+			return
+		} else if appLabel != "virt-launcher" {
+			return
+		}
+
 		migrationQueue.Add(k8sv1.NamespaceDefault + "/" + migrationLabel)
 	}
 }
