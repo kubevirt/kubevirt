@@ -334,24 +334,25 @@ func (l *LibvirtDomainManager) getActualOrDeleteOutdatedDomain(vm *v1.VM) (VirDo
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
 		return nil, false, err
 	}
-	if exists {
-		uid, err := dom.GetUUIDString()
-		if err != nil {
+	if (!exists) {
+		return nil, false, nil
+	}
+	uid, err := dom.GetUUIDString()
+	if err != nil {
+		dom.Free()
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the UID of the domain failed.")
+		return nil, false, err
+	}
+	// Check if the UIDs match and delete the old VM if they don't
+	if string(vm.GetObjectMeta().GetUID()) != uid {
+		vm := v1.NewVMReferenceFromName(vm.ObjectMeta.Name)
+		vm.GetObjectMeta().SetUID(types.UID(uid))
+		if err = l.killDomain(vm, dom); err != nil {
 			dom.Free()
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the UID of the domain failed.")
 			return nil, false, err
 		}
-		// Check if the UIDs match and delete the old VM if they don't
-		if string(vm.GetObjectMeta().GetUID()) != uid {
-			vm := v1.NewVMReferenceFromName(vm.ObjectMeta.Name)
-			vm.GetObjectMeta().SetUID(types.UID(uid))
-			if err = l.killDomain(vm, dom); err != nil {
-				dom.Free()
-				return nil, false, err
-			}
-			dom.Free()
-			return nil, false, nil
-		}
+		dom.Free()
+		return nil, false, nil
 	}
 
 	return dom, exists, nil
