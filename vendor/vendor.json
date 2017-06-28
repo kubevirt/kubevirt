@@ -350,7 +350,7 @@
 			"revisionTime": "2016-09-12T16:56:03Z"
 		},
 		{
-			"checksumSHA1": "GhPrz8c5VPQmL8TJb47N48TYJH0=",
+			"checksumSHA1": "kG3Cpk6/MJgArx5rR8YGAmwenZQ=",
 			"origin": "github.com/kubernetes/apimachinery",
 			"path": "k8s.io/apimachinery",
 			"revision": "75b8dd260ef0469d96d578705a87cffd0e09dab8",
@@ -358,7 +358,7 @@
 			"tree": true
 		},
 		{
-			"checksumSHA1": "sWR6z1PXXu3D3cEDYfSbf0QTHZc=",
+			"checksumSHA1": "80DpRsMuo3NZYVYCozAy6/lOUfI=",
 			"origin": "github.com/kubernetes/client-go",
 			"path": "k8s.io/client-go",
 			"revision": "3627aeb7d4f6ade38f995d2c923e459146493c7e",
