@@ -18,6 +18,10 @@
 
 FROM centos:7
 
+# Create non-root user
+RUN useradd --create-home -s /bin/bash virt-controller
+WORKDIR /home/virt-controller
+USER virt-controller
 COPY virt-controller /virt-controller
 
 ENTRYPOINT [ "/virt-controller" ]

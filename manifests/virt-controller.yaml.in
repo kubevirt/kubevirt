@@ -37,5 +37,7 @@ spec:
           - containerPort: 8182
             name: "virt-controller"
             protocol: "TCP"
+      securityContext:
+        runAsNonRoot: true
       nodeSelector:
         kubernetes.io/hostname: master
