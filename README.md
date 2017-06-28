@@ -52,7 +52,7 @@ $ curl run.kubevirt.io/demo.sh | bash
 on a recent Fedora or Ubuntu and follow [these steps](https://github.com/kubevirt/demo).
 
 **Developer** To set up a development environment please read our
-[Getting Started Guide](docs/getting-started.md).
+[Getting Started Guide](docs/getting-started.md). To learn how to contribute, please read our [contribution guide](https://github.com/kubevirt/kubevirt/blob/master/CONTRIBUTING.md).
 
 
 ## Documentation
