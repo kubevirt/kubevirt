@@ -29,8 +29,9 @@ RUN yum install -y \
   sudo \
   docker && yum -y clean all
 
-COPY qemu-kube /usr/local/bin/qemu-x86_64
-RUN chmod a+x /usr/local/bin/qemu-x86_64
+COPY qemu-kube /usr/local/bin/qemu-system-x86_64
+RUN chmod a+x /usr/local/bin/qemu-system-x86_64
+ENV PATH /usr/local/bin:/bin:/sbin
 
 COPY kubevirt-sudo /etc/sudoers.d/kubevirt
 RUN chmod 0640 /etc/sudoers.d/kubevirt

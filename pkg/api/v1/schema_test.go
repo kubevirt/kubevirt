@@ -40,7 +40,6 @@ var exampleJSON = `{
     "bootOrder": null
   },
   "devices": {
-    "emulator": "/usr/local/bin/qemu-x86_64",
     "interfaces": [
       {
         "type": "network",
