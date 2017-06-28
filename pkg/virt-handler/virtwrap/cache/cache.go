@@ -21,6 +21,7 @@ package cache
 
 import (
 	"encoding/xml"
+	"strings"
 
 	"github.com/libvirt/libvirt-go"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -149,18 +151,29 @@ func NewDomainSpec(dom virtwrap.VirDomain) (*api.DomainSpec, error) {
 	return &domain, nil
 }
 
+// SplitVMNamespaceKey returns the namespace and name that is encoded in the
+// domain name.
+func SplitVMNamespaceKey(domainName string) (namespace, name string) {
+	splitName := strings.SplitN(domainName, ">", 2)
+	if len(splitName) == 1 {
+		return kubev1.NamespaceDefault, splitName[0]
+	}
+	return splitName[0], splitName[1]
+}
+
 func NewDomain(dom virtwrap.VirDomain) (*api.Domain, error) {
 
 	name, err := dom.GetName()
 	if err != nil {
 		return nil, err
 	}
+	namespace, name := SplitVMNamespaceKey(name)
 	uuid, err := dom.GetUUIDString()
 	if err != nil {
 		return nil, err
 	}
 
-	domain := api.NewDomainReferenceFromName(name)
+	domain := api.NewDomainReferenceFromName(namespace, name)
 	domain.GetObjectMeta().SetUID(types.UID(uuid))
 	return domain, nil
 }

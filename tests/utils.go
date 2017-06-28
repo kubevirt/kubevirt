@@ -154,7 +154,7 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	}
 
 	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
-	eventWatcher, err := cli.Core().Events(api.NamespaceDefault).
+	eventWatcher, err := cli.Core().Events(api.NamespaceAll).
 		Watch(metav1.ListOptions{
 			FieldSelector:   fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String(),
 			ResourceVersion: resourceVersion,
@@ -207,11 +207,13 @@ func MustCleanup() {
 	restClient, err := kubecli.GetRESTClient()
 	PanicOnError(err)
 
+	kuki := coreClient.Core().Pods(api.NamespaceAll)
+	fmt.Println(kuki)
 	// Remove all Migrations
-	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("migrations").Do().Error())
+	PanicOnError(restClient.Delete().Namespace(api.NamespaceAll).Resource("migrations").Do().Error())
 
 	// Remove all VMs
-	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("vms").Do().Error())
+	PanicOnError(restClient.Delete().Namespace(api.NamespaceAll).Resource("vms").Do().Error())
 
 	// Remove all Jobs
 	PanicOnError(coreClient.CoreV1().RESTClient().Delete().AbsPath("/apis/batch/v1/namespaces/default/jobs").Do().Error())
@@ -239,7 +241,11 @@ func PanicOnError(err error) {
 }
 
 func NewRandomVM() *v1.VM {
-	return v1.NewMinimalVM("testvm" + rand.String(5))
+	return NewRandomVMWithNS(api.NamespaceDefault)
+}
+
+func NewRandomVMWithNS(namespace string) *v1.VM {
+	return v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
 }
 
 func NewRandomVMWithDirectLun(lun int) *v1.VM {
@@ -288,7 +294,8 @@ func NewRandomVMWithPVC(claimName string) *v1.VM {
 }
 
 func NewRandomMigrationForVm(vm *v1.VM) *v1.Migration {
-	return v1.NewMinimalMigration(vm.ObjectMeta.Name+"migrate"+rand.String(5), vm.ObjectMeta.Name)
+	ns := vm.GetObjectMeta().GetNamespace()
+	return v1.NewMinimalMigrationWithNS(ns, vm.ObjectMeta.Name+"migrate"+rand.String(5), vm.ObjectMeta.Name)
 }
 
 func NewRandomVMWithSerialConsole() *v1.VM {
@@ -341,12 +348,13 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
-	obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
+	vmMeta := vm.(*v1.VM).ObjectMeta
+	obj, err := restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() v1.VMPhase {
-		obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
+		obj, err := restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 		Expect(err).ToNot(HaveOccurred())
 		fetchedVM := obj.(*v1.VM)
 		nodeName = fetchedVM.Status.NodeName

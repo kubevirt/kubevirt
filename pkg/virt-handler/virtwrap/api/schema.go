@@ -452,17 +452,21 @@ func NewMinimalDomainSpec(vmName string) *DomainSpec {
 }
 
 func NewMinimalDomain(name string) *Domain {
-	domain := NewDomainReferenceFromName(name)
+	return NewMinimalDomainWithNS(kubev1.NamespaceDefault, name)
+}
+
+func NewMinimalDomainWithNS(namespace string, name string) *Domain {
+	domain := NewDomainReferenceFromName(namespace, name)
 	domain.Spec = *NewMinimalDomainSpec(name)
 	return domain
 }
 
-func NewDomainReferenceFromName(name string) *Domain {
+func NewDomainReferenceFromName(namespace string, name string) *Domain {
 	return &Domain{
 		Spec: DomainSpec{},
 		ObjectMeta: kubev1.ObjectMeta{
 			Name:      name,
-			Namespace: kubev1.NamespaceDefault,
+			Namespace: namespace,
 		},
 		Status: DomainStatus{},
 		TypeMeta: metav1.TypeMeta{

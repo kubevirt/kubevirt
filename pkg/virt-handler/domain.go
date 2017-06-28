@@ -71,12 +71,12 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 
 	var domain *api.Domain
 	if !exists {
-		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
+		namespace, name, err := cache.SplitMetaNamespaceKey(key.(string))
 		if err != nil {
 			queue.AddRateLimited(key)
 			return
 		}
-		domain = api.NewDomainReferenceFromName(name)
+		domain = api.NewDomainReferenceFromName(namespace, name)
 		logging.DefaultLogger().Info().Object(domain).Msgf("Domain deleted")
 	} else {
 		domain = obj.(*api.Domain)
