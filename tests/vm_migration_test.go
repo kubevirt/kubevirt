@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -42,6 +43,15 @@ var _ = Describe("VmMigration", func() {
 	restClient, err := kubecli.GetRESTClient()
 	tests.PanicOnError(err)
 	coreClient, err := kubecli.Get()
+	tests.PanicOnError(err)
+
+	// Create a Test Namespace
+	ns := &kubev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ns",
+		},
+	}
+	_, err = coreCli.Namespaces().Create(ns)
 	tests.PanicOnError(err)
 
 	var sourceVM *v1.VM
@@ -90,58 +100,64 @@ var _ = Describe("VmMigration", func() {
 			close(done)
 		}, 30)
 
-		It("Should migrate the VM three times in a row", func(done Done) {
+		Context("New Migration given", func() {
+			table.DescribeTable("Should migrate the VM in different namespaces", func(namespace string, migrateCount int) {
 
-			// Create the VM
-			obj, err := restClient.Post().Resource("vms").Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do().Get()
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStart(obj)
-
-			for x := 0; x < 3; x++ {
-				obj, err = restClient.Get().Resource("vms").Namespace(k8sv1.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
+				// Create the VM
+				sourceVM = tests.NewRandomVMWithNS(namespace)
+				obj, err := restClient.Post().Resource("vms").Namespace(namespace).Body(sourceVM).Do().Get()
 				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMStart(obj)
 
-				sourceNode := obj.(*v1.VM).Status.NodeName
-
-				// Create the Migration
-				migration := tests.NewRandomMigrationForVm(sourceVM)
-				err = restClient.Post().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Body(migration).Do().Error()
-				Expect(err).ToNot(HaveOccurred())
-
-				selector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationLabel, migration.GetObjectMeta().GetName()) +
-					fmt.Sprintf(",%s in (%s)", v1.AppLabel, "migration"))
-				Expect(err).ToNot(HaveOccurred())
-
-				// Wait for the job
-				Eventually(func() int {
-					jobs, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: selector.String()})
+				for x := 0; x < migrateCount; x++ {
+					vmMeta := obj.(*v1.VM).ObjectMeta
+					obj, err = restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 					Expect(err).ToNot(HaveOccurred())
-					return len(jobs.Items)
-				}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(1))
 
-				// Wait for the successful completion of the job
-				Eventually(func() k8sv1.PodPhase {
-					jobs, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: selector.String()})
+					sourceNode := obj.(*v1.VM).Status.NodeName
+
+					// Create the Migration
+					migration := tests.NewRandomMigrationForVm(sourceVM)
+					err = restClient.Post().Resource("migrations").Namespace(migration.GetObjectMeta().GetNamespace()).Body(migration).Do().Error()
 					Expect(err).ToNot(HaveOccurred())
-					return jobs.Items[0].Status.Phase
-				}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(k8sv1.PodSucceeded))
 
-				// Give the pod controller some time to update the VM after successful migrations
-				Eventually(func() v1.VMPhase {
-					obj, err := restClient.Get().Resource("vms").Namespace(k8sv1.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
+					selector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationLabel, migration.GetObjectMeta().GetName()) +
+						fmt.Sprintf(",%s in (%s)", v1.AppLabel, "migration"))
 					Expect(err).ToNot(HaveOccurred())
-					fetchedVM := obj.(*v1.VM)
-					return fetchedVM.Status.Phase
-				}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.Running))
 
-				obj, err = restClient.Get().Resource("vms").Namespace(k8sv1.NamespaceDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
-				Expect(err).ToNot(HaveOccurred())
-				migratedVM := obj.(*v1.VM)
-				Expect(migratedVM.Status.Phase).To(Equal(v1.Running))
-				Expect(migratedVM.Status.NodeName).ToNot(Equal(sourceNode))
-			}
-			close(done)
-		}, 180)
+					// Wait for the job
+					Eventually(func() int {
+						jobs, err := coreClient.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).List(metav1.ListOptions{LabelSelector: selector.String()})
+						Expect(err).ToNot(HaveOccurred())
+						return len(jobs.Items)
+					}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(1))
+
+					// Wait for the successful completion of the job
+					Eventually(func() k8sv1.PodPhase {
+						jobs, err := coreClient.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).List(metav1.ListOptions{LabelSelector: selector.String()})
+						Expect(err).ToNot(HaveOccurred())
+						return jobs.Items[0].Status.Phase
+					}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(k8sv1.PodSucceeded))
+
+					// Give the pod controller some time to update the VM after successful migrations
+					Eventually(func() v1.VMPhase {
+						obj, err := restClient.Get().Resource("vms").Namespace(obj.(*v1.VM).ObjectMeta.Namespace).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
+						Expect(err).ToNot(HaveOccurred())
+						fetchedVM := obj.(*v1.VM)
+						return fetchedVM.Status.Phase
+					}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.Running))
+
+					obj, err = restClient.Get().Resource("vms").Namespace(obj.(*v1.VM).ObjectMeta.Namespace).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Get()
+					Expect(err).ToNot(HaveOccurred())
+					migratedVM := obj.(*v1.VM)
+					Expect(migratedVM.Status.Phase).To(Equal(v1.Running))
+					Expect(migratedVM.Status.NodeName).ToNot(Equal(sourceNode))
+				}
+			},
+				table.Entry("default", "default", 3),
+				table.Entry("test namespace", "test-ns", 1),
+			)
+		})
 
 		It("Should create a pod to execute VM migration", func(done Done) {
 			// Create the VM

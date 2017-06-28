@@ -41,6 +41,8 @@ import (
 
 type EventType string
 
+var testNamespaces = []string{"default", "test-ns"}
+
 const (
 	NormalEvent  EventType = "Normal"
 	WarningEvent EventType = "Warning"
@@ -207,31 +209,38 @@ func MustCleanup() {
 	restClient, err := kubecli.GetRESTClient()
 	PanicOnError(err)
 
-	kuki := coreClient.Core().Pods(api.NamespaceAll)
-	fmt.Println(kuki)
-	// Remove all Migrations
-	PanicOnError(restClient.Delete().Namespace(api.NamespaceAll).Resource("migrations").Do().Error())
+	for _, namespace := range testNamespaces {
 
-	// Remove all VMs
-	PanicOnError(restClient.Delete().Namespace(api.NamespaceAll).Resource("vms").Do().Error())
+		_, err := coreClient.Core().Namespaces().Get(namespace, metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
 
-	// Remove all Jobs
-	PanicOnError(coreClient.CoreV1().RESTClient().Delete().AbsPath("/apis/batch/v1/namespaces/default/jobs").Do().Error())
+		// Remove all Migrations
+		PanicOnError(restClient.Delete().Namespace(namespace).Resource("migrations").Do().Error())
 
-	// Remove all pods associated with a job
-	jobPodlabelSelector, err := labels.Parse("job-name")
-	PanicOnError(err)
-	err = coreClient.Core().Pods(api.NamespaceDefault).
-		DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: jobPodlabelSelector.String()})
+		// Remove all VMs
+		PanicOnError(restClient.Delete().Namespace(namespace).Resource("vms").Do().Error())
 
-	PanicOnError(err)
-	// Remove VM pods
-	vmPodlabelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
-	PanicOnError(err)
-	err = coreClient.Core().Pods(api.NamespaceDefault).
-		DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: vmPodlabelSelector.String()})
+		// Remove all Jobs
+		absPath := "/apis/batch/v1/namespaces/" + namespace + "/jobs"
+		PanicOnError(coreClient.CoreV1().RESTClient().Delete().AbsPath(absPath).Do().Error())
 
-	PanicOnError(err)
+		// Remove all pods associated with a job
+		jobPodlabelSelector, err := labels.Parse("job-name")
+		PanicOnError(err)
+		err = coreClient.Core().Pods(namespace).
+			DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: jobPodlabelSelector.String()})
+
+		PanicOnError(err)
+		// Remove VM pods
+		vmPodlabelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
+		PanicOnError(err)
+		err = coreClient.Core().Pods(namespace).
+			DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: vmPodlabelSelector.String()})
+
+		PanicOnError(err)
+	}
 }
 
 func PanicOnError(err error) {
