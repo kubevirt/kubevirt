@@ -159,7 +159,7 @@ type Memory struct {
 }
 
 type Devices struct {
-	Emulator   string      `xml:"emulator"`
+	Emulator   string      `xml:"emulator,omitempty"`
 	Interfaces []Interface `xml:"interface"`
 	Channels   []Channel   `xml:"channel"`
 	Video      []Video     `xml:"video"`
@@ -444,7 +444,7 @@ func NewMinimalDomainSpec(vmName string) *DomainSpec {
 	precond.MustNotBeEmpty(vmName)
 	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
 	domain.Memory = Memory{Unit: "KiB", Value: 8192}
-	domain.Devices = Devices{Emulator: "/usr/local/bin/qemu-x86_64"}
+	domain.Devices = Devices{}
 	domain.Devices.Interfaces = []Interface{
 		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}

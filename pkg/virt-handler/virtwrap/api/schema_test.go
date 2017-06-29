@@ -36,7 +36,6 @@ var exampleXML = `<domain type="qemu">
     <type>hvm</type>
   </os>
   <devices>
-    <emulator>/usr/local/bin/qemu-x86_64</emulator>
     <interface type="network">
       <source network="default"></source>
     </interface>

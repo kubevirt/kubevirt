@@ -172,7 +172,6 @@ func (c *VMController) execute(key string) error {
 			vmCopy.Spec.Domain = spec
 		}
 		vmCopy.Spec.Domain.UUID = string(vmCopy.GetObjectMeta().GetUID())
-		vmCopy.Spec.Domain.Devices.Emulator = "/usr/local/bin/qemu-x86_64"
 		vmCopy.Spec.Domain.Name = vmCopy.GetObjectMeta().GetName()
 
 		// TODO when we move this to virt-api, we have to block that they are set on POST or changed on PUT
