@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 
@@ -76,7 +75,7 @@ func spiceFromVM(vm *v1.VM, coreCli *kubernetes.Clientset) (*v1.Spice, error) {
 	for _, d := range vm.Spec.Domain.Devices.Graphics {
 		if strings.ToLower(d.Type) == "spice" {
 			port := d.Port
-			podList, err := coreCli.CoreV1().Pods(api.NamespaceDefault).List(unfinishedVMPodSelector(vm))
+			podList, err := coreCli.CoreV1().Pods(vm.GetObjectMeta().GetNamespace()).List(unfinishedVMPodSelector(vm))
 			if err != nil {
 				return nil, middleware.NewInternalServerError(err)
 			}
@@ -90,7 +89,7 @@ func spiceFromVM(vm *v1.VM, coreCli *kubernetes.Clientset) (*v1.Spice, error) {
 			pod := podList.Items[0]
 			ip := pod.Status.PodIP
 
-			spice := v1.NewSpice(vm.GetObjectMeta().GetName())
+			spice := v1.NewSpice(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 			spice.Info = v1.SpiceInfo{
 				Type: "spice",
 				Host: ip,

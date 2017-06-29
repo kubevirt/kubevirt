@@ -310,12 +310,12 @@ type SpiceInfo struct {
 	Proxy string `json:"proxy,omitempty" ini:"proxy,omitempty"`
 }
 
-func NewSpice(vmName string) *Spice {
+func NewSpice(namespace string, vmName string) *Spice {
 	return &Spice{
 		Info: SpiceInfo{},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      vmName,
-			Namespace: kubeapi.NamespaceDefault,
+			Namespace: namespace,
 		},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
