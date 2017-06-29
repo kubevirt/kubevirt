@@ -19,6 +19,11 @@
 FROM haproxy:1.6-alpine
 COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 
+RUN sed -i "s|/run|/haproxy/run|g" /docker-entrypoint.sh
 RUN cp /docker-entrypoint.sh /docker-entrypoint-orig.sh
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+
+RUN addgroup -S haproxy && adduser -S -D -h /haproxy -s /bin/false -G haproxy -g haproxy haproxy
+USER haproxy
+RUN mkdir /haproxy/run

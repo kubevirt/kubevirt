@@ -29,5 +29,7 @@ spec:
           - containerPort: 8184
             name: "haproxy"
             protocol: "TCP"
+      securityContext:
+        runAsNonRoot: true
       nodeSelector:
         kubernetes.io/hostname: master
