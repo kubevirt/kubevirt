@@ -39,13 +39,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
-func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
+func NewVMController(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string, informer cache.SharedIndexInformer) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
 	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host)
+	informer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue))
 
-	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, dispatch)
-	return indexer, queue, informer
+	controller := kubecli.NewControllerFromInformer(informer, queue, dispatch)
+
+	return informer.GetStore(), queue, controller
 
 }
 func NewVMHandlerDispatch(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient *rest.RESTClient, clientset *kubernetes.Clientset, host string) kubecli.ControllerDispatch {

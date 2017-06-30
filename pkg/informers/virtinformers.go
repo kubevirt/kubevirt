@@ -37,7 +37,6 @@ import (
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
 type NewSharedInformerFunc func() cache.SharedIndexInformer
@@ -126,7 +125,7 @@ func (f *kubeInformerFactory) VmOnHost(host string) cache.SharedIndexInformer {
 			panic(err)
 		}
 
-		lw := kubecli.NewListWatchFromClient(f.restClient, "vms", kubeapi.NamespaceDefault, fields.Everything(), labelSelector)
+		lw := kubecli.NewListWatchFromClient(f.restClient, "vms", api.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &kubev1.VM{}, f.defaultResync, cache.Indexers{})
 	})
 }
