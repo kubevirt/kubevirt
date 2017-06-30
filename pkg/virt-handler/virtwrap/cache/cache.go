@@ -70,7 +70,7 @@ var CrashedReasonTranslationMap = map[libvirt.DomainCrashedReason]api.StateChang
 }
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
-func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
+func NewListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		logging.DefaultLogger().Info().V(3).Msg("Synchronizing domains")
 		doms, err := c.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
@@ -179,7 +179,7 @@ func NewDomain(dom virtwrap.VirDomain) (*api.Domain, error) {
 }
 
 func NewSharedInformer(c virtwrap.Connection) (cache.SharedInformer, error) {
-	lw := newListWatchFromClient(c)
+	lw := NewListWatchFromClient(c)
 	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
 	return informer, nil
 }
