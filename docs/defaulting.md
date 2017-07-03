@@ -1,5 +1,16 @@
 # Defaulting Service Proposal
 
+This Proposal fills a gap between KubeVirt as Runtime and Higher level
+management, like proposed in #272. It lays out a design wich overcomes the
+necessity for asynchronous specification updates, which has it's origin in the
+fact that a lot of the defaulting is done on the host, so after scheduling.
+
+With the proposal here, which will provide a synchronous way of fully
+populating a VM specification, we come much closer to the meaning of a Pod
+specification in Kubernetes, but most important, this allows decoupling
+administrative tasks completely from the runtime, when manipulating VM Specs
+(the need to run VMs, to get a full VM spec).
+
 ## Current situation
 
 Libvirt allows you to post very minimal Domain specifications. It will then
@@ -111,7 +122,7 @@ hotplug), you are not affected by that.
 
 Except for some runtime information, which is normally not included in
 migratable domain XMLs, libvirt fills in all defaults when defining a domain.
-We can leverage that with a simple REST based service ,which defines VMs in an
+We can leverage that with a simple REST based service, which defines VMs in an
 isolated libvirt (running libvirt and the small REST service in a Pod). The
 service is a standalone component in KubeVirt and can then be integrated into
 two different flows:
@@ -164,6 +175,6 @@ try to match them based on their content.
 
 In order to make sure that the Libvirt version, which does the defaulting
 generates appliable defaults, it must first be compatible with the libvirt/qemu
-pairs, currently running on the hostr. Second a guest machine type must be
+pairs, currently running on the host. Second a guest machine type must be
 specified, to guarantee migratability between the different versions in the
 cluster.
