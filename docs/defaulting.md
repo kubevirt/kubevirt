@@ -88,36 +88,77 @@ After we have defined the domain in libvirt, the XML looks like this:
 </domain>
 ```
 
-Finally, when a Domain was successfully started by Libvirt, Libvirt assigns an `alias` to every device in the XML.
+Finally, when a Domain was successfully started by Libvirt, Libvirt assigns an
+`alias` to every device in the XML.
 
 ## The Problem
 
- * Hotplug operations are not possible with the minimal VM spec of kubevirt, since we could match wrong devices.
- * After VM restarts, different devices or addresses could be assigned to a VM by libvirt
- * Libvirt assigns all that data on the host, either when defining the Domain, or after the Domain was started.
-   That requires asynchronous lookups, and when thinking about administrating offline VMs, it binds your domain specification management to the kubevirt runtime.
+ * Hotplug operations are not possible with the minimal VM spec of kubevirt,
+   since we could match wrong devices.
+ * After VM restarts, different devices or addresses could be assigned to a VM
+   by libvirt
+ * Libvirt assigns all that data on the host, either when defining the Domain,
+   or after the Domain was started. That requires asynchronous lookups, and
+   when thinking about administrating offline VMs, it binds your domain
+   specification management to the kubevirt runtime.
 
-If your VMs are ephemeral (no migrations, recreating VMs vs. restarting VMs, no hotplug), you are not affected by that.
+If your VMs are ephemeral (no migrations, recreating VMs vs. restarting VMs, no
+hotplug), you are not affected by that.
 
 ## Proposed Solution
 
 ### Defaulting service based on libvirt
 
-Except for some runtime information, which is normally not included in migratable domain XMLs, libvirt fills in all defaults when defining a domain. We can leverage that with a simple REST based service ,which defines VMs in an isolated libvirt (running libvirt and the small REST service in a Pod). The service is a standalone component in KubeVirt and can then be integrated into two different flows:
+Except for some runtime information, which is normally not included in
+migratable domain XMLs, libvirt fills in all defaults when defining a domain.
+We can leverage that with a simple REST based service ,which defines VMs in an
+isolated libvirt (running libvirt and the small REST service in a Pod). The
+service is a standalone component in KubeVirt and can then be integrated into
+two different flows:
 
- 1. When doing a POST to `/apis/kubevirt.io/v1alpha1/namespaces/mynamespace/vms`, `virt-api` can do a roundtrip to that service and prefill the defaults. As the response of the POST to `virt-api`, you will get the completely prefilled VM specification. This updated spec contains all the necessary bits, to allow consistent hotplugging and keeping the VM definition consistent between redefines.
- 2. Add an extra endpoint to `virt-api` which only purpose is to prefill the VM spec. The URI will be `/apis/kubevirt.io/v1.alpha1/vms/defaults` (non-namespaced). You can POST VM specifications there and get a fully populated VM spec back. With this service URL in place, mixing administrative tasks like hotplug, adding devices for later runs and changing the spec for later runs (e.g. memory) can be solved in a consistent way, without the need to ever do an asynchronous roundtrip to libvirt to build consistent specs. **This allows decoupling administrative tasks completely from the runtime**. 
+ 1. When doing a POST to
+    `/apis/kubevirt.io/v1alpha1/namespaces/mynamespace/vms`, `virt-api` can do
+    a roundtrip to that service and prefill the defaults. As the response of
+    the POST to `virt-api`, you will get the completely prefilled VM
+    specification. This updated spec contains all the necessary bits, to allow
+    consistent hotplugging and keeping the VM definition consistent between
+    redefines.
+ 2. Add an extra endpoint to `virt-api` which only purpose is to prefill the VM
+    spec. The URI will be `/apis/kubevirt.io/v1.alpha1/vms/defaults`
+    (non-namespaced). You can POST VM specifications there and get a fully
+    populated VM spec back. With this service URL in place, mixing
+    administrative tasks like hotplug, adding devices for later runs and
+    changing the spec for later runs (e.g. memory) can be solved in a
+    consistent way, without the need to ever do an asynchronous roundtrip to
+    libvirt to build consistent specs. **This allows decoupling administrative
+    tasks completely from the runtime**. 
 
 Defaulting rules:
 
- * The Kubevirt VM spec can contain abstract definitions, like a reference to a volume claim. In such cases most of the time, the device `source` section needs to be replaced by a dummy `source` inside the defaulter. Then the fully populated `target` section needs to be mapped back.
- * There exist mandatory Domain XML fields, which we can't allow to be set on the VM specification. In such cases, the defaulter needs to set dummy values before asking Libvirt for the defaults. Since these fields should not exist on the VM specification at all (see [docs/vm-configuration.md](docs/vm-configuration.md)), not mapping such dummy data back should be easy.
+ * The Kubevirt VM spec can contain abstract definitions, like a reference to a
+   volume claim. In such cases most of the time, the device `source` section
+   needs to be replaced by a dummy `source` inside the defaulter. Then the
+   fully populated `target` section needs to be mapped back.
+ * There exist mandatory Domain XML fields, which we can't allow to be set on
+   the VM specification. In such cases, the defaulter needs to set dummy values
+   before asking Libvirt for the defaults. Since these fields should not exist
+   on the VM specification at all (see
+   [docs/vm-configuration.md](docs/vm-configuration.md)), not mapping such
+   dummy data back should be easy.
 
 ## Important side notes
 
 ### Device naming
 
-With the proposed Defaulting service, it is still pretty hard, from an administration and operations perspective to find out which device is which. Libvirt at the moment does not support naming devices for the whole VM lifecycle (https://bugzilla.redhat.com/show_bug.cgi?id=1434451). It actually becomes a bigger problem with the defaulting service in place. To find out if a device has changed, or needs an update, you would have to rely on the order of the devices (which is not necessarily stable: https://www.redhat.com/archives/libvirt-users/2012-December/msg00087.html), or try to match them based on their content.
+With the proposed Defaulting service, it is still pretty hard, from an
+administration and operations perspective to find out which device is which.
+Libvirt at the moment does not support naming devices for the whole VM
+lifecycle (https://bugzilla.redhat.com/show_bug.cgi?id=1434451). It actually
+becomes a bigger problem with the defaulting service in place. To find out if a
+device has changed, or needs an update, you would have to rely on the order of
+the devices (which is not necessarily stable:
+https://www.redhat.com/archives/libvirt-users/2012-December/msg00087.html), or
+try to match them based on their content.
 
 ### Migrating between different QEMU versions
 
