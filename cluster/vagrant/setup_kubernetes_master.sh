@@ -25,7 +25,7 @@ yum install -y cockpit cockpit-kubernetes
 systemctl enable cockpit.socket && systemctl start cockpit.socket
 
 # Create the master
-kubeadm init --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456 --apiserver-advertise-address=$ADVERTISED_MASTER_IP
+kubeadm init --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456 --apiserver-advertise-address=$ADVERTISED_MASTER_IP --kubernetes-version=stable-1.6
 
 # Tell kubectl which config to use
 export KUBECONFIG=/etc/kubernetes/admin.conf
