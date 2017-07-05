@@ -173,6 +173,14 @@ func NoopDecoder(_ context.Context, _ *http.Request) (interface{}, error) {
 	return nil, nil
 }
 
+func NotNamespacedDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, error) {
+	headers, err := queryExtractor(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return &Metadata{Headers: *headers}, nil
+}
+
 func NamespaceDecodeRequestFunc(ctx context.Context, r *http.Request) (interface{}, error) {
 	namespace, err := namespaceDecodeRequestFunc(ctx, r)
 	if err != nil {
