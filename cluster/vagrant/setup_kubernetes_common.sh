@@ -68,9 +68,9 @@ yum install -y docker
 # Currently older versions of kubeadm are no longer available in the rpm repos.
 # See https://github.com/kubernetes/kubeadm/issues/220 for context.
 yum install -y \
-      kubeadm \
-      kubelet \
-      kubectl \
+      kubeadm-1.6.6 \
+      kubelet-1.6.6 \
+      kubectl-1.6.6 \
       kubernetes-cni
 
 # Latest docker on CentOS uses systemd for cgroup management
