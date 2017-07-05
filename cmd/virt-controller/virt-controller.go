@@ -20,83 +20,9 @@
 package main
 
 import (
-	"flag"
-	golog "log"
-	"net/http"
-	"strconv"
-
-	"github.com/emicklei/go-restful"
-	"github.com/spf13/pflag"
-	clientrest "k8s.io/client-go/rest"
-
-	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 )
 
 func main() {
-
-	logging.InitializeLogging("virt-controller")
-	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
-	port := flag.Int("port", 8182, "Port to listen on")
-	launcherImage := flag.String("launcher-image", "virt-launcher", "Shim container for containerized VMs")
-	migratorImage := flag.String("migrator-image", "virt-handler", "Container which orchestrates a VM migration")
-
-	logger := logging.DefaultLogger()
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
-	templateService, err := services.NewTemplateService(*launcherImage, *migratorImage)
-	if err != nil {
-		golog.Fatal(err)
-	}
-
-	clientSet, err := kubecli.Get()
-
-	if err != nil {
-		golog.Fatal(err)
-	}
-
-	var restClient *clientrest.RESTClient
-	restClient, err = kubecli.GetRESTClient()
-	if err != nil {
-		golog.Fatal(err)
-	}
-
-	vmService := services.NewVMService(clientSet, restClient, templateService)
-
-	restful.Add(rest.WebService)
-
-	// Bootstrapping. From here on the initialization order is important
-	stop := make(chan struct{})
-	defer close(stop)
-
-	// Start wachting vms
-	restClient, err = kubecli.GetRESTClient()
-	if err != nil {
-		golog.Fatal(err)
-	}
-
-	informerFactory := kubeinformers.NewKubeInformerFactory(restClient, clientSet)
-	vmInformer := informerFactory.VM()
-	migrationInformer := informerFactory.Migration()
-	podInformer := informerFactory.KubeVirtPod()
-	informerFactory.Start(stop)
-
-	vmController := watch.NewVMController(vmService, nil, restClient, clientSet, vmInformer, podInformer)
-	go vmController.Run(1, stop)
-
-	//FIXME when we have more than one worker, we need a lock on the VM
-	migrationController := watch.NewMigrationController(vmService, restClient, clientSet, migrationInformer, podInformer)
-	go migrationController.Run(1, stop)
-
-	httpLogger := logger.With("service", "http")
-
-	httpLogger.Info().Log("action", "listening", "interface", *host, "port", *port)
-	if err := http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil); err != nil {
-		golog.Fatal(err)
-	}
+	watch.Execute()
 }
