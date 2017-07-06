@@ -8,4 +8,5 @@ source hack/config-default.sh
 test -f "hack/config-local.sh" && source hack/config-local.sh
 
 export binaries docker_images docker_prefix docker_tag manifest_templates \
-       master_ip master_port network_provider primary_nic primary_node_name
+       master_ip master_port network_provider primary_nic primary_node_name \
+       libvirt_password

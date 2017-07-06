@@ -38,6 +38,9 @@ spec:
             mountPath: /var/run/libvirt
           - name: docker-sock
             mountPath: /var/run/docker.sock
+          - name: sasl
+            mountPath: /etc/sasl-secret
+            readOnly: true
         command: ["/libvirtd.sh"]
       - name: virtlogd
         image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
@@ -62,3 +65,6 @@ spec:
       - name: docker-sock
         hostPath:
           path: /var/run/docker.sock
+      - name: sasl
+        secret:
+          secretName: sasl-secret

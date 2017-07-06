@@ -80,6 +80,21 @@ fi
 
 echo "cgroup_controllers = [ ]" >> /etc/libvirt/qemu.conf
 
+# Configure libvirt SASL authentication
+echo "auth_unix_rw=\"sasl\"" >> /etc/libvirt/libvirtd.conf
+sed -i s/^mech_list/#mech_list/g /etc/sasl2/libvirt.conf
+echo "mech_list: scram-sha-1" >> /etc/sasl2/libvirt.conf
+echo "sasldb_path: /etc/libvirt/passwd.db" >> /etc/sasl2/libvirt.conf
+cat /etc/sasl-secret/password | saslpasswd2 -p -c -a libvirt $(cat /etc/sasl-secret/username)
+cat << EOF > /etc/libvirt/auth.conf
+[credentials-defgrp]
+authname=$(cat /etc/sasl-secret/username)
+password=$(cat /etc/sasl-secret/password)
+
+[auth-libvirt-default]
+credentials=defgrp
+EOF
+
 if [[ -n "$LIBVIRTD_DISABLE_TCP" ]]; then
   /usr/sbin/libvirtd
 else
