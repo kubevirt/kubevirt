@@ -30,7 +30,7 @@ distclean: clean
 	rm -f manifest/*.yaml
 
 sync:
-	govendor sync
+	glide install
 
 docker: build
 	./hack/build-docker.sh build ${WHAT}

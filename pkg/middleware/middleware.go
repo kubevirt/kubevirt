@@ -30,10 +30,10 @@ import (
 	"encoding/json"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/levels"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -135,7 +135,7 @@ func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
 						e = nil
 					}
 					// TODO log it with a logger at the right locations
-					levels.New(logger).Crit().Log("stacktrace", debug.Stack())
+					logging.DefaultLogger().Critical().Msgf("stacktrace: %v", debug.Stack())
 				}
 			}()
 			data, err = next(ctx, request)
@@ -144,7 +144,7 @@ func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
 			// For instance a service can just return an AppError instance as normal err and this check
 			// makes sure that our application error handler handles the response
 			if _, ok := err.(AppError); ok {
-				levels.New(logger).Crit().Log("msg", err)
+				logging.DefaultLogger().Critical().Msg(err)
 				return err, nil
 			}
 			return data, err
