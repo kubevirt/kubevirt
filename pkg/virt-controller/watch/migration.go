@@ -39,19 +39,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewMigrationController(migrationService services.VMService, restClient *rest.RESTClient, clientset *kubernetes.Clientset, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer) *MigrationController {
-
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	migrationInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue))
-	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(queue)))
-	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(queue)))
+func NewMigrationController(restClient *rest.RESTClient, migrationService services.VMService, clientset *kubernetes.Clientset, queue workqueue.RateLimitingInterface, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, vmCache cache.Store) *MigrationController {
 
 	return &MigrationController{
 		restClient:        restClient,
 		vmService:         migrationService,
 		clientset:         clientset,
 		queue:             queue,
-		store:             migrationInformer.GetStore(),
+		store:             vmCache,
 		migrationInformer: migrationInformer,
 		podInformer:       podInformer,
 	}

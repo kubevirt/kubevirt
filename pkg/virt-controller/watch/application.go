@@ -10,6 +10,10 @@ import (
 	clientrest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	"k8s.io/client-go/util/workqueue"
+
+	"k8s.io/client-go/kubernetes"
+
 	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -18,10 +22,12 @@ import (
 )
 
 var (
+	flags               Flags = Flags{}
 	host                string
 	port                int
 	templateService     services.TemplateService
 	restClient          *clientrest.RESTClient
+	clientSet           *kubernetes.Clientset
 	vmService           services.VMService
 	informerFactory     kubeinformers.KubeInformerFactory
 	vmInformer          cache.SharedIndexInformer
@@ -29,26 +35,31 @@ var (
 	podInformer         cache.SharedIndexInformer
 	vmController        *VMController
 	migrationController *MigrationController
+	migrationQueue      workqueue.RateLimitingInterface
+	vmCache             cache.Store
 )
+
+type Flags struct {
+	host          string
+	port          int
+	launcherImage string
+	migratorImage string
+}
 
 func Execute() {
 	var err error
 
+	DefineFlags()
+
 	logging.InitializeLogging("virt-controller")
-	flag.StringVar(&host, "listen", "0.0.0.0", "Address and port where to listen on")
-	flag.IntVar(&port, "port", 8182, "Port to listen on")
-	launcherImage := flag.String("launcher-image", "virt-launcher", "Shim container for containerized VMs")
-	migratorImage := flag.String("migrator-image", "virt-handler", "Container which orchestrates a VM migration")
-
 	logger := logging.DefaultLogger()
-	flag.Parse()
 
-	templateService, err = services.NewTemplateService(*launcherImage, *migratorImage)
+	templateService, err = services.NewTemplateService(flags.launcherImage, flags.migratorImage)
 	if err != nil {
 		golog.Fatal(err)
 	}
 
-	clientSet, err := kubecli.Get()
+	clientSet, err = kubecli.Get()
 
 	if err != nil {
 		golog.Fatal(err)
@@ -71,7 +82,14 @@ func Execute() {
 	migrationInformer = informerFactory.Migration()
 	podInformer = informerFactory.KubeVirtPod()
 	vmController = NewVMController(vmService, nil, restClient, clientSet, vmInformer, podInformer)
-	migrationController = NewMigrationController(vmService, restClient, clientSet, migrationInformer, podInformer)
+
+	migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	migrationInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(migrationQueue))
+	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(migrationQueue)))
+	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(migrationQueue)))
+	vmCache = migrationInformer.GetStore()
+
+	migrationController = NewMigrationController(restClient, vmService, clientSet, migrationQueue, migrationInformer, podInformer, vmCache)
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -88,4 +106,11 @@ func Execute() {
 	if err := http.ListenAndServe(host+":"+strconv.Itoa(port), nil); err != nil {
 		golog.Fatal(err)
 	}
+}
+func DefineFlags() {
+	flag.StringVar(&flags.host, "listen", "0.0.0.0", "Address and port where to listen on")
+	flag.IntVar(&flags.port, "port", 8182, "Port to listen on")
+	flag.StringVar(&flags.launcherImage, "launcher-image", "virt-launcher", "Shim container for containerized VMs")
+	flag.StringVar(&flags.migratorImage, "migrator-image", "virt-handler", "Container which orchestrates a VM migration")
+	flag.Parse()
 }
