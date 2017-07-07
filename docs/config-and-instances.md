@@ -1,4 +1,4 @@
-# Higher level VM Management
+# Virtual Machine Configurations
 
 ## Motivation
 
