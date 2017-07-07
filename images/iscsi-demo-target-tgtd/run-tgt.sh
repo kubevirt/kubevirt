@@ -28,7 +28,7 @@ WWN=${WWN:-iqn.2017-01.io.kubevirt:sn.42}
 
 echo "Starting tgtd"
 tgtd -f &
-sleep 2
+sleep 5
 
 echo "Adding target and exposing it"
 tgtadm --lld iscsi --mode target --op new --tid=1 --targetname $WWN
@@ -64,4 +64,4 @@ while true ; do
   sleep 3
 done
 
-# vim: et tw=2:
+# vim: et ts=2:
