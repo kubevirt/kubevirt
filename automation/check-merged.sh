@@ -70,7 +70,7 @@ set -e
 
 # Build kubevirt
 go get golang.org/x/tools/cmd/goimports
-go get -u github.com/kardianos/govendor
+go get -u github.com/Masterminds/glide
 make
 
 # Copy connection details for kubernetes
