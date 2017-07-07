@@ -32,10 +32,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 
@@ -45,7 +43,7 @@ import (
 )
 
 type DomainManager interface {
-	SyncVM(*v1.VM) (*api.DomainSpec, error)
+	SyncVM(*v1.VM, *api.DomainSpec) (*api.DomainSpec, error)
 	KillVM(*v1.VM) error
 }
 
@@ -328,22 +326,15 @@ func VMNamespaceKeyFunc(vm *v1.VM) string {
 	return domName
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
-	var wantedSpec api.DomainSpec
-	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
-
-	if len(mappingErrs) > 0 {
-		return nil, errors.NewAggregate(mappingErrs)
-	}
-
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VM, domSpec *api.DomainSpec) (*api.DomainSpec, error) {
 	domName := VMNamespaceKeyFunc(vm)
-	wantedSpec.Name = domName
-	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
+	domSpec.Name = domName
+	domSpec.UUID = string(vm.GetObjectMeta().GetUID())
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
-			xmlStr, err := xml.Marshal(&wantedSpec)
+			xmlStr, err := xml.Marshal(&domSpec)
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 				return nil, err

@@ -216,11 +216,11 @@ var _ = Describe("PVC", func() {
 			vm.Spec.Domain = &domain
 
 			restClient := getRestClient(server.URL())
-			vmCopy, err := MapPersistentVolumes(&vm, restClient, k8sv1.NamespaceDefault)
+			domSpec, err := MapDomainSpec(&vm, restClient, k8sv1.NamespaceDefault)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
-			newDisk := vmCopy.Spec.Domain.Devices.Disks[0]
+			Expect(len(domSpec.Devices.Disks)).To(Equal(1))
+			newDisk := domSpec.Devices.Disks[0]
 			Expect(newDisk.Type).To(Equal("network"))
 			Expect(newDisk.Driver.Type).To(Equal("raw"))
 			Expect(newDisk.Driver.Name).To(Equal("qemu"))
