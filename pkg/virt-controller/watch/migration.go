@@ -39,14 +39,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewMigrationController(restClient *rest.RESTClient, migrationService services.VMService, clientset *kubernetes.Clientset, queue workqueue.RateLimitingInterface, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, vmCache cache.Store) *MigrationController {
+func NewMigrationController(restClient *rest.RESTClient, migrationService services.VMService, clientset *kubernetes.Clientset, queue workqueue.RateLimitingInterface, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, migrationCache cache.Store) *MigrationController {
 
 	return &MigrationController{
 		restClient:        restClient,
 		vmService:         migrationService,
 		clientset:         clientset,
 		queue:             queue,
-		store:             vmCache,
+		store:             migrationCache,
 		migrationInformer: migrationInformer,
 		podInformer:       podInformer,
 	}

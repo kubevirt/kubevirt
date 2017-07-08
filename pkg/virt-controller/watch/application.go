@@ -37,6 +37,7 @@ var (
 	migrationController *MigrationController
 	migrationQueue      workqueue.RateLimitingInterface
 	vmCache             cache.Store
+	migrationCache      cache.Store
 )
 
 type Flags struct {
@@ -81,15 +82,22 @@ func Execute() {
 	vmInformer = informerFactory.VM()
 	migrationInformer = informerFactory.Migration()
 	podInformer = informerFactory.KubeVirtPod()
-	vmController = NewVMController(vmService, nil, restClient, clientSet, vmInformer, podInformer)
+
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+
+	vmInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue))
+	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(queue)))
+
+	vmCache = vmInformer.GetStore()
 
 	migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	migrationInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(migrationQueue))
 	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(migrationQueue)))
 	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(migrationQueue)))
-	vmCache = migrationInformer.GetStore()
+	migrationCache = migrationInformer.GetStore()
 
-	migrationController = NewMigrationController(restClient, vmService, clientSet, migrationQueue, migrationInformer, podInformer, vmCache)
+	vmController = NewVMController(restClient, vmService, queue, vmCache, vmInformer, podInformer, nil, clientSet)
+	migrationController = NewMigrationController(restClient, vmService, clientSet, migrationQueue, migrationInformer, podInformer, migrationCache)
 
 	stop := make(chan struct{})
 	defer close(stop)
