@@ -22,22 +22,25 @@ import (
 )
 
 var (
-	flags               Flags = Flags{}
-	host                string
-	port                int
-	templateService     services.TemplateService
-	restClient          *clientrest.RESTClient
-	clientSet           *kubernetes.Clientset
-	vmService           services.VMService
-	informerFactory     kubeinformers.KubeInformerFactory
-	vmInformer          cache.SharedIndexInformer
-	migrationInformer   cache.SharedIndexInformer
-	podInformer         cache.SharedIndexInformer
-	vmController        *VMController
-	migrationController *MigrationController
-	migrationQueue      workqueue.RateLimitingInterface
-	vmCache             cache.Store
+	flags           Flags = Flags{}
+	host            string
+	port            int
+	templateService services.TemplateService
+	restClient      *clientrest.RESTClient
+	clientSet       *kubernetes.Clientset
+	vmService       services.VMService
+	informerFactory kubeinformers.KubeInformerFactory
+	podInformer     cache.SharedIndexInformer
+
 	migrationCache      cache.Store
+	migrationController *MigrationController
+	migrationInformer   cache.SharedIndexInformer
+	migrationQueue      workqueue.RateLimitingInterface
+
+	vmCache      cache.Store
+	vmController *VMController
+	vmInformer   cache.SharedIndexInformer
+	vmQueue      workqueue.RateLimitingInterface
 )
 
 type Flags struct {
@@ -55,11 +58,6 @@ func Execute() {
 	logging.InitializeLogging("virt-controller")
 	logger := logging.DefaultLogger()
 
-	templateService, err = services.NewTemplateService(flags.launcherImage, flags.migratorImage)
-	if err != nil {
-		golog.Fatal(err)
-	}
-
 	clientSet, err = kubecli.Get()
 
 	if err != nil {
@@ -71,8 +69,6 @@ func Execute() {
 		golog.Fatal(err)
 	}
 
-	vmService = services.NewVMService(clientSet, restClient, templateService)
-
 	restful.Add(rest.WebService)
 
 	// Bootstrapping. From here on the initialization order is important
@@ -83,12 +79,10 @@ func Execute() {
 	migrationInformer = informerFactory.Migration()
 	podInformer = informerFactory.KubeVirtPod()
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
-	vmInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue))
-	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(queue)))
-
+	vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	vmCache = vmInformer.GetStore()
+	vmInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(vmQueue))
+	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(vmQueue)))
 
 	migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	migrationInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(migrationQueue))
@@ -96,8 +90,7 @@ func Execute() {
 	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(migrationQueue)))
 	migrationCache = migrationInformer.GetStore()
 
-	vmController = NewVMController(restClient, vmService, queue, vmCache, vmInformer, podInformer, nil, clientSet)
-	migrationController = NewMigrationController(restClient, vmService, clientSet, migrationQueue, migrationInformer, podInformer, migrationCache)
+	initCommon()
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -115,6 +108,18 @@ func Execute() {
 		golog.Fatal(err)
 	}
 }
+
+func initCommon() {
+	var err error
+	templateService, err = services.NewTemplateService(flags.launcherImage, flags.migratorImage)
+	if err != nil {
+		golog.Fatal(err)
+	}
+	vmService = services.NewVMService(clientSet, restClient, templateService)
+	vmController = NewVMController(restClient, vmService, vmQueue, vmCache, vmInformer, podInformer, nil, clientSet)
+	migrationController = NewMigrationController(restClient, vmService, clientSet, migrationQueue, migrationInformer, podInformer, migrationCache)
+}
+
 func DefineFlags() {
 	flag.StringVar(&flags.host, "listen", "0.0.0.0", "Address and port where to listen on")
 	flag.IntVar(&flags.port, "port", 8182, "Port to listen on")

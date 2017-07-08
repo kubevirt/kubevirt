@@ -46,55 +46,42 @@ import (
 var _ = Describe("Migration", func() {
 
 	var (
-		server              *ghttp.Server
-		migrationCache      cache.Store
-		vmCache             cache.Store
-		vmService           services.VMService
-		restClient          *rest.RESTClient
-		migrationController *MigrationController
-		migrationQueue      workqueue.RateLimitingInterface
-		migration           *v1.Migration
-		vm                  *v1.VM
-		pod                 *clientv1.Pod
-		podList             clientv1.PodList
-		migrationKey        interface{}
-		srcIp               clientv1.NodeAddress
-		destIp              kubev1.NodeAddress
-		srcNodeWithIp       kubev1.Node
-		destNodeWithIp      kubev1.Node
-		srcNode             kubev1.Node
-		destNode            kubev1.Node
+		server         *ghttp.Server
+		migration      *v1.Migration
+		vm             *v1.VM
+		pod            *clientv1.Pod
+		podList        clientv1.PodList
+		migrationKey   interface{}
+		srcIp          clientv1.NodeAddress
+		destIp         kubev1.NodeAddress
+		srcNodeWithIp  kubev1.Node
+		destNodeWithIp kubev1.Node
+		srcNode        kubev1.Node
+		destNode       kubev1.Node
 	)
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	destinationNodeName := "mynode"
 	sourceNodeName := "sourcenode"
+
+	flags.launcherImage = "kubevirt/virt-launcher"
+	flags.migratorImage = "kubevirt/virt-handler"
+
 	BeforeEach(func() {
 
 		server = ghttp.NewServer()
 		config := rest.Config{}
 		config.Host = server.URL()
-		clientSet, _ := kubernetes.NewForConfig(&config)
-		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
+		clientSet, _ = kubernetes.NewForConfig(&config)
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
 
 		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 
-		vmService = services.NewVMService(clientSet, restClient, templateService)
-
 		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-		migrationController = &MigrationController{
-			restClient:        restClient,
-			vmService:         vmService,
-			clientset:         clientSet,
-			queue:             migrationQueue,
-			store:             migrationCache,
-			migrationInformer: nil,
-			podInformer:       nil,
-		}
+		initCommon()
 		// Create a VM which is being scheduled
 
 		vm = v1.NewMinimalVM("testvm")

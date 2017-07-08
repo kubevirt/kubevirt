@@ -45,11 +45,8 @@ var _ = Describe("VM watcher", func() {
 	var server *ghttp.Server
 	//var vmService services.VMService
 
-	var vmCache cache.Store
-	var vmQueue workqueue.RateLimitingInterface
-
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-	var vmController *VMController
+
 	flags.launcherImage = "kubevirt/virt-launcher"
 	flags.migratorImage = "kubevirt/virt-handler"
 
@@ -60,17 +57,10 @@ var _ = Describe("VM watcher", func() {
 		config.Host = server.URL()
 		clientSet, _ = kubernetes.NewForConfig(&config)
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
-		templateService, _ = services.NewTemplateService(flags.launcherImage, flags.migratorImage)
-		vmService = services.NewVMService(clientSet, restClient, templateService)
 		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-		vmController = &VMController{
-			restClient: restClient,
-			vmService:  vmService,
-			queue:      vmQueue,
-			store:      vmCache,
-		}
+		initCommon()
 	})
 
 	Context("Creating a VM ", func() {
