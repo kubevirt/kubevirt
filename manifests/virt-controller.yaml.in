@@ -40,4 +40,4 @@ spec:
       securityContext:
         runAsNonRoot: true
       nodeSelector:
-        kubernetes.io/hostname: master
+        kubernetes.io/hostname: {{ primary_node_name }}
