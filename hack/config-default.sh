@@ -6,3 +6,4 @@ manifest_templates="`ls manifests/*.in`"
 master_ip=192.168.200.2
 master_port=8184
 network_provider=weave
+primary_nic=${primary_nic:-eth1}
