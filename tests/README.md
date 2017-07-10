@@ -19,5 +19,11 @@ There is a helper script to run this:
 
 ```
 # from the git repo root folder
-cluster/run_tests.sh
+hack/build-go.sh functest
+```
+
+Or simply
+
+```
+make functest
 ```

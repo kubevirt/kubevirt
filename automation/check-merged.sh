@@ -120,4 +120,4 @@ kubectl get pods
 cluster/kubectl.sh version
 
 # Run functional tests
-cluster/run_tests.sh --ginkgo.noColor
+FUNC_TEST_ARGS="--ginkgo.noColor" hack/build-go.sh functest
