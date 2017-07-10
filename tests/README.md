@@ -14,16 +14,10 @@ cd tests # from the git repo root folder
 go test -master=http://192.168.200.2:8184
 ```
 
-There is a helper script to run this:
-
+There is a make target to run this with the config
+taken from hack/config.sh:
 
 ```
 # from the git repo root folder
-hack/build-go.sh functest
-```
-
-Or simply
-
-```
 make functest
 ```
