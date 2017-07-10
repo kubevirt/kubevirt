@@ -347,7 +347,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 				return nil, err
 			}
-			logging.DefaultLogger().Object(vm).Info().V(3).Msg("Domain XML generated.")
+			logging.DefaultLogger().Object(vm).Info().V(3).Msgf("Domain XML generated %s.", xmlStr)
 			dom, err = l.virConn.DomainDefineXML(string(xmlStr))
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
