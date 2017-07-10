@@ -19,8 +19,7 @@
 
 set -e
 
-# Temporary hack to export everything into env
-eval `cat hack/config.sh | sed -e 's/^/export /'`
+source hack/config.sh
 
 if [ $# -eq 0 ]; then
     args=$manifest_templates
