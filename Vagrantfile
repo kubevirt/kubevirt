@@ -8,7 +8,11 @@ $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
 $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
 $nodes = (ENV['VAGRANT_NUM_NODES'] || 0).to_i
 
-$config = Hash[*File.read('hack/config.sh').split(/=|\n/)]
+$config = Hash[*File.read('hack/config-default.sh').split(/=|\n/)]
+if File.file?('hack/config-local.sh') then
+  $localConfig = Hash[*File.read('hack/config-local.sh').split(/=|\n/)]
+  $config = $config.merge($localConfig)
+end
 
 $master_ip = $config["master_ip"]
 $network_provider = $config["network_provider"]
