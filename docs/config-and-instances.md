@@ -9,10 +9,10 @@ management UIs, which do expect to manage the complete life-cycle of a VM,
 including shut down VMs (which is currently not intended by the core runtime).
 
 
-The purpose of this document is to describe a design which allows to keep
-the configuration of non-running VMs along side running VM definitions.
-This document specifically focuses on how the non-running and running VM
-definitions relate to each other.
+The purpose of this document is to describe a design that allows creating a VM
+configurations and how these can be used to create a VM instances.  This
+document specifically focuses on how the non-running and running VM definitions
+relate to each other.
 
 Already known but not yet designed requirements were considered for this
 design.
@@ -42,9 +42,9 @@ The design of these items is out of scope of this document.
 ## API
 In addition to the existing `VM` type, a new `VirtualMachineConfig` type is
 getting introduced.
-In contrast to the `VM` object which is representing a running VM, a
+In contrast to the `VM` object which represents a running VM, the
 `VirtualMachineConfig` object represents a static VM configuration.
-A `VirtualMachineConfig` object can be used to create a `VM` instance.
+A `VirtualMachineConfig` object is used to create one or more `VM` instances.
 
 ### Kinds
 
@@ -81,30 +81,32 @@ State:
 
 The new `ownerReferences` field is pointing back to the `VirtualMachineConfig`
 object which was used to create this `VM` object.
-It will be added to the meta-data by the controller owning the
+It will be added to the metadata by the controller owning the
 `VirtualMachineConfig` type.
 The scheme can look similar to the `ownerReferences` field of a ReplicaSet
 if it got created by a Deployment.
+
+**Note:** ownerReferences must not be added or mutated by the user.
 
 
 ## Flow
 
 The general concept is that the `VirtualMachineConfig` contains a static VM
 configuration.
-Static refers to the fact, that no runtime information is kept in such objects.
+Static refers to the fact that no runtime information is kept in such objects.
 
-The runtime informations of a VM are kept in the `VM` object, i.e. it's state
+The runtime information of a VM is kept in the `VM` object, i.e. it's state
 or computed values like bus addresses.
 
 ## Creation
-To create a VM definition, the user needs to `POST` a `VirtualMachineConfig`.
+To create a VM definition, a user needs to `POST` a `VirtualMachineConfig`.
 
 ## Starting a VM, the `/start` sub-resource
-To create an instance from a `VirtualMachineConfig` a user has to `GET` the `start`
+To create an instance from a `VirtualMachineConfig` a user must `GET` the `start`
 sub-resource of a `VirtualMachineConfig` instance.
 
 ## Stopping a VM, the `/stop` sub-resource
-To stop a VM, the user can `GET` the `stop` sub-resource of the associated
+To stop a VM, a user must `GET` the `stop` sub-resource of the associated
 `VirtualMachineConfig` object.
 
 **Note:** The semantics of a `DELETE` on the `VM` object of a
@@ -112,15 +114,15 @@ To stop a VM, the user can `GET` the `stop` sub-resource of the associated
 
 ## Changing a `VirtualMachineConfig`
 Changes to a `VirtualMachineConfig` instance can be performed through the usual
-`PATH` calls. Chaging a `VirtualMachineConfig` does not lead to an automatic
-propagation of the change to the instance.
+`PATH` calls. Changing a `VirtualMachineConfig` does not lead to an automatic
+propagation of the changes to the instances.
 However, in future there could be a specific metadata or action to trigger
-such a propagation automatically.
+such propagation automatically.
 
 
 ### Example Flow
 
-Let's start with a simple example to get a better feeling for the realtionship
+Let's start with a simple example to get a better feeling for the relationship
 between the objects.
 
 ```
@@ -135,7 +137,7 @@ PATCH
 
 In other words:
 
-1. A new config is creatde by a user
+1. A new config is created by a user
    `POST` $c1 config
 2. A new VM is created based on the config
    `GET` $c1/start
@@ -152,12 +154,10 @@ In other words:
    `GET` $c1/stop
    → deletes instance `DELETE` $i2
 
-In this example, a the user defines a VM, then starts it and an instance is
-getting created. Once the user stops it, the instance is getting removed.
+In this example, the user defines a `VirtualMachineConfig`, then starts it and
+a `VM` instance is created. Once the user stops it, the instance is removed.
 After changing the `VirtualMachineConfig` (in step 4), he starts and stops the
 VM again.
-
-This is pretty straight forward.
 
 
 ### Review
@@ -188,7 +188,7 @@ Does the design obviously prevent any other use-case we already aware of?
 ## Implementation
 
 
-The implementation for the curent feature scope should be pretty straight
+The implementation for the current feature scope should be pretty straight
 forward, as the flow is currently uni-directional, from `VirtualMachineConfig`
 to `VM`.
 Thus a new simple controller can be used to handle this new type.
