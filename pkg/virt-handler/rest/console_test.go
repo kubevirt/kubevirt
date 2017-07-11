@@ -48,6 +48,7 @@ var _ = Describe("Console", func() {
 	var mockRecorder *record.FakeRecorder
 	var server *httptest.Server
 	var wsUrl *url.URL
+	var serverDone chan bool
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
@@ -79,7 +80,14 @@ var _ = Describe("Console", func() {
 		ws := new(restful.WebService)
 		handler = http.Handler(restful.NewContainer().Add(ws))
 
-		ws.Route(ws.GET("/api/v1/console/{name}").To(NewConsoleResource(mockConn).Console))
+		// Give us a chance to detect when the request is done. Otherwise we
+		// don't know when to check mock invokations
+		serverDone = make(chan bool)
+		waiter := func(request *restful.Request, response *restful.Response) {
+			NewConsoleResource(mockConn).Console(request, response)
+			close(serverDone)
+		}
+		ws.Route(ws.GET("/api/v1/console/{name}").To(waiter))
 		server = httptest.NewServer(handler)
 		wsUrl, err = url.Parse(server.URL)
 		Expect(err).ToNot(HaveOccurred())
@@ -174,8 +182,9 @@ var _ = Describe("Console", func() {
 
 	})
 	AfterEach(func() {
-		ctrl.Finish()
 		server.Close()
+		<-serverDone
+		ctrl.Finish()
 	})
 })
 
