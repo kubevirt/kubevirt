@@ -1,4 +1,4 @@
-# Defaulting Service Proposal
+# Ahead of Time Libvirt Defaulting on the Cluster/API Level
 
 This Proposal fills a gap between KubeVirt as Runtime and Higher level
 management, like proposed in #272. It lays out a design wich overcomes the
@@ -104,14 +104,17 @@ Finally, when a Domain was successfully started by Libvirt, Libvirt assigns an
 
 ## The Problem
 
- * Hotplug operations are not possible with the minimal VM spec of kubevirt,
+ * Hotplug operations are difficult with the minimal VM spec of kubevirt,
    since we could match wrong devices.
  * After VM restarts, different devices or addresses could be assigned to a VM
    by libvirt
  * Libvirt assigns all that data on the host, either when defining the Domain,
    or after the Domain was started. That requires asynchronous lookups, and
    when thinking about administrating offline VMs, it binds your domain
-   specification management to the kubevirt runtime.
+   specification management to **running** VMs in the kubevirt runtime.
+ * If we don't want to change the VM specification behind the back of the user,
+   all computed default values by Libvirt, need to be reflected in the VM
+   status.
 
 If your VMs are ephemeral (no migrations, recreating VMs vs. restarting VMs, no
 hotplug), you are not affected by that.
@@ -156,6 +159,83 @@ Defaulting rules:
    on the VM specification at all (see
    [docs/vm-configuration.md](docs/vm-configuration.md)), not mapping such
    dummy data back should be easy.
+
+## Implementation Details for Option 1
+
+The implementation consists of two parts. First the Libvirt
+[admission-controller](https://kubernetes.io/docs/admin/admission-controllers/#what-are-they)
+in `virt-api`. This admission controller, then reaches out to the second part,
+a special libvirt instance in a container, wrapped by a REST API, which acts as
+Libvirt defaulting service. Since the defaults from this service would normally
+be filled in on the host, it is important that this controller is the last of
+all invoked admission controllers. For instance, if another admission
+controller would exist, which allows injecting Disks, like a
+[PodPreset](https://kubernetes.io/docs/tasks/inject-data-application/podpreset/)
+allows injecting volumes, it has to be invoked before this Libvirt defaulting
+service. Otherwise relevant specification details, like PCI addresses might
+still be added at the host level. the final flow looks like this:
+
+```
+ client       virt-api/apiserver admission-controller 1 libvirt admission controller  libvirt defaulting service
+------------- ------------------ ---------------------- ----------------------------- ----------------------------
+
+
+POST/VM ----->  validate/auth ----> modify/validate -----> POST /apis/vms/defaults ------> fill in defaults with
+                                                                                                 libvirt
+                                                                                                    |
+                                                                                                    |
+                                                                                                    v
+                  validate <------------------------------- validate and return <--------- respond with full spec
+                      |
+                      |
+                      v
+                  persist
+                      |
+                      |
+                      v
+response <------- respond
+
+```
+
+This way of prefiling the whole VM specification, allows managment applications
+on top of KubeVirt, to immediately get the resulting specification, without the
+need to asynchronously watch for the missing defaults, to be filled in.
+
+## Implementation Details of Option 2
+
+The extra `virt-api` endpoint `/apis/kubevirt.io/v1.alpha1/vms/defaults`
+internally too stacks admission controllers, like in option 1. However, there
+are two main differences:
+
+ a) After the admission controllers were invoked, the VM is not persisted in this scenario
+
+ b) The list of invoked admission controllers may differ. Think for instance
+    about injecting secrets. That should only be done at runtime.
+
+
+```
+ client       virt-api/apiserver admission-controller 1 libvirt admission controller  libvirt defaulting service
+------------- ------------------ ---------------------- ----------------------------- ----------------------------
+
+
+POST/VM ----->  validate/auth ----> modify/validate -----> POST /apis/vms/defaults ------> fill in defaults with
+                                                                                                 libvirt
+                                                                                                    |
+                                                                                                    |
+                                                                                                    v
+                  validate <------------------------------- validate and return <--------- respond with full spec
+                      |
+                      |
+                      v
+response <------- respond
+
+```
+
+This optional way of prefilling the whole or parts of a sparse VM
+specification, allows management applications on top of KubeVirt, to work
+user-facing, or internally with fully populated specs, without the need to ever
+actually run a VM, but still share the same same admission-control logic, where
+appropriate, with the KubeVirt runtime.
 
 ## Important side notes
 
