@@ -30,12 +30,11 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/libvirt/libvirt-go"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/pkg/api"
-	kubeapi "k8s.io/client-go/pkg/api"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -88,9 +87,9 @@ func main() {
 		panic(err)
 	}
 	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceAll)})
+	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: coreClient.Events(k8sv1.NamespaceAll)})
 	// TODO what is scheme used for in Recorder?
-	recorder := broadcaster.NewRecorder(kubeapi.Scheme, kubev1.EventSource{Component: "virt-handler", Host: *host})
+	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: *host})
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, recorder)
 	if err != nil {
@@ -108,7 +107,7 @@ func main() {
 	}
 
 	// Wire VM controller
-	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceAll, fields.Everything(), l)
+	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", k8sv1.NamespaceAll, fields.Everything(), l)
 	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, coreClient, *host)
 
 	// Wire Domain controller

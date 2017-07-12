@@ -25,14 +25,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 var _ = Describe("Mapper", func() {
 	Context("With a VM supplied", func() {
 		It("should map to json and back with custom mapper", func() {
-			vm := VM{ObjectMeta: v1.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
+			vm := VM{ObjectMeta: metav1.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
 			newVM := VM{}
 			buf, err := json.Marshal(&vm)
 			Expect(err).To(BeNil())

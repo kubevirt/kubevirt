@@ -26,8 +26,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -49,7 +49,7 @@ var _ = Describe("Storage", func() {
 	})
 
 	getTargetLogs := func(tailLines int64) string {
-		pods, err := coreClient.CoreV1().Pods(kubev1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
+		pods, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
 		Expect(err).ToNot(HaveOccurred())
 
 		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
@@ -65,7 +65,7 @@ var _ = Describe("Storage", func() {
 		logsRaw, err := coreClient.CoreV1().
 			Pods("default").
 			GetLogs(podName,
-				&kubev1.PodLogOptions{TailLines: &tailLines}).
+				&k8sv1.PodLogOptions{TailLines: &tailLines}).
 			DoRaw()
 		Expect(err).To(BeNil())
 

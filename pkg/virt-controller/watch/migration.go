@@ -23,12 +23,12 @@ import (
 	"fmt"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	kubeapi "k8s.io/client-go/pkg/api"
-	k8sv1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -138,7 +138,7 @@ func (md *MigrationController) execute(key string) error {
 
 	logger := logging.DefaultLogger().Object(obj.(*kubev1.Migration))
 	// Copy migration for future modifications
-	if obj, err = kubeapi.Scheme.Copy(obj.(runtime.Object)); err != nil {
+	if obj, err = scheme.Scheme.Copy(obj.(runtime.Object)); err != nil {
 		logger.Error().Reason(err).Msg("could not copy migration object")
 		return err
 	}

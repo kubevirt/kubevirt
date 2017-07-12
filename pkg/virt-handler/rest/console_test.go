@@ -31,8 +31,8 @@ import (
 	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -55,7 +55,7 @@ var _ = Describe("Console", func() {
 
 	dial := func(vm string, console string) *websocket.Conn {
 		wsUrl.Scheme = "ws"
-		wsUrl.Path = "/api/v1/namespaces/" + v1.NamespaceDefault + "/vms/" + vm + "/console"
+		wsUrl.Path = "/api/v1/namespaces/" + k8sv1.NamespaceDefault + "/vms/" + vm + "/console"
 		wsUrl.RawQuery = "console=" + console
 		c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), nil)
 		Expect(err).ToNot(HaveOccurred())
@@ -64,7 +64,7 @@ var _ = Describe("Console", func() {
 
 	get := func(vm string) (*http.Response, error) {
 		wsUrl.Scheme = "http"
-		wsUrl.Path = "/api/v1/namespaces/" + v1.NamespaceDefault + "/vms/" + vm + "/console"
+		wsUrl.Path = "/api/v1/namespaces/" + k8sv1.NamespaceDefault + "/vms/" + vm + "/console"
 		return http.DefaultClient.Get(wsUrl.String())
 	}
 

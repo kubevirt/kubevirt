@@ -26,9 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
-	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -110,14 +109,14 @@ func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer)
 
 func (f *kubeInformerFactory) VM() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.restClient, "vms", api.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.restClient, "vms", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VM{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
 func (f *kubeInformerFactory) Migration() cache.SharedIndexInformer {
 	return f.getInformer("migrationInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.restClient, "migrations", api.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.restClient, "migrations", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.Migration{}, f.defaultResync, cache.Indexers{})
 	})
 }
@@ -130,7 +129,7 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 			panic(err)
 		}
 
-		lw := kubecli.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", api.NamespaceAll, fields.Everything(), labelSelector)
+		lw := kubecli.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{})
 	})
 }
