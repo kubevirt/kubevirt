@@ -148,7 +148,7 @@ func main() {
 	// Add websocket route to access consoles remotely
 	console := rest.NewConsoleResource(domainConn)
 	ws := new(restful.WebService)
-	ws.Route(ws.GET("/api/v1/console/{name}").To(console.Console))
+	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/console").To(console.Console))
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{Addr: *listen + ":" + strconv.Itoa(*port), Handler: restful.DefaultContainer}
 	server.ListenAndServe()

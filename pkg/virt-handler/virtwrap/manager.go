@@ -324,7 +324,7 @@ func NewLibvirtDomainManager(connection Connection, recorder record.EventRecorde
 
 func VMNamespaceKeyFunc(vm *v1.VM) string {
 	// Construct the domain name with a namespace prefix. E.g. namespace>name
-	domName := fmt.Sprintf("%s>%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
+	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 	return domName
 }
 

@@ -44,7 +44,7 @@ var _ = Describe("Manager", func() {
 	var recorder *record.FakeRecorder
 	testVmName := "testvm"
 	testNamespace := "testnamespace"
-	testDomainName := fmt.Sprintf("%s>%s", testNamespace, testVmName)
+	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 

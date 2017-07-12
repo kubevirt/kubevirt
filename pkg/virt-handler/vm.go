@@ -81,13 +81,13 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	// Retrieve the VM
 	var vm *v1.VM
 	if !exists {
-		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
+		namespace, name, err := cache.SplitMetaNamespaceKey(key.(string))
 		if err != nil {
 			// TODO do something more smart here
 			queue.AddRateLimited(key)
 			return
 		}
-		vm = v1.NewVMReferenceFromName(name)
+		vm = v1.NewVMReferenceFromNameWithNS(namespace, name)
 	} else {
 		vm = obj.(*v1.VM)
 	}

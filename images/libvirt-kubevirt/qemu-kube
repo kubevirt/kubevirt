@@ -27,7 +27,7 @@ key="$1"
 
 case $key in
     -name)
-        VM_NAME="$2"
+        VM_NAMESPACE_NAME="$2"
         shift
     ;;
     *)
@@ -36,27 +36,33 @@ esac
 shift
 done
 
-if [ -z "$VM_NAME" ]; then
+if [ -z "$VM_NAMESPACE_NAME" ]; then
     log "Libvirt is asking for qemu capabilities." >> $LOG
     exec $QEMU $ARGS
 fi
 
-if [[ "$VM_NAME" == *"="* ]]
+if [[ "$VM_NAMESPACE_NAME" == *"="* ]]
 then
-    VM_NAME=$(echo -n "$VM_NAME" | awk -F "=" -v RS="," "/guest/ { print \$2; }")
+    VM_NAMESPACE_NAME=$(echo -n "$VM_NAMESPACE_NAME" | awk -F "=" -v RS="," "/guest/ { print \$2; }")
 fi
 
-alias log='echo "[$(date)] ${VM_NAME}: "'
+alias log='echo "[$(date)] ${VM_NAMESPACE_NAME}: "'
 
-log "Trying to start VM ${VM_NAME}." >> $LOG
+log "Trying to start VM ${VM_NAMESPACE_NAME}." >> $LOG
+
+# Whe have the namespace embedded in the VM name, extract it, so that we can detect the right docker container
+namespace_name=(${VM_NAMESPACE_NAME//_/ })
+
+VM_NAME=${namespace_name[1]}
+VM_NAMESPACE=${namespace_name[0]}
 
 function find_container() {
-    docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME-{5}.*/ { print \$1 }" 2>>$LOG
+    docker ps --no-trunc | awk "/.*compute.*virt-launcher-$VM_NAME-{5}[a-z0-9]+_${VM_NAMESPACE}_.*/ { print \$1 }" 2>>$LOG
 }
 
 NEXT_WAIT=0
 until test -n "$(find_container)" || [ $NEXT_WAIT -eq 10 ]; do
-           log "${VM_NAME}: Waiting for container to show up." >> $LOG
+           log "${VM_NAMESPACE_NAME}: Waiting for container to show up." >> $LOG
            (( NEXT_WAIT++ ))
            sleep 6
 done

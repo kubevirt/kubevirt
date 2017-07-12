@@ -154,7 +154,7 @@ func NewDomainSpec(dom virtwrap.VirDomain) (*api.DomainSpec, error) {
 // SplitVMNamespaceKey returns the namespace and name that is encoded in the
 // domain name.
 func SplitVMNamespaceKey(domainName string) (namespace, name string) {
-	splitName := strings.SplitN(domainName, ">", 2)
+	splitName := strings.SplitN(domainName, "_", 2)
 	if len(splitName) == 1 {
 		return kubev1.NamespaceDefault, splitName[0]
 	}

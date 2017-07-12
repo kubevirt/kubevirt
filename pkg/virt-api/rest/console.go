@@ -56,8 +56,9 @@ func NewConsoleResource(virtClient kubecli.KubevirtClient, k8sClient k8scorev1.C
 func (t *Console) Console(request *restful.Request, response *restful.Response) {
 	console := request.QueryParameter("console")
 	vmName := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
 
-	vm, err := t.virtClient.VM(v1.NamespaceDefault).Get(vmName, k8sv1meta.GetOptions{})
+	vm, err := t.virtClient.VM(namespace).Get(vmName, k8sv1meta.GetOptions{})
 	if errors.IsNotFound(err) {
 		logging.DefaultLogger().Info().V(3).Msgf("VM '%s' does not exist", vmName)
 		response.WriteError(http.StatusNotFound, fmt.Errorf("VM does not exist"))
@@ -105,7 +106,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 		port = t.VirtHandlerPort
 	}
 
-	u := url.URL{Scheme: "ws", Host: dstAddr + ":" + port, Path: fmt.Sprintf("/api/v1/console/%s", vmName)}
+	u := url.URL{Scheme: "ws", Host: dstAddr + ":" + port, Path: fmt.Sprintf("/api/v1/namespaces/%s/vms/%s/console", namespace, vmName)}
 	if console != "" {
 		u.RawQuery = "console=" + console
 	}

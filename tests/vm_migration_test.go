@@ -46,12 +46,12 @@ var _ = Describe("VmMigration", func() {
 	tests.PanicOnError(err)
 
 	// Create a Test Namespace
-	ns := &kubev1.Namespace{
+	ns := &k8sv1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ns",
 		},
 	}
-	_, err = coreCli.Namespaces().Create(ns)
+	_, err = coreClient.Namespaces().Create(ns)
 	tests.PanicOnError(err)
 
 	var sourceVM *v1.VM
