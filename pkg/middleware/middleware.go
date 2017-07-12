@@ -135,7 +135,7 @@ func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
 						e = nil
 					}
 					// TODO log it with a logger at the right locations
-					logging.DefaultLogger().Critical().Msgf("stacktrace: %v", debug.Stack())
+					logging.DefaultLogger().Critical().Msgf("stacktrace: %v", string(debug.Stack()))
 				}
 			}()
 			data, err = next(ctx, request)
