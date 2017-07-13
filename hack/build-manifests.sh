@@ -19,8 +19,7 @@
 
 set -e
 
-# Temporary hack to export everything into env
-eval `cat hack/config.sh | sed -e 's/^/export /'`
+source hack/config.sh
 
 if [ $# -eq 0 ]; then
     args=$manifest_templates
@@ -34,6 +33,8 @@ rm -f "manifests/*.yaml"
 # Render kubernetes manifests
 for arg in $args; do
     sed -e "s/{{ master_ip }}/$master_ip/g" \
+        -e "s/{{ primary_nic }}/$primary_nic/g" \
+        -e "s/{{ primary_node_name }}/$primary_node_name/g" \
         -e "s/{{ docker_tag }}/$docker_tag/g" \
         -e "s/{{ docker_prefix }}/$docker_prefix/g" \
         $arg > ${arg%%.in}

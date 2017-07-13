@@ -26,7 +26,7 @@ spec:
           runAsUser: 0
         env:
         - name: LIBVIRTD_DEFAULT_NETWORK_DEVICE
-          value: eth1
+          value: {{ primary_nic }}
         volumeMounts:
           - mountPath: /host-dev
             name: host-dev

@@ -50,7 +50,7 @@ spec:
           runAsUser: 0
         env:
         - name: LIBVIRTD_DEFAULT_NETWORK_DEVICE
-          value: eth1
+          value: {{ primary_nic }}
         volumeMounts:
           - name: libvirt-runtime
             mountPath: /var/run/libvirt
@@ -59,4 +59,4 @@ spec:
       - name: libvirt-runtime
         emptyDir: {}
       nodeSelector:
-        kubernetes.io/hostname: master
+        kubernetes.io/hostname: {{ primary_node_name }}

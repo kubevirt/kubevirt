@@ -149,7 +149,7 @@ up [Vagrant](#vagrant). Then run
 
 ```bash
     make vagrant-deploy # synchronize with your code, if necessary
-    make vagrant-test # run the functional tests against the Vagrant VMs
+    make functest # run the functional tests against the Vagrant VMs
 ```
 
 ## Use

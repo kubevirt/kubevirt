@@ -1,8 +1,11 @@
-binaries="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api cmd/virtctl cmd/virt-manifest"
-docker_images="$binaries images/haproxy images/iscsi-demo-target-tgtd images/vm-killer images/libvirt-kubevirt images/spice-proxy cmd/virt-migrator"
-docker_prefix=kubevirt
-docker_tag=${DOCKER_TAG:-latest}
-manifest_templates="`ls manifests/*.in`"
-master_ip=192.168.200.2
-master_port=8184
-network_provider=weave
+unset binaries docker_images docker_prefix docker_tag manifest_templates \
+      master_ip master_port network_provider primary_nic primary_node_name
+
+source hack/config-default.sh
+
+# Let devs override any default variables, to avoid needing
+# to change the version controlled config-default.sh file
+test -f "hack/config-local.sh" && source hack/config-local.sh
+
+export binaries docker_images docker_prefix docker_tag manifest_templates \
+       master_ip master_port network_provider primary_nic primary_node_name

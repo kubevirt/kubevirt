@@ -130,4 +130,4 @@ spec:
           hostPath:
             path: /
       nodeSelector:
-        kubernetes.io/hostname: master
+        kubernetes.io/hostname: {{ primary_node_name }}
