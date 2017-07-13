@@ -32,15 +32,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/apimachinery/pkg/util/errors"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
@@ -322,35 +323,70 @@ func NewLibvirtDomainManager(connection Connection, recorder record.EventRecorde
 	return &manager, nil
 }
 
+// Check if a Domain with the VM name and UID exists. If a Domain with the VM name but with a different
+// UID exists, delete it. If everything matches, return the loaded Domain.
+func (l *LibvirtDomainManager) getActualOrDeleteOutdatedDomain(vm *v1.VM) (VirDomain, bool, error) {
+	// In case it does not exist, check if another VM with that name exists already
+	dom, err := l.virConn.LookupDomainByName(vm.ObjectMeta.GetName())
+	exists := err == nil
+	connectionErr := err != nil && err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN
+	if connectionErr {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
+		return nil, false, err
+	}
+	if (!exists) {
+		return nil, false, nil
+	}
+	uid, err := dom.GetUUIDString()
+	if err != nil {
+		dom.Free()
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the UID of the domain failed.")
+		return nil, false, err
+	}
+	// Check if the UIDs match and delete the old VM if they don't
+	if string(vm.GetObjectMeta().GetUID()) != uid {
+		vm := v1.NewVMReferenceFromName(vm.ObjectMeta.Name)
+		vm.GetObjectMeta().SetUID(types.UID(uid))
+		if err = l.killDomain(vm, dom); err != nil {
+			dom.Free()
+			return nil, false, err
+		}
+		dom.Free()
+		return nil, false, nil
+	}
+
+	return dom, exists, nil
+}
+
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	var wantedSpec api.DomainSpec
-	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
-	if len(mappingErrs) > 0 {
-		return errors.NewAggregate(mappingErrs)
+	if err := mapper.Copy(&wantedSpec, vm.Spec.Domain); err != nil {
+		return err
 	}
-	dom, err := l.virConn.LookupDomainByName(vm.GetObjectMeta().GetName())
+
+	// Get the VM if it exists and make sure that VMs with the same name but different UIDs
+	dom, exists, err := l.getActualOrDeleteOutdatedDomain(vm)
 	if err != nil {
-		// We need the domain but it does not exist, so create it
-		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
-			xmlStr, err := xml.Marshal(&wantedSpec)
-			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
-				return err
-			}
-			logging.DefaultLogger().Object(vm).Info().V(3).Msg("Domain XML generated.")
-			dom, err = l.virConn.DomainDefineXML(string(xmlStr))
-			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
-				return err
-			}
-			logging.DefaultLogger().Object(vm).Info().Msg("Domain defined.")
-			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined")
-		} else {
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
+		return err
+	}
+
+	if !exists {
+		xmlStr, err := xml.Marshal(&wantedSpec)
+		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 			return err
 		}
+		logging.DefaultLogger().Object(vm).Info().V(3).Msg("Domain XML generated.")
+		dom, err = l.virConn.DomainDefineXML(string(xmlStr))
+		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
+			return err
+		}
+		logging.DefaultLogger().Object(vm).Info().Msg("Domain defined.")
+		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined")
 	}
 	defer dom.Free()
+
 	domState, _, err := dom.GetState()
 	if err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
@@ -398,6 +434,10 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 		}
 	}
 	defer dom.Free()
+	return l.killDomain(vm, dom)
+}
+
+func (l *LibvirtDomainManager) killDomain(vm *v1.VM, dom VirDomain) error {
 	// TODO: Graceful shutdown
 	domState, _, err := dom.GetState()
 	if err != nil {
@@ -408,7 +448,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
 		err = dom.Destroy()
 		if err != nil {
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Destroying the domain state failed.")
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Destroying the domain failed.")
 			return err
 		}
 		logging.DefaultLogger().Object(vm).Info().Msg("Domain stopped.")
