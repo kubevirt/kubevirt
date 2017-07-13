@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -47,7 +46,7 @@ var _ = Describe("Storage", func() {
 	tests.PanicOnError(err)
 
 	BeforeEach(func() {
-		tests.MustCleanup()
+		tests.BeforeTestCleanup()
 	})
 
 	getTargetLogs := func(tailLines int64) string {
@@ -83,12 +82,12 @@ var _ = Describe("Storage", func() {
 	})
 
 	RunVMAndExpectLaunch := func(vm *v1.VM) {
-		obj, err := restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Get()
+		obj, err := restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStart(obj)
 
 		// Let's get the IP of the pod of the VM
-		pods, err := coreClient.CoreV1().Pods(api.NamespaceDefault).List(services.UnfinishedVMPodSelector(vm))
+		pods, err := coreClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
 		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
 		podIP := ""
 		for _, pod := range pods.Items {
@@ -135,15 +134,11 @@ var _ = Describe("Storage", func() {
 	})
 
 	Context("Given a VM and an Alpine PVC", func() {
-		It("should be successfully started by libvirt", func(done Done) {
+		PIt("should be successfully started by libvirt", func(done Done) {
 			// Start the VM with the PVC attached
 			vm := tests.NewRandomVMWithPVC("disk-alpine")
 			RunVMAndExpectLaunch(vm)
 			close(done)
 		}, 30)
-	})
-
-	AfterEach(func() {
-		tests.MustCleanup()
 	})
 })

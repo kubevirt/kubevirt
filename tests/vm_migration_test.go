@@ -45,15 +45,6 @@ var _ = Describe("VmMigration", func() {
 	coreClient, err := kubecli.Get()
 	tests.PanicOnError(err)
 
-	// Create a Test Namespace
-	ns := &k8sv1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-ns",
-		},
-	}
-	_, err = coreClient.Namespaces().Create(ns)
-	tests.PanicOnError(err)
-
 	var sourceVM *v1.VM
 
 	var TIMEOUT float64 = 10.0
@@ -65,17 +56,17 @@ var _ = Describe("VmMigration", func() {
 		}
 		sourceVM = tests.NewRandomVM()
 
-		tests.MustCleanup()
+		tests.BeforeTestCleanup()
 	})
 
 	Context("New Migration given", func() {
 
 		It("Should fail if the VM does not exist", func() {
 			migration := tests.NewRandomMigrationForVm(sourceVM)
-			err = restClient.Post().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Body(migration).Do().Error()
+			err = restClient.Post().Resource("migrations").Namespace(tests.NamespaceTestDefault).Body(migration).Do().Error()
 			Expect(err).To(BeNil())
 			Eventually(func() v1.MigrationPhase {
-				r, err := restClient.Get().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Name(migration.ObjectMeta.Name).Do().Get()
+				r, err := restClient.Get().Resource("migrations").Namespace(tests.NamespaceTestDefault).Name(migration.ObjectMeta.Name).Do().Get()
 				Expect(err).ToNot(HaveOccurred())
 				var m *v1.Migration = r.(*v1.Migration)
 				return m.Status.Phase
@@ -83,16 +74,16 @@ var _ = Describe("VmMigration", func() {
 		})
 
 		It("Should go to MigrationRunning state if the VM exists", func(done Done) {
-			vm, err := restClient.Post().Resource("vms").Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do().Get()
+			vm, err := restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(sourceVM).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMStart(vm)
 
 			migration := tests.NewRandomMigrationForVm(sourceVM)
-			err = restClient.Post().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Body(migration).Do().Error()
+			err = restClient.Post().Resource("migrations").Namespace(tests.NamespaceTestDefault).Body(migration).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() v1.MigrationPhase {
-				obj, err := restClient.Get().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Name(migration.ObjectMeta.Name).Do().Get()
+				obj, err := restClient.Get().Resource("migrations").Namespace(tests.NamespaceTestDefault).Name(migration.ObjectMeta.Name).Do().Get()
 				Expect(err).ToNot(HaveOccurred())
 				var m *v1.Migration = obj.(*v1.Migration)
 				return m.Status.Phase
@@ -101,7 +92,7 @@ var _ = Describe("VmMigration", func() {
 		}, 30)
 
 		Context("New Migration given", func() {
-			table.DescribeTable("Should migrate the VM in different namespaces", func(namespace string, migrateCount int) {
+			table.DescribeTable("Should migrate the VM", func(namespace string, migrateCount int) {
 
 				// Create the VM
 				sourceVM = tests.NewRandomVMWithNS(namespace)
@@ -154,23 +145,23 @@ var _ = Describe("VmMigration", func() {
 					Expect(migratedVM.Status.NodeName).ToNot(Equal(sourceNode))
 				}
 			},
-				table.Entry("default", "default", 3),
-				table.Entry("test namespace", "test-ns", 1),
+				table.Entry("three times in a row in namespace "+tests.NamespaceTestDefault, tests.NamespaceTestDefault, 3),
+				table.Entry("once in namespace "+tests.NamespaceTestAlternative, tests.NamespaceTestAlternative, 1),
 			)
 		})
 
 		It("Should create a pod to execute VM migration", func(done Done) {
 			// Create the VM
-			vm, err := restClient.Post().Resource("vms").Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do().Get()
+			vm, err := restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(sourceVM).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMStart(vm)
 
 			// Create the Migration
 			migration := tests.NewRandomMigrationForVm(sourceVM)
-			err = restClient.Post().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Body(migration).Do().Error()
+			err = restClient.Post().Resource("migrations").Namespace(tests.NamespaceTestDefault).Body(migration).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			obj, err := restClient.Get().Resource("migrations").Namespace(k8sv1.NamespaceDefault).Name(migration.ObjectMeta.Name).Do().Get()
+			obj, err := restClient.Get().Resource("migrations").Namespace(tests.NamespaceTestDefault).Name(migration.ObjectMeta.Name).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
 
 			thisMigration := obj.(*v1.Migration)
@@ -178,15 +169,11 @@ var _ = Describe("VmMigration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() int {
-				pods, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
+				pods, err := coreClient.CoreV1().Pods(tests.NamespaceTestDefault).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
 				Expect(err).ToNot(HaveOccurred())
 				return len(pods.Items)
 			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(1))
 			close(done)
 		}, 60)
-
-		AfterEach(func() {
-			tests.MustCleanup()
-		})
 	})
 })

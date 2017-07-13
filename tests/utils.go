@@ -29,11 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -41,12 +42,19 @@ import (
 
 type EventType string
 
-var testNamespaces = []string{"default", "test-ns"}
-
 const (
 	NormalEvent  EventType = "Normal"
 	WarningEvent EventType = "Warning"
 )
+
+const (
+	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
+	NamespaceTestDefault string = "kubevirt-test-default"
+	// NamespaceTestAlternative is used to test controller-namespace independency.
+	NamespaceTestAlternative string = "kubevirt-test-alternative"
+)
+
+var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
 
 type startType string
 
@@ -203,7 +211,22 @@ func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e
 	return
 }
 
-func MustCleanup() {
+func AfterTestSuitCleanup() {
+	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
+	createNamespaces()
+	cleanNamespaces()
+	removeNamespaces()
+}
+
+func BeforeTestCleanup() {
+	cleanNamespaces()
+}
+
+func BeforeTestSuitSetup() {
+	createNamespaces()
+}
+
+func cleanNamespaces() {
 	coreClient, err := kubecli.Get()
 	PanicOnError(err)
 	restClient, err := kubecli.GetRESTClient()
@@ -222,24 +245,45 @@ func MustCleanup() {
 		// Remove all VMs
 		PanicOnError(restClient.Delete().Namespace(namespace).Resource("vms").Do().Error())
 
-		// Remove all Jobs
-		absPath := "/apis/batch/v1/namespaces/" + namespace + "/jobs"
-		PanicOnError(coreClient.CoreV1().RESTClient().Delete().AbsPath(absPath).Do().Error())
+		// Remove all Pods
+		PanicOnError(coreClient.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
+	}
+}
 
-		// Remove all pods associated with a job
-		jobPodlabelSelector, err := labels.Parse("job-name")
-		PanicOnError(err)
-		err = coreClient.Core().Pods(namespace).
-			DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: jobPodlabelSelector.String()})
+func removeNamespaces() {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
 
-		PanicOnError(err)
-		// Remove VM pods
-		vmPodlabelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
-		PanicOnError(err)
-		err = coreClient.Core().Pods(namespace).
-			DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: vmPodlabelSelector.String()})
+	// First send an initial delete to every namespace
+	for _, namespace := range testNamespaces {
+		err := coreClient.Namespaces().Delete(namespace, nil)
+		if !errors.IsNotFound(err) {
+			PanicOnError(err)
+		}
+	}
 
-		PanicOnError(err)
+	// Wait until the namespaces are terminated
+	for _, namespace := range testNamespaces {
+		Eventually(func() bool { return errors.IsNotFound(coreClient.Namespaces().Delete(namespace, nil)) }, 30*time.Second, 1*time.Second).
+			Should(BeTrue())
+	}
+}
+
+func createNamespaces() {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	// Create a Test Namespaces
+	for _, namespace := range testNamespaces {
+		ns := &kubev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		_, err = coreClient.Namespaces().Create(ns)
+		if !errors.IsAlreadyExists(err) {
+			PanicOnError(err)
+		}
 	}
 }
 
@@ -250,7 +294,7 @@ func PanicOnError(err error) {
 }
 
 func NewRandomVM() *v1.VM {
-	return NewRandomVMWithNS(api.NamespaceDefault)
+	return NewRandomVMWithNS(NamespaceTestDefault)
 }
 
 func NewRandomVMWithNS(namespace string) *v1.VM {
