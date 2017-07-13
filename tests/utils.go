@@ -36,6 +36,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
@@ -215,6 +217,10 @@ func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
 	cleanNamespaces()
+	deletePVC("alpine")
+	deletePVC("cirros")
+	deletePV("alpine")
+	deletePV("cirros")
 	removeNamespaces()
 }
 
@@ -224,6 +230,100 @@ func BeforeTestCleanup() {
 
 func BeforeTestSuitSetup() {
 	createNamespaces()
+	createPV("cirros", 3)
+	createPV("alpine", 2)
+	createPVC("alpine")
+	createPVC("cirros")
+}
+
+func createPVC(os string) {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	_, err = coreClient.PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func createPV(os string, lun int32) {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	_, err = coreClient.PersistentVolumes().Create(newPV(os, lun))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func deletePVC(os string) {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	err = coreClient.PersistentVolumeClaims(NamespaceTestDefault).Delete("disk-"+os, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func deletePV(os string) {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	err = coreClient.PersistentVolumes().Delete("iscsi-disk-"+os+"-for-tests", nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func newPVC(os string) *kubev1.PersistentVolumeClaim {
+	quantity, err := resource.ParseQuantity("1Gi")
+	PanicOnError(err)
+	return &kubev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "disk-" + os,
+		},
+		Spec: kubev1.PersistentVolumeClaimSpec{
+			AccessModes: []kubev1.PersistentVolumeAccessMode{kubev1.ReadWriteOnce},
+			Resources: kubev1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					"storage": quantity,
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"kubevirt.io/test": os,
+				},
+			},
+		},
+	}
+}
+
+func newPV(os string, lun int32) *kubev1.PersistentVolume {
+	quantity, err := resource.ParseQuantity("1Gi")
+	PanicOnError(err)
+	return &kubev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "iscsi-disk-" + os + "-for-tests",
+			Labels: map[string]string{
+				"kubevirt.io/test": os,
+			},
+		},
+		Spec: kubev1.PersistentVolumeSpec{
+			AccessModes: []kubev1.PersistentVolumeAccessMode{kubev1.ReadWriteOnce},
+			Capacity: kubev1.ResourceList{
+				"storage": quantity,
+			},
+			PersistentVolumeReclaimPolicy: kubev1.PersistentVolumeReclaimRetain,
+			PersistentVolumeSource: kubev1.PersistentVolumeSource{
+				ISCSI: &kubev1.ISCSIVolumeSource{
+					IQN:          "iqn.2017-01.io.kubevirt:sn.42",
+					Lun:          lun,
+					TargetPortal: "iscsi-demo-target.default.svc.cluster.local",
+				},
+			},
+		},
+	}
 }
 
 func cleanNamespaces() {

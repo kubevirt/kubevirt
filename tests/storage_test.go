@@ -134,7 +134,7 @@ var _ = Describe("Storage", func() {
 	})
 
 	Context("Given a VM and an Alpine PVC", func() {
-		PIt("should be successfully started by libvirt", func(done Done) {
+		It("should be successfully started by libvirt", func(done Done) {
 			// Start the VM with the PVC attached
 			vm := tests.NewRandomVMWithPVC("disk-alpine")
 			RunVMAndExpectLaunch(vm)

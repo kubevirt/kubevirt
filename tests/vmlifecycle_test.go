@@ -192,8 +192,8 @@ var _ = Describe("Vmlifecycle", func() {
 				close(done)
 			}, 50)
 		})
-		Context("New VM in a non-deafult namespace", func() {
-			table.PDescribeTable("Should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
+		Context("in a non-default namespace", func() {
+			table.DescribeTable("Should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 
 				vm = tests.NewRandomVMWithNS(namespace)
 
@@ -240,8 +240,8 @@ var _ = Describe("Vmlifecycle", func() {
 				}, 5, 0.1).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain deleted)", vm.GetObjectMeta().GetName()))
 
 			},
-				table.Entry("default", "default"),
-				table.Entry("test namespace", "test-ns"),
+				table.Entry(tests.NamespaceTestDefault, tests.NamespaceTestDefault),
+				table.Entry(tests.NamespaceTestAlternative, tests.NamespaceTestAlternative),
 			)
 		})
 	})

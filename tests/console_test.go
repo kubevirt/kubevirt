@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = PDescribe("Vmlifecycle", func() {
+var _ = Describe("Console", func() {
 
 	flag.Parse()
 
@@ -53,7 +53,7 @@ var _ = PDescribe("Vmlifecycle", func() {
 			wsUrl, err := url.Parse(flag.Lookup("master").Value.String())
 			Expect(err).ToNot(HaveOccurred())
 			wsUrl.Scheme = "ws"
-			wsUrl.Path = "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/" + vm + "/console"
+			wsUrl.Path = "/apis/kubevirt.io/v1alpha1/namespaces/" + tests.NamespaceTestDefault + "/vms/" + vm + "/console"
 			wsUrl.RawQuery = "console=" + console
 			c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -63,7 +63,7 @@ var _ = PDescribe("Vmlifecycle", func() {
 
 	Context("New VM with a serial console given", func() {
 
-		FIt("should be allowed to connect to the console", func(done Done) {
+		It("should be allowed to connect to the console", func(done Done) {
 			Expect(restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
 			ws := dial(vm.ObjectMeta.GetName(), "serial0")
