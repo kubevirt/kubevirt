@@ -274,7 +274,7 @@ func NewRandomVMWithDirectLun(lun int) *v1.VM {
 		},
 		Source: v1.DiskSource{
 			Host: &v1.DiskSourceHost{
-				Name: "iscsi-demo-target",
+				Name: "iscsi-demo-target.default",
 				Port: "3260",
 			},
 			Protocol: "iscsi",
