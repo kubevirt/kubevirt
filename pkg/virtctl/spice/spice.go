@@ -123,7 +123,7 @@ func (o *Spice) Usage() string {
 	usage += "./virtctl spice testvm --details\n\n"
 	usage += "# Connect to testvm via remote-viewer\n"
 	usage += "./virtctl spice testvm\n\n"
-	usage += "The following options can be passed to any command:\n\n"
+	usage += "Options:\n"
 	usage += o.FlagSet().FlagUsages()
 	return usage
 }
