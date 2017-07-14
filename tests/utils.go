@@ -29,11 +29,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -45,6 +48,15 @@ const (
 	NormalEvent  EventType = "Normal"
 	WarningEvent EventType = "Warning"
 )
+
+const (
+	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
+	NamespaceTestDefault string = "kubevirt-test-default"
+	// NamespaceTestAlternative is used to test controller-namespace independency.
+	NamespaceTestAlternative string = "kubevirt-test-alternative"
+)
+
+var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
 
 type startType string
 
@@ -154,7 +166,7 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	}
 
 	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
-	eventWatcher, err := cli.Core().Events(api.NamespaceDefault).
+	eventWatcher, err := cli.Core().Events(api.NamespaceAll).
 		Watch(metav1.ListOptions{
 			FieldSelector:   fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String(),
 			ResourceVersion: resourceVersion,
@@ -201,35 +213,178 @@ func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e
 	return
 }
 
-func MustCleanup() {
+func AfterTestSuitCleanup() {
+	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
+	createNamespaces()
+	cleanNamespaces()
+	deletePVC("alpine")
+	deletePVC("cirros")
+	deletePV("alpine")
+	deletePV("cirros")
+	removeNamespaces()
+}
+
+func BeforeTestCleanup() {
+	cleanNamespaces()
+}
+
+func BeforeTestSuitSetup() {
+	createNamespaces()
+	createPV("cirros", 3)
+	createPV("alpine", 2)
+	createPVC("alpine")
+	createPVC("cirros")
+}
+
+func createPVC(os string) {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	_, err = coreClient.PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func createPV(os string, lun int32) {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	_, err = coreClient.PersistentVolumes().Create(newPV(os, lun))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func deletePVC(os string) {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	err = coreClient.PersistentVolumeClaims(NamespaceTestDefault).Delete("disk-"+os, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func deletePV(os string) {
+	coreClient, err := kubecli.Get()
+	PanicOnError(err)
+
+	err = coreClient.PersistentVolumes().Delete("iscsi-disk-"+os+"-for-tests", nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func newPVC(os string) *kubev1.PersistentVolumeClaim {
+	quantity, err := resource.ParseQuantity("1Gi")
+	PanicOnError(err)
+	return &kubev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "disk-" + os,
+		},
+		Spec: kubev1.PersistentVolumeClaimSpec{
+			AccessModes: []kubev1.PersistentVolumeAccessMode{kubev1.ReadWriteOnce},
+			Resources: kubev1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					"storage": quantity,
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"kubevirt.io/test": os,
+				},
+			},
+		},
+	}
+}
+
+func newPV(os string, lun int32) *kubev1.PersistentVolume {
+	quantity, err := resource.ParseQuantity("1Gi")
+	PanicOnError(err)
+	return &kubev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "iscsi-disk-" + os + "-for-tests",
+			Labels: map[string]string{
+				"kubevirt.io/test": os,
+			},
+		},
+		Spec: kubev1.PersistentVolumeSpec{
+			AccessModes: []kubev1.PersistentVolumeAccessMode{kubev1.ReadWriteOnce},
+			Capacity: kubev1.ResourceList{
+				"storage": quantity,
+			},
+			PersistentVolumeReclaimPolicy: kubev1.PersistentVolumeReclaimRetain,
+			PersistentVolumeSource: kubev1.PersistentVolumeSource{
+				ISCSI: &kubev1.ISCSIVolumeSource{
+					IQN:          "iqn.2017-01.io.kubevirt:sn.42",
+					Lun:          lun,
+					TargetPortal: "iscsi-demo-target.default.svc.cluster.local",
+				},
+			},
+		},
+	}
+}
+
+func cleanNamespaces() {
 	coreClient, err := kubecli.Get()
 	PanicOnError(err)
 	restClient, err := kubecli.GetRESTClient()
 	PanicOnError(err)
 
-	// Remove all Migrations
-	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("migrations").Do().Error())
+	for _, namespace := range testNamespaces {
 
-	// Remove all VMs
-	PanicOnError(restClient.Delete().Namespace(api.NamespaceDefault).Resource("vms").Do().Error())
+		_, err := coreClient.Core().Namespaces().Get(namespace, metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
 
-	// Remove all Jobs
-	PanicOnError(coreClient.CoreV1().RESTClient().Delete().AbsPath("/apis/batch/v1/namespaces/default/jobs").Do().Error())
+		// Remove all Migrations
+		PanicOnError(restClient.Delete().Namespace(namespace).Resource("migrations").Do().Error())
 
-	// Remove all pods associated with a job
-	jobPodlabelSelector, err := labels.Parse("job-name")
+		// Remove all VMs
+		PanicOnError(restClient.Delete().Namespace(namespace).Resource("vms").Do().Error())
+
+		// Remove all Pods
+		PanicOnError(coreClient.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
+	}
+}
+
+func removeNamespaces() {
+	coreClient, err := kubecli.Get()
 	PanicOnError(err)
-	err = coreClient.Core().Pods(api.NamespaceDefault).
-		DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: jobPodlabelSelector.String()})
 
-	PanicOnError(err)
-	// Remove VM pods
-	vmPodlabelSelector, err := labels.Parse(v1.AppLabel + " in (virt-launcher)")
-	PanicOnError(err)
-	err = coreClient.Core().Pods(api.NamespaceDefault).
-		DeleteCollection(nil, metav1.ListOptions{FieldSelector: fields.Everything().String(), LabelSelector: vmPodlabelSelector.String()})
+	// First send an initial delete to every namespace
+	for _, namespace := range testNamespaces {
+		err := coreClient.Namespaces().Delete(namespace, nil)
+		if !errors.IsNotFound(err) {
+			PanicOnError(err)
+		}
+	}
 
+	// Wait until the namespaces are terminated
+	for _, namespace := range testNamespaces {
+		Eventually(func() bool { return errors.IsNotFound(coreClient.Namespaces().Delete(namespace, nil)) }, 30*time.Second, 1*time.Second).
+			Should(BeTrue())
+	}
+}
+
+func createNamespaces() {
+	coreClient, err := kubecli.Get()
 	PanicOnError(err)
+
+	// Create a Test Namespaces
+	for _, namespace := range testNamespaces {
+		ns := &kubev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		_, err = coreClient.Namespaces().Create(ns)
+		if !errors.IsAlreadyExists(err) {
+			PanicOnError(err)
+		}
+	}
 }
 
 func PanicOnError(err error) {
@@ -239,7 +394,11 @@ func PanicOnError(err error) {
 }
 
 func NewRandomVM() *v1.VM {
-	return v1.NewMinimalVM("testvm" + rand.String(5))
+	return NewRandomVMWithNS(NamespaceTestDefault)
+}
+
+func NewRandomVMWithNS(namespace string) *v1.VM {
+	return v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
 }
 
 func NewRandomVMWithDirectLun(lun int) *v1.VM {
@@ -259,7 +418,7 @@ func NewRandomVMWithDirectLun(lun int) *v1.VM {
 		},
 		Source: v1.DiskSource{
 			Host: &v1.DiskSourceHost{
-				Name: "iscsi-demo-target",
+				Name: "iscsi-demo-target.default",
 				Port: "3260",
 			},
 			Protocol: "iscsi",
@@ -288,7 +447,8 @@ func NewRandomVMWithPVC(claimName string) *v1.VM {
 }
 
 func NewRandomMigrationForVm(vm *v1.VM) *v1.Migration {
-	return v1.NewMinimalMigration(vm.ObjectMeta.Name+"migrate"+rand.String(5), vm.ObjectMeta.Name)
+	ns := vm.GetObjectMeta().GetNamespace()
+	return v1.NewMinimalMigrationWithNS(ns, vm.ObjectMeta.Name+"migrate"+rand.String(5), vm.ObjectMeta.Name)
 }
 
 func NewRandomVMWithSerialConsole() *v1.VM {
@@ -341,12 +501,13 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
-	obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
+	vmMeta := vm.(*v1.VM).ObjectMeta
+	obj, err := restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() v1.VMPhase {
-		obj, err := restClient.Get().Resource("vms").Namespace(api.NamespaceDefault).Name(vm.(*v1.VM).ObjectMeta.Name).Do().Get()
+		obj, err := restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 		Expect(err).ToNot(HaveOccurred())
 		fetchedVM := obj.(*v1.VM)
 		nodeName = fetchedVM.Status.NodeName

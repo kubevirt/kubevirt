@@ -27,12 +27,7 @@ then
     exit
 fi
 
-if [ "$1" == "spice" ]; then
-    ${KUBEVIRT_PATH}cmd/virtctl/virtctl spice ${2} -s ${master_ip}:8184 ${3}
-    exit
-fi
-
-if [ "$1" == "console" ] || [ "$1" == "convert-spec" ]; then
+if [ "$1" == "console" ] || [ "$1" == "convert-spec" ] || [ "$1" == "spice" ]; then
     cmd/virtctl/virtctl "$@" -s http://${master_ip}:8184 
     exit
 fi

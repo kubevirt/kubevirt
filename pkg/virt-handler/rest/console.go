@@ -49,9 +49,10 @@ func NewConsoleResource(connection virtwrap.Connection) *Console {
 func (t *Console) Console(request *restful.Request, response *restful.Response) {
 	console := request.QueryParameter("console")
 	vmName := request.PathParameter("name")
-	vm := v1.NewVMReferenceFromName(vmName)
+	namespace := request.PathParameter("namespace")
+	vm := v1.NewVMReferenceFromNameWithNS(namespace, vmName)
 	log := logging.DefaultLogger().Object(vm)
-	domain, err := t.connection.LookupDomainByName(vmName)
+	domain, err := t.connection.LookupDomainByName(virtwrap.VMNamespaceKeyFunc(vm))
 	if err != nil {
 		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
 			log.Error().Reason(err).Msg("Domain not found.")

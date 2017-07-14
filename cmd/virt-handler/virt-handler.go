@@ -88,7 +88,7 @@ func main() {
 		panic(err)
 	}
 	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceDefault)})
+	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceAll)})
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(kubeapi.Scheme, kubev1.EventSource{Component: "virt-handler", Host: *host})
 
@@ -108,7 +108,7 @@ func main() {
 	}
 
 	// Wire VM controller
-	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceDefault, fields.Everything(), l)
+	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceAll, fields.Everything(), l)
 	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, coreClient, *host)
 
 	// Wire Domain controller
@@ -133,7 +133,7 @@ func main() {
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainStore.List() {
 		d := domain.(*virt_api.Domain)
-		vmStore.Add(v1.NewVMReferenceFromName(d.ObjectMeta.Name))
+		vmStore.Add(v1.NewVMReferenceFromNameWithNS(d.ObjectMeta.Namespace, d.ObjectMeta.Name))
 	}
 
 	// Watch for VM changes
@@ -148,7 +148,7 @@ func main() {
 	// Add websocket route to access consoles remotely
 	console := rest.NewConsoleResource(domainConn)
 	ws := new(restful.WebService)
-	ws.Route(ws.GET("/api/v1/console/{name}").To(console.Console))
+	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/console").To(console.Console))
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{Addr: *listen + ":" + strconv.Itoa(*port), Handler: restful.DefaultContainer}
 	server.ListenAndServe()

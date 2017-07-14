@@ -266,8 +266,12 @@ func (s SyncEvent) String() string {
 }
 
 func NewMinimalVM(vmName string) *VM {
+	return NewMinimalVMWithNS(kubeapi.NamespaceDefault, vmName)
+}
+
+func NewMinimalVMWithNS(namespace string, vmName string) *VM {
 	precond.CheckNotEmpty(vmName)
-	vm := NewVMReferenceFromName(vmName)
+	vm := NewVMReferenceFromNameWithNS(namespace, vmName)
 	vm.Spec = VMSpec{Domain: NewMinimalDomainSpec(vmName)}
 	vm.TypeMeta = metav1.TypeMeta{
 		APIVersion: GroupVersion.String(),
@@ -278,11 +282,15 @@ func NewMinimalVM(vmName string) *VM {
 
 // TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
 func NewVMReferenceFromName(name string) *VM {
+	return NewVMReferenceFromNameWithNS(kubeapi.NamespaceDefault, name)
+}
+
+func NewVMReferenceFromNameWithNS(namespace string, name string) *VM {
 	vm := &VM{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
-			Namespace: kubeapi.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/vms/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
+			Namespace: namespace,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/vms/%s", GroupVersion.String(), namespace, name),
 		},
 	}
 	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
@@ -302,12 +310,12 @@ type SpiceInfo struct {
 	Proxy string `json:"proxy,omitempty" ini:"proxy,omitempty"`
 }
 
-func NewSpice(vmName string) *Spice {
+func NewSpice(namespace string, vmName string) *Spice {
 	return &Spice{
 		Info: SpiceInfo{},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      vmName,
-			Namespace: kubeapi.NamespaceDefault,
+			Namespace: namespace,
 		},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
@@ -318,19 +326,23 @@ func NewSpice(vmName string) *Spice {
 
 //TODO validate that this is correct
 func NewMinimalMigration(name string, vmName string) *Migration {
-	migration := NewMigrationReferenceFromName(name)
+	return NewMinimalMigrationWithNS(kubeapi.NamespaceDefault, name, vmName)
+}
+
+func NewMinimalMigrationWithNS(namespace string, name string, vmName string) *Migration {
+	migration := NewMigrationReferenceFromName(namespace, name)
 	migration.Spec = MigrationSpec{
 		Selector: VMSelector{vmName},
 	}
 	return migration
 }
 
-func NewMigrationReferenceFromName(name string) *Migration {
+func NewMigrationReferenceFromName(namespace string, name string) *Migration {
 	migration := &Migration{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
-			Namespace: kubeapi.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), kubeapi.NamespaceDefault, name),
+			Namespace: namespace,
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), namespace, name),
 		},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),

@@ -79,6 +79,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 	patch := endpoints.NewHandlerBuilder().Patch().Endpoint(NewGenericPatchEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
 	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
 	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli, gvr, objResponseHandler)).Build(ctx)
+	getListAllNamespaces := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NotNamespacedDecodeRequestFunc).Build(ctx)
 	getList := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
 	deleteList := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteListEndpoint(cli, gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
 
@@ -107,6 +108,12 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"), ws,
+	))
+
+	ws.Route(addGetAllNamespacesListParams(
+		ws.GET(gvr.Resource).
+			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).Doc("test4"), ws,
 	))
 
 	ws.Route(
@@ -158,6 +165,12 @@ func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionReso
 
 func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
 	return builder.Param(NamespaceParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
+		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
+		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("int"))
+}
+
+func addGetAllNamespacesListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
 		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
 		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("int"))
 }

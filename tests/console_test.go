@@ -29,14 +29,13 @@ import (
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/pkg/api"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Vmlifecycle", func() {
+var _ = Describe("Console", func() {
 
 	flag.Parse()
 
@@ -46,7 +45,7 @@ var _ = Describe("Vmlifecycle", func() {
 	var dial func(vm string, console string) *websocket.Conn
 
 	BeforeEach(func() {
-		tests.MustCleanup()
+		tests.BeforeTestCleanup()
 
 		vm = tests.NewRandomVMWithSerialConsole()
 
@@ -54,7 +53,7 @@ var _ = Describe("Vmlifecycle", func() {
 			wsUrl, err := url.Parse(flag.Lookup("master").Value.String())
 			Expect(err).ToNot(HaveOccurred())
 			wsUrl.Scheme = "ws"
-			wsUrl.Path = "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/" + vm + "/console"
+			wsUrl.Path = "/apis/kubevirt.io/v1alpha1/namespaces/" + tests.NamespaceTestDefault + "/vms/" + vm + "/console"
 			wsUrl.RawQuery = "console=" + console
 			c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -65,7 +64,7 @@ var _ = Describe("Vmlifecycle", func() {
 	Context("New VM with a serial console given", func() {
 
 		It("should be allowed to connect to the console", func(done Done) {
-			Expect(restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Error()).To(Succeed())
+			Expect(restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
 			ws := dial(vm.ObjectMeta.GetName(), "serial0")
 			defer ws.Close()
@@ -73,7 +72,7 @@ var _ = Describe("Vmlifecycle", func() {
 		}, 60)
 
 		It("should be returned that we are running cirros", func(done Done) {
-			Expect(restClient.Post().Resource("vms").Namespace(api.NamespaceDefault).Body(vm).Do().Error()).To(Succeed())
+			Expect(restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
 			ws := dial(vm.ObjectMeta.GetName(), "serial0")
 			defer ws.Close()
@@ -94,9 +93,5 @@ var _ = Describe("Vmlifecycle", func() {
 			}, 60*time.Second).Should(ContainSubstring("checking http://169.254.169.254/2009-04-04/instance-id"))
 			close(done)
 		}, 90)
-
-		AfterEach(func() {
-			tests.MustCleanup()
-		})
 	})
 })

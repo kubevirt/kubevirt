@@ -40,11 +40,11 @@ const TEMP_PREFIX = "spice"
 type Spice struct {
 }
 
-func DownloadSpice(vm string, restClient *rest.RESTClient) (string, error) {
+func DownloadSpice(namespace string, vm string, restClient *rest.RESTClient) (string, error) {
 	body, err := restClient.Get().
 		Resource("vms").SetHeader("Accept", "text/plain").
 		SubResource("spice").
-		Namespace(kubev1.NamespaceDefault).
+		Namespace(namespace).
 		Name(vm).Do().Raw()
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Can't read body: %s\n", err.Error()))
@@ -63,6 +63,10 @@ func (o *Spice) Run(flags *flag.FlagSet) int {
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
 	details, _ := flags.GetBool("details")
+	namespace, _ := flags.GetString("namespace")
+	if namespace == "" {
+		namespace = kubev1.NamespaceDefault
+	}
 
 	if len(flags.Args()) != 2 {
 		log.Println("VM name is missing")
@@ -76,7 +80,7 @@ func (o *Spice) Run(flags *flag.FlagSet) int {
 		log.Println(err)
 		return 1
 	}
-	body, err := DownloadSpice(vm, restClient)
+	body, err := DownloadSpice(namespace, vm, restClient)
 	if err != nil {
 		log.Fatalf(err.Error())
 		return 1
@@ -119,7 +123,7 @@ func (o *Spice) Usage() string {
 	usage += "./virtctl spice testvm --details\n\n"
 	usage += "# Connect to testvm via remote-viewer\n"
 	usage += "./virtctl spice testvm\n\n"
-	usage += "The following options can be passed to any command:\n\n"
+	usage += "Options:\n"
 	usage += o.FlagSet().FlagUsages()
 	return usage
 }

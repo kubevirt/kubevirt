@@ -81,13 +81,13 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	// Retrieve the VM
 	var vm *v1.VM
 	if !exists {
-		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
+		namespace, name, err := cache.SplitMetaNamespaceKey(key.(string))
 		if err != nil {
 			// TODO do something more smart here
 			queue.AddRateLimited(key)
 			return
 		}
-		vm = v1.NewVMReferenceFromName(name)
+		vm = v1.NewVMReferenceFromNameWithNS(namespace, name)
 	} else {
 		vm = obj.(*v1.VM)
 	}
@@ -95,7 +95,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	// Check For Migration before processing vm not in our cache
 	if !exists {
 		// If we don't have the VM in the cache, it could be that it is currently migrating to us
-		isDestination, err := d.isMigrationDestination(vm.GetObjectMeta().GetName())
+		isDestination, err := d.isMigrationDestination(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 		if err != nil {
 			// unable to determine migration status, we'll try again later.
 			queue.AddRateLimited(key)
@@ -204,7 +204,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 	}
 
 	// Synchronize the VM state
-	vm, err := MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), kubeapi.NamespaceDefault)
+	vm, err := MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 		vm = obj.(*v1.VM)
 		vm.Status.Phase = v1.Running
 		err = d.restClient.Put().Resource("vms").Body(vm).
-			Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
+			Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
 		if err != nil {
 			return err
 		}
@@ -242,10 +242,10 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 	return nil
 }
 
-func (d *VMHandlerDispatch) isMigrationDestination(vmName string) (bool, error) {
+func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName string) (bool, error) {
 
 	// If we don't have the VM in the cache, it could be that it is currently migrating to us
-	result := d.restClient.Get().Name(vmName).Resource("vms").Namespace(kubeapi.NamespaceDefault).Do()
+	result := d.restClient.Get().Name(vmName).Resource("vms").Namespace(namespace).Do()
 	if result.Error() == nil {
 		// So the VM still seems to exist
 		fetchedVM, err := result.Get()

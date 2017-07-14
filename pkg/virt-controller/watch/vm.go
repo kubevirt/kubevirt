@@ -26,7 +26,6 @@ import (
 	"github.com/jeevatkm/go-model"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	kubeapi "k8s.io/client-go/pkg/api"
 	k8sv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -118,11 +117,11 @@ func (c *VMController) execute(key string) error {
 	// Retrieve the VM
 	var vm *kubev1.VM
 	if !exists {
-		_, name, err := cache.SplitMetaNamespaceKey(key)
+		namespace, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
 			return err
 		}
-		vm = kubev1.NewVMReferenceFromName(name)
+		vm = kubev1.NewVMReferenceFromNameWithNS(namespace, name)
 	} else {
 		vm = obj.(*kubev1.VM)
 	}
@@ -196,7 +195,7 @@ func (c *VMController) execute(key string) error {
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
 		// kubernetes, virt-handler can take over.
 		vmCopy.Status.Phase = kubev1.Scheduling
-		if err := c.restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error(); err != nil {
+		if err := c.restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(vmCopy.ObjectMeta.Namespace).Do().Error(); err != nil {
 			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
 			return err
 		}
@@ -254,6 +253,7 @@ func (c *VMController) execute(key string) error {
 func vmLabelHandler(vmQueue workqueue.RateLimitingInterface) func(obj interface{}) {
 	return func(obj interface{}) {
 		phase := obj.(*k8sv1.Pod).Status.Phase
+		namespace := obj.(*k8sv1.Pod).ObjectMeta.Namespace
 		appLabel, hasAppLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.AppLabel]
 		domainLabel, hasDomainLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.DomainLabel]
 		_, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
@@ -271,6 +271,6 @@ func vmLabelHandler(vmQueue workqueue.RateLimitingInterface) func(obj interface{
 			// ensure we're looking just for virt-launcher pods
 			return
 		}
-		vmQueue.Add(k8sv1.NamespaceDefault + "/" + domainLabel)
+		vmQueue.Add(namespace + "/" + domainLabel)
 	}
 }

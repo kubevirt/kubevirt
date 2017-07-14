@@ -41,6 +41,7 @@ if [ $# -eq 0 ]; then
         (cd pkg; go ${target} -v ./...)
     elif [ "${target}" = "functest" ]; then
         (cd tests; go test -master=http://${master_ip}:${master_port} -v ./... ${FUNC_TEST_ARGS})
+        exit
     else
         (cd pkg; go $target ./...)
         (cd tests; go $target ./...)

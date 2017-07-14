@@ -20,7 +20,6 @@
 package virthandler
 
 import (
-	kubeapi "k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -71,12 +70,12 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 
 	var domain *api.Domain
 	if !exists {
-		_, name, err := cache.SplitMetaNamespaceKey(key.(string))
+		namespace, name, err := cache.SplitMetaNamespaceKey(key.(string))
 		if err != nil {
 			queue.AddRateLimited(key)
 			return
 		}
-		domain = api.NewDomainReferenceFromName(name)
+		domain = api.NewDomainReferenceFromName(namespace, name)
 		logging.DefaultLogger().Info().Object(domain).Msgf("Domain deleted")
 	} else {
 		domain = obj.(*api.Domain)
@@ -117,7 +116,7 @@ func (d *DomainDispatch) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VM
 
 	if flag {
 		logging.DefaultLogger().Info().Object(vm).Msgf("Changing VM phase to %s", vm.Status.Phase)
-		return d.restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(kubeapi.NamespaceDefault).Do().Error()
+		return d.restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
 	}
 
 	return nil

@@ -21,6 +21,7 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	"github.com/jeevatkm/go-model"
@@ -41,6 +42,9 @@ var _ = Describe("Manager", func() {
 	var mockDomain *MockVirDomain
 	var ctrl *gomock.Controller
 	var recorder *record.FakeRecorder
+	testVmName := "testvm"
+	testNamespace := "testnamespace"
+	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
@@ -49,20 +53,20 @@ var _ = Describe("Manager", func() {
 		mockConn = NewMockConnection(ctrl)
 		mockDomain = NewMockVirDomain(ctrl)
 		recorder = record.NewFakeRecorder(10)
-
 		// Make sure that we always free the domain after use
 		mockDomain.EXPECT().Free()
 	})
 
 	Context("on successful VM sync", func() {
 		It("should define and start a new VM", func() {
-			vm := newVM("testvm")
-			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			vm := newVM(testNamespace, testVmName)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
 			// we have to make sure that we use correct DomainSpec (from virtwrap)
 			var domainSpec api.DomainSpec
 			Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
 
+			domainSpec.Name = testDomainName
 			xml, err := xml.Marshal(domainSpec)
 			Expect(err).To(BeNil())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
@@ -76,20 +80,20 @@ var _ = Describe("Manager", func() {
 			Expect(recorder.Events).To(BeEmpty())
 		})
 		It("should leave a defined and started VM alone", func() {
-			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, recorder)
-			err := manager.SyncVM(newVM("testvm"))
+			err := manager.SyncVM(newVM(testNamespace, testVmName))
 			Expect(err).To(BeNil())
 			Expect(recorder.Events).To(BeEmpty())
 		})
 		table.DescribeTable("should try to start a VM in state",
 			func(state libvirt.DomainState) {
-				mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Create().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, recorder)
-				err := manager.SyncVM(newVM("testvm"))
+				err := manager.SyncVM(newVM(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 				Expect(<-recorder.Events).To(ContainSubstring(v1.Started.String()))
 				Expect(recorder.Events).To(BeEmpty())
@@ -100,11 +104,11 @@ var _ = Describe("Manager", func() {
 			table.Entry("unknown", libvirt.DOMAIN_NOSTATE),
 		)
 		It("should resume a paused VM", func() {
-			mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, recorder)
-			err := manager.SyncVM(newVM("testvm"))
+			err := manager.SyncVM(newVM(testNamespace, testVmName))
 			Expect(err).To(BeNil())
 			Expect(<-recorder.Events).To(ContainSubstring(v1.Resumed.String()))
 			Expect(recorder.Events).To(BeEmpty())
@@ -114,11 +118,11 @@ var _ = Describe("Manager", func() {
 	Context("on successful VM kill", func() {
 		table.DescribeTable("should try to undefine a VM in state",
 			func(state libvirt.DomainState) {
-				mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, recorder)
-				err := manager.KillVM(newVM("testvm"))
+				err := manager.KillVM(newVM(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
 			table.Entry("crashed", libvirt.DOMAIN_CRASHED),
@@ -128,12 +132,12 @@ var _ = Describe("Manager", func() {
 		)
 		table.DescribeTable("should try to destroy and undefine a VM in state",
 			func(state libvirt.DomainState) {
-				mockConn.EXPECT().LookupDomainByName("testvm").Return(mockDomain, nil)
+				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Destroy().Return(nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, recorder)
-				err := manager.KillVM(newVM("testvm"))
+				err := manager.KillVM(newVM(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 				Expect(<-recorder.Events).To(ContainSubstring(v1.Stopped.String()))
 				Expect(<-recorder.Events).To(ContainSubstring(v1.Deleted.String()))
@@ -151,9 +155,9 @@ var _ = Describe("Manager", func() {
 	})
 })
 
-func newVM(name string) *v1.VM {
+func newVM(namespace string, name string) *v1.VM {
 	return &v1.VM{
-		ObjectMeta: kubev1.ObjectMeta{Name: name},
+		ObjectMeta: kubev1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec:       v1.VMSpec{Domain: v1.NewMinimalDomainSpec(name)},
 	}
 }

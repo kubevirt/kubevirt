@@ -44,7 +44,7 @@ var _ = Describe("Virtmanifest", func() {
 		var vm *v1.VM
 
 		BeforeEach(func() {
-			tests.MustCleanup()
+			tests.BeforeTestCleanup()
 
 			var err error
 			var masterUrl *url.URL

@@ -322,13 +322,23 @@ func NewLibvirtDomainManager(connection Connection, recorder record.EventRecorde
 	return &manager, nil
 }
 
+func VMNamespaceKeyFunc(vm *v1.VM) string {
+	// Construct the domain name with a namespace prefix. E.g. namespace>name
+	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
+	return domName
+}
+
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 	var wantedSpec api.DomainSpec
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
+
 	if len(mappingErrs) > 0 {
 		return errors.NewAggregate(mappingErrs)
 	}
-	dom, err := l.virConn.LookupDomainByName(vm.GetObjectMeta().GetName())
+
+	domName := VMNamespaceKeyFunc(vm)
+	wantedSpec.Name = domName
+	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
@@ -387,7 +397,8 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 }
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
-	dom, err := l.virConn.LookupDomainByName(vm.GetObjectMeta().GetName())
+	domName := VMNamespaceKeyFunc(vm)
+	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VM does not exist, we are done
 		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
