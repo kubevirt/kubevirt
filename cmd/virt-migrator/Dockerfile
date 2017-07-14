@@ -16,15 +16,10 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM centos:7
+FROM fedora:26
 
-RUN yum -y install wget && \
-    wget -P /etc/yum.repos.d https://copr.fedorainfracloud.org/coprs/jmliger/virt7-upstream/repo/epel-7/jmliger-virt7-upstream-epel-7.repo  \
-    && yum -y install libvirt-client \
-    && wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
-    && yum -y install epel-release-latest-7.noarch.rpm \
-    && yum -y install xmlstarlet \
-    && yum -y clean all
+RUN dnf -y install libvirt-client xmlstarlet \
+    && dnf -y clean all
 
 COPY migrate /migrate
 

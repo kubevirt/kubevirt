@@ -16,8 +16,9 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM centos
+FROM fedora:26
 
 ENV container docker
 
-RUN yum install -y psmisc
+RUN dnf -y install procps-ng \
+    && dnf -y clean all

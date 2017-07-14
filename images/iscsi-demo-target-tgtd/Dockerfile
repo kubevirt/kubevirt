@@ -17,12 +17,16 @@
 #
 
 FROM debian:sid
+# Enable once https://bugzilla.redhat.com/show_bug.cgi?id=1471920 is fixed
+#FROM fedora:26
 
 MAINTAINER "Fabian Deutsch" \<fabiand@redhat.com\>
 ENV container docker
 
 RUN apt-get update && apt-get install -y \
   tgt bash curl bzip2 qemu-utils
+#RUN dnf -y install scsi-target-utils bzip2 qemu-img \
+#    && dnf -y clean all
 
 RUN mkdir -p /volume
 

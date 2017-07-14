@@ -16,7 +16,7 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM centos:7
+FROM fedora:26
 
 # Create non-root user
 RUN useradd --create-home -s /bin/bash virt-api
