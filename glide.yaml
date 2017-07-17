@@ -14,9 +14,10 @@ import:
   - log
   - swagger
 - package: golang.org/x/net
-  version: 054b33e6527139ad5b1ec2f6232c3b175bd9a30c
+  version: e90d6d0afc4c315a0d87a568ae68577cc15149a0
   subpackages:
   - internal/socket
+  - idna
 - package: github.com/go-kit/kit
   version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
   subpackages:

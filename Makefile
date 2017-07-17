@@ -33,7 +33,7 @@ distclean: clean
 	rm -f manifest/*.yaml
 
 sync:
-	glide install
+	glide install --strip-vendor
 
 docker: build
 	./hack/build-docker.sh build ${WHAT}
