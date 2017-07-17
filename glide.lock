@@ -1,5 +1,5 @@
-hash: 02e1753f2d0aad4733fde89d54667b36075e8bd85bb3798ffafbac301ba77f7f
-updated: 2017-07-10T14:09:18.742581009-04:00
+hash: a57e8a8835df876424fb7dc4ac17d6cfa212d9735fb7d73b36733ae10d92c3f4
+updated: 2017-07-13T15:11:51.314685921-04:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
@@ -38,7 +38,7 @@ imports:
 - name: github.com/go-openapi/swag
   version: 1d0bd113de87027671077d3c71eb3ac5d7dbba72
 - name: github.com/go-stack/stack
-  version: 7a2f19628aabfe68f0766b59e74d6315f8347d22
+  version: 54be5f394ed2c3e19dac9134a40a95ba5a017f7b
 - name: github.com/gogo/protobuf
   version: e18d7aa8f8c624c915db340349aad4c49b10d173
   subpackages:
@@ -135,7 +135,7 @@ imports:
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
-  version: 054b33e6527139ad5b1ec2f6232c3b175bd9a30c
+  version: e90d6d0afc4c315a0d87a568ae68577cc15149a0
   subpackages:
   - context
   - context/ctxhttp
