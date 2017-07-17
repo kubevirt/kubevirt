@@ -30,7 +30,7 @@ on an existing cluster.
 
 The necessary controllers and agents are provided by KubeVirt.
 
-As of today KubeVirt can be used to declarative
+As of today KubeVirt can be used to declaratively
 
  * Create a predefined VM
  * Schedule a VM on a Kubernetes cluster
