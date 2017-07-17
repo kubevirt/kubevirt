@@ -1,6 +1,6 @@
 FROM fedora:26
 
-MAINTAINER Roman Mohr <rmohr@redhat.com>
+MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
 EXPOSE 3128
 

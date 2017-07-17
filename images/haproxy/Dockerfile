@@ -17,6 +17,9 @@
 #
 
 FROM haproxy:1.6-alpine
+
+MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+
 COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 
 RUN sed -i "s|/run|/haproxy/run|g" /docker-entrypoint.sh

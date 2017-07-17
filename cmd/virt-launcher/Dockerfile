@@ -18,6 +18,8 @@
 
 FROM fedora:26
 
+MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+
 COPY virt-launcher /virt-launcher
 
 ENTRYPOINT [ "/virt-launcher" ]
