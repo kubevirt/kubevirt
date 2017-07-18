@@ -198,7 +198,11 @@ var _ = Describe("PVC", func() {
 
 	Context("Map Source Disks", func() {
 		It("looks up and applies PVC", func() {
-			vm := v1.VM{}
+			vm := v1.VM{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: k8sv1.NamespaceDefault,
+				},
+			}
 
 			disk := v1.Disk{
 				Type: "PersistentVolumeClaim",
@@ -216,7 +220,7 @@ var _ = Describe("PVC", func() {
 			vm.Spec.Domain = &domain
 
 			restClient := getRestClient(server.URL())
-			domSpec, err := MapDomainSpec(&vm, restClient, k8sv1.NamespaceDefault)
+			domSpec, err := MapDomainSpec(&vm, restClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(len(domSpec.Devices.Disks)).To(Equal(1))

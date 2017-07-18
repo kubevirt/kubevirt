@@ -197,7 +197,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 // Almost everything in the VM object maps exactly to its domain counterpart
 // One exception is persistent volume claims. This function looks up each PV
 // and inserts a corrected disk entry into the VM's device map.
-func MapDomainSpec(vm *v1.VM, restClient cache.Getter, namespace string) (*api.DomainSpec, error) {
+func MapDomainSpec(vm *v1.VM, restClient cache.Getter) (*api.DomainSpec, error) {
 	var domSpec api.DomainSpec
 	mappingErrs := model.Copy(&domSpec, vm.Spec.Domain)
 	if len(mappingErrs) > 0 {
@@ -209,7 +209,7 @@ func MapDomainSpec(vm *v1.VM, restClient cache.Getter, namespace string) (*api.D
 			logging.DefaultLogger().V(3).Info().Object(vm).Msgf("Mapping PersistentVolumeClaim: %s", disk.Source.Name)
 
 			// Look up existing persistent volume
-			obj, err := restClient.Get().Namespace(namespace).Resource("persistentvolumeclaims").Name(disk.Source.Name).Do().Get()
+			obj, err := restClient.Get().Namespace(vm.ObjectMeta.Namespace).Resource("persistentvolumeclaims").Name(disk.Source.Name).Do().Get()
 
 			if err != nil {
 				logging.DefaultLogger().Error().Reason(err).Msg("unable to look up persistent volume claim")
@@ -299,7 +299,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 	}
 
 	// Synchronize the VM state
-	domSpec, err := MapDomainSpec(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
+	domSpec, err := MapDomainSpec(vm, d.clientset.CoreV1().RESTClient())
 	if err != nil {
 		return err
 	}
