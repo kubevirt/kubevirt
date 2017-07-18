@@ -202,7 +202,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 	}
 
 	// Synchronize the VM state
-	domSpec, err := designer.MapDomainSpec(vm, d.clientset.CoreV1().RESTClient())
+	domDesign, err := designer.DomainDesignFromAPISpec(vm, d.clientset.CoreV1().RESTClient())
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
-	newCfg, err := d.domainManager.SyncVM(vm, domSpec)
+	newCfg, err := d.domainManager.SyncVM(vm, domDesign)
 	if err != nil {
 		return err
 	}

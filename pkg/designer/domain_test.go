@@ -146,11 +146,11 @@ var _ = Describe("DomainMap", func() {
 			vm.Spec.Domain = &domain
 
 			restClient := getRestClient(server.URL())
-			domSpec, err := designer.MapDomainSpec(&vm, restClient)
+			domDesign, err := designer.DomainDesignFromAPISpec(&vm, restClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(len(domSpec.Devices.Disks)).To(Equal(2))
-			newDisk := domSpec.Devices.Disks[0]
+			Expect(len(domDesign.Domain.Devices.Disks)).To(Equal(2))
+			newDisk := domDesign.Domain.Devices.Disks[0]
 			Expect(newDisk.Type).To(Equal("network"))
 			Expect(newDisk.Driver.Type).To(Equal("raw"))
 			Expect(newDisk.Driver.Name).To(Equal("qemu"))
@@ -160,7 +160,7 @@ var _ = Describe("DomainMap", func() {
 			Expect(newDisk.Source.Host.Name).To(Equal("127.0.0.1"))
 			Expect(newDisk.Source.Host.Port).To(Equal("6543"))
 
-			newDisk = domSpec.Devices.Disks[1]
+			newDisk = domDesign.Domain.Devices.Disks[1]
 			Expect(newDisk.Type).To(Equal("network"))
 			Expect(newDisk.Device).To(Equal("cdrom"))
 			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))

@@ -38,12 +38,13 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/designer"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 type DomainManager interface {
-	SyncVM(*v1.VM, *api.DomainSpec) (*api.DomainSpec, error)
+	SyncVM(*v1.VM, *designer.DomainDesign) (*api.DomainSpec, error)
 	KillVM(*v1.VM) error
 }
 
@@ -326,15 +327,15 @@ func VMNamespaceKeyFunc(vm *v1.VM) string {
 	return domName
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VM, domSpec *api.DomainSpec) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VM, domDesign *designer.DomainDesign) (*api.DomainSpec, error) {
 	domName := VMNamespaceKeyFunc(vm)
-	domSpec.Name = domName
-	domSpec.UUID = string(vm.GetObjectMeta().GetUID())
+	domDesign.Domain.Name = domName
+	domDesign.Domain.UUID = string(vm.GetObjectMeta().GetUID())
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
-			xmlStr, err := xml.Marshal(&domSpec)
+			xmlStr, err := xml.Marshal(&domDesign.Domain)
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 				return nil, err

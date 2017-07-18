@@ -34,6 +34,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
+type DomainDesign struct {
+	Domain *api.DomainSpec
+}
+
 func convertDeviceDiskPVCISCSI(vm *v1.VM, src *v1.Disk, pv *k8sv1.PersistentVolume) (*api.Disk, error) {
 	logging.DefaultLogger().Object(vm).Info().Msg("Mapping iSCSI PVC")
 
@@ -134,9 +138,11 @@ func convertDeviceDisk(vm *v1.VM, src *v1.Disk, restClient cache.Getter) (*api.D
 	}
 }
 
-func MapDomainSpec(vm *v1.VM, restClient cache.Getter) (*api.DomainSpec, error) {
-	var domSpec api.DomainSpec
-	mappingErrs := model.Copy(&domSpec, vm.Spec.Domain)
+func DomainDesignFromAPISpec(vm *v1.VM, restClient cache.Getter) (*DomainDesign, error) {
+	design := &DomainDesign{
+		Domain: &api.DomainSpec{},
+	}
+	mappingErrs := model.Copy(design.Domain, vm.Spec.Domain)
 	if len(mappingErrs) > 0 {
 		return nil, errutil.NewAggregate(mappingErrs)
 	}
@@ -147,8 +153,8 @@ func MapDomainSpec(vm *v1.VM, restClient cache.Getter) (*api.DomainSpec, error) 
 			return nil, err
 		}
 
-		domSpec.Devices.Disks[idx] = *dst
+		design.Domain.Devices.Disks[idx] = *dst
 	}
 
-	return &domSpec, nil
+	return design, nil
 }
