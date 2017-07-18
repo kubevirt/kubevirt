@@ -62,7 +62,7 @@ done
 # Check namespaces
 echo ""
 echo "Checking for required namespaces:"
-NAMESPACES='pid net'
+NAMESPACES='pid'
 for NS in $NAMESPACES; do
   NS_PRETTY=`echo $NS | tr '[:lower:]' '[:upper:]'`
   VM_PID_NS=$(ls -iL /proc/$VM_PID/ns/$NS | cut -f 1 -d " ")

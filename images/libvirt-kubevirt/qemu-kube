@@ -100,7 +100,6 @@ set -e
 exec sudo -C 10000 unshare --mount bash -s << END
 
   function _term() {
-    rm -rf /etc/resolv.conf.\$\$
     pkill -P \$! --signal SIG\$1
   }
 
@@ -111,12 +110,8 @@ exec sudo -C 10000 unshare --mount bash -s << END
   trap "_term TERM" EXIT
   trap "_term TERM" ERR
 
-  # Make sure qemu can resolve kubernetes DNS entries
-  nsenter -m -t $CONTAINER_PID cat /etc/resolv.conf > /etc/resolv.conf.\$\$
-  mount --bind /etc/resolv.conf.\$\$ /etc/resolv.conf
-
   cgclassify -g ${CGROUPS}:$CGROUP_PATH --sticky \$\$
-  nsenter -t $CONTAINER_PID -n -p $CMD &
+  nsenter -t $CONTAINER_PID -p $CMD &
 
   wait
 END

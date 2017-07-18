@@ -45,7 +45,7 @@ import (
 )
 
 type DomainManager interface {
-	SyncVM(*v1.VM) error
+	SyncVM(*v1.VM) (*api.DomainSpec, error)
 	KillVM(*v1.VM) error
 }
 
@@ -328,12 +328,12 @@ func VMNamespaceKeyFunc(vm *v1.VM) string {
 	return domName
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	var wantedSpec api.DomainSpec
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
 
 	if len(mappingErrs) > 0 {
-		return errors.NewAggregate(mappingErrs)
+		return nil, errors.NewAggregate(mappingErrs)
 	}
 
 	domName := VMNamespaceKeyFunc(vm)
@@ -345,26 +345,26 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 			xmlStr, err := xml.Marshal(&wantedSpec)
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
-				return err
+				return nil, err
 			}
-			logging.DefaultLogger().Object(vm).Info().V(3).Msg("Domain XML generated.")
+			logging.DefaultLogger().Object(vm).Info().V(3).Msgf("Domain XML generated %s.", xmlStr)
 			dom, err = l.virConn.DomainDefineXML(string(xmlStr))
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
-				return err
+				return nil, err
 			}
 			logging.DefaultLogger().Object(vm).Info().Msg("Domain defined.")
 			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined")
 		} else {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
-			return err
+			return nil, err
 		}
 	}
 	defer dom.Free()
 	domState, _, err := dom.GetState()
 	if err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
-		return err
+		return nil, err
 	}
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
 	// TODO for migration and error detection we also need the state change reason
@@ -374,7 +374,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		err := dom.Create()
 		if err != nil {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Starting the VM failed.")
-			return err
+			return nil, err
 		}
 		logging.DefaultLogger().Object(vm).Info().Msg("Domain started.")
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started.")
@@ -383,7 +383,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		err := dom.Resume()
 		if err != nil {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Resuming the VM failed.")
-			return err
+			return nil, err
 		}
 		logging.DefaultLogger().Object(vm).Info().Msg("Domain resumed.")
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
@@ -392,8 +392,20 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) error {
 		// TODO: blocked state
 	}
 
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return nil, err
+	}
+
+	var newSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Parsing domain XML failed.")
+		return nil, err
+	}
+
 	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
-	return nil
+	return &newSpec, nil
 }
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {

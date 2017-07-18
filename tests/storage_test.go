@@ -31,7 +31,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -69,6 +68,7 @@ var _ = Describe("Storage", func() {
 				&kubev1.PodLogOptions{TailLines: &tailLines}).
 			DoRaw()
 		Expect(err).To(BeNil())
+
 		return string(logsRaw)
 	}
 
@@ -86,25 +86,15 @@ var _ = Describe("Storage", func() {
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStart(obj)
 
-		// Let's get the IP of the pod of the VM
-		pods, err := coreClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
-		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
-		podIP := ""
-		for _, pod := range pods.Items {
-			if pod.ObjectMeta.DeletionTimestamp == nil {
-				podIP = pod.Status.PodIP
-				break
-			}
-		}
-		Expect(podIP).ToNot(BeEmpty())
-
 		// Periodically check if we now have a connection on the target
-		// We don't check against the full pod IP, since depending on the kubernetes proxy mode, we either see the
-		// full PodIP or just the proxy IP which connects through different ports
+		// We don't check against the actual IP, since depending on the kubernetes proxy mode, and the network provider
+		// we will see different IPs here. The BeforeEach function makes sure that no other connections exist.
 		Eventually(func() string { return getTargetLogs(70) },
 			11*time.Second,
 			500*time.Millisecond).
-			Should(ContainSubstring(fmt.Sprintf("IP Address: %s", podIP[0:8])))
+			Should(
+				MatchRegexp(fmt.Sprintf("IP Address: [0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")),
+			)
 	}
 
 	Context("Given a fresh iSCSI target", func() {

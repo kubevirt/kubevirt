@@ -29,8 +29,10 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	k8sv1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/api"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -78,27 +80,32 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 		return
 	}
 
-	// Get virt-handler pod
-	targetNode, err := t.k8sClient.Nodes().Get(vm.Status.NodeName, k8sv1meta.GetOptions{})
+	nodeName := vm.Status.NodeName
+
+	// Get the pod name of virt-handler running on the master node to inspect its logs later on
+	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
+	labelSelector, err := labels.Parse("daemon in (virt-handler)")
 	if err != nil {
-		log.Error().Reason(err).Msgf("Could not fetch node '%s' where the VM is running on", vm.Status.NodeName)
+		log.Error().Reason(err).Msgf("Unable to parse label selector")
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
-
-	var dstAddr string
-	for _, addr := range targetNode.Status.Addresses {
-		if addr.Type == v1.NodeInternalIP {
-			dstAddr = addr.Address
-			break
-		}
-	}
-
-	if dstAddr == "" {
-		log.Error().Reason(err).Msgf("Could not determine internal IP of node '%s'", vm.Status.NodeName)
-		response.WriteError(http.StatusInternalServerError, fmt.Errorf("Could not find a connection IP for node %s", vm.Status.NodeName))
+	pods, err := t.k8sClient.Pods(api.NamespaceDefault).List(
+		k8sv1meta.ListOptions{
+			FieldSelector: handlerNodeSelector.String(),
+			LabelSelector: labelSelector.String()})
+	if err != nil {
+		log.Error().Reason(err).Msgf("Unable to find virt-handler POD")
+		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
+	if len(pods.Items) != 1 {
+		log.Error().Reason(err).Msgf("Expected one virt-handler POD but got %d", len(pods.Items))
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf("Expected one virt-handler POD but got %d", len(pods.Items)))
+		return
+	}
+
+	dstAddr := string(pods.Items[0].Status.PodIP)
 
 	// FIXME, don't hardcode virt-handler port. virt-handler should register itself somehow
 	port := "8185"
