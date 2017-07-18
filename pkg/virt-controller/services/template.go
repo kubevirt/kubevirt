@@ -39,20 +39,34 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage string
 	migratorImage string
+	socketBaseDir string
 }
 
 //Deprecated: remove the service and just use a builder or contextcless helper function
 func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
+	socketDir := t.socketBaseDir + "/" + namespace + "/" + domain
 
 	// VM target container
 	container := kubev1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: kubev1.PullIfNotPresent,
-		Command:         []string{"/virt-launcher", "--qemu-timeout", "60s"},
+		Command: []string{"/virt-launcher",
+			"--qemu-timeout", "60s",
+			"-name", domain,
+			"-namespace", namespace,
+			"-socket-dir", t.socketBaseDir,
+		},
+		VolumeMounts: []kubev1.VolumeMount{
+			{
+				Name:      "sockets",
+				MountPath: socketDir,
+			},
+		},
 	}
 
 	containers, err := registrydisk.GenerateContainers(vm)
@@ -75,6 +89,16 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 			RestartPolicy: kubev1.RestartPolicyNever,
 			Containers:    containers,
 			NodeSelector:  vm.Spec.NodeSelector,
+			Volumes: []kubev1.Volume{
+				{
+					Name: "sockets",
+					VolumeSource: kubev1.VolumeSource{
+						HostPath: &kubev1.HostPathVolumeSource{
+							Path: socketDir,
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -139,12 +163,13 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 	return &job, nil
 }
 
-func NewTemplateService(launcherImage string, migratorImage string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, migratorImage string, socketDir string) (TemplateService, error) {
 	precond.MustNotBeEmpty(launcherImage)
 	precond.MustNotBeEmpty(migratorImage)
 	svc := templateService{
 		launcherImage: launcherImage,
 		migratorImage: migratorImage,
+		socketBaseDir: socketDir,
 	}
 	return &svc, nil
 }

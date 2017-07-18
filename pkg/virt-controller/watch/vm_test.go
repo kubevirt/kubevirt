@@ -69,15 +69,15 @@ var _ = Describe("VM watcher", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = ""
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			vm.ObjectMeta.SetNamespace(kubev1.NamespaceDefault)
 
 			// Create the expected VM after the update
 			obj, err := conversion.NewCloner().DeepCopy(vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Create a Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever")
 			Expect(err).ToNot(HaveOccurred())
-			pod, err := temlateService.RenderLaunchManifest(vm)
+			pod, err := templateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
 			pod.Spec.NodeName = "mynode"
 			pod.Status.Phase = clientv1.PodSucceeded
@@ -212,12 +212,10 @@ var _ = Describe("VM watcher", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = v1.Scheduling
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			vm.ObjectMeta.SetNamespace(kubev1.NamespaceDefault)
 
 			// Create a target Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever")
-			Expect(err).ToNot(HaveOccurred())
-			var pod *kubev1.Pod
-			pod, err = temlateService.RenderLaunchManifest(vm)
+			pod, err := templateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
 			pod.Spec.NodeName = "mynode"
 			pod.Status.Phase = kubev1.PodRunning

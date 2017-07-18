@@ -47,7 +47,7 @@ var _ = Describe("VM", func() {
 		flag.Parse()
 		server = ghttp.NewServer()
 		virtClient, _ := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-		templateService, _ := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
+		templateService, _ := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler", "/var/run/libvirt")
 		restClient = virtClient.RestClient()
 		vmService = NewVMService(virtClient, restClient, templateService)
 

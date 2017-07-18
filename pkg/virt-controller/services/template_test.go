@@ -35,14 +35,14 @@ import (
 var _ = Describe("Template", func() {
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-	svc, err := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
+	svc, err := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler", "/var/run/libvirt")
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
 
 				Expect(err).To(BeNil())
-				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: metav1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{Domain: &v1.DomainSpec{}}})
+				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "testns", UID: "1234"}, Spec: v1.VMSpec{Domain: &v1.DomainSpec{}}})
 
 				Expect(err).To(BeNil())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
@@ -53,7 +53,11 @@ var _ = Describe("Template", func() {
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-----"))
 				Expect(pod.Spec.NodeSelector).To(BeEmpty())
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "--qemu-timeout", "60s"}))
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher",
+					"--qemu-timeout", "60s",
+					"-name", "testvm",
+					"-namespace", "testns",
+					"-socket-dir", "/var/run/libvirt"}))
 			})
 		})
 		Context("with node selectors", func() {
@@ -62,7 +66,7 @@ var _ = Describe("Template", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
 				}
-				vm := v1.VM{ObjectMeta: metav1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector, Domain: &v1.DomainSpec{}}}
+				vm := v1.VM{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector, Domain: &v1.DomainSpec{}}}
 
 				pod, err := svc.RenderLaunchManifest(&vm)
 
@@ -77,7 +81,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					"kubernetes.io/hostname": "master",
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "--qemu-timeout", "60s"}))
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher",
+					"--qemu-timeout", "60s",
+					"-name", "testvm",
+					"-namespace", "default",
+					"-socket-dir", "/var/run/libvirt"}))
 			})
 		})
 		Context("migration", func() {
