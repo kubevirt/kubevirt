@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
@@ -295,6 +296,12 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 
 	// Synchronize the VM state
 	vm, err := MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
+	if err != nil {
+		return err
+	}
+
+	// Map Container Registry Disks to block devices Libvirt can consume
+	vm, err = registrydisk.MapRegistryDisks(vm)
 	if err != nil {
 		return err
 	}
