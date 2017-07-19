@@ -24,9 +24,10 @@ import (
 
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/designer"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
@@ -42,52 +43,40 @@ type savedDisk struct {
 	disk v1.Disk
 }
 
-func ExtractPvc(dom *v1.DomainSpec) (*v1.DomainSpec, []savedDisk) {
-	specCopy := &v1.DomainSpec{}
-	model.Copy(specCopy, dom)
-
+func ExtractPvc(dom *v1.DomainSpec) []savedDisk {
 	pvcDisks := []savedDisk{}
-	allDisks := []v1.Disk{}
 
-	for idx, disk := range specCopy.Devices.Disks {
+	for idx, disk := range dom.Devices.Disks {
 		if disk.Type == Type_PersistentVolumeClaim {
 			// Save the disk so we can fix it later
 			diskCopy := v1.Disk{}
 			model.Copy(&diskCopy, disk)
 			pvcDisks = append(pvcDisks, savedDisk{disk: diskCopy, idx: idx})
-
-			// Alter the disk record so that libvirt will accept it
-			disk.Type = Type_Network
-			disk.Source.Protocol = "iscsi"
 		}
-		allDisks = append(allDisks, disk)
 	}
-	// Replace the Domain's disks with modified records
-	specCopy.Devices.Disks = allDisks
 
-	return specCopy, pvcDisks
+	return pvcDisks
 }
 
 // This is a simplified version of the domain creation portion of SyncVM. This is intended primarily
 // for mapping the VM spec without starting a domain.
-func MapVM(con virtwrap.Connection, vm *v1.VM) (*v1.VM, error) {
+func MapVM(con virtwrap.Connection, vm *v1.VM, k8sClient kubernetes.Interface) (*v1.VM, error) {
 	log := logging.DefaultLogger()
 
 	vmCopy := &v1.VM{}
 	model.Copy(vmCopy, vm)
 
-	specCopy, pvcs := ExtractPvc(vm.Spec.Domain)
+	pvcs := ExtractPvc(vm.Spec.Domain)
 
-	var wantedSpec api.DomainSpec
-	mappingErrs := model.Copy(&wantedSpec, specCopy)
-
-	if len(mappingErrs) > 0 {
-		return nil, errors.NewAggregate(mappingErrs)
+	domDesign, err := designer.DomainDesignFromAPISpec(vm, k8sClient)
+	if err != nil {
+		log.Object(vm).Error().Reason(err).Msg("Designing the domain failed.")
+		return nil, err
 	}
 
-	wantedSpec.Name = vmCopy.GetObjectMeta().GetName()
-	wantedSpec.UUID = string(vmCopy.GetObjectMeta().GetUID())
-	xmlStr, err := xml.Marshal(&wantedSpec)
+	domDesign.Domain.Name = vmCopy.GetObjectMeta().GetName()
+	domDesign.Domain.UUID = string(vmCopy.GetObjectMeta().GetUID())
+	xmlStr, err := xml.Marshal(&domDesign.Domain)
 	if err != nil {
 		log.Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 		return nil, err
@@ -124,7 +113,7 @@ func MapVM(con virtwrap.Connection, vm *v1.VM) (*v1.VM, error) {
 	// Re-add the PersistentVolumeClaims that were stripped earlier
 	for _, pvc := range pvcs {
 		vmCopy.Spec.Domain.Devices.Disks[pvc.idx].Type = Type_PersistentVolumeClaim
-		vmCopy.Spec.Domain.Devices.Disks[pvc.idx].Source.Protocol = pvc.disk.Source.Protocol
+		vmCopy.Spec.Domain.Devices.Disks[pvc.idx].Source = pvc.disk.Source
 	}
 
 	return vmCopy, nil

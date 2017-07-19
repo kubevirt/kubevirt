@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/context"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
@@ -94,7 +95,9 @@ func (m manifest) mapManifest(_ context.Context, request interface{}) (interface
 
 	virt_manifest.AddMinimalVMSpec(vm)
 
-	mappedVm, err := virt_manifest.MapVM(m.connection, vm)
+	client, err := kubecli.Get()
+
+	mappedVm, err := virt_manifest.MapVM(m.connection, vm, client)
 	if err != nil {
 		return nil, middleware.NewInternalServerError(err)
 	} else {
