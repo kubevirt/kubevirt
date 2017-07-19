@@ -16,7 +16,7 @@ Kubernetes.
 
 ## Virtualization extension for Kubernetes
 
-At it's core KubeVirt extends [Kubernetes][k8s] by adding
+At its core, KubeVirt extends [Kubernetes][k8s] by adding
 additional virtualization resource types (especially the `VM` type) through
 [Kubernetes's third party resource concept][tpr].
 By using this mechanism, the Kubernetes API can be used to manage these `VM`
