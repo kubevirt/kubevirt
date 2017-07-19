@@ -147,15 +147,31 @@ type DomainList struct {
 // tagged, and they must correspond to the libvirt domain as described in
 // https://libvirt.org/formatdomain.html.
 type DomainSpec struct {
-	XMLName xml.Name `xml:"domain"`
-	Name    string   `xml:"name"`
-	UUID    string   `xml:"uuid,omitempty"`
-	Memory  Memory   `xml:"memory"`
-	Type    string   `xml:"type,attr"`
-	OS      OS       `xml:"os"`
-	SysInfo *SysInfo `xml:"sysinfo,omitempty"`
-	Devices Devices  `xml:"devices"`
-	Clock   *Clock   `xml:"clock,omitempty"`
+	XMLName  xml.Name     `xml:"domain"`
+	Type     string       `xml:"type,attr"`
+	XmlNS    string       `xml:"xmlns:qemu,attr,omitempty"`
+	Name     string       `xml:"name"`
+	UUID     string       `xml:"uuid,omitempty"`
+	Memory   Memory       `xml:"memory"`
+	OS       OS           `xml:"os"`
+	SysInfo  *SysInfo     `xml:"sysinfo,omitempty"`
+	Devices  Devices      `xml:"devices"`
+	Clock    *Clock       `xml:"clock,omitempty"`
+	Resource *Resource    `xml:"resource,omitempty"`
+	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
+}
+
+type Commandline struct {
+	QEMUEnv []Env `xml:"qemu:env,omitempty"`
+}
+
+type Env struct {
+	Name  string `xml:"name,attr"`
+	Value string `xml:"value,attr"`
+}
+
+type Resource struct {
+	Partition string `xml:"partition"`
 }
 
 type Memory struct {

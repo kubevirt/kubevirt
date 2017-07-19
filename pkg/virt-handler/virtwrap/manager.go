@@ -36,12 +36,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 
+	"strings"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 )
 
 type DomainManager interface {
@@ -52,9 +55,10 @@ type DomainManager interface {
 }
 
 type LibvirtDomainManager struct {
-	virConn     cli.Connection
-	recorder    record.EventRecorder
-	secretCache map[string][]string
+	virConn              cli.Connection
+	recorder             record.EventRecorder
+	secretCache          map[string][]string
+	podIsolationDetector isolation.PodIsolationDetector
 }
 
 func (l *LibvirtDomainManager) initiateSecretCache() error {
@@ -96,8 +100,13 @@ func (l *LibvirtDomainManager) initiateSecretCache() error {
 	return nil
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder) (DomainManager, error) {
-	manager := LibvirtDomainManager{virConn: connection, recorder: recorder, secretCache: make(map[string][]string)}
+func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder, isolationDetector isolation.PodIsolationDetector) (DomainManager, error) {
+	manager := LibvirtDomainManager{
+		virConn:              connection,
+		recorder:             recorder,
+		secretCache:          make(map[string][]string),
+		podIsolationDetector: isolationDetector,
+	}
 
 	err := manager.initiateSecretCache()
 	if err != nil {
@@ -165,11 +174,28 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID
 
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	var wantedSpec api.DomainSpec
+	wantedSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
+	wantedSpec.Type = "qemu"
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
 
 	if len(mappingErrs) > 0 {
 		logging.DefaultLogger().Error().Msg("model copy failed.")
 		return nil, errors.NewAggregate(mappingErrs)
+	}
+
+	res, err := l.podIsolationDetector.Detect(vm)
+	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Could not detect virt-launcher cgroups.")
+		return nil, err
+	}
+
+	logging.DefaultLogger().Object(vm).Info().With("slice", res.Slice()).V(3).Msg("Detected cgroup slice.")
+	wantedSpec.QEMUCmd = &api.Commandline{
+		QEMUEnv: []api.Env{
+			{Name: "SLICE", Value: res.Slice()},
+			{Name: "CONTROLLERS", Value: strings.Join(res.Controller(), ",")},
+			{Name: "PIDNS", Value: res.PidNS()},
+		},
 	}
 
 	domName := cache.VMNamespaceKeyFunc(vm)
@@ -184,14 +210,14 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 				return nil, err
 			}
-			logging.DefaultLogger().Object(vm).Info().V(3).Msgf("Domain XML generated %s.", xmlStr)
+			logging.DefaultLogger().Object(vm).Info().V(3).With("xml", xmlStr).Msgf("Domain XML generated.")
 			dom, err = l.virConn.DomainDefineXML(string(xmlStr))
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
 				return nil, err
 			}
 			logging.DefaultLogger().Object(vm).Info().Msg("Domain defined.")
-			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined")
+			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined.")
 		} else {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
 			return nil, err

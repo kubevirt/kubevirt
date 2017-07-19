@@ -47,6 +47,7 @@ import (
 	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 )
 
 func main() {
@@ -56,6 +57,7 @@ func main() {
 	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8185, "Port to listen on")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
+	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -93,7 +95,10 @@ func main() {
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: *host})
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, recorder)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
+		recorder,
+		isolation.NewSocketBasedIsolationDetector(*socketDir),
+	)
 	if err != nil {
 		panic(err)
 	}

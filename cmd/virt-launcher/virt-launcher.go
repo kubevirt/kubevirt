@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 )
 
 type Monitor struct {
@@ -152,7 +153,7 @@ func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	socket, err := net.Listen("unix", fmt.Sprintf("%s/%s/%s/sock", filepath.Clean(*socketDir), *namespace, *name))
+	socket, err := net.Listen("unix", isolation.SocketFromNamespaceName(*socketDir, *namespace, *name))
 
 	if err != nil {
 		log.Fatal("Could not create socket for cgroup detection.", err)

@@ -44,20 +44,20 @@ import (
 var _ = Describe("Migration", func() {
 
 	var (
-		app            VirtControllerApp = VirtControllerApp{}
-		server         *ghttp.Server
-		migration      *v1.Migration
-		vm             *v1.VM
-		pod            *clientv1.Pod
-		podList        clientv1.PodList
-		migrationKey   interface{}
-		srcIp          clientv1.NodeAddress
-		destIp         kubev1.NodeAddress
-		srcNodeWithIp  kubev1.Node
-		destNodeWithIp kubev1.Node
-		srcNode        kubev1.Node
-		destNode       kubev1.Node
-		templateService     services.TemplateService
+		app             VirtControllerApp = VirtControllerApp{}
+		server          *ghttp.Server
+		migration       *v1.Migration
+		vm              *v1.VM
+		pod             *clientv1.Pod
+		podList         clientv1.PodList
+		migrationKey    interface{}
+		srcIp           clientv1.NodeAddress
+		destIp          kubev1.NodeAddress
+		srcNodeWithIp   kubev1.Node
+		destNodeWithIp  kubev1.Node
+		srcNode         kubev1.Node
+		destNode        kubev1.Node
+		templateService services.TemplateService
 	)
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
