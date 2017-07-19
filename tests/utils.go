@@ -20,7 +20,6 @@
 package tests
 
 import (
-	"fmt"
 	"reflect"
 	"time"
 
@@ -401,12 +400,10 @@ func NewRandomVMWithNS(namespace string) *v1.VM {
 	return v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
 }
 
-func NewRandomVMWithDirectLun(lun int) *v1.VM {
+func NewRandomVMWithDirectLun(lun int32) *v1.VM {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Type:     "network",
 		Snapshot: "external",
 		Device:   "disk",
 		Driver: &v1.DiskDriver{
@@ -417,12 +414,11 @@ func NewRandomVMWithDirectLun(lun int) *v1.VM {
 			Device: "vda",
 		},
 		Source: v1.DiskSource{
-			Host: &v1.DiskSourceHost{
-				Name: "iscsi-demo-target.default",
-				Port: "3260",
+			ISCSI: &v1.DiskSourceISCSI{
+				TargetPortal: "iscsi-demo-target.default:3260",
+				IQN:          "iqn.2017-01.io.kubevirt:sn.42",
+				Lun:          lun,
 			},
-			Protocol: "iscsi",
-			Name:     fmt.Sprintf("iqn.2017-01.io.kubevirt:sn.42/%d", lun),
 		},
 	}}
 	return vm
@@ -430,17 +426,17 @@ func NewRandomVMWithDirectLun(lun int) *v1.VM {
 
 func NewRandomVMWithPVC(claimName string) *v1.VM {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Type:     "PersistentVolumeClaim",
 		Snapshot: "external",
 		Device:   "disk",
 		Target: v1.DiskTarget{
 			Device: "vda",
 		},
 		Source: v1.DiskSource{
-			Name: claimName,
+			PersistentVolumeClaim: &v1.DiskSourcePersistentVolumeClaim{
+				ClaimName: claimName,
+			},
 		},
 	}}
 	return vm
@@ -455,7 +451,6 @@ func NewRandomVMWithSerialConsole() *v1.VM {
 	vm := NewRandomVMWithPVC("disk-cirros")
 	vm.Spec.Domain.Devices.Serials = []v1.Serial{
 		{
-			Type: "pty",
 			Target: &v1.SerialTarget{
 				Port: newUInt(0),
 			},
@@ -463,7 +458,6 @@ func NewRandomVMWithSerialConsole() *v1.VM {
 	}
 	vm.Spec.Domain.Devices.Consoles = []v1.Console{
 		{
-			Type: "pty",
 			Target: &v1.ConsoleTarget{
 				Type: newString("serial"),
 				Port: newUInt(0),
@@ -486,8 +480,7 @@ func NewRandomVMWithSpice() *v1.VM {
 	}
 	vm.Spec.Domain.Devices.Graphics = []v1.Graphics{
 		{
-			DefaultMode: "any",
-			Type:        "spice",
+			Type: "spice",
 		},
 	}
 	return vm

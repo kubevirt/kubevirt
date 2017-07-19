@@ -20,8 +20,6 @@
 package cache
 
 import (
-	"encoding/xml"
-
 	"github.com/golang/mock/gomock"
 	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
@@ -55,9 +53,6 @@ var _ = Describe("Cache", func() {
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
 				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
-				x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
-				Expect(err).To(BeNil())
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
 				mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]virtwrap.VirDomain{mockDomain}, nil)
 
 				informer, err := NewSharedInformer(mockConn)
@@ -72,9 +67,7 @@ var _ = Describe("Cache", func() {
 				Expect(exists).To(BeTrue())
 
 				domain := obj.(*api.Domain)
-				domain.Spec.XMLName = xml.Name{}
 
-				Expect(&domain.Spec).To(Equal(api.NewMinimalDomainSpec("test")))
 				Expect(domain.Status.Status).To(Equal(kubevirtState))
 				close(stopChan)
 			},
@@ -89,20 +82,14 @@ var _ = Describe("Cache", func() {
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
 				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
-				x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
-				Expect(err).To(BeNil())
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
 
 				watcher := &DomainWatcher{make(chan watch.Event, 1)}
 				callback(mockDomain, &libvirt.DomainEventLifecycle{Event: event}, watcher.C)
 
 				e := <-watcher.C
 
-				expectedDomain := api.NewMinimalDomainSpec("test")
-				expectedDomain.XMLName = xml.Name{Local: "domain"}
 				Expect(e.Object.(*api.Domain).Status.Status).To(Equal(kubevirtState))
 				Expect(e.Type).To(Equal(kubeEventType))
-				Expect(&e.Object.(*api.Domain).Spec).To(Equal(expectedDomain))
 			},
 			table.Entry("modified for crashed VMs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
 			table.Entry("modified for stopped VMs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),

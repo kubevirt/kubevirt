@@ -74,6 +74,8 @@ imports:
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/libvirt/libvirt-go
   version: 664b6d217e029ce5ad3094a8c2202c202b213d06
+- name: github.com/libvirt/libvirt-go-xml
+  version: 2da710d06ce00a74144cbbe443b0fa5edab58436
 - name: github.com/mailru/easyjson
   version: d5b7844b561a7bc640052f1b935f7b800330d7e0
   subpackages:

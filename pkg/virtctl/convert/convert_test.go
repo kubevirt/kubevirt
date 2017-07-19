@@ -61,8 +61,6 @@ var _ = Describe("Convert", func() {
 			table.Entry("should take YAML and convert it explicit to JSON", vm, toYAML, "-f - -o json", fromJSON, vm),
 			table.Entry("should take YAML and convert it implicit to JSON", vm, toYAML, "-f - ", fromJSON, vm),
 			table.Entry("should take YAML and output YAML", vm, toJSON, "-f - -o yaml", fromYAML, vm),
-			table.Entry("should take YAML and output XML", vm, toYAML, "-f - -o xml", fromXML, vm),
-			table.Entry("should take XML and output YAML", vm, toXML, "-f - -o yaml", fromYAML, vm),
 		)
 
 	})

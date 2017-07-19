@@ -8,31 +8,27 @@ spec:
       graphics:
       - type: spice
       interfaces:
-      - type: network
-        source:
-          network: default
+      - mac: 52:54:de:ad:be:ef
       video:
       - type: qxl
       disks:
-      - type: network
-        snapshot: external
+      - snapshot: external
         device: disk
         driver:
           name: qemu
           type: raw
           cache: none
         source:
-          host:
-            name: iscsi-demo-target.default
-            port: "3260"
-          protocol: iscsi
-          name: iqn.2017-01.io.kubevirt:sn.42/2
+          iscsi:
+            targetPortal: iscsi-demo-target.default:3260
+            iqn: iqn.2017-01.io.kubevirt:sn.42
+	    lun: 2
         target:
           dev: vda
       consoles:
-      - type: pty
+      - target:
+          port: 0
     memory:
-      unit: MB
       value: 64
     os:
       type:

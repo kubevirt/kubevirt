@@ -19,33 +19,30 @@
 
 package virtwrap
 
-//go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go,libvirtxml=github.com/libvirt/libvirt-go-xml" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
 */
 
 import (
-	"encoding/xml"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/apimachinery/pkg/util/errors"
+	"github.com/libvirt/libvirt-go-xml"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 type DomainManager interface {
-	SyncVM(*v1.VM) (*api.DomainSpec, error)
+	SyncVM(*v1.VM, *libvirtxml.Domain) (*libvirtxml.Domain, error)
 	KillVM(*v1.VM) error
 }
 
@@ -328,21 +325,13 @@ func VMNamespaceKeyFunc(vm *v1.VM) string {
 	return domName
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
-	var wantedSpec api.DomainSpec
-	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
-
-	if len(mappingErrs) > 0 {
-		return nil, errors.NewAggregate(mappingErrs)
-	}
-
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VM, cfg *libvirtxml.Domain) (*libvirtxml.Domain, error) {
 	domName := VMNamespaceKeyFunc(vm)
-	wantedSpec.Name = domName
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
-			xmlStr, err := xml.Marshal(&wantedSpec)
+			xmlStr, err := cfg.Marshal()
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 				return nil, err
@@ -397,15 +386,15 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 		return nil, err
 	}
 
-	var newSpec api.DomainSpec
-	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	var newCfg libvirtxml.Domain
+	err = newCfg.Unmarshal(xmlstr)
 	if err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Parsing domain XML failed.")
 		return nil, err
 	}
 
 	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
-	return &newSpec, nil
+	return &newCfg, nil
 }
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {

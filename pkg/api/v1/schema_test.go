@@ -27,37 +27,27 @@ import (
 )
 
 var exampleJSON = `{
-  "name": "testvm",
   "memory": {
-    "value": 8192,
-    "unit": "KiB"
+    "value": 8
   },
   "type": "qemu",
   "os": {
     "type": {
       "os": "hvm"
-    },
-    "bootOrder": null
+    }
   },
   "devices": {
     "interfaces": [
-      {
-        "type": "network",
-        "source": {
-          "network": "default"
-        }
-      }
+      {}
     ],
     "disks": [
       {
         "device": "disk",
-        "type": "network",
         "source": {
-          "protocol": "iscsi",
-          "name": "iqn.2013-07.com.example:iscsi-nopool/2",
-          "host": {
-            "name": "example.com",
-            "port": "3260"
+          "iscsi": {
+            "targetPortal": "example.com:3260",
+            "iqn": "iqn.2013-07.com.example:iscsi-nopool",
+            "lun": 2
           }
         },
         "target": {
@@ -74,16 +64,21 @@ var exampleJSON = `{
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
-	var exampleVM = NewMinimalDomainSpec("testvm")
+	var exampleVM = NewMinimalDomainSpec()
 	exampleVM.Devices.Disks = []Disk{
 		{
-			Type:   "network",
 			Device: "disk",
-			Driver: &DiskDriver{Name: "qemu",
-				Type: "raw"},
-			Source: DiskSource{Protocol: "iscsi",
-				Name: "iqn.2013-07.com.example:iscsi-nopool/2",
-				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
+			Driver: &DiskDriver{
+				Name: "qemu",
+				Type: "raw",
+			},
+			Source: DiskSource{
+				ISCSI: &DiskSourceISCSI{
+					IQN:          "iqn.2013-07.com.example:iscsi-nopool",
+					Lun:          2,
+					TargetPortal: "example.com:3260",
+				},
+			},
 			Target: DiskTarget{Device: "vda"},
 		},
 	}

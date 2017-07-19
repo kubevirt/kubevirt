@@ -62,10 +62,6 @@ func (LinkState) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (BandWidth) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (BootOrder) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
@@ -74,23 +70,7 @@ func (MAC) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (FilterRef) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (InterfaceSource) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Model) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (InterfaceTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Alias) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
@@ -106,23 +86,7 @@ func (SMBios) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (NVRam) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Boot) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (BootMenu) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (BIOS) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Loader) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
@@ -134,14 +98,6 @@ func (Entry) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (Clock) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Timer) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Channel) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
@@ -150,19 +106,11 @@ func (ChannelTarget) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (ChannelSource) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Video) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
 func (Graphics) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Listen) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 

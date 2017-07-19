@@ -21,15 +21,15 @@ package convert
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"io"
 
 	ghodss_yaml "github.com/ghodss/yaml"
-	"github.com/jeevatkm/go-model"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	kubeapi "k8s.io/client-go/pkg/api"
 
 	virt "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/designer"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
 type Type string
@@ -41,20 +41,6 @@ const (
 	JSON        Type = "json"
 )
 
-func fromXML(reader io.Reader) (vm *virt.VM, err error) {
-	domainSpec := api.DomainSpec{}
-	err = xml.NewDecoder(reader).Decode(&domainSpec)
-	if err != nil {
-		return
-	}
-	vm = virt.NewMinimalVM(domainSpec.Name)
-	if e := model.Copy(vm.Spec.Domain, &domainSpec); len(e) > 0 {
-		err = e[0]
-		return
-	}
-	return
-}
-
 func fromYAMLOrJSON(reader io.Reader) (vm *virt.VM, err error) {
 	vm = new(virt.VM)
 	err = yaml.NewYAMLOrJSONDecoder(reader, 100).Decode(vm)
@@ -62,14 +48,22 @@ func fromYAMLOrJSON(reader io.Reader) (vm *virt.VM, err error) {
 }
 
 func toXML(vm *virt.VM, writer io.Writer) error {
-	domainSpec := new(api.DomainSpec)
-	if e := model.Copy(domainSpec, vm.Spec.Domain); len(e) > 0 {
-		return e[0]
+	restClient, err := kubecli.GetRESTClient()
+	if err != nil {
+		panic(err)
 	}
-	domainSpec.Name = vm.GetObjectMeta().GetName()
-	encoder := xml.NewEncoder(writer)
-	encoder.Indent("", "  ")
-	return encoder.Encode(domainSpec)
+
+	domdesigner := designer.NewDomainDesigner(restClient, kubeapi.NamespaceDefault)
+	err = domdesigner.ApplySpec(vm)
+	if err != nil {
+		return err
+	}
+	xml, err := domdesigner.Domain.Marshal()
+	if err != nil {
+		return err
+	}
+	writer.Write([]byte(xml))
+	return nil
 }
 
 func toYAML(vm *virt.VM, writer io.Writer) error {

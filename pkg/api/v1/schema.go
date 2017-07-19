@@ -25,28 +25,19 @@ package v1
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
-import (
-	"kubevirt.io/kubevirt/pkg/precond"
-)
-
 type DomainSpec struct {
-	Name    string   `json:"name"`
-	UUID    string   `json:"uuid,omitempty"`
 	Memory  Memory   `json:"memory"`
 	Type    string   `json:"type"`
 	OS      OS       `json:"os"`
 	SysInfo *SysInfo `json:"sysInfo,omitempty"`
 	Devices Devices  `json:"devices"`
-	Clock   *Clock   `json:"clock,omitempty"`
 }
 
 type Memory struct {
-	Value uint   `json:"value"`
-	Unit  string `json:"unit"`
+	Value uint `json:"value"`
 }
 
 type Devices struct {
-	Emulator   string      `json:"emulator,omitempty"`
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	Channels   []Channel   `json:"channels,omitempty"`
 	Video      []Video     `json:"video,omitempty"`
@@ -62,7 +53,6 @@ type Devices struct {
 type Disk struct {
 	Device   string      `json:"device"`
 	Snapshot string      `json:"snapshot,omitempty"`
-	Type     string      `json:"type"`
 	Source   DiskSource  `json:"source"`
 	Target   DiskTarget  `json:"target"`
 	Serial   string      `json:"serial,omitempty"`
@@ -72,12 +62,20 @@ type Disk struct {
 
 type ReadOnly struct{}
 
+// This generally follows style of k8s VolumeSource struct
 type DiskSource struct {
-	File          string          `json:"file,omitempty"`
-	StartupPolicy string          `json:"startupPolicy,omitempty"`
-	Protocol      string          `json:"protocol,omitempty"`
-	Name          string          `json:"name,omitempty"`
-	Host          *DiskSourceHost `json:"host,omitempty"`
+	PersistentVolumeClaim *DiskSourcePersistentVolumeClaim `json:"persistentVolumeClaim,omitempty"`
+	ISCSI                 *DiskSourceISCSI                 `json:"iscsi,omitempty"`
+}
+
+type DiskSourcePersistentVolumeClaim struct {
+	ClaimName string `json:"string"`
+}
+
+type DiskSourceISCSI struct {
+	TargetPortal string `json:"targetPortal"`
+	IQN          string `json:"iqn"`
+	Lun          int32  `json:"lun"`
 }
 
 type DiskTarget struct {
@@ -103,7 +101,6 @@ type DiskSourceHost struct {
 // BEGIN Serial -----------------------------
 
 type Serial struct {
-	Type   string        `json:"type"`
 	Target *SerialTarget `json:"target,omitempty"`
 }
 
@@ -116,7 +113,6 @@ type SerialTarget struct {
 // BEGIN Console -----------------------------
 
 type Console struct {
-	Type   string         `json:"type"`
 	Target *ConsoleTarget `json:"target,omitempty"`
 }
 
@@ -130,24 +126,15 @@ type ConsoleTarget struct {
 // BEGIN Inteface -----------------------------
 
 type Interface struct {
-	Address   *Address         `json:"address,omitempty"`
-	Type      string           `json:"type"`
-	Source    InterfaceSource  `json:"source"`
-	Target    *InterfaceTarget `json:"target,omitempty"`
-	Model     *Model           `json:"model,omitempty"`
-	MAC       *MAC             `json:"mac,omitempty"`
-	BandWidth *BandWidth       `json:"bandwidth,omitempty"`
-	BootOrder *BootOrder       `json:"boot,omitempty"`
-	LinkState *LinkState       `json:"link,omitempty"`
-	FilterRef *FilterRef       `json:"filterRef,omitempty"`
-	Alias     *Alias           `json:"alias,omitempty"`
+	Address   *Address   `json:"address,omitempty"`
+	Model     *Model     `json:"model,omitempty"`
+	MAC       *MAC       `json:"mac,omitempty"`
+	BootOrder *BootOrder `json:"boot,omitempty"`
+	LinkState *LinkState `json:"link,omitempty"`
 }
 
 type LinkState struct {
 	State string `json:"state"`
-}
-
-type BandWidth struct {
 }
 
 type BootOrder struct {
@@ -158,37 +145,17 @@ type MAC struct {
 	MAC string `json:"address"`
 }
 
-type FilterRef struct {
-	Filter string `json:"filter"`
-}
-
-type InterfaceSource struct {
-	Network string `json:"network,omitempty"`
-	Device  string `json:"device,omitempty"`
-	Bridge  string `json:"bridge,omitempty"`
-}
-
 type Model struct {
 	Type string `json:"type"`
-}
-
-type InterfaceTarget struct {
-	Device string `json:"dev"`
-}
-
-type Alias struct {
-	Name string `json:"name"`
 }
 
 // END Inteface -----------------------------
 //BEGIN OS --------------------
 
 type OS struct {
-	Type      OSType    `json:"type"`
-	SMBios    *SMBios   `json:"smBIOS,omitempty"`
-	BootOrder []Boot    `json:"bootOrder"`
-	BootMenu  *BootMenu `json:"bootMenu,omitempty"`
-	BIOS      *BIOS     `json:"bios,omitempty"`
+	Type     OSType    `json:"type"`
+	SMBios   *SMBios   `json:"smBIOS,omitempty"`
+	BootMenu *BootMenu `json:"bootMenu,omitempty"`
 }
 
 type OSType struct {
@@ -201,26 +168,9 @@ type SMBios struct {
 	Mode string `json:"mode"`
 }
 
-type NVRam struct {
-	NVRam    string `json:"nvRam,omitempty"`
-	Template string `json:"template,omitempty"`
-}
-
-type Boot struct {
-	Dev string `json:"dev"`
-}
-
 type BootMenu struct {
 	Enabled bool  `json:"enabled,omitempty"`
 	Timeout *uint `json:"timeout,omitempty"`
-}
-
-// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
-type BIOS struct {
-}
-
-// TODO <bios useserial='yes' rebootTimeout='0'/>
-type Loader struct {
 }
 
 type SysInfo struct {
@@ -237,45 +187,20 @@ type Entry struct {
 
 //END OS --------------------
 
-//BEGIN Clock --------------------
-
-type Clock struct {
-}
-
-type Timer struct {
-	Name       string `json:"name"`
-	TickPolicy string `json:"tickPolicy,omitempty"`
-	Present    string `json:"present,omitempty"`
-}
-
-//END Clock --------------------
-
 //BEGIN Channel --------------------
 
 type Channel struct {
-	Type   string         `json:"type"`
-	Source ChannelSource  `json:"source,omitempty"`
-	Target *ChannelTarget `json:"target,omitempty"`
+	Target ChannelTarget `json:"target"`
 }
 
 type ChannelTarget struct {
-	Name    string `json:"name,omitempty"`
-	Type    string `json:"type"`
-	Address string `json:"address,omitempty"`
-	Port    uint   `json:"port,omitempty"`
-}
-
-type ChannelSource struct {
-	Mode string `json:"mode"`
-	Path string `json:"path"`
+	Name string `json:"name,omitempty"`
+	Type string `json:"type"`
 }
 
 //END Channel --------------------
 
 //BEGIN Video -------------------
-/*
-<graphics autoport="yes" defaultMode="secure" listen="0" passwd="*****" passwdValidTo="1970-01-01T00:00:01" port="-1" tlsPort="-1" type="spice" />
-*/
 
 type Video struct {
 	Type   string `json:"type"`
@@ -286,19 +211,7 @@ type Video struct {
 }
 
 type Graphics struct {
-	AutoPort      string `json:"autoPort,omitempty"`
-	DefaultMode   string `json:"defaultMode,omitempty"`
-	Listen        Listen `json:"listen,omitempty"`
-	PasswdValidTo string `json:"passwdValidTo,omitempty"`
-	Port          int32  `json:"port,omitempty"`
-	TLSPort       int    `json:"tlsPort,omitempty"`
-	Type          string `json:"type"`
-}
-
-type Listen struct {
-	Type    string `json:"type"`
-	Address string `json:"address,omitempty"`
-	Network string `json:"network,omitempty"`
+	Type string `json:"type"`
 }
 
 type Address struct {
@@ -320,13 +233,10 @@ type RandomGenerator struct {
 
 // TODO ballooning, rng, cpu ...
 
-func NewMinimalDomainSpec(vmName string) *DomainSpec {
-	precond.MustNotBeEmpty(vmName)
-	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
-	domain.Memory = Memory{Unit: "KiB", Value: 8192}
+func NewMinimalDomainSpec() *DomainSpec {
+	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu"}
+	domain.Memory = Memory{Value: 8}
 	domain.Devices = Devices{}
-	domain.Devices.Interfaces = []Interface{
-		{Type: "network", Source: InterfaceSource{Network: "default"}},
-	}
+	domain.Devices.Interfaces = []Interface{Interface{}}
 	return &domain
 }
