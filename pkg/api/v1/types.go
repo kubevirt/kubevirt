@@ -282,7 +282,7 @@ func NewMinimalVM(vmName string) *VM {
 func NewMinimalVMWithNS(namespace string, vmName string) *VM {
 	precond.CheckNotEmpty(vmName)
 	vm := NewVMReferenceFromNameWithNS(namespace, vmName)
-	vm.Spec = VMSpec{Domain: NewMinimalDomainSpec(vmName)}
+	vm.Spec = VMSpec{Domain: NewMinimalDomainSpec()}
 	vm.TypeMeta = metav1.TypeMeta{
 		APIVersion: GroupVersion.String(),
 		Kind:       "VM",

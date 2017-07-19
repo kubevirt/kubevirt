@@ -85,6 +85,8 @@ func MapVM(con virtwrap.Connection, vm *v1.VM) (*v1.VM, error) {
 		return nil, errors.NewAggregate(mappingErrs)
 	}
 
+	wantedSpec.Name = vmCopy.GetObjectMeta().GetName()
+	wantedSpec.UUID = string(vmCopy.GetObjectMeta().GetUID())
 	xmlStr, err := xml.Marshal(&wantedSpec)
 	if err != nil {
 		log.Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")

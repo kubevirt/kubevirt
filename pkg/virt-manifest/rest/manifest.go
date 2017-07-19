@@ -95,7 +95,6 @@ func (m manifest) mapManifest(_ context.Context, request interface{}) (interface
 	virt_manifest.AddMinimalVMSpec(vm)
 
 	mappedVm, err := virt_manifest.MapVM(m.connection, vm)
-	mappedVm.Spec.Domain.Name = mappedVm.ObjectMeta.Name
 	if err != nil {
 		return nil, middleware.NewInternalServerError(err)
 	} else {

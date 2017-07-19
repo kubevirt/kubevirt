@@ -78,8 +78,7 @@ var _ = Describe("Defaults", func() {
 		It("should assign a random name to domain spec", func() {
 			vm.Spec.Domain = nil
 			AddMinimalVMSpec(vm)
-			Expect(vm.Spec.Domain.Name).ToNot(BeNil())
-			Expect(vm.ObjectMeta.Name).ToNot(Equal(vm.Spec.Domain.Name))
+			Expect(vm.GetObjectMeta().GetName()).ToNot(BeNil())
 		})
 
 		It("should create missing domain", func() {
