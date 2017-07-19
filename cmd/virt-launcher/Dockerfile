@@ -16,7 +16,9 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM centos:7
+FROM fedora:26
+
+MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
 COPY virt-launcher /virt-launcher
 

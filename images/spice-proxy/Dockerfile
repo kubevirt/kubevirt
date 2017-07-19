@@ -1,10 +1,11 @@
-FROM centos:7.2.1511
+FROM fedora:26
 
-MAINTAINER Roman Mohr <rmohr@redhat.com>
+MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
 EXPOSE 3128
 
-RUN yum install -y squid && yum clean all
+RUN dnf -y install squid \
+    && dnf -y clean all
 
 RUN sed -i -e "s/http_access deny CONNECT !SSL_ports/http_access deny CONNECT !Safe_ports/" /etc/squid/squid.conf
 RUN echo "pid_filename /home/proxy/run/squid.pid" >> /etc/squid/squid.conf

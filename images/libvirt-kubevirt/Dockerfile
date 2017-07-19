@@ -18,7 +18,7 @@
 
 FROM kubevirt/libvirt
 
-MAINTAINER "Stu Gott" <sgott@redhat.com>
+MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
 
 # util-linux listed here explicity as nsenter must be present in this image

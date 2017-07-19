@@ -17,15 +17,16 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+set -e
+
 source hack/config.sh
 
 if [ -z "$1" ]; then
     target="build"
 else
     target=$1
-shift
+    shift
 fi
-shift
 
 if [ $# -eq 0 ]; then
     args=$docker_images
