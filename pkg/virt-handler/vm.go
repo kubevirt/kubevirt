@@ -98,6 +98,14 @@ func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VM, cfg *api.DomainSpec) error
 		return err
 	}
 	vm = obj.(*v1.VM)
+
+	// XXX When we start supporting hotplug, this needs to be altered.
+	// Check if the VM is already marked as running. If yes, don't update the VM.
+	// Otherwise we end up in endless controller requeues.
+	if vm.Status.Phase == v1.Running {
+		return nil
+	}
+
 	vm.Status.Phase = v1.Running
 
 	vm.Status.Graphics = []v1.VMGraphics{}
