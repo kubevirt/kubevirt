@@ -114,8 +114,9 @@ var _ = Describe("DomainMap", func() {
 				},
 			}
 
-			disk := v1.Disk{
-				Type: "PersistentVolumeClaim",
+			disk1 := v1.Disk{
+				Type:   "PersistentVolumeClaim",
+				Device: "disk",
 				Source: v1.DiskSource{
 					Name: "test-claim",
 				},
@@ -123,17 +124,32 @@ var _ = Describe("DomainMap", func() {
 					Device: "vda",
 				},
 			}
-			disk.Type = "PersistentVolumeClaim"
+
+			disk2 := v1.Disk{
+				Type:   "network",
+				Device: "cdrom",
+				Source: v1.DiskSource{
+					Name:     "iqn.2009-02.com.test:for.me/1",
+					Protocol: "iscsi",
+					Host: &v1.DiskSourceHost{
+						Name: "127.0.0.2",
+						Port: "3260",
+					},
+				},
+				Target: v1.DiskTarget{
+					Device: "hda",
+				},
+			}
 
 			domain := v1.DomainSpec{}
-			domain.Devices.Disks = []v1.Disk{disk}
+			domain.Devices.Disks = []v1.Disk{disk1, disk2}
 			vm.Spec.Domain = &domain
 
 			restClient := getRestClient(server.URL())
 			domSpec, err := designer.MapDomainSpec(&vm, restClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(len(domSpec.Devices.Disks)).To(Equal(1))
+			Expect(len(domSpec.Devices.Disks)).To(Equal(2))
 			newDisk := domSpec.Devices.Disks[0]
 			Expect(newDisk.Type).To(Equal("network"))
 			Expect(newDisk.Driver.Type).To(Equal("raw"))
@@ -141,6 +157,16 @@ var _ = Describe("DomainMap", func() {
 			Expect(newDisk.Device).To(Equal("disk"))
 			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
 			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
+			Expect(newDisk.Source.Host.Name).To(Equal("127.0.0.1"))
+			Expect(newDisk.Source.Host.Port).To(Equal("6543"))
+
+			newDisk = domSpec.Devices.Disks[1]
+			Expect(newDisk.Type).To(Equal("network"))
+			Expect(newDisk.Device).To(Equal("cdrom"))
+			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
+			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.me/1"))
+			Expect(newDisk.Source.Host.Name).To(Equal("127.0.0.2"))
+			Expect(newDisk.Source.Host.Port).To(Equal("3260"))
 		})
 	})
 })
