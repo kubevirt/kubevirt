@@ -46,8 +46,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	rest2 "kubevirt.io/kubevirt/pkg/rest"
+	. "kubevirt.io/kubevirt/pkg/testutils"
 	. "kubevirt.io/kubevirt/pkg/virt-api/rest"
-	. "kubevirt.io/kubevirt/test"
 )
 
 const vmResource = "vms"
