@@ -28,7 +28,7 @@ yum -y remove NetworkManager firewalld
 
 # Install epel
 yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-yum -y install jq
+yum -y install jq sshpass
 
 yum -y install bind-utils net-tools
 
