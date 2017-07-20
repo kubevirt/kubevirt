@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
-	"kubevirt.io/kubevirt/pkg/virtctl/convert"
 	"kubevirt.io/kubevirt/pkg/virtctl/spice"
 )
 
@@ -39,10 +38,9 @@ func main() {
 	log.SetOutput(os.Stderr)
 
 	registry := map[string]virtctl.App{
-		"console":      &console.Console{},
-		"options":      &virtctl.Options{},
-		"spice":        &spice.Spice{},
-		"convert-spec": convert.NewConvertCommand(),
+		"console": &console.Console{},
+		"options": &virtctl.Options{},
+		"spice":   &spice.Spice{},
 	}
 
 	if len(os.Args) > 1 {
@@ -84,7 +82,6 @@ func Usage() {
 
 Basic Commands:
   console        Connect to a serial console on a VM
-  convert-spec   Convert between Libvirt and KubeVirt specifications
 
 Use "virtctl <command> --help" for more information about a given command.
 Use "virtctl options" for a list of global command-line options (applies to all commands).
