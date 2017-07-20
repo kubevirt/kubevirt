@@ -30,21 +30,21 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	kubecorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/pkg/api"
 	kubeapi "k8s.io/client-go/pkg/api"
 	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	virtapi "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 )
 
@@ -83,12 +83,12 @@ func main() {
 	defer domainConn.Close()
 
 	// Create event recorder
-	coreClient, err := kubecli.Get()
+	clientSet, err := kubecli.Get()
 	if err != nil {
 		panic(err)
 	}
 	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: coreClient.Events(api.NamespaceAll)})
+	broadcaster.StartRecordingToSink(&kubecorev1.EventSinkImpl{Interface: clientSet.Events(api.NamespaceAll)})
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(kubeapi.Scheme, kubev1.EventSource{Component: "virt-handler", Host: *host})
 
@@ -102,42 +102,36 @@ func main() {
 		panic(err)
 	}
 
-	l, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", *host))
-	if err != nil {
-		panic(err)
-	}
+	// Create all the informers used by virt-handler here
+	informerFactory := kubeinformers.NewKubeInformerFactory(restClient, clientSet)
+	vmOnHostInformer := informerFactory.VmOnHost(*host)
+	domainSharedInformer := informerFactory.CustomInformer("domainInformer", func() cache.SharedIndexInformer {
+		lw := virtcache.NewListWatchFromClient(domainConn)
+		return cache.NewSharedIndexInformer(lw, &virtapi.Domain{}, 0, cache.Indexers{})
+	})
 
 	// Wire VM controller
-	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", api.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, coreClient, *host)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(domainManager, recorder, *restClient, clientSet, *host, vmOnHostInformer)
 
 	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
-	if err != nil {
-		panic(err)
-	}
 	domainStore, domainController := virthandler.NewDomainController(vmQueue, vmStore, domainSharedInformer, *restClient, recorder)
-
-	if err != nil {
-		panic(err)
-	}
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
 
-	// Start domain controller and wait for Domain cache sync
-	domainController.StartInformer(stop)
+	// Start informers
+	informerFactory.Start(stop)
+
+	//wait for Domain cache sync
 	domainController.WaitForSync(stop)
 
 	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
 	for _, domain := range domainStore.List() {
-		d := domain.(*virt_api.Domain)
+		d := domain.(*virtapi.Domain)
 		vmStore.Add(v1.NewVMReferenceFromNameWithNS(d.ObjectMeta.Namespace, d.ObjectMeta.Name))
 	}
 
-	// Watch for VM changes
-	vmController.StartInformer(stop)
 	vmController.WaitForSync(stop)
 
 	go domainController.Run(1, stop)

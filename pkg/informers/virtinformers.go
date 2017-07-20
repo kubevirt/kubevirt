@@ -20,6 +20,7 @@
 package informers
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -38,19 +39,23 @@ import (
 	"kubevirt.io/kubevirt/pkg/logging"
 )
 
-type newSharedInformer func() cache.SharedIndexInformer
+type NewSharedInformerFunc func() cache.SharedIndexInformer
 
 type KubeInformerFactory interface {
 	// Starts any informers that have not been started yet
 	// This function is thread safe and idempotent
 	Start(stopCh <-chan struct{})
 
+	// Watches for vm objects assigned to host
+	VmOnHost(host string) cache.SharedIndexInformer
 	// Watches for vm objects
 	VM() cache.SharedIndexInformer
 	// Watches for migration objects
 	Migration() cache.SharedIndexInformer
 	// Watches for pods related only to kubevirt
 	KubeVirtPod() cache.SharedIndexInformer
+	// Generic way of creating a shared informer
+	CustomInformer(name string, newFunc NewSharedInformerFunc) cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -94,7 +99,7 @@ func (f *kubeInformerFactory) Start(stopCh <-chan struct{}) {
 // internal function used to retrieve an already created informer
 // or create a new informer if one does not already exist.
 // Thread safe
-func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer) cache.SharedIndexInformer {
+func (f *kubeInformerFactory) getInformer(key string, newFunc NewSharedInformerFunc) cache.SharedIndexInformer {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -106,6 +111,23 @@ func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer)
 	f.informers[key] = informer
 
 	return informer
+}
+
+func (f *kubeInformerFactory) CustomInformer(name string, newFunc NewSharedInformerFunc) cache.SharedIndexInformer {
+	return f.getInformer(name, newFunc)
+}
+
+func (f *kubeInformerFactory) VmOnHost(host string) cache.SharedIndexInformer {
+	name := fmt.Sprintf("vmOnHostInformer_%s", host)
+	return f.getInformer(name, func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(fmt.Sprintf(kubev1.NodeNameLabel+" in (%s)", host))
+		if err != nil {
+			panic(err)
+		}
+
+		lw := kubecli.NewListWatchFromClient(f.restClient, "vms", api.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &kubev1.VM{}, f.defaultResync, cache.Indexers{})
+	})
 }
 
 func (f *kubeInformerFactory) VM() cache.SharedIndexInformer {

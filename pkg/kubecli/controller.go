@@ -112,24 +112,17 @@ type Controller struct {
 	dispatch ControllerDispatch
 }
 
-func NewController(lw cache.ListerWatcher, queue workqueue.RateLimitingInterface, objType runtime.Object, dispatch ControllerDispatch) (cache.Store, *Controller) {
-
-	indexer, informer := cache.NewIndexerInformer(lw, objType, 0, NewResourceEventHandlerFuncsForWorkqueue(queue), cache.Indexers{})
-	return NewControllerFromInformer(indexer, informer, queue, dispatch)
-}
-
 type ControllerDispatch interface {
 	Execute( /*cache*/ cache.Store /*queue*/, workqueue.RateLimitingInterface /*key*/, interface{})
 }
 
-func NewControllerFromInformer(indexer cache.Store, informer cache.Controller, queue workqueue.RateLimitingInterface, dispatch ControllerDispatch) (cache.Store, *Controller) {
-	c := &Controller{
+func NewControllerFromInformer(informer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, dispatch ControllerDispatch) *Controller {
+	return &Controller{
 		informer: informer,
-		indexer:  indexer,
+		indexer:  informer.GetStore(),
 		queue:    queue,
 		dispatch: dispatch,
 	}
-	return indexer, c
 }
 
 type ControllerFunc func(cache.Store, workqueue.RateLimitingInterface, interface{})
@@ -161,10 +154,6 @@ func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
 
 	<-stopCh
 	logging.DefaultLogger().Info().Msg("Stopping controller.")
-}
-
-func (c *Controller) StartInformer(stopCh chan struct{}) {
-	go c.informer.Run(stopCh)
 }
 
 func (c *Controller) WaitForSync(stopCh chan struct{}) {
