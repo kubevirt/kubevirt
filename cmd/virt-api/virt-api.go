@@ -28,6 +28,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful/swagger"
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/spf13/pflag"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -47,7 +48,8 @@ func main() {
 	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8183, "Port to listen on")
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
