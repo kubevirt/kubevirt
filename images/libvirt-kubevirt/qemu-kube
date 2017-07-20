@@ -4,12 +4,6 @@ alias log='echo "[$(date)] "'
 
 ARGS="$@"
 # static config
-if [ -r "/etc/vdsm/qemu_kube.conf" ]; then
-    source "/etc/vdsm/qemu_kube.conf"
-fi
-# runtime config
-# TODO: let Makefile fill this
-# source "/var/run/vdsm/qemu_kube.conf"
 
 if [ -z "$QEMU" ]; then
     QEMU="/usr/bin/qemu-system-x86_64"
