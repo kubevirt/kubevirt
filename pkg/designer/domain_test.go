@@ -20,21 +20,14 @@
 package designer_test
 
 import (
-	"net/http"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	_ "k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/kubernetes"
+	fake2 "k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/designer"
@@ -52,16 +45,18 @@ var _ = Describe("DomainMap", func() {
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	var (
-		expectedPVC k8sv1.PersistentVolumeClaim
-		expectedPV  k8sv1.PersistentVolume
-		server      *ghttp.Server
+		k8sClient kubernetes.Interface
 	)
 
 	BeforeEach(func() {
-		expectedPVC = k8sv1.PersistentVolumeClaim{
+		expectedPVC := &k8sv1.PersistentVolumeClaim{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PersistentVolumeClaim",
 				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-claim",
+				Namespace: k8sv1.NamespaceDefault,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{
 				VolumeName: "disk-01",
@@ -77,10 +72,13 @@ var _ = Describe("DomainMap", func() {
 			TargetPortal: "127.0.0.1:6543",
 		}
 
-		expectedPV = k8sv1.PersistentVolume{
+		expectedPV := &k8sv1.PersistentVolume{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PersistentVolume",
 				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "disk-01",
 			},
 			Spec: k8sv1.PersistentVolumeSpec{
 				PersistentVolumeSource: k8sv1.PersistentVolumeSource{
@@ -89,21 +87,7 @@ var _ = Describe("DomainMap", func() {
 			},
 		}
 
-		server = ghttp.NewServer()
-		server.AppendHandlers(
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/persistentvolumeclaims/test-claim"),
-				ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPVC),
-			),
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/api/v1/persistentvolumes/disk-01"),
-				ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPV),
-			),
-		)
-	})
-
-	AfterEach(func() {
-		server.Close()
+		k8sClient = fake2.NewSimpleClientset(expectedPV, expectedPVC)
 	})
 
 	Context("Map Source Disks", func() {
@@ -145,8 +129,7 @@ var _ = Describe("DomainMap", func() {
 			domain.Devices.Disks = []v1.Disk{disk1, disk2}
 			vm.Spec.Domain = &domain
 
-			restClient := getRestClient(server.URL())
-			domDesign, err := designer.DomainDesignFromAPISpec(&vm, restClient)
+			domDesign, err := designer.DomainDesignFromAPISpec(&vm, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(len(domDesign.Domain.Devices.Disks)).To(Equal(2))
@@ -170,19 +153,6 @@ var _ = Describe("DomainMap", func() {
 		})
 	})
 })
-
-func getRestClient(url string) *rest.RESTClient {
-	gv := schema.GroupVersion{Group: "", Version: "v1"}
-	restConfig, err := clientcmd.BuildConfigFromFlags(url, "")
-	Expect(err).NotTo(HaveOccurred())
-	restConfig.GroupVersion = &gv
-	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	restConfig.APIPath = "/api"
-	restConfig.ContentType = runtime.ContentTypeJSON
-	restClient, err := rest.RESTClientFor(restConfig)
-	Expect(err).NotTo(HaveOccurred())
-	return restClient
-}
 
 func TestVMs(t *testing.T) {
 	RegisterFailHandler(Fail)

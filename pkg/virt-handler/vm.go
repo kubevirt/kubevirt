@@ -202,7 +202,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 	}
 
 	// Synchronize the VM state
-	domDesign, err := designer.DomainDesignFromAPISpec(vm, d.clientset.CoreV1().RESTClient())
+	domDesign, err := designer.DomainDesignFromAPISpec(vm, d.clientset)
 	if err != nil {
 		return err
 	}

@@ -26,8 +26,9 @@ import (
 
 	"github.com/jeevatkm/go-model"
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	errutil "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -71,18 +72,17 @@ func convertDeviceDiskPVCISCSI(vm *v1.VM, src *v1.Disk, pv *k8sv1.PersistentVolu
 	return dst, nil
 }
 
-func convertDeviceDiskPVC(vm *v1.VM, src *v1.Disk, restClient cache.Getter) (*api.Disk, error) {
+func convertDeviceDiskPVC(vm *v1.VM, src *v1.Disk, k8sClient kubernetes.Interface) (*api.Disk, error) {
 	logging.DefaultLogger().V(3).Info().Object(vm).Msgf("Mapping PersistentVolumeClaim: %s", src.Source.Name)
 
 	// Look up existing persistent volume
-	obj, err := restClient.Get().Namespace(vm.ObjectMeta.Namespace).Resource("persistentvolumeclaims").Name(src.Source.Name).Do().Get()
+	pvc, err := k8sClient.CoreV1().PersistentVolumeClaims(vm.ObjectMeta.Namespace).Get(src.Source.Name, metav1.GetOptions{})
 
 	if err != nil {
 		logging.DefaultLogger().Error().Reason(err).Msg("unable to look up persistent volume claim")
 		return nil, fmt.Errorf("unable to look up persistent volume claim: %v", err)
 	}
 
-	pvc := obj.(*k8sv1.PersistentVolumeClaim)
 	if pvc.Status.Phase != k8sv1.ClaimBound {
 		logging.DefaultLogger().Error().Msg("attempted use of unbound persistent volume")
 		return nil, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
@@ -90,13 +90,12 @@ func convertDeviceDiskPVC(vm *v1.VM, src *v1.Disk, restClient cache.Getter) (*ap
 
 	// Look up the PersistentVolume this PVC is bound to
 	// Note: This call is not namespaced!
-	obj, err = restClient.Get().Resource("persistentvolumes").Name(pvc.Spec.VolumeName).Do().Get()
+	pv, err := k8sClient.CoreV1().PersistentVolumes().Get(pvc.Spec.VolumeName, metav1.GetOptions{})
 
 	if err != nil {
 		logging.DefaultLogger().Error().Reason(err).Msg("unable to access persistent volume record")
 		return nil, fmt.Errorf("unable to access persistent volume record: %v", err)
 	}
-	pv := obj.(*k8sv1.PersistentVolume)
 
 	if pv.Spec.ISCSI != nil {
 		return convertDeviceDiskPVCISCSI(vm, src, pv)
@@ -106,7 +105,7 @@ func convertDeviceDiskPVC(vm *v1.VM, src *v1.Disk, restClient cache.Getter) (*ap
 	}
 }
 
-func convertDeviceDiskNetwork(vm *v1.VM, src *v1.Disk, restClient cache.Getter) (*api.Disk, error) {
+func convertDeviceDiskNetwork(vm *v1.VM, src *v1.Disk, k8sClient kubernetes.Interface) (*api.Disk, error) {
 	dst := &api.Disk{}
 	model.Copy(dst, src)
 
@@ -126,19 +125,19 @@ func convertDeviceDiskNetwork(vm *v1.VM, src *v1.Disk, restClient cache.Getter) 
 	return dst, nil
 }
 
-func convertDeviceDisk(vm *v1.VM, src *v1.Disk, restClient cache.Getter) (*api.Disk, error) {
+func convertDeviceDisk(vm *v1.VM, src *v1.Disk, k8sClient kubernetes.Interface) (*api.Disk, error) {
 
 	if src.Type == "PersistentVolumeClaim" {
-		return convertDeviceDiskPVC(vm, src, restClient)
+		return convertDeviceDiskPVC(vm, src, k8sClient)
 	} else if src.Type == "network" {
-		return convertDeviceDiskNetwork(vm, src, restClient)
+		return convertDeviceDiskNetwork(vm, src, k8sClient)
 	} else {
 		logging.DefaultLogger().Error().Msgf("Unsupported disk source type %s", src.Type)
 		return nil, fmt.Errorf("Unsupported disk source type %s", src.Type)
 	}
 }
 
-func DomainDesignFromAPISpec(vm *v1.VM, restClient cache.Getter) (*DomainDesign, error) {
+func DomainDesignFromAPISpec(vm *v1.VM, k8sClient kubernetes.Interface) (*DomainDesign, error) {
 	design := &DomainDesign{
 		Domain: &api.DomainSpec{},
 	}
@@ -148,7 +147,7 @@ func DomainDesignFromAPISpec(vm *v1.VM, restClient cache.Getter) (*DomainDesign,
 	}
 
 	for idx, disk := range vm.Spec.Domain.Devices.Disks {
-		dst, err := convertDeviceDisk(vm, &disk, restClient)
+		dst, err := convertDeviceDisk(vm, &disk, k8sClient)
 		if err != nil {
 			return nil, err
 		}
