@@ -22,12 +22,12 @@ MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
 
 # util-linux listed here explicity as nsenter must be present in this image
-RUN yum install -y \
+RUN dnf install -y \
   util-linux \
   libcgroup-tools \
   ethtool \
   sudo \
-  docker && yum -y clean all
+  docker && dnf -y clean all
 
 COPY qemu-kube /usr/local/bin/qemu-system-x86_64
 RUN chmod a+x /usr/local/bin/qemu-system-x86_64
