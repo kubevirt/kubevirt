@@ -47,20 +47,21 @@ var _ = Describe("VM watcher", func() {
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
-	flags.launcherImage = "kubevirt/virt-launcher"
-	flags.migratorImage = "kubevirt/virt-handler"
+	var app VirtControllerApp = VirtControllerApp{}
+	app.launcherImage = "kubevirt/virt-launcher"
+	app.migratorImage = "kubevirt/virt-handler"
 
 	BeforeEach(func() {
 
 		server = ghttp.NewServer()
 		config := rest.Config{}
 		config.Host = server.URL()
-		clientSet, _ = kubernetes.NewForConfig(&config)
-		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
-		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		app.clientSet, _ = kubernetes.NewForConfig(&config)
+		app.restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
+		app.vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-		initCommon()
+		app.initCommon()
 	})
 
 	Context("Creating a VM ", func() {
@@ -112,9 +113,9 @@ var _ = Describe("VM watcher", func() {
 
 			// Tell the controller that there is a new VM
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			vmCache.Add(vm)
-			vmQueue.Add(key)
-			vmController.Execute()
+			app.vmCache.Add(vm)
+			app.vmQueue.Add(key)
+			app.vmController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			close(done)
@@ -165,9 +166,9 @@ var _ = Describe("VM watcher", func() {
 
 			// Tell the controller that there is a new running Pod
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			vmCache.Add(vm)
-			vmQueue.Add(key)
-			vmController.Execute()
+			app.vmCache.Add(vm)
+			app.vmQueue.Add(key)
+			app.vmController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
 			close(done)
