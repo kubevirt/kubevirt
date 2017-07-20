@@ -25,11 +25,11 @@ import (
 	"strings"
 
 	"github.com/jeevatkm/go-model"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	kubeapi "k8s.io/client-go/pkg/api"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -78,7 +78,7 @@ func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VM) (string, error) {
 
 	addrStr := ""
 	for _, addr := range node.Status.Addresses {
-		if (addr.Type == kubev1.NodeInternalIP) && (addrStr == "") {
+		if (addr.Type == k8sv1.NodeInternalIP) && (addrStr == "") {
 			addrStr = addr.Address
 			break
 		}
@@ -93,7 +93,7 @@ func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VM) (string, error) {
 }
 
 func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VM, cfg *api.DomainSpec) error {
-	obj, err := kubeapi.Scheme.Copy(vm)
+	obj, err := scheme.Scheme.Copy(vm)
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	if err != nil {
 		// Something went wrong, reenqueue the item with a delay
 		logging.DefaultLogger().Error().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
-		d.recorder.Event(vm, kubev1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
+		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 		queue.AddRateLimited(key)
 		return
 	}
@@ -212,8 +212,8 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 				return vm, fmt.Errorf("unable to look up persistent volume claim: %v", err)
 			}
 
-			pvc := obj.(*kubev1.PersistentVolumeClaim)
-			if pvc.Status.Phase != kubev1.ClaimBound {
+			pvc := obj.(*k8sv1.PersistentVolumeClaim)
+			if pvc.Status.Phase != k8sv1.ClaimBound {
 				logging.DefaultLogger().Error().Msg("attempted use of unbound persistent volume")
 				return vm, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
 			}
@@ -226,7 +226,7 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 				logging.DefaultLogger().Error().Reason(err).Msg("unable to access persistent volume record")
 				return vm, fmt.Errorf("unable to access persistent volume record: %v", err)
 			}
-			pv := obj.(*kubev1.PersistentVolume)
+			pv := obj.(*k8sv1.PersistentVolume)
 
 			if pv.Spec.ISCSI != nil {
 				logging.DefaultLogger().Object(vm).Info().Msg("Mapping iSCSI PVC")

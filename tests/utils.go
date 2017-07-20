@@ -26,13 +26,12 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/pkg/api"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -72,7 +71,7 @@ const (
 	watchSinceResourceVersion startType = "watchSinceResourceVersion"
 )
 
-type ProcessFunc func(event *kubev1.Event) (done bool)
+type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
 	object          runtime.Object
@@ -158,7 +157,7 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	f := processFunc
 
 	if w.failOnWarnings {
-		f = func(event *kubev1.Event) bool {
+		f = func(event *k8sv1.Event) bool {
 			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event recieved.")
 			return processFunc(event)
 		}
@@ -166,7 +165,7 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	}
 
 	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
-	eventWatcher, err := cli.Core().Events(api.NamespaceAll).
+	eventWatcher, err := cli.Core().Events(k8sv1.NamespaceAll).
 		Watch(metav1.ListOptions{
 			FieldSelector:   fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String(),
 			ResourceVersion: resourceVersion,
@@ -185,7 +184,7 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 				// If some events are still in the queue, make sure we don't process them anymore
 				break
 			}
-			if f(obj.Object.(*kubev1.Event)) {
+			if f(obj.Object.(*k8sv1.Event)) {
 				close(done)
 				break
 			}
@@ -202,8 +201,8 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	}
 }
 
-func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e *kubev1.Event) {
-	w.Watch(func(event *kubev1.Event) bool {
+func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e *k8sv1.Event) {
+	w.Watch(func(event *k8sv1.Event) bool {
 		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
 			e = event
 			return true
@@ -276,17 +275,17 @@ func deletePV(os string) {
 	}
 }
 
-func newPVC(os string) *kubev1.PersistentVolumeClaim {
+func newPVC(os string) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
-	return &kubev1.PersistentVolumeClaim{
+	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "disk-" + os,
 		},
-		Spec: kubev1.PersistentVolumeClaimSpec{
-			AccessModes: []kubev1.PersistentVolumeAccessMode{kubev1.ReadWriteOnce},
-			Resources: kubev1.ResourceRequirements{
-				Requests: kubev1.ResourceList{
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
 					"storage": quantity,
 				},
 			},
@@ -299,24 +298,24 @@ func newPVC(os string) *kubev1.PersistentVolumeClaim {
 	}
 }
 
-func newPV(os string, lun int32) *kubev1.PersistentVolume {
+func newPV(os string, lun int32) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
-	return &kubev1.PersistentVolume{
+	return &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "iscsi-disk-" + os + "-for-tests",
 			Labels: map[string]string{
 				"kubevirt.io/test": os,
 			},
 		},
-		Spec: kubev1.PersistentVolumeSpec{
-			AccessModes: []kubev1.PersistentVolumeAccessMode{kubev1.ReadWriteOnce},
-			Capacity: kubev1.ResourceList{
+		Spec: k8sv1.PersistentVolumeSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Capacity: k8sv1.ResourceList{
 				"storage": quantity,
 			},
-			PersistentVolumeReclaimPolicy: kubev1.PersistentVolumeReclaimRetain,
-			PersistentVolumeSource: kubev1.PersistentVolumeSource{
-				ISCSI: &kubev1.ISCSIVolumeSource{
+			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimRetain,
+			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
+				ISCSI: &k8sv1.ISCSIVolumeSource{
 					IQN:          "iqn.2017-01.io.kubevirt:sn.42",
 					Lun:          lun,
 					TargetPortal: "iscsi-demo-target.default.svc.cluster.local",
@@ -375,7 +374,7 @@ func createNamespaces() {
 
 	// Create a Test Namespaces
 	for _, namespace := range testNamespaces {
-		ns := &kubev1.Namespace{
+		ns := &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
@@ -516,17 +515,17 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 	return
 }
 
-func GetReadyNodes() []kubev1.Node {
+func GetReadyNodes() []k8sv1.Node {
 	coreClient, err := kubecli.Get()
 	PanicOnError(err)
 	nodes, err := coreClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	readyNodes := []kubev1.Node{}
+	readyNodes := []k8sv1.Node{}
 	for _, node := range nodes.Items {
 		for _, condition := range node.Status.Conditions {
-			if condition.Type == kubev1.NodeReady {
-				if condition.Status == kubev1.ConditionTrue {
+			if condition.Type == k8sv1.NodeReady {
+				if condition.Status == k8sv1.ConditionTrue {
 					readyNodes = append(readyNodes, node)
 					break
 				}

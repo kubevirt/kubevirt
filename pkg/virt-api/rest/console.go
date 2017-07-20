@@ -28,11 +28,11 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
+	k8sv1 "k8s.io/api/core/v1"
 	k8sv1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/pkg/api"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -90,7 +90,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
-	pods, err := t.k8sClient.Pods(api.NamespaceDefault).List(
+	pods, err := t.k8sClient.Pods(k8sv1.NamespaceDefault).List(
 		k8sv1meta.ListOptions{
 			FieldSelector: handlerNodeSelector.String(),
 			LabelSelector: labelSelector.String()})

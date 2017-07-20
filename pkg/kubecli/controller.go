@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -42,7 +41,7 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 		return c.Get().
 			Namespace(namespace).
 			Resource(resource).
-			VersionedParams(&options, api.ParameterCodec).
+			VersionedParams(&options, metav1.ParameterCodec).
 			FieldsSelectorParam(fieldSelector).
 			LabelsSelectorParam(labelSelector).
 			Do().
@@ -53,7 +52,7 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 			Prefix("watch").
 			Namespace(namespace).
 			Resource(resource).
-			VersionedParams(&options, api.ParameterCodec).
+			VersionedParams(&options, metav1.ParameterCodec).
 			FieldsSelectorParam(fieldSelector).
 			LabelsSelectorParam(labelSelector).
 			Watch()

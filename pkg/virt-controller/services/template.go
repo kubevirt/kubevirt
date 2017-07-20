@@ -22,8 +22,8 @@ package services
 import (
 	"fmt"
 
+	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"

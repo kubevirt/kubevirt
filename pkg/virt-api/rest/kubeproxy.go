@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -228,9 +227,17 @@ func NewGenericGetListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionReso
 		if err != nil {
 			return middleware.NewBadRequestError(err.Error()), nil
 		}
+		fieldSelector, err := fields.ParseSelector(listOptions.FieldSelector)
+		if err != nil {
+			return middleware.NewBadRequestError(err.Error()), nil
+		}
+		labelSelector, err := labels.Parse(listOptions.LabelSelector)
+		if err != nil {
+			return middleware.NewBadRequestError(err.Error()), nil
+		}
 		result := cli.Get().Namespace(metadata.Namespace).
-			FieldsSelectorParam(listOptions.FieldSelector).
-			LabelsSelectorParam(listOptions.LabelSelector).
+			FieldsSelectorParam(fieldSelector).
+			LabelsSelectorParam(labelSelector).
 			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
 			Resource(gvr.Resource).Do()
 		return response(result)
@@ -244,30 +251,30 @@ func NewGenericDeleteListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionR
 		if err != nil {
 			return middleware.NewBadRequestError(err.Error()), nil
 		}
+		fieldSelector, err := fields.ParseSelector(listOptions.FieldSelector)
+		if err != nil {
+			return middleware.NewBadRequestError(err.Error()), nil
+		}
+		labelSelector, err := labels.Parse(listOptions.LabelSelector)
+		if err != nil {
+			return middleware.NewBadRequestError(err.Error()), nil
+		}
 		result := cli.Delete().Namespace(metadata.Namespace).
-			FieldsSelectorParam(listOptions.FieldSelector).
-			LabelsSelectorParam(listOptions.LabelSelector).
+			FieldsSelectorParam(fieldSelector).
+			LabelsSelectorParam(labelSelector).
 			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
 			Resource(gvr.Resource).Do()
 		return response(result)
 	}
 }
 
-func listOptionsFromMetadata(metadata *endpoints.Metadata) (*api.ListOptions, error) {
-	listOptions := &api.ListOptions{}
+func listOptionsFromMetadata(metadata *endpoints.Metadata) (*metav1.ListOptions, error) {
+	listOptions := &metav1.ListOptions{}
 	if metadata.Headers.FieldSelector != "" {
-		fieldSelector, err := fields.ParseSelector(metadata.Headers.FieldSelector)
-		if err != nil {
-			return nil, err
-		}
-		listOptions.FieldSelector = fieldSelector
+		listOptions.FieldSelector = metadata.Headers.FieldSelector
 	}
 	if metadata.Headers.LabelSelector != "" {
-		labelSelector, err := labels.Parse(metadata.Headers.LabelSelector)
-		if err != nil {
-			return nil, err
-		}
-		listOptions.LabelSelector = labelSelector
+		listOptions.LabelSelector = metadata.Headers.LabelSelector
 	}
 
 	listOptions.ResourceVersion = metadata.Headers.ResourceVersion

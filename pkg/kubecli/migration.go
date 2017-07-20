@@ -21,7 +21,7 @@ package kubecli
 
 import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -43,7 +43,7 @@ func (v *migrations) Get(name string, options k8smetav1.GetOptions) (migration *
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
-		VersionedParams(&options, api.ParameterCodec).
+		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(migration)
 	migration.SetGroupVersionKind(v1.MigrationGroupVersionKind)
@@ -55,7 +55,7 @@ func (v *migrations) List(options k8smetav1.ListOptions) (migrationList *v1.Migr
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
-		VersionedParams(&options, api.ParameterCodec).
+		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(migrationList)
 	for _, migration := range migrationList.Items {

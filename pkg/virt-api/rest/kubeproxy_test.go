@@ -35,11 +35,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"golang.org/x/net/context"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -128,11 +128,11 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusConflict, struct{}{}),
 				),
 			)
-			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
+			result := restClient.Post().Resource(vmResource).Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do()
 			Expect(result).To(HaveStatusCode(http.StatusConflict))
 		})
 		It("Get with invalid VM name should fail with 400", func() {
-			result := restClient.Get().Resource(vmResource).Namespace(api.NamespaceDefault).Name("UPerLetterIsInvalid").Do()
+			result := restClient.Get().Resource(vmResource).Namespace(k8sv1.NamespaceDefault).Name("UPerLetterIsInvalid").Do()
 			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 		table.DescribeTable("PUT should succeed", func(contentType string, accept string) {
@@ -143,7 +143,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
 				),
 			)
-			result := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).
+			result := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).
 				SetHeader("Content-Type", contentType).SetHeader("Accept", accept).Body(toBytesFromMimeType(sourceVM, contentType)).
 				Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
@@ -162,7 +162,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, struct{}{}),
 				),
 			)
-			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 		})
 		table.DescribeTable("GET a VM should succeed", func(accept string) {
@@ -172,7 +172,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
 				),
 			)
-			result := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).SetHeader("Accept", accept).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).SetHeader("Accept", accept).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 			Expect(result).To(RepresentMimeType(accept))
 			Expect(result).To(HaveBodyEqualTo(expectedVM))
@@ -187,7 +187,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, v1.VMList{TypeMeta: v12.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VMList"}, Items: []v1.VM{*expectedVM}}),
 				),
 			)
-			result := restClient.Get().Resource(vmResource).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Get().Resource(vmResource).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 			Expect(result).To(HaveBodyEqualTo(&v1.VMList{Items: []v1.VM{*expectedVM}}))
 		})
@@ -202,7 +202,7 @@ var _ = Describe("Kubeproxy", func() {
 					returnReceivedBody(http.StatusOK),
 				),
 			)
-			obj, err := restClient.Patch(types.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
+			obj, err := restClient.Patch(types.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Body(
 				[]byte("{\"spec\" : { \"nodeSelector\": {\"test/lala\": \"blub\"}}}"),
 			).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
@@ -220,7 +220,7 @@ var _ = Describe("Kubeproxy", func() {
 					returnReceivedBody(http.StatusOK),
 				),
 			)
-			obj, err := restClient.Patch(types.JSONPatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
+			obj, err := restClient.Patch(types.JSONPatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Body(
 				[]byte("[{ \"op\": \"replace\", \"path\": \"/spec/nodeSelector\", \"value\": {\"test/lala\": \"blub\" }}]"),
 			).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
@@ -238,7 +238,7 @@ var _ = Describe("Kubeproxy", func() {
 					returnReceivedBody(http.StatusOK),
 				),
 			)
-			result := restClient.Patch(types.JSONPatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
+			result := restClient.Patch(types.JSONPatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Body(
 				[]byte("[{ \"op\": \"replace\", \"path\": \"/spec/nodeSelector\", \"value\": \"Only an object is allowed here\"}]"),
 			).Do()
 			Expect(result.Error()).To(HaveOccurred())
@@ -255,7 +255,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusCreated, sourceVM),
 				),
 			)
-			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).
+			result := restClient.Post().Resource(vmResource).Namespace(k8sv1.NamespaceDefault).
 				SetHeader("Content-Type", contentType).SetHeader("Accept", accept).
 				Body(toBytesFromMimeType(sourceVM, contentType)).
 				Do()
@@ -270,7 +270,7 @@ var _ = Describe("Kubeproxy", func() {
 		)
 		It("POST should fail on missing mandatory field with 400", func() {
 			sourceVM.Spec = v1.VMSpec{}
-			result := restClient.Post().Resource(vmResource).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
+			result := restClient.Post().Resource(vmResource).Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do()
 			Expect(result).To(HaveStatusCode(http.StatusBadRequest))
 		})
 		It("PUT should fail with 404", func() {
@@ -281,7 +281,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, struct{}{}),
 				),
 			)
-			result := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(sourceVM).Do()
+			result := restClient.Put().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do()
 			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 		It("DELETE should fail", func() {
@@ -291,7 +291,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, struct{}{}),
 				),
 			)
-			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 		It("GET should fail with 404", func() {
@@ -301,7 +301,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, struct{}{}),
 				),
 			)
-			result := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Get().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusNotFound))
 		})
 		It("GET a VMList should return an empty list", func() {
@@ -311,7 +311,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, v1.VMList{TypeMeta: v12.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VMList"}}),
 				),
 			)
-			obj, err := restClient.Get().Resource(vmResource).Namespace(api.NamespaceDefault).Do().Get()
+			obj, err := restClient.Get().Resource(vmResource).Namespace(k8sv1.NamespaceDefault).Do().Get()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(obj).To(Equal(&v1.VMList{}))
 		})
@@ -322,7 +322,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, sourceVM),
 				),
 			)
-			result := restClient.Patch(types.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Body(
+			result := restClient.Patch(types.MergePatchType).Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Body(
 				[]byte("{\"spec\" : { \"nodeSelector\": {\"test/lala\": \"blub\"}}}"),
 			).Do()
 			Expect(result).To(HaveStatusCode(http.StatusNotFound))
@@ -337,7 +337,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, struct{}{}),
 				),
 			)
-			result := restClient.Delete().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Delete().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 		})
 		It("GET should succeed", func() {
@@ -347,7 +347,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceMigration),
 				),
 			)
-			result := restClient.Get().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Get().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 			Expect(result).To(HaveBodyEqualTo(expectedMigration))
 		})
@@ -359,7 +359,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceMigration),
 				),
 			)
-			result := restClient.Put().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Body(sourceMigration).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Put().Resource(migrationResource).Name(sourceMigration.GetObjectMeta().GetName()).Body(sourceMigration).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 			Expect(result).To(HaveBodyEqualTo(expectedMigration))
 		})
@@ -370,7 +370,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, v1.MigrationList{TypeMeta: v12.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "MigrationList"}, Items: []v1.Migration{*expectedMigration}}),
 				),
 			)
-			result := restClient.Get().Resource(migrationResource).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Get().Resource(migrationResource).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 			Expect(result).To(HaveBodyEqualTo(&v1.MigrationList{Items: []v1.Migration{*expectedMigration}}))
 		})
@@ -384,7 +384,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusCreated, sourceMigration),
 				),
 			)
-			result := restClient.Post().Resource(migrationResource).Body(sourceMigration).Namespace(api.NamespaceDefault).Do()
+			result := restClient.Post().Resource(migrationResource).Body(sourceMigration).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusCreated))
 			Expect(result).To(HaveBodyEqualTo(expectedMigration))
 		})

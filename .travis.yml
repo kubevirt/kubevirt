@@ -6,7 +6,6 @@ services:
   - docker
 
 go:
-  - 1.7.5
   - 1.8.x
   - tip
 # jacob/virtualisation has updated libvirt binaries. Since

@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -54,7 +55,7 @@ var _ = Describe("Kubevirt VM Client", func() {
 			ghttp.VerifyRequest("GET", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		fetchedVM, err := client.VM(k8smetav1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
+		fetchedVM, err := client.VM(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -66,7 +67,7 @@ var _ = Describe("Kubevirt VM Client", func() {
 			ghttp.VerifyRequest("GET", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, err := client.VM(k8smetav1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
+		_, err := client.VM(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
@@ -79,7 +80,7 @@ var _ = Describe("Kubevirt VM Client", func() {
 			ghttp.VerifyRequest("GET", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMList(*vm)),
 		))
-		fetchedVMList, err := client.VM(k8smetav1.NamespaceDefault).List(k8smetav1.ListOptions{})
+		fetchedVMList, err := client.VM(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -93,7 +94,7 @@ var _ = Describe("Kubevirt VM Client", func() {
 			ghttp.VerifyRequest("POST", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, vm),
 		))
-		createdVM, err := client.VM(k8smetav1.NamespaceDefault).Create(vm)
+		createdVM, err := client.VM(k8sv1.NamespaceDefault).Create(vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -106,7 +107,7 @@ var _ = Describe("Kubevirt VM Client", func() {
 			ghttp.VerifyRequest("PUT", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		updatedVM, err := client.VM(k8smetav1.NamespaceDefault).Update(vm)
+		updatedVM, err := client.VM(k8sv1.NamespaceDefault).Update(vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -118,7 +119,7 @@ var _ = Describe("Kubevirt VM Client", func() {
 			ghttp.VerifyRequest("DELETE", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VM(k8smetav1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
+		err := client.VM(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

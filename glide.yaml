@@ -8,33 +8,19 @@ ignore:
 - k8s.io/apimachinery/pkg/apis/meta/v1alpha1
 - code.google.com/p/go-charset
 import:
+- package: github.com/go-kit/kit
+  version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
+  subpackages:
+  - log
 - package: github.com/emicklei/go-restful
   version: 858e58f98abd32bc4d164a08e8d7ac169ae876e2
   subpackages:
   - log
   - swagger
-- package: golang.org/x/net
-  version: e90d6d0afc4c315a0d87a568ae68577cc15149a0
-  subpackages:
-  - internal/socket
-  - idna
-- package: github.com/go-kit/kit
-  version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
-  subpackages:
-  - log
-- package: google.golang.org/grpc
-  version: d3ddb4469d5a1b949fc7a7da7c1d6a0d1b6de994
-  subpackages:
-  - metadata
-  - grpclb/grpc_lb_v1
-  - keepalive
-  - stats
-  - status
-  - tap
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: 3627aeb7d4f6ade38f995d2c923e459146493c7e
+  version: b1ed43528171d6a3c0292ff33a4025b2e89a912e
   subpackages:
   - discovery
   - discovery/fake

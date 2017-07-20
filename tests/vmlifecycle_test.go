@@ -28,13 +28,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -110,7 +109,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				retryCount := 0
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Watch(func(event *kubev1.Event) bool {
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Watch(func(event *k8sv1.Event) bool {
 					if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
 						retryCount++
 						if retryCount >= 2 {
@@ -201,14 +200,14 @@ var _ = Describe("Vmlifecycle", func() {
 				handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + primaryNodeName)
 				labelSelector, err := labels.Parse("daemon in (virt-handler)")
 				Expect(err).NotTo(HaveOccurred())
-				pods, err := coreCli.CoreV1().Pods(api.NamespaceAll).List(metav1.ListOptions{FieldSelector: handlerNodeSelector.String(), LabelSelector: labelSelector.String()})
+				pods, err := coreCli.CoreV1().Pods(k8sv1.NamespaceAll).List(metav1.ListOptions{FieldSelector: handlerNodeSelector.String(), LabelSelector: labelSelector.String()})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pods.Items).To(HaveLen(1))
 
 				handlerName := pods.Items[0].GetObjectMeta().GetName()
 				handlerNamespace := pods.Items[0].GetObjectMeta().GetNamespace()
 				seconds := int64(30)
-				logsQuery := coreCli.Pods(handlerNamespace).GetLogs(handlerName, &kubev1.PodLogOptions{SinceSeconds: &seconds})
+				logsQuery := coreCli.Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds})
 
 				// Make sure we schedule the VM to master
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": primaryNodeName}
@@ -247,17 +246,17 @@ var _ = Describe("Vmlifecycle", func() {
 	})
 })
 
-func renderPkillAllVmsJob(dockerTag string) *kubev1.Pod {
-	job := kubev1.Pod{
+func renderPkillAllVmsJob(dockerTag string) *k8sv1.Pod {
+	job := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-killer",
 			Labels: map[string]string{
 				v1.AppLabel: "test",
 			},
 		},
-		Spec: kubev1.PodSpec{
-			RestartPolicy: kubev1.RestartPolicyNever,
-			Containers: []kubev1.Container{
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
 				{
 					Name:  "vm-killer",
 					Image: "kubevirt/vm-killer:" + dockerTag,
@@ -266,14 +265,14 @@ func renderPkillAllVmsJob(dockerTag string) *kubev1.Pod {
 						"-9",
 						"qemu",
 					},
-					SecurityContext: &kubev1.SecurityContext{
+					SecurityContext: &k8sv1.SecurityContext{
 						Privileged: newBool(true),
 						RunAsUser:  new(int64),
 					},
 				},
 			},
 			HostPID: true,
-			SecurityContext: &kubev1.PodSecurityContext{
+			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: new(int64),
 			},
 		},

@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	k8sv1 "k8s.io/client-go/pkg/api/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"

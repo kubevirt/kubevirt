@@ -24,12 +24,12 @@ import (
 	"strings"
 
 	"github.com/libvirt/libvirt-go"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -156,7 +156,7 @@ func NewDomainSpec(dom virtwrap.VirDomain) (*api.DomainSpec, error) {
 func SplitVMNamespaceKey(domainName string) (namespace, name string) {
 	splitName := strings.SplitN(domainName, "_", 2)
 	if len(splitName) == 1 {
-		return kubev1.NamespaceDefault, splitName[0]
+		return k8sv1.NamespaceDefault, splitName[0]
 	}
 	return splitName[0], splitName[1]
 }

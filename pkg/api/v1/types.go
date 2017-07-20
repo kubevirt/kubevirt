@@ -33,15 +33,15 @@ import (
 	model "github.com/jeevatkm/go-model"
 	uuid "github.com/satori/go.uuid"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apimachinery/announced"
+	"k8s.io/apimachinery/pkg/apimachinery/registered"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	kubeapi "k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 
-	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -55,6 +55,11 @@ var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 var VMGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VM"}
 
 var MigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "Migration"}
+
+var (
+	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
+	registry             = registered.NewOrDie(GroupVersion.String())
+)
 
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
@@ -82,7 +87,7 @@ func init() {
 		announced.VersionToSchemeFunc{
 			GroupVersion.Version: SchemeBuilder.AddToScheme,
 		},
-	).Announce(kubeapi.GroupFactoryRegistry).RegisterAndEnable(kubeapi.Registry, kubeapi.Scheme); err != nil {
+	).Announce(groupFactoryRegistry).RegisterAndEnable(registry, scheme.Scheme); err != nil {
 		panic(err)
 	}
 
@@ -93,15 +98,13 @@ func init() {
 	model.AddConversion((*string)(nil), (*uuid.UUID)(nil), func(in reflect.Value) (reflect.Value, error) {
 		return reflect.ValueOf(uuid.FromStringOrNil(in.String())), nil
 	})
-
-	mapper.AddConversion(&v1.ObjectMeta{}, &kubeapi.ObjectMeta{})
 }
 
 type VM struct {
 	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      v1.ObjectMeta `json:"metadata,omitempty"`
-	Spec            VMSpec        `json:"spec,omitempty" valid:"required"`
-	Status          VMStatus      `json:"status"`
+	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec            VMSpec            `json:"spec,omitempty" valid:"required"`
+	Status          VMStatus          `json:"status"`
 }
 
 // VMList is a list of VMs
@@ -195,12 +198,12 @@ const (
 )
 
 type VMCondition struct {
-	Type               VMConditionType    `json:"type"`
-	Status             v1.ConditionStatus `json:"status"`
-	LastProbeTime      metav1.Time        `json:"lastProbeTime,omitempty"`
-	LastTransitionTime metav1.Time        `json:"lastTransitionTime,omitempty"`
-	Reason             string             `json:"reason,omitempty"`
-	Message            string             `json:"message,omitempty"`
+	Type               VMConditionType       `json:"type"`
+	Status             k8sv1.ConditionStatus `json:"status"`
+	LastProbeTime      metav1.Time           `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time           `json:"lastTransitionTime,omitempty"`
+	Reason             string                `json:"reason,omitempty"`
+	Message            string                `json:"message,omitempty"`
 }
 
 // VMPhase is a label for the condition of a VM at the current time.
@@ -244,10 +247,10 @@ const (
 func NewVM(name string, uid types.UID) *VM {
 	return &VM{
 		Spec: VMSpec{},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			UID:       uid,
-			Namespace: kubeapi.NamespaceDefault,
+			Namespace: k8sv1.NamespaceDefault,
 		},
 		Status: VMStatus{},
 		TypeMeta: metav1.TypeMeta{
@@ -273,7 +276,7 @@ func (s SyncEvent) String() string {
 }
 
 func NewMinimalVM(vmName string) *VM {
-	return NewMinimalVMWithNS(kubeapi.NamespaceDefault, vmName)
+	return NewMinimalVMWithNS(k8sv1.NamespaceDefault, vmName)
 }
 
 func NewMinimalVMWithNS(namespace string, vmName string) *VM {
@@ -289,12 +292,12 @@ func NewMinimalVMWithNS(namespace string, vmName string) *VM {
 
 // TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
 func NewVMReferenceFromName(name string) *VM {
-	return NewVMReferenceFromNameWithNS(kubeapi.NamespaceDefault, name)
+	return NewVMReferenceFromNameWithNS(k8sv1.NamespaceDefault, name)
 }
 
 func NewVMReferenceFromNameWithNS(namespace string, name string) *VM {
 	vm := &VM{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/vms/%s", GroupVersion.String(), namespace, name),
@@ -306,8 +309,8 @@ func NewVMReferenceFromNameWithNS(namespace string, name string) *VM {
 
 type Spice struct {
 	metav1.TypeMeta `json:",inline" ini:"-"`
-	ObjectMeta      v1.ObjectMeta `json:"metadata,omitempty" ini:"-"`
-	Info            SpiceInfo     `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
+	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty" ini:"-"`
+	Info            SpiceInfo         `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
 }
 
 type SpiceInfo struct {
@@ -320,7 +323,7 @@ type SpiceInfo struct {
 func NewSpice(namespace string, vmName string) *Spice {
 	return &Spice{
 		Info: SpiceInfo{},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmName,
 			Namespace: namespace,
 		},
@@ -333,7 +336,7 @@ func NewSpice(namespace string, vmName string) *Spice {
 
 //TODO validate that this is correct
 func NewMinimalMigration(name string, vmName string) *Migration {
-	return NewMinimalMigrationWithNS(kubeapi.NamespaceDefault, name, vmName)
+	return NewMinimalMigrationWithNS(k8sv1.NamespaceDefault, name, vmName)
 }
 
 func NewMinimalMigrationWithNS(namespace string, name string, vmName string) *Migration {
@@ -346,7 +349,7 @@ func NewMinimalMigrationWithNS(namespace string, name string, vmName string) *Mi
 
 func NewMigrationReferenceFromName(namespace string, name string) *Migration {
 	migration := &Migration{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), namespace, name),
@@ -365,9 +368,9 @@ func NewMigrationReferenceFromName(namespace string, name string) *Migration {
 // A Migration is a job that moves a Virtual Machine from one node to another
 type Migration struct {
 	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      v1.ObjectMeta   `json:"metadata,omitempty"`
-	Spec            MigrationSpec   `json:"spec,omitempty" valid:"required"`
-	Status          MigrationStatus `json:"status,omitempty"`
+	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec            MigrationSpec     `json:"spec,omitempty" valid:"required"`
+	Status          MigrationStatus   `json:"status,omitempty"`
 }
 
 // MigrationSpec is a description of a VM Migration
@@ -471,19 +474,19 @@ func (ml *MigrationList) UnmarshalJSON(data []byte) error {
 
 // Given a VM, create a NodeSelectorTerm with anti-affinity for that VM's node.
 // This is useful for the case when a migration away from a node must occur.
-func AntiAffinityFromVMNode(vm *VM) *v1.Affinity {
-	selector := v1.NodeSelectorTerm{
-		MatchExpressions: []v1.NodeSelectorRequirement{
+func AntiAffinityFromVMNode(vm *VM) *k8sv1.Affinity {
+	selector := k8sv1.NodeSelectorTerm{
+		MatchExpressions: []k8sv1.NodeSelectorRequirement{
 			{
 				Key:      "kubernetes.io/hostname",
-				Operator: v1.NodeSelectorOpNotIn,
+				Operator: k8sv1.NodeSelectorOpNotIn,
 				Values:   []string{vm.Status.NodeName},
 			},
 		},
 	}
-	return &v1.Affinity{
-		NodeAffinity: &v1.NodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{NodeSelectorTerms: []v1.NodeSelectorTerm{selector}},
+	return &k8sv1.Affinity{
+		NodeAffinity: &k8sv1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{NodeSelectorTerms: []k8sv1.NodeSelectorTerm{selector}},
 		},
 	}
 }

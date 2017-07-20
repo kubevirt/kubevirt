@@ -34,9 +34,9 @@ import (
 
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
+	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"

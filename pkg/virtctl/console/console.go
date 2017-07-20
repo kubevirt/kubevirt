@@ -33,7 +33,7 @@ import (
 	"github.com/gorilla/websocket"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )

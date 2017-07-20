@@ -24,8 +24,9 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	kubev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -41,7 +42,7 @@ var _ = Describe("Template", func() {
 			It("should work", func() {
 
 				Expect(err).To(BeNil())
-				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: kubev1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{Domain: &v1.DomainSpec{}}})
+				pod, err := svc.RenderLaunchManifest(&v1.VM{ObjectMeta: metav1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{Domain: &v1.DomainSpec{}}})
 
 				Expect(err).To(BeNil())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
@@ -61,7 +62,7 @@ var _ = Describe("Template", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
 				}
-				vm := v1.VM{ObjectMeta: kubev1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector, Domain: &v1.DomainSpec{}}}
+				vm := v1.VM{ObjectMeta: metav1.ObjectMeta{Name: "testvm", UID: "1234"}, Spec: v1.VMSpec{NodeSelector: nodeSelector, Domain: &v1.DomainSpec{}}}
 
 				pod, err := svc.RenderLaunchManifest(&vm)
 

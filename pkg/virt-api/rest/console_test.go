@@ -32,10 +32,10 @@ import (
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fake2 "k8s.io/client-go/kubernetes/fake"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	k8sv1 "k8s.io/client-go/pkg/api/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"

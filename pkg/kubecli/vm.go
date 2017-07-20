@@ -21,7 +21,7 @@ package kubecli
 
 import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -43,7 +43,7 @@ func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VM, err err
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
-		VersionedParams(&options, api.ParameterCodec).
+		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(vm)
 	vm.SetGroupVersionKind(v1.VMGroupVersionKind)
@@ -55,7 +55,7 @@ func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VMList, err error)
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
-		VersionedParams(&options, api.ParameterCodec).
+		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(vmList)
 	for _, vm := range vmList.Items {

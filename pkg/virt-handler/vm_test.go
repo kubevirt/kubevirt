@@ -28,15 +28,16 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	kubeapi "k8s.io/client-go/pkg/api"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -44,8 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-
-	"k8s.io/client-go/tools/record"
 )
 
 var _ = Describe("VM", func() {
@@ -143,38 +142,38 @@ var _ = Describe("PVC", func() {
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	var (
-		expectedPVC kubev1.PersistentVolumeClaim
-		expectedPV  kubev1.PersistentVolume
+		expectedPVC k8sv1.PersistentVolumeClaim
+		expectedPV  k8sv1.PersistentVolume
 		server      *ghttp.Server
 	)
 
 	BeforeEach(func() {
-		expectedPVC = kubev1.PersistentVolumeClaim{
+		expectedPVC = k8sv1.PersistentVolumeClaim{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PersistentVolumeClaim",
 				APIVersion: "v1",
 			},
-			Spec: kubev1.PersistentVolumeClaimSpec{
+			Spec: k8sv1.PersistentVolumeClaimSpec{
 				VolumeName: "disk-01",
 			},
-			Status: kubev1.PersistentVolumeClaimStatus{
-				Phase: kubev1.ClaimBound,
+			Status: k8sv1.PersistentVolumeClaimStatus{
+				Phase: k8sv1.ClaimBound,
 			},
 		}
 
-		source := kubev1.ISCSIVolumeSource{
+		source := k8sv1.ISCSIVolumeSource{
 			IQN:          "iqn.2009-02.com.test:for.all",
 			Lun:          1,
 			TargetPortal: "127.0.0.1:6543",
 		}
 
-		expectedPV = kubev1.PersistentVolume{
+		expectedPV = k8sv1.PersistentVolume{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PersistentVolume",
 				APIVersion: "v1",
 			},
-			Spec: kubev1.PersistentVolumeSpec{
-				PersistentVolumeSource: kubev1.PersistentVolumeSource{
+			Spec: k8sv1.PersistentVolumeSpec{
+				PersistentVolumeSource: k8sv1.PersistentVolumeSource{
 					ISCSI: &source,
 				},
 			},
@@ -217,7 +216,7 @@ var _ = Describe("PVC", func() {
 			vm.Spec.Domain = &domain
 
 			restClient := getRestClient(server.URL())
-			vmCopy, err := MapPersistentVolumes(&vm, restClient, kubeapi.NamespaceDefault)
+			vmCopy, err := MapPersistentVolumes(&vm, restClient, k8sv1.NamespaceDefault)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
@@ -237,7 +236,7 @@ func getRestClient(url string) *rest.RESTClient {
 	restConfig, err := clientcmd.BuildConfigFromFlags(url, "")
 	Expect(err).NotTo(HaveOccurred())
 	restConfig.GroupVersion = &gv
-	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: kubeapi.Codecs}
+	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 	restConfig.APIPath = "/api"
 	restConfig.ContentType = runtime.ContentTypeJSON
 	restClient, err := rest.RESTClientFor(restConfig)

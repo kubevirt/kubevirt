@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	kubev1 "k8s.io/client-go/pkg/api/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -179,7 +179,7 @@ var _ = Describe("Manager", func() {
 
 func newVM(namespace string, name string) *v1.VM {
 	return &v1.VM{
-		ObjectMeta: kubev1.ObjectMeta{Name: name, Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec:       v1.VMSpec{Domain: v1.NewMinimalDomainSpec(name)},
 	}
 }
