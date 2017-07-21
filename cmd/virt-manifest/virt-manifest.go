@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
+	"github.com/spf13/pflag"
 
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
@@ -38,7 +39,8 @@ func main() {
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8186, "Port to listen on")
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 
 	log := logging.DefaultLogger()
 	log.Info().Msg("Starting virt-manifest server")

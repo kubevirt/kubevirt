@@ -33,6 +33,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/pflag"
+
 	"kubevirt.io/kubevirt/pkg/logging"
 )
 
@@ -144,7 +146,8 @@ func main() {
 	logging.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
 	debugMode := flag.Bool("debug", false, "Enable debug messages")
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 
 	mon := Monitor{
 		exename:   "qemu",

@@ -26,6 +26,7 @@ import (
 	"strconv"
 
 	"github.com/emicklei/go-restful"
+	"github.com/spf13/pflag"
 	clientrest "k8s.io/client-go/rest"
 
 	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
@@ -45,7 +46,8 @@ func main() {
 	migratorImage := flag.String("migrator-image", "virt-handler", "Container which orchestrates a VM migration")
 
 	logger := logging.DefaultLogger()
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 
 	templateService, err := services.NewTemplateService(*launcherImage, *migratorImage)
 	if err != nil {

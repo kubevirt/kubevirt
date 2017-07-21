@@ -30,6 +30,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/libvirt/libvirt-go"
+	"github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -48,14 +49,14 @@ import (
 )
 
 func main() {
-
 	logging.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8185, "Port to listen on")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 
 	if *host == "" {
 		defaultHostName, err := os.Hostname()
