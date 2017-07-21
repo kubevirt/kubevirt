@@ -44,20 +44,19 @@ import (
 var _ = Describe("Migration", func() {
 
 	var (
-		app             VirtControllerApp = VirtControllerApp{}
-		server          *ghttp.Server
-		migration       *v1.Migration
-		vm              *v1.VM
-		pod             *clientv1.Pod
-		podList         clientv1.PodList
-		migrationKey    interface{}
-		srcIp           clientv1.NodeAddress
-		destIp          kubev1.NodeAddress
-		srcNodeWithIp   kubev1.Node
-		destNodeWithIp  kubev1.Node
-		srcNode         kubev1.Node
-		destNode        kubev1.Node
-		templateService services.TemplateService
+		app            VirtControllerApp = VirtControllerApp{}
+		server         *ghttp.Server
+		migration      *v1.Migration
+		vm             *v1.VM
+		pod            *clientv1.Pod
+		podList        clientv1.PodList
+		migrationKey   interface{}
+		srcIp          clientv1.NodeAddress
+		destIp         kubev1.NodeAddress
+		srcNodeWithIp  kubev1.Node
+		destNodeWithIp kubev1.Node
+		srcNode        kubev1.Node
+		destNode       kubev1.Node
 	)
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
@@ -85,15 +84,14 @@ var _ = Describe("Migration", func() {
 		vm = v1.NewMinimalVM("testvm")
 		vm.Status.Phase = v1.Running
 		vm.ObjectMeta.SetUID(uuid.NewUUID())
-		vm.ObjectMeta.SetNamespace(kubev1.NamespaceDefault)
 
 		migration = v1.NewMinimalMigration(vm.ObjectMeta.Name+"-migration", vm.ObjectMeta.Name)
 		migration.ObjectMeta.SetUID(uuid.NewUUID())
-		migration.ObjectMeta.SetNamespace(kubev1.NamespaceDefault)
 		migration.Spec.NodeSelector = map[string]string{"beta.kubernetes.io/arch": "amd64"}
 
 		// Create a target Pod for the VM
-		var err error
+		templateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
+		Expect(err).ToNot(HaveOccurred())
 		pod, err = templateService.RenderLaunchManifest(vm)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -759,9 +757,9 @@ func mockPod(i int, label string) clientv1.Pod {
 }
 
 func mockMigrationPod(vm *v1.VM) *kubev1.Pod {
-	templateService, err := services.NewTemplateService("whatever", "whatever", "/var/run/kubevirt")
+	temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
 	Expect(err).ToNot(HaveOccurred())
-	pod, err := templateService.RenderLaunchManifest(vm)
+	pod, err := temlateService.RenderLaunchManifest(vm)
 	Expect(err).ToNot(HaveOccurred())
 	pod.Spec.NodeName = "targetNode"
 	pod.Labels[v1.MigrationLabel] = "testvm-migration"
