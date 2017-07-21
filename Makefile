@@ -1,5 +1,7 @@
 export GO15VENDOREXPERIMENT := 1
 
+HASH := md5sum
+
 all: build manifests
 
 generate:
@@ -7,7 +9,7 @@ generate:
 	./hack/build-go.sh generate ${WHAT}
 	goimports -w -local kubevirt.io cmd/ pkg/ tests/
 
-build: sync fmt vet compile
+build: checksync fmt vet compile
 
 compile:
 	./hack/build-go.sh install ${WHAT}
@@ -31,9 +33,21 @@ clean:
 distclean: clean
 	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
 	rm -f manifest/*.yaml
+	rm -f .glide.*.hash
+
+checksync:
+	test -f .glide.yaml.hash || ${HASH} glide.yaml > .glide.yaml.hash
+	if [ "`${HASH} glide.yaml`" != "`cat .glide.yaml.hash`" ]; then \
+		glide update --strip-vendor; \
+		${HASH} glide.yaml > .glide.yaml.hash; \
+		${HASH} glide.lock > .glide.lock.hash; \
+	elif [ "`${HASH} glide.lock`" != "`cat .glide.lock.hash`" ]; then \
+		make sync; \
+	fi
 
 sync:
 	glide install --strip-vendor
+	${HASH} glide.lock > .glide.lock.hash
 
 docker: build
 	./hack/build-docker.sh build ${WHAT}
@@ -59,4 +73,4 @@ vagrant-sync-build: build
 vagrant-deploy: vagrant-sync-config vagrant-sync-build
 	export KUBECTL="cluster/kubectl.sh --core" && ./cluster/deploy.sh
 
-.PHONY: build fmt test clean distclean sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest
+.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest
