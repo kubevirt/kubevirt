@@ -118,7 +118,7 @@ var _ = Describe("Schema", func() {
 
 	})
 	Context("With v1.DomainSpec", func() {
-		var v1DomainSpec = v1.NewMinimalDomainSpec("testvm")
+		var v1DomainSpec = v1.NewMinimalDomainSpec()
 		v1DomainSpec.Devices.Disks = []v1.Disk{
 			{Type: "network",
 				Device: "disk",

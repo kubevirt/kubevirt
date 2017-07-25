@@ -27,7 +27,6 @@ import (
 )
 
 var exampleJSON = `{
-  "name": "testvm",
   "memory": {
     "value": 8192,
     "unit": "KiB"
@@ -74,7 +73,7 @@ var exampleJSON = `{
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
-	var exampleVM = NewMinimalDomainSpec("testvm")
+	var exampleVM = NewMinimalDomainSpec()
 	exampleVM.Devices.Disks = []Disk{
 		{
 			Type:   "network",

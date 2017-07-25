@@ -25,13 +25,7 @@ package v1
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
-import (
-	"kubevirt.io/kubevirt/pkg/precond"
-)
-
 type DomainSpec struct {
-	Name    string   `json:"name"`
-	UUID    string   `json:"uuid,omitempty"`
 	Memory  Memory   `json:"memory"`
 	Type    string   `json:"type"`
 	OS      OS       `json:"os"`
@@ -320,9 +314,8 @@ type RandomGenerator struct {
 
 // TODO ballooning, rng, cpu ...
 
-func NewMinimalDomainSpec(vmName string) *DomainSpec {
-	precond.MustNotBeEmpty(vmName)
-	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
+func NewMinimalDomainSpec() *DomainSpec {
+	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu"}
 	domain.Memory = Memory{Unit: "KiB", Value: 8192}
 	domain.Devices = Devices{}
 	domain.Devices.Interfaces = []Interface{

@@ -20,8 +20,6 @@
 package virt_manifest
 
 import (
-	"k8s.io/apimachinery/pkg/util/rand"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -30,7 +28,6 @@ func AddMinimalVMSpec(vm *v1.VM) {
 	if vm.Spec.Domain == nil {
 		vm.Spec.Domain = new(v1.DomainSpec)
 	}
-	vm.Spec.Domain.Name = vm.ObjectMeta.Name + "-" + rand.String(5)
 
 	AddMinimalDomainSpec(vm.Spec.Domain)
 }

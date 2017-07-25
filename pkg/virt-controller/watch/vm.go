@@ -167,11 +167,9 @@ func (c *VMController) execute(key string) error {
 		// TODO move defaulting to virt-api
 		// TODO move constants to virt-handler and remove from the spec
 		if vmCopy.Spec.Domain == nil {
-			spec := kubev1.NewMinimalDomainSpec(vmCopy.GetObjectMeta().GetName())
+			spec := kubev1.NewMinimalDomainSpec()
 			vmCopy.Spec.Domain = spec
 		}
-		vmCopy.Spec.Domain.UUID = string(vmCopy.GetObjectMeta().GetUID())
-		vmCopy.Spec.Domain.Name = vmCopy.GetObjectMeta().GetName()
 
 		// TODO when we move this to virt-api, we have to block that they are set on POST or changed on PUT
 		graphics := vmCopy.Spec.Domain.Devices.Graphics
