@@ -53,7 +53,7 @@ var _ = Describe("Template", func() {
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-----"))
 				Expect(pod.Spec.NodeSelector).To(BeEmpty())
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "-qemu-timeout", "60s"}))
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "--qemu-timeout", "60s"}))
 			})
 		})
 		Context("with node selectors", func() {
@@ -77,7 +77,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					"kubernetes.io/hostname": "master",
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "-qemu-timeout", "60s"}))
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "--qemu-timeout", "60s"}))
 			})
 		})
 		Context("migration", func() {
