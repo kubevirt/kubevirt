@@ -51,7 +51,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: kubev1.PullIfNotPresent,
-		Command:         []string{"/virt-launcher", "-qemu-timeout", "60s"},
+		Command:         []string{"/virt-launcher", "--qemu-timeout", "60s"},
 	}
 
 	// TODO use constants for labels
