@@ -1,8 +1,0 @@
-vagrant
-vagrant-libvirt
-libvirt
-libvirt-devel
-libvirt-client
-git
-ruby-devel
-zlib-devel

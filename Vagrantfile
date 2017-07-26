@@ -50,6 +50,8 @@ Vagrant.configure(2) do |config|
     set -xe
     sed -i -e "s/PasswordAuthentication no/PasswordAuthentication yes/" /etc/ssh/sshd_config
     systemctl restart sshd
+    # FIXME, sometimes eth1 does not come up on Vagrant on latest fc26
+    sudo ifup eth1
   SHELL
 
   config.vm.define "master" do |master|

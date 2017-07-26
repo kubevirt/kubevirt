@@ -1,6 +1,0 @@
-/var/run/libvirt
-/var/lib/libvirt
-/boot
-/lib/modules
-/var/tmp
-/tmp
