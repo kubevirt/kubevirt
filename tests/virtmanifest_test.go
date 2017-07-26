@@ -41,7 +41,6 @@ var _ = Describe("Virtmanifest", func() {
 		flag.Parse()
 
 		var manifestClient *rest.RESTClient
-		var vm *v1.VM
 
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
@@ -56,7 +55,6 @@ var _ = Describe("Virtmanifest", func() {
 			manifestClient, err = kubecli.GetRESTClientFromFlags(fmt.Sprintf("http://%s:8186", hostParts[0]), "")
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.NewRandomVM()
 		})
 
 		It("Should report server status", func() {
@@ -80,6 +78,7 @@ var _ = Describe("Virtmanifest", func() {
 		})
 
 		It("Should map a VM manifest", func() {
+			vm := tests.NewRandomVM()
 			vmName := vm.ObjectMeta.Name
 			mappedVm := v1.VM{}
 
@@ -95,13 +94,8 @@ var _ = Describe("Virtmanifest", func() {
 		})
 
 		It("Should map PersistentVolumeClaims", func() {
+			vm := tests.NewRandomVMWithPVC("disk-alpine")
 			mappedVm := v1.VM{}
-			vm.Spec.Domain.Devices.Disks = []v1.Disk{v1.Disk{
-				Device: "disk",
-				Type:   virt_manifest.Type_PersistentVolumeClaim,
-				Source: v1.DiskSource{Name: "test"},
-				Target: v1.DiskTarget{Bus: "scsi", Device: "vda"},
-			}}
 
 			request, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())

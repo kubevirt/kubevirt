@@ -28,15 +28,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
@@ -135,114 +127,6 @@ var _ = Describe("VM", func() {
 		ctrl.Finish()
 	})
 })
-
-var _ = Describe("PVC", func() {
-	RegisterFailHandler(Fail)
-
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-
-	var (
-		expectedPVC k8sv1.PersistentVolumeClaim
-		expectedPV  k8sv1.PersistentVolume
-		server      *ghttp.Server
-	)
-
-	BeforeEach(func() {
-		expectedPVC = k8sv1.PersistentVolumeClaim{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "PersistentVolumeClaim",
-				APIVersion: "v1",
-			},
-			Spec: k8sv1.PersistentVolumeClaimSpec{
-				VolumeName: "disk-01",
-			},
-			Status: k8sv1.PersistentVolumeClaimStatus{
-				Phase: k8sv1.ClaimBound,
-			},
-		}
-
-		source := k8sv1.ISCSIVolumeSource{
-			IQN:          "iqn.2009-02.com.test:for.all",
-			Lun:          1,
-			TargetPortal: "127.0.0.1:6543",
-		}
-
-		expectedPV = k8sv1.PersistentVolume{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "PersistentVolume",
-				APIVersion: "v1",
-			},
-			Spec: k8sv1.PersistentVolumeSpec{
-				PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-					ISCSI: &source,
-				},
-			},
-		}
-
-		server = ghttp.NewServer()
-		server.AppendHandlers(
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/persistentvolumeclaims/test-claim"),
-				ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPVC),
-			),
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/api/v1/persistentvolumes/disk-01"),
-				ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPV),
-			),
-		)
-	})
-
-	AfterEach(func() {
-		server.Close()
-	})
-
-	Context("Map Source Disks", func() {
-		It("looks up and applies PVC", func() {
-			vm := v1.VM{}
-
-			disk := v1.Disk{
-				Type: "PersistentVolumeClaim",
-				Source: v1.DiskSource{
-					Name: "test-claim",
-				},
-				Target: v1.DiskTarget{
-					Device: "vda",
-				},
-			}
-			disk.Type = "PersistentVolumeClaim"
-
-			domain := v1.DomainSpec{}
-			domain.Devices.Disks = []v1.Disk{disk}
-			vm.Spec.Domain = &domain
-
-			restClient := getRestClient(server.URL())
-			vmCopy, err := MapPersistentVolumes(&vm, restClient, k8sv1.NamespaceDefault)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
-			newDisk := vmCopy.Spec.Domain.Devices.Disks[0]
-			Expect(newDisk.Type).To(Equal("network"))
-			Expect(newDisk.Driver.Type).To(Equal("raw"))
-			Expect(newDisk.Driver.Name).To(Equal("qemu"))
-			Expect(newDisk.Device).To(Equal("disk"))
-			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
-			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
-		})
-	})
-})
-
-func getRestClient(url string) *rest.RESTClient {
-	gv := schema.GroupVersion{Group: "", Version: "v1"}
-	restConfig, err := clientcmd.BuildConfigFromFlags(url, "")
-	Expect(err).NotTo(HaveOccurred())
-	restConfig.GroupVersion = &gv
-	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	restConfig.APIPath = "/api"
-	restConfig.ContentType = runtime.ContentTypeJSON
-	restClient, err := rest.RESTClientFor(restConfig)
-	Expect(err).NotTo(HaveOccurred())
-	return restClient
-}
 
 func TestVMs(t *testing.T) {
 	RegisterFailHandler(Fail)

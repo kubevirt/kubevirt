@@ -21,10 +21,7 @@ package virthandler
 
 import (
 	"fmt"
-	"net"
-	"strings"
 
-	"github.com/jeevatkm/go-model"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +33,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/designer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
@@ -193,96 +191,6 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	return
 }
 
-// Almost everything in the VM object maps exactly to its domain counterpart
-// One exception is persistent volume claims. This function looks up each PV
-// and inserts a corrected disk entry into the VM's device map.
-func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) (*v1.VM, error) {
-	vmCopy := &v1.VM{}
-	model.Copy(vmCopy, vm)
-
-	for idx, disk := range vmCopy.Spec.Domain.Devices.Disks {
-		if disk.Type == "PersistentVolumeClaim" {
-			logging.DefaultLogger().V(3).Info().Object(vm).Msgf("Mapping PersistentVolumeClaim: %s", disk.Source.Name)
-
-			// Look up existing persistent volume
-			obj, err := restClient.Get().Namespace(namespace).Resource("persistentvolumeclaims").Name(disk.Source.Name).Do().Get()
-
-			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("unable to look up persistent volume claim")
-				return vm, fmt.Errorf("unable to look up persistent volume claim: %v", err)
-			}
-
-			pvc := obj.(*k8sv1.PersistentVolumeClaim)
-			if pvc.Status.Phase != k8sv1.ClaimBound {
-				logging.DefaultLogger().Error().Msg("attempted use of unbound persistent volume")
-				return vm, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
-			}
-
-			// Look up the PersistentVolume this PVC is bound to
-			// Note: This call is not namespaced!
-			obj, err = restClient.Get().Resource("persistentvolumes").Name(pvc.Spec.VolumeName).Do().Get()
-
-			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("unable to access persistent volume record")
-				return vm, fmt.Errorf("unable to access persistent volume record: %v", err)
-			}
-			pv := obj.(*k8sv1.PersistentVolume)
-
-			if pv.Spec.ISCSI != nil {
-				logging.DefaultLogger().Object(vm).Info().Msg("Mapping iSCSI PVC")
-				newDisk := v1.Disk{}
-
-				newDisk.Type = "network"
-				newDisk.Device = "disk"
-				newDisk.Target = disk.Target
-				newDisk.Driver = new(v1.DiskDriver)
-				newDisk.Driver.Type = "raw"
-				newDisk.Driver.Name = "qemu"
-
-				newDisk.Source.Name = fmt.Sprintf("%s/%d", pv.Spec.ISCSI.IQN, pv.Spec.ISCSI.Lun)
-				newDisk.Source.Protocol = "iscsi"
-
-				hostPort := strings.Split(pv.Spec.ISCSI.TargetPortal, ":")
-				ipAddrs, err := net.LookupIP(hostPort[0])
-				if err != nil || len(ipAddrs) < 1 {
-					logging.DefaultLogger().Error().Reason(err).Msgf("Unable to resolve host '%s'", hostPort[0])
-					return vm, fmt.Errorf("Unable to resolve host '%s': %s", hostPort[0], err)
-				}
-
-				newDisk.Source.Host = &v1.DiskSourceHost{}
-				newDisk.Source.Host.Name = ipAddrs[0].String()
-				if len(hostPort) > 1 {
-					newDisk.Source.Host.Port = hostPort[1]
-				}
-
-				vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
-			} else {
-				logging.DefaultLogger().Object(vm).Error().Msg(fmt.Sprintf("Referenced PV %v is backed by an unsupported storage type", pv))
-			}
-		} else if disk.Type == "network" {
-			newDisk := v1.Disk{}
-			model.Copy(&newDisk, disk)
-
-			if disk.Source.Host == nil {
-				logging.DefaultLogger().Error().Msg("Missing disk source host")
-				return vm, fmt.Errorf("Missing disk source host")
-			}
-
-			ipAddrs, err := net.LookupIP(disk.Source.Host.Name)
-			if err != nil || ipAddrs == nil || len(ipAddrs) < 1 {
-				logging.DefaultLogger().Error().Reason(err).Msgf("Unable to resolve host '%s'", disk.Source.Host.Name)
-				return vm, fmt.Errorf("Unable to resolve host '%s': %s", disk.Source.Host.Name, err)
-			}
-
-			newDisk.Source.Host.Name = ipAddrs[0].String()
-
-			vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
-		}
-	}
-
-	return vmCopy, nil
-}
-
 func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) error {
 
 	if shouldDeleteVm {
@@ -294,7 +202,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 	}
 
 	// Synchronize the VM state
-	vm, err := MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
+	domDesign, err := designer.DomainDesignFromAPISpec(vm, d.clientset)
 	if err != nil {
 		return err
 	}
@@ -309,7 +217,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
-	newCfg, err := d.domainManager.SyncVM(vm)
+	newCfg, err := d.domainManager.SyncVM(vm, domDesign)
 	if err != nil {
 		return err
 	}

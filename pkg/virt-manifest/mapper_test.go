@@ -42,9 +42,7 @@ var _ = Describe("Mapper", func() {
 		})
 
 		It("Should extract PVCs from disks", func() {
-			domCopy, pvcs := ExtractPvc(dom)
-			Expect(len(domCopy.Devices.Disks)).To(Equal(2))
-			Expect(domCopy.Devices.Disks[0].Type).To(Equal(Type_Network))
+			pvcs := ExtractPvc(dom)
 
 			Expect(len(pvcs)).To(Equal(1))
 			Expect(pvcs[0].disk.Type).To(Equal(Type_PersistentVolumeClaim))

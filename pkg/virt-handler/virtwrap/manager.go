@@ -32,20 +32,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/designer"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 type DomainManager interface {
-	SyncVM(*v1.VM) (*api.DomainSpec, error)
+	SyncVM(*v1.VM, *designer.DomainDesign) (*api.DomainSpec, error)
 	KillVM(*v1.VM) error
 }
 
@@ -328,22 +327,15 @@ func VMNamespaceKeyFunc(vm *v1.VM) string {
 	return domName
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
-	var wantedSpec api.DomainSpec
-	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
-
-	if len(mappingErrs) > 0 {
-		return nil, errors.NewAggregate(mappingErrs)
-	}
-
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VM, domDesign *designer.DomainDesign) (*api.DomainSpec, error) {
 	domName := VMNamespaceKeyFunc(vm)
-	wantedSpec.Name = domName
-	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
+	domDesign.Domain.Name = domName
+	domDesign.Domain.UUID = string(vm.GetObjectMeta().GetUID())
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
-			xmlStr, err := xml.Marshal(&wantedSpec)
+			xmlStr, err := xml.Marshal(&domDesign.Domain)
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
 				return nil, err
