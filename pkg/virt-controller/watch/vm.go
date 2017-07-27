@@ -38,17 +38,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewVMController(vmService services.VMService, recorder record.EventRecorder, restClient *rest.RESTClient, clientset *kubernetes.Clientset, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer) *VMController {
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
-	vmInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue))
-	podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(queue)))
-
+func NewVMController(restClient *rest.RESTClient, vmService services.VMService, queue workqueue.RateLimitingInterface, vmCache cache.Store, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset *kubernetes.Clientset) *VMController {
 	return &VMController{
 		restClient:  restClient,
 		vmService:   vmService,
 		queue:       queue,
-		store:       vmInformer.GetStore(),
+		store:       vmCache,
 		vmInformer:  vmInformer,
 		podInformer: podInformer,
 		recorder:    recorder,

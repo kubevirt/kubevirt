@@ -46,55 +46,43 @@ import (
 var _ = Describe("Migration", func() {
 
 	var (
-		server              *ghttp.Server
-		migrationCache      cache.Store
-		vmCache             cache.Store
-		vmService           services.VMService
-		restClient          *rest.RESTClient
-		migrationController *MigrationController
-		migrationQueue      workqueue.RateLimitingInterface
-		migration           *v1.Migration
-		vm                  *v1.VM
-		pod                 *clientv1.Pod
-		podList             clientv1.PodList
-		migrationKey        interface{}
-		srcIp               clientv1.NodeAddress
-		destIp              kubev1.NodeAddress
-		srcNodeWithIp       kubev1.Node
-		destNodeWithIp      kubev1.Node
-		srcNode             kubev1.Node
-		destNode            kubev1.Node
+		app            VirtControllerApp = VirtControllerApp{}
+		server         *ghttp.Server
+		migration      *v1.Migration
+		vm             *v1.VM
+		pod            *clientv1.Pod
+		podList        clientv1.PodList
+		migrationKey   interface{}
+		srcIp          clientv1.NodeAddress
+		destIp         kubev1.NodeAddress
+		srcNodeWithIp  kubev1.Node
+		destNodeWithIp kubev1.Node
+		srcNode        kubev1.Node
+		destNode       kubev1.Node
 	)
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	destinationNodeName := "mynode"
 	sourceNodeName := "sourcenode"
+
+	app.launcherImage = "kubevirt/virt-launcher"
+	app.migratorImage = "kubevirt/virt-handler"
+
 	BeforeEach(func() {
 
 		server = ghttp.NewServer()
 		config := rest.Config{}
 		config.Host = server.URL()
-		clientSet, _ := kubernetes.NewForConfig(&config)
-		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
-		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
+		app.clientSet, _ = kubernetes.NewForConfig(&config)
+		app.restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
 
-		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		app.vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 
-		vmService = services.NewVMService(clientSet, restClient, templateService)
+		app.migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		app.migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-		migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
-		migrationController = &MigrationController{
-			restClient:        restClient,
-			vmService:         vmService,
-			clientset:         clientSet,
-			queue:             migrationQueue,
-			store:             migrationCache,
-			migrationInformer: nil,
-			podInformer:       nil,
-		}
+		app.initCommon()
 		// Create a VM which is being scheduled
 
 		vm = v1.NewMinimalVM("testvm")
@@ -197,12 +185,12 @@ var _ = Describe("Migration", func() {
 				handleCreatePod(pod),
 				handlePutMigration(migration, v1.MigrationRunning),
 			)
-			migrationQueue.Add(migrationKey)
-			migrationCache.Add(migration)
-			migrationController.Execute()
+			app.migrationQueue.Add(migrationKey)
+			app.migrationCache.Add(migration)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 		})
 
 		It("failed GET oF VM should requeue", func() {
@@ -212,12 +200,12 @@ var _ = Describe("Migration", func() {
 				handleGetTestVMAuthError(buildExpectedVM(v1.Running)),
 			)
 
-			migrationQueue.Add(migrationKey)
-			migrationCache.Add(migration)
-			migrationController.Execute()
+			app.migrationQueue.Add(migrationKey)
+			app.migrationCache.Add(migration)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 		})
 
 		It("failed GET oF Pod List should requeue", func() {
@@ -228,12 +216,12 @@ var _ = Describe("Migration", func() {
 				handleGetPodListAuthError(podList),
 			)
 
-			migrationQueue.Add(migrationKey)
-			migrationCache.Add(migration)
-			migrationController.Execute()
+			app.migrationQueue.Add(migrationKey)
+			app.migrationCache.Add(migration)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 		})
 
 		It("Should Mark Migration as failed if VM Not found.", func() {
@@ -243,12 +231,12 @@ var _ = Describe("Migration", func() {
 				handleGetTestVMNotFound(),
 				handlePutMigration(migration, v1.MigrationFailed),
 			)
-			migrationQueue.Add(migrationKey)
-			migrationCache.Add(migration)
-			migrationController.Execute()
+			app.migrationQueue.Add(migrationKey)
+			app.migrationCache.Add(migration)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 		})
 
 		It("should requeue if VM Not found and Migration update error.", func() {
@@ -258,11 +246,11 @@ var _ = Describe("Migration", func() {
 				handleGetTestVMNotFound(),
 				handlePutMigrationAuthError(),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 		})
 
 		It("Should mark Migration failed if VM not running ", func() {
@@ -271,11 +259,11 @@ var _ = Describe("Migration", func() {
 				handleGetTestVM(buildExpectedVM(v1.Scheduled)),
 				handlePutMigration(migration, v1.MigrationFailed),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 		})
 
 		It("Should Requeue if VM not running and updateMigratio0n Failure", func() {
@@ -284,11 +272,11 @@ var _ = Describe("Migration", func() {
 				handleGetTestVM(buildExpectedVM(v1.Scheduled)),
 				handlePutMigrationAuthError(),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 		})
 
 		It("should requeue if Migration update fails", func() {
@@ -300,13 +288,13 @@ var _ = Describe("Migration", func() {
 				handleCreatePod(pod),
 				handlePutMigrationAuthError(),
 			)
-			migrationCache.Add(migration)
+			app.migrationCache.Add(migration)
 
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 		})
 
 		It("should fail if conflicting VM and Migration have conflicting Node Selectors", func() {
@@ -317,13 +305,13 @@ var _ = Describe("Migration", func() {
 			server.AppendHandlers(
 				handleGetTestVM(vm),
 			)
-			migrationCache.Add(migration)
+			app.migrationCache.Add(migration)
 
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 		})
 
 		It("should requeue if create of the Target Pod fails ", func() {
@@ -335,13 +323,13 @@ var _ = Describe("Migration", func() {
 				handleCreatePodAuthError(),
 				handlePutMigration(migration, v1.MigrationFailed),
 			)
-			migrationCache.Add(migration)
+			app.migrationCache.Add(migration)
 
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 		})
 
 		It("should fail if another migration is in process.", func(done Done) {
@@ -351,7 +339,7 @@ var _ = Describe("Migration", func() {
 			currentMigration := v1.NewMinimalMigration(vm.ObjectMeta.Name+"-current", vm.ObjectMeta.Name)
 			unmatchedPodList.Items = []clientv1.Pod{mockPod(1, "bogus"), mockPod(2, "bogus")}
 			unmatchedPodList.Items[0].Labels[v1.MigrationLabel] = currentMigration.GetObjectMeta().GetName()
-			migrationCache.Add(currentMigration)
+			app.migrationCache.Add(currentMigration)
 
 			// Register the expected REST call
 			server.AppendHandlers(
@@ -359,12 +347,12 @@ var _ = Describe("Migration", func() {
 				handleGetPodList(unmatchedPodList),
 				handlePutMigration(migration, v1.MigrationFailed),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 			close(done)
 		}, 10)
 
@@ -375,7 +363,7 @@ var _ = Describe("Migration", func() {
 			currentMigration := v1.NewMinimalMigration(vm.ObjectMeta.Name+"-current", vm.ObjectMeta.Name)
 			unmatchedPodList.Items = []clientv1.Pod{mockPod(1, "bogus"), mockPod(2, "bogus")}
 			unmatchedPodList.Items[0].Labels[v1.MigrationLabel] = currentMigration.GetObjectMeta().GetName()
-			migrationCache.Add(currentMigration)
+			app.migrationCache.Add(currentMigration)
 
 			// Register the expected REST call
 			server.AppendHandlers(
@@ -383,12 +371,12 @@ var _ = Describe("Migration", func() {
 				handleGetPodList(unmatchedPodList),
 				handlePutMigrationAuthError(),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
 
 			close(done)
 		}, 10)
@@ -417,12 +405,12 @@ var _ = Describe("Migration", func() {
 				handleGetPodList(unmatchedPodList),
 				handlePutMigration(migration, v1.MigrationRunning),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 
 			close(done)
 		}, 10)
@@ -455,12 +443,12 @@ var _ = Describe("Migration", func() {
 				handleGetPodList(unmatchedPodList),
 				handlePutMigration(migration, v1.MigrationRunning),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 
 			close(done)
 		}, 10)
@@ -499,12 +487,12 @@ var _ = Describe("Migration", func() {
 				handlePutVM(expectedVM2),
 				handleGetPodList(migrationPodList),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 
 			close(done)
 		}, 10)
@@ -551,12 +539,12 @@ var _ = Describe("Migration", func() {
 				handlePutVM(expectedVM2),
 				handlePutMigration(migration, v1.MigrationSucceeded),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(5))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 
 			close(done)
 		}, 10)
@@ -600,12 +588,12 @@ var _ = Describe("Migration", func() {
 				handlePutVM(expectedVM1),
 				handlePutMigration(migration, v1.MigrationFailed),
 			)
-			migrationCache.Add(migration)
-			migrationQueue.Add(migrationKey)
-			migrationController.Execute()
+			app.migrationCache.Add(migration)
+			app.migrationQueue.Add(migrationKey)
+			app.migrationController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(5))
-			Expect(migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
 
 			close(done)
 		}, 10)
@@ -648,7 +636,7 @@ var _ = Describe("Migration", func() {
 			}
 			podList.Items = []kubev1.Pod{pod1, pod2, pod3}
 
-			migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			app.migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 			migration = new(v1.Migration)
 			migration.ObjectMeta.Name = "test-migration1"
 			migration.ObjectMeta.Namespace = "test"
@@ -658,7 +646,7 @@ var _ = Describe("Migration", func() {
 		It("should count exact matches", func() {
 			migration.ObjectMeta.UID = "ce662d9f-34c0-40fd-a4e4-abe4146a1457"
 			podList.Items = []kubev1.Pod{podList.Items[0]}
-			count, targetPod, err := investigateTargetPodSituation(migration, &podList, migrationCache)
+			count, targetPod, err := investigateTargetPodSituation(migration, &podList, app.migrationCache)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(1))
 			Expect(targetPod.ObjectMeta.Name).To(Equal(podList.Items[0].ObjectMeta.Name))
@@ -666,7 +654,7 @@ var _ = Describe("Migration", func() {
 
 		It("should count uncached pods", func() {
 			migration.ObjectMeta.UID = "99a8ac71-4ced-48fa-9bd4-0b4322dcc3dd"
-			count, targetPod, err := investigateTargetPodSituation(migration, &podList, migrationCache)
+			count, targetPod, err := investigateTargetPodSituation(migration, &podList, app.migrationCache)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(3))
 			Expect(targetPod.ObjectMeta.Name).To(Equal(podList.Items[1].ObjectMeta.Name))
@@ -674,8 +662,8 @@ var _ = Describe("Migration", func() {
 
 		It("should ignore finalized migrations", func() {
 			migration.ObjectMeta.UID = "ce662d9f-34c0-40fd-a4e4-abe4146a1457"
-			migrationCache.Add(migration)
-			count, targetPod, err := investigateTargetPodSituation(migration, &podList, migrationCache)
+			app.migrationCache.Add(migration)
+			count, targetPod, err := investigateTargetPodSituation(migration, &podList, app.migrationCache)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(2))
 			Expect(targetPod.ObjectMeta.Name).To(Equal(podList.Items[0].ObjectMeta.Name))
@@ -683,9 +671,9 @@ var _ = Describe("Migration", func() {
 
 		It("should not count pods without MigrationLabels", func() {
 			migration.ObjectMeta.UID = "ce662d9f-34c0-40fd-a4e4-abe4146a1457"
-			migrationCache.Add(migration)
+			app.migrationCache.Add(migration)
 			delete(podList.Items[2].Labels, v1.MigrationLabel)
-			count, targetPod, err := investigateTargetPodSituation(migration, &podList, migrationCache)
+			count, targetPod, err := investigateTargetPodSituation(migration, &podList, app.migrationCache)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(1))
 			Expect(targetPod.ObjectMeta.Name).To(Equal(podList.Items[0].ObjectMeta.Name))

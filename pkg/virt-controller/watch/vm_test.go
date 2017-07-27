@@ -43,33 +43,25 @@ import (
 
 var _ = Describe("VM watcher", func() {
 	var server *ghttp.Server
-	var vmService services.VMService
-	var restClient *rest.RESTClient
-
-	var vmCache cache.Store
-	var vmQueue workqueue.RateLimitingInterface
+	//var vmService services.VMService
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-	var vmController *VMController
+
+	var app VirtControllerApp = VirtControllerApp{}
+	app.launcherImage = "kubevirt/virt-launcher"
+	app.migratorImage = "kubevirt/virt-handler"
 
 	BeforeEach(func() {
 
 		server = ghttp.NewServer()
 		config := rest.Config{}
 		config.Host = server.URL()
-		clientSet, _ := kubernetes.NewForConfig(&config)
-		templateService, _ := services.NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
-		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
-		vmService = services.NewVMService(clientSet, restClient, templateService)
-		vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		app.clientSet, _ = kubernetes.NewForConfig(&config)
+		app.restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
+		app.vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-		vmController = &VMController{
-			restClient: restClient,
-			vmService:  vmService,
-			queue:      vmQueue,
-			store:      vmCache,
-		}
+		app.initCommon()
 	})
 
 	Context("Creating a VM ", func() {
@@ -121,9 +113,9 @@ var _ = Describe("VM watcher", func() {
 
 			// Tell the controller that there is a new VM
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			vmCache.Add(vm)
-			vmQueue.Add(key)
-			vmController.Execute()
+			app.vmCache.Add(vm)
+			app.vmQueue.Add(key)
+			app.vmController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			close(done)
@@ -174,9 +166,9 @@ var _ = Describe("VM watcher", func() {
 
 			// Tell the controller that there is a new running Pod
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			vmCache.Add(vm)
-			vmQueue.Add(key)
-			vmController.Execute()
+			app.vmCache.Add(vm)
+			app.vmQueue.Add(key)
+			app.vmController.Execute()
 
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
 			close(done)
