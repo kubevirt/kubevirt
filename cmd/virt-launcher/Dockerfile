@@ -20,6 +20,11 @@ FROM fedora:26
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
+RUN dnf install -y genisoimage && \
+	dnf clean all && \
+	groupadd --gid 1111 qemu && \
+	useradd --uid 1111 --gid 1111 qemu
+
 COPY virt-launcher /virt-launcher
 
 ENTRYPOINT [ "/virt-launcher" ]

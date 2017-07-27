@@ -22,3 +22,8 @@ spec:
       type:
         os: hvm
     type: qemu
+  cloudInit:
+    dataSource: noCloud
+    noCloudData:
+      userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
+      diskTarget: vdb

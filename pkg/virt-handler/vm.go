@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
@@ -302,6 +303,12 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 
 	// Map Container Registry Disks to block devices Libvirt can consume
 	vm, err = registrydisk.MapRegistryDisks(vm)
+	if err != nil {
+		return err
+	}
+
+	// Map whatever devices are being used for config-init
+	vm, err = cloudinit.InjectDomainData(vm)
 	if err != nil {
 		return err
 	}

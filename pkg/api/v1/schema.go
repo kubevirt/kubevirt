@@ -25,6 +25,20 @@ package v1
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
+// http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
+type CloudInitDataSourceNoCloud struct {
+	UserDataBase64 string `json:"userDataBase64"`
+	MetaDataBase64 string `json:"metaDataBase64"`
+	DiskTarget     string `json:"diskTarget"`
+}
+
+type CloudInitSpec struct {
+	DataSource string `json:"dataSource"`
+
+	// DataSource specific data structures
+	NoCloudData *CloudInitDataSourceNoCloud `json:"noCloudData"`
+}
+
 type DomainSpec struct {
 	Memory  Memory   `json:"memory"`
 	Type    string   `json:"type"`
