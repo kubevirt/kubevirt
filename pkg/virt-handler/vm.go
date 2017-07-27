@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/virt-handler/network"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
@@ -532,10 +533,20 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (*v1.Vi
 func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteVM bool) error {
 
 	if shouldDeleteVM || vm.ObjectMeta.DeletionTimestamp != nil || vm.IsFinal() {
+		// Save domain spec for clean up
+		domainConfigExist := d.domainManager.UpdateVmDomainConfig(vm)
+
 		// Since the VM was not in the cache, we delete it
 		err := d.domainManager.KillVM(vm)
 		if err != nil {
 			return err
+		}
+
+		if domainConfigExist == true {
+			err = network.UnPlugNetworkDevices(vm, d.domainManager)
+			if err != nil {
+				return err
+			}
 		}
 
 		// remove any defined libvirt secrets associated with this vm
@@ -581,6 +592,12 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, should
 		return nil
 	}
 
+	vm, err = network.PlugNetworkDevices(vm, d.domainManager)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to create a virtual interface.")
+		return err
+	}
+
 	// Synchronize the VM state
 	vm, err = MapPersistentVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
 	if err != nil {
@@ -615,6 +632,10 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, should
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
 	_, err = d.domainManager.SyncVM(vm)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create a VM %s", vm.ObjectMeta.Name)
+		network.UnPlugNetworkDevices(vm, d.domainManager)
+	}
 	return err
 }
 

@@ -52,6 +52,7 @@ type DomainManager interface {
 	RemoveVMSecrets(*v1.VirtualMachine) error
 	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
+	UpdateVmDomainConfig(vm *v1.VirtualMachine) bool
 }
 
 type LibvirtDomainManager struct {
@@ -258,6 +259,17 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 		// Nothing to do
 	}
 
+	spec, err := l.getDomainConfig(dom)
+	if err != nil {
+		log.Log.Reason(err).Error("Parsing domain XML failed.")
+		return nil, err
+	}
+
+	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
+	return spec, nil
+}
+
+func (l *LibvirtDomainManager) getDomainConfig(dom cli.VirDomain) (*api.DomainSpec, error) {
 	xmlstr, err := dom.GetXMLDesc(0)
 	if err != nil {
 		return nil, err
@@ -266,12 +278,33 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	var newSpec api.DomainSpec
 	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
 	if err != nil {
-		logger.Reason(err).Error("Parsing domain XML failed.")
+		log.Log.Reason(err).Error("Parsing domain XML failed.")
 		return nil, err
 	}
 
-	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
 	return &newSpec, nil
+}
+
+func (l *LibvirtDomainManager) UpdateVmDomainConfig(vm *v1.VirtualMachine) bool {
+	domName := cache.VMNamespaceKeyFunc(vm)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		return false
+	}
+	spec, err := l.getDomainConfig(dom)
+	if err != nil {
+		log.Log.Reason(err).Error("Parsing domain XML failed.")
+		return false
+	}
+
+	var domSpec v1.DomainSpec
+	errs := model.Copy(&domSpec, spec)
+	if errs != nil {
+		log.Log.Reason(err).Error("failed to update domain config for vm")
+		return false
+	}
+	vm.Spec.Domain = &domSpec
+	return true
 }
 
 func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
