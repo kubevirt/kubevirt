@@ -33,6 +33,9 @@ import (
 
 const registryDiskV1Alpha = "ContainerRegistryDisk:v1alpha"
 const defaultIqn = "iqn.2017-01.io.kubevirt:wrapper/1"
+const defaultPort = 3261
+const defaultPortStr = "3261"
+const defaultHost = "127.0.0.1"
 
 func DisksAreReady(pod *kubev1.Pod) bool {
 	// Wait for readiness probes on image wrapper containers
@@ -89,11 +92,11 @@ func MapRegistryDisks(vm *v1.VM) (*v1.VM, error) {
 
 // The controller applies ports to registry disks when a VM spec is introduced into the cluster.
 func ApplyPorts(vm *v1.VM) {
-	wrapperStartingPort := 3261
+	wrapperStartingPort := defaultPort
 	for idx, disk := range vm.Spec.Domain.Devices.Disks {
 		if disk.Type == registryDiskV1Alpha {
 			port := fmt.Sprintf("%d", wrapperStartingPort)
-			name := "127.0.0.1"
+			name := defaultHost
 			if disk.Source.Host != nil {
 				name = disk.Source.Host.Name
 			}
@@ -114,7 +117,7 @@ func ApplyHost(vm *v1.VM, pod *kubev1.Pod) {
 	ip := pod.Status.PodIP
 	for idx, disk := range vm.Spec.Domain.Devices.Disks {
 		if disk.Type == registryDiskV1Alpha {
-			port := "3261"
+			port := defaultPortStr
 			name := ip
 			if disk.Source.Host != nil {
 				port = disk.Source.Host.Port
