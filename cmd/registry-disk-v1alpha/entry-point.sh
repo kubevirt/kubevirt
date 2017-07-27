@@ -68,6 +68,7 @@ tgtadm --lld iscsi --mode logicalunit --op new --tid=1 --lun=$LUNID -b $IMAGE_PA
 tgtadm --lld iscsi --mode logicalunit --op update --tid=1 --lun=$LUNID --params thin_provisioning=1
 
 echo "Start monitoring"
+touch /tmp/healthy
 touch previous_state
 while true ; do
 	tgtadm --lld iscsi --mode target --op show > current_state

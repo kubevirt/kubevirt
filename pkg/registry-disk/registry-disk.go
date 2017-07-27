@@ -27,7 +27,6 @@ import (
 	"github.com/jeevatkm/go-model"
 
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -177,10 +176,10 @@ func GenerateContainers(vm *v1.VM) ([]kubev1.Container, error) {
 				// before the container is marked as "Ready: True"
 				ReadinessProbe: &kubev1.Probe{
 					Handler: kubev1.Handler{
-						TCPSocket: &kubev1.TCPSocketAction{
-							Port: intstr.IntOrString{
-								Type:   intstr.Int,
-								IntVal: int32(portInt),
+						Exec: &kubev1.ExecAction{
+							Command: []string{
+								"cat",
+								"/tmp/healthy",
 							},
 						},
 					},
