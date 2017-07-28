@@ -23,7 +23,8 @@ ENV container docker
 
 RUN apt-get update && apt-get install -y \
 	tgt bash curl bzip2 qemu-utils && \
-	mkdir -p /disk
+	mkdir -p /disk && \
+	rm -rf /var/lib/apt/lists/*
 
 ADD entry-point.sh /
 
