@@ -20,7 +20,6 @@
 package watch
 
 import (
-	"errors"
 	"strings"
 	"time"
 
@@ -232,7 +231,8 @@ func (c *VMController) execute(key string) error {
 
 		// Ensure registry disks are online before placing VM
 		if registrydisk.DisksAreReady(&pods.Items[0]) == false {
-			return errors.New("waiting on image wrapper disks to become ready")
+			logger.Info().V(2).Msg("Waiting on image wrapper disks to become ready.")
+			return nil
 		}
 
 		// VM got scheduled
