@@ -21,7 +21,9 @@ package watch
 
 import (
 	"net/http"
+	"strings"
 
+	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -38,6 +40,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -93,6 +96,78 @@ var _ = Describe("VM watcher", func() {
 			expectedVM := obj.(*v1.VM)
 			expectedVM.Status.Phase = v1.Scheduling
 			expectedVM.Status.MigrationNodeName = pod.Spec.NodeName
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, podListInitial),
+				),
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
+				),
+
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			// Tell the controller that there is a new VM
+			key, _ := cache.MetaNamespaceKeyFunc(vm)
+			app.vmCache.Add(vm)
+			app.vmQueue.Add(key)
+			app.vmController.Execute()
+
+			Expect(len(server.ReceivedRequests())).To(Equal(3))
+			close(done)
+		}, 10)
+
+		It("should should schedule a POD with Registry Disk.", func(done Done) {
+
+			// Create a VM to be scheduled
+			vm := v1.NewMinimalVM("testvm")
+			vm.Status.Phase = ""
+			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Type:   "ContainerRegistryDisk:v1alpha",
+				Device: "disk",
+				Source: v1.DiskSource{
+					Name: "someimage:v1.2.3.4",
+				},
+				Target: v1.DiskTarget{
+					Device: "vda",
+				},
+			})
+
+			// Create a Pod for the VM
+			templateService, err := services.NewTemplateService("whatever", "whatever")
+			Expect(err).ToNot(HaveOccurred())
+
+			// We want to ensure the vm object we initially post
+			// doesn't have ports set, so we make a copy in order
+			// to render the pod object early for the test.
+			vmCopy := v1.VM{}
+			model.Copy(&vmCopy, vm)
+			registrydisk.ApplyPorts(&vmCopy)
+			pod, err := templateService.RenderLaunchManifest(&vmCopy)
+			Expect(err).ToNot(HaveOccurred())
+
+			pod.Spec.NodeName = "mynode"
+			pod.Status.Phase = clientv1.PodSucceeded
+
+			for idx, _ := range pod.Status.ContainerStatuses {
+				if strings.Contains(pod.Status.ContainerStatuses[idx].Name, "disk") == false {
+					pod.Status.ContainerStatuses[idx].Ready = true
+				}
+			}
+
+			podListInitial := clientv1.PodList{}
+			podListInitial.Items = []clientv1.Pod{}
+
+			podListPostCreate := clientv1.PodList{}
+			podListPostCreate.Items = []clientv1.Pod{*pod}
 
 			// Register the expected REST call
 			server.AppendHandlers(
