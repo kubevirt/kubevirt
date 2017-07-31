@@ -35,6 +35,7 @@ import (
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -179,6 +180,8 @@ func (c *VMController) execute(key string) error {
 			}
 		}
 
+		registrydisk.ApplyPorts(&vmCopy)
+
 		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
 			logger.Error().Reason(err).Msg("Defining a target pod for the VM failed.")
@@ -226,8 +229,18 @@ func (c *VMController) execute(key string) error {
 			return nil
 		}
 
+		// Ensure registry disks are online before placing VM
+		if registrydisk.DisksAreReady(&pods.Items[0]) == false {
+			logger.Info().V(2).Msg("Waiting on image wrapper disks to become ready.")
+			return nil
+		}
+
 		// VM got scheduled
 		vmCopy.Status.Phase = kubev1.Scheduled
+
+		// Fill in host info for container registry disks
+		registrydisk.ApplyHost(&vmCopy, &pods.Items[0])
+
 		// FIXME we store this in the metadata since field selectors are currently not working for TPRs
 		if vmCopy.GetObjectMeta().GetLabels() == nil {
 			vmCopy.ObjectMeta.Labels = map[string]string{}

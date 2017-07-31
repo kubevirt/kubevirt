@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
 type TemplateService interface {
@@ -54,6 +55,12 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 		Command:         []string{"/virt-launcher", "--qemu-timeout", "60s"},
 	}
 
+	containers, err := registrydisk.GenerateContainers(vm)
+	if err != nil {
+		return nil, err
+	}
+	containers = append(containers, container)
+
 	// TODO use constants for labels
 	pod := kubev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -66,7 +73,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 		},
 		Spec: kubev1.PodSpec{
 			RestartPolicy: kubev1.RestartPolicyNever,
-			Containers:    []kubev1.Container{container},
+			Containers:    containers,
 			NodeSelector:  vm.Spec.NodeSelector,
 		},
 	}

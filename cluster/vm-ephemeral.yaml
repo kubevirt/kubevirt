@@ -1,0 +1,24 @@
+metadata:
+  name: testvm-ephemeral
+apiVersion: kubevirt.io/v1alpha1
+kind: VM
+spec:
+  domain:
+    devices:
+      disks:
+      - type: ContainerRegistryDisk:v1alpha
+        source:
+          name: kubevirt/cirros-registry-disk-demo:devel
+        target:
+          dev: vda
+      interfaces:
+      - source:
+          network: default
+        type: network
+    memory:
+      unit: MB
+      value: 64
+    os:
+      type:
+        os: hvm
+    type: qemu

@@ -70,6 +70,9 @@ vagrant-sync-config:
 vagrant-sync-build: build
 	./cluster/vagrant/sync_build.sh
 
+vagrant-sync-optional:
+	./cluster/vagrant/sync_build.sh 'build optional'
+
 vagrant-deploy: vagrant-sync-config vagrant-sync-build
 	export KUBECTL="cluster/kubectl.sh --core" && ./cluster/deploy.sh
 

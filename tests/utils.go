@@ -400,6 +400,23 @@ func NewRandomVMWithNS(namespace string) *v1.VM {
 	return v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
 }
 
+func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VM {
+	vm := NewRandomVM()
+	vm.Spec.Domain.Memory.Unit = "MB"
+	vm.Spec.Domain.Memory.Value = 64
+	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
+		Type:   "ContainerRegistryDisk:v1alpha",
+		Device: "disk",
+		Source: v1.DiskSource{
+			Name: containerImage,
+		},
+		Target: v1.DiskTarget{
+			Device: "vda",
+		},
+	}}
+	return vm
+}
+
 func NewRandomVMWithDirectLun(lun int) *v1.VM {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Memory.Unit = "MB"

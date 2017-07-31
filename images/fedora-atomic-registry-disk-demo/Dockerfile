@@ -1,4 +1,4 @@
-#!/bin/bash
+#
 # This file is part of the kubevirt project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +15,10 @@
 #
 # Copyright 2017 Red Hat, Inc.
 #
-set -ex
 
-make all DOCKER_TAG=devel
+FROM kubevirt/registry-disk-v1alpha:devel
 
-for VM in `vagrant status | grep -v "^The Libvirt domain is running." | grep running | cut -d " " -f1`; do
-  vagrant rsync $VM # if you do not use NFS
-  vagrant ssh $VM -c "cd /vagrant && export DOCKER_TAG=devel && sudo -E hack/build-docker.sh $@"
-done
+MAINTAINER "David Vossel" \<dvossel@redhat.com\>
 
+# Add fedora atomic disk image
+RUN curl -g -L https://download.fedoraproject.org/pub/alt/atomic/stable/Fedora-Atomic-26-20170723.0/CloudImages/x86_64/images/Fedora-Atomic-26-20170723.0.x86_64.qcow2 > /disk/atomic.qcow2
