@@ -4,7 +4,7 @@ Author: Fabian Deutsch \<fabiand@redhat.com\>
 
 ## Introduction
 
-Today networking in KubeVirt is not integrated with Kubernetes. In order to
+Today, networking in KubeVirt is not integrated with Kubernetes. In order to
 have network connectivity inside the VM, a user must create a specific VM Spec
 that induces a particular libvirt domxml, in order to reuse a pre-exising host
 network interface.
@@ -53,7 +53,9 @@ spec:
 
 Prerequisites:
 
-- libvirt is using pod networking (instead of currently using host networking)
+- libvirt is using pod networking (instead of its currently using host
+  networking), as future Kubernetes multi-networking will work with pods,
+  and as we do not want to mess with the hosts network namespace
 - A CNI proxy to allow pods to perform CNI actions in the context of the host
   (this needs to be implemented, as part of this feature, or as an dependent
   one)
@@ -70,10 +72,6 @@ in order to differentiate them from the the originally-allocated pod interface
 (`eth0`). The original pod interface (`eth0`) is never modified by Kubevirt,
 and can be used to access libvirtd (through the libvirtd pod IP) or to provide
 VM-centric services through the VM pod IP.
-
-**Note:** The original pod interface (eth0) is never touched and can be used to
-access libvirtd (through the libvirtd pod IP) or to provide VM centric services
-through the VM pod IP.
 
 The required steps to enable networking as described are:
 
@@ -96,9 +94,9 @@ This process must be repeated for every virtual NIC of every VM.
 Thus N virtual NICs correspond to N VM interfaces, and in turn to N IP
 addresses.
 
-**Note:** This might look like an overhead, creating a single VM interface
-per virtual NIC. The reason for doing so is, that this is a Kubernetes/CNI
-compatible way to request IP endpoints from the networking sub-system.
+**Note:** Creating one VM interface per virtual NIC might look like an
+overhead, but this is a Kubernetes/CNI-compatible way to request IP endpoints
+from the networking sub-system.
 
 
 ## Drawbacks & Limitations
@@ -123,7 +121,7 @@ compatible way to request IP endpoints from the networking sub-system.
 
 # Future development
 
-This approach is to provide initial, Kubernetes friendly network connectivity
+This approach is to provide initial, Kubernetes-friendly network connectivity
 for virtual machines.
 At this moment in time it is not clear if this method can be used to cover more
 advanced use cases, like NIC passthrough, L2 connectivity, SR-IOV etc.
