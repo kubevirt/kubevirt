@@ -140,8 +140,8 @@ func main() {
 	vmController.StartInformer(stop)
 	vmController.WaitForSync(stop)
 
-	go domainController.Run(1, stop)
-	go vmController.Run(1, stop)
+	go domainController.Run(3, stop)
+	go vmController.Run(3, stop)
 
 	// TODO add a http handler which provides health check
 

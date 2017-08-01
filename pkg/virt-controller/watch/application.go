@@ -93,9 +93,9 @@ func (vca *VirtControllerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 	vca.informerFactory.Start(stop)
-	go vca.vmController.Run(1, stop)
+	go vca.vmController.Run(3, stop)
 	//FIXME when we have more than one worker, we need a lock on the VM
-	go vca.migrationController.Run(1, stop)
+	go vca.migrationController.Run(3, stop)
 	httpLogger := logger.With("service", "http")
 	httpLogger.Info().Log("action", "listening", "interface", vca.host, "port", vca.port)
 	if err := http.ListenAndServe(vca.host+":"+strconv.Itoa(vca.port), nil); err != nil {
