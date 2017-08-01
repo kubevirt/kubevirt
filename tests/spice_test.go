@@ -28,6 +28,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -79,7 +80,7 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(section.HasKey("type")).To(BeTrue())
 			Expect(section.HasKey("host")).To(BeTrue())
 			Expect(section.HasKey("port")).To(BeTrue())
-			Expect(section.Key("port").Value()).To(Equal("4000"))
+			Expect(strconv.Atoi(section.Key("port").Value())).To(BeNumerically(">=", int32(5900)))
 			Expect(section.HasKey("proxy")).To(BeTrue())
 			close(done)
 		}, 30)
@@ -97,7 +98,7 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(err).To(BeNil())
 			spice := obj.(*v1.Spice).Info
 			Expect(spice.Type).To(Equal("spice"))
-			Expect(spice.Port).To(Equal(int32(4000)))
+			Expect(spice.Port).To(BeNumerically(">=", int32(5900)))
 			close(done)
 		}, 30)
 
@@ -147,6 +148,35 @@ var _ = Describe("Vmlifecycle", func() {
 			binary.Read(conn, binary.LittleEndian, &i)
 			Expect(i).To(Equal(int32(0)), "Message status is not OK.") // 0 is equal to OK
 
+			close(done)
+		}, 30)
+	})
+
+	Context("Two new VMs scheduled on the same node with a spice graphics device", func() {
+
+		It("should start without port clashes", func(done Done) {
+			// Create the VM
+			result := restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
+			obj, err := result.Get()
+			Expect(err).To(BeNil())
+
+			// Block until the VM is running
+			nodeName := tests.WaitForSuccessfulVMStart(obj)
+
+			vm1 := tests.NewRandomVMWithSpice()
+			vm1.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+			result = restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm1).Do()
+			obj1, err := result.Get()
+			Expect(err).To(BeNil())
+
+			// Block until the VM is running
+			tests.WaitForSuccessfulVMStart(obj1)
+
+			obj, err = restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+			Expect(err).To(BeNil())
+			obj1, err = restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm1.GetObjectMeta().GetName()).Do().Get()
+			Expect(err).To(BeNil())
+			Expect(obj.(*v1.Spice).Info.Port).ToNot(BeNumerically("==", obj1.(*v1.Spice).Info.Port))
 			close(done)
 		}, 30)
 	})
