@@ -1,5 +1,5 @@
 /*
- * This file is part of the kubevirt project
+ * This file is part of the KubeVirt project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,21 +20,24 @@
 package virtwrap
 
 import (
-	"reflect"
-
 	"github.com/libvirt/libvirt-go"
 )
 
-func checkError(err interface{}, expectedError libvirt.ErrorNumber) bool {
-	return err.(libvirt.Error).Code == expectedError
+func checkError(err error, expectedError libvirt.ErrorNumber) bool {
+	libvirtError, ok := err.(libvirt.Error)
+	if ok {
+		return libvirtError.Code == expectedError
+	}
+
+	return false
 }
 
 // IsNotFound detects libvirt's ERR_NO_DOMAIN. It accepts both error and libvirt.Error (as returned by GetLastError function).
-func IsNotFound(err interface{}) bool {
+func IsNotFound(err error) bool {
 	return checkError(err, libvirt.ERR_NO_DOMAIN)
 }
 
 // IsOk detects libvirt's ERR_OK. It accepts both error and libvirt.Error (as returned by GetLastError function).
-func IsOk(err interface{}) bool {
+func IsOk(err error) bool {
 	return checkError(err, libvirt.ERR_OK)
 }
