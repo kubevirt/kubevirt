@@ -235,8 +235,15 @@ func (l *LibvirtConnection) checkConnectionLost() {
 		return
 	}
 
-	// TODO, find out all errors which indicate a communication error
-	if err.Code != libvirt.ERR_NO_DOMAIN {
+	switch err.Code {
+	case
+		libvirt.ERR_INTERNAL_ERROR,
+		libvirt.ERR_INVALID_CONN,
+		libvirt.ERR_AUTH_CANCELLED,
+		libvirt.ERR_NO_MEMORY,
+		libvirt.ERR_AUTH_FAILED,
+		libvirt.ERR_SYSTEM_ERROR,
+		libvirt.ERR_RPC:
 		l.alive = false
 		logging.DefaultLogger().Error().Reason(err).With("code", err.Code).Msg("Connection to libvirt lost.")
 	}

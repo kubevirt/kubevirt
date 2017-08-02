@@ -206,7 +206,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 				handlerName := pods.Items[0].GetObjectMeta().GetName()
 				handlerNamespace := pods.Items[0].GetObjectMeta().GetNamespace()
-				seconds := int64(30)
+				seconds := int64(120)
 				logsQuery := coreCli.Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds})
 
 				// Make sure we schedule the VM to master
@@ -222,7 +222,7 @@ var _ = Describe("Vmlifecycle", func() {
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred())
 					return string(data)
-				}, 5, 0.1).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain is in state Running)", vm.GetObjectMeta().GetName()))
+				}, 30, 0.5).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain is in state Running)", vm.GetObjectMeta().GetName()))
 				// Check the VM Namespace
 				Expect(vm.GetObjectMeta().GetNamespace()).To(Equal(namespace))
 
@@ -236,7 +236,7 @@ var _ = Describe("Vmlifecycle", func() {
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred())
 					return string(data)
-				}, 5, 0.1).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain deleted)", vm.GetObjectMeta().GetName()))
+				}, 30, 0.5).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain deleted)", vm.GetObjectMeta().GetName()))
 
 			},
 				table.Entry(tests.NamespaceTestDefault, tests.NamespaceTestDefault),

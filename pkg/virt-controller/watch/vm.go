@@ -171,7 +171,7 @@ func (c *VMController) execute(key string) error {
 		graphics := vmCopy.Spec.Domain.Devices.Graphics
 		for i, _ := range graphics {
 			if strings.ToLower(graphics[i].Type) == "spice" {
-				graphics[i].Port = int32(4000) + int32(i)
+				graphics[i].Port = int32(-1)
 				graphics[i].Listen = kubev1.Listen{
 					Address: "0.0.0.0",
 					Type:    "address",
