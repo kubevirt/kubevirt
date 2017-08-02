@@ -41,10 +41,4 @@ for i in `ls manifests/*.yaml`; do
     $KUBECTL create -f $i
 done
 
-# Work around https://github.com/moby/moby/issues/33603
-# Release leaked device mapper semaphores
-for VM in `vagrant status | grep -v "^The Libvirt domain is running." | grep running | cut -d " " -f1`; do
-  vagrant ssh $VM -c "echo 'y' | sudo dmsetup udevcomplete_all"
-done
-
 echo "Done"
