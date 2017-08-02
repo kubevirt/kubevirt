@@ -261,6 +261,6 @@ data with any missing pieces.
 
 A further complication is that a single k8s API resource, may end up triggering
 the generation of multiple libvirt XML documents, the domain XML and associated
-documents for secrets, nework filters and node devices. So there is not a strict
+documents for secrets, network filters and node devices. So there is not a strict
 1-1 mapping between the k8s API resource representation and the libvirt low
 level representation.
