@@ -100,11 +100,14 @@ func init() {
 	})
 }
 
+// VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
 type VM struct {
 	metav1.TypeMeta `json:",inline"`
 	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec            VMSpec            `json:"spec,omitempty" valid:"required"`
-	Status          VMStatus          `json:"status"`
+	// VM Spec contains the VM specification.
+	Spec VMSpec `json:"spec,omitempty" valid:"required"`
+	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
+	Status VMStatus `json:"status"`
 }
 
 // VMList is a list of VMs
@@ -114,8 +117,10 @@ type VMList struct {
 	Items           []VM            `json:"items"`
 }
 
-// VMSpec is a description of a VM
+// VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.
+// It is expected that v1.DomainSpec will be merged into this structure.
 type VMSpec struct {
+	// Domain is the actual libvirt domain.
 	Domain *DomainSpec `json:"domain,omitempty"`
 	// If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -124,11 +129,16 @@ type VMSpec struct {
 // VMStatus represents information about the status of a VM. Status may trail the actual
 // state of a system.
 type VMStatus struct {
-	NodeName          string        `json:"nodeName,omitempty"`
-	MigrationNodeName string        `json:"migrationNodeName,omitempty"`
-	Conditions        []VMCondition `json:"conditions,omitempty"`
-	Phase             VMPhase       `json:"phase"`
-	Graphics          []VMGraphics  `json:"graphics"`
+	// NodeName is the name where the VM is currently running.
+	NodeName string `json:"nodeName,omitempty"`
+	// MigrationNodeName is the node where the VM is live migrating to.
+	MigrationNodeName string `json:"migrationNodeName,omitempty"`
+	// Conditions are specific points in VM's pod runtime.
+	Conditions []VMCondition `json:"conditions,omitempty"`
+	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
+	Phase VMPhase `json:"phase"`
+	// Graphics represent the details of available graphical consoles.
+	Graphics []VMGraphics `json:"graphics"`
 }
 
 type VMGraphics struct {
