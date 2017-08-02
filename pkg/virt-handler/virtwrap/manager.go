@@ -231,7 +231,7 @@ func (l *LibvirtConnection) checkConnectionLost() {
 	defer l.reconnectLock.Unlock()
 
 	err := libvirt.GetLastError()
-	if err.Code == libvirt.ERR_OK {
+	if IsOk(err) {
 		return
 	}
 
@@ -342,7 +342,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// We need the domain but it does not exist, so create it
-		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
+		if IsNotFound(err) {
 			xmlStr, err := xml.Marshal(&wantedSpec)
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
@@ -414,7 +414,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VM does not exist, we are done
-		if err.(libvirt.Error).Code == libvirt.ERR_NO_DOMAIN {
+		if IsNotFound(err) {
 			return nil
 		} else {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
