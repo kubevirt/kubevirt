@@ -47,9 +47,6 @@ else
   kubectl create -f kube-$NETWORK_PROVIDER.yaml
 fi
 
-# Work around https://github.com/kubernetes/kubeadm/issues/335 until Kubernetes 1.7.1 is released
-kubectl apply -f kubernetes-1.7-workaround.yml
-
 # Allow scheduling pods on master
 # Ignore retval because it might not be dedicated already
 kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule- || :
