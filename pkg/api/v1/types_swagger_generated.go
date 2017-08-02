@@ -3,7 +3,11 @@
 package v1
 
 func (VM) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"":       "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+		"spec":   "VM Spec contains the VM specification.",
+		"status": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
+	}
 }
 
 func (VMList) SwaggerDoc() map[string]string {
@@ -14,14 +18,20 @@ func (VMList) SwaggerDoc() map[string]string {
 
 func (VMSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":             "VMSpec is a description of a VM",
+		"":             "VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.\nIt is expected that v1.DomainSpec will be merged into this structure.",
+		"domain":       "Domain is the actual libvirt domain.",
 		"nodeSelector": "If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.",
 	}
 }
 
 func (VMStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VMStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
+		"":                  "VMStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
+		"nodeName":          "NodeName is the name where the VM is currently running.",
+		"migrationNodeName": "MigrationNodeName is the node where the VM is live migrating to.",
+		"conditions":        "Conditions are specific points in VM's pod runtime.",
+		"phase":             "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
+		"graphics":          "Graphics represent the details of available graphical consoles.",
 	}
 }
 

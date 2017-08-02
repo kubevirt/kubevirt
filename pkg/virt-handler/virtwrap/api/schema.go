@@ -141,6 +141,9 @@ type DomainList struct {
 	Items    []Domain
 }
 
+// DomainSpec represents the actual conversion to libvirt XML. The fields must be
+// tagged, and they must correspond to the libvirt domain as described in
+// https://libvirt.org/formatdomain.html.
 type DomainSpec struct {
 	XMLName xml.Name `xml:"domain"`
 	Name    string   `xml:"name"`
