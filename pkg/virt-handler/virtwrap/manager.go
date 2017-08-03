@@ -89,7 +89,7 @@ func (s *VirStream) Read(p []byte) (n int, err error) {
 
 /*
 Close the stream and free its resources. Since closing a stream involves multiple calls with errors,
-the first error occured will be returned. The stream will always be freed.
+the first error occurred will be returned. The stream will always be freed.
 */
 func (s *VirStream) Close() (e error) {
 	e = s.Finish()
