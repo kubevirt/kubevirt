@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{
@@ -81,18 +82,28 @@ func newListWatchFromClient(c cli.Connection, events ...int) *cache.ListWatch {
 		list := api.DomainList{
 			Items: []api.Domain{},
 		}
+		// Whenever we gat a IsNotFound error, we just go on to the next Domain
 		for _, dom := range doms {
 			domain, err := NewDomain(dom)
 			if err != nil {
+				if errors.IsNotFound(err) {
+					continue
+				}
 				return nil, err
 			}
 			spec, err := NewDomainSpec(dom)
 			if err != nil {
+				if errors.IsNotFound(err) {
+					continue
+				}
 				return nil, err
 			}
 			domain.Spec = *spec
 			status, reason, err := dom.GetState()
 			if err != nil {
+				if errors.IsNotFound(err) {
+					continue
+				}
 				return nil, err
 			}
 			domain.SetState(convState(status), convReason(status, reason))
@@ -125,7 +136,7 @@ func newDomainWatcher(c cli.Connection, events ...int) (watch.Interface, error) 
 
 		// check for reconnects, and emit an error to force a resync
 		if event == nil {
-			watcher.C <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: "Libvirt reconnected"}}
+			watcher.C <- newWatchEventError(fmt.Errorf("Libvirt reconnect"))
 			return
 		}
 		log.Log.V(3).Infof("Libvirt event %d with reason %d received", event.Event, event.Detail)
@@ -196,70 +207,46 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 	domain, err := NewDomain(d)
 	if err != nil {
 		log.Log.Reason(err).Error("Could not create the Domain.")
-		watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
+		watcher <- newWatchEventError(err)
 		return
 	}
 	log.Log.Infof("event received: %v:%v", event.Event, event.Detail)
 	// TODO In case of other events, it might not be enough to just send state and domainxml, maybe we have to embed the event and the details too
 	//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
-	switch event.Event {
 
-	case libvirt.DOMAIN_EVENT_STOPPED,
-		libvirt.DOMAIN_EVENT_SHUTDOWN,
-		libvirt.DOMAIN_EVENT_CRASHED,
-		libvirt.DOMAIN_EVENT_UNDEFINED:
-		// We can't count on a domain xml in these cases, but let's try it
-		if event.Event != libvirt.DOMAIN_EVENT_UNDEFINED {
-			spec, err := NewDomainSpec(d)
-			if err != nil {
+	// No matter which event, try to fetch the domain xml and the state. If we get a IsNotFound error, that means that the VM was removed.
+	spec, err := NewDomainSpec(d)
+	if err != nil {
 
-				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
-					log.Log.Reason(err).Error("Could not fetch the Domain specification.")
-					watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
-					return
-				}
-			} else {
-				domain.Spec = *spec
-			}
-		}
-		status, reason, err := d.GetState()
-		if err != nil {
-
-			if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
-				log.Log.Reason(err).Error("Could not fetch the Domain state.")
-				watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
-				return
-			}
-			domain.SetState(api.NoState, api.ReasonUnknown)
-		} else {
-			domain.SetState(convState(status), convReason(status, reason))
-		}
-	default:
-		spec, err := NewDomainSpec(d)
-		if err != nil {
+		if !errors.IsNotFound(err) {
 			log.Log.Reason(err).Error("Could not fetch the Domain specification.")
+			watcher <- newWatchEventError(err)
 			return
 		}
+	} else {
 		domain.Spec = *spec
-		status, reason, err := d.GetState()
-		if err != nil {
+	}
+	status, reason, err := d.GetState()
+	if err != nil {
+		if !errors.IsNotFound(err) {
 			log.Log.Reason(err).Error("Could not fetch the Domain state.")
+			watcher <- newWatchEventError(err)
 			return
 		}
+		domain.SetState(api.NoState, api.ReasonNonExistent)
+	} else {
 		domain.SetState(convState(status), convReason(status, reason))
 	}
 
-	switch event.Event {
-	case libvirt.DOMAIN_EVENT_DEFINED:
-		if libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
+	switch domain.Status.Reason {
+	case api.ReasonNonExistent:
+		watcher <- watch.Event{Type: watch.Deleted, Object: domain}
+	default:
+		if event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
 			watcher <- watch.Event{Type: watch.Added, Object: domain}
 		} else {
 			watcher <- watch.Event{Type: watch.Modified, Object: domain}
 		}
-	case libvirt.DOMAIN_EVENT_UNDEFINED:
-		watcher <- watch.Event{Type: watch.Deleted, Object: domain}
-	default:
-		watcher <- watch.Event{Type: watch.Modified, Object: domain}
 	}
 
 }
@@ -279,4 +266,8 @@ func convReason(status libvirt.DomainState, reason int) api.StateChangeReason {
 	default:
 		return api.ReasonUnknown
 	}
+}
+
+func newWatchEventError(err error) watch.Event {
+	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }

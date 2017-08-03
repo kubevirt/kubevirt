@@ -125,6 +125,9 @@ const (
 	ReasonSaved        StateChangeReason = "Saved"
 	ReasonFailed       StateChangeReason = "Failed"
 	ReasonFromSnapshot StateChangeReason = "FromSnapshot"
+
+	// NoState reasons
+	ReasonNonExistent StateChangeReason = "NonExistent"
 )
 
 type Domain struct {
