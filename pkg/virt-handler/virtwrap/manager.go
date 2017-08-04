@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	domainerrors "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
 
 type DomainManager interface {
@@ -231,7 +232,7 @@ func (l *LibvirtConnection) checkConnectionLost() {
 	defer l.reconnectLock.Unlock()
 
 	err := libvirt.GetLastError()
-	if IsOk(err) {
+	if domainerrors.IsOk(err) {
 		return
 	}
 
@@ -349,7 +350,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// We need the domain but it does not exist, so create it
-		if IsNotFound(err) {
+		if domainerrors.IsNotFound(err) {
 			xmlStr, err := xml.Marshal(&wantedSpec)
 			if err != nil {
 				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
@@ -421,7 +422,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VM does not exist, we are done
-		if IsNotFound(err) {
+		if domainerrors.IsNotFound(err) {
 			return nil
 		} else {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")

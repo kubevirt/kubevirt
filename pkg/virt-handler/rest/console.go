@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
 
 var upgrader = websocket.Upgrader{
@@ -54,7 +55,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	log := logging.DefaultLogger().Object(vm)
 	domain, err := t.connection.LookupDomainByName(virtwrap.VMNamespaceKeyFunc(vm))
 	if err != nil {
-		if virtwrap.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			log.Error().Reason(err).Msg("Domain not found.")
 			response.WriteError(http.StatusNotFound, err)
 			return

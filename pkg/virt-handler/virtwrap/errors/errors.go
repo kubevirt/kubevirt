@@ -17,7 +17,7 @@
  *
  */
 
-package virtwrap
+package errors
 
 import (
 	"github.com/libvirt/libvirt-go"
