@@ -25,7 +25,6 @@ import (
 
 	"github.com/libvirt/libvirt-go"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -124,7 +123,7 @@ func newDomainWatcher(c cli.Connection, events ...int) (watch.Interface, error) 
 
 		// check for reconnects, and emit an error to force a resync
 		if event == nil {
-			watcher.C <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: "Libvirt reconnected"}}
+			watcher.C <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: "Libvirt reconnected"}}
 			return
 		}
 		logging.DefaultLogger().Info().V(3).Msgf("Libvirt event %d with reason %d received", event.Event, event.Detail)
@@ -188,7 +187,7 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 	domain, err := NewDomain(d)
 	if err != nil {
 		logging.DefaultLogger().Error().Reason(err).Msg("Could not create the Domain.")
-		watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
+		watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 		return
 	}
 	logging.DefaultLogger().Info().Msgf("event received: %v:%v", event.Event, event.Detail)
@@ -207,7 +206,7 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 
 				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
-					watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
+					watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 					return
 				}
 			} else {
@@ -219,7 +218,7 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 
 			if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
-				watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
+				watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 				return
 			}
 			domain.SetState(api.NoState, api.ReasonUnknown)
