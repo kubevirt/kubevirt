@@ -28,12 +28,14 @@ import (
 
 	"time"
 
-	"github.com/emicklei/go-restful"
-	"github.com/libvirt/libvirt-go"
+	restful "github.com/emicklei/go-restful"
+	libvirt "github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
@@ -55,6 +57,8 @@ func main() {
 	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8185, "Port to listen on")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
+	podName := flag.String("podname", "", "Kubernetes Pod name")
+	namespace := flag.String("namespace", k8sv1.NamespaceDefault, "Kubernetes Pod's namespace")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -67,6 +71,8 @@ func main() {
 	}
 	log := logging.DefaultLogger()
 	log.Info().V(1).Log("hostname", *host)
+	log.Info().V(1).Log("podname", *podName)
+	log.Info().V(1).Log("namespace", *namespace)
 
 	go func() {
 		for {
@@ -150,6 +156,40 @@ func main() {
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/console").To(console.Console))
 	restful.DefaultContainer.Add(ws)
+
+	if len(*podName) > 0 {
+		_, err = coreClient.
+			CoreV1().
+			Pods(*namespace).
+			Patch(*podName, types.JSONPatchType, []byte(fmt.Sprintf("[{\"op\": \"replace\", \"path\": \"/metadata/annotations/virtHandlerPort\", \"value\": \"%d\"}]", *port)))
+		if err != nil {
+			fmt.Printf("Can't set annotation to virt-handler: %s\n", err.Error())
+		}
+
+	} else {
+		labelSelector, err := labels.Parse("daemon in (virt-handler)")
+		if err != nil {
+			fmt.Printf("Can't parse label selector: %s\n", err.Error())
+			return
+		}
+
+		pods, err := coreClient.CoreV1().Pods(*namespace).List(meta_v1.ListOptions{LabelSelector: labelSelector.String()})
+		if err != nil {
+			fmt.Printf("Can't find virt-handler pod: %s\n", err.Error())
+			return
+		}
+
+		virtHandlerUrl := pods.Items[0].GetSelfLink()
+		fmt.Println(virtHandlerUrl)
+		_, err = restClient.
+			Patch(types.JSONPatchType).
+			AbsPath(virtHandlerUrl).
+			Body([]byte(fmt.Sprintf("[{\"op\": \"replace\", \"path\": \"/metadata/annotations/virtHandlerPort\", \"value\": \"%d\"}]", *port))).Do().Raw()
+
+		if err != nil {
+			fmt.Printf("Can't set annotation to virt-handler: %s\n", err.Error())
+		}
+	}
 	server := &http.Server{Addr: *listen + ":" + strconv.Itoa(*port), Handler: restful.DefaultContainer}
 	server.ListenAndServe()
 }

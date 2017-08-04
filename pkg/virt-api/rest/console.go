@@ -26,7 +26,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	k8sv1 "k8s.io/api/core/v1"
 	k8sv1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,8 +107,12 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 
 	dstAddr := string(pods.Items[0].Status.PodIP)
 
-	// FIXME, don't hardcode virt-handler port. virt-handler should register itself somehow
-	port := "8185"
+	port := string(pods.Items[0].Annotations["virtHandlerPort"])
+	if len(port) == 0 {
+		log.Error().Reason(err).Msg("Can't find 'virtHandlerPort' annotation in virt-handler POD")
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf("Can't find 'virtHandlerPort' annotation in virt-handler POD"))
+		return
+	}
 	if t.VirtHandlerPort != "" {
 		port = t.VirtHandlerPort
 	}
