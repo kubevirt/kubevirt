@@ -363,7 +363,7 @@ func removeNamespaces() {
 
 	// Wait until the namespaces are terminated
 	for _, namespace := range testNamespaces {
-		Eventually(func() bool { return errors.IsNotFound(coreClient.Namespaces().Delete(namespace, nil)) }, 30*time.Second, 1*time.Second).
+		Eventually(func() bool { return errors.IsNotFound(coreClient.Namespaces().Delete(namespace, nil)) }, 60*time.Second, 1*time.Second).
 			Should(BeTrue())
 	}
 }
