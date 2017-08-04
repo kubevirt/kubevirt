@@ -27,7 +27,6 @@ package virtwrap
 
 import (
 	"encoding/xml"
-	"fmt"
 
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
@@ -38,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
@@ -57,12 +57,6 @@ func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRec
 	return &manager, nil
 }
 
-func VMNamespaceKeyFunc(vm *v1.VM) string {
-	// Construct the domain name with a namespace prefix. E.g. namespace>name
-	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
-	return domName
-}
-
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	var wantedSpec api.DomainSpec
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
@@ -71,7 +65,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 		return nil, errors.NewAggregate(mappingErrs)
 	}
 
-	domName := VMNamespaceKeyFunc(vm)
+	domName := cache.VMNamespaceKeyFunc(vm)
 	wantedSpec.Name = domName
 	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
 	dom, err := l.virConn.LookupDomainByName(domName)
@@ -145,7 +139,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 }
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
-	domName := VMNamespaceKeyFunc(vm)
+	domName := cache.VMNamespaceKeyFunc(vm)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VM does not exist, we are done

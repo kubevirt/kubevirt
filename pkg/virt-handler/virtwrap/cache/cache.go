@@ -21,6 +21,7 @@ package cache
 
 import (
 	"encoding/xml"
+	"fmt"
 	"strings"
 
 	"github.com/libvirt/libvirt-go"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
@@ -148,6 +150,13 @@ func NewDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 	}
 
 	return &domain, nil
+}
+
+// VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
+// namespace_name.
+func VMNamespaceKeyFunc(vm *v1.VM) string {
+	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
+	return domName
 }
 
 // SplitVMNamespaceKey returns the namespace and name that is encoded in the
