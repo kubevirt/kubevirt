@@ -16,7 +16,7 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM kubevirt/registry-disk-v1alpha:devel
+FROM kubevirt/registry-disk-v1alpha
 
 MAINTAINER "David Vossel" \<dvossel@redhat.com\>
 

@@ -38,7 +38,14 @@ fi
 
 for arg in $args; do
     if [ "${target}" = "build" ]; then
-        (cd $arg; docker $target -t ${docker_prefix}/$(basename $arg):${docker_tag} .)
+        # TODO the version of docker we're using in our vagrant dev environment
+        # does not support using ARGS in FROM field.
+        # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
+        # Because of this we have to manipulate the Dockerfile for kubevirt containers
+        # that depend on other kubevirt containers.
+        cat $arg/Dockerfile | sed s/registry-disk-v1alpha/registry-disk-v1alpha\:$docker_tag/g > $arg/.GeneratedDockerfile
+        (cd $arg; docker $target -t ${docker_prefix}/$(basename $arg):${docker_tag} -f .GeneratedDockerfile .)
+        rm $arg/.GeneratedDockerfile
     elif [ "${target}" = "push" ]; then
         (cd $arg; docker $target ${docker_prefix}/$(basename $arg):${docker_tag})
     fi
