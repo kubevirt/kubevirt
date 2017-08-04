@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
 
@@ -40,10 +41,10 @@ var upgrader = websocket.Upgrader{
 }
 
 type Console struct {
-	connection virtwrap.Connection
+	connection cli.Connection
 }
 
-func NewConsoleResource(connection virtwrap.Connection) *Console {
+func NewConsoleResource(connection cli.Connection) *Console {
 	return &Console{connection: connection}
 }
 

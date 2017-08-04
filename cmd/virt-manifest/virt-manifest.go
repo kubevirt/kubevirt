@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-manifest/rest"
 )
 
@@ -47,7 +47,7 @@ func main() {
 
 	log.Info().Msg("Connecting to libvirt")
 
-	domainConn, err := virtwrap.NewConnection(*libvirtUri, "", "", 60*time.Second)
+	domainConn, err := cli.NewConnection(*libvirtUri, "", "", 60*time.Second)
 	if err != nil {
 		log.Error().Reason(err).Msg("cannot connect to libvirt")
 		panic(fmt.Sprintf("failed to connect to libvirt: %v", err))

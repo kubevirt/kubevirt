@@ -28,8 +28,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
 
 const (
@@ -70,7 +70,7 @@ func ExtractPvc(dom *v1.DomainSpec) (*v1.DomainSpec, []savedDisk) {
 
 // This is a simplified version of the domain creation portion of SyncVM. This is intended primarily
 // for mapping the VM spec without starting a domain.
-func MapVM(con virtwrap.Connection, vm *v1.VM) (*v1.VM, error) {
+func MapVM(con cli.Connection, vm *v1.VM) (*v1.VM, error) {
 	log := logging.DefaultLogger()
 
 	vmCopy := &v1.VM{}

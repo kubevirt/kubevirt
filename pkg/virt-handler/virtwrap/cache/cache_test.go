@@ -31,21 +31,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
 
 var _ = Describe("Cache", func() {
-	var mockConn *virtwrap.MockConnection
-	var mockDomain *virtwrap.MockVirDomain
+	var mockConn *cli.MockConnection
+	var mockDomain *cli.MockVirDomain
 	var ctrl *gomock.Controller
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockConn = virtwrap.NewMockConnection(ctrl)
-		mockDomain = virtwrap.NewMockVirDomain(ctrl)
+		mockConn = cli.NewMockConnection(ctrl)
+		mockDomain = cli.NewMockVirDomain(ctrl)
 	})
 
 	Context("on syncing with libvirt", func() {
@@ -58,7 +58,7 @@ var _ = Describe("Cache", func() {
 				x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
 				Expect(err).To(BeNil())
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
-				mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]virtwrap.VirDomain{mockDomain}, nil)
+				mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
 
 				informer, err := NewSharedInformer(mockConn)
 				Expect(err).To(BeNil())

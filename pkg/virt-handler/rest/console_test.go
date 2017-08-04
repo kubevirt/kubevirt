@@ -36,15 +36,15 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
 
 var _ = Describe("Console", func() {
 	var handler http.Handler
 
-	var mockConn *virtwrap.MockConnection
-	var mockDomain *virtwrap.MockVirDomain
-	var mockStream *virtwrap.MockStream
+	var mockConn *cli.MockConnection
+	var mockDomain *cli.MockVirDomain
+	var mockStream *cli.MockStream
 	var ctrl *gomock.Controller
 	var mockRecorder *record.FakeRecorder
 	var server *httptest.Server
@@ -72,9 +72,9 @@ var _ = Describe("Console", func() {
 		var err error
 		// Set up mocks
 		ctrl = gomock.NewController(GinkgoT())
-		mockConn = virtwrap.NewMockConnection(ctrl)
-		mockDomain = virtwrap.NewMockVirDomain(ctrl)
-		mockStream = virtwrap.NewMockStream(ctrl)
+		mockConn = cli.NewMockConnection(ctrl)
+		mockDomain = cli.NewMockVirDomain(ctrl)
+		mockStream = cli.NewMockStream(ctrl)
 		mockRecorder = record.NewFakeRecorder(10)
 
 		// Set up web service

@@ -35,11 +35,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
 
 var _ = Describe("Manager", func() {
-	var mockConn *MockConnection
-	var mockDomain *MockVirDomain
+	var mockConn *cli.MockConnection
+	var mockDomain *cli.MockVirDomain
 	var ctrl *gomock.Controller
 	var recorder *record.FakeRecorder
 	testVmName := "testvm"
@@ -50,8 +51,8 @@ var _ = Describe("Manager", func() {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockConn = NewMockConnection(ctrl)
-		mockDomain = NewMockVirDomain(ctrl)
+		mockConn = cli.NewMockConnection(ctrl)
+		mockDomain = cli.NewMockVirDomain(ctrl)
 		recorder = record.NewFakeRecorder(10)
 		// Make sure that we always free the domain after use
 		mockDomain.EXPECT().Free()
