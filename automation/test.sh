@@ -101,14 +101,22 @@ kubectl delete pods --all
 # Deploy kubevirt
 cluster/sync.sh
 
-# Wait until kubevirt is ready
+# Wait until kubevirt pods are running
 while [ -n "$(kubectl get pods --no-headers | grep -v Running)" ]; do
-    echo "Waiting for kubevirt pods to become ready ..."
+    echo "Waiting for kubevirt pods to enter the Running state ..."
     kubectl get pods --no-headers | >&2 grep -v Running
     sleep 10
 done
+
+# Make sure all containers are ready
+while [ -n "$(kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false)" ]; do
+    echo "Waiting for KubeVirt containers to become ready ..."
+    kubectl get pods -ocustom-columns='name:metadata.name,ready:status.containerStatuses[*].ready' | grep false
+    sleep 10
+done
+
 kubectl get pods
-cluster/kubectl.sh version
+kubectl version
 
 # Run functional tests
 FUNC_TEST_ARGS="--ginkgo.noColor" make functest
