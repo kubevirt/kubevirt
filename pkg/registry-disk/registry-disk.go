@@ -135,7 +135,9 @@ func Initialize(vm *v1.VM, clientset *kubernetes.Clientset) error {
 	for idx, disk := range vm.Spec.Domain.Devices.Disks {
 		if disk.Type == registryDiskV1Alpha {
 
-			// Generate Dynamic Auth Credential for Registry Disks
+			// Generate Dynamic Auth Credential for Registry Disks the first
+			// time one is encountered. This random user will be used to authenticate
+			// all ephemeral disks associated with this VM.
 			if authUser == "" {
 				authUser, err = generateRandomString(32)
 				if err != nil {
@@ -158,7 +160,6 @@ func Initialize(vm *v1.VM, clientset *kubernetes.Clientset) error {
 
 			// Reference k8s secret in Disk device
 			vm.Spec.Domain.Devices.Disks[idx].Auth = &v1.DiskAuth{
-				Username: authUser,
 				Secret: &v1.DiskSecret{
 					Type:  "iscsi",
 					Usage: secretID,
@@ -175,6 +176,7 @@ func Initialize(vm *v1.VM, clientset *kubernetes.Clientset) error {
 			return err
 		}
 		pass64 := base64.StdEncoding.EncodeToString([]byte(pass))
+		user64 := base64.StdEncoding.EncodeToString([]byte(authUser))
 
 		// Store Auth as k8s secret
 		secret := kubev1.Secret{
@@ -185,9 +187,10 @@ func Initialize(vm *v1.VM, clientset *kubernetes.Clientset) error {
 					v1.DomainLabel: domain,
 				},
 			},
-			Type: kubev1.SecretTypeOpaque,
+			Type: "kubernetes.io/iscsi-chap",
 			Data: map[string][]byte{
-				"password": []byte(pass64),
+				"node.session.auth.password": []byte(pass64),
+				"node.session.auth.username": []byte(user64),
 			},
 		}
 
@@ -245,8 +248,6 @@ func GenerateContainers(vm *v1.VM) ([]kubev1.Container, error) {
 				return nil, err
 			}
 
-			diskAuthUser := disk.Auth.Username
-
 			containers = append(containers, kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
@@ -270,18 +271,21 @@ func GenerateContainers(vm *v1.VM) ([]kubev1.Container, error) {
 								LocalObjectReference: kubev1.LocalObjectReference{
 									Name: k8sSecretName(vm),
 								},
-								Key: "password",
+								Key: "node.session.auth.password",
 							},
 						},
 					},
 					kubev1.EnvVar{
-						Name:  "USERNAME",
-						Value: diskAuthUser,
+						Name: "USERNAME_BASE64",
+						ValueFrom: &kubev1.EnvVarSource{
+							SecretKeyRef: &kubev1.SecretKeySelector{
+								LocalObjectReference: kubev1.LocalObjectReference{
+									Name: k8sSecretName(vm),
+								},
+								Key: "node.session.auth.username",
+							},
+						},
 					},
-					// TODO once dynamic auth is implemented, pass creds as
-					// PASSWORD and USERNAME env vars. The registry disk base
-					// container already knows how to enable authentication
-					// when those env vars are present.
 				},
 				// The readiness probes ensure the ISCSI targets are available
 				// before the container is marked as "Ready: True"

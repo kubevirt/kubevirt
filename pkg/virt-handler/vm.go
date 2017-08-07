@@ -285,8 +285,8 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 	return vmCopy, nil
 }
 
-func (d *VMHandlerDispatch) addVmSecrets(vm *v1.VM) error {
-	for _, disk := range vm.Spec.Domain.Devices.Disks {
+func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
+	for idx, disk := range vm.Spec.Domain.Devices.Disks {
 		if disk.Auth == nil || disk.Auth.Secret == nil || disk.Auth.Secret.Usage == "" {
 			continue
 		}
@@ -295,25 +295,39 @@ func (d *VMHandlerDispatch) addVmSecrets(vm *v1.VM) error {
 		secret, err := d.clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(usageID, metav1.GetOptions{})
 		if err != nil {
 			logging.DefaultLogger().Error().Reason(err).Msg("Defining the VM secret failed unable to pull corresponding k8s secret value")
-			return err
+			return nil, err
 		}
 
-		secretBase64, ok := secret.Data["password"]
+		secretBase64, ok := secret.Data["node.session.auth.password"]
 		if ok == false {
-			return goerror.New(fmt.Sprintf("No password value found in k8s secret %s %v", usageID, err))
+			return nil, goerror.New(fmt.Sprintf("No password value found in k8s secret %s %v", usageID, err))
 		}
 		secretValue, err := base64.StdEncoding.DecodeString(string(secretBase64[:]))
 		if err != nil {
-			return goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret %s %v", usageID, err))
+			return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret %s %v", usageID, err))
+		}
+
+		userBase64, ok := secret.Data["node.session.auth.username"]
+		if ok == false {
+			if disk.Auth.Username == "" {
+				return nil, goerror.New(fmt.Sprintf("Failed to find username for disk auth %s", usageID))
+			}
+		} else {
+
+			userValue, err := base64.StdEncoding.DecodeString(string(userBase64[:]))
+			if err != nil {
+				return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret username data field %s %v", usageID, err))
+			}
+			vm.Spec.Domain.Devices.Disks[idx].Auth.Username = string(userValue)
 		}
 
 		err = d.domainManager.SyncVMSecret(vm, usageType, usageID, string(secretValue))
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return vm, nil
 }
 
 func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) error {
@@ -344,17 +358,17 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 		return err
 	}
 
+	vm, err = d.injectDiskAuth(vm)
+	if err != nil {
+		return err
+	}
+
 	// TODO MigrationNodeName should be a pointer
 	if vm.Status.MigrationNodeName != "" {
 		// Only sync if the VM is not marked as migrating.
 		// Everything except shutting down the VM is not
 		// permitted when it is migrating.
 		return nil
-	}
-
-	err = d.addVmSecrets(vm)
-	if err != nil {
-		return err
 	}
 
 	// TODO check if found VM has the same UID like the domain,

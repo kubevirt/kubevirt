@@ -28,6 +28,9 @@ IMAGE_PATH=/disk/$IMAGE_NAME
 if [ -n "$PASSWORD_BASE64" ]; then
 	PASSWORD=$(echo $PASSWORD_BASE64 | base64 -d)
 fi
+if [ -n "$USERNAME_BASE64" ]; then
+	USERNAME=$(echo $USERNAME_BASE64 | base64 -d)
+fi
 
 # If PASSWORD is provided, enable authentication features
 authenticate=0
