@@ -20,6 +20,8 @@
 package registrydisk
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -27,8 +29,12 @@ import (
 	"github.com/jeevatkm/go-model"
 
 	kubev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 const registryDiskV1Alpha = "ContainerRegistryDisk:v1alpha"
@@ -36,6 +42,15 @@ const defaultIqn = "iqn.2017-01.io.kubevirt:wrapper/1"
 const defaultPort = 3261
 const defaultPortStr = "3261"
 const defaultHost = "127.0.0.1"
+
+func generateRandomString(len int) (string, error) {
+	bytes := make([]byte, len)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(bytes), nil
+}
 
 func DisksAreReady(pod *kubev1.Pod) bool {
 	// Wait for readiness probes on image wrapper containers
@@ -49,6 +64,10 @@ func DisksAreReady(pod *kubev1.Pod) bool {
 		}
 	}
 	return true
+}
+
+func k8sSecretName(vm *v1.VM) string {
+	return fmt.Sprintf("registrydisk-iscsi-%s-%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 }
 
 // The virt-handler converts registry disks to their corresponding iscsi network
@@ -76,6 +95,8 @@ func MapRegistryDisks(vm *v1.VM) (*v1.VM, error) {
 			newDisk.Source.Protocol = "iscsi"
 			newDisk.Source.Host = disk.Source.Host
 
+			newDisk.Auth = disk.Auth
+
 			vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
 		}
 	}
@@ -83,18 +104,45 @@ func MapRegistryDisks(vm *v1.VM) (*v1.VM, error) {
 	return vmCopy, nil
 }
 
-// TODO Introduce logic that dynamically generates iscsi CHAP
-// Authentication credentials for a VM spec backed by registry disks.
-//
-//func ApplyAuth(vm *v1.VM) {
-//     INSERT DYNAMIC AUTH LOGIC HERE
-//}
+func CleanUp(vm *v1.VM, clientset *kubernetes.Clientset) error {
+	precond.MustNotBeNil(vm)
+	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+	precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.DomainLabel+" in (%s)", vm.GetObjectMeta().GetName()))
+	if err != nil {
+		panic(err)
+	}
+
+	listOptions := metav1.ListOptions{LabelSelector: labelSelector.String()}
+
+	if err := clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).DeleteCollection(nil, listOptions); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // The controller applies ports to registry disks when a VM spec is introduced into the cluster.
-func ApplyPorts(vm *v1.VM) {
+func Initialize(vm *v1.VM, clientset *kubernetes.Clientset) error {
+
+	var err error
+	authUser := ""
+	secretID := k8sSecretName(vm)
 	wrapperStartingPort := defaultPort
+	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+
 	for idx, disk := range vm.Spec.Domain.Devices.Disks {
 		if disk.Type == registryDiskV1Alpha {
+
+			// Generate Dynamic Auth Credential for Registry Disks
+			if authUser == "" {
+				authUser, err = generateRandomString(32)
+				if err != nil {
+					return err
+				}
+			}
+
 			port := fmt.Sprintf("%d", wrapperStartingPort)
 			name := defaultHost
 			if disk.Source.Host != nil {
@@ -107,8 +155,50 @@ func ApplyPorts(vm *v1.VM) {
 				Name: name,
 			}
 			wrapperStartingPort++
+
+			// Reference k8s secret in Disk device
+			vm.Spec.Domain.Devices.Disks[idx].Auth = &v1.DiskAuth{
+				Username: authUser,
+				Secret: &v1.DiskSecret{
+					Type:  "iscsi",
+					Usage: secretID,
+				},
+			}
+
 		}
 	}
+
+	/* add k8s secret if authUser was generated */
+	if authUser != "" {
+		pass, err := generateRandomString(32)
+		if err != nil {
+			return err
+		}
+		pass64 := base64.StdEncoding.EncodeToString([]byte(pass))
+
+		// Store Auth as k8s secret
+		secret := kubev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretID,
+				Namespace: vm.GetObjectMeta().GetNamespace(),
+				Labels: map[string]string{
+					v1.DomainLabel: domain,
+				},
+			},
+			Type: kubev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"password": []byte(pass64),
+			},
+		}
+
+		_, err = clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(secretID, metav1.GetOptions{})
+		if err != nil {
+			if _, err := clientset.Core().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // The controller uses this function communicate the IP address of the POD
@@ -154,6 +244,9 @@ func GenerateContainers(vm *v1.VM) ([]kubev1.Container, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			diskAuthUser := disk.Auth.Username
+
 			containers = append(containers, kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
@@ -169,6 +262,21 @@ func GenerateContainers(vm *v1.VM) ([]kubev1.Container, error) {
 					kubev1.EnvVar{
 						Name:  "PORT",
 						Value: port,
+					},
+					kubev1.EnvVar{
+						Name: "PASSWORD_BASE64",
+						ValueFrom: &kubev1.EnvVarSource{
+							SecretKeyRef: &kubev1.SecretKeySelector{
+								LocalObjectReference: kubev1.LocalObjectReference{
+									Name: k8sSecretName(vm),
+								},
+								Key: "password",
+							},
+						},
+					},
+					kubev1.EnvVar{
+						Name:  "USERNAME",
+						Value: diskAuthUser,
 					},
 					// TODO once dynamic auth is implemented, pass creds as
 					// PASSWORD and USERNAME env vars. The registry disk base

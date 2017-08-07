@@ -179,8 +179,6 @@ func (c *VMController) execute(key string) error {
 			}
 		}
 
-		registrydisk.ApplyPorts(&vmCopy)
-
 		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
 			logger.Error().Reason(err).Msg("Defining a target pod for the VM failed.")

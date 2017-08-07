@@ -38,7 +38,6 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -135,7 +134,14 @@ var _ = Describe("VM watcher", func() {
 				Target: v1.DiskTarget{
 					Device: "vda",
 				},
+				Auth: &v1.DiskAuth{
+					Username: "fake",
+				},
 			})
+			vm.Spec.Domain.Devices.Disks[0].Source.Host = &v1.DiskSourceHost{
+				Port: "4444",
+				Name: "127.0.0.1",
+			}
 
 			// Create a Pod for the VM
 			templateService, err := services.NewTemplateService("whatever", "whatever")
@@ -146,7 +152,7 @@ var _ = Describe("VM watcher", func() {
 			// to render the pod object early for the test.
 			vmCopy := v1.VM{}
 			model.Copy(&vmCopy, vm)
-			registrydisk.ApplyPorts(&vmCopy)
+
 			pod, err := templateService.RenderLaunchManifest(&vmCopy)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -165,11 +171,17 @@ var _ = Describe("VM watcher", func() {
 			podListPostCreate := clientv1.PodList{}
 			podListPostCreate.Items = []clientv1.Pod{*pod}
 
+			secret := clientv1.Secret{}
+
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, podListInitial),
+				),
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/secrets/registrydisk-iscsi-default-testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, secret),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
@@ -188,7 +200,7 @@ var _ = Describe("VM watcher", func() {
 			app.vmQueue.Add(key)
 			app.vmController.Execute()
 
-			Expect(len(server.ReceivedRequests())).To(Equal(3))
+			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			close(done)
 		}, 10)
 	})
