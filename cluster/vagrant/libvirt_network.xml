@@ -1,6 +1,0 @@
-<network>
-  <name>kubevirt-net</name>
-  <forward mode="bridge">
-    <interface dev="eth1"/>
-  </forward>
-</network>
