@@ -144,6 +144,7 @@ var _ = Describe("Schema", func() {
 		It("converts to libvirt.DomainSpec", func() {
 			virtDomainSpec := DomainSpec{}
 			errs := model.Copy(&virtDomainSpec, v1DomainSpec)
+			virtDomainSpec.Name = "testvm"
 			Expect(virtDomainSpec).To(Equal(*exampleDomain))
 			Expect(errs).To(BeEmpty())
 		})
