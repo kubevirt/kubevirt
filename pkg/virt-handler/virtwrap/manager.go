@@ -27,6 +27,8 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	goerrors "errors"
+	"fmt"
 
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
@@ -43,6 +45,8 @@ import (
 )
 
 type DomainManager interface {
+	SyncVMSecret(vm *v1.VM, usageType string, usageID string, secretValue string) error
+	RemoveVMSecrets(*v1.VM) error
 	SyncVM(*v1.VM) (*api.DomainSpec, error)
 	KillVM(*v1.VM) error
 }
@@ -57,11 +61,58 @@ func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRec
 	return &manager, nil
 }
 
+func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID string, secretValue string) error {
+
+	domName := cache.VMNamespaceKeyFunc(vm)
+
+	switch usageType {
+	case "iscsi":
+		libvirtSecret, err := l.virConn.LookupSecretByUsage(libvirt.SECRET_USAGE_TYPE_ISCSI, usageID)
+
+		// If the secret doesn't exist, make it
+		if err != nil {
+			if err.(libvirt.Error).Code != libvirt.ERR_NO_SECRET {
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Failed to get libvirt secret.")
+				return err
+
+			}
+			secretSpec := &api.SecretSpec{
+				Ephemeral:   "no",
+				Private:     "yes",
+				Description: domName,
+				Usage: api.SecretUsage{
+					Type:   usageType,
+					Target: usageID,
+				},
+			}
+
+			xmlStr, err := xml.Marshal(&secretSpec)
+			libvirtSecret, err = l.virConn.SecretDefineXML(string(xmlStr))
+			if err != nil {
+				logging.DefaultLogger().Error().Reason(err).Msg("Defining the VM secret failed.")
+				return err
+			}
+		}
+		defer libvirtSecret.Free()
+
+		err = libvirtSecret.SetValue([]byte(secretValue), 0)
+		if err != nil {
+			logging.DefaultLogger().Error().Reason(err).Msg("Setting secret value for the VM failed.")
+			return err
+		}
+
+	default:
+		return goerrors.New(fmt.Sprintf("unsupported disk auth usage type %s", usageType))
+	}
+	return nil
+}
+
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	var wantedSpec api.DomainSpec
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
 
 	if len(mappingErrs) > 0 {
+		logging.DefaultLogger().Error().Msg("model copy failed.")
 		return nil, errors.NewAggregate(mappingErrs)
 	}
 
@@ -136,6 +187,49 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 
 	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
 	return &newSpec, nil
+}
+
+func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VM) error {
+	domName := cache.VMNamespaceKeyFunc(vm)
+
+	// TODO this is horribly inefficient. Maybe there's a better way?
+	// Every time we want to garbage collect secrets associated
+	// with a VM, we have to iterate over the entire secrets list
+	secrets, err := l.virConn.ListSecrets()
+	if err != nil {
+		if err.(libvirt.Error).Code == libvirt.ERR_NO_SECRET {
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	for _, secretUUID := range secrets {
+		var secretSpec api.SecretSpec
+
+		secret, err := l.virConn.LookupSecretByUUIDString(secretUUID)
+		if err != nil {
+			return err
+		}
+		defer secret.Free()
+
+		xmlstr, err := secret.GetXMLDesc(0)
+		if err != nil {
+			return err
+		}
+
+		err = xml.Unmarshal([]byte(xmlstr), &secretSpec)
+		if err != nil {
+			return err
+		}
+		if secretSpec.Description == domName {
+			err = secret.Undefine()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {

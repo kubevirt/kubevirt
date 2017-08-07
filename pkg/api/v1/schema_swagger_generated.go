@@ -18,6 +18,14 @@ func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (DiskAuth) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (DiskSecret) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (ReadOnly) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }

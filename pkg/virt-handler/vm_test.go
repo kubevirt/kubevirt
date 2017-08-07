@@ -88,6 +88,7 @@ var _ = Describe("VM", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, struct{}{}),
 				),
 			)
+			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm")).Do(func(vm *v1.VM) {
 				close(done)
 			})

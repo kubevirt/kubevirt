@@ -77,6 +77,8 @@ func init() {
 	mapper.AddPtrConversion((**ChannelTarget)(nil), (**v1.ChannelTarget)(nil))
 	mapper.AddConversion(&VideoModel{}, &v1.Video{})
 	mapper.AddConversion(&Listen{}, &v1.Listen{})
+	mapper.AddPtrConversion((**DiskAuth)(nil), (**v1.DiskAuth)(nil))
+	mapper.AddPtrConversion((**DiskSecret)(nil), (**v1.DiskSecret)(nil))
 
 	model.AddConversion(&Video{}, &v1.Video{}, func(in reflect.Value) (reflect.Value, error) {
 		out := v1.Video{}
@@ -184,6 +186,17 @@ type Disk struct {
 	Serial   string      `xml:"serial,omitempty"`
 	Driver   *DiskDriver `xml:"driver,omitempty"`
 	ReadOnly *ReadOnly   `xml:"readonly,omitempty"`
+	Auth     *DiskAuth   `xml:"auth,omitempty"`
+}
+
+type DiskAuth struct {
+	Username string      `xml:"username,attr"`
+	Secret   *DiskSecret `xml:"secret,omitempty"`
+}
+
+type DiskSecret struct {
+	Type  string `xml:"type,attr"`
+	Usage string `xml:"usage,attr"`
 }
 
 type ReadOnly struct{}
@@ -442,6 +455,19 @@ type RandomGenerator struct {
 }
 
 // TODO ballooning, rng, cpu ...
+
+type SecretUsage struct {
+	Type   string `xml:"type,attr"`
+	Target string `xml:"target,omitempty"`
+}
+
+type SecretSpec struct {
+	XMLName     xml.Name    `xml:"secret"`
+	Ephemeral   string      `xml:"ephemeral,attr"`
+	Private     string      `xml:"private,attr"`
+	Description string      `xml:"description,omitempty"`
+	Usage       SecretUsage `xml:"usage,omitempty"`
+}
 
 func NewMinimalDomainSpec(vmName string) *DomainSpec {
 	precond.MustNotBeEmpty(vmName)
