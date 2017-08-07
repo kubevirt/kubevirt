@@ -17,7 +17,7 @@
  *
  */
 
-package virtwrap
+package cli
 
 import (
 	. "github.com/onsi/ginkgo"

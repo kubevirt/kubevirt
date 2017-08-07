@@ -30,12 +30,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-manifest"
 )
 
 type manifest struct {
-	connection virtwrap.Connection
+	connection cli.Connection
 }
 
 // TODO: this should be a generalized decoder in rest/endpoints
@@ -56,7 +56,7 @@ func NewNonNamespacedJsonPostDecodeRequestFunc(payloadTypePtr interface{}) gokit
 	}
 }
 
-func ManifestService(connection virtwrap.Connection) (*restful.WebService, error) {
+func ManifestService(connection cli.Connection) (*restful.WebService, error) {
 	ws := new(restful.WebService)
 
 	m := manifest{

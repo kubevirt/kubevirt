@@ -21,20 +21,21 @@ package cache
 
 import (
 	"encoding/xml"
+	"fmt"
 	"strings"
 
 	"github.com/libvirt/libvirt-go"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{
@@ -70,7 +71,7 @@ var CrashedReasonTranslationMap = map[libvirt.DomainCrashedReason]api.StateChang
 }
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
-func newListWatchFromClient(c virtwrap.Connection, events ...int) *cache.ListWatch {
+func newListWatchFromClient(c cli.Connection, events ...int) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		logging.DefaultLogger().Info().V(3).Msg("Synchronizing domains")
 		doms, err := c.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
@@ -118,13 +119,13 @@ func (d *DomainWatcher) ResultChan() <-chan watch.Event {
 	return d.C
 }
 
-func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, error) {
+func newDomainWatcher(c cli.Connection, events ...int) (watch.Interface, error) {
 	watcher := &DomainWatcher{C: make(chan watch.Event)}
 	callback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
 
 		// check for reconnects, and emit an error to force a resync
 		if event == nil {
-			watcher.C <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: "Libvirt reconnected"}}
+			watcher.C <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: "Libvirt reconnected"}}
 			return
 		}
 		logging.DefaultLogger().Info().V(3).Msgf("Libvirt event %d with reason %d received", event.Event, event.Detail)
@@ -137,7 +138,7 @@ func newDomainWatcher(c virtwrap.Connection, events ...int) (watch.Interface, er
 	return watcher, err
 }
 
-func NewDomainSpec(dom virtwrap.VirDomain) (*api.DomainSpec, error) {
+func NewDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 	domain := api.DomainSpec{}
 	domxml, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
 	if err != nil {
@@ -151,6 +152,13 @@ func NewDomainSpec(dom virtwrap.VirDomain) (*api.DomainSpec, error) {
 	return &domain, nil
 }
 
+// VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
+// namespace_name.
+func VMNamespaceKeyFunc(vm *v1.VM) string {
+	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
+	return domName
+}
+
 // SplitVMNamespaceKey returns the namespace and name that is encoded in the
 // domain name.
 func SplitVMNamespaceKey(domainName string) (namespace, name string) {
@@ -161,7 +169,7 @@ func SplitVMNamespaceKey(domainName string) (namespace, name string) {
 	return splitName[0], splitName[1]
 }
 
-func NewDomain(dom virtwrap.VirDomain) (*api.Domain, error) {
+func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 
 	name, err := dom.GetName()
 	if err != nil {
@@ -178,17 +186,17 @@ func NewDomain(dom virtwrap.VirDomain) (*api.Domain, error) {
 	return domain, nil
 }
 
-func NewSharedInformer(c virtwrap.Connection) (cache.SharedInformer, error) {
+func NewSharedInformer(c cli.Connection) (cache.SharedInformer, error) {
 	lw := newListWatchFromClient(c)
 	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
 	return informer, nil
 }
 
-func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan watch.Event) {
+func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan watch.Event) {
 	domain, err := NewDomain(d)
 	if err != nil {
 		logging.DefaultLogger().Error().Reason(err).Msg("Could not create the Domain.")
-		watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
+		watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 		return
 	}
 	logging.DefaultLogger().Info().Msgf("event received: %v:%v", event.Event, event.Detail)
@@ -207,7 +215,7 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 
 				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
-					watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
+					watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 					return
 				}
 			} else {
@@ -219,7 +227,7 @@ func callback(d virtwrap.VirDomain, event *libvirt.DomainEventLifecycle, watcher
 
 			if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
 				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
-				watcher <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
+				watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 				return
 			}
 			domain.SetState(api.NoState, api.ReasonUnknown)

@@ -30,7 +30,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
 
 var upgrader = websocket.Upgrader{
@@ -39,10 +41,10 @@ var upgrader = websocket.Upgrader{
 }
 
 type Console struct {
-	connection virtwrap.Connection
+	connection cli.Connection
 }
 
-func NewConsoleResource(connection virtwrap.Connection) *Console {
+func NewConsoleResource(connection cli.Connection) *Console {
 	return &Console{connection: connection}
 }
 
@@ -52,9 +54,9 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	namespace := request.PathParameter("namespace")
 	vm := v1.NewVMReferenceFromNameWithNS(namespace, vmName)
 	log := logging.DefaultLogger().Object(vm)
-	domain, err := t.connection.LookupDomainByName(virtwrap.VMNamespaceKeyFunc(vm))
+	domain, err := t.connection.LookupDomainByName(cache.VMNamespaceKeyFunc(vm))
 	if err != nil {
-		if virtwrap.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			log.Error().Reason(err).Msg("Domain not found.")
 			response.WriteError(http.StatusNotFound, err)
 			return

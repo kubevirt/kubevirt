@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
+	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
 
 func main() {
@@ -76,7 +77,7 @@ func main() {
 			}
 		}
 	}()
-	domainConn, err := virtwrap.NewConnection(*libvirtUri, "", "", 10*time.Second)
+	domainConn, err := virtcli.NewConnection(*libvirtUri, "", "", 10*time.Second)
 	if err != nil {
 		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
 	}
