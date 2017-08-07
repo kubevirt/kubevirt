@@ -141,6 +141,7 @@ First install the generator tools:
 go get -u github.com/golang/mock/gomock
 go get -u github.com/rmohr/mock/mockgen
 go get -u github.com/rmohr/go-swagger-utils/swagger-doc
+go get github.com/onsi/ginkgo/ginkgo
 ```
 
 Then regenerate the code:
