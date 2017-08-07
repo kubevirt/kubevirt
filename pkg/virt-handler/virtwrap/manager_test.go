@@ -70,6 +70,7 @@ var _ = Describe("Manager", func() {
 			domainSpec.Name = testDomainName
 			xml, err := xml.Marshal(domainSpec)
 			Expect(err).To(BeNil())
+			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().Create().Return(nil)
@@ -88,6 +89,7 @@ var _ = Describe("Manager", func() {
 			Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
 			xml, err := xml.Marshal(domainSpec)
 
+			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
@@ -104,6 +106,7 @@ var _ = Describe("Manager", func() {
 				Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
 				xml, err := xml.Marshal(domainSpec)
 
+				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Create().Return(nil)
@@ -126,6 +129,7 @@ var _ = Describe("Manager", func() {
 			Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
 			xml, err := xml.Marshal(domainSpec)
 
+			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
@@ -141,6 +145,7 @@ var _ = Describe("Manager", func() {
 	Context("on successful VM kill", func() {
 		table.DescribeTable("should try to undefine a VM in state",
 			func(state libvirt.DomainState) {
+				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
@@ -155,6 +160,7 @@ var _ = Describe("Manager", func() {
 		)
 		table.DescribeTable("should try to destroy and undefine a VM in state",
 			func(state libvirt.DomainState) {
+				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Destroy().Return(nil)

@@ -52,12 +52,56 @@ type DomainManager interface {
 }
 
 type LibvirtDomainManager struct {
-	virConn  cli.Connection
-	recorder record.EventRecorder
+	virConn     cli.Connection
+	recorder    record.EventRecorder
+	secretCache map[string]string
+}
+
+func (l *LibvirtDomainManager) initiateSecretCache() error {
+	secrets, err := l.virConn.ListSecrets()
+	if err != nil {
+		if err.(libvirt.Error).Code == libvirt.ERR_NO_SECRET {
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	for _, secretUUID := range secrets {
+		var secretSpec api.SecretSpec
+
+		secret, err := l.virConn.LookupSecretByUUIDString(secretUUID)
+		if err != nil {
+			return err
+		}
+		defer secret.Free()
+
+		xmlstr, err := secret.GetXMLDesc(0)
+		if err != nil {
+			return err
+		}
+
+		err = xml.Unmarshal([]byte(xmlstr), &secretSpec)
+		if err != nil {
+			return err
+		}
+
+		if secretSpec.Description == "" {
+			continue
+		}
+		l.secretCache[secretUUID] = secretSpec.Description
+	}
+
+	return nil
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder) (DomainManager, error) {
-	manager := LibvirtDomainManager{virConn: connection, recorder: recorder}
+	manager := LibvirtDomainManager{virConn: connection, recorder: recorder, secretCache: make(map[string]string)}
+
+	err := manager.initiateSecretCache()
+	if err != nil {
+		return nil, err
+	}
 	return &manager, nil
 }
 
@@ -92,6 +136,17 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID
 				logging.DefaultLogger().Error().Reason(err).Msg("Defining the VM secret failed.")
 				return err
 			}
+
+			secretUUID, err := libvirtSecret.GetUUID()
+			if err != nil {
+				// This error really shouldn't occur. The UUID should be known
+				// locally by the libvirt client. If this fails, we make a best
+				// effort attempt at removing the secret from libvirt.
+				libvirtSecret.Undefine()
+				libvirtSecret.Free()
+				return err
+			}
+			l.secretCache[string(secretUUID)] = domName
 		}
 		defer libvirtSecret.Free()
 
@@ -192,42 +247,28 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VM) error {
 	domName := cache.VMNamespaceKeyFunc(vm)
 
-	// TODO this is horribly inefficient. Maybe there's a better way?
-	// Every time we want to garbage collect secrets associated
-	// with a VM, we have to iterate over the entire secrets list
-	secrets, err := l.virConn.ListSecrets()
-	if err != nil {
-		if err.(libvirt.Error).Code == libvirt.ERR_NO_SECRET {
-			return nil
-		} else {
-			return err
-		}
-	}
+	for secretUUID, curDomName := range l.secretCache {
 
-	for _, secretUUID := range secrets {
-		var secretSpec api.SecretSpec
+		if domName != curDomName {
+			continue
+		}
 
 		secret, err := l.virConn.LookupSecretByUUIDString(secretUUID)
 		if err != nil {
-			return err
+			if err.(libvirt.Error).Code != libvirt.ERR_NO_SECRET {
+				return err
+			}
+			delete(l.secretCache, secretUUID)
+			continue
 		}
 		defer secret.Free()
 
-		xmlstr, err := secret.GetXMLDesc(0)
+		err = secret.Undefine()
 		if err != nil {
 			return err
 		}
 
-		err = xml.Unmarshal([]byte(xmlstr), &secretSpec)
-		if err != nil {
-			return err
-		}
-		if secretSpec.Description == domName {
-			err = secret.Undefine()
-			if err != nil {
-				return err
-			}
-		}
+		delete(l.secretCache, secretUUID)
 	}
 	return nil
 }
