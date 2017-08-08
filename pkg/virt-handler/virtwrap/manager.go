@@ -54,7 +54,7 @@ type DomainManager interface {
 type LibvirtDomainManager struct {
 	virConn     cli.Connection
 	recorder    record.EventRecorder
-	secretCache map[string]string
+	secretCache map[string][]string
 }
 
 func (l *LibvirtDomainManager) initiateSecretCache() error {
@@ -89,14 +89,15 @@ func (l *LibvirtDomainManager) initiateSecretCache() error {
 		if secretSpec.Description == "" {
 			continue
 		}
-		l.secretCache[secretUUID] = secretSpec.Description
+		domName := secretSpec.Description
+		l.secretCache[domName] = append(l.secretCache[domName], secretUUID)
 	}
 
 	return nil
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder) (DomainManager, error) {
-	manager := LibvirtDomainManager{virConn: connection, recorder: recorder, secretCache: make(map[string]string)}
+	manager := LibvirtDomainManager{virConn: connection, recorder: recorder, secretCache: make(map[string][]string)}
 
 	err := manager.initiateSecretCache()
 	if err != nil {
@@ -137,7 +138,7 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID
 				return err
 			}
 
-			secretUUID, err := libvirtSecret.GetUUID()
+			secretUUID, err := libvirtSecret.GetUUIDString()
 			if err != nil {
 				// This error really shouldn't occur. The UUID should be known
 				// locally by the libvirt client. If this fails, we make a best
@@ -146,7 +147,7 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID
 				libvirtSecret.Free()
 				return err
 			}
-			l.secretCache[string(secretUUID)] = domName
+			l.secretCache[domName] = append(l.secretCache[domName], secretUUID)
 		}
 		defer libvirtSecret.Free()
 
@@ -247,18 +248,18 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VM) error {
 	domName := cache.VMNamespaceKeyFunc(vm)
 
-	for secretUUID, curDomName := range l.secretCache {
+	secretUUIDs, ok := l.secretCache[domName]
+	if ok == false {
+		return nil
+	}
 
-		if domName != curDomName {
-			continue
-		}
-
+	for _, secretUUID := range secretUUIDs {
 		secret, err := l.virConn.LookupSecretByUUIDString(secretUUID)
 		if err != nil {
 			if err.(libvirt.Error).Code != libvirt.ERR_NO_SECRET {
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg(fmt.Sprintf("Failed to lookup secret with UUID %s.", secretUUID))
 				return err
 			}
-			delete(l.secretCache, secretUUID)
 			continue
 		}
 		defer secret.Free()
@@ -267,9 +268,9 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VM) error {
 		if err != nil {
 			return err
 		}
-
-		delete(l.secretCache, secretUUID)
 	}
+
+	delete(l.secretCache, domName)
 	return nil
 }
 

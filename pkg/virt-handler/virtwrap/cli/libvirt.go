@@ -300,7 +300,7 @@ type VirSecret interface {
 	SetValue(value []byte, flags uint32) error
 	Undefine() error
 	GetUsageID() (string, error)
-	GetUUID() ([]byte, error)
+	GetUUIDString() (string, error)
 	GetXMLDesc(flags uint32) (string, error)
 	Free() error
 }
