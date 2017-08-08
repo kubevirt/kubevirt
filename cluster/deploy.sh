@@ -29,6 +29,9 @@ cluster/kubectl.sh --core delete pods -l=daemon=virt-handler --force --grace-per
 cluster/kubectl.sh --core delete -f manifests/libvirt.yaml --cascade=false --grace-period 0 2>/dev/null || :
 cluster/kubectl.sh --core delete pods -l=daemon=libvirt --force --grace-period 0 2>/dev/null || :
 
+# Make sure TPRs are deleted, we use CRDs now
+cluster/kubectl.sh --core delete thirdpartyresources --all  || :
+
 # Delete everything else
 for i in `ls manifests/*.yaml`; do
     $KUBECTL delete -f $i --grace-period 0 2>/dev/null || :
