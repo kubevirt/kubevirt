@@ -344,6 +344,9 @@ func cleanNamespaces() {
 
 		// Remove all Pods
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
+
+		// Remove all VM Secrets
+		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("secrets").Do().Error())
 	}
 }
 
