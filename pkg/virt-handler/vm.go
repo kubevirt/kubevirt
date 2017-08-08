@@ -290,9 +290,19 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
 		if disk.Auth == nil || disk.Auth.Secret == nil || disk.Auth.Secret.Usage == "" {
 			continue
 		}
+
+		usageIDSuffix := fmt.Sprintf("-%s-%s---", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 		usageID := disk.Auth.Secret.Usage
 		usageType := disk.Auth.Secret.Type
-		secret, err := d.clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(usageID, metav1.GetOptions{})
+		secretID := usageID
+
+		if strings.HasSuffix(usageID, usageIDSuffix) {
+			secretID = strings.TrimSuffix(usageID, usageIDSuffix)
+		} else {
+			usageID = fmt.Sprintf("%s%s", usageID, usageIDSuffix)
+		}
+
+		secret, err := d.clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(secretID, metav1.GetOptions{})
 		if err != nil {
 			logging.DefaultLogger().Error().Reason(err).Msg("Defining the VM secret failed unable to pull corresponding k8s secret value")
 			return nil, err
@@ -300,27 +310,28 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
 
 		secretBase64, ok := secret.Data["node.session.auth.password"]
 		if ok == false {
-			return nil, goerror.New(fmt.Sprintf("No password value found in k8s secret %s %v", usageID, err))
+			return nil, goerror.New(fmt.Sprintf("No password value found in k8s secret %s %v", secretID, err))
 		}
 		secretValue, err := base64.StdEncoding.DecodeString(string(secretBase64[:]))
 		if err != nil {
-			return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret %s %v", usageID, err))
+			return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret %s %v", secretID, err))
 		}
 
 		userBase64, ok := secret.Data["node.session.auth.username"]
 		if ok == false {
-			if disk.Auth.Username == "" {
-				return nil, goerror.New(fmt.Sprintf("Failed to find username for disk auth %s", usageID))
-			}
-		} else {
-
-			userValue, err := base64.StdEncoding.DecodeString(string(userBase64[:]))
-			if err != nil {
-				return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret username data field %s %v", usageID, err))
-			}
-			vm.Spec.Domain.Devices.Disks[idx].Auth.Username = string(userValue)
+			return nil, goerror.New(fmt.Sprintf("Failed to find username for disk auth %s", secretID))
 		}
+		userValue, err := base64.StdEncoding.DecodeString(string(userBase64[:]))
+		if err != nil {
+			return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret username data field %s %v", secretID, err))
+		}
+		vm.Spec.Domain.Devices.Disks[idx].Auth.Username = string(userValue)
 
+		// override the usage id on the VM with the VM specific one.
+		// By decoupling usage from the k8s secret name here, this allows
+		// multiple VMs to reference the same k8s secret without conflicting
+		// with one another.
+		vm.Spec.Domain.Devices.Disks[idx].Auth.Secret.Usage = usageID
 		err = d.domainManager.SyncVMSecret(vm, usageType, usageID, string(secretValue))
 		if err != nil {
 			return nil, err
