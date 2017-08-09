@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -56,7 +55,7 @@ var _ = Describe("Vmlifecycle", func() {
 	restClient, err := kubecli.GetRESTClient()
 	tests.PanicOnError(err)
 
-	coreCli, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
 	var vm *v1.VM
@@ -154,7 +153,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				time.Sleep(10 * time.Second)
-				err = pkillAllVms(coreCli, nodeName, dockerTag)
+				err = pkillAllVms(virtCli, nodeName, dockerTag)
 				Expect(err).To(BeNil())
 
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
@@ -177,7 +176,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 				Expect(err).ToNot(HaveOccurred())
 
-				err = pkillAllVms(coreCli, nodeName, dockerTag)
+				err = pkillAllVms(virtCli, nodeName, dockerTag)
 				Expect(err).To(BeNil())
 
 				// Wait for stop event of the VM
@@ -200,14 +199,14 @@ var _ = Describe("Vmlifecycle", func() {
 				handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + primaryNodeName)
 				labelSelector, err := labels.Parse("daemon in (virt-handler)")
 				Expect(err).NotTo(HaveOccurred())
-				pods, err := coreCli.CoreV1().Pods(k8sv1.NamespaceAll).List(metav1.ListOptions{FieldSelector: handlerNodeSelector.String(), LabelSelector: labelSelector.String()})
+				pods, err := virtCli.CoreV1().Pods(k8sv1.NamespaceAll).List(metav1.ListOptions{FieldSelector: handlerNodeSelector.String(), LabelSelector: labelSelector.String()})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pods.Items).To(HaveLen(1))
 
 				handlerName := pods.Items[0].GetObjectMeta().GetName()
 				handlerNamespace := pods.Items[0].GetObjectMeta().GetNamespace()
 				seconds := int64(120)
-				logsQuery := coreCli.Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds})
+				logsQuery := virtCli.CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds})
 
 				// Make sure we schedule the VM to master
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": primaryNodeName}
@@ -281,10 +280,10 @@ func renderPkillAllVmsJob(dockerTag string) *k8sv1.Pod {
 	return &job
 }
 
-func pkillAllVms(core *kubernetes.Clientset, node, dockerTag string) error {
+func pkillAllVms(virtCli kubecli.KubevirtClient, node, dockerTag string) error {
 	job := renderPkillAllVmsJob(dockerTag)
 	job.Spec.NodeName = node
-	_, err := core.Pods(tests.NamespaceTestDefault).Create(job)
+	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
 
 	return err
 }

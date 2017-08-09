@@ -84,12 +84,12 @@ func main() {
 	defer domainConn.Close()
 
 	// Create event recorder
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
 	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: coreClient.Events(k8sv1.NamespaceAll)})
+	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: virtCli.CoreV1().Events(k8sv1.NamespaceAll)})
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: *host})
 
@@ -110,7 +110,7 @@ func main() {
 
 	// Wire VM controller
 	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", k8sv1.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, coreClient, *host)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, virtCli, *host)
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)

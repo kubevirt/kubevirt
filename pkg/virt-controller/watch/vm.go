@@ -26,7 +26,6 @@ import (
 	"github.com/jeevatkm/go-model"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -39,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewVMController(restClient *rest.RESTClient, vmService services.VMService, queue workqueue.RateLimitingInterface, vmCache cache.Store, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset *kubernetes.Clientset) *VMController {
+func NewVMController(restClient *rest.RESTClient, vmService services.VMService, queue workqueue.RateLimitingInterface, vmCache cache.Store, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
 	return &VMController{
 		restClient:  restClient,
 		vmService:   vmService,
@@ -55,7 +54,7 @@ func NewVMController(restClient *rest.RESTClient, vmService services.VMService, 
 type VMController struct {
 	restClient  *rest.RESTClient
 	vmService   services.VMService
-	clientset   *kubernetes.Clientset
+	clientset   kubecli.KubevirtClient
 	queue       workqueue.RateLimitingInterface
 	store       cache.Store
 	vmInformer  cache.SharedIndexInformer

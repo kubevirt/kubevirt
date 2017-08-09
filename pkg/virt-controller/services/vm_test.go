@@ -29,7 +29,6 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -47,9 +46,7 @@ var _ = Describe("VM", func() {
 
 		flag.Parse()
 		server = ghttp.NewServer()
-		config := rest.Config{}
-		config.Host = server.URL()
-		clientSet, _ := kubernetes.NewForConfig(&config)
+		clientSet, _ := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		templateService, _ := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
 		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
 

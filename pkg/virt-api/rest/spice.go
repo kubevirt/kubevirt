@@ -26,7 +26,6 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -41,7 +40,7 @@ func init() {
 	flag.StringVar(&spiceProxy, "spice-proxy", "", "Spice proxy to use when spice access is requested")
 }
 
-func NewSpiceEndpoint(cli *rest.RESTClient, coreCli *kubernetes.Clientset, gvr schema.GroupVersionResource) endpoint.Endpoint {
+func NewSpiceEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		metadata := payload.(*endpoints.Metadata)
 		obj, err := cli.Get().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do().Get()
@@ -50,7 +49,7 @@ func NewSpiceEndpoint(cli *rest.RESTClient, coreCli *kubernetes.Clientset, gvr s
 		}
 
 		vm := obj.(*v1.VM)
-		spice, err := spiceFromVM(vm, coreCli)
+		spice, err := spiceFromVM(vm)
 		if err != nil {
 			return nil, err
 
@@ -60,7 +59,7 @@ func NewSpiceEndpoint(cli *rest.RESTClient, coreCli *kubernetes.Clientset, gvr s
 	}
 }
 
-func spiceFromVM(vm *v1.VM, coreCli *kubernetes.Clientset) (*v1.Spice, error) {
+func spiceFromVM(vm *v1.VM) (*v1.Spice, error) {
 
 	if vm.Status.Phase != v1.Running {
 		return nil, middleware.NewResourceNotFoundError("VM is not running")

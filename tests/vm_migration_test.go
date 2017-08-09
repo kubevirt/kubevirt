@@ -42,7 +42,7 @@ var _ = Describe("VmMigration", func() {
 
 	restClient, err := kubecli.GetRESTClient()
 	tests.PanicOnError(err)
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
 	var sourceVM *v1.VM
@@ -118,14 +118,14 @@ var _ = Describe("VmMigration", func() {
 
 					// Wait for the job
 					Eventually(func() int {
-						jobs, err := coreClient.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).List(metav1.ListOptions{LabelSelector: selector.String()})
+						jobs, err := virtCli.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).List(metav1.ListOptions{LabelSelector: selector.String()})
 						Expect(err).ToNot(HaveOccurred())
 						return len(jobs.Items)
 					}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(1))
 
 					// Wait for the successful completion of the job
 					Eventually(func() k8sv1.PodPhase {
-						jobs, err := coreClient.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).List(metav1.ListOptions{LabelSelector: selector.String()})
+						jobs, err := virtCli.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).List(metav1.ListOptions{LabelSelector: selector.String()})
 						Expect(err).ToNot(HaveOccurred())
 						return jobs.Items[0].Status.Phase
 					}, TIMEOUT*2, POLLING_INTERVAL).Should(Equal(k8sv1.PodSucceeded))
@@ -169,7 +169,7 @@ var _ = Describe("VmMigration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() int {
-				pods, err := coreClient.CoreV1().Pods(tests.NamespaceTestDefault).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
+				pods, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
 				Expect(err).ToNot(HaveOccurred())
 				return len(pods.Items)
 			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(1))

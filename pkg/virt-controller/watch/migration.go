@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -39,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewMigrationController(restClient *rest.RESTClient, migrationService services.VMService, clientset *kubernetes.Clientset, queue workqueue.RateLimitingInterface, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, migrationCache cache.Store) *MigrationController {
+func NewMigrationController(restClient *rest.RESTClient, migrationService services.VMService, clientset kubecli.KubevirtClient, queue workqueue.RateLimitingInterface, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, migrationCache cache.Store) *MigrationController {
 
 	return &MigrationController{
 		restClient:        restClient,
@@ -55,7 +54,7 @@ func NewMigrationController(restClient *rest.RESTClient, migrationService servic
 type MigrationController struct {
 	restClient        *rest.RESTClient
 	vmService         services.VMService
-	clientset         *kubernetes.Clientset
+	clientset         kubecli.KubevirtClient
 	queue             workqueue.RateLimitingInterface
 	store             cache.Store
 	migrationInformer cache.SharedIndexInformer

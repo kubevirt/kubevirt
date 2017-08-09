@@ -38,7 +38,7 @@ var _ = Describe("Storage", func() {
 
 	flag.Parse()
 
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
 	restClient, err := kubecli.GetRESTClient()
@@ -49,7 +49,7 @@ var _ = Describe("Storage", func() {
 	})
 
 	getTargetLogs := func(tailLines int64) string {
-		pods, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
+		pods, err := virtCli.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
 		Expect(err).ToNot(HaveOccurred())
 
 		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
@@ -62,7 +62,7 @@ var _ = Describe("Storage", func() {
 		}
 		Expect(podName).ToNot(BeEmpty())
 
-		logsRaw, err := coreClient.CoreV1().
+		logsRaw, err := virtCli.CoreV1().
 			Pods("default").
 			GetLogs(podName,
 				&k8sv1.PodLogOptions{TailLines: &tailLines}).

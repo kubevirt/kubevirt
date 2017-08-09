@@ -12,8 +12,6 @@ import (
 
 	"k8s.io/client-go/util/workqueue"
 
-	"k8s.io/client-go/kubernetes"
-
 	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -22,7 +20,7 @@ import (
 )
 
 type VirtControllerApp struct {
-	clientSet       *kubernetes.Clientset
+	clientSet       kubecli.KubevirtClient
 	templateService services.TemplateService
 	restClient      *clientrest.RESTClient
 	vmService       services.VMService
@@ -53,7 +51,7 @@ func Execute() {
 
 	logging.InitializeLogging("virt-controller")
 
-	app.clientSet, err = kubecli.Get()
+	app.clientSet, err = kubecli.GetKubevirtClient()
 
 	if err != nil {
 		golog.Fatal(err)

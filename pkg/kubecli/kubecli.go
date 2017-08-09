@@ -56,10 +56,6 @@ func GetFromFlags(master string, kubeconfig string) (*kubernetes.Clientset, erro
 	return kubernetes.NewForConfig(config)
 }
 
-func Get() (*kubernetes.Clientset, error) {
-	return GetFromFlags(master, kubeconfig)
-}
-
 func GetRESTClient() (*rest.RESTClient, error) {
 	return GetRESTClientFromFlags(master, kubeconfig)
 }
@@ -69,7 +65,13 @@ func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClien
 	if err != nil {
 		return nil, err
 	}
-	return &kubevirt{restClient}, nil
+
+	coreClient, err := GetFromFlags(master, kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kubevirt{restClient, coreClient}, nil
 }
 
 func GetKubevirtClient() (KubevirtClient, error) {

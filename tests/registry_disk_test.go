@@ -38,7 +38,7 @@ var _ = Describe("RegistryDisk", func() {
 
 	flag.Parse()
 
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
 	restClient, err := kubecli.GetRESTClient()
@@ -60,7 +60,7 @@ var _ = Describe("RegistryDisk", func() {
 		tests.WaitForSuccessfulVMStart(obj)
 
 		// Verify Registry Disks are Online
-		pods, err := coreClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
+		pods, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
 		Expect(err).To(BeNil())
 		disksFound := 0
 		for _, pod := range pods.Items {
