@@ -42,6 +42,8 @@ disks to use, or it may require license key reactivation. Changing the backend
 configuration is totally transparent to the guest (aside from performance
 differences inherent in different backend choices).
 
+![VM configuration diagram](vm-configuration.png "VM Configuration")
+
 
 Portability issues
 ------------------
