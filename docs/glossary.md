@@ -133,8 +133,8 @@ Method of storing and distributing VM disks with KubeVirt using the container
 registry.
 
 ## Domain
-Libvirt domain. `virt-handler` can derive a Domain XML out of a [VM Spec](##vm-spec). 
-This is the host centric view of the cluster wide [VM Spec](##vm-spec).
+Libvirt domain. `virt-handler` can derive a Domain XML out of a [VM Spec](#vm-specification-aka-vm-spec). 
+This is the host centric view of the cluster wide [VM Spec](#vm-specification-aka-vm-spec).
 
 ## Domain XML
 
