@@ -4,10 +4,11 @@ The purpose of this proposal, is to allow connecting VMs to the node network,
 in contrast to
 [docs/libvirt-pod-networking.md](docs/libvirt-pod-networking.md), which allows
 VMs to be connected to the Kubernetes Overlay network. As a consequence there
-are two main points to consider:
+are three main points to consider:
 
  1) How and where to specify what the master host network device to connect to
     is.
+ 3) How can the nested nodes and the real node communicate with each other.
  2) How to bring a device in position, so that libvirt can use it.
 
 ## How to specify the host network device
@@ -53,6 +54,7 @@ The plugin get's passed in the following config:
     "name": "myvm-nodenetwork",
     "type": "macvlan",
     "master": "eth0",
+    "mode": "bridge",
     "ipam": {}
 }
 ```
@@ -103,11 +105,75 @@ Based on this proposed method, at the end, one would see
 
 ```xml
 <interface type='direct'>
-  <source dev='macvlan1'/>
+  <source dev='macvlan1' mode='bridge'/>
 </interface>
 ```
 
 in the final domain XML.
+
+### How can the node and the nested node communicate with each other?
+
+In case of `macvlan` and `macvtap`, normally hosts and guests/containers can't
+communicate with each other. However, we can add an additional `macvlan`
+interface, bound to the same host interfaces like all other `macvlan` devices.
+We can then route all host traffic through that `macvlan` device, to allow host
+to guest and guest to host communication.
+
+In principle `virt-handler` would on startup do the following setup:
+
+```bash
+DEV=eth0
+DEV_IP=$(ip addr show $DEV | grep -Po 'inet \K[\d.]+')
+DEV_SUBNET=$(echo "$DEV_IP" | cut -d"." -f1-3)
+# Assuming that $DEV is also responsible for the default gateway,
+# and we don't use dhcp, we have to modify the default route later on
+GATEWAY=$(ip -o route | grep default | awk '{print $3}')
+
+# add the namespaces where we place the ipvlan for test purposes
+ip netns add ns1
+
+# create the macvlan link attaching it to the parent host $DEV
+ip link add mv1 link $DEV type macvlan mode bridge
+
+# move the new interface mv1 to the new namespace
+ip link set mv1 netns ns1
+
+# bring the interface up
+ip netns exec ns1 ip link set dev mv1 up
+
+# set ip addresses
+ip netns exec ns1 ifconfig mv1 $DEV_SUBNET.11/24 up
+
+# Create a host ipvlan through which the host and the guests can talk to each other
+ip link add mv4 link $DEV type macvlan mode bridge
+ip link set dev mv4 up
+
+
+# here we multiple options:
+# * use dhcp, it will do the default routes for us
+# * do dhcp without setting the gateway, we then have to set it manually
+# * unconfigure $DEV and set the IP on mv4 and manully change the default route
+# using an extra IP via dhcp sounds like the best solution.
+# We can leave all other routes which belong to $DEV untouched.
+ifconfig mv4 $DEV_SUBNET.13/24 up
+ip route del default
+ip route add default via $GATEWAY dev mv4
+
+# Remove the now wrong route for $DEV. We want all normal host traffic now go through mv4
+ip route del $DEV_SUBNET.0/24 dev $DEV
+
+# Add an extra route which allows accessing the $DEV_IP through mv4
+ip route add $DEV_IP/32 via $DEV_SUBNET.13 dev mv4
+
+# ping from container to host
+ip netns exec ns1 ping $DEV_SUBNET.13
+```
+
+In this scenario, we can keep the IP of our main interface in place, and only
+have to change two routes. All other routes which need the main interface can
+be left untouched. In theory, moving the IP of the main interface to `mv4`
+would also be possible, but that would require extensive route rewrites which
+will likely cause conflicts with other components involved.
 
 ## Other Approaches considered
 
