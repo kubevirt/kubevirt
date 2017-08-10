@@ -57,10 +57,7 @@ func Execute() {
 		golog.Fatal(err)
 	}
 
-	app.restClient, err = kubecli.GetRESTClient()
-	if err != nil {
-		golog.Fatal(err)
-	}
+	app.restClient = app.clientSet.RestClient()
 
 	restful.Add(rest.WebService)
 

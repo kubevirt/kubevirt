@@ -98,26 +98,21 @@ func main() {
 		panic(err)
 	}
 
-	restClient, err := kubecli.GetRESTClient()
-	if err != nil {
-		panic(err)
-	}
-
 	l, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", *host))
 	if err != nil {
 		panic(err)
 	}
 
 	// Wire VM controller
-	vmListWatcher := kubecli.NewListWatchFromClient(restClient, "vms", k8sv1.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *restClient, virtCli, *host)
+	vmListWatcher := kubecli.NewListWatchFromClient(virtCli.RestClient(), "vms", k8sv1.NamespaceAll, fields.Everything(), l)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, *host)
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
 	if err != nil {
 		panic(err)
 	}
-	domainStore, domainController := virthandler.NewDomainController(vmQueue, vmStore, domainSharedInformer, *restClient, recorder)
+	domainStore, domainController := virthandler.NewDomainController(vmQueue, vmStore, domainSharedInformer, *virtCli.RestClient(), recorder)
 
 	if err != nil {
 		panic(err)

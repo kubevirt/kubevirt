@@ -39,7 +39,7 @@ var _ = Describe("Console", func() {
 
 	flag.Parse()
 
-	restClient, err := kubecli.GetRESTClient()
+	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 	var vm *v1.VM
 	var dial func(vm string, console string) *websocket.Conn
@@ -64,7 +64,7 @@ var _ = Describe("Console", func() {
 	Context("New VM with a serial console given", func() {
 
 		It("should be allowed to connect to the console", func(done Done) {
-			Expect(restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
+			Expect(virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
 			ws := dial(vm.ObjectMeta.GetName(), "serial0")
 			defer ws.Close()
@@ -72,7 +72,7 @@ var _ = Describe("Console", func() {
 		}, 60)
 
 		It("should be returned that we are running cirros", func(done Done) {
-			Expect(restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
+			Expect(virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
 			ws := dial(vm.ObjectMeta.GetName(), "serial0")
 			defer ws.Close()

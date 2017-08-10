@@ -27,6 +27,7 @@ import (
 	v1alpha11 "k8s.io/client-go/kubernetes/typed/settings/v1alpha1"
 	v16 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	v1beta16 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	rest "k8s.io/client-go/rest"
 
 	v17 "kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -70,6 +71,16 @@ func (_m *MockKubevirtClient) Migration(namespace string) MigrationInterface {
 
 func (_mr *_MockKubevirtClientRecorder) Migration(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migration", arg0)
+}
+
+func (_m *MockKubevirtClient) RestClient() *rest.RESTClient {
+	ret := _m.ctrl.Call(_m, "RestClient")
+	ret0, _ := ret[0].(*rest.RESTClient)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) RestClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RestClient")
 }
 
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {

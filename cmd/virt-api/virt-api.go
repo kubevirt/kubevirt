@@ -70,10 +70,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cli, err := kubecli.GetRESTClient()
-	if err != nil {
-		log.Fatal(err)
-	}
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		log.Fatal(err)
@@ -81,7 +77,7 @@ func main() {
 
 	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
 	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceEndpoint(cli, vmGVR)).Encoder(
+		Endpoint(rest.NewSpiceEndpoint(virtCli.RestClient(), vmGVR)).Encoder(
 		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeINIResponse(http.StatusOK),
 			map[string]kithttp.EncodeResponseFunc{
 				mime.MIME_INI:  endpoints.NewEncodeINIResponse(http.StatusOK),

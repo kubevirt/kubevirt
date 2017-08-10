@@ -328,8 +328,6 @@ func newPV(os string, lun int32) *k8sv1.PersistentVolume {
 func cleanNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	restClient, err := kubecli.GetRESTClient()
-	PanicOnError(err)
 
 	for _, namespace := range testNamespaces {
 
@@ -339,10 +337,10 @@ func cleanNamespaces() {
 		}
 
 		// Remove all Migrations
-		PanicOnError(restClient.Delete().Namespace(namespace).Resource("migrations").Do().Error())
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("migrations").Do().Error())
 
 		// Remove all VMs
-		PanicOnError(restClient.Delete().Namespace(namespace).Resource("vms").Do().Error())
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("vms").Do().Error())
 
 		// Remove all Pods
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
@@ -513,17 +511,17 @@ func NewRandomVMWithSpice() *v1.VM {
 func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 	_, ok := vm.(*v1.VM)
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
-	restClient, err := kubecli.GetRESTClient()
+	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 
 	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
 	vmMeta := vm.(*v1.VM).ObjectMeta
-	obj, err := restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
+	obj, err := virtClient.RestClient().Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() v1.VMPhase {
-		obj, err := restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
+		obj, err := virtClient.RestClient().Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 		Expect(err).ToNot(HaveOccurred())
 		fetchedVM := obj.(*v1.VM)
 		nodeName = fetchedVM.Status.NodeName

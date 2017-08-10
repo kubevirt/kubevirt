@@ -36,12 +36,17 @@ import (
 type KubevirtClient interface {
 	VM(namespace string) VMInterface
 	Migration(namespace string) MigrationInterface
+	RestClient() *rest.RESTClient
 	kubernetes.Interface
 }
 
 type kubevirt struct {
 	restClient *rest.RESTClient
 	*kubernetes.Clientset
+}
+
+func (k kubevirt) RestClient() *rest.RESTClient {
+	return k.restClient
 }
 
 type VMInterface interface {
