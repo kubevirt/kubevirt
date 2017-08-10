@@ -264,15 +264,15 @@ func (_mr *_MockVirSecretRecorder) GetUsageID() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUsageID")
 }
 
-func (_m *MockVirSecret) GetUUID() ([]byte, error) {
-	ret := _m.ctrl.Call(_m, "GetUUID")
-	ret0, _ := ret[0].([]byte)
+func (_m *MockVirSecret) GetUUIDString() (string, error) {
+	ret := _m.ctrl.Call(_m, "GetUUIDString")
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirSecretRecorder) GetUUID() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUUID")
+func (_mr *_MockVirSecretRecorder) GetUUIDString() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUUIDString")
 }
 
 func (_m *MockVirSecret) GetXMLDesc(flags uint32) (string, error) {
