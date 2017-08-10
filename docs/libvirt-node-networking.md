@@ -165,8 +165,11 @@ ip route del $DEV_SUBNET.0/24 dev $DEV
 # Add an extra route which allows accessing the $DEV_IP through mv4
 ip route add $DEV_IP/32 via $DEV_SUBNET.13 dev mv4
 
-# ping from container to host
+# ping from container to the hosts new ipvlan IP
 ip netns exec ns1 ping $DEV_SUBNET.13
+
+# ping from container to the hosts old IP
+ip netns exec ns1 ping $DEV_IP
 ```
 
 In this scenario, we can keep the IP of our main interface in place, and only
