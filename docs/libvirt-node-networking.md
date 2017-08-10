@@ -117,7 +117,7 @@ In case of `macvlan` and `macvtap`, normally hosts and guests/containers can't
 communicate with each other. However, we can add an additional `macvlan`
 interface, bound to the same host interfaces like all other `macvlan` devices.
 We can then route all host traffic through that `macvlan` device, to allow host
-to guest and guest to host communication.
+to guest and guest to host communication ([1], [2]).
 
 In principle `virt-handler` would on startup do the following setup:
 
@@ -233,3 +233,8 @@ macvtap device to the veth endpoint inside the libvirt container.
 
 Advantage is, that the VM can talk to the node it runs on, like with every
 other host in the host network.
+
+# References
+
+[1] https://www.furorteutonicus.eu/2013/08/04/enabling-host-guest-networking-with-kvm-macvlan-and-macvtap/
+[2] http://www.flat-planet.net/?p=479
