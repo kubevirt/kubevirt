@@ -67,8 +67,7 @@ var _ = Describe("VM", func() {
 		virtClient, err := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
 
-		restClient, err := kubecli.GetRESTClientFromFlags(server.URL(), "")
-		Expect(err).ToNot(HaveOccurred())
+		restClient := virtClient.RestClient()
 
 		vmStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())

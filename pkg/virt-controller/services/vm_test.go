@@ -46,11 +46,10 @@ var _ = Describe("VM", func() {
 
 		flag.Parse()
 		server = ghttp.NewServer()
-		clientSet, _ := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		virtClient, _ := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		templateService, _ := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler")
-		restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
-
-		vmService = NewVMService(clientSet, restClient, templateService)
+		restClient = virtClient.RestClient()
+		vmService = NewVMService(virtClient, restClient, templateService)
 
 	})
 	Context("calling Setup Migration ", func() {

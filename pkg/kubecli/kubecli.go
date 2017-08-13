@@ -42,42 +42,23 @@ func init() {
 	flag.StringVar(&master, "master", "", "master url")
 }
 
-func GetRESTClientFromFlags(master string, kubeconfig string) (*rest.RESTClient, error) {
-
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	config.GroupVersion = &v1.GroupVersion
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-
-	return rest.RESTClientFor(config)
-}
-
-func GetCoreFromFlags(master string, kubeconfig string) (*kubernetes.Clientset, error) {
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	config.GroupVersion = &v1.GroupVersion
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-
-	return kubernetes.NewForConfig(config)
-}
-
 func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
-	restClient, err := GetRESTClientFromFlags(master, kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		return nil, err
 	}
 
-	coreClient, err := GetCoreFromFlags(master, kubeconfig)
+	config.GroupVersion = &v1.GroupVersion
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.APIPath = "/apis"
+	config.ContentType = runtime.ContentTypeJSON
+
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	coreClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
