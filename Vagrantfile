@@ -7,6 +7,8 @@ $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'
 $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
 $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
 $nodes = (ENV['VAGRANT_NUM_NODES'] || 0).to_i
+$vagrant_pool = (ENV['VAGRANT_POOL'] unless
+                  (ENV['VAGRANT_POOL'].nil? or ENV['VAGRANT_POOL'].empty?))
 
 $config = Hash[*File.read('hack/config-default.sh').split(/=|\n/)]
 if File.file?('hack/config-local.sh') then
@@ -37,14 +39,23 @@ Vagrant.configure(2) do |config|
           #     https://github.com/vagrant-libvirt/vagrant-libvirt/pull/654
           libvirt.random :model => 'random' # give ovirt-engine some random data for SSO
       end
+      if $vagrant_pool then
+          domain.storage_pool_name = $vagrant_pool
+      end
   end
 
   if $use_nfs then
     config.vm.synced_folder "./", "/vagrant", type: "nfs"
   else
-          config.vm.synced_folder "./", "/vagrant", type: "rsync",
-                  rsync__exclude: [ "cluster/vagrant/.kubectl", "cluster/vagrant/.kubeconfig", ".vagrant", "vendor", ".git"],
-                  rsync__args: ["--archive", "--delete"]
+    # Vagrant seems to insist on using NFS sometimes even when explicitly
+    # configured to use `rsync`, this prevents that
+    config.nfs.functional = false
+    config.vm.synced_folder "./", "/vagrant", type: "rsync",
+      rsync__exclude: [
+        "cluster/vagrant/.kubectl", "cluster/vagrant/.kubeconfig", ".vagrant",
+        "vendor", ".git"
+      ],
+      rsync__args: ["--archive", "--delete"]
   end
 
   config.vm.provision "shell", inline: <<-SHELL

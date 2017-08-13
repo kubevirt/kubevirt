@@ -1,0 +1,3 @@
+/var/run/libvirt
+/var/lib/libvirt/boot
+/var/cache:/var/host_cache

@@ -24,10 +24,11 @@ kubectl() { cluster/kubectl.sh --core "$@"; }
 
 # Install GO
 eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=stable bash)"
-export GOPATH=$WORKSPACE/go
-export GOBIN=$WORKSPACE/go/bin
-export PATH=$GOPATH/bin:$PATH
-export VAGRANT_NUM_NODES=1
+export WORKSPACE="${WORKSPACE:-$PWD}"
+export GOPATH="${GOPATH:-$WORKSPACE/go}"
+export GOBIN="${GOBIN:-$GOPATH/bin}"
+export PATH="$GOPATH/bin:$PATH"
+export VAGRANT_NUM_NODES="${VAGRANT_NUM_NODES:-1}"
 
 # Install dockerize
 export DOCKERIZE_VERSION=v0.3.0
@@ -36,7 +37,7 @@ curl -LO https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
     && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
 # Keep .vagrant files between builds
-export VAGRANT_DOTFILE_PATH=$WORKSPACE/.vagrant
+export VAGRANT_DOTFILE_PATH="${VAGRANT_DOTFILE_PATH:-$WORKSPACE/.vagrant}"
 
 # Make sure that the VM is properly shut down on exit
 trap '{ vagrant halt; }' EXIT
@@ -70,6 +71,8 @@ cluster/kubectl.sh --init
 # Make sure we can connect to kubernetes
 export APISERVER=$(cat cluster/vagrant/.kubeconfig | grep server | sed -e 's# \+server: https://##' | sed -e 's/\r//')
 $WORKSPACE/dockerize -wait tcp://$APISERVER -timeout 120s
+# Make sure we don't try to talk to Vagrant host via a proxy
+export no_proxy="${APISERVER%:*}"
 
 # Wait for nodes to become ready
 while [ -n "$(kubectl get nodes --no-headers | grep -v Ready)" ]; do
@@ -124,5 +127,7 @@ done
 kubectl get pods
 kubectl version
 
+# Disable proxy configuration since it causes test issues
+export -n http_proxy
 # Run functional tests
 FUNC_TEST_ARGS="--ginkgo.noColor" make functest
