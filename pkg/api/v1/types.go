@@ -122,6 +122,8 @@ type VMList struct {
 type VMSpec struct {
 	// Domain is the actual libvirt domain.
 	Domain *DomainSpec `json:"domain,omitempty"`
+	// The cloud-init data associated with this VM.
+	CloudInit *CloudInitSpec `json:"cloudInit,omitempty"`
 	// If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
