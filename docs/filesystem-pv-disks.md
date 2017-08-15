@@ -18,6 +18,7 @@ based PersistentVolumes for storing file images backing virtual disks.
 The focus is primarily on providing the right cluster levels mechanics to enable
 future changes for improving usability, performance, or other characteristics.
 
+
 ## Non-Goals
 
 - Provide a totally atumatic solution
@@ -90,9 +91,9 @@ backing PV is of `volumeType: block`.
 
 ## Additional Notes
 
-### Introduction of a `driver` struct
+### Introduction of a `driver` field
 
-In future we might want to introduce a `driver` struct for disks to
+In future we might want to introduce a `driver` field for disks to
 differentiate between (up to now) qemu's built-in drivers or using kubelet's
 file-system and ([in close future](https://github.com/kubernetes/community/pull/805))
 raw block storage support, i.e.:
@@ -118,3 +119,18 @@ this proposal is, to either use intermediate transparent qcow2 files, or improve
 qemu to have a cow subsystem, which is agnostic to the backing store type.
 Both solutions however would be independent of the storage type and don't
 contradict with our designs.
+
+### Virtfs
+
+Virtfs might allow us to directly use file-systems as a backing store for
+virtual machines.
+This API design should not contradict with this use-case, but it will probably
+depend on the `driver` field mentioned above to signal the system how the PV has
+to beconsumed (mounted).
+
+### `VMConfig` level feature based usage
+
+It might be of value to users to only specify a PV, and not care about the file
+to be used for a disk. We can add such logic, but this should probably reside on
+the `VMConcifg` level. The `VM` API should focus to provide the mechanics to
+support this more opinionated approach.
