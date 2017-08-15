@@ -32,8 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -72,10 +70,8 @@ var _ = Describe("Migration", func() {
 	BeforeEach(func() {
 
 		server = ghttp.NewServer()
-		config := rest.Config{}
-		config.Host = server.URL()
-		app.clientSet, _ = kubernetes.NewForConfig(&config)
-		app.restClient, _ = kubecli.GetRESTClientFromFlags(server.URL(), "")
+		app.clientSet, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		app.restClient = app.clientSet.RestClient()
 
 		app.vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 

@@ -93,10 +93,11 @@ var _ = Describe("Kubeproxy", func() {
 	BeforeEach(func() {
 		kubeproxy = httptest.NewServer(restful.DefaultContainer)
 		var err error
-		restClient, err = kubecli.GetRESTClientFromFlags(kubeproxy.URL, "")
+		virtClient, err := kubecli.GetKubevirtClientFromFlags(kubeproxy.URL, "")
 		if err != nil {
 			Expect(err).ToNot(HaveOccurred())
 		}
+		restClient = virtClient.RestClient()
 		sourceVM = v1.NewMinimalVM(vmName)
 		sourceMigration = v1.NewMinimalMigration("testmigration", vmName)
 		apiserverMock.Reset()

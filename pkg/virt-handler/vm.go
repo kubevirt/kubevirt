@@ -28,7 +28,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -43,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
-func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset *kubernetes.Clientset, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
+func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset kubecli.KubevirtClient, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host)
@@ -52,7 +51,7 @@ func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManage
 	return indexer, queue, informer
 
 }
-func NewVMHandlerDispatch(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient *rest.RESTClient, clientset *kubernetes.Clientset, host string) kubecli.ControllerDispatch {
+func NewVMHandlerDispatch(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient *rest.RESTClient, clientset kubecli.KubevirtClient, host string) kubecli.ControllerDispatch {
 	return &VMHandlerDispatch{
 		domainManager: domainManager,
 		recorder:      recorder,
@@ -66,7 +65,7 @@ type VMHandlerDispatch struct {
 	domainManager virtwrap.DomainManager
 	recorder      record.EventRecorder
 	restClient    rest.RESTClient
-	clientset     *kubernetes.Clientset
+	clientset     kubecli.KubevirtClient
 	host          string
 }
 

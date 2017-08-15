@@ -149,7 +149,7 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	cli, err := kubecli.Get()
+	cli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
@@ -165,7 +165,7 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	}
 
 	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
-	eventWatcher, err := cli.Core().Events(k8sv1.NamespaceAll).
+	eventWatcher, err := cli.CoreV1().Events(k8sv1.NamespaceAll).
 		Watch(metav1.ListOptions{
 			FieldSelector:   fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String(),
 			ResourceVersion: resourceVersion,
@@ -236,40 +236,40 @@ func BeforeTestSuitSetup() {
 }
 
 func createPVC(os string) {
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = coreClient.PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
 func createPV(os string, lun int32) {
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = coreClient.PersistentVolumes().Create(newPV(os, lun))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPV(os, lun))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
 func deletePVC(os string) {
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	err = coreClient.PersistentVolumeClaims(NamespaceTestDefault).Delete("disk-"+os, nil)
+	err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Delete("disk-"+os, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
 }
 
 func deletePV(os string) {
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	err = coreClient.PersistentVolumes().Delete("iscsi-disk-"+os+"-for-tests", nil)
+	err = virtCli.CoreV1().PersistentVolumes().Delete("iscsi-disk-"+os+"-for-tests", nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
@@ -326,36 +326,34 @@ func newPV(os string, lun int32) *k8sv1.PersistentVolume {
 }
 
 func cleanNamespaces() {
-	coreClient, err := kubecli.Get()
-	PanicOnError(err)
-	restClient, err := kubecli.GetRESTClient()
+	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
 	for _, namespace := range testNamespaces {
 
-		_, err := coreClient.Core().Namespaces().Get(namespace, metav1.GetOptions{})
+		_, err := virtCli.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 		if err != nil {
 			continue
 		}
 
 		// Remove all Migrations
-		PanicOnError(restClient.Delete().Namespace(namespace).Resource("migrations").Do().Error())
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("migrations").Do().Error())
 
 		// Remove all VMs
-		PanicOnError(restClient.Delete().Namespace(namespace).Resource("vms").Do().Error())
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("vms").Do().Error())
 
 		// Remove all Pods
-		PanicOnError(coreClient.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
+		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
 	}
 }
 
 func removeNamespaces() {
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
 	// First send an initial delete to every namespace
 	for _, namespace := range testNamespaces {
-		err := coreClient.Namespaces().Delete(namespace, nil)
+		err := virtCli.CoreV1().Namespaces().Delete(namespace, nil)
 		if !errors.IsNotFound(err) {
 			PanicOnError(err)
 		}
@@ -363,13 +361,13 @@ func removeNamespaces() {
 
 	// Wait until the namespaces are terminated
 	for _, namespace := range testNamespaces {
-		Eventually(func() bool { return errors.IsNotFound(coreClient.Namespaces().Delete(namespace, nil)) }, 60*time.Second, 1*time.Second).
+		Eventually(func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 60*time.Second, 1*time.Second).
 			Should(BeTrue())
 	}
 }
 
 func createNamespaces() {
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
 	// Create a Test Namespaces
@@ -379,7 +377,7 @@ func createNamespaces() {
 				Name: namespace,
 			},
 		}
-		_, err = coreClient.Namespaces().Create(ns)
+		_, err = virtCli.CoreV1().Namespaces().Create(ns)
 		if !errors.IsAlreadyExists(err) {
 			PanicOnError(err)
 		}
@@ -513,17 +511,17 @@ func NewRandomVMWithSpice() *v1.VM {
 func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 	_, ok := vm.(*v1.VM)
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
-	restClient, err := kubecli.GetRESTClient()
+	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 
 	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
 	vmMeta := vm.(*v1.VM).ObjectMeta
-	obj, err := restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
+	obj, err := virtClient.RestClient().Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() v1.VMPhase {
-		obj, err := restClient.Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
+		obj, err := virtClient.RestClient().Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 		Expect(err).ToNot(HaveOccurred())
 		fetchedVM := obj.(*v1.VM)
 		nodeName = fetchedVM.Status.NodeName
@@ -533,9 +531,9 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 }
 
 func GetReadyNodes() []k8sv1.Node {
-	coreClient, err := kubecli.Get()
+	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	nodes, err := coreClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := virtCli.CoreV1().Nodes().List(metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	readyNodes := []k8sv1.Node{}

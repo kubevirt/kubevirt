@@ -31,13 +31,13 @@ import (
 
 func KubeConnectionHealthzFunc(_ *restful.Request, response *restful.Response) {
 	res := map[string]interface{}{}
-	cli, err := kubecli.Get()
+	cli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		unhealthy(err, response)
 		return
 	}
 
-	body, err := cli.Core().RESTClient().Get().AbsPath("/version").Do().Raw()
+	body, err := cli.CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
 	if err != nil {
 		unhealthy(err, response)
 		return

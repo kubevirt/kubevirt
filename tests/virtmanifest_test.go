@@ -53,7 +53,10 @@ var _ = Describe("Virtmanifest", func() {
 			hostParts := strings.Split(masterUrl.Host, ":")
 			Expect(len(hostParts)).To(Equal(2))
 
-			manifestClient, err = kubecli.GetRESTClientFromFlags(fmt.Sprintf("http://%s:8186", hostParts[0]), "")
+			virtClient, err := kubecli.GetKubevirtClientFromFlags(fmt.Sprintf("http://%s:8186", hostParts[0]), "")
+			Expect(err).ToNot(HaveOccurred())
+
+			manifestClient = virtClient.RestClient()
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = tests.NewRandomVM()

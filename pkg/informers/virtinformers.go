@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -54,7 +53,7 @@ type KubeInformerFactory interface {
 
 type kubeInformerFactory struct {
 	restClient    *rest.RESTClient
-	clientSet     *kubernetes.Clientset
+	clientSet     kubecli.KubevirtClient
 	lock          sync.Mutex
 	defaultResync time.Duration
 
@@ -62,7 +61,7 @@ type kubeInformerFactory struct {
 	startedInformers map[string]bool
 }
 
-func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet *kubernetes.Clientset) KubeInformerFactory {
+func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.KubevirtClient) KubeInformerFactory {
 	return &kubeInformerFactory{
 		restClient:       restClient,
 		clientSet:        clientSet,

@@ -70,14 +70,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cli, err := kubecli.GetRESTClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-	coreCli, err := kubecli.Get()
-	if err != nil {
-		log.Fatal(err)
-	}
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		log.Fatal(err)
@@ -85,7 +77,7 @@ func main() {
 
 	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
 	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceEndpoint(cli, coreCli, vmGVR)).Encoder(
+		Endpoint(rest.NewSpiceEndpoint(virtCli.RestClient(), vmGVR)).Encoder(
 		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeINIResponse(http.StatusOK),
 			map[string]kithttp.EncodeResponseFunc{
 				mime.MIME_INI:  endpoints.NewEncodeINIResponse(http.StatusOK),
@@ -99,7 +91,7 @@ func main() {
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 
 	ws.Route(ws.GET(rest.ResourcePath(vmGVR) + rest.SubResourcePath("console")).
-		To(rest.NewConsoleResource(virtCli, coreCli.CoreV1()).Console).
+		To(rest.NewConsoleResource(virtCli, virtCli.CoreV1()).Console).
 		Param(restful.QueryParameter("console", "Name of the serial console to connect to")).
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
 		Doc("Open a websocket connection to a serial console on the specified VM."))

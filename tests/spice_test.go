@@ -45,7 +45,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 	flag.Parse()
 
-	restClient, err := kubecli.GetRESTClient()
+	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 	var vm *v1.VM
 
@@ -57,21 +57,21 @@ var _ = Describe("Vmlifecycle", func() {
 	Context("New VM with a spice connection given", func() {
 
 		It("should return no connection details if VM does not exist", func(done Done) {
-			result := restClient.Get().Resource("vms").SubResource("spice").Namespace(tests.NamespaceTestDefault).Name("something-random").Do()
+			result := virtClient.RestClient().Get().Resource("vms").SubResource("spice").Namespace(tests.NamespaceTestDefault).Name("something-random").Do()
 			Expect(result.Error()).NotTo(BeNil())
 			close(done)
 		}, 3)
 
 		It("should return connection details for running VMs in ini format", func(done Done) {
 			// Create the VM
-			result := restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
+			result := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
 			obj, err := result.Get()
 			Expect(err).To(BeNil())
 
 			// Block until the VM is running
 			tests.WaitForSuccessfulVMStart(obj)
 
-			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
+			raw, err := virtClient.RestClient().Get().Resource("vms").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			spice, err := ini.Load(raw)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -87,14 +87,14 @@ var _ = Describe("Vmlifecycle", func() {
 
 		It("should return connection details for running VMs in json format", func(done Done) {
 			// Create the VM
-			result := restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
+			result := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
 			obj, err := result.Get()
 			Expect(err).To(BeNil())
 
 			// Block until the VM is running
 			tests.WaitForSuccessfulVMStart(obj)
 
-			obj, err = restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+			obj, err = virtClient.RestClient().Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 			Expect(err).To(BeNil())
 			spice := obj.(*v1.Spice).Info
 			Expect(spice.Type).To(Equal("spice"))
@@ -104,14 +104,14 @@ var _ = Describe("Vmlifecycle", func() {
 
 		It("should allow accessing the spice device on the VM", func(done Done) {
 			// Create the VM
-			result := restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
+			result := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
 			obj, err := result.Get()
 			Expect(err).To(BeNil())
 
 			// Block until the VM is running
 			tests.WaitForSuccessfulVMStart(obj)
 
-			raw, err := restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
+			raw, err := virtClient.RestClient().Get().Resource("vms").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
 			Expect(err).To(BeNil())
 			spiceINI, err := ini.Load(raw)
 			Expect(err).NotTo(HaveOccurred())
@@ -156,7 +156,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 		It("should start without port clashes", func(done Done) {
 			// Create the VM
-			result := restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
+			result := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
 			obj, err := result.Get()
 			Expect(err).To(BeNil())
 
@@ -165,16 +165,16 @@ var _ = Describe("Vmlifecycle", func() {
 
 			vm1 := tests.NewRandomVMWithSpice()
 			vm1.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-			result = restClient.Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm1).Do()
+			result = virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm1).Do()
 			obj1, err := result.Get()
 			Expect(err).To(BeNil())
 
 			// Block until the VM is running
 			tests.WaitForSuccessfulVMStart(obj1)
 
-			obj, err = restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+			obj, err = virtClient.RestClient().Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 			Expect(err).To(BeNil())
-			obj1, err = restClient.Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm1.GetObjectMeta().GetName()).Do().Get()
+			obj1, err = virtClient.RestClient().Get().Resource("vms").SetHeader("Accept", rest.MIME_JSON).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm1.GetObjectMeta().GetName()).Do().Get()
 			Expect(err).To(BeNil())
 			Expect(obj.(*v1.Spice).Info.Port).ToNot(BeNumerically("==", obj1.(*v1.Spice).Info.Port))
 			close(done)

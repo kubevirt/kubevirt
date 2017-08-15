@@ -27,6 +27,7 @@ package kubecli
 
 import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -35,10 +36,17 @@ import (
 type KubevirtClient interface {
 	VM(namespace string) VMInterface
 	Migration(namespace string) MigrationInterface
+	RestClient() *rest.RESTClient
+	kubernetes.Interface
 }
 
 type kubevirt struct {
 	restClient *rest.RESTClient
+	*kubernetes.Clientset
+}
+
+func (k kubevirt) RestClient() *rest.RESTClient {
+	return k.restClient
 }
 
 type VMInterface interface {

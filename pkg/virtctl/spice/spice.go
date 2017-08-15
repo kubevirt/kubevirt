@@ -74,13 +74,13 @@ func (o *Spice) Run(flags *flag.FlagSet) int {
 	}
 	vm := flags.Arg(1)
 
-	restClient, err := kubecli.GetRESTClientFromFlags(server, kubeconfig)
+	virtClient, err := kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
 
 	if err != nil {
 		log.Println(err)
 		return 1
 	}
-	body, err := DownloadSpice(namespace, vm, restClient)
+	body, err := DownloadSpice(namespace, vm, virtClient.RestClient())
 	if err != nil {
 		log.Fatalf(err.Error())
 		return 1

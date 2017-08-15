@@ -27,10 +27,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -57,7 +57,7 @@ type VMService interface {
 }
 
 type vmService struct {
-	KubeCli         *kubernetes.Clientset
+	KubeCli         kubecli.KubevirtClient
 	RestClient      *rest.RESTClient
 	TemplateService TemplateService
 }
@@ -73,7 +73,7 @@ func (v *vmService) StartVMPod(vm *corev1.VM) error {
 		return err
 	}
 
-	if _, err := v.KubeCli.Core().Pods(vm.GetObjectMeta().GetNamespace()).Create(pod); err != nil {
+	if _, err := v.KubeCli.CoreV1().Pods(vm.GetObjectMeta().GetNamespace()).Create(pod); err != nil {
 		return err
 	}
 	return nil
@@ -140,7 +140,7 @@ func (v *vmService) FetchMigration(namespace string, migrationName string) (*cor
 	return migration, true, nil
 }
 
-func NewVMService(KubeCli *kubernetes.Clientset,
+func NewVMService(KubeCli kubecli.KubevirtClient,
 	RestClient *rest.RESTClient,
 	TemplateService TemplateService) VMService {
 	svc := vmService{

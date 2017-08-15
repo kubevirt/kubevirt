@@ -64,11 +64,10 @@ var _ = Describe("VM", func() {
 		server = ghttp.NewServer()
 		host := ""
 
-		coreClient, err := kubecli.GetFromFlags(server.URL(), "")
+		virtClient, err := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
 
-		restClient, err := kubecli.GetRESTClientFromFlags(server.URL(), "")
-		Expect(err).ToNot(HaveOccurred())
+		restClient := virtClient.RestClient()
 
 		vmStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -77,7 +76,7 @@ var _ = Describe("VM", func() {
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
 
 		recorder = record.NewFakeRecorder(100)
-		dispatch = NewVMHandlerDispatch(domainManager, recorder, restClient, coreClient, host)
+		dispatch = NewVMHandlerDispatch(domainManager, recorder, restClient, virtClient, host)
 
 	})
 

@@ -42,7 +42,7 @@ func init() {
 	flag.StringVar(&master, "master", "", "master url")
 }
 
-func GetFromFlags(master string, kubeconfig string) (*kubernetes.Clientset, error) {
+func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		return nil, err
@@ -53,40 +53,19 @@ func GetFromFlags(master string, kubeconfig string) (*kubernetes.Clientset, erro
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 
-	return kubernetes.NewForConfig(config)
-}
-
-func Get() (*kubernetes.Clientset, error) {
-	return GetFromFlags(master, kubeconfig)
-}
-
-func GetRESTClient() (*rest.RESTClient, error) {
-	return GetRESTClientFromFlags(master, kubeconfig)
-}
-
-func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
-	restClient, err := GetRESTClientFromFlags(master, kubeconfig)
+	restClient, err := rest.RESTClientFor(config)
 	if err != nil {
 		return nil, err
 	}
-	return &kubevirt{restClient}, nil
+
+	coreClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kubevirt{restClient, coreClient}, nil
 }
 
 func GetKubevirtClient() (KubevirtClient, error) {
 	return GetKubevirtClientFromFlags(master, kubeconfig)
-}
-
-func GetRESTClientFromFlags(master string, kubeconfig string) (*rest.RESTClient, error) {
-
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	config.GroupVersion = &v1.GroupVersion
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-
-	return rest.RESTClientFor(config)
 }
