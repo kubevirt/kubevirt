@@ -4,6 +4,10 @@ This document describes how to associate a k8s secret with a VM for the purpose 
 
 ## Workflow
 1. create a k8s secret containing the password and username fields.
+
+The k8s secret must be formatted in the same way kubernetes performs iscsi
+authentication for volumes. https://github.com/kubernetes/kubernetes/blob/master/examples/volumes/iscsi/chap-secret.yaml
+
 ```
 cat << END > my-chap-secret.yaml
 apiVersion: v1
@@ -33,7 +37,7 @@ spec:
   domain:
     devices:
       disks:
-      - Auth:
+      - auth:
           secret:
             type: iscsi
             usage: my-chap-secret
