@@ -31,9 +31,9 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -104,7 +104,7 @@ func MapRegistryDisks(vm *v1.VM) (*v1.VM, error) {
 	return vmCopy, nil
 }
 
-func CleanUp(vm *v1.VM, clientset *kubernetes.Clientset) error {
+func CleanUp(vm *v1.VM, virtCli kubecli.KubevirtClient) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -116,7 +116,7 @@ func CleanUp(vm *v1.VM, clientset *kubernetes.Clientset) error {
 
 	listOptions := metav1.ListOptions{LabelSelector: labelSelector.String()}
 
-	if err := clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).DeleteCollection(nil, listOptions); err != nil {
+	if err := virtCli.CoreV1().Secrets(vm.ObjectMeta.Namespace).DeleteCollection(nil, listOptions); err != nil {
 		return err
 	}
 
@@ -124,7 +124,7 @@ func CleanUp(vm *v1.VM, clientset *kubernetes.Clientset) error {
 }
 
 // The controller applies ports to registry disks when a VM spec is introduced into the cluster.
-func Initialize(vm *v1.VM, clientset *kubernetes.Clientset) error {
+func Initialize(vm *v1.VM, virtCli kubecli.KubevirtClient) error {
 
 	var err error
 	authUser := ""
@@ -194,9 +194,9 @@ func Initialize(vm *v1.VM, clientset *kubernetes.Clientset) error {
 			},
 		}
 
-		_, err = clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(secretID, metav1.GetOptions{})
+		_, err = virtCli.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(secretID, metav1.GetOptions{})
 		if err != nil {
-			if _, err := clientset.Core().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret); err != nil {
+			if _, err := virtCli.Core().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret); err != nil {
 				return err
 			}
 		}
