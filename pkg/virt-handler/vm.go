@@ -257,6 +257,16 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 					newDisk.Source.Host.Port = hostPort[1]
 				}
 
+				// This iscsi device has auth associated with it.
+				if pv.Spec.ISCSI.SecretRef != nil && pv.Spec.ISCSI.SecretRef.Name != "" {
+					newDisk.Auth = &v1.DiskAuth{
+						Secret: &v1.DiskSecret{
+							Type:  "iscsi",
+							Usage: pv.Spec.ISCSI.SecretRef.Name,
+						},
+					}
+				}
+
 				vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
 			} else {
 				logging.DefaultLogger().Object(vm).Error().Msg(fmt.Sprintf("Referenced PV %v is backed by an unsupported storage type", pv))
