@@ -11,10 +11,14 @@ RUN sed -i -e "s/http_access deny CONNECT !SSL_ports/http_access deny CONNECT !S
 RUN echo "pid_filename /home/proxy/run/squid.pid" >> /etc/squid/squid.conf
 
 RUN useradd --create-home -s /bin/bash proxy
-RUN chown -R proxy /var/log/squid && chown -R proxy /var/spool/squid
+RUN chgrp -R 0 /var/log/squid && chmod -R g=u /var/log/squid
 RUN cp /etc/squid/squid.conf /home/proxy && chown proxy /home/proxy/squid.conf
 WORKDIR /home/proxy
-USER proxy
-RUN mkdir /home/proxy/run
+RUN chgrp -R 0 /home/proxy && \
+    chmod -R g=u /home/proxy
+
+RUN mkdir /home/proxy/run  && \
+    chgrp -R 0 /home/proxy/run && \
+    chmod -R g=u /home/proxy/run
 
 CMD squid -NCd1 -f /home/proxy/squid.conf
