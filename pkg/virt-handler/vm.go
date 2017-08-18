@@ -20,6 +20,8 @@
 package virthandler
 
 import (
+	"encoding/base64"
+	goerror "errors"
 	"fmt"
 	"net"
 	"strings"
@@ -255,6 +257,16 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 					newDisk.Source.Host.Port = hostPort[1]
 				}
 
+				// This iscsi device has auth associated with it.
+				if pv.Spec.ISCSI.SecretRef != nil && pv.Spec.ISCSI.SecretRef.Name != "" {
+					newDisk.Auth = &v1.DiskAuth{
+						Secret: &v1.DiskSecret{
+							Type:  "iscsi",
+							Usage: pv.Spec.ISCSI.SecretRef.Name,
+						},
+					}
+				}
+
 				vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
 			} else {
 				logging.DefaultLogger().Object(vm).Error().Msg(fmt.Sprintf("Referenced PV %v is backed by an unsupported storage type", pv))
@@ -283,11 +295,73 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 	return vmCopy, nil
 }
 
+func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
+	for idx, disk := range vm.Spec.Domain.Devices.Disks {
+		if disk.Auth == nil || disk.Auth.Secret == nil || disk.Auth.Secret.Usage == "" {
+			continue
+		}
+
+		usageIDSuffix := fmt.Sprintf("-%s-%s---", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
+		usageID := disk.Auth.Secret.Usage
+		usageType := disk.Auth.Secret.Type
+		secretID := usageID
+
+		if strings.HasSuffix(usageID, usageIDSuffix) {
+			secretID = strings.TrimSuffix(usageID, usageIDSuffix)
+		} else {
+			usageID = fmt.Sprintf("%s%s", usageID, usageIDSuffix)
+		}
+
+		secret, err := d.clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(secretID, metav1.GetOptions{})
+		if err != nil {
+			logging.DefaultLogger().Error().Reason(err).Msg("Defining the VM secret failed unable to pull corresponding k8s secret value")
+			return nil, err
+		}
+
+		secretBase64, ok := secret.Data["node.session.auth.password"]
+		if ok == false {
+			return nil, goerror.New(fmt.Sprintf("No password value found in k8s secret %s %v", secretID, err))
+		}
+		secretValue, err := base64.StdEncoding.DecodeString(string(secretBase64[:]))
+		if err != nil {
+			return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret %s %v", secretID, err))
+		}
+
+		userBase64, ok := secret.Data["node.session.auth.username"]
+		if ok == false {
+			return nil, goerror.New(fmt.Sprintf("Failed to find username for disk auth %s", secretID))
+		}
+		userValue, err := base64.StdEncoding.DecodeString(string(userBase64[:]))
+		if err != nil {
+			return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret username data field %s %v", secretID, err))
+		}
+		vm.Spec.Domain.Devices.Disks[idx].Auth.Username = string(userValue)
+
+		// override the usage id on the VM with the VM specific one.
+		// By decoupling usage from the k8s secret name here, this allows
+		// multiple VMs to reference the same k8s secret without conflicting
+		// with one another.
+		vm.Spec.Domain.Devices.Disks[idx].Auth.Secret.Usage = usageID
+		err = d.domainManager.SyncVMSecret(vm, usageType, usageID, string(secretValue))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return vm, nil
+}
+
 func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) error {
 
 	if shouldDeleteVm {
 		// Since the VM was not in the cache, we delete it
-		return d.domainManager.KillVM(vm)
+		err := d.domainManager.KillVM(vm)
+		if err != nil {
+			return err
+		}
+
+		// remove any defined libvirt secrets associated with this vm
+		return d.domainManager.RemoveVMSecrets(vm)
 	} else if isWorthSyncing(vm) == false {
 		// nothing to do here.
 		return nil
@@ -301,6 +375,11 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 
 	// Map Container Registry Disks to block devices Libvirt can consume
 	vm, err = registrydisk.MapRegistryDisks(vm)
+	if err != nil {
+		return err
+	}
+
+	vm, err = d.injectDiskAuth(vm)
 	if err != nil {
 		return err
 	}

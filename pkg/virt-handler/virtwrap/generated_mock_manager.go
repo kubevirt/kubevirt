@@ -31,6 +31,26 @@ func (_m *MockDomainManager) EXPECT() *_MockDomainManagerRecorder {
 	return _m.recorder
 }
 
+func (_m *MockDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID string, secretValue string) error {
+	ret := _m.ctrl.Call(_m, "SyncVMSecret", vm, usageType, usageID, secretValue)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) SyncVMSecret(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVMSecret", arg0, arg1, arg2, arg3)
+}
+
+func (_m *MockDomainManager) RemoveVMSecrets(_param0 *v1.VM) error {
+	ret := _m.ctrl.Call(_m, "RemoveVMSecrets", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) RemoveVMSecrets(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVMSecrets", arg0)
+}
+
 func (_m *MockDomainManager) SyncVM(_param0 *v1.VM) (*api.DomainSpec, error) {
 	ret := _m.ctrl.Call(_m, "SyncVM", _param0)
 	ret0, _ := ret[0].(*api.DomainSpec)

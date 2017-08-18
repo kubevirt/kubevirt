@@ -62,6 +62,17 @@ type Disk struct {
 	Serial   string      `json:"serial,omitempty"`
 	Driver   *DiskDriver `json:"driver,omitempty"`
 	ReadOnly *ReadOnly   `json:"readOnly,omitempty"`
+	Auth     *DiskAuth   `json:"auth,omitempty"`
+}
+
+type DiskAuth struct {
+	Username string      `json:"username"`
+	Secret   *DiskSecret `json:"secret,omitempty"`
+}
+
+type DiskSecret struct {
+	Type  string `json:"type"`
+	Usage string `json:"usage"`
 }
 
 type ReadOnly struct{}

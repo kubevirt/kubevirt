@@ -27,6 +27,8 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	goerrors "errors"
+	"fmt"
 
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
@@ -43,18 +45,122 @@ import (
 )
 
 type DomainManager interface {
+	SyncVMSecret(vm *v1.VM, usageType string, usageID string, secretValue string) error
+	RemoveVMSecrets(*v1.VM) error
 	SyncVM(*v1.VM) (*api.DomainSpec, error)
 	KillVM(*v1.VM) error
 }
 
 type LibvirtDomainManager struct {
-	virConn  cli.Connection
-	recorder record.EventRecorder
+	virConn     cli.Connection
+	recorder    record.EventRecorder
+	secretCache map[string][]string
+}
+
+func (l *LibvirtDomainManager) initiateSecretCache() error {
+	secrets, err := l.virConn.ListSecrets()
+	if err != nil {
+		if err.(libvirt.Error).Code == libvirt.ERR_NO_SECRET {
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	for _, secretUUID := range secrets {
+		var secretSpec api.SecretSpec
+
+		secret, err := l.virConn.LookupSecretByUUIDString(secretUUID)
+		if err != nil {
+			return err
+		}
+		defer secret.Free()
+
+		xmlstr, err := secret.GetXMLDesc(0)
+		if err != nil {
+			return err
+		}
+
+		err = xml.Unmarshal([]byte(xmlstr), &secretSpec)
+		if err != nil {
+			return err
+		}
+
+		if secretSpec.Description == "" {
+			continue
+		}
+		domName := secretSpec.Description
+		l.secretCache[domName] = append(l.secretCache[domName], secretUUID)
+	}
+
+	return nil
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder) (DomainManager, error) {
-	manager := LibvirtDomainManager{virConn: connection, recorder: recorder}
+	manager := LibvirtDomainManager{virConn: connection, recorder: recorder, secretCache: make(map[string][]string)}
+
+	err := manager.initiateSecretCache()
+	if err != nil {
+		return nil, err
+	}
 	return &manager, nil
+}
+
+func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID string, secretValue string) error {
+
+	domName := cache.VMNamespaceKeyFunc(vm)
+
+	switch usageType {
+	case "iscsi":
+		libvirtSecret, err := l.virConn.LookupSecretByUsage(libvirt.SECRET_USAGE_TYPE_ISCSI, usageID)
+
+		// If the secret doesn't exist, make it
+		if err != nil {
+			if err.(libvirt.Error).Code != libvirt.ERR_NO_SECRET {
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Failed to get libvirt secret.")
+				return err
+
+			}
+			secretSpec := &api.SecretSpec{
+				Ephemeral:   "no",
+				Private:     "yes",
+				Description: domName,
+				Usage: api.SecretUsage{
+					Type:   usageType,
+					Target: usageID,
+				},
+			}
+
+			xmlStr, err := xml.Marshal(&secretSpec)
+			libvirtSecret, err = l.virConn.SecretDefineXML(string(xmlStr))
+			if err != nil {
+				logging.DefaultLogger().Error().Reason(err).Msg("Defining the VM secret failed.")
+				return err
+			}
+
+			secretUUID, err := libvirtSecret.GetUUIDString()
+			if err != nil {
+				// This error really shouldn't occur. The UUID should be known
+				// locally by the libvirt client. If this fails, we make a best
+				// effort attempt at removing the secret from libvirt.
+				libvirtSecret.Undefine()
+				libvirtSecret.Free()
+				return err
+			}
+			l.secretCache[domName] = append(l.secretCache[domName], secretUUID)
+		}
+		defer libvirtSecret.Free()
+
+		err = libvirtSecret.SetValue([]byte(secretValue), 0)
+		if err != nil {
+			logging.DefaultLogger().Error().Reason(err).Msg("Setting secret value for the VM failed.")
+			return err
+		}
+
+	default:
+		return goerrors.New(fmt.Sprintf("unsupported disk auth usage type %s", usageType))
+	}
+	return nil
 }
 
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
@@ -62,6 +168,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
 
 	if len(mappingErrs) > 0 {
+		logging.DefaultLogger().Error().Msg("model copy failed.")
 		return nil, errors.NewAggregate(mappingErrs)
 	}
 
@@ -136,6 +243,35 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 
 	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
 	return &newSpec, nil
+}
+
+func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VM) error {
+	domName := cache.VMNamespaceKeyFunc(vm)
+
+	secretUUIDs, ok := l.secretCache[domName]
+	if ok == false {
+		return nil
+	}
+
+	for _, secretUUID := range secretUUIDs {
+		secret, err := l.virConn.LookupSecretByUUIDString(secretUUID)
+		if err != nil {
+			if err.(libvirt.Error).Code != libvirt.ERR_NO_SECRET {
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg(fmt.Sprintf("Failed to lookup secret with UUID %s.", secretUUID))
+				return err
+			}
+			continue
+		}
+		defer secret.Free()
+
+		err = secret.Undefine()
+		if err != nil {
+			return err
+		}
+	}
+
+	delete(l.secretCache, domName)
+	return nil
 }
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
