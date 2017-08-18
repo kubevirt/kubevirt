@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	. "kubevirt.io/kubevirt/pkg/virt-handler"
@@ -75,8 +76,10 @@ var _ = Describe("VM", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
 
+		configDiskClient := configdisk.NewConfigDiskClient("")
+
 		recorder = record.NewFakeRecorder(100)
-		dispatch = NewVMHandlerDispatch(domainManager, recorder, restClient, virtClient, host)
+		dispatch = NewVMHandlerDispatch(domainManager, recorder, restClient, virtClient, host, configDiskClient)
 
 	})
 

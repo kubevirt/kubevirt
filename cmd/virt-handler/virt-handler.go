@@ -39,6 +39,8 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
@@ -58,6 +60,8 @@ func main() {
 	port := flag.Int("port", 8185, "Port to listen on")
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
+	cloudInitDir := flag.String("cloud-init-dir", "/var/run/libvirt/cloud-init-dir", "Base directory for ephemeral cloud init data")
+	configDiskSocket := flag.String("config-disk-socket", "/var/run/libvirt/config-disk-sock", "Base directory for ephemeral cloud init data")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -70,6 +74,8 @@ func main() {
 	}
 	log := logging.DefaultLogger()
 	log.Info().V(1).Log("hostname", *host)
+
+	cloudinit.SetLocalDirectory(*cloudInitDir)
 
 	go func() {
 		for {
@@ -108,9 +114,11 @@ func main() {
 		panic(err)
 	}
 
+	configDiskClient := configdisk.NewConfigDiskClient(*configDiskSocket)
+
 	// Wire VM controller
 	vmListWatcher := kubecli.NewListWatchFromClient(virtCli.RestClient(), "vms", k8sv1.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, *host)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, *host, configDiskClient)
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)

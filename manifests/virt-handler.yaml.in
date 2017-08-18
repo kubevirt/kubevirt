@@ -37,6 +37,16 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+      - name: virt-config-disk
+        image: {{ docker_prefix }}/virt-config-disk:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        volumeMounts:
+          - name: libvirt-runtime
+            mountPath: /var/run/libvirt
+        command: ["/virt-config-disk"]
       volumes:
       - name: libvirt-runtime
         hostPath:

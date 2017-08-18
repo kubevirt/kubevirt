@@ -2,6 +2,18 @@
 
 package v1
 
+func (CloudInitDataSourceNoCloud) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+	}
+}
+
+func (CloudInitSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"noCloudData": "DataSource specific data structures",
+	}
+}
+
 func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }

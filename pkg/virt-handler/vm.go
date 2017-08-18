@@ -37,6 +37,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
@@ -44,22 +46,34 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
-func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset kubecli.KubevirtClient, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
+func NewVMController(lw cache.ListerWatcher,
+	domainManager virtwrap.DomainManager,
+	recorder record.EventRecorder,
+	restClient rest.RESTClient,
+	clientset kubecli.KubevirtClient,
+	host string,
+	configDiskClient configdisk.ConfigDiskClient) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host)
+	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host, configDiskClient)
 
 	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, dispatch)
 	return indexer, queue, informer
 
 }
-func NewVMHandlerDispatch(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient *rest.RESTClient, clientset kubecli.KubevirtClient, host string) kubecli.ControllerDispatch {
+func NewVMHandlerDispatch(domainManager virtwrap.DomainManager,
+	recorder record.EventRecorder,
+	restClient *rest.RESTClient,
+	clientset kubecli.KubevirtClient,
+	host string,
+	configDiskClient configdisk.ConfigDiskClient) kubecli.ControllerDispatch {
 	return &VMHandlerDispatch{
 		domainManager: domainManager,
 		recorder:      recorder,
 		restClient:    *restClient,
 		clientset:     clientset,
 		host:          host,
+		configDisk:    configDiskClient,
 	}
 }
 
@@ -69,6 +83,7 @@ type VMHandlerDispatch struct {
 	restClient    rest.RESTClient
 	clientset     kubecli.KubevirtClient
 	host          string
+	configDisk    configdisk.ConfigDiskClient
 }
 
 func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VM) (string, error) {
@@ -361,7 +376,11 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 		}
 
 		// remove any defined libvirt secrets associated with this vm
-		return d.domainManager.RemoveVMSecrets(vm)
+		err = d.domainManager.RemoveVMSecrets(vm)
+		if err != nil {
+			return err
+		}
+		return d.configDisk.Undefine(vm)
 	} else if isWorthSyncing(vm) == false {
 		// nothing to do here.
 		return nil
@@ -384,12 +403,23 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 		return err
 	}
 
+	// Map whatever devices are being used for config-init
+	vm, err = cloudinit.InjectDomainData(vm)
+	if err != nil {
+		return err
+	}
+
 	// TODO MigrationNodeName should be a pointer
 	if vm.Status.MigrationNodeName != "" {
 		// Only sync if the VM is not marked as migrating.
 		// Everything except shutting down the VM is not
 		// permitted when it is migrating.
 		return nil
+	}
+
+	err = d.configDisk.Define(vm)
+	if err != nil {
+		return err
 	}
 
 	// TODO check if found VM has the same UID like the domain,
