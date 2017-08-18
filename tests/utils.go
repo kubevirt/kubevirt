@@ -20,6 +20,8 @@
 package tests
 
 import (
+	"encoding/base64"
+	goerrors "errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -416,6 +418,26 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VM {
 		},
 	}}
 	return vm
+}
+
+func NewRandomVMWithUserData(containerImage string, cloudInitDataSource string) (*v1.VM, error) {
+
+	switch cloudInitDataSource {
+	case "noCloud":
+		userData := "#cloud-config\npassword: atomic\nssh_pwauth: True\nchpasswd: { expire: False }\n"
+
+		vm := NewRandomVMWithEphemeralDisk(containerImage)
+		vm.Spec.CloudInit = &v1.CloudInitSpec{
+			DataSource: "noCloud",
+			NoCloudData: &v1.CloudInitDataSourceNoCloud{
+				DiskTarget:     "vdb",
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+			},
+		}
+		return vm, nil
+	}
+
+	return nil, goerrors.New("Unknown cloud-init data source")
 }
 
 func NewRandomVMWithDirectLun(lun int) *v1.VM {
