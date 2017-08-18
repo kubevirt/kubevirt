@@ -119,7 +119,7 @@ func httpRequestHandler(w http.ResponseWriter, r *http.Request) {
 	domain := path[4]
 	body, _ := ioutil.ReadAll(r.Body)
 
-	logging.DefaultLogger().Info().Msg(fmt.Sprintf("action %s, dataType: %s, domain %s, namespace %s", action, dataType, domain, namespace))
+	logging.DefaultLogger().V(2).Info().Msg(fmt.Sprintf("action %s, dataType: %s, domain %s, namespace %s", action, dataType, domain, namespace))
 	switch action {
 	case "create":
 		switch dataType {
@@ -127,13 +127,13 @@ func httpRequestHandler(w http.ResponseWriter, r *http.Request) {
 			spec := v1.CloudInitSpec{}
 			err := json.Unmarshal(body, &spec)
 			if err != nil {
-				logging.DefaultLogger().Info().Msg(fmt.Sprintf("Failed to decode json object for domain %s in namespace %s", domain, namespace))
+				logging.DefaultLogger().V(2).Info().Msg(fmt.Sprintf("Failed to decode json object for domain %s in namespace %s", domain, namespace))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			err = cloudinit.GenerateLocalData(domain, namespace, &spec)
 			if err != nil {
-				logging.DefaultLogger().Info().Msg(fmt.Sprintf("Failed to generate local data for domain %s at namespace %s. data: %v err: %v", domain, namespace, spec, err))
+				logging.DefaultLogger().V(2).Info().Msg(fmt.Sprintf("Failed to generate local data for domain %s at namespace %s. data: %v err: %v", domain, namespace, spec, err))
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}

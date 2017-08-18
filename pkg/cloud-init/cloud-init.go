@@ -37,7 +37,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
+type IsoCreationFunc func(isoOutFile string, inFiles []string) error
+
 var cloudInitLocalDir = "/var/run/libvirt/kubevirt"
+var cloudInitOwner = "qemu"
+var cloudInitIsoFunc = defaultIsoFunc
 
 const noCloudFile = "noCloud.iso"
 
@@ -45,6 +49,22 @@ const noCloudFile = "noCloud.iso"
 const (
 	dataSourceNoCloud = "noCloud"
 )
+
+func defaultIsoFunc(isoOutFile string, inFiles []string) error {
+
+	var args []string
+
+	args = append(args, "-output")
+	args = append(args, isoOutFile)
+	args = append(args, "-volid")
+	args = append(args, "cidata")
+	args = append(args, "-joliet")
+	args = append(args, "-rock")
+	args = append(args, inFiles...)
+
+	cmd := exec.Command("genisoimage", args...)
+	return cmd.Run()
+}
 
 func fileExists(path string) (bool, error) {
 	_, err := os.Stat(path)
@@ -122,6 +142,16 @@ func filesAreEqual(path1 string, path2 string) (bool, error) {
 	}
 
 	return bytes.Equal(sum1, sum2), nil
+}
+
+// The unit test suite uses this function
+func SetIsoCreationFunction(isoFunc IsoCreationFunc) {
+	cloudInitIsoFunc = isoFunc
+}
+
+// The unit test suite uses this function
+func SetLocalDataOwner(user string) {
+	cloudInitOwner = user
 }
 
 func SetLocalDirectory(dir string) {
@@ -260,24 +290,17 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 			return err
 		}
 
-		cmd := exec.Command("genisoimage",
-			"-output",
-			isoStaging,
-			"-volid",
-			"cidata",
-			"-joliet",
-			"-rock",
-			userFile,
-			metaFile)
-
-		err = cmd.Run()
+		files := make([]string, 0, 2)
+		files = append(files, metaFile)
+		files = append(files, userFile)
+		cloudInitIsoFunc(isoStaging, files)
 		os.Remove(metaFile)
 		os.Remove(userFile)
 		if err != nil {
 			return err
 		}
 
-		err = setFileOwnership("qemu", isoStaging)
+		err = setFileOwnership(cloudInitOwner, isoStaging)
 		if err != nil {
 			return err
 		}
@@ -295,7 +318,7 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 			os.Rename(isoStaging, iso)
 		}
 
-		logging.DefaultLogger().Info().Msg(fmt.Sprintf("generated nocloud iso file %s", iso))
+		logging.DefaultLogger().V(2).Info().Msg(fmt.Sprintf("generated nocloud iso file %s", iso))
 	}
 	return nil
 }
