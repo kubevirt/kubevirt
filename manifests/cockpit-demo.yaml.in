@@ -22,6 +22,7 @@ spec:
       labels:
         name: kubevirt-cockpit-demo
     spec:
+      serviceAccountName: kubevirt
       containers:
       - name: cockpit
         image: kubevirt/cockpit-demo
