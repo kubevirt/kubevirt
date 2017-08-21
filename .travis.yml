@@ -51,6 +51,8 @@ deploy:
   - provider: script
     script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish DOCKER_TAG=$TRAVIS_TAG
     skip_cleanup: true
+    file:
+      - "cmd/virtctl/virtctl"
     on:
       tags: true
       go: 1.8.3
