@@ -85,6 +85,7 @@ func Usage() {
 Basic Commands:
   console        Connect to a serial console on a VM
   convert-spec   Convert between Libvirt and KubeVirt specifications
+  spice          Connect to a SPICE display of a VM
 
 Use "virtctl <command> --help" for more information about a given command.
 Use "virtctl options" for a list of global command-line options (applies to all commands).
