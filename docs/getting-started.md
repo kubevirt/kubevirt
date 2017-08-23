@@ -9,7 +9,7 @@ A quick start guide to get KubeVirt up and running inside Vagrant.
 
 ## Building
 
-### Go
+### Go (1.8 or higher)
 
 [Go](https://golang.org) needs to be setup to be able to compile the sources.
 
