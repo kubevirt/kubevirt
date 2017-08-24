@@ -52,7 +52,7 @@ sudo gpasswd -a ${USER} libvirt
 newgrp libvirt
 ```
 
-You might also need to change the libvirt connection string to be able to see all libvirt information:
+On CentOS/RHEL 7 you might also need to change the libvirt connection string to be able to see all libvirt information:
 
 ```
 export LIBVIRT_DEFAULT_URI=qemu:///system
