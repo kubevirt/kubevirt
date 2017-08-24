@@ -52,6 +52,12 @@ sudo gpasswd -a ${USER} libvirt
 newgrp libvirt
 ```
 
+On CentOS/RHEL 7 you might also need to change the libvirt connection string to be able to see all libvirt information:
+
+```
+export LIBVIRT_DEFAULT_URI=qemu:///system
+```
+
 ### Build dependencies
 
 Now we can finally get to the sources, before building KubeVirt we'll need
