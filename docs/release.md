@@ -7,7 +7,6 @@ is not intended to define any release criteria.
 
 Overview
 --------
-
 - KubeVirt uses [semantic versioning](http://semver.org)
 - Primary artefact is the source tree in form of a signed tap using
   [git evtag](https://github.com/cgwalters/git-evtag)
@@ -15,9 +14,21 @@ Overview
 - The releases appear on a time based release schedule
 
 
+Content
+-------
+The primary artifact of a release is the source tree itself. The trust on the
+tree is established by using _git-evtag_ which can be used to sign the tree
+recursively, including blobs and submodules.
+
+For convenience a number of binary artifacts can be provided alongside a
+release, those are:
+
+- Container images (currently docker images)
+- Client sided binaries (i.e. _virtctl_)
+
+
 Cadence
 -------
-
 A release is taking place on every first Monday of a month.
 The release owner is in charge of delaying a release if it is _really_
 necessary.
@@ -27,7 +38,6 @@ skipped.
 
 Versioning
 ----------
-
 The release owner is in charge of choosing the correct release version -
 according to the [semantic versioning conventions](http://semver.org).
 
@@ -44,7 +54,6 @@ v0.0.1-alpha.1
 
 Release notes
 -------------
-
 Every release must should be accompanied by release notes describing the
 major highlights of the release.
 The release notes must be provided in the commit message of the tag.
@@ -52,14 +61,12 @@ The release notes must be provided in the commit message of the tag.
 
 Announcement
 ------------
-
 Every release must be announced on the `kubevirt-dev` mailinglist
 <kubevirt-dev@googlegroups.com>.
 
 
 Releasing
 ---------
-
 The release process is mostly automatic and consists of the following steps:
 
 1. Tag a commit using `git evtag sign $TAG` (which is a signed and annotated
