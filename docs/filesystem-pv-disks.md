@@ -21,7 +21,7 @@ future changes for improving usability, performance, or other characteristics.
 
 ## Non-Goals
 
-- Provide a totally atumatic solution
+- Provide a totally automatic solution
 - Cover snapshots explicitly
 
 
@@ -44,20 +44,22 @@ The mechanism proposed in proposal however is leveraging Kubernetes to attach
 the remote storage as a file-system to a pod, to use this file-system to storage
 disk images which are acting as a backend storage to the VM.
 
+To keep the story compatability between the block and file-system storage, this
+proposal assumes that the file-system based storage will also just support a 1:1
+mapping between the virtual disk and volume.
+This aligns with the fact that a block volume can also just back a single
+virtual disk.
+
 
 ## API
 
 The general API to use PersistentVolume claims as virtual disk backends was
 introduced with [direct PV proposal](direct-pv-disks.md).
 
-This proposal is merely adding an additional field to support addressing files
-on a file-system.
+The change suggested by this proposal, does not require any API change.
 
-Thus, to use a PV as a virtual disk backend, a user needs to create a claim for
-the required PV, and then reference the to be used disk image using the newly
-introduced `file` parameter.
-The `file` field takes a path, relative to the source of the file-system held by
-the referenced PVC.
+To use a PV as a virtual disk backend, a user needs to create a claim for the
+required PV, this claim is then used as a disk source for a virtual disk.
 
 An example:
 
@@ -69,24 +71,54 @@ spec:
       disks:
       - type: PersistentVolumeClaim
         source:
-          name: vm-01-disks
-          file: disk-01.img  # The change
+          name: vm-01-disk
         target:
           bus: scsi
           device: sda
 ```
 
-Here the user attaches the PersistentVolumeClaim _vm-01-disks_ to a VM, and uses
-the file `disk-01.img` as the backing file for the disk `sda`.
+Here the user attaches the PersistentVolumeClaim _vm-01-disk_ to a VM, the
+assumption is that the _vm-01-disk_ volume is a file-system based volume.
+
 
 ### Storage Type Inference
 
-The system can look at the PVC to infer whether file-system or raw block storage
-should be used with a PV.
-If there is a conflict between the VM API configuration and the backing PV, then
-an error must be raised.
-One error condition for example would be if a `file` field is given, but the
-backing PV is of `volumeType: block`.
+The system needs to know if the referenced volume needs to be treated as a
+block or file-system volume. This information can be infered from the existing
+PV metadata.
+
+
+## Implementation
+
+### Volume layout
+
+A file-system based volume will contain the image file only, this file must be
+named `disk.img`.
+The format of the file must be `raw`.
+
+The file-system layout of a mounted volume then looks like:
+
+```
+/disk.img
+```
+
+### Mounting & sharing
+
+The file-system volume needs to be associated with the launcher container of
+the VM pod, and is thus mounted in the VMs pod launcher mount namespace.
+
+As the qemu proccesses run in the libvirt's mount namespace, the volume mount
+namespace has to be shared with libvirt.
+
+To achieve this, libvrit needs to gain access to the `/var/lib/kubelet/pods`
+path in the `kubelet`'s mount namespace.
+This path contains all volume mounts of all containers.
+
+The handler can craft the (relative) path to a volume, by taking the pod's UUID
+and volume informations. This path is then passed to libvirt, which in turn uses
+it in a disk definition.
+
+FIXME define the EXACT way of how to craft the path. 
 
 
 ## Additional Notes
