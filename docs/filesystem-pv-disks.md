@@ -119,6 +119,8 @@ and volume informations. This path is then passed to libvirt, which in turn uses
 it in a disk definition.
 
 FIXME define the EXACT way of how to craft the path. 
+Path is defined here:
+https://github.com/kubernetes/kubernetes/blob/master/pkg/volume/util/operationexecutor/operation_executor.go#L394
 
 
 ## Additional Notes
