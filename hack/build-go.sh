@@ -53,9 +53,12 @@ for arg in $args; do
     if [ "${target}" = "test" ]; then
         (cd $arg; go ${target} -v ./...)
     elif [ "${target}" = "install" ]; then
-        (cd $arg; GOBIN=$PWD go ${target} .)
+        eval "$(go env)"
+        ARCHBIN=$(basename $arg)-$(git describe --always)-$GOHOSTOS-$GOHOSTARCH
+        (cd $arg; GOBIN=$PWD go build -o $ARCHBIN)
         mkdir -p bin
-        ln -sf ../$arg/$(basename $arg) bin/$(basename $arg)
+        ln -sf $ARCHBIN $arg/$(basename $arg)
+        ln -sf ../$arg/$ARCHBIN bin/$(basename $arg)
     else
         (cd $arg; go $target ./...)
     fi
