@@ -255,9 +255,9 @@ func ApplyMetadata(vm *v1.VM) {
 	vm.Spec.CloudInit.NoCloudData.MetaDataBase64 = base64.StdEncoding.EncodeToString([]byte(msg))
 }
 
-func RemoveLocalData(domain string, namespace string) {
+func RemoveLocalData(domain string, namespace string) error {
 	domainBasePath := GetDomainBasePath(domain, namespace)
-	os.RemoveAll(domainBasePath)
+	return os.RemoveAll(domainBasePath)
 }
 
 func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) error {

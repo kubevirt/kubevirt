@@ -141,7 +141,12 @@ func httpRequestHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 		}
 	case "delete":
-		cloudinit.RemoveLocalData(domain, namespace)
+		err := cloudinit.RemoveLocalData(domain, namespace)
+		if err != nil {
+			logging.DefaultLogger().V(2).Info().Msg(fmt.Sprintf("Failed to remove local data for domain %s at namespace %s. err: %v", domain, namespace, err))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 	}
