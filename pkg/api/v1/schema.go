@@ -26,17 +26,24 @@ package v1
 */
 
 type DomainSpec struct {
-	Memory  Memory   `json:"memory"`
-	Type    string   `json:"type"`
-	OS      OS       `json:"os"`
-	SysInfo *SysInfo `json:"sysInfo,omitempty"`
-	Devices Devices  `json:"devices"`
-	Clock   *Clock   `json:"clock,omitempty"`
+	Memory     Memory      `json:"memory"`
+	MaxMemory  MaxMemory   `json:"maxMemory,omitempty"`
+	Type       string      `json:"type"`
+	OS         OS          `json:"os"`
+	SysInfo    *SysInfo    `json:"sysInfo,omitempty"`
+	Devices    Devices     `json:"devices"`
+	Clock      *Clock      `json:"clock,omitempty"`
 }
 
 type Memory struct {
 	Value uint   `json:"value"`
 	Unit  string `json:"unit"`
+}
+
+type MaxMemory struct {
+	Value uint   `json:"value"`
+	Unit  string `json:"unit"`
+	Slots uint   `json:"slots"`
 }
 
 type Devices struct {

@@ -39,6 +39,7 @@ type StateChangeReason string
 func init() {
 	// TODO the whole mapping registration can be done be an automatic process with reflection
 	mapper.AddConversion(&Memory{}, &v1.Memory{})
+	mapper.AddConversion(&MaxMemory{}, &v1.MaxMemory{})
 	mapper.AddConversion(&OS{}, &v1.OS{})
 	mapper.AddConversion(&Devices{}, &v1.Devices{})
 	mapper.AddPtrConversion((**Clock)(nil), (**v1.Clock)(nil))
@@ -147,20 +148,27 @@ type DomainList struct {
 // tagged, and they must correspond to the libvirt domain as described in
 // https://libvirt.org/formatdomain.html.
 type DomainSpec struct {
-	XMLName xml.Name `xml:"domain"`
-	Name    string   `xml:"name"`
-	UUID    string   `xml:"uuid,omitempty"`
-	Memory  Memory   `xml:"memory"`
-	Type    string   `xml:"type,attr"`
-	OS      OS       `xml:"os"`
-	SysInfo *SysInfo `xml:"sysinfo,omitempty"`
-	Devices Devices  `xml:"devices"`
-	Clock   *Clock   `xml:"clock,omitempty"`
+	XMLName    xml.Name  `xml:"domain"`
+	Name       string    `xml:"name"`
+	UUID       string    `xml:"uuid,omitempty"`
+	Memory     Memory    `xml:"memory"`
+	MaxMemory  MaxMemory `xml:"maxMemory,omitempty"`
+	Type       string    `xml:"type,attr"`
+	OS         OS        `xml:"os"`
+	SysInfo    *SysInfo  `xml:"sysinfo,omitempty"`
+	Devices    Devices   `xml:"devices"`
+	Clock      *Clock    `xml:"clock,omitempty"`
 }
 
 type Memory struct {
 	Value uint   `xml:",chardata"`
 	Unit  string `xml:"unit,attr"`
+}
+
+type MaxMemory struct {
+	Value uint   `xml:",chardata"`
+	Unit  string `xml:"unit,attr"`
+	Slots uint   `xml:"slots,attr"`
 }
 
 type Devices struct {

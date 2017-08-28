@@ -80,6 +80,36 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher", "--qemu-timeout", "60s"}))
 			})
 		})
+		Context("with memory", func() {
+			It("should add memory constraints to template", func() {
+
+				vm := v1.VM{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvm",
+						UID:  "1234",
+					},
+					Spec: v1.VMSpec{
+						Domain: &v1.DomainSpec{
+							Memory: v1.Memory{
+								Value: 8,
+								Unit: "MB",
+							},
+							MaxMemory: v1.MaxMemory{
+								Value: 64,
+								Unit: "MB",
+								Slots: 16,
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+
+				Expect(err).To(BeNil())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("73551k"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("32768k"))
+			})
+		})
 		Context("migration", func() {
 			var (
 				srcIp      = kubev1.NodeAddress{}
