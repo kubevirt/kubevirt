@@ -88,6 +88,8 @@ Now we can clone the project into your `$GOPATH`:
     cd $GOPATH/src/kubevirt.io/kubevirt
 ```
 
+### Compile and run it
+
 And finally build all required artifacts and launch the
 Vagrant environment:
 
