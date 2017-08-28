@@ -1,5 +1,3 @@
-Release process
-===============
 
 The goal of this document is to define the release process of KubeVirt, but it
 is not intended to define any release criteria.
@@ -8,7 +6,7 @@ is not intended to define any release criteria.
 Overview
 --------
 - KubeVirt uses [semantic versioning](http://semver.org)
-- Primary artefact is the source tree in form of a signed tap using
+- Primary artifact is the source tree in form of a signed tap using
   [git evtag](https://github.com/cgwalters/git-evtag)
 - Binary artifacts are built using automation
 - The releases appear on a time based release schedule
@@ -23,13 +21,16 @@ recursively, including blobs and submodules.
 For convenience a number of binary artifacts can be provided alongside a
 release, those are:
 
-- Container images (currently docker images)
-- Client sided binaries (i.e. _virtctl_)
+- Container images (currently docker images), tagged and pushed to a registry
+- Client side binaries (i.e. _virtctl_), published on the release page
+
+These artifacts are provided in their respective channels and their natural way
+of distribution.
 
 
 Cadence
 -------
-A release is taking place on every first Monday of a month.
+A release will take place on the first Monday of each month.
 The release owner is in charge of delaying a release if it is _really_
 necessary.
 If a release has to be delayed by more than a week, then the release must be
@@ -74,8 +75,10 @@ The release process is mostly automatic and consists of the following steps:
    1. Provide the release notes as part of the tag commit message
 2. Push the tag to github `git push origin $TAG`
 3. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
-   check that the artifacts got attached to the release at
+   check that the binary artifacts got attached to the release at
    <https://github.com/kubevirt/kubevirt/releases/tag/$TAG>
+   and that the containers were correctly tagged and pushed to
+   <https://hub.docker.com/r/kubevirt/>
 4. Adjust the release details (draft, pre-release) as necessary at
    <https://github.com/kubevirt/kubevirt/releases/tag/$TAG>
 5. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com>
