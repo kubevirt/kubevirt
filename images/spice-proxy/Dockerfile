@@ -21,4 +21,6 @@ RUN mkdir /home/proxy/run  && \
     chgrp -R 0 /home/proxy/run && \
     chmod -R g=u /home/proxy/run
 
+USER 1001
+
 CMD squid -NCd1 -f /home/proxy/squid.conf
