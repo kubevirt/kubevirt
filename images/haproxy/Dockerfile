@@ -28,7 +28,9 @@ RUN cp /docker-entrypoint.sh /docker-entrypoint-orig.sh
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 RUN addgroup -S haproxy && adduser -S -D -h /haproxy -s /bin/false -G haproxy -g haproxy haproxy
-#USER haproxy
+
 RUN mkdir /haproxy/run  && \
     chgrp -R 0 /haproxy/run && \
     chmod -R g=u /haproxy/run
+
+USER 1001
