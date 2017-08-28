@@ -242,6 +242,7 @@ func ValidateArgs(spec *v1.CloudInitSpec) error {
 	return nil
 }
 
+// Place metadata auto-generation code in here
 func ApplyMetadata(vm *v1.VM) {
 	if vm.Spec.CloudInit == nil {
 		return
@@ -250,9 +251,16 @@ func ApplyMetadata(vm *v1.VM) {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
-	// TODO Put local-hostname in MetaData once we get pod DNS working with VMs
-	msg := fmt.Sprintf("instance-id: %s-%s\n", namespace, domain)
-	vm.Spec.CloudInit.NoCloudData.MetaDataBase64 = base64.StdEncoding.EncodeToString([]byte(msg))
+	switch vm.Spec.CloudInit.DataSource {
+	case dataSourceNoCloud:
+		// Only autogenerate metadata if user defined metadata does not exist
+		if vm.Spec.CloudInit.NoCloudData.MetaDataBase64 != "" {
+			return
+		}
+		// TODO Put local-hostname in MetaData once we get pod DNS working with VMs
+		msg := fmt.Sprintf("instance-id: %s-%s\n", domain, namespace)
+		vm.Spec.CloudInit.NoCloudData.MetaDataBase64 = base64.StdEncoding.EncodeToString([]byte(msg))
+	}
 }
 
 func RemoveLocalData(domain string, namespace string) error {

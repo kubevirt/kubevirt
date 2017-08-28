@@ -141,6 +141,41 @@ var _ = Describe("CloudInit", func() {
 				}
 				Expect(err).ToNot(HaveOccurred())
 			})
+			It("Verify no cloudinit metadata auto-gen is no-op when metadata exists already", func() {
+				vm := v1.NewMinimalVM("fake-vm-nocloud")
+
+				userData := "fake\nuser\ndata\n"
+				metaData := "fake\nmeta\ndata\n"
+				metaData64 := base64.StdEncoding.EncodeToString([]byte(metaData))
+				vm.Spec.CloudInit = &v1.CloudInitSpec{
+					DataSource: "noCloud",
+					NoCloudData: &v1.CloudInitDataSourceNoCloud{
+						DiskTarget:     "vdb",
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+						MetaDataBase64: metaData64,
+					},
+				}
+
+				ApplyMetadata(vm)
+				Expect(vm.Spec.CloudInit.NoCloudData.MetaDataBase64).To(Equal(metaData64))
+			})
+
+			It("Verify no cloudinit metadata auto-generated when metadata does not exist", func() {
+				vm := v1.NewMinimalVM("fake-vm-nocloud")
+
+				userData := "fake\nuser\ndata\n"
+				vm.Spec.CloudInit = &v1.CloudInitSpec{
+					DataSource: "noCloud",
+					NoCloudData: &v1.CloudInitDataSourceNoCloud{
+						DiskTarget:     "vdb",
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+						MetaDataBase64: "",
+					},
+				}
+
+				ApplyMetadata(vm)
+				Expect(vm.Spec.CloudInit.NoCloudData.MetaDataBase64).ToNot(Equal(""))
+			})
 		})
 	})
 })
