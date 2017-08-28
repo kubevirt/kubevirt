@@ -75,7 +75,10 @@ func main() {
 	log := logging.DefaultLogger()
 	log.Info().V(1).Log("hostname", *host)
 
-	cloudinit.SetLocalDirectory(*cloudInitDir)
+	err := cloudinit.SetLocalDirectory(*cloudInitDir)
+	if err != nil {
+		panic(err)
+	}
 
 	go func() {
 		for {

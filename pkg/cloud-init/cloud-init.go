@@ -39,7 +39,7 @@ import (
 
 type IsoCreationFunc func(isoOutFile string, inFiles []string) error
 
-var cloudInitLocalDir = "/var/run/libvirt/kubevirt"
+var cloudInitLocalDir = "/var/run/libvirt/cloud-init-dir"
 var cloudInitOwner = "qemu"
 var cloudInitIsoFunc = defaultIsoFunc
 
@@ -154,8 +154,22 @@ func SetLocalDataOwner(user string) {
 	cloudInitOwner = user
 }
 
-func SetLocalDirectory(dir string) {
+func SetLocalDirectory(dir string) error {
+
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Unable to initalize cloudInit local cache directory (%s). %v", dir, err))
+	}
+
+	exists, err := fileExists(dir)
+	if err != nil {
+		return errors.New(fmt.Sprintf("CloudInit local cache directory (%s) does not exist or is inaccessible. %v", dir, err))
+	} else if exists == false {
+		return errors.New(fmt.Sprintf("CloudInit local cache directory (%s) does not exist or is inaccessible.", dir))
+	}
+
 	cloudInitLocalDir = dir
+	return nil
 }
 
 func GetDomainBasePath(domain string, namespace string) string {
@@ -257,7 +271,10 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 	}
 
 	domainBasePath := GetDomainBasePath(domain, namespace)
-	os.MkdirAll(domainBasePath, 0755)
+	err = os.MkdirAll(domainBasePath, 0755)
+	if err != nil {
+		return err
+	}
 
 	switch spec.DataSource {
 	case dataSourceNoCloud:

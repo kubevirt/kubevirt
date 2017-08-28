@@ -23,6 +23,10 @@ spec:
           - "3"
           - "--libvirt-uri"
           - "qemu:///system"
+          - "--cloud-init-dir"
+          - "/var/run/libvirt/cloud-init-dir"
+          - "--config-disk-socket"
+          - "/var/run/libvirt/config-disk-sock"
           - "--hostname-override"
           - "$(NODE_NAME)"
         securityContext:
@@ -46,7 +50,12 @@ spec:
         volumeMounts:
           - name: libvirt-runtime
             mountPath: /var/run/libvirt
-        command: ["/virt-config-disk"]
+        command:
+          - "/virt-config-disk"
+          - "--cloud-init-dir"
+          - "/var/run/libvirt/cloud-init-dir"
+          - "--config-disk-socket"
+          - "/var/run/libvirt/config-disk-sock"
       volumes:
       - name: libvirt-runtime
         hostPath:

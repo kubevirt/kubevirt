@@ -68,7 +68,10 @@ var _ = Describe("ConfigDiskServer", func() {
 	srv := &http.Server{}
 
 	BeforeSuite(func() {
-		cloudinit.SetLocalDirectory(tmpDir)
+		err := cloudinit.SetLocalDirectory(tmpDir)
+		if err != nil {
+			panic(err)
+		}
 		cloudinit.SetLocalDataOwner(owner.Username)
 		cloudinit.SetIsoCreationFunction(isoCreationFunc)
 		go func() {

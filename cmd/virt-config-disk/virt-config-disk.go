@@ -30,13 +30,16 @@ import (
 )
 
 func main() {
-	logging.InitializeLogging("virt-dynamic-disk")
+	logging.InitializeLogging("virt-config-disk")
 	cloudInitDir := flag.String("cloud-init-dir", "/var/run/libvirt/cloud-init-dir", "Base directory for ephemeral cloud init data")
 	configDiskSocket := flag.String("config-disk-socket", "/var/run/libvirt/config-disk-sock", "Base directory for ephemeral cloud init data")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	cloudinit.SetLocalDirectory(*cloudInitDir)
+	err := cloudinit.SetLocalDirectory(*cloudInitDir)
+	if err != nil {
+		panic(err)
+	}
 
 	configdisk.HttpServe(*configDiskSocket)
 }
