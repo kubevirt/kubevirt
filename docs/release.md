@@ -73,7 +73,7 @@ The release process is mostly automatic and consists of the following steps:
 1. Tag a commit using `git evtag sign $TAG` (which is a signed and annotated
    tag)
    1. Provide the release notes as part of the tag commit message
-2. Push the tag to github `git push origin $TAG`
+2. Push the tag to github `git push git@github.com:kubevirt/kubevirt.git $TAG`
 3. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
    check that the binary artifacts got attached to the release at
    <https://github.com/kubevirt/kubevirt/releases/tag/$TAG>
