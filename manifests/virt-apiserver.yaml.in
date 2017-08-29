@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: virt-apiserver-service
+spec:
+  ports:
+    - port: 443
+      targetPort: virt-apiserver
+  externalIPs :
+    - "{{ master_ip }}"
+  selector:
+    app: virt-apiserver
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: virt-apiserver
+spec:
+  template:
+    metadata:
+      labels:
+        app: virt-apiserver
+    spec:
+      containers:
+      - name: virt-apiserver
+        image: {{ docker_prefix }}/virt-apiserver:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        command:
+            - "/virt-apiserver"
+            - "--secure-port"
+            - "8183"
+            - "--tls-cert-file=/etc/kubernetes/pki/virt-apiserver.crt"
+            - "--tls-private-key-file=/etc/kubernetes/pki/virt-apiserver.key"
+            - "--requestheader-group-headers=X-Remote-Group"
+            - "--client-ca-file=/etc/kubernetes/pki/ca.crt"
+            - "--requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt"
+            - "--etcd-servers=http://127.0.0.1:2379"
+        ports:
+          - containerPort: 8183
+            name: "virt-apiserver"
+            protocol: "TCP"
+        volumeMounts:
+          - mountPath: /etc/kubernetes/pki
+            name: kubernetes-pki
+      securityContext:
+        runAsUser: 0
+      nodeSelector:
+        kubernetes.io/hostname: {{ primary_node_name }}
+      volumes:
+      - name: kubernetes-pki
+        hostPath:
+          path: /etc/kubernetes/pki
