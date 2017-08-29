@@ -23,14 +23,14 @@ KUBECTL=${KUBECTL:-kubectl}
 
 echo "Cleaning up ..."
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
-cluster/kubectl.sh --core delete -f manifests/virt-handler.yaml --cascade=false --grace-period 0 2>/dev/null || :
-cluster/kubectl.sh --core delete pods -l=daemon=virt-handler --force --grace-period 0 2>/dev/null || :
+cluster/kubectl.sh delete -f manifests/virt-handler.yaml --cascade=false --grace-period 0 2>/dev/null || :
+cluster/kubectl.sh delete pods -l=daemon=virt-handler --force --grace-period 0 2>/dev/null || :
 
-cluster/kubectl.sh --core delete -f manifests/libvirt.yaml --cascade=false --grace-period 0 2>/dev/null || :
-cluster/kubectl.sh --core delete pods -l=daemon=libvirt --force --grace-period 0 2>/dev/null || :
+cluster/kubectl.sh delete -f manifests/libvirt.yaml --cascade=false --grace-period 0 2>/dev/null || :
+cluster/kubectl.sh delete pods -l=daemon=libvirt --force --grace-period 0 2>/dev/null || :
 
 # Make sure TPRs are deleted, we use CRDs now
-cluster/kubectl.sh --core delete thirdpartyresources --all  || :
+cluster/kubectl.sh delete thirdpartyresources --all  || :
 
 # Make sure that the vms CRD is deleted, we use virtualmachines now
 cluster/kubectl.sh --core delete customresourcedefinitions vms.kubevirt.io  || :

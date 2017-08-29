@@ -53,7 +53,7 @@ then
     exit 1
 fi
 
-NODE=$(cluster/kubectl.sh --core get pods -o json -l kubevirt.io/domain=${VM_NAME} | jq '.items[].spec.nodeName' -r)
+NODE=$(cluster/kubectl.sh get pods -o json -l kubevirt.io/domain=${VM_NAME} | jq '.items[].spec.nodeName' -r)
 
 if [ -z $NODE ]; then
   echo "Could not detect the VM."
