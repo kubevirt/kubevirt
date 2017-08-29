@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sasl-secret
-type: Opaque
-data:
-  username: bGlidmlydC1jbGllbnQ=
-  password: {{ libvirt_password }}

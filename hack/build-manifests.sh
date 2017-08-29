@@ -37,6 +37,5 @@ for arg in $args; do
         -e "s/{{ primary_node_name }}/$primary_node_name/g" \
         -e "s/{{ docker_tag }}/$docker_tag/g" \
         -e "s/{{ docker_prefix }}/$docker_prefix/g" \
-        -e "s/{{ libvirt_password }}/$libvirt_password/g" \
         $arg > ${arg%%.in}
 done

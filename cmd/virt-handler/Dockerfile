@@ -20,18 +20,13 @@ FROM fedora:26
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-RUN dnf -y install libvirt-client cyrus-sasl-scram \
+RUN dnf -y install libvirt-client \
     && dnf -y clean all
 
 COPY virt-handler /virt-handler
-COPY virt-handler.sh /virt-handler.sh
-RUN chmod a+x /virt-handler.sh
 
-RUN useradd -u 1000 --create-home -s /bin/bash virt-handler && \
-    chown virt-handler /virt-handler && \
-    chown virt-handler /virt-handler.sh
+RUN groupadd -g 1000 libvirt && useradd -u 1000 -g 1000 -N -M virt-handler && \
+    chown virt-handler /virt-handler
 USER virt-handler
-WORKDIR /home/virt-handler
 
-
-ENTRYPOINT [ "/virt-handler.sh" ]
+ENTRYPOINT [ "/virt-handler" ]
