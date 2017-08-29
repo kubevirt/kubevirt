@@ -32,6 +32,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -258,13 +260,13 @@ func renderPkillAllVmsJob(dockerTag string) *k8sv1.Pod {
 					},
 					SecurityContext: &k8sv1.SecurityContext{
 						Privileged: newBool(true),
-						RunAsUser:  new(int64),
+						RunAsUser:  new(types.UnixUserID),
 					},
 				},
 			},
 			HostPID: true,
 			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser: new(int64),
+				RunAsUser: new(types.UnixUserID),
 			},
 		},
 	}
