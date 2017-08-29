@@ -38,11 +38,11 @@ import (
 type logLevel int
 
 const (
-	DEBUG    logLevel = iota
-	INFO     logLevel = iota
-	WARNING  logLevel = iota
-	ERROR    logLevel = iota
-	CRITICAL logLevel = iota
+	DEBUG logLevel = iota
+	INFO
+	WARNING
+	ERROR
+	CRITICAL
 )
 
 var logLevelNames = map[logLevel]string{
