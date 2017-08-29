@@ -8,17 +8,27 @@ ignore:
 - k8s.io/apimachinery/pkg/apis/meta/v1alpha1
 - code.google.com/p/go-charset
 import:
+- package: gopkg.in/natefinch/lumberjack.v2
+- package: github.com/golang/glog
+- package: github.com/google/gofuzz
 - package: github.com/go-kit/kit
   version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
   subpackages:
   - log
 - package: github.com/emicklei/go-restful
-  version: 858e58f98abd32bc4d164a08e8d7ac169ae876e2
+  version: ff4f55a206334ef123e4f79bbf348980da81ca46
   subpackages:
   - log
-  - swagger
+- package: github.com/emicklei/go-restful-swagger12
+  version: dcef7f55730566d41eae5db10e7d6981829720f6
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
+- package: github.com/spf13/cobra
+  version: f62e98d28ab7ad31d707ba837a966378465c7b57
+- package: k8s.io/apiserver
+  version: 7eb7a42b3f4b3aaeccab8fdf89095bb6bea20695
+- package: k8s.io/apimachinery
+  version: a13245d02534abe88286859b547d041816f9a3f4
 - package: k8s.io/client-go
   version: db8228460e2de17f5d3a9a453f61dde0ba86545a
   subpackages:
