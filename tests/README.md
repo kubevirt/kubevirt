@@ -6,6 +6,8 @@ point the tests to the cluster.
 
 == Run them on Vagrant ==
 
+# FIXME: this is not true anymore. haproxy has been removed. what effect does
+# that have on the usage of -master
 The vagrant environment has an unprotected haproxy in front of the apiserver,
 so only `-master` needs to be set to run the tests.
 
