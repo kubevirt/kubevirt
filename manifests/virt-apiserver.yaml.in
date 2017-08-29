@@ -1,0 +1,195 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: virt-apiserver
+---
+# Create a role for admin level management of kubevirt resources
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  namespace: ""
+  name: "kubevirt.io:virt-apiserver"
+rules:
+- apiGroups: ["kubevirt.io"] # "" indicates the core API group
+  resources: ["virtualmachines", "manifests", "virtualmachinereplicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# Bind admin role to apiserver service account and admin user
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: "kubevirt.io:virt-apiserver"
+subjects:
+- kind: ServiceAccount
+  name: virt-apiserver
+- kind: User
+  name: kubernetes-admin
+- kind: ServiceAccount
+  name: kubevirt-infra
+roleRef:
+  kind: ClusterRole
+  name: "kubevirt.io:virt-apiserver"
+  apiGroup: rbac.authorization.k8s.io
+---
+# apiserver gets the auth-delegator role to delegate auth decisions to
+# the core apiserver
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: "kubevirt.io:apiserver-auth-delegator"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- apiGroup: ""
+  kind: ServiceAccount
+  name: virt-apiserver
+  namespace: default
+---
+# apiserver gets the ability to read authentication. This allows it to
+# read the specific configmap that has the requestheader-* entries to
+# enable api aggregation
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: "kubevirt.io:apiserver-authentication-reader"
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: extension-apiserver-authentication-reader
+subjects:
+- apiGroup: ""
+  kind: ServiceAccount
+  name: virt-apiserver
+  namespace: default
+---
+apiVersion: apiregistration.k8s.io/v1beta1
+kind: APIService
+metadata:
+  name: v1alpha1.kubevirt.io
+  insecureSkipTLSVerify: true
+  #service catalog skipped these values
+  labels:
+    api: virt-apiserver
+    apiserver: "true"
+spec:
+  caBundle: "{{ apiserver_tls_crt }}"
+  group: kubevirt.io
+  version: v1alpha1
+  # service catalog left out priority for apiregistration.k8s.io/v1beta1
+  groupPriorityMinimum: 2000
+  versionPriority: 20
+  priority: 200
+  service:
+    name: virt-apiserver-service
+    namespace: default
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: virt-apiserver-service
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: virt-apiserver
+  externalIPs :
+    - "{{ master_ip }}"
+  selector:
+    app: virt-apiserver
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: virt-apiserver
+spec:
+  template:
+    metadata:
+      labels:
+        app: virt-apiserver
+    spec:
+      containers:
+      - name: virt-apiserver
+        image: {{ docker_prefix }}/virt-apiserver:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        command:
+            - "/virt-apiserver"
+            - "--bind-address"
+            - "0.0.0.0"
+            - "--secure-port"
+            - "8183"
+            - "--tls-cert-file=/var/run/virt-apiserver-cert/virt-apiserver.crt"
+            - "--tls-private-key-file=/var/run/virt-apiserver-cert/virt-apiserver.key"
+            - "--requestheader-client-ca-file=/var/run/virt-apiserver-cert/requestheader-ca.crt"
+            - "--etcd-servers=http://127.0.0.1:2379"
+            - "--authentication-skip-lookup"
+        ports:
+          - containerPort: 8183
+            name: "virt-apiserver"
+            protocol: "TCP"
+        volumeMounts:
+          - mountPath: /var/run/virt-apiserver-cert
+            name: virt-apiserver-cert
+      - name: etcd
+        image: quay.io/coreos/etcd:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 20Mi
+          limits:
+            cpu: 100m
+            memory: 30Mi
+        env:
+        - name: ETCD_DATA_DIR
+          value: /etcd-data-dir
+        command:
+        - /usr/local/bin/etcd
+        - --listen-client-urls
+        - http://0.0.0.0:2379
+        - --advertise-client-urls
+        - http://localhost:2379
+        ports:
+        - containerPort: 2379
+        volumeMounts:
+        - name: etcd-data-dir
+          mountPath: /etcd-data-dir
+        readinessProbe:
+          httpGet:
+            port: 2379
+            path: /health
+          failureThreshold: 1
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        livenessProbe:
+          httpGet:
+            port: 2379
+            path: /health
+          failureThreshold: 3
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+      serviceAccountName: virt-apiserver
+      automountServiceAccountToken: true
+      securityContext:
+        runAsUser: 0
+      nodeSelector:
+        kubernetes.io/hostname: {{ primary_node_name }}
+      volumes:
+      - name: virt-apiserver-cert
+        secret:
+          secretName: virt-apiserver-cert
+          items:
+          - key: tls.crt
+            path: virt-apiserver.crt
+          - key: tls.key
+            path: virt-apiserver.key
+          - key: requestheader-ca.crt
+            path: requestheader-ca.crt
+      - name: etcd-data-dir
+        emptyDir: {}
