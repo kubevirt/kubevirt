@@ -25,7 +25,7 @@ import (
 	"net/http"
 
 	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful/swagger"
+	swagger "github.com/emicklei/go-restful-swagger12"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/context"

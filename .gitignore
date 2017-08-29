@@ -7,7 +7,7 @@ cmd/virt-manifest/virt-manifest*
 cmd/virt-controller/virt-controller*
 cmd/virt-launcher/virt-launcher*
 cmd/virt-handler/virt-handler*
-cmd/virt-api/virt-api*
+cmd/virt-apiserver/virt-apiserver*
 cmd/virtctl/virtctl*
 manifests/*.yaml
 **/bin
