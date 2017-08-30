@@ -20,8 +20,10 @@ FROM fedora:26
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-RUN dnf -y install libvirt-client \
-    && dnf -y clean all
+RUN dnf -y install libvirt-client genisoimage && \
+    groupadd --gid 1111 qemu && \
+    useradd --uid 1111 --gid 1111 qemu && \
+    dnf -y clean all
 
 COPY virt-handler /virt-handler
 

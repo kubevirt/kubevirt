@@ -24,8 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
-	"net/http"
 	"os"
 	"os/user"
 	"time"
@@ -41,19 +39,11 @@ import (
 var _ = Describe("ConfigDiskServer", func() {
 
 	tmpDir, _ := ioutil.TempDir("", "configdisktest")
-	tmpSock := fmt.Sprintf("%s/config-disk-sock", tmpDir)
-	listener, err := net.Listen("unix", tmpSock)
-	if err != nil {
-		panic(err)
-	}
-
 	owner, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
-
-	client := NewConfigDiskClient(tmpSock)
-
+	client := NewConfigDiskClient()
 	isoCreationFunc := func(isoOutFile string, inFiles []string) error {
 		if isoOutFile == "noCloud" && len(inFiles) != 2 {
 			return errors.New("Unexpected number of files for noCloud")
@@ -65,8 +55,6 @@ var _ = Describe("ConfigDiskServer", func() {
 		return err
 	}
 
-	srv := &http.Server{}
-
 	BeforeSuite(func() {
 		err := cloudinit.SetLocalDirectory(tmpDir)
 		if err != nil {
@@ -74,16 +62,9 @@ var _ = Describe("ConfigDiskServer", func() {
 		}
 		cloudinit.SetLocalDataOwner(owner.Username)
 		cloudinit.SetIsoCreationFunction(isoCreationFunc)
-		go func() {
-			http.HandleFunc("/", httpRequestHandler)
-			srv.Serve(listener)
-		}()
-		// brief sleep to wait for server to initalize
-		time.Sleep(time.Second * 1)
 	})
 
 	AfterSuite(func() {
-		srv.Shutdown(nil)
 		os.RemoveAll(tmpDir)
 	})
 
@@ -98,9 +79,19 @@ var _ = Describe("ConfigDiskServer", func() {
 				vm := v1.NewMinimalVM("never-started-vm")
 				namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 				domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-				err := client.Define(vm)
 
-				Expect(err).ToNot(HaveOccurred())
+				i := 1
+				for ; i <= 10; i++ {
+					isPending, err := client.Define(vm)
+					Expect(err).ToNot(HaveOccurred())
+
+					if isPending {
+						time.Sleep(2 * time.Second)
+					} else {
+						break
+					}
+				}
+				Expect(i).ToNot(Equal(10))
 
 				// no config disk directory should not exist for this vm
 				_, err = os.Stat(fmt.Sprintf("%s/%s/%s", tmpDir, namespace, domain))
@@ -125,7 +116,19 @@ var _ = Describe("ConfigDiskServer", func() {
 						MetaDataBase64: base64.StdEncoding.EncodeToString([]byte(metaData)),
 					},
 				}
-				err := client.Define(vm)
+
+				i := 1
+				for ; i <= 10; i++ {
+					isPending, err := client.Define(vm)
+					Expect(err).ToNot(HaveOccurred())
+
+					if isPending {
+						time.Sleep(2 * time.Second)
+					} else {
+						break
+					}
+				}
+				Expect(i).ToNot(Equal(10))
 
 				Expect(err).ToNot(HaveOccurred())
 

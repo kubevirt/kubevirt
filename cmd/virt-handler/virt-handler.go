@@ -61,7 +61,6 @@ func main() {
 	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
 	cloudInitDir := flag.String("cloud-init-dir", "/var/run/libvirt/cloud-init-dir", "Base directory for ephemeral cloud init data")
-	configDiskSocket := flag.String("config-disk-socket", "/var/run/libvirt/config-disk-sock", "Base directory for ephemeral cloud init data")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -117,7 +116,7 @@ func main() {
 		panic(err)
 	}
 
-	configDiskClient := configdisk.NewConfigDiskClient(*configDiskSocket)
+	configDiskClient := configdisk.NewConfigDiskClient()
 
 	// Wire VM controller
 	vmListWatcher := kubecli.NewListWatchFromClient(virtCli.RestClient(), "vms", k8sv1.NamespaceAll, fields.Everything(), l)

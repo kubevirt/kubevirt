@@ -196,11 +196,16 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	logging.DefaultLogger().V(3).Info().Object(vm).Msg("Processing VM update.")
 
 	// Process the VM
-	err = d.processVmUpdate(vm, shouldDeleteVm)
+	isPending, err := d.processVmUpdate(vm, shouldDeleteVm)
 	if err != nil {
 		// Something went wrong, reenqueue the item with a delay
 		logging.DefaultLogger().Error().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
 		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
+		queue.AddRateLimited(key)
+		return
+	} else if isPending {
+		// waiting on an async action to complete
+		logging.DefaultLogger().V(3).Info().Object(vm).Reason(err).Msg("Synchronizing is in a pending state.")
 		queue.AddRateLimited(key)
 		return
 	}
@@ -366,47 +371,47 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
 	return vm, nil
 }
 
-func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) error {
+func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) (bool, error) {
 
 	if shouldDeleteVm {
 		// Since the VM was not in the cache, we delete it
 		err := d.domainManager.KillVM(vm)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		// remove any defined libvirt secrets associated with this vm
 		err = d.domainManager.RemoveVMSecrets(vm)
 		if err != nil {
-			return err
+			return false, err
 		}
-		return d.configDisk.Undefine(vm)
+		return false, d.configDisk.Undefine(vm)
 	} else if isWorthSyncing(vm) == false {
 		// nothing to do here.
-		return nil
+		return false, nil
 	}
 
 	// Synchronize the VM state
 	vm, err := MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Map Container Registry Disks to block devices Libvirt can consume
 	vm, err = registrydisk.MapRegistryDisks(vm)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	vm, err = d.injectDiskAuth(vm)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Map whatever devices are being used for config-init
 	vm, err = cloudinit.InjectDomainData(vm)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// TODO MigrationNodeName should be a pointer
@@ -414,22 +419,22 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 		// Only sync if the VM is not marked as migrating.
 		// Everything except shutting down the VM is not
 		// permitted when it is migrating.
-		return nil
+		return false, nil
 	}
 
-	err = d.configDisk.Define(vm)
-	if err != nil {
-		return err
+	isPending, err := d.configDisk.Define(vm)
+	if err != nil || isPending == true {
+		return isPending, err
 	}
 
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
 	newCfg, err := d.domainManager.SyncVM(vm)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return d.updateVMStatus(vm, newCfg)
+	return false, d.updateVMStatus(vm, newCfg)
 }
 
 func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName string) (bool, error) {
