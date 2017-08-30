@@ -6,7 +6,7 @@ spec:
   ports:
     - port: 8183
       targetPort: virt-api
-  externalIPs :
+  externalIPs:
     - "{{ master_ip }}"
   selector:
     app: virt-api

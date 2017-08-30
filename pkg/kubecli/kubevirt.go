@@ -31,11 +31,13 @@ import (
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	vmconfigv1 "kubevirt.io/kubevirt/pkg/virt-vmconfig/api/v1"
 )
 
 type KubevirtClient interface {
 	VM(namespace string) VMInterface
 	Migration(namespace string) MigrationInterface
+	VMConfig(namespace string) VMConfigInterface
 	RestClient() *rest.RESTClient
 	kubernetes.Interface
 }
@@ -63,4 +65,8 @@ type MigrationInterface interface {
 	Create(*v1.Migration) (*v1.Migration, error)
 	Update(*v1.Migration) (*v1.Migration, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
+}
+
+type VMConfigInterface interface {
+	Get(name string, options k8smetav1.GetOptions) (*vmconfigv1.VMConfig, error)
 }

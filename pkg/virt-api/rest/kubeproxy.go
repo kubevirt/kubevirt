@@ -22,6 +22,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"reflect"
 	"strings"
@@ -51,6 +52,7 @@ type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restful.WebService, error) {
 	ws := new(restful.WebService)
 	ws.Path(GroupVersionBasePath(gv))
+	log.Printf("Basepath: %v", GroupVersionBasePath(gv))
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {

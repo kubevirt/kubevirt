@@ -104,6 +104,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Printf("Registered routes: %v", ws.Routes())
+
 	restful.Add(ws)
 
 	restful.Filter(filter.RequestLoggingFilter())
