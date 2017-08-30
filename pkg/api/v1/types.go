@@ -82,7 +82,7 @@ func init() {
 		&announced.GroupMetaFactoryArgs{
 			GroupName:              GroupName,
 			VersionPreferenceOrder: []string{GroupVersion.Version},
-			ImportPrefix:           "kubevirt.io/kubevirt/pgk/api/v1",
+			ImportPrefix:           "kubevirt.io/kubevirt/pkg/api/v1",
 		},
 		announced.VersionToSchemeFunc{
 			GroupVersion.Version: SchemeBuilder.AddToScheme,
