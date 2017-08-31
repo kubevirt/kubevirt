@@ -35,7 +35,7 @@ users have to do is base64 encode userdata information into the VM definition.
 Example
 ```
 metadata:
-  name: atomic-ephemeral
+  name: testvm-nocloud
 apiVersion: kubevirt.io/v1alpha1
 kind: VM
 spec:
@@ -44,31 +44,31 @@ spec:
       disks:
       - type: ContainerRegistryDisk:v1alpha
         source:
-          name: kubevirt/fedora-atomic-registry-disk-demo:devel
+          name: kubevirt/cirros-registry-disk-demo:devel
         target:
           dev: vda
+      - type: file
+        target:
+          dev: vdb
+        cloudinit:
+            nocloud:
+                userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
       interfaces:
       - source:
           network: default
         type: network
     memory:
       unit: MB
-      value: 1024
+      value: 64
     os:
       type:
         os: hvm
     type: qemu
-  cloudInit:
-    dataSource: noCloud
-    noCloudData:
-      userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
-      diskTarget: vdb
 ```
 ### NoCloud Implementation Details
 
-Internally, kubevirt passes the cloud-init spec to the virt-config-disk
-component. That component generates the iso files associated with the
-nocloud datasource.
+Internally, kubevirt passes the cloud-init spec to the config-disk package.
+That package generates the iso files associated with the nocloud datasource.
 
 When the VM starts, virt-handler injects the NoCloud iso as a file based disk
 that the VM consumes.
@@ -84,7 +84,6 @@ future with ease.
 Example: User facing details related to another data source.
 ```
   cloudInit:
-    dataSource: SomeOtherSource
     SomeOtherProviderData:
       userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
       Whatever1: somethingelse

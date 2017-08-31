@@ -391,8 +391,13 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) (boo
 		return false, nil
 	}
 
+	isPending, err := d.configDisk.Define(vm)
+	if err != nil || isPending == true {
+		return isPending, err
+	}
+
 	// Synchronize the VM state
-	vm, err := MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
+	vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
 	if err != nil {
 		return false, err
 	}
@@ -409,7 +414,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) (boo
 	}
 
 	// Map whatever devices are being used for config-init
-	vm, err = cloudinit.InjectDomainData(vm)
+	vm, err = cloudinit.MapCloudInitDisks(vm)
 	if err != nil {
 		return false, err
 	}
@@ -420,11 +425,6 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) (boo
 		// Everything except shutting down the VM is not
 		// permitted when it is migrating.
 		return false, nil
-	}
-
-	isPending, err := d.configDisk.Define(vm)
-	if err != nil || isPending == true {
-		return isPending, err
 	}
 
 	// TODO check if found VM has the same UID like the domain,

@@ -4,13 +4,16 @@ package v1
 
 func (CloudInitDataSourceNoCloud) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+		"":               "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+		"userDataBase64": "The NoCloud cloud-init userdata as a base64 encoded string",
+		"metaDataBase64": "The NoCloud cloud-init metadata as a base64 encoded string",
 	}
 }
 
 func (CloudInitSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"noCloudData": "DataSource specific data structures",
+		"":        "Only one of the fields in the CloudInitSpec can be set",
+		"nocloud": "Nocloud DataSource",
 	}
 }
 

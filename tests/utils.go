@@ -427,13 +427,19 @@ func NewRandomVMWithUserData(containerImage string, cloudInitDataSource string) 
 		userData := "#cloud-config\npassword: atomic\nssh_pwauth: True\nchpasswd: { expire: False }\n"
 
 		vm := NewRandomVMWithEphemeralDisk(containerImage)
-		vm.Spec.CloudInit = &v1.CloudInitSpec{
-			DataSource: "noCloud",
+		spec := &v1.CloudInitSpec{
 			NoCloudData: &v1.CloudInitDataSourceNoCloud{
-				DiskTarget:     "vdb",
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 			},
 		}
+		newDisk := v1.Disk{}
+		newDisk.Type = "file"
+		newDisk.Target = v1.DiskTarget{
+			Device: "vdb",
+		}
+		newDisk.CloudInit = spec
+
+		vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
 		return vm, nil
 	}
 

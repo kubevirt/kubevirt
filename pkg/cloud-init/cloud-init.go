@@ -32,6 +32,8 @@ import (
 	"os/user"
 	"strconv"
 
+	model "github.com/jeevatkm/go-model"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -179,41 +181,45 @@ func GetDomainBasePath(domain string, namespace string) string {
 // This is called right before a VM is defined with libvirt.
 // If the cloud-init type requires altering the domain, this
 // is the place to do that.
-func InjectDomainData(vm *v1.VM) (*v1.VM, error) {
+func MapCloudInitDisks(vm *v1.VM) (*v1.VM, error) {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-	if vm.Spec.CloudInit == nil {
+
+	spec := GetCloudInitSpec(vm)
+	if spec == nil {
 		return vm, nil
 	}
 
-	err := ValidateArgs(vm.Spec.CloudInit)
+	err := ValidateArgs(spec)
 	if err != nil {
 		return vm, err
 	}
 
-	switch vm.Spec.CloudInit.DataSource {
+	dataSource := getDataSource(spec)
+	switch dataSource {
 	case dataSourceNoCloud:
+		vmCopy := &v1.VM{}
+		model.Copy(vmCopy, vm)
 		filePath := fmt.Sprintf("%s/%s", GetDomainBasePath(domain, namespace), noCloudFile)
 
-		newDisk := v1.Disk{}
-		newDisk.Type = "file"
-		newDisk.Device = "disk"
-		newDisk.Driver = &v1.DiskDriver{
-			Type: "raw",
-			Name: "qemu",
+		for idx, disk := range vmCopy.Spec.Domain.Devices.Disks {
+			if disk.Type == "file" && disk.CloudInit != nil {
+				newDisk := v1.Disk{}
+				newDisk.Type = "file"
+				newDisk.Device = "disk"
+				newDisk.Driver = &v1.DiskDriver{
+					Type: "raw",
+					Name: "qemu",
+				}
+				newDisk.Source.File = filePath
+				newDisk.Target = disk.Target
+				vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
+			}
 		}
-		newDisk.Source.File = filePath
-		newDisk.Target = v1.DiskTarget{
-			Device: vm.Spec.CloudInit.NoCloudData.DiskTarget,
-			Bus:    "virtio",
-		}
-
-		vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
+		return vmCopy, nil
 	default:
-		return vm, errors.New(fmt.Sprintf("Unknown CloudInit type %s", vm.Spec.CloudInit.DataSource))
+		return vm, errors.New(fmt.Sprintf("Unknown CloudInit type %s", dataSource))
 	}
-
-	return vm, nil
 }
 
 func ValidateArgs(spec *v1.CloudInitSpec) error {
@@ -221,22 +227,20 @@ func ValidateArgs(spec *v1.CloudInitSpec) error {
 		return nil
 	}
 
-	switch spec.DataSource {
+	dataSource := getDataSource(spec)
+	switch dataSource {
 	case dataSourceNoCloud:
 		if spec.NoCloudData == nil {
-			return errors.New(fmt.Sprintf("DataSource %s does not have the required data initialized", spec.DataSource))
+			return errors.New(fmt.Sprintf("DataSource %s does not have the required data initialized", dataSource))
 		}
 		if spec.NoCloudData.UserDataBase64 == "" {
-			return errors.New(fmt.Sprintf("userDataBase64 is required for cloudInit type %s", spec.DataSource))
+			return errors.New(fmt.Sprintf("userDataBase64 is required for cloudInit type %s", dataSource))
 		}
 		if spec.NoCloudData.MetaDataBase64 == "" {
-			return errors.New(fmt.Sprintf("metaDataBase64 is required for cloudInit type %s", spec.DataSource))
-		}
-		if spec.NoCloudData.DiskTarget == "" {
-			return errors.New(fmt.Sprintf("noCloudTarget is required for cloudInit type %s", spec.DataSource))
+			return errors.New(fmt.Sprintf("metaDataBase64 is required for cloudInit type %s", dataSource))
 		}
 	default:
-		return errors.New(fmt.Sprintf("Unknown CloudInit dataSource %s", spec.DataSource))
+		return errors.New(fmt.Sprintf("Unknown CloudInit dataSource %s", dataSource))
 	}
 
 	return nil
@@ -244,28 +248,51 @@ func ValidateArgs(spec *v1.CloudInitSpec) error {
 
 // Place metadata auto-generation code in here
 func ApplyMetadata(vm *v1.VM) {
-	if vm.Spec.CloudInit == nil {
+	spec := GetCloudInitSpec(vm)
+	if spec == nil {
 		return
 	}
 
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
-	switch vm.Spec.CloudInit.DataSource {
+	switch getDataSource(spec) {
 	case dataSourceNoCloud:
 		// Only autogenerate metadata if user defined metadata does not exist
-		if vm.Spec.CloudInit.NoCloudData.MetaDataBase64 != "" {
+		if spec.NoCloudData.MetaDataBase64 != "" {
 			return
 		}
 		// TODO Put local-hostname in MetaData once we get pod DNS working with VMs
 		msg := fmt.Sprintf("instance-id: %s-%s\n", domain, namespace)
-		vm.Spec.CloudInit.NoCloudData.MetaDataBase64 = base64.StdEncoding.EncodeToString([]byte(msg))
+		spec.NoCloudData.MetaDataBase64 = base64.StdEncoding.EncodeToString([]byte(msg))
 	}
 }
 
 func RemoveLocalData(domain string, namespace string) error {
 	domainBasePath := GetDomainBasePath(domain, namespace)
 	return os.RemoveAll(domainBasePath)
+}
+
+func GetCloudInitSpec(vm *v1.VM) *v1.CloudInitSpec {
+	// search various places cloud init spec may live.
+	// at the moment, cloud init only exists on disks.
+	for _, disk := range vm.Spec.Domain.Devices.Disks {
+		if disk.CloudInit != nil {
+			return disk.CloudInit
+		}
+	}
+	return nil
+}
+
+func getDataSource(spec *v1.CloudInitSpec) string {
+	if spec == nil {
+		return ""
+	}
+
+	if spec.NoCloudData != nil {
+		return dataSourceNoCloud
+	}
+	return ""
 }
 
 func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) error {
@@ -284,7 +311,7 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 		return err
 	}
 
-	switch spec.DataSource {
+	switch getDataSource(spec) {
 	case dataSourceNoCloud:
 		metaFile := fmt.Sprintf("%s/%s", domainBasePath, "meta-data")
 		userFile := fmt.Sprintf("%s/%s", domainBasePath, "user-data")

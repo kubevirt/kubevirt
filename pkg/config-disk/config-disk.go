@@ -48,8 +48,9 @@ func NewConfigDiskClient() ConfigDiskClient {
 func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 	pending := false
 
-	if vm.Spec.CloudInit == nil {
-		return pending, nil
+	cloudInitSpec := cloudinit.GetCloudInitSpec(vm)
+	if cloudInitSpec == nil {
+		return false, nil
 	}
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
@@ -62,7 +63,7 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 		v = make(chan string, 1)
 
 		go func() {
-			err := cloudinit.GenerateLocalData(domain, namespace, vm.Spec.CloudInit)
+			err := cloudinit.GenerateLocalData(domain, namespace, cloudInitSpec)
 			if err == nil {
 				v <- "success"
 			} else {
@@ -91,9 +92,6 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 }
 
 func (c *configDiskClient) Undefine(vm *v1.VM) error {
-	if vm.Spec.CloudInit == nil {
-		return nil
-	}
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())

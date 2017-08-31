@@ -108,14 +108,20 @@ var _ = Describe("ConfigDiskServer", func() {
 
 				userData := "fake\nuser\ndata\n"
 				metaData := "fake\nmeta\ndata\n"
-				vm.Spec.CloudInit = &v1.CloudInitSpec{
-					DataSource: "noCloud",
+				spec := &v1.CloudInitSpec{
 					NoCloudData: &v1.CloudInitDataSourceNoCloud{
-						DiskTarget:     "vdb",
 						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 						MetaDataBase64: base64.StdEncoding.EncodeToString([]byte(metaData)),
 					},
 				}
+				newDisk := v1.Disk{}
+				newDisk.Type = "file"
+				newDisk.Target = v1.DiskTarget{
+					Device: "vdb",
+				}
+				newDisk.CloudInit = spec
+
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
 
 				i := 1
 				for ; i <= 10; i++ {

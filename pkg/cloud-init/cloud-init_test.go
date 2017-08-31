@@ -71,7 +71,7 @@ var _ = Describe("CloudInit", func() {
 			It("Verify no cloudinit data is a domain xml no-op", func() {
 				vm := v1.NewMinimalVM("fake-vm-nocloud")
 
-				vm, err := InjectDomainData(vm)
+				vm, err := MapCloudInitDisks(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(vm.Spec.Domain.Devices.Disks)).To(Equal(0))
 			})
@@ -82,16 +82,21 @@ var _ = Describe("CloudInit", func() {
 
 				userData := "fake\nuser\ndata\n"
 				metaData := "fake\nmeta\ndata\n"
-				vm.Spec.CloudInit = &v1.CloudInitSpec{
-					DataSource: "noCloud",
+				spec := &v1.CloudInitSpec{
 					NoCloudData: &v1.CloudInitDataSourceNoCloud{
-						DiskTarget:     "vdb",
 						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 						MetaDataBase64: base64.StdEncoding.EncodeToString([]byte(metaData)),
 					},
 				}
+				newDisk := v1.Disk{}
+				newDisk.Type = "file"
+				newDisk.Target = v1.DiskTarget{
+					Device: "vdb",
+				}
+				newDisk.CloudInit = spec
 
-				vm, err := InjectDomainData(vm)
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
+				vm, err := MapCloudInitDisks(vm)
 				Expect(err).ToNot(HaveOccurred())
 				disk := vm.Spec.Domain.Devices.Disks[0]
 
@@ -102,7 +107,6 @@ var _ = Describe("CloudInit", func() {
 				Expect(disk.Driver.Name).To(Equal("qemu"))
 				Expect(disk.Source.File).To(Equal(expectedIso))
 				Expect(disk.Target.Device).To(Equal("vdb"))
-				Expect(disk.Target.Bus).To(Equal("virtio"))
 
 			})
 			It("delete non-existent local Nocloud data.", func() {
@@ -117,9 +121,7 @@ var _ = Describe("CloudInit", func() {
 				userData := "fake\nuser\ndata\n"
 				metaData := "fake\nmeta\ndata\n"
 				cloudInitData := &v1.CloudInitSpec{
-					DataSource: "noCloud",
 					NoCloudData: &v1.CloudInitDataSourceNoCloud{
-						DiskTarget:     "vdb",
 						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 						MetaDataBase64: base64.StdEncoding.EncodeToString([]byte(metaData)),
 					},
@@ -147,34 +149,45 @@ var _ = Describe("CloudInit", func() {
 				userData := "fake\nuser\ndata\n"
 				metaData := "fake\nmeta\ndata\n"
 				metaData64 := base64.StdEncoding.EncodeToString([]byte(metaData))
-				vm.Spec.CloudInit = &v1.CloudInitSpec{
-					DataSource: "noCloud",
+				spec := &v1.CloudInitSpec{
 					NoCloudData: &v1.CloudInitDataSourceNoCloud{
-						DiskTarget:     "vdb",
 						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-						MetaDataBase64: metaData64,
+						MetaDataBase64: base64.StdEncoding.EncodeToString([]byte(metaData)),
 					},
 				}
+				newDisk := v1.Disk{}
+				newDisk.Type = "file"
+				newDisk.Target = v1.DiskTarget{
+					Device: "vdb",
+				}
+				newDisk.CloudInit = spec
+
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
 
 				ApplyMetadata(vm)
-				Expect(vm.Spec.CloudInit.NoCloudData.MetaDataBase64).To(Equal(metaData64))
+				Expect(vm.Spec.Domain.Devices.Disks[0].CloudInit.NoCloudData.MetaDataBase64).To(Equal(metaData64))
 			})
 
 			It("Verify no cloudinit metadata auto-generated when metadata does not exist", func() {
 				vm := v1.NewMinimalVM("fake-vm-nocloud")
 
 				userData := "fake\nuser\ndata\n"
-				vm.Spec.CloudInit = &v1.CloudInitSpec{
-					DataSource: "noCloud",
+				spec := &v1.CloudInitSpec{
 					NoCloudData: &v1.CloudInitDataSourceNoCloud{
-						DiskTarget:     "vdb",
 						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-						MetaDataBase64: "",
 					},
 				}
+				newDisk := v1.Disk{}
+				newDisk.Type = "file"
+				newDisk.Target = v1.DiskTarget{
+					Device: "vdb",
+				}
+				newDisk.CloudInit = spec
+
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
 
 				ApplyMetadata(vm)
-				Expect(vm.Spec.CloudInit.NoCloudData.MetaDataBase64).ToNot(Equal(""))
+				Expect(vm.Spec.Domain.Devices.Disks[0].CloudInit.NoCloudData.MetaDataBase64).ToNot(Equal(""))
 			})
 		})
 	})
