@@ -55,10 +55,12 @@ for arg in $args; do
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
         ARCHBIN=$(basename $arg)-$(git describe --always)-$GOHOSTOS-$GOHOSTARCH
+        ALIASLNK=$(basename $arg)
+        rm -v $arg/$ALIASLNK $arg/$(basename $arg)-*-$GOHOSTOS-$GOHOSTARCH || :
         (cd $arg; GOBIN=$PWD go build -o $ARCHBIN)
         mkdir -p bin
-        ln -sf $ARCHBIN $arg/$(basename $arg)
-        ln -sf ../$arg/$ARCHBIN bin/$(basename $arg)
+        ln -sf $ARCHBIN $arg/$ALIASLNK
+        ln -sf ../$arg/$ARCHBIN bin/$ALIASLNK
     else
         (cd $arg; go $target ./...)
     fi
