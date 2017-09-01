@@ -125,6 +125,7 @@ var _ = Describe("Manager", func() {
 				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
+				mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)

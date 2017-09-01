@@ -57,9 +57,9 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 		ImagePullPolicy: kubev1.PullIfNotPresent,
 		Command: []string{"/virt-launcher",
 			"--qemu-timeout", "60s",
-			"-name", domain,
-			"-namespace", namespace,
-			"-socket-dir", t.socketBaseDir,
+			"--name", domain,
+			"--namespace", namespace,
+			"--socket-dir", t.socketBaseDir,
 		},
 		VolumeMounts: []kubev1.VolumeMount{
 			{

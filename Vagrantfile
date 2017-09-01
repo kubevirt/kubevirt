@@ -42,7 +42,7 @@ Vagrant.configure(2) do |config|
   if $use_nfs then
     config.vm.synced_folder "./", "/vagrant", type: "nfs"
   else
-          config.vm.synced_folder "./", "/vagrant", type: "rsync", rsync__exclude: [ "cluster/vagrant/.kubectl", "cluster/vagrant/.kubeconfig", ".vagrant", "vendor"]
+          config.vm.synced_folder "./", "/vagrant", type: "rsync", rsync__exclude: [ "cluster/vagrant/.kubectl", "cluster/vagrant/.kubeconfig", ".vagrant", "vendor", ".git"]
   end
 
   config.vm.provision "shell", inline: <<-SHELL

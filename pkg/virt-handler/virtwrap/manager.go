@@ -202,18 +202,13 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	wantedSpec.Name = domName
 	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
 	dom, err := l.virConn.LookupDomainByName(domName)
+	newDomain := false
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
-			xmlStr, err := xml.Marshal(&wantedSpec)
+			newDomain = true
+			dom, err = l.setDomainXML(vm, wantedSpec)
 			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
-				return nil, err
-			}
-			logging.DefaultLogger().Object(vm).Info().V(3).With("xml", xmlStr).Msgf("Domain XML generated.")
-			dom, err = l.virConn.DomainDefineXML(string(xmlStr))
-			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
 				return nil, err
 			}
 			logging.DefaultLogger().Object(vm).Info().Msg("Domain defined.")
@@ -229,11 +224,20 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
 		return nil, err
 	}
+
+	// To make sure, that we set the right qemu wrapper arguments,
+	// we update the domain XML whenever a VM was already defined but not running
+	if !newDomain && cli.IsDown(domState) {
+		_, err = l.setDomainXML(vm, wantedSpec)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
 	// TODO for migration and error detection we also need the state change reason
-	//state := LifeCycleTranslationMap[domState[0]]
-	switch domState {
-	case libvirt.DOMAIN_NOSTATE, libvirt.DOMAIN_SHUTDOWN, libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_CRASHED:
+	// TODO blocked state
+	if cli.IsDown(domState) {
 		err := dom.Create()
 		if err != nil {
 			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Starting the VM failed.")
@@ -241,7 +245,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 		}
 		logging.DefaultLogger().Object(vm).Info().Msg("Domain started.")
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started.")
-	case libvirt.DOMAIN_PAUSED:
+	} else if cli.IsPaused(domState) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {
@@ -250,9 +254,8 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 		}
 		logging.DefaultLogger().Object(vm).Info().Msg("Domain resumed.")
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
-	default:
+	} else {
 		// Nothing to do
-		// TODO: blocked state
 	}
 
 	xmlstr, err := dom.GetXMLDesc(0)
@@ -338,4 +341,19 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	logging.DefaultLogger().Object(vm).Info().Msg("Domain undefined.")
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
+}
+
+func (l *LibvirtDomainManager) setDomainXML(vm *v1.VM, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
+	xmlStr, err := xml.Marshal(&wantedSpec)
+	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
+		return nil, err
+	}
+	logging.DefaultLogger().Object(vm).Info().V(3).With("xml", xmlStr).Msgf("Domain XML generated.")
+	dom, err := l.virConn.DomainDefineXML(string(xmlStr))
+	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
+		return nil, err
+	}
+	return dom, nil
 }
