@@ -82,3 +82,9 @@ func (MigrationList) SwaggerDoc() map[string]string {
 		"": "A list of Migrations",
 	}
 }
+
+func (MigrationHostInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Host specific data, used by the migration controller to fetch host specific migration information from the target host",
+	}
+}

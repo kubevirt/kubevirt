@@ -228,7 +228,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VM was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
-		_, err = l.setDomainXML(vm, wantedSpec)
+		dom, err = l.setDomainXML(vm, wantedSpec)
 		if err != nil {
 			return nil, err
 		}

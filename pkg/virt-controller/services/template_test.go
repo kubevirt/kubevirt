@@ -55,9 +55,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(BeEmpty())
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher",
 					"--qemu-timeout", "60s",
-					"-name", "testvm",
-					"-namespace", "testns",
-					"-socket-dir", "/var/run/libvirt"}))
+					"--name", "testvm",
+					"--namespace", "testns",
+					"--socket-dir", "/var/run/libvirt"}))
 			})
 		})
 		Context("with node selectors", func() {
@@ -83,9 +83,11 @@ var _ = Describe("Template", func() {
 				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher",
 					"--qemu-timeout", "60s",
-					"-name", "testvm",
-					"-namespace", "default",
-					"-socket-dir", "/var/run/libvirt"}))
+					"--name", "testvm",
+					"--namespace", "default",
+					"--socket-dir", "/var/run/libvirt"}))
+				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/libvirt/default/testvm"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/libvirt/default/testvm"))
 			})
 		})
 		Context("migration", func() {
@@ -132,40 +134,44 @@ var _ = Describe("Template", func() {
 			Context("migration template", func() {
 				var vm *v1.VM
 				var destPod *kubev1.Pod
+				var hostInfo *v1.MigrationHostInfo
 				BeforeEach(func() {
 					vm = v1.NewMinimalVM("testvm")
 					vm.GetObjectMeta().SetUID(uuid.NewUUID())
 					destPod, err = svc.RenderLaunchManifest(vm)
 					Expect(err).ToNot(HaveOccurred())
 					destPod.Status.PodIP = "127.0.0.1"
+					hostInfo = &v1.MigrationHostInfo{PidNS: "pidns", Controller: []string{"cpu", "memory"}, Slice: "slice"}
 				})
 				Context("with correct parameters", func() {
 
 					It("should never restart", func() {
-						job, err := svc.RenderMigrationJob(vm, &srcNodeIp, &destNodeIp, destPod)
+						job, err := svc.RenderMigrationJob(vm, &srcNodeIp, &destNodeIp, destPod, hostInfo)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(job.Spec.RestartPolicy).To(Equal(kubev1.RestartPolicyNever))
 					})
 					It("should use the first ip it finds", func() {
-						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod)
+						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod, hostInfo)
 						Expect(err).ToNot(HaveOccurred())
 						refCommand := []string{
 							"/migrate", "testvm", "--source", "qemu+tcp://127.0.0.2/system",
 							"--dest", "qemu+tcp://127.0.0.3/system",
-							"--node-ip", "127.0.0.3", "--namespace", "default"}
+							"--node-ip", "127.0.0.3", "--namespace", "default",
+							"--slice", "slice", "--controller", "cpu,memory", "--pidns", "pidns",
+						}
 						Expect(job.Spec.Containers[0].Command).To(Equal(refCommand))
 					})
 				})
 				Context("with incorrect parameters", func() {
 					It("should error on missing source address", func() {
 						srcNode.Status.Addresses = []kubev1.NodeAddress{}
-						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod)
+						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod, hostInfo)
 						Expect(err).To(HaveOccurred())
 						Expect(job).To(BeNil())
 					})
 					It("should error on missing destination address", func() {
 						targetNode.Status.Addresses = []kubev1.NodeAddress{}
-						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod)
+						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod, hostInfo)
 						Expect(err).To(HaveOccurred())
 						Expect(job).To(BeNil())
 					})

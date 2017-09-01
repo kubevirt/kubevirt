@@ -25,6 +25,8 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"strings"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -33,7 +35,7 @@ import (
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VM) (*kubev1.Pod, error)
-	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node, *kubev1.Pod) (*kubev1.Pod, error)
+	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node, *kubev1.Pod, *v1.MigrationHostInfo) (*kubev1.Pod, error)
 }
 
 type templateService struct {
@@ -42,7 +44,6 @@ type templateService struct {
 	socketBaseDir string
 }
 
-//Deprecated: remove the service and just use a builder or contextcless helper function
 func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
@@ -105,7 +106,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	return &pod, nil
 }
 
-func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod) (*kubev1.Pod, error) {
+func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod, targetHostInfo *v1.MigrationHostInfo) (*kubev1.Pod, error) {
 	srcAddr := ""
 	dstAddr := ""
 	for _, addr := range sourceNode.Status.Addresses {
@@ -154,6 +155,9 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 						"--dest", destUri,
 						"--node-ip", dstAddr,
 						"--namespace", vm.ObjectMeta.Namespace,
+						"--slice", targetHostInfo.Slice,
+						"--controller", strings.Join(targetHostInfo.Controller, ","),
+						"--pidns", targetHostInfo.PidNS,
 					},
 				},
 			},

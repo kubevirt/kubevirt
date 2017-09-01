@@ -136,6 +136,7 @@ var _ = Describe("Console", func() {
 	It("Should proxy message through virt-api", func() {
 
 		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
+		virtClient.EXPECT().CoreV1().Return(k8sClient)
 		ws := dial("testvm", "console0")
 		defer ws.Close()
 		ws.WriteMessage(websocket.TextMessage, []byte("hello echo!"))
@@ -171,11 +172,12 @@ var _ = Describe("Console", func() {
 	It("Should return 500 if we can't look up the node", func() {
 		k8sClient.Pods(k8sv1.NamespaceDefault).Delete(virtHandlerPod.GetObjectMeta().GetName(), nil)
 		vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
+		virtClient.EXPECT().CoreV1().Return(k8sClient)
 		vm.Status.NodeName = "nonexistentnode"
 		response, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(response.StatusCode).To(Equal(http.StatusInternalServerError))
-		Expect(body(response)).To(ContainSubstring("Expected one virt-handler POD but got 0"))
+		Expect(body(response)).To(ContainSubstring("Looking up the connection details for virt-handler on node nonexistentnode failed"))
 	})
 
 	AfterEach(func() {

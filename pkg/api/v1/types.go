@@ -482,6 +482,13 @@ func (ml *MigrationList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Host specific data, used by the migration controller to fetch host specific migration information from the target host
+type MigrationHostInfo struct {
+	Slice      string   `json:"slice"`
+	Controller []string `json:"controller"`
+	PidNS      string   `json:"pidns"`
+}
+
 // Given a VM, create a NodeSelectorTerm with anti-affinity for that VM's node.
 // This is useful for the case when a migration away from a node must occur.
 func AntiAffinityFromVMNode(vm *VM) *k8sv1.Affinity {

@@ -58,7 +58,7 @@ type socketBasedIsolationDetector struct {
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
 func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
-	return &socketBasedIsolationDetector{socketDir: socketDir, controller: []string{"cpu", "cpuacct", "cpuset", "devices", "freezer", "memory", "net_cls", "perf_event"}}
+	return &socketBasedIsolationDetector{socketDir: socketDir, controller: []string{"cpu", "cpuacct", "cpuset", "freezer", "memory", "net_cls", "perf_event"}}
 }
 
 func SocketFromNamespaceName(baseDir string, namespace string, name string) string {
