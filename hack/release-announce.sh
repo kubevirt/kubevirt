@@ -72,8 +72,6 @@ main()
   log "Span: $RELSPANREF"
 
   fold -s <<EOF | tee release-announce
-`title "KubeVirt $RELREF"`
-
 `summary`
 
 `downloads`

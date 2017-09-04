@@ -65,20 +65,27 @@ Announcement
 Every release must be announced on the `kubevirt-dev` mailinglist
 <kubevirt-dev@googlegroups.com>.
 
+The `hack/release-announce.sh` script should be used to generate the
+announce email.
+Using this script ensures consistency and documentation of the release
+process and content between releases.
+
 
 Releasing
 ---------
 The release process is mostly automatic and consists of the following steps:
 
-1. Tag a commit using `git evtag sign $TAG` (which is a signed and annotated
+1. Run the `hack/release-announce.sh` script which runs functional tests,
+   generates some stats and outputs the announce text.
+2. Tag the commit using `git evtag sign $TAG` (which is a signed and annotated
    tag)
-   1. Provide the release notes as part of the tag commit message
-2. Push the tag to github `git push git@github.com:kubevirt/kubevirt.git $TAG`
-3. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
+   1. Provide the announce text as part of the tag commit message
+3. Push the tag to github `git push git@github.com:kubevirt/kubevirt.git $TAG`
+4. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
    check that the binary artifacts got attached to the release at
    <https://github.com/kubevirt/kubevirt/releases/tag/$TAG>
    and that the containers were correctly tagged and pushed to
    <https://hub.docker.com/r/kubevirt/>
-4. Adjust the release details (draft, pre-release) as necessary at
+5. Adjust the release details (draft, pre-release) as necessary at
    <https://github.com/kubevirt/kubevirt/releases/tag/$TAG>
-5. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com>
+6. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com>
