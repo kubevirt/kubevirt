@@ -15,15 +15,16 @@ before_install:
 - sudo apt-get update -q
 
 install:
-- git reset --hard
-- go get github.com/mattn/goveralls
-- go get -u github.com/Masterminds/glide
-- go get golang.org/x/tools/cmd/goimports
-- go get -u github.com/golang/mock/gomock
-- go get -u github.com/rmohr/mock/mockgen
-- go get -u github.com/rmohr/go-swagger-utils/swagger-doc
-- sudo apt-get install libvirt-dev make
-- make sync
+ - git reset --hard # we are caching the vendor folder, make sure we see the new vendor.json file
+ - go get github.com/mattn/goveralls
+ - go get -u github.com/Masterminds/glide
+ - go get golang.org/x/tools/cmd/goimports
+ - go get -u github.com/golang/mock/gomock
+ - go get -u github.com/rmohr/mock/mockgen
+ - go get -u github.com/rmohr/go-swagger-utils/swagger-doc
+ - go get -u github.com/onsi/ginkgo/ginkgo
+ - sudo apt-get install libvirt-dev make
+ - make sync
 
 script:
 - make fmt

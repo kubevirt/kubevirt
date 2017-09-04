@@ -8,6 +8,7 @@ generate:
 	find pkg/ -name "*generated*.go" -exec rm {} -f \;
 	./hack/build-go.sh generate ${WHAT}
 	goimports -w -local kubevirt.io cmd/ pkg/ tests/
+	./hack/bootstrap-ginkgo.sh
 
 build: checksync fmt vet compile
 
