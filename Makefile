@@ -77,4 +77,10 @@ vagrant-sync-optional:
 vagrant-deploy: vagrant-sync-config vagrant-sync-build
 	export KUBECTL="cluster/kubectl.sh --core" && ./cluster/deploy.sh
 
-.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest
+.release-functest:
+	make functest > .release-functest 2>&1
+
+release-announce: .release-functest
+	./hack/release-announce.sh $(RELREF) $(PREREF)
+
+.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest release-announce
