@@ -68,6 +68,17 @@ func defaultIsoFunc(isoOutFile string, inFiles []string) error {
 	return cmd.Run()
 }
 
+func removeFile(path string) error {
+	err := os.Remove(path)
+	if err != nil && os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("failed to remove cloud-init temporary data file %s", path))
+		return err
+	}
+	return nil
+}
+
 func fileExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	exists := false
@@ -103,16 +114,19 @@ func md5CheckSum(filePath string) ([]byte, error) {
 func setFileOwnership(username string, file string) error {
 	usrObj, err := user.Lookup(username)
 	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to look up username %s", username))
 		return err
 	}
 
 	uid, err := strconv.Atoi(usrObj.Uid)
 	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to find uid for username %s", username))
 		return err
 	}
 
 	gid, err := strconv.Atoi(usrObj.Gid)
 	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to find gid for username %s", username))
 		return err
 	}
 
@@ -122,6 +136,7 @@ func setFileOwnership(username string, file string) error {
 func filesAreEqual(path1 string, path2 string) (bool, error) {
 	exists, err := fileExists(path1)
 	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unexpected error encountered while attempting to determine if %s exists", path1))
 		return false, err
 	} else if exists == false {
 		return false, nil
@@ -129,6 +144,7 @@ func filesAreEqual(path1 string, path2 string) (bool, error) {
 
 	exists, err = fileExists(path2)
 	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unexpected error encountered while attempting to determine if %s exists", path2))
 		return false, err
 	} else if exists == false {
 		return false, nil
@@ -136,10 +152,12 @@ func filesAreEqual(path1 string, path2 string) (bool, error) {
 
 	sum1, err := md5CheckSum(path1)
 	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("calculating md5 checksum failed for %s", path1))
 		return false, err
 	}
 	sum2, err := md5CheckSum(path2)
 	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("calculating md5 checksum failed for %s", path2))
 		return false, err
 	}
 
@@ -270,7 +288,11 @@ func ApplyMetadata(vm *v1.VM) {
 
 func RemoveLocalData(domain string, namespace string) error {
 	domainBasePath := GetDomainBasePath(domain, namespace)
-	return os.RemoveAll(domainBasePath)
+	err := os.RemoveAll(domainBasePath)
+	if err != nil && os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 func GetCloudInitSpec(vm *v1.VM) *v1.CloudInitSpec {
@@ -308,6 +330,7 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 	domainBasePath := GetDomainBasePath(domain, namespace)
 	err = os.MkdirAll(domainBasePath, 0755)
 	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to create cloud-init base path %s", domainBasePath))
 		return err
 	}
 
@@ -320,9 +343,9 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 		userData64 := spec.NoCloudData.UserDataBase64
 		metaData64 := spec.NoCloudData.MetaDataBase64
 
-		os.Remove(userFile)
-		os.Remove(metaFile)
-		os.Remove(isoStaging)
+		removeFile(userFile)
+		removeFile(metaFile)
+		removeFile(isoStaging)
 
 		userDataBytes, err := base64.StdEncoding.DecodeString(userData64)
 		if err != nil {
@@ -345,12 +368,12 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 		files := make([]string, 0, 2)
 		files = append(files, metaFile)
 		files = append(files, userFile)
-		cloudInitIsoFunc(isoStaging, files)
-		os.Remove(metaFile)
-		os.Remove(userFile)
+		err = cloudInitIsoFunc(isoStaging, files)
 		if err != nil {
 			return err
 		}
+		removeFile(metaFile)
+		removeFile(userFile)
 
 		err = setFileOwnership(cloudInitOwner, isoStaging)
 		if err != nil {
@@ -364,10 +387,15 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 
 		// Only replace the dynamically generated iso if it has a different checksum
 		if isEqual {
-			os.Remove(isoStaging)
+			removeFile(isoStaging)
 		} else {
-			os.Remove(iso)
-			os.Rename(isoStaging, iso)
+			removeFile(iso)
+			err = os.Rename(isoStaging, iso)
+			if err != nil {
+				// This error is not something we need to block iso creation for.
+				logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("Cloud-init failed to rename file %s to %s", isoStaging, iso))
+				return err
+			}
 		}
 
 		logging.DefaultLogger().V(2).Info().Msg(fmt.Sprintf("generated nocloud iso file %s", iso))
