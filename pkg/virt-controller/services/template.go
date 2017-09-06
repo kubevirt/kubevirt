@@ -25,10 +25,13 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
+	"strings"
 )
 
 type TemplateService interface {
@@ -47,12 +50,28 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
 
+	// Compute resource requirements taking the VM overhead into account
+	memoryRequested, memoryLimit, e := computeTotalMemoryRequirements(vm)
+	if e != nil {
+		return nil, e
+	}
+
+	resources := kubev1.ResourceRequirements{
+		Requests: kubev1.ResourceList{
+			kubev1.ResourceMemory: *memoryRequested,
+		},
+		Limits: kubev1.ResourceList{
+			kubev1.ResourceMemory: *memoryLimit,
+		},
+	}
+
 	// VM target container
 	container := kubev1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: kubev1.PullIfNotPresent,
 		Command:         []string{"/virt-launcher", "--qemu-timeout", "60s"},
+		Resources:       resources,
 	}
 
 	containers, err := registrydisk.GenerateContainers(vm)
@@ -147,4 +166,64 @@ func NewTemplateService(launcherImage string, migratorImage string) (TemplateSer
 		migratorImage: migratorImage,
 	}
 	return &svc, nil
+}
+
+// ComputeTotalMemoryRequirements computes the estimation of total
+// memory needed for the domain to operate properly.
+// This includes the memory needed for the guest and memory
+// for Qemu and OS overhead.
+//
+// The return values are requested memory and limit memory quantities
+//
+// Note: This is the best estimation we were able to come up with
+//       and is still not 100% accurate
+func computeTotalMemoryRequirements(vm *v1.VM) (*resource.Quantity, *resource.Quantity, error) {
+	domain := vm.Spec.Domain
+
+	// TODO this is pretty naive and does not work reliably, the libvirt units are different from quantity suffixes
+	memory, err := resource.ParseQuantity(fmt.Sprintf("%d%s", vm.Spec.Domain.Memory.Value, vm.Spec.Domain.Memory.Unit))
+	if err != nil {
+	  return nil, nil, err
+	}
+
+	limit, err := resource.ParseQuantity(fmt.Sprintf("%d%s", vm.Spec.Domain.MaxMemory.Value, vm.Spec.Domain.MaxMemory.Unit))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	overhead := resource.NewScaledQuantity(0, resource.Kilo)
+
+	if strings.HasPrefix(domain.OS.Type.Arch, "ppc") {
+		// Add memory needed to support memory hotplug
+		// maxRam = limit if hotplug supported else memory
+		// int powerOf2 = Integer.highestOneBit(maxRam);
+		// pageTable = (Memory.Limit > powerOf2 ? powerOf2 * 2 : powerOf2) / 64;
+	} else {
+		// Add the memory needed for pagetables (one bit for every 512b of RAM size)
+		pagetableMemory := resource.NewScaledQuantity(memory.ScaledValue(resource.Kilo), resource.Kilo)
+		pagetableMemory.Set(pagetableMemory.Value() / 512)
+		overhead.Add(*pagetableMemory)
+	}
+
+	// Add fixed overhead for shared libraries and such
+	// TODO account for the overhead of kubevirt components running in the pod
+	if strings.HasPrefix(domain.OS.Type.Arch, "ppc") {
+		overhead.Add(*resource.NewScaledQuantity(100, resource.Mega))
+	} else {
+		overhead.Add(*resource.NewScaledQuantity(64, resource.Mega))
+	}
+
+	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
+	// TODO
+
+	// Add video RAM overhead
+	for _, vg := range domain.Devices.Video {
+		overhead.Add(*resource.NewScaledQuantity(int64(*vg.Ram), resource.Kilo)) // TODO check units!
+		overhead.Add(*resource.NewScaledQuantity(int64(*vg.VRam), resource.Mega))
+	}
+
+	memory.Add(*overhead)
+	limit.Add(*overhead)
+
+	return &memory, &limit, nil
 }
