@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: kubevirt
+  name: kubevirt-infra
   labels:
     name: kubevirt
 rules:
@@ -42,7 +42,7 @@ rules:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kubevirt
+  name: kubevirt-infra
   labels:
     name: kubevirt
 ---
@@ -56,29 +56,29 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: kubevirt
+  name: kubevirt-infra
   labels:
     name: kubevirt
 roleRef:
   kind: ClusterRole
-  name: kubevirt
+  name: kubevirt-infra
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
-    name: kubevirt
+    name: kubevirt-infra
     namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: kubevirt-admin
+  name: kubevirt-infra-cluster-admin
   labels:
-    name: kubevirt-admin
+    name: kubevirt
 roleRef:
   kind: ClusterRole
   name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
-    name: kubevirt-admin
+    name: kubevirt-infra
     namespace: default
