@@ -64,13 +64,19 @@ func main() {
 	// TODO: although the service responds to rest API calls directly, we still need to use autodiscovery to communicate via reasonable format (aka JSON).
 	// That can be left for later when apiserver aggregation is in.
 
-	log.Printf("Registered routes: %v", ws.Routes())
-
 	ws.Route(ws.GET(rest.ResourcePath(vmcGVR) + rest.SubResourcePath("start")).
 		To(vmconfigrest.StartFunc).
 		Param(rest.NamespaceParam(ws)).
 		Param(rest.NameParam(ws)).
 		Doc("Creates a VM from the given VMConfig."))
+
+	ws.Route(ws.GET(rest.ResourcePath(vmcGVR) + rest.SubResourcePath("stop")).
+		To(vmconfigrest.StopFunc).
+		Param(rest.NamespaceParam(ws)).
+		Param(rest.NameParam(ws)).
+		Doc("Stops a VM from given VMConfig."))
+
+	log.Printf("Registered routes: %v", ws.Routes())
 
 	restful.Add(ws)
 
