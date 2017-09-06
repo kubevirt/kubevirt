@@ -17,7 +17,7 @@
  *
  */
 
-package virthandler_test
+package virthandler
 
 import (
 	"net/http"
@@ -44,7 +44,6 @@ import (
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
@@ -230,6 +229,23 @@ var _ = Describe("PVC", func() {
 			Expect(newDisk.Device).To(Equal("disk"))
 			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
 			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
+		})
+		It("should fail on unsupported PV disk types", func() {
+			expectedPV.Spec.ISCSI = nil
+			expectedPV.Spec.CephFS = &k8sv1.CephFSVolumeSource{}
+			disk := v1.Disk{
+				Type: "PersistentVolumeClaim",
+				Source: v1.DiskSource{
+					Name: "test-claim",
+				},
+				Target: v1.DiskTarget{
+					Device: "vda",
+				},
+			}
+			disk.Type = "PersistentVolumeClaim"
+			_, err := mapPVToDisk(&disk, &expectedPV)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unsupported"))
 		})
 	})
 })

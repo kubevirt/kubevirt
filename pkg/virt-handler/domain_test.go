@@ -17,7 +17,7 @@
  *
  */
 
-package virthandler_test
+package virthandler
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	. "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
