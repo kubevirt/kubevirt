@@ -25,6 +25,8 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"strings"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -33,26 +35,39 @@ import (
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VM) (*kubev1.Pod, error)
-	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node, *kubev1.Pod) (*kubev1.Pod, error)
+	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node, *kubev1.Pod, *v1.MigrationHostInfo) (*kubev1.Pod, error)
 }
 
 type templateService struct {
 	launcherImage string
 	migratorImage string
+	socketBaseDir string
 }
 
-//Deprecated: remove the service and just use a builder or contextcless helper function
 func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
+	socketDir := t.socketBaseDir + "/" + namespace + "/" + domain
 
 	// VM target container
 	container := kubev1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: kubev1.PullIfNotPresent,
-		Command:         []string{"/virt-launcher", "--qemu-timeout", "60s"},
+		Command: []string{"/virt-launcher",
+			"--qemu-timeout", "60s",
+			"--name", domain,
+			"--namespace", namespace,
+			"--socket-dir", t.socketBaseDir,
+		},
+		VolumeMounts: []kubev1.VolumeMount{
+			{
+				Name:      "sockets",
+				MountPath: socketDir,
+			},
+		},
 	}
 
 	containers, err := registrydisk.GenerateContainers(vm)
@@ -75,13 +90,23 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 			RestartPolicy: kubev1.RestartPolicyNever,
 			Containers:    containers,
 			NodeSelector:  vm.Spec.NodeSelector,
+			Volumes: []kubev1.Volume{
+				{
+					Name: "sockets",
+					VolumeSource: kubev1.VolumeSource{
+						HostPath: &kubev1.HostPathVolumeSource{
+							Path: socketDir,
+						},
+					},
+				},
+			},
 		},
 	}
 
 	return &pod, nil
 }
 
-func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod) (*kubev1.Pod, error) {
+func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod, targetHostInfo *v1.MigrationHostInfo) (*kubev1.Pod, error) {
 	srcAddr := ""
 	dstAddr := ""
 	for _, addr := range sourceNode.Status.Addresses {
@@ -130,6 +155,9 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 						"--dest", destUri,
 						"--node-ip", dstAddr,
 						"--namespace", vm.ObjectMeta.Namespace,
+						"--slice", targetHostInfo.Slice,
+						"--controller", strings.Join(targetHostInfo.Controller, ","),
+						"--pidns", targetHostInfo.PidNS,
 					},
 				},
 			},
@@ -139,12 +167,13 @@ func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node,
 	return &job, nil
 }
 
-func NewTemplateService(launcherImage string, migratorImage string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, migratorImage string, socketDir string) (TemplateService, error) {
 	precond.MustNotBeEmpty(launcherImage)
 	precond.MustNotBeEmpty(migratorImage)
 	svc := templateService{
 		launcherImage: launcherImage,
 		migratorImage: migratorImage,
+		socketBaseDir: socketDir,
 	}
 	return &svc, nil
 }

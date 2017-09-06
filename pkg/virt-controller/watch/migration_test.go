@@ -90,7 +90,7 @@ var _ = Describe("Migration", func() {
 		migration.Spec.NodeSelector = map[string]string{"beta.kubernetes.io/arch": "amd64"}
 
 		// Create a target Pod for the VM
-		templateService, err := services.NewTemplateService("whatever", "whatever")
+		templateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
 		Expect(err).ToNot(HaveOccurred())
 		pod, err = templateService.RenderLaunchManifest(vm)
 		Expect(err).ToNot(HaveOccurred())
@@ -757,7 +757,7 @@ func mockPod(i int, label string) clientv1.Pod {
 }
 
 func mockMigrationPod(vm *v1.VM) *kubev1.Pod {
-	temlateService, err := services.NewTemplateService("whatever", "whatever")
+	temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
 	Expect(err).ToNot(HaveOccurred())
 	pod, err := temlateService.RenderLaunchManifest(vm)
 	Expect(err).ToNot(HaveOccurred())

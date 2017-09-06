@@ -374,3 +374,21 @@ func newConnection(uri string, user string, pass string) (*libvirt.Connect, erro
 
 	return virConn, err
 }
+
+func IsDown(domState libvirt.DomainState) bool {
+	switch domState {
+	case libvirt.DOMAIN_NOSTATE, libvirt.DOMAIN_SHUTDOWN, libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_CRASHED:
+		return true
+
+	}
+	return false
+}
+
+func IsPaused(domState libvirt.DomainState) bool {
+	switch domState {
+	case libvirt.DOMAIN_PAUSED:
+		return true
+
+	}
+	return false
+}

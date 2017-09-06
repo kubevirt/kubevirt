@@ -24,14 +24,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
-	k8sv1 "k8s.io/api/core/v1"
 	k8sv1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -80,44 +76,24 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 		return
 	}
 
-	nodeName := vm.Status.NodeName
-
-	// Get the pod name of virt-handler running on the master node to inspect its logs later on
-	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
-	labelSelector, err := labels.Parse("daemon in (virt-handler)")
+	virtHandlerCon := kubecli.NewVirtHandlerClient(t.virtClient).ForNode(vm.Status.NodeName)
+	uri, err := virtHandlerCon.ConsoleURI(vm)
 	if err != nil {
-		log.Error().Reason(err).Msgf("Unable to parse label selector")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	pods, err := t.k8sClient.Pods(k8sv1.NamespaceDefault).List(
-		k8sv1meta.ListOptions{
-			FieldSelector: handlerNodeSelector.String(),
-			LabelSelector: labelSelector.String()})
-	if err != nil {
-		log.Error().Reason(err).Msgf("Unable to find virt-handler POD")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	if len(pods.Items) != 1 {
-		log.Error().Reason(err).Msgf("Expected one virt-handler POD but got %d", len(pods.Items))
-		response.WriteError(http.StatusInternalServerError, fmt.Errorf("Expected one virt-handler POD but got %d", len(pods.Items)))
+		msg := fmt.Sprintf("Looking up the connection details for virt-handler on node %s failed", vm.Status.NodeName)
+		log.Error().Reason(err).Msg(msg)
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf(msg))
 		return
 	}
 
-	dstAddr := string(pods.Items[0].Status.PodIP)
-
-	// FIXME, don't hardcode virt-handler port. virt-handler should register itself somehow
-	port := "8185"
 	if t.VirtHandlerPort != "" {
-		port = t.VirtHandlerPort
+		uri.Hostname()
+		uri.Host = uri.Hostname() + ":" + t.VirtHandlerPort
 	}
-
-	u := url.URL{Scheme: "ws", Host: dstAddr + ":" + port, Path: fmt.Sprintf("/api/v1/namespaces/%s/vms/%s/console", namespace, vmName)}
+	uri.Scheme = "ws"
 	if console != "" {
-		u.RawQuery = "console=" + console
+		uri.RawQuery = "console=" + console
 	}
-	handlerSocket, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	handlerSocket, resp, err := websocket.DefaultDialer.Dial(uri.String(), nil)
 	if err != nil {
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			buf := new(bytes.Buffer)

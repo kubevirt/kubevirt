@@ -30,8 +30,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -190,17 +188,11 @@ var _ = Describe("Vmlifecycle", func() {
 			table.DescribeTable("Should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 
 				vm = tests.NewRandomVMWithNS(namespace)
+				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(primaryNodeName).Pod()
+				Expect(err).ToNot(HaveOccurred())
 
-				// Get the pod name of virt-handler running on the master node to inspect its logs later on
-				handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + primaryNodeName)
-				labelSelector, err := labels.Parse("daemon in (virt-handler)")
-				Expect(err).NotTo(HaveOccurred())
-				pods, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(metav1.ListOptions{FieldSelector: handlerNodeSelector.String(), LabelSelector: labelSelector.String()})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(pods.Items).To(HaveLen(1))
-
-				handlerName := pods.Items[0].GetObjectMeta().GetName()
-				handlerNamespace := pods.Items[0].GetObjectMeta().GetNamespace()
+				handlerName := virtHandlerPod.GetObjectMeta().GetName()
+				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
 				seconds := int64(120)
 				logsQuery := virtClient.CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds})
 

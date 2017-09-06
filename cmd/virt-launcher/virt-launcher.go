@@ -24,18 +24,19 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"syscall"
-	"time"
-
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/spf13/pflag"
 
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 )
 
 type Monitor struct {
@@ -146,8 +147,18 @@ func main() {
 	logging.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
 	debugMode := flag.Bool("debug", false, "Enable debug messages")
+	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to place a socket for cgroup detection")
+	name := flag.String("name", "", "Name of the VM")
+	namespace := flag.String("namespace", "", "Namespace of the VM")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
+
+	socket, err := net.Listen("unix", isolation.SocketFromNamespaceName(*socketDir, *namespace, *name))
+
+	if err != nil {
+		log.Fatal("Could not create socket for cgroup detection.", err)
+	}
+	defer socket.Close()
 
 	mon := Monitor{
 		exename:   "qemu",

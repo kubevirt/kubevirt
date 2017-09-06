@@ -9,6 +9,7 @@ spec:
       labels:
         daemon: virt-handler
     spec:
+      hostPID: true
       containers:
       - name: virt-handler
         ports:
@@ -29,6 +30,8 @@ spec:
         volumeMounts:
         - name: libvirt-runtime
           mountPath: /var/run/libvirt
+        - name: sockets
+          mountPath: /var/run/kubevirt
         env:
           - name: NODE_NAME
             valueFrom:
@@ -38,3 +41,6 @@ spec:
       - name: libvirt-runtime
         hostPath:
           path: /var/run/libvirt
+      - name: sockets
+        hostPath:
+          path: /var/run/kubevirt

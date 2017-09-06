@@ -205,7 +205,14 @@ func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.Po
 }
 
 func (v *vmService) StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error {
-	job, err := v.TemplateService.RenderMigrationJob(vm, sourceNode, targetNode, targetPod)
+
+	// Look up node migration details
+	nodeDetails, err := kubecli.NewVirtHandlerClient(v.KubeCli).ForNode(targetNode.Name).NodeMigrationDetails(vm)
+	if err != nil {
+		return err
+	}
+
+	job, err := v.TemplateService.RenderMigrationJob(vm, sourceNode, targetNode, targetPod, nodeDetails)
 	job.ObjectMeta.Labels[corev1.MigrationLabel] = migration.GetObjectMeta().GetName()
 	job.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
 	if err != nil {
