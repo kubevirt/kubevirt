@@ -7,6 +7,13 @@ import (
 
 // ConfigToSpec is a function that returns the constructed VMSpec object from within VMConfig object.
 func ConfigToSpec(vmconfig *vmconfigv1.VMConfig) *v1.DomainSpec {
+	domainSpec := vmconfig.Spec.Template.Spec
+
 	// TODO: Add the actual VMConfig transformation logic here.
-	return vmconfig.Spec.Template.Spec
+	// This is just an example of how the conversion can be done.
+	if vmconfig.Spec.Template.Features.OS == "other" {
+		domainSpec.OS = v1.OS{Type: v1.OSType{OS: "hvm"}}
+	}
+
+	return domainSpec
 }

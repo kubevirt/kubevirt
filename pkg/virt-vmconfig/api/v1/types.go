@@ -46,7 +46,12 @@ type VMConfigSpec struct {
 }
 
 type VMConfigTemplate struct {
-	Spec *kubevirtv1.DomainSpec `json:"spec,omitempty"`
+	Spec     *kubevirtv1.DomainSpec `json:"spec,omitempty"`
+	Features *VMConfigFeatures      `json:"features,omitempty"`
+}
+
+type VMConfigFeatures struct {
+	OS string `json:"os,omitempty"`
 }
 
 // Required to satisfy Object interface

@@ -16,6 +16,10 @@ func (VMConfigTemplate) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (VMConfigFeatures) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (VMConfigList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VMConfigList is a list of VMConfigs.",

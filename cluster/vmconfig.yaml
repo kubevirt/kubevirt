@@ -4,6 +4,8 @@ metadata:
   name: testvmconfig
 spec:
   template:
+    features:
+        os: linux
     spec:
       domain:
         devices:
@@ -20,7 +22,4 @@ spec:
         memory:
           unit: MB
           value: 64
-        os:
-          type:
-            os: hvm
         type: qemu
