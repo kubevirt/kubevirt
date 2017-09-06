@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -188,6 +189,42 @@ var _ = Describe("CloudInit", func() {
 
 				ApplyMetadata(vm)
 				Expect(vm.Spec.Domain.Devices.Disks[0].CloudInit.NoCloudData.MetaDataBase64).ToNot(Equal(""))
+			})
+			It("Verify listing VMs based on local nocloud data", func() {
+
+				var domains []string
+
+				domains = append(domains, "fakens1/fakedomain1")
+				domains = append(domains, "fakens1/fakedomain2")
+				domains = append(domains, "fakens2/fakedomain1")
+				domains = append(domains, "fakens2/fakedomain2")
+				domains = append(domains, "fakens3/fakedomain1")
+				domains = append(domains, "fakens4/fakedomain1")
+
+				for _, dom := range domains {
+					err := os.MkdirAll(fmt.Sprintf("%s/%s/some-other-dir", tmpDir, dom), 0755)
+					Expect(err).ToNot(HaveOccurred())
+					msg := "fake content"
+					bytes := []byte(msg)
+					err = ioutil.WriteFile(fmt.Sprintf("%s/%s/some-file", tmpDir, dom), bytes, 0644)
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				vms, err := ListVmWithLocalData()
+				for _, vm := range vms {
+					namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+					domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+
+					isNamespace := strings.Contains(namespace, "fakens")
+					isDomain := strings.Contains(domain, "fakedomain")
+					Expect(isNamespace).To(Equal(true))
+					Expect(isDomain).To(Equal(true))
+				}
+
+				Expect(len(vms)).To(Equal(len(domains)))
+				Expect(err).ToNot(HaveOccurred())
+
+				// verify a vm from each namespace is present
 			})
 		})
 	})

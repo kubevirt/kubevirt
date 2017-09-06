@@ -31,6 +31,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/client-go/tools/cache"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -70,6 +72,51 @@ var _ = Describe("ConfigDiskServer", func() {
 
 	Describe("config-disk-server api calls", func() {
 		Context("with concrete types", func() {
+			It("delete unseen vm ephemeral data", func() {
+				var domains []string
+
+				domains = append(domains, "fakens1/fakedomain1")
+				domains = append(domains, "fakens1/fakedomain2")
+				domains = append(domains, "fakens2/fakedomain1")
+				domains = append(domains, "fakens2/fakedomain2")
+				domains = append(domains, "fakens3/fakedomain1")
+				domains = append(domains, "fakens4/fakedomain1")
+
+				for _, dom := range domains {
+					err := os.MkdirAll(fmt.Sprintf("%s/%s/some-other-dir", tmpDir, dom), 0755)
+					Expect(err).ToNot(HaveOccurred())
+					msg := "fake content"
+					bytes := []byte(msg)
+					err = ioutil.WriteFile(fmt.Sprintf("%s/%s/some-file", tmpDir, dom), bytes, 0644)
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				vmStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
+
+				err := vmStore.Add(v1.NewVMReferenceFromNameWithNS("fakens1", "fakedomain1"))
+				Expect(err).ToNot(HaveOccurred())
+
+				err = client.UndefineUnseen(vmStore)
+				Expect(err).ToNot(HaveOccurred())
+
+				// expect this domain to still exist
+				_, err = os.Stat(fmt.Sprintf("%s/fakens1/fakedomain1", tmpDir))
+				Expect(err).ToNot(HaveOccurred())
+
+				// expect these domains to not exist with local cloud init config disk data
+				for idx, dom := range domains {
+					exists := true
+					if idx == 0 {
+						continue
+					}
+					_, err = os.Stat(fmt.Sprintf("%s/%s", tmpDir, dom))
+					if os.IsNotExist(err) {
+						exists = false
+					}
+					Expect(exists).To(Equal(false))
+				}
+
+			})
 			It("delete non existent VM ephemeral data", func() {
 				vm := v1.NewMinimalVM("never-started-vm")
 				err := client.Undefine(vm)
