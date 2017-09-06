@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/jeevatkm/go-model"
 	k8sv1 "k8s.io/api/core/v1"
@@ -206,7 +207,8 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	} else if isPending {
 		// waiting on an async action to complete
 		logging.DefaultLogger().V(3).Info().Object(vm).Reason(err).Msg("Synchronizing is in a pending state.")
-		queue.AddRateLimited(key)
+		queue.AddAfter(key, 1*time.Second)
+		queue.Forget(key)
 		return
 	}
 
