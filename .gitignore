@@ -19,3 +19,4 @@ build-tools/desc/desc
 hack/config-local.sh
 tags
 .glide.*
+.GeneratedDockerfile
