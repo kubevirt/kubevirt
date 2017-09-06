@@ -28,15 +28,18 @@ import (
 
 	"time"
 
-	"github.com/emicklei/go-restful"
-	"github.com/libvirt/libvirt-go"
+	restful "github.com/emicklei/go-restful"
+	libvirt "github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
+
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -146,6 +149,28 @@ func main() {
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/console").To(console.Console))
 	restful.DefaultContainer.Add(ws)
+
+	labelSelector, err := labels.Parse("daemon in (virt-handler)")
+	if err != nil {
+		fmt.Printf("Can't parse label selector: %s\n", err.Error())
+		return
+	}
+	pods, err := coreClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(meta_v1.ListOptions{LabelSelector: labelSelector.String()})
+	if err != nil {
+		fmt.Printf("Can't find virt-handler pod: %s\n", err.Error())
+		return
+	}
+
+	virtHandlerUrl := pods.Items[0].GetSelfLink()
+	fmt.Println(virtHandlerUrl)
+	_, err = restClient.
+		Patch(types.JSONPatchType).
+		AbsPath(virtHandlerUrl).
+		Body([]byte(fmt.Sprintf("[{\"op\": \"add\", \"path\": \"/metadata/annotations/virtHandlerPort\", \"value\": \"%d\"}]", *port))).Do().Raw()
+	if err != nil {
+		fmt.Printf("Can't set annotation to virt-handler: %s\n", err.Error())
+	}
+
 	server := &http.Server{Addr: *listen + ":" + strconv.Itoa(*port), Handler: restful.DefaultContainer}
 	server.ListenAndServe()
 }
