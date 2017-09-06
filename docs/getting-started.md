@@ -108,7 +108,9 @@ This would create a master and two nodes:
     VAGRANT_NUM_NODES=2 vagrant up
 ```
 
-However, just running `master` is enough for most development tasks.
+If you decide to use separate nodes, pass `VAGRANT_NUM_NODES` variable to all
+vagrant interacting commands. However, just running `master` is enough for most
+development tasks.
 
 You could also run some build steps individually:
 
