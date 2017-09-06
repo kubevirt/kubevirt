@@ -12,19 +12,7 @@ section() { underline "-" "$@" ; }
 #
 release_notes() {
   log "Fetching release notes"
-  local ANY=false
-
-  get_relnote() { sed "s/^    //" | sed -n '/^``` *release-note/,/^```/{/^```/!p;/^```$/q}' | sed "s/\s*$//" ; }
-
-  for commit in $(git rev-list $RELSPANREF);
-  do
-    RELNOTE=$(git log -n1 $commit | get_relnote )
-    if [[ -n "$RELNOTE" ]]; then
-      echo -en "- $RELNOTE ($(git rev-parse --short $commit))"
-      ANY=true
-    fi
-  done
-  $ANY || cat manual-release-notes || echo "FIXME manual notes needed"
+  cat manual-release-notes || echo "FIXME manual notes needed"
 }
 
 summary() {
