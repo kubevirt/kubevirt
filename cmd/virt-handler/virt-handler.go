@@ -151,6 +151,11 @@ func main() {
 	vmController.StartInformer(stop)
 	vmController.WaitForSync(stop)
 
+	err = configDiskClient.UndefineUnseen(vmStore)
+	if err != nil {
+		panic(err)
+	}
+
 	go domainController.Run(3, stop)
 	go vmController.Run(3, stop)
 

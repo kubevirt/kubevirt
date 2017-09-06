@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -32,6 +34,7 @@ import (
 type ConfigDiskClient interface {
 	Define(vm *v1.VM) (bool, error)
 	Undefine(vm *v1.VM) error
+	UndefineUnseen(indexer cache.Store) error
 }
 
 type configDiskClient struct {
@@ -108,4 +111,29 @@ func (c *configDiskClient) Undefine(vm *v1.VM) error {
 	delete(c.jobs, jobKey)
 
 	return cloudinit.RemoveLocalData(domain, namespace)
+}
+
+func (c *configDiskClient) UndefineUnseen(indexer cache.Store) error {
+	vms, err := cloudinit.ListVmWithLocalData()
+	if err != nil {
+		return err
+	}
+
+	for _, vm := range vms {
+		namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+		domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+
+		key, err := cache.MetaNamespaceKeyFunc(vm)
+		if err != nil {
+			return err
+		}
+		_, exists, _ := indexer.GetByKey(key)
+		if exists == false {
+			err := cloudinit.RemoveLocalData(domain, namespace)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

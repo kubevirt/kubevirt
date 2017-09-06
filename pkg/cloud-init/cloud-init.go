@@ -30,7 +30,9 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	model "github.com/jeevatkm/go-model"
 
@@ -401,4 +403,37 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 		logging.DefaultLogger().V(2).Info().Msg(fmt.Sprintf("generated nocloud iso file %s", iso))
 	}
 	return nil
+}
+
+// Lists all vms cloud-init has local data for
+func ListVmWithLocalData() ([]*v1.VM, error) {
+	var keys []*v1.VM
+
+	err := filepath.Walk(cloudInitLocalDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() == false {
+			return nil
+		}
+
+		relativePath := strings.TrimPrefix(path, cloudInitLocalDir+"/")
+		if relativePath == "" {
+			return nil
+		}
+		dirs := strings.Split(relativePath, "/")
+		if len(dirs) != 2 {
+			return nil
+		}
+
+		namespace := dirs[0]
+		domain := dirs[1]
+		if namespace == "" || domain == "" {
+			return nil
+		}
+		keys = append(keys, v1.NewVMReferenceFromNameWithNS(dirs[0], dirs[1]))
+		return nil
+	})
+
+	return keys, err
 }
