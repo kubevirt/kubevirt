@@ -26,11 +26,12 @@ import (
 	"testing"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/reporter"
 )
 
 func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Tests Suite")
+	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", []Reporter{&reporter.KubernetesReporter{}})
 }
 
 var _ = BeforeSuite(func() {

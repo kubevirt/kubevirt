@@ -23,7 +23,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -49,12 +48,12 @@ type Monitor struct {
 
 func (mon *Monitor) refresh() {
 	if mon.isDone {
-		log.Print("Called refresh after done!")
+		logging.DefaultLogger().Info().Msg("Called refresh after done!")
 		return
 	}
 
 	if mon.debugMode {
-		log.Printf("Refreshing executable %s pid %d", mon.exename, mon.pid)
+		logging.DefaultLogger().Info().Msgf("Refreshing executable %s pid %d", mon.exename, mon.pid)
 	}
 
 	// is the process there?
@@ -62,15 +61,15 @@ func (mon *Monitor) refresh() {
 		var err error
 		mon.pid, err = pidOf(mon.exename)
 		if err == nil {
-			log.Printf("Found PID for %s: %d", mon.exename, mon.pid)
+			logging.DefaultLogger().Info().Msgf("Found PID for %s: %d", mon.exename, mon.pid)
 		} else {
 			if mon.debugMode {
-				log.Printf("Missing PID for %s", mon.exename)
+				logging.DefaultLogger().Info().Msgf("Missing PID for %s", mon.exename)
 			}
 			// if the proces is not there yet, is it too late?
 			elapsed := time.Since(mon.start)
 			if mon.timeout > 0 && elapsed >= mon.timeout {
-				log.Printf("%s not found after timeout", mon.exename)
+				logging.DefaultLogger().Info().Msgf("%s not found after timeout", mon.exename)
 				mon.isDone = true
 			}
 		}
@@ -84,7 +83,7 @@ func (mon *Monitor) refresh() {
 	// and open it only when needed, which is a tiny part of the
 	// virt-launcher lifetime.
 	if !pidExists(mon.pid) {
-		log.Printf("Process %s is gone!", mon.exename)
+		logging.DefaultLogger().Info().Msgf("Process %s is gone!", mon.exename)
 		mon.pid = 0
 		mon.isDone = true
 		return
@@ -110,7 +109,7 @@ func (mon *Monitor) RunForever(startTimeout time.Duration) {
 		if startTimeout == 0 {
 			timeoutRepr = "disabled"
 		}
-		log.Printf("Monitoring loop: rate %v start timeout %s", rate, timeoutRepr)
+		logging.DefaultLogger().Info().Msgf("Monitoring loop: rate %v start timeout %s", rate, timeoutRepr)
 	}
 
 	ticker := time.NewTicker(rate)
@@ -120,13 +119,13 @@ func (mon *Monitor) RunForever(startTimeout time.Duration) {
 	mon.timeout = startTimeout
 	mon.start = time.Now()
 
-	log.Printf("Waiting forever...")
+	logging.DefaultLogger().Info().Msg("Waiting forever...")
 	for !gotSignal && !mon.isDone {
 		select {
 		case <-ticker.C:
 			mon.refresh()
 		case s := <-c:
-			log.Print("Got signal: ", s)
+			logging.DefaultLogger().Info().Msgf("Got signal: %v ", s)
 			gotSignal = true
 			if mon.pid != 0 {
 				// forward the signal to the VM process
@@ -137,7 +136,7 @@ func (mon *Monitor) RunForever(startTimeout time.Duration) {
 	}
 
 	ticker.Stop()
-	log.Printf("Exiting...")
+	logging.DefaultLogger().Info().Msgf("Exiting...")
 }
 
 func main() {

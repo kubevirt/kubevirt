@@ -113,8 +113,9 @@ func DefaultLogger() *FilteredLogger {
 	return Logger(defaultComponent)
 }
 
-func (l *FilteredLogger) SetIOWriter(w io.Writer) {
+func (l *FilteredLogger) SetIOWriter(w io.Writer) *FilteredLogger {
 	l.logContext = log.NewContext(log.NewLogfmtLogger(w))
+	return l
 }
 
 func (l *FilteredLogger) SetLogger(logger log.Logger) *FilteredLogger {
