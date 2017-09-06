@@ -56,7 +56,7 @@ for arg in $args; do
         eval "$(go env)"
         ARCHBIN=$(basename $arg)-$(git describe --always)-$GOHOSTOS-$GOHOSTARCH
         ALIASLNK=$(basename $arg)
-        rm -v $arg/$ALIASLNK $arg/$(basename $arg)-*-$GOHOSTOS-$GOHOSTARCH || :
+        rm $arg/$ALIASLNK $arg/$(basename $arg)-*-$GOHOSTOS-$GOHOSTARCH || :
         (cd $arg; GOBIN=$PWD go build -o $ARCHBIN)
         mkdir -p bin
         ln -sf $ARCHBIN $arg/$ALIASLNK
