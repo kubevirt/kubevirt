@@ -45,6 +45,12 @@ func NewConfigDiskClient() ConfigDiskClient {
 	}
 }
 
+func createKey(vm *v1.VM) string {
+	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+	return fmt.Sprintf("%s/%s", namespace, domain)
+}
+
 func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 	pending := false
 
@@ -58,7 +64,9 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v, ok := c.jobs[namespace+domain]
+	jobKey := createKey(vm)
+
+	v, ok := c.jobs[jobKey]
 	if ok == false {
 		v = make(chan string, 1)
 
@@ -71,7 +79,7 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 			}
 		}()
 
-		c.jobs[namespace+domain] = v
+		c.jobs[jobKey] = v
 		pending = true
 	} else {
 		select {
@@ -82,7 +90,7 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 					return pending, err
 				}
 			}
-			delete(c.jobs, namespace+domain)
+			delete(c.jobs, jobKey)
 		default:
 			pending = true
 		}
@@ -94,9 +102,10 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 func (c *configDiskClient) Undefine(vm *v1.VM) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	jobKey := createKey(vm)
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-	delete(c.jobs, namespace+domain)
+	delete(c.jobs, jobKey)
 
 	return cloudinit.RemoveLocalData(domain, namespace)
 }
