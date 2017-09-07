@@ -187,6 +187,10 @@ var _ = Describe("Vmlifecycle", func() {
 		Context("in a non-default namespace", func() {
 			table.DescribeTable("Should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 
+				_, exists := os.LookupEnv("JENKINS_HOME")
+				if exists {
+					Skip("Skip log query tests for JENKINs ci test environment")
+				}
 				vm = tests.NewRandomVMWithNS(namespace)
 				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(primaryNodeName).Pod()
 				Expect(err).ToNot(HaveOccurred())
