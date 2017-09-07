@@ -23,7 +23,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful/swagger"
@@ -39,8 +38,21 @@ import (
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
+	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
+
+type virtAPIApp struct {
+	Service   *service.Service
+	SwaggerUI string
+}
+
+func newVirtAPIApp(host *string, port *int, swaggerUI *string) *virtAPIApp {
+	return &virtAPIApp{
+		Service:   service.NewService("virt-api", host, port),
+		SwaggerUI: *swaggerUI,
+	}
+}
 
 func main() {
 
@@ -50,6 +62,8 @@ func main() {
 	port := flag.Int("port", 8183, "Port to listen on")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
+
+	app := newVirtAPIApp(host, port, swaggerui)
 
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
@@ -114,9 +128,9 @@ func main() {
 		WebServicesUrl:  "http://localhost:8183",
 		ApiPath:         "/swaggerapi",
 		SwaggerPath:     "/swagger-ui/",
-		SwaggerFilePath: *swaggerui,
+		SwaggerFilePath: app.SwaggerUI,
 	}
 	swagger.InstallSwaggerService(config)
 
-	log.Fatal(http.ListenAndServe(*host+":"+strconv.Itoa(*port), nil))
+	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
 }
