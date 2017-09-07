@@ -46,16 +46,7 @@ func newVirtManifestApp(host *string, port *int, libvirtUri *string) *virtManife
 	}
 }
 
-func main() {
-	logging.InitializeLogging("virt-manifest")
-	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
-	port := flag.Int("port", 8186, "Port to listen on")
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
-	app := newVirtManifestApp(listen, port, libvirtUri)
-
+func (app *virtManifestApp) Run() {
 	log := logging.DefaultLogger()
 	log.Info().Msg("Starting virt-manifest server")
 
@@ -82,4 +73,16 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Error().Reason(err).Msg("Unable to start web server.")
 	}
+}
+
+func main() {
+	logging.InitializeLogging("virt-manifest")
+	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
+	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
+	port := flag.Int("port", 8186, "Port to listen on")
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	app := newVirtManifestApp(listen, port, libvirtUri)
+	app.Run()
 }
