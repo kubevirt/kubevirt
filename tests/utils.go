@@ -218,71 +218,108 @@ func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
 	cleanNamespaces()
-	deletePVC("alpine")
-	deletePVC("cirros")
-	deletePV("alpine")
-	deletePV("cirros")
+
+	deletePVC("alpine", false)
+	deletePV("alpine", false)
+
+	deletePVC("alpine", true)
+	deletePV("alpine", true)
+
+	deletePVC("cirros", false)
+	deletePV("cirros", false)
+
+	deletePVC("cirros", true)
+	deletePV("cirros", true)
+
+	deleteIscsiSecrets()
 	removeNamespaces()
 }
 
 func BeforeTestCleanup() {
 	cleanNamespaces()
+	createIscsiSecrets()
 }
 
 func BeforeTestSuitSetup() {
 	createNamespaces()
-	createPV("cirros", 3)
-	createPV("alpine", 2)
-	createPVC("alpine")
-	createPVC("cirros")
+	createIscsiSecrets()
+
+	createPV("cirros", 3, false)
+	createPVC("cirros", false)
+
+	createPV("cirros", 3, true)
+	createPVC("cirros", true)
+
+	createPV("alpine", 2, true)
+	createPVC("alpine", true)
+
+	createPV("alpine", 2, false)
+	createPVC("alpine", false)
 }
 
-func createPVC(os string) {
+func createPVC(os string, withAuth bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os, withAuth))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func createPV(os string, lun int32) {
+func createPV(os string, lun int32, withAuth bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPV(os, lun))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPV(os, lun, withAuth))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func deletePVC(os string) {
+func deletePVC(os string, withAuth bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Delete("disk-"+os, nil)
+	name := fmt.Sprintf("disk-%s", os)
+	if withAuth {
+		name = fmt.Sprintf("disk-auth-%s", os)
+	}
+	err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Delete(name, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
 }
 
-func deletePV(os string) {
+func deletePV(os string, withAuth bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	err = virtCli.CoreV1().PersistentVolumes().Delete("iscsi-disk-"+os+"-for-tests", nil)
+	name := fmt.Sprintf("iscsi-disk-%s-for-tests", os)
+	if withAuth {
+		name = fmt.Sprintf("iscsi-auth-disk-%s-for-tests", os)
+	}
+
+	err = virtCli.CoreV1().PersistentVolumes().Delete(name, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
 }
 
-func newPVC(os string) *k8sv1.PersistentVolumeClaim {
+func newPVC(os string, withAuth bool) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
+
+	name := fmt.Sprintf("disk-%s", os)
+	label := os
+	if withAuth {
+		name = fmt.Sprintf("disk-auth-%s", os)
+		label = fmt.Sprintf("%s-auth", os)
+	}
+
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "disk-" + os,
+			Name: name,
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
@@ -293,21 +330,31 @@ func newPVC(os string) *k8sv1.PersistentVolumeClaim {
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"kubevirt.io/test": os,
+					"kubevirt.io/test": label,
 				},
 			},
 		},
 	}
 }
 
-func newPV(os string, lun int32) *k8sv1.PersistentVolume {
+func newPV(os string, lun int32, withAuth bool) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
-	return &k8sv1.PersistentVolume{
+
+	name := fmt.Sprintf("iscsi-disk-%s-for-tests", os)
+	target := "iscsi-demo-target.default.svc.cluster.local"
+	label := os
+	if withAuth {
+		name = fmt.Sprintf("iscsi-auth-disk-%s-for-tests", os)
+		target = "iscsi-auth-demo-target.default.svc.cluster.local"
+		label = fmt.Sprintf("%s-auth", os)
+	}
+
+	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "iscsi-disk-" + os + "-for-tests",
+			Name: name,
 			Labels: map[string]string{
-				"kubevirt.io/test": os,
+				"kubevirt.io/test": label,
 			},
 		},
 		Spec: k8sv1.PersistentVolumeSpec{
@@ -320,11 +367,19 @@ func newPV(os string, lun int32) *k8sv1.PersistentVolume {
 				ISCSI: &k8sv1.ISCSIVolumeSource{
 					IQN:          "iqn.2017-01.io.kubevirt:sn.42",
 					Lun:          lun,
-					TargetPortal: "iscsi-demo-target.default.svc.cluster.local",
+					TargetPortal: target,
 				},
 			},
 		},
 	}
+
+	if withAuth {
+		pv.Spec.PersistentVolumeSource.ISCSI.SessionCHAPAuth = true
+		pv.Spec.PersistentVolumeSource.ISCSI.SecretRef = &k8sv1.LocalObjectReference{
+			Name: "iscsi-demo-secret",
+		}
+	}
+	return pv
 }
 
 func cleanNamespaces() {
@@ -368,6 +423,42 @@ func removeNamespaces() {
 	for _, namespace := range testNamespaces {
 		Eventually(func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 60*time.Second, 1*time.Second).
 			Should(BeTrue())
+	}
+}
+
+func deleteIscsiSecrets() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	for _, namespace := range testNamespaces {
+		err = virtCli.CoreV1().Secrets(namespace).Delete("iscsi-demo-secret", nil)
+		if !errors.IsNotFound(err) {
+			PanicOnError(err)
+		}
+	}
+}
+
+func createIscsiSecrets() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	// Create a Test Namespaces
+	for _, namespace := range testNamespaces {
+		secret := k8sv1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "iscsi-demo-secret",
+			},
+			Type: "kubernetes.io/iscsi-chap",
+			Data: map[string][]byte{
+				"node.session.auth.password": []byte("demopassword"),
+				"node.session.auth.username": []byte("demouser"),
+			},
+		}
+
+		_, err := virtCli.Core().Secrets(namespace).Create(&secret)
+		if !errors.IsAlreadyExists(err) {
+			PanicOnError(err)
+		}
 	}
 }
 
@@ -446,7 +537,7 @@ func NewRandomVMWithUserData(containerImage string, cloudInitDataSource string) 
 	return nil, goerrors.New("Unknown cloud-init data source")
 }
 
-func NewRandomVMWithDirectLun(lun int) *v1.VM {
+func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VM {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
@@ -470,6 +561,17 @@ func NewRandomVMWithDirectLun(lun int) *v1.VM {
 			Name:     fmt.Sprintf("iqn.2017-01.io.kubevirt:sn.42/%d", lun),
 		},
 	}}
+
+	if withAuth {
+		vm.Spec.Domain.Devices.Disks[0].Auth = &v1.DiskAuth{
+			Username: "demouser",
+			Secret: &v1.DiskSecret{
+				Type:  "iscsi",
+				Usage: "iscsi-demo-secret",
+			},
+		}
+		vm.Spec.Domain.Devices.Disks[0].Source.Host.Name = "iscsi-auth-demo-target.default"
+	}
 	return vm
 }
 
