@@ -26,18 +26,18 @@ import (
 
 type Service struct {
 	Name string
-	host string
-	port string
+	Host string
+	Port string
 }
 
 func NewService(name string, host *string, port *int) *Service {
 	return &Service{
 		Name: name,
-		host: *host,
-		port: strconv.Itoa(*port),
+		Host: *host,
+		Port: strconv.Itoa(*port),
 	}
 }
 
 func (service *Service) Address() string {
-	return fmt.Sprintf("%s:%s", service.host, service.port)
+	return fmt.Sprintf("%s:%s", service.Host, service.Port)
 }

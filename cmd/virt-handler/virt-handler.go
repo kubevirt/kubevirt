@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 
 	"time"
 
@@ -43,6 +42,7 @@ import (
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
@@ -52,29 +52,50 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 )
 
+type virtHandlerApp struct {
+	Service      *service.Service
+	HostOverride string
+	LibvirtUri   string
+	SocketDir    string
+	CloudInitDir string
+}
+
+func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, socketDir *string, cloudInitDir *string) *virtHandlerApp {
+	if *hostOverride == "" {
+		defaultHostName, err := os.Hostname()
+		if err != nil {
+			panic(err)
+		}
+		*hostOverride = defaultHostName
+	}
+
+	return &virtHandlerApp{
+		Service:      service.NewService("virt-handler", host, port),
+		HostOverride: *hostOverride,
+		LibvirtUri:   *libvirtUri,
+		SocketDir:    *socketDir,
+		CloudInitDir: *cloudInitDir,
+	}
+}
+
 func main() {
 	logging.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
+	host := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8185, "Port to listen on")
-	host := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
+	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
 	cloudInitDir := flag.String("cloud-init-dir", "/var/run/libvirt/cloud-init-dir", "Base directory for ephemeral cloud init data")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	if *host == "" {
-		defaultHostName, err := os.Hostname()
-		if err != nil {
-			panic(err)
-		}
-		*host = defaultHostName
-	}
-	log := logging.DefaultLogger()
-	log.Info().V(1).Log("hostname", *host)
+	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, socketDir, cloudInitDir)
 
-	err := cloudinit.SetLocalDirectory(*cloudInitDir)
+	log := logging.DefaultLogger()
+	log.Info().V(1).Log("hostname", app.HostOverride)
+
+	err := cloudinit.SetLocalDirectory(app.CloudInitDir)
 	if err != nil {
 		panic(err)
 	}
@@ -87,7 +108,7 @@ func main() {
 			}
 		}
 	}()
-	domainConn, err := virtcli.NewConnection(*libvirtUri, "", "", 10*time.Second)
+	domainConn, err := virtcli.NewConnection(app.LibvirtUri, "", "", 10*time.Second)
 	if err != nil {
 		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
 	}
@@ -101,17 +122,17 @@ func main() {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: virtCli.CoreV1().Events(k8sv1.NamespaceAll)})
 	// TODO what is scheme used for in Recorder?
-	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: *host})
+	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
 		recorder,
-		isolation.NewSocketBasedIsolationDetector(*socketDir),
+		isolation.NewSocketBasedIsolationDetector(app.SocketDir),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	l, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", *host))
+	l, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", app.HostOverride))
 	if err != nil {
 		panic(err)
 	}
@@ -120,7 +141,7 @@ func main() {
 
 	// Wire VM controller
 	vmListWatcher := kubecli.NewListWatchFromClient(virtCli.RestClient(), "vms", k8sv1.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, *host, configDiskClient)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, app.HostOverride, configDiskClient)
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
@@ -163,11 +184,11 @@ func main() {
 
 	// Add websocket route to access consoles remotely
 	console := rest.NewConsoleResource(domainConn)
-	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(*socketDir))
+	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.SocketDir))
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/console").To(console.Console))
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
 	restful.DefaultContainer.Add(ws)
-	server := &http.Server{Addr: *listen + ":" + strconv.Itoa(*port), Handler: restful.DefaultContainer}
+	server := &http.Server{Addr: app.Service.Address(), Handler: restful.DefaultContainer}
 	server.ListenAndServe()
 }
