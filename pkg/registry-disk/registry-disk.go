@@ -175,8 +175,6 @@ func Initialize(vm *v1.VM, virtCli kubecli.KubevirtClient) error {
 		if err != nil {
 			return err
 		}
-		pass64 := base64.StdEncoding.EncodeToString([]byte(pass))
-		user64 := base64.StdEncoding.EncodeToString([]byte(authUser))
 
 		// Store Auth as k8s secret
 		secret := kubev1.Secret{
@@ -189,8 +187,8 @@ func Initialize(vm *v1.VM, virtCli kubecli.KubevirtClient) error {
 			},
 			Type: "kubernetes.io/iscsi-chap",
 			Data: map[string][]byte{
-				"node.session.auth.password": []byte(pass64),
-				"node.session.auth.username": []byte(user64),
+				"node.session.auth.password": []byte(pass),
+				"node.session.auth.username": []byte(authUser),
 			},
 		}
 
@@ -265,7 +263,7 @@ func GenerateContainers(vm *v1.VM) ([]kubev1.Container, error) {
 						Value: port,
 					},
 					kubev1.EnvVar{
-						Name: "PASSWORD_BASE64",
+						Name: "PASSWORD",
 						ValueFrom: &kubev1.EnvVarSource{
 							SecretKeyRef: &kubev1.SecretKeySelector{
 								LocalObjectReference: kubev1.LocalObjectReference{
@@ -276,7 +274,7 @@ func GenerateContainers(vm *v1.VM) ([]kubev1.Container, error) {
 						},
 					},
 					kubev1.EnvVar{
-						Name: "USERNAME_BASE64",
+						Name: "USERNAME",
 						ValueFrom: &kubev1.EnvVarSource{
 							SecretKeyRef: &kubev1.SecretKeySelector{
 								LocalObjectReference: kubev1.LocalObjectReference{
