@@ -54,17 +54,7 @@ func newVirtAPIApp(host *string, port *int, swaggerUI *string) *virtAPIApp {
 	}
 }
 
-func main() {
-
-	logging.InitializeLogging("virt-api")
-	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
-	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
-	port := flag.Int("port", 8183, "Port to listen on")
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
-	app := newVirtAPIApp(host, port, swaggerui)
-
+func (app *virtAPIApp) Run() {
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "migrations"}
@@ -133,4 +123,16 @@ func main() {
 	swagger.InstallSwaggerService(config)
 
 	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
+}
+
+func main() {
+	logging.InitializeLogging("virt-api")
+	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
+	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
+	port := flag.Int("port", 8183, "Port to listen on")
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	app := newVirtAPIApp(host, port, swaggerui)
+	app.Run()
 }
