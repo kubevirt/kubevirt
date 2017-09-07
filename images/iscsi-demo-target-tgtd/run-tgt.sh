@@ -34,6 +34,11 @@ echo "Adding target and exposing it"
 tgtadm --lld iscsi --mode target --op new --tid=1 --targetname $WWN
 tgtadm --lld iscsi --mode target --op bind --tid=1 -I ALL
 
+if [ -n "$PASSWORD" ] && [ -n "$USERNAME" ]; then
+  tgtadm --lld iscsi --op new --mode account --user $USERNAME --password $PASSWORD
+  tgtadm --lld iscsi --op bind --mode account --tid=1 --user $USERNAME
+fi
+
 LUNID=1
 add_lun_for_file() {
   local FN=$1
