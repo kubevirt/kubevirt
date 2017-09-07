@@ -1,5 +1,5 @@
 metadata:
-  name: atomic-ephemeral
+  name: testvm-nocloud
 apiVersion: kubevirt.io/v1alpha1
 kind: VM
 spec:
@@ -8,7 +8,7 @@ spec:
       disks:
       - type: ContainerRegistryDisk:v1alpha
         source:
-          name: kubevirt/fedora-atomic-registry-disk-demo:devel
+          name: kubevirt/cirros-registry-disk-demo:devel
         target:
           dev: vda
       - type: file
@@ -23,7 +23,7 @@ spec:
         type: network
     memory:
       unit: MB
-      value: 1024
+      value: 64
     os:
       type:
         os: hvm

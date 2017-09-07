@@ -25,6 +25,22 @@ package v1
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
+// http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
+type CloudInitDataSourceNoCloud struct {
+	// The NoCloud cloud-init userdata as a base64 encoded string
+	UserDataBase64 string `json:"userDataBase64"`
+	// The NoCloud cloud-init metadata as a base64 encoded string
+	MetaDataBase64 string `json:"metaDataBase64"`
+}
+
+// Only one of the fields in the CloudInitSpec can be set
+type CloudInitSpec struct {
+	// Nocloud DataSource
+	NoCloudData *CloudInitDataSourceNoCloud `json:"nocloud"`
+
+	// Add future cloud init datasource structures below.
+}
+
 type DomainSpec struct {
 	Memory  Memory   `json:"memory"`
 	Type    string   `json:"type"`
@@ -54,15 +70,16 @@ type Devices struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
-	Device   string      `json:"device"`
-	Snapshot string      `json:"snapshot,omitempty"`
-	Type     string      `json:"type"`
-	Source   DiskSource  `json:"source"`
-	Target   DiskTarget  `json:"target"`
-	Serial   string      `json:"serial,omitempty"`
-	Driver   *DiskDriver `json:"driver,omitempty"`
-	ReadOnly *ReadOnly   `json:"readOnly,omitempty"`
-	Auth     *DiskAuth   `json:"auth,omitempty"`
+	Device    string         `json:"device"`
+	Snapshot  string         `json:"snapshot,omitempty"`
+	Type      string         `json:"type"`
+	Source    DiskSource     `json:"source"`
+	Target    DiskTarget     `json:"target"`
+	Serial    string         `json:"serial,omitempty"`
+	Driver    *DiskDriver    `json:"driver,omitempty"`
+	ReadOnly  *ReadOnly      `json:"readOnly,omitempty"`
+	Auth      *DiskAuth      `json:"auth,omitempty"`
+	CloudInit *CloudInitSpec `json:"cloudinit,omitempty"`
 }
 
 type DiskAuth struct {

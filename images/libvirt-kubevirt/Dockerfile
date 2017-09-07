@@ -44,4 +44,9 @@ RUN rm -f /libvirtd.sh
 COPY libvirtd.sh /libvirtd.sh
 RUN chmod a+x /libvirtd.sh
 
+# Make a predictable uid and gid for qemu user
+# This allows containers to set enforce permissions on files that
+# are shared between containers on the local disk.
+RUN groupmod -g 1111 qemu && usermod  -u 1111 qemu
+
 CMD ["/libvirtd.sh"]

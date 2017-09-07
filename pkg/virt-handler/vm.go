@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/jeevatkm/go-model"
 	k8sv1 "k8s.io/api/core/v1"
@@ -37,6 +38,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
@@ -44,22 +47,34 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
-func NewVMController(lw cache.ListerWatcher, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset kubecli.KubevirtClient, host string) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
+func NewVMController(lw cache.ListerWatcher,
+	domainManager virtwrap.DomainManager,
+	recorder record.EventRecorder,
+	restClient rest.RESTClient,
+	clientset kubecli.KubevirtClient,
+	host string,
+	configDiskClient configdisk.ConfigDiskClient) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host)
+	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host, configDiskClient)
 
 	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, dispatch)
 	return indexer, queue, informer
 
 }
-func NewVMHandlerDispatch(domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient *rest.RESTClient, clientset kubecli.KubevirtClient, host string) kubecli.ControllerDispatch {
+func NewVMHandlerDispatch(domainManager virtwrap.DomainManager,
+	recorder record.EventRecorder,
+	restClient *rest.RESTClient,
+	clientset kubecli.KubevirtClient,
+	host string,
+	configDiskClient configdisk.ConfigDiskClient) kubecli.ControllerDispatch {
 	return &VMHandlerDispatch{
 		domainManager: domainManager,
 		recorder:      recorder,
 		restClient:    *restClient,
 		clientset:     clientset,
 		host:          host,
+		configDisk:    configDiskClient,
 	}
 }
 
@@ -69,6 +84,7 @@ type VMHandlerDispatch struct {
 	restClient    rest.RESTClient
 	clientset     kubecli.KubevirtClient
 	host          string
+	configDisk    configdisk.ConfigDiskClient
 }
 
 func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VM) (string, error) {
@@ -181,12 +197,18 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	logging.DefaultLogger().V(3).Info().Object(vm).Msg("Processing VM update.")
 
 	// Process the VM
-	err = d.processVmUpdate(vm, shouldDeleteVm)
+	isPending, err := d.processVmUpdate(vm, shouldDeleteVm)
 	if err != nil {
 		// Something went wrong, reenqueue the item with a delay
 		logging.DefaultLogger().Error().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
 		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 		queue.AddRateLimited(key)
+		return
+	} else if isPending {
+		// waiting on an async action to complete
+		logging.DefaultLogger().V(3).Info().Object(vm).Reason(err).Msg("Synchronizing is in a pending state.")
+		queue.AddAfter(key, 1*time.Second)
+		queue.Forget(key)
 		return
 	}
 
@@ -351,37 +373,52 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
 	return vm, nil
 }
 
-func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) error {
+func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) (bool, error) {
 
 	if shouldDeleteVm {
 		// Since the VM was not in the cache, we delete it
 		err := d.domainManager.KillVM(vm)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		// remove any defined libvirt secrets associated with this vm
-		return d.domainManager.RemoveVMSecrets(vm)
+		err = d.domainManager.RemoveVMSecrets(vm)
+		if err != nil {
+			return false, err
+		}
+		return false, d.configDisk.Undefine(vm)
 	} else if isWorthSyncing(vm) == false {
 		// nothing to do here.
-		return nil
+		return false, nil
+	}
+
+	isPending, err := d.configDisk.Define(vm)
+	if err != nil || isPending == true {
+		return isPending, err
 	}
 
 	// Synchronize the VM state
-	vm, err := MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
+	vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Map Container Registry Disks to block devices Libvirt can consume
 	vm, err = registrydisk.MapRegistryDisks(vm)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	vm, err = d.injectDiskAuth(vm)
 	if err != nil {
-		return err
+		return false, err
+	}
+
+	// Map whatever devices are being used for config-init
+	vm, err = cloudinit.MapCloudInitDisks(vm)
+	if err != nil {
+		return false, err
 	}
 
 	// TODO MigrationNodeName should be a pointer
@@ -389,17 +426,17 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) erro
 		// Only sync if the VM is not marked as migrating.
 		// Everything except shutting down the VM is not
 		// permitted when it is migrating.
-		return nil
+		return false, nil
 	}
 
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
 	newCfg, err := d.domainManager.SyncVM(vm)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return d.updateVMStatus(vm, newCfg)
+	return false, d.updateVMStatus(vm, newCfg)
 }
 
 func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName string) (bool, error) {
