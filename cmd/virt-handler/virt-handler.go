@@ -78,20 +78,7 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 	}
 }
 
-func main() {
-	logging.InitializeLogging("virt-handler")
-	libvirt.EventRegisterDefaultImpl()
-	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	host := flag.String("listen", "0.0.0.0", "Address where to listen on")
-	port := flag.Int("port", 8185, "Port to listen on")
-	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
-	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
-	cloudInitDir := flag.String("cloud-init-dir", "/var/run/libvirt/cloud-init-dir", "Base directory for ephemeral cloud init data")
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
-	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, socketDir, cloudInitDir)
-
+func (app *virtHandlerApp) Run() {
 	log := logging.DefaultLogger()
 	log.Info().V(1).Log("hostname", app.HostOverride)
 
@@ -191,4 +178,20 @@ func main() {
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{Addr: app.Service.Address(), Handler: restful.DefaultContainer}
 	server.ListenAndServe()
+}
+
+func main() {
+	logging.InitializeLogging("virt-handler")
+	libvirt.EventRegisterDefaultImpl()
+	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
+	host := flag.String("listen", "0.0.0.0", "Address where to listen on")
+	port := flag.Int("port", 8185, "Port to listen on")
+	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
+	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
+	cloudInitDir := flag.String("cloud-init-dir", "/var/run/libvirt/cloud-init-dir", "Base directory for ephemeral cloud init data")
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, socketDir, cloudInitDir)
+	app.Run()
 }
