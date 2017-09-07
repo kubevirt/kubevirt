@@ -23,16 +23,28 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/emicklei/go-restful"
 	"github.com/spf13/pflag"
 
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-manifest/rest"
 )
+
+type virtManifestApp struct {
+	Service    *service.Service
+	LibvirtUri string
+}
+
+func newVirtManifestApp(host *string, port *int, libvirtUri *string) *virtManifestApp {
+	return &virtManifestApp{
+		Service:    service.NewService("virt-manifest", host, port),
+		LibvirtUri: *libvirtUri,
+	}
+}
 
 func main() {
 	logging.InitializeLogging("virt-manifest")
@@ -42,12 +54,14 @@ func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
+	app := newVirtManifestApp(listen, port, libvirtUri)
+
 	log := logging.DefaultLogger()
 	log.Info().Msg("Starting virt-manifest server")
 
 	log.Info().Msg("Connecting to libvirt")
 
-	domainConn, err := cli.NewConnection(*libvirtUri, "", "", 60*time.Second)
+	domainConn, err := cli.NewConnection(app.LibvirtUri, "", "", 60*time.Second)
 	if err != nil {
 		log.Error().Reason(err).Msg("cannot connect to libvirt")
 		panic(fmt.Sprintf("failed to connect to libvirt: %v", err))
@@ -62,7 +76,7 @@ func main() {
 	}
 
 	restful.DefaultContainer.Add(ws)
-	server := &http.Server{Addr: *listen + ":" + strconv.Itoa(*port), Handler: restful.DefaultContainer}
+	server := &http.Server{Addr: app.Service.Address(), Handler: restful.DefaultContainer}
 	log.Info().Msg("Listening for client connections")
 
 	if err := server.ListenAndServe(); err != nil {
