@@ -33,6 +33,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	model "github.com/jeevatkm/go-model"
 
@@ -67,7 +68,31 @@ func defaultIsoFunc(isoOutFile string, inFiles []string) error {
 	args = append(args, inFiles...)
 
 	cmd := exec.Command("genisoimage", args...)
-	return cmd.Run()
+
+	err := cmd.Start()
+	if err != nil {
+		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("genisoimage cmd failed to start while generating iso file %s", isoOutFile))
+		return err
+	}
+
+	done := make(chan error)
+	go func() { done <- cmd.Wait() }()
+
+	timeout := time.After(10 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			logging.DefaultLogger().V(2).Error().Msg(fmt.Sprintf("Timed out generating cloud-init iso at path %s", isoOutFile))
+			cmd.Process.Kill()
+		case err := <-done:
+			if err != nil {
+				logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("genisoimage returned non-zero exit code while generating iso file %s", isoOutFile))
+				return err
+			}
+			return nil
+		}
+	}
 }
 
 func removeFile(path string) error {
