@@ -51,6 +51,12 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
 	socketDir := t.socketBaseDir + "/" + namespace + "/" + domain
 
+	initialDelaySeconds := 2
+	timeoutSeconds := 5
+	periodSeconds := 2
+	successThreshold := 1
+	failureThreshold := 5
+
 	// VM target container
 	container := kubev1.Container{
 		Name:            "compute",
@@ -61,12 +67,28 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 			"--name", domain,
 			"--namespace", namespace,
 			"--socket-dir", t.socketBaseDir,
+			"--readiness-file", "/tmp/healthy",
 		},
 		VolumeMounts: []kubev1.VolumeMount{
 			{
 				Name:      "sockets",
 				MountPath: socketDir,
 			},
+		},
+		ReadinessProbe: &kubev1.Probe{
+			Handler: kubev1.Handler{
+				Exec: &kubev1.ExecAction{
+					Command: []string{
+						"cat",
+						"/tmp/healthy",
+					},
+				},
+			},
+			InitialDelaySeconds: int32(initialDelaySeconds),
+			PeriodSeconds:       int32(periodSeconds),
+			TimeoutSeconds:      int32(timeoutSeconds),
+			SuccessThreshold:    int32(successThreshold),
+			FailureThreshold:    int32(failureThreshold),
 		},
 	}
 
