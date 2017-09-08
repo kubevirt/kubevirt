@@ -57,7 +57,8 @@ var _ = Describe("Template", func() {
 					"--qemu-timeout", "60s",
 					"--name", "testvm",
 					"--namespace", "testns",
-					"--socket-dir", "/var/run/libvirt"}))
+					"--socket-dir", "/var/run/libvirt",
+					"--readiness-file", "/tmp/healthy"}))
 			})
 		})
 		Context("with node selectors", func() {
@@ -85,7 +86,8 @@ var _ = Describe("Template", func() {
 					"--qemu-timeout", "60s",
 					"--name", "testvm",
 					"--namespace", "default",
-					"--socket-dir", "/var/run/libvirt"}))
+					"--socket-dir", "/var/run/libvirt",
+					"--readiness-file", "/tmp/healthy"}))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/libvirt/default/testvm"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/libvirt/default/testvm"))
 			})
