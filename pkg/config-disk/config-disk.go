@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -38,13 +39,15 @@ type ConfigDiskClient interface {
 }
 
 type configDiskClient struct {
-	lock sync.Mutex
-	jobs map[string]chan string
+	lock      sync.Mutex
+	jobs      map[string]chan string
+	clientset kubecli.KubevirtClient
 }
 
-func NewConfigDiskClient() ConfigDiskClient {
+func NewConfigDiskClient(clientset kubecli.KubevirtClient) ConfigDiskClient {
 	return &configDiskClient{
-		jobs: make(map[string]chan string),
+		clientset: clientset,
+		jobs:      make(map[string]chan string),
 	}
 }
 
@@ -75,12 +78,18 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 
 		go func() {
 			cloudinit.ApplyMetadata(vm)
-			err := cloudinit.GenerateLocalData(domain, namespace, cloudInitSpec)
-			if err == nil {
-				v <- "success"
-			} else {
+			err := cloudinit.ResolveSecrets(cloudInitSpec, namespace, c.clientset)
+			if err != nil {
 				v <- fmt.Sprintf("config-disk failure: %v", err)
+				return
 			}
+
+			err = cloudinit.GenerateLocalData(domain, namespace, cloudInitSpec)
+			if err != nil {
+				v <- fmt.Sprintf("config-disk failure: %v", err)
+				return
+			}
+			v <- "success"
 		}()
 
 		c.jobs[jobKey] = v

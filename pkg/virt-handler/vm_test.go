@@ -76,7 +76,7 @@ var _ = Describe("VM", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
 
-		configDiskClient := configdisk.NewConfigDiskClient()
+		configDiskClient := configdisk.NewConfigDiskClient(virtClient)
 
 		recorder = record.NewFakeRecorder(100)
 		dispatch = NewVMHandlerDispatch(domainManager, recorder, restClient, virtClient, host, configDiskClient)

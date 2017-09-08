@@ -27,6 +27,8 @@ package v1
 
 // http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 type CloudInitDataSourceNoCloud struct {
+	// Reference to a k8s secret that contains NoCloud userdata
+	UserDataSecretRef string `json:"userDataSecretRef"`
 	// The NoCloud cloud-init userdata as a base64 encoded string
 	UserDataBase64 string `json:"userDataBase64"`
 	// The NoCloud cloud-init metadata as a base64 encoded string
