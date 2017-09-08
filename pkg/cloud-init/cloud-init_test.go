@@ -25,8 +25,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/user"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -63,12 +65,64 @@ var _ = Describe("CloudInit", func() {
 		SetIsoCreationFunction(isoCreationFunc)
 	})
 
+	BeforeEach(func() {
+		SetIsoCreationFunction(isoCreationFunc)
+	})
+
 	AfterSuite(func() {
 		os.RemoveAll(tmpDir)
 	})
 
 	Describe("CloudInit Nocloud datasource", func() {
 		Context("nocloud", func() {
+			It("Verify no cloudinit data exec timeout works", func() {
+
+				timedOut := false
+				customCreationFunc := func(isoOutFile string, inFiles []string) error {
+					var args []string
+
+					args = append(args, "10")
+					cmd := exec.Command("sleep", args...)
+
+					err := cmd.Start()
+					if err != nil {
+						return err
+					}
+
+					done := make(chan error)
+					go func() { done <- cmd.Wait() }()
+
+					timeout := time.After(1 * time.Second)
+
+					for {
+						select {
+						case <-timeout:
+							cmd.Process.Kill()
+							timedOut = true
+						case err := <-done:
+							if err != nil {
+								return err
+							}
+							return nil
+						}
+					}
+				}
+				SetIsoCreationFunction(customCreationFunc)
+
+				namespace := "fake-namespace"
+				domain := "fake-domain"
+				userData := "fake\nuser\ndata\n"
+				metaData := "fake\nmeta\ndata\n"
+				cloudInitData := &v1.CloudInitSpec{
+					NoCloudData: &v1.CloudInitDataSourceNoCloud{
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+						MetaDataBase64: base64.StdEncoding.EncodeToString([]byte(metaData)),
+					},
+				}
+				err := GenerateLocalData(domain, namespace, cloudInitData)
+				Expect(err).To(HaveOccurred())
+				Expect(timedOut).To(Equal(true))
+			})
 			It("Verify no cloudinit data is a domain xml no-op", func() {
 				vm := v1.NewMinimalVM("fake-vm-nocloud")
 
