@@ -74,6 +74,7 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 		v = make(chan string, 1)
 
 		go func() {
+			cloudinit.ApplyMetadata(vm)
 			err := cloudinit.GenerateLocalData(domain, namespace, cloudInitSpec)
 			if err == nil {
 				v <- "success"
