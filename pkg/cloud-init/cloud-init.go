@@ -283,7 +283,7 @@ func ApplyMetadata(vm *v1.VM) {
 			return
 		}
 		// TODO Put local-hostname in MetaData once we get pod DNS working with VMs
-		msg := fmt.Sprintf("instance-id: %s-%s\n", domain, namespace)
+		msg := fmt.Sprintf("instance-id: %s.%s\n", domain, namespace)
 		spec.NoCloudData.MetaDataBase64 = base64.StdEncoding.EncodeToString([]byte(msg))
 	}
 }
