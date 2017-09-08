@@ -21,6 +21,7 @@ spec:
       labels:
         app: haproxy
     spec:
+      serviceAccountName: kubevirt-infra
       containers:
       - name: haproxy
         image: {{ docker_prefix }}/haproxy:{{ docker_tag }}

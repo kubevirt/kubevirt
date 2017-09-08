@@ -114,6 +114,7 @@ spec:
         app: iscsi-demo-target
       name: iscsi-demo-target-tgtd
     spec:
+      serviceAccountName: kubevirt-infra
       containers:
         - name: target
           image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}

@@ -51,10 +51,6 @@ fi
 # Ignore retval because it might not be dedicated already
 kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule- || :
 
-# TODO better scope the permissions, for now allow the default account everything
-kubectl create clusterrolebinding add-on-cluster-admin --clusterrole=cluster-admin --serviceaccount=kube-system:default
-kubectl create clusterrolebinding add-on-default-admin --clusterrole=cluster-admin --serviceaccount=default:default
-
 mkdir -p /exports/share1
 
 chmod 0755 /exports/share1

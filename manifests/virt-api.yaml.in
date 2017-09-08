@@ -21,6 +21,7 @@ spec:
       labels:
         app: virt-api
     spec:
+      serviceAccountName: kubevirt-infra
       containers:
       - name: virt-api
         image: {{ docker_prefix }}/virt-api:{{ docker_tag }}

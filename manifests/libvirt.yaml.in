@@ -9,6 +9,7 @@ spec:
       labels:
         daemon: libvirt
     spec:
+      serviceAccountName: kubevirt-infra
       hostNetwork: true
       hostPID: true
       hostIPC: true
