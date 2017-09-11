@@ -141,6 +141,15 @@ func (mon *Monitor) RunForever(startTimeout time.Duration) {
 	log.Printf("Exiting...")
 }
 
+func markReady(readinessFile string) {
+	f, err := os.OpenFile(readinessFile, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+	f.Close()
+	log.Printf("Marked as ready")
+}
+
 func main() {
 	startTimeout := 0 * time.Second
 
@@ -150,6 +159,7 @@ func main() {
 	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to place a socket for cgroup detection")
 	name := flag.String("name", "", "Name of the VM")
 	namespace := flag.String("namespace", "", "Namespace of the VM")
+	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -165,6 +175,7 @@ func main() {
 		debugMode: *debugMode,
 	}
 
+	markReady(*readinessFile)
 	mon.RunForever(*qemuTimeout)
 }
 
