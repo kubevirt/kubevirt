@@ -30,22 +30,26 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 var _ = Describe("ConfigDiskServer", func() {
+	var server *ghttp.Server
+	var client ConfigDiskClient
 
 	tmpDir, _ := ioutil.TempDir("", "configdisktest")
 	owner, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
-	client := NewConfigDiskClient()
+
 	isoCreationFunc := func(isoOutFile string, inFiles []string) error {
 		if isoOutFile == "noCloud" && len(inFiles) != 2 {
 			return errors.New("Unexpected number of files for noCloud")
@@ -68,6 +72,14 @@ var _ = Describe("ConfigDiskServer", func() {
 
 	AfterSuite(func() {
 		os.RemoveAll(tmpDir)
+	})
+
+	BeforeEach(func() {
+		server = ghttp.NewServer()
+		virtClient, err := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		Expect(err).ToNot(HaveOccurred())
+		client = NewConfigDiskClient(virtClient)
+
 	})
 
 	Describe("config-disk-server api calls", func() {

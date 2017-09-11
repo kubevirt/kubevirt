@@ -21,10 +21,13 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	kubev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -63,6 +66,51 @@ var _ = Describe("CloudInit UserData", func() {
 			for i := 0; i < num; i++ {
 				vm, err := tests.NewRandomVMWithUserData("kubevirt/cirros-registry-disk-demo:devel", "noCloud")
 				Expect(err).ToNot(HaveOccurred())
+				obj := LaunchVM(vm)
+				vms = append(vms, vm)
+				objs = append(objs, obj)
+			}
+
+			for idx, vm := range vms {
+				VerifyUserDataVM(vm, objs[idx])
+			}
+
+			close(done)
+		}, 45)
+		It("should launch VMs with user-data in k8s secret", func(done Done) {
+			num := 2
+			vms := make([]*v1.VM, 0, num)
+			objs := make([]runtime.Object, 0, num)
+			for i := 0; i < num; i++ {
+				vm, err := tests.NewRandomVMWithUserData("kubevirt/cirros-registry-disk-demo:devel", "noCloud")
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, disk := range vm.Spec.Domain.Devices.Disks {
+					if disk.CloudInit == nil {
+						continue
+					}
+
+					secretID := fmt.Sprintf("%s-test-secret", vm.GetObjectMeta().GetName())
+					spec := disk.CloudInit
+					spec.NoCloudData.UserDataSecretRef = secretID
+					userData64 := spec.NoCloudData.UserDataBase64
+					spec.NoCloudData.UserDataBase64 = ""
+
+					// Store userdata as k8s secret
+					secret := kubev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      secretID,
+							Namespace: vm.GetObjectMeta().GetNamespace(),
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							"userdata": []byte(userData64),
+						},
+					}
+					_, err := virtClient.Core().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret)
+					Expect(err).To(BeNil())
+					break
+				}
 				obj := LaunchVM(vm)
 				vms = append(vms, vm)
 				objs = append(objs, obj)

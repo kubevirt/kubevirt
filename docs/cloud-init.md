@@ -65,6 +65,67 @@ spec:
         os: hvm
     type: qemu
 ```
+
+### NoCloud with UserData stored in k8s secret
+
+Instead of placing the userdata directly into the VM definition, another option
+is to reference the userdata in a k8s secret object.
+
+To use this method, the user must create an Opaque type kubernetes secret with
+a key named 'userdata' containing a value representing the base64 encoded
+userdata. The name of the kubernetes secret is then referenced in the CloudInit
+object on the VM spec.
+
+Example: Create a k8s secret with UserData. Reference the secret in the NoCloud
+disk definition.
+
+First create the secret.
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-vm-secret
+type: Opaque
+data:
+  userdata: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
+```
+
+Then reference the secret in the userDataSecretRef field.
+```
+metadata:
+  name: testvm-nocloud
+apiVersion: kubevirt.io/v1alpha1
+kind: VM
+spec:
+  domain:
+    devices:
+      disks:
+      - type: ContainerRegistryDisk:v1alpha
+        source:
+          name: kubevirt/cirros-registry-disk-demo:devel
+        target:
+          dev: vda
+      - type: file
+        target:
+          dev: vdb
+        cloudinit:
+            nocloud:
+                userDataSecretRef: my-vm-userdata 
+      interfaces:
+      - source:
+          network: default
+        type: network
+    memory:
+      unit: MB
+      value: 64
+    os:
+      type:
+        os: hvm
+    type: qemu
+```
+
+Multiple VMs can reference the same k8s secret object containing userdata.
+
 ### NoCloud Implementation Details
 
 Internally, kubevirt passes the cloud-init spec to the config-disk package.

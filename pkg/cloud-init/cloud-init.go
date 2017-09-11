@@ -37,7 +37,10 @@ import (
 
 	model "github.com/jeevatkm/go-model"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -342,6 +345,29 @@ func getDataSource(spec *v1.CloudInitSpec) string {
 		return dataSourceNoCloud
 	}
 	return ""
+}
+
+func ResolveSecrets(spec *v1.CloudInitSpec, namespace string, clientset kubecli.KubevirtClient) error {
+
+	switch getDataSource(spec) {
+	case dataSourceNoCloud:
+		if spec.NoCloudData.UserDataSecretRef == "" {
+			return nil
+		}
+		secretID := spec.NoCloudData.UserDataSecretRef
+
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(secretID, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		userDataBase64, ok := secret.Data["userdata"]
+		if ok == false {
+			return errors.New(fmt.Sprintf("No password value found in k8s secret %s %v", secretID, err))
+		}
+		spec.NoCloudData.UserDataBase64 = string(userDataBase64)
+	}
+	return nil
 }
 
 func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) error {

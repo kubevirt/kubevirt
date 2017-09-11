@@ -4,9 +4,10 @@ package v1
 
 func (CloudInitDataSourceNoCloud) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
-		"userDataBase64": "The NoCloud cloud-init userdata as a base64 encoded string",
-		"metaDataBase64": "The NoCloud cloud-init metadata as a base64 encoded string",
+		"":                  "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+		"userDataSecretRef": "Reference to a k8s secret that contains NoCloud userdata",
+		"userDataBase64":    "The NoCloud cloud-init userdata as a base64 encoded string",
+		"metaDataBase64":    "The NoCloud cloud-init metadata as a base64 encoded string",
 	}
 }
 
