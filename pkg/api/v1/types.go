@@ -34,6 +34,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	k8sv1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apimachinery/announced"
 	"k8s.io/apimachinery/pkg/apimachinery/registered"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -212,7 +213,7 @@ func (vl *VMList) GetObjectKind() schema.ObjectKind {
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (vl *VMList) GetListMeta() *metav1.ListMeta {
+func (vl *VMList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
 
@@ -580,7 +581,7 @@ func (ml *MigrationList) GetObjectKind() schema.ObjectKind {
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (ml *MigrationList) GetListMeta() *metav1.ListMeta {
+func (ml *MigrationList) GetListMeta() meta.List {
 	return &ml.ListMeta
 }
 

@@ -25,7 +25,9 @@ import (
 
 	"github.com/jeevatkm/go-model"
 	kubev1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -132,6 +134,29 @@ type Domain struct {
 	Status     DomainStatus
 }
 
+func (in *Domain) DeepCopyInto(out *Domain) {
+	v, _ := model.Clone(in)
+	out, _ = v.(*Domain)
+	return
+}
+
+func (in *Domain) DeepCopy() *Domain {
+	if in == nil {
+		return nil
+	}
+	out := new(Domain)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *Domain) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
+}
+
 type DomainStatus struct {
 	Status LifeCycle
 	Reason StateChangeReason
@@ -141,6 +166,29 @@ type DomainList struct {
 	metav1.TypeMeta
 	ListMeta metav1.ListMeta
 	Items    []Domain
+}
+
+func (in *DomainList) DeepCopyInto(out *DomainList) {
+	v, _ := model.Clone(in)
+	out, _ = v.(*DomainList)
+	return
+}
+
+func (in *DomainList) DeepCopy() *DomainList {
+	if in == nil {
+		return nil
+	}
+	out := new(DomainList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *DomainList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
 }
 
 // DomainSpec represents the actual conversion to libvirt XML. The fields must be
@@ -542,6 +590,6 @@ func (dl *DomainList) GetObjectKind() schema.ObjectKind {
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (dl *DomainList) GetListMeta() metav1.List {
+func (dl *DomainList) GetListMeta() meta.List {
 	return &dl.ListMeta
 }

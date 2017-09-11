@@ -1,8 +1,8 @@
 hash: 0bbc356631e6f43e5b2022c18bfd42e07f8f6be526593d873a3309a5a31763f4
-updated: 2017-09-11T16:54:57.203189943+03:00
+updated: 2017-09-13T16:07:09.702453294+03:00
 imports:
 - name: github.com/asaskevich/govalidator
-  version: aa5cce4a76edb1a5acecab1870c17abbffb5419e
+  version: 73945b6115bfbbcc57d89b7316e28109364124e1
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
@@ -35,7 +35,7 @@ imports:
 - name: github.com/go-openapi/swag
   version: 1d0bd113de87027671077d3c71eb3ac5d7dbba72
 - name: github.com/go-stack/stack
-  version: 54be5f394ed2c3e19dac9134a40a95ba5a017f7b
+  version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/gogo/protobuf
   version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
@@ -48,7 +48,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 93f6609a15b7de76bd49259f1f9a6b58df358936
+  version: 18f6dd13ccdd227b8ebc546ca95cd62a02f3970c
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -68,7 +68,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gorilla/websocket
-  version: 462d5c5828f6203e4047c47be2920315937be380
+  version: a69d9f6de432e2c6b296a947d8a5ee88f68522cf
 - name: github.com/hashicorp/golang-lru
   version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
   subpackages:
@@ -84,7 +84,7 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/libvirt/libvirt-go
-  version: 664b6d217e029ce5ad3094a8c2202c202b213d06
+  version: 0822ea6d658d7a0deeaa2ce63ed3efd6306bee03
 - name: github.com/mailru/easyjson
   version: d5b7844b561a7bc640052f1b935f7b800330d7e0
   subpackages:
@@ -92,7 +92,7 @@ imports:
   - jlexer
   - jwriter
 - name: github.com/onsi/ginkgo
-  version: 1e72798a2620664d2ab32ffd4473c102fcd4894d
+  version: 11459a886d9cd66b319dac7ef1e917ee221372c9
   subpackages:
   - config
   - extensions/table
@@ -113,7 +113,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: c990b8b3a34c8814a6657daebe8e19ff4d9647a1
+  version: dcabb60a477c2b6f456df65037cb6708210fbb02
   subpackages:
   - format
   - ghttp
@@ -136,7 +136,7 @@ imports:
 - name: github.com/satori/go.uuid
   version: 5bf94b69c6b68ee1b541973bb8e1144db23a194b
 - name: github.com/spf13/pflag
-  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+  version: 7aff26db30c1be810f9de5038ec5ef96ac41fd7c
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
@@ -189,7 +189,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: d3de07a94d22b4a0972deb4b96d790c2c0ce8333
+  version: 20b96f641a5ea98f2f8619ff4f3e061cff4833bd
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/api
@@ -454,7 +454,7 @@ testImports:
 - name: github.com/facebookgo/structtag
   version: 217e25fb96916cc60332e399c9aa63f5c422ceed
 - name: github.com/smartystreets/goconvey
-  version: 9e8dc3f972df6c8fcc0375ef492c24d0bb204857
+  version: e5b2b7c9111590d019a696c7800593f666e1a7f4
   subpackages:
   - convey
 - name: github.com/stretchr/testify
