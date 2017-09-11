@@ -20,7 +20,6 @@
 package virthandler
 
 import (
-	"encoding/base64"
 	goerror "errors"
 	"fmt"
 	"net"
@@ -340,22 +339,14 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
 			return nil, err
 		}
 
-		secretBase64, ok := secret.Data["node.session.auth.password"]
+		secretValue, ok := secret.Data["node.session.auth.password"]
 		if ok == false {
 			return nil, goerror.New(fmt.Sprintf("No password value found in k8s secret %s %v", secretID, err))
 		}
-		secretValue, err := base64.StdEncoding.DecodeString(string(secretBase64[:]))
-		if err != nil {
-			return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret %s %v", secretID, err))
-		}
 
-		userBase64, ok := secret.Data["node.session.auth.username"]
+		userValue, ok := secret.Data["node.session.auth.username"]
 		if ok == false {
 			return nil, goerror.New(fmt.Sprintf("Failed to find username for disk auth %s", secretID))
-		}
-		userValue, err := base64.StdEncoding.DecodeString(string(userBase64[:]))
-		if err != nil {
-			return nil, goerror.New(fmt.Sprintf("Failed to base64 decode k8s secret username data field %s %v", secretID, err))
 		}
 		vm.Spec.Domain.Devices.Disks[idx].Auth.Username = string(userValue)
 
@@ -364,6 +355,7 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
 		// multiple VMs to reference the same k8s secret without conflicting
 		// with one another.
 		vm.Spec.Domain.Devices.Disks[idx].Auth.Secret.Usage = usageID
+
 		err = d.domainManager.SyncVMSecret(vm, usageType, usageID, string(secretValue))
 		if err != nil {
 			return nil, err

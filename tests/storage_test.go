@@ -78,20 +78,22 @@ var _ = Describe("Storage", func() {
 			Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
 	})
 
-	RunVMAndExpectLaunch := func(vm *v1.VM) {
+	RunVMAndExpectLaunch := func(vm *v1.VM, withAuth bool) {
 		obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStart(obj)
 
-		// Periodically check if we now have a connection on the target
-		// We don't check against the actual IP, since depending on the kubernetes proxy mode, and the network provider
-		// we will see different IPs here. The BeforeEach function makes sure that no other connections exist.
-		Eventually(func() string { return getTargetLogs(70) },
-			11*time.Second,
-			500*time.Millisecond).
-			Should(
-				MatchRegexp(fmt.Sprintf("IP Address: [0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")),
-			)
+		if withAuth == false {
+			// Periodically check if we now have a connection on the target
+			// We don't check against the actual IP, since depending on the kubernetes proxy mode, and the network provider
+			// we will see different IPs here. The BeforeEach function makes sure that no other connections exist.
+			Eventually(func() string { return getTargetLogs(70) },
+				11*time.Second,
+				500*time.Millisecond).
+				Should(
+					MatchRegexp(fmt.Sprintf("IP Address: [0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")),
+				)
+		}
 	}
 
 	Context("Given a fresh iSCSI target", func() {
@@ -114,8 +116,18 @@ var _ = Describe("Storage", func() {
 
 		It("should be successfully started by libvirt", func(done Done) {
 			// Start the VM with the LUN attached
-			vm := tests.NewRandomVMWithDirectLun(2)
-			RunVMAndExpectLaunch(vm)
+			vm := tests.NewRandomVMWithDirectLun(2, false)
+			RunVMAndExpectLaunch(vm, false)
+			close(done)
+		}, 30)
+	})
+
+	Context("Given a VM and a directly connected Alpine LUN with CHAP auth", func() {
+
+		It("should be successfully started by libvirt", func(done Done) {
+			// Start the VM with the LUN attached
+			vm := tests.NewRandomVMWithDirectLun(2, true)
+			RunVMAndExpectLaunch(vm, true)
 			close(done)
 		}, 30)
 	})
@@ -124,7 +136,16 @@ var _ = Describe("Storage", func() {
 		It("should be successfully started by libvirt", func(done Done) {
 			// Start the VM with the PVC attached
 			vm := tests.NewRandomVMWithPVC("disk-alpine")
-			RunVMAndExpectLaunch(vm)
+			RunVMAndExpectLaunch(vm, false)
+			close(done)
+		}, 30)
+	})
+
+	Context("Given a VM and an Alpine PVC with CHAP auth", func() {
+		It("should be successfully started by libvirt", func(done Done) {
+			// Start the VM with the PVC attached
+			vm := tests.NewRandomVMWithPVC("disk-auth-alpine")
+			RunVMAndExpectLaunch(vm, true)
 			close(done)
 		}, 30)
 	})
