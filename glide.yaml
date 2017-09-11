@@ -20,7 +20,7 @@ import:
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: b1ed43528171d6a3c0292ff33a4025b2e89a912e
+  version: db8228460e2de17f5d3a9a453f61dde0ba86545a
   subpackages:
   - discovery
   - discovery/fake
