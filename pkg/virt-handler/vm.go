@@ -222,22 +222,23 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) (*v1.VM, error) {
 	vmCopy := &v1.VM{}
 	model.Copy(vmCopy, vm)
+	logger := logging.DefaultLogger().Object(vm)
 
 	for idx, disk := range vmCopy.Spec.Domain.Devices.Disks {
 		if disk.Type == "PersistentVolumeClaim" {
-			logging.DefaultLogger().V(3).Info().Object(vm).Msgf("Mapping PersistentVolumeClaim: %s", disk.Source.Name)
+			logger.V(3).Info().Msgf("Mapping PersistentVolumeClaim: %s", disk.Source.Name)
 
 			// Look up existing persistent volume
 			obj, err := restClient.Get().Namespace(namespace).Resource("persistentvolumeclaims").Name(disk.Source.Name).Do().Get()
 
 			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("unable to look up persistent volume claim")
+				logger.Error().Reason(err).Msg("unable to look up persistent volume claim")
 				return vm, fmt.Errorf("unable to look up persistent volume claim: %v", err)
 			}
 
 			pvc := obj.(*k8sv1.PersistentVolumeClaim)
 			if pvc.Status.Phase != k8sv1.ClaimBound {
-				logging.DefaultLogger().Error().Msg("attempted use of unbound persistent volume")
+				logger.Error().Msg("attempted use of unbound persistent volume")
 				return vm, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
 			}
 
@@ -246,64 +247,32 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 			obj, err = restClient.Get().Resource("persistentvolumes").Name(pvc.Spec.VolumeName).Do().Get()
 
 			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("unable to access persistent volume record")
+				logger.Error().Reason(err).Msg("unable to access persistent volume record")
 				return vm, fmt.Errorf("unable to access persistent volume record: %v", err)
 			}
 			pv := obj.(*k8sv1.PersistentVolume)
 
-			if pv.Spec.ISCSI != nil {
-				logging.DefaultLogger().Object(vm).Info().Msg("Mapping iSCSI PVC")
-				newDisk := v1.Disk{}
+			logger.Info().Msgf("Mapping PVC %s", pv.Name)
+			newDisk, err := mapPVToDisk(&disk, pv)
 
-				newDisk.Type = "network"
-				newDisk.Device = "disk"
-				newDisk.Target = disk.Target
-				newDisk.Driver = new(v1.DiskDriver)
-				newDisk.Driver.Type = "raw"
-				newDisk.Driver.Name = "qemu"
-
-				newDisk.Source.Name = fmt.Sprintf("%s/%d", pv.Spec.ISCSI.IQN, pv.Spec.ISCSI.Lun)
-				newDisk.Source.Protocol = "iscsi"
-
-				hostPort := strings.Split(pv.Spec.ISCSI.TargetPortal, ":")
-				ipAddrs, err := net.LookupIP(hostPort[0])
-				if err != nil || len(ipAddrs) < 1 {
-					logging.DefaultLogger().Error().Reason(err).Msgf("Unable to resolve host '%s'", hostPort[0])
-					return vm, fmt.Errorf("Unable to resolve host '%s': %s", hostPort[0], err)
-				}
-
-				newDisk.Source.Host = &v1.DiskSourceHost{}
-				newDisk.Source.Host.Name = ipAddrs[0].String()
-				if len(hostPort) > 1 {
-					newDisk.Source.Host.Port = hostPort[1]
-				}
-
-				// This iscsi device has auth associated with it.
-				if pv.Spec.ISCSI.SecretRef != nil && pv.Spec.ISCSI.SecretRef.Name != "" {
-					newDisk.Auth = &v1.DiskAuth{
-						Secret: &v1.DiskSecret{
-							Type:  "iscsi",
-							Usage: pv.Spec.ISCSI.SecretRef.Name,
-						},
-					}
-				}
-
-				vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
-			} else {
-				logging.DefaultLogger().Object(vm).Error().Msg(fmt.Sprintf("Referenced PV %v is backed by an unsupported storage type", pv))
+			if err != nil {
+				logger.Error().Reason(err).Msgf("Mapping PVC %s failed", pv.Name)
+				return vm, err
 			}
+
+			vmCopy.Spec.Domain.Devices.Disks[idx] = *newDisk
 		} else if disk.Type == "network" {
 			newDisk := v1.Disk{}
 			model.Copy(&newDisk, disk)
 
 			if disk.Source.Host == nil {
-				logging.DefaultLogger().Error().Msg("Missing disk source host")
+				logger.Error().Msg("Missing disk source host")
 				return vm, fmt.Errorf("Missing disk source host")
 			}
 
 			ipAddrs, err := net.LookupIP(disk.Source.Host.Name)
 			if err != nil || ipAddrs == nil || len(ipAddrs) < 1 {
-				logging.DefaultLogger().Error().Reason(err).Msgf("Unable to resolve host '%s'", disk.Source.Host.Name)
+				logger.Error().Reason(err).Msgf("Unable to resolve host '%s'", disk.Source.Host.Name)
 				return vm, fmt.Errorf("Unable to resolve host '%s': %s", disk.Source.Host.Name, err)
 			}
 
@@ -314,6 +283,48 @@ func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) 
 	}
 
 	return vmCopy, nil
+}
+
+func mapPVToDisk(disk *v1.Disk, pv *k8sv1.PersistentVolume) (*v1.Disk, error) {
+	if pv.Spec.ISCSI != nil {
+		newDisk := v1.Disk{}
+
+		newDisk.Type = "network"
+		newDisk.Device = "disk"
+		newDisk.Target = disk.Target
+		newDisk.Driver = new(v1.DiskDriver)
+		newDisk.Driver.Type = "raw"
+		newDisk.Driver.Name = "qemu"
+
+		newDisk.Source.Name = fmt.Sprintf("%s/%d", pv.Spec.ISCSI.IQN, pv.Spec.ISCSI.Lun)
+		newDisk.Source.Protocol = "iscsi"
+
+		hostPort := strings.Split(pv.Spec.ISCSI.TargetPortal, ":")
+		ipAddrs, err := net.LookupIP(hostPort[0])
+		if err != nil || len(ipAddrs) < 1 {
+			return nil, fmt.Errorf("Unable to resolve host '%s': %s", hostPort[0], err)
+		}
+
+		newDisk.Source.Host = &v1.DiskSourceHost{}
+		newDisk.Source.Host.Name = ipAddrs[0].String()
+		if len(hostPort) > 1 {
+			newDisk.Source.Host.Port = hostPort[1]
+		}
+
+		// This iscsi device has auth associated with it.
+		if pv.Spec.ISCSI.SecretRef != nil && pv.Spec.ISCSI.SecretRef.Name != "" {
+			newDisk.Auth = &v1.DiskAuth{
+				Secret: &v1.DiskSecret{
+					Type:  "iscsi",
+					Usage: pv.Spec.ISCSI.SecretRef.Name,
+				},
+			}
+		}
+		return &newDisk, nil
+	} else {
+		err := fmt.Errorf("Referenced PV %s is backed by an unsupported storage type. Only iSCSI is supported.", pv.ObjectMeta.Name)
+		return nil, err
+	}
 }
 
 func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {

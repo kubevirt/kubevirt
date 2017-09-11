@@ -17,7 +17,7 @@
  *
  */
 
-package virthandler_test
+package virthandler
 
 import (
 	. "github.com/onsi/ginkgo"
