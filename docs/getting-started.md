@@ -211,7 +211,7 @@ tap networking device attached.
 Basic verification is possible by running
 
 ```bash
-    bash cluster/quickcheck.sh
+    bash cluster/vm-isolation-check.sh
 ```
 
 #### Example
