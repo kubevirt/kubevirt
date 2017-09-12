@@ -19,7 +19,7 @@
 
 source hack/config.sh
 usage () {
-echo "Usage: ./cluster/quickcheck.sh [-vm  <VM>]"
+echo "Usage: ./cluster/vm-isolation-check.sh [-vm <VM>]"
 }
 
 VM_NAME=testvm
