@@ -27,4 +27,8 @@ RUN dnf -y install libvirt-client genisoimage && \
 
 COPY virt-handler /virt-handler
 
+RUN groupadd -g 1000 libvirt && useradd -u 1000 -g 1000 -N -M virt-handler && \
+    chown virt-handler /virt-handler
+USER virt-handler
+
 ENTRYPOINT [ "/virt-handler" ]

@@ -30,6 +30,7 @@ spec:
           - "$(NODE_NAME)"
         securityContext:
           privileged: true
+          runAsNonRoot: true
         volumeMounts:
         - name: libvirt-runtime
           mountPath: /var/run/libvirt

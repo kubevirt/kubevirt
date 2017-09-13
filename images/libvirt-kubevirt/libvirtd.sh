@@ -80,6 +80,13 @@ fi
 
 echo "cgroup_controllers = [ ]" >> /etc/libvirt/qemu.conf
 
+# Configure libvirt socket group
+cat << EOF >> /etc/libvirt/libvirtd.conf
+auth_unix_rw = "none"
+unix_sock_group = "libvirt"
+unix_sock_rw_perms = "0770"
+EOF
+
 if [[ -n "$LIBVIRTD_DISABLE_TCP" ]]; then
   /usr/sbin/libvirtd
 else

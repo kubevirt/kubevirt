@@ -39,6 +39,9 @@ RUN chmod 0640 /etc/sudoers.d/kubevirt
 COPY libvirtd-limited.sh /libvirtd-limited.sh
 RUN chmod a+x /libvirtd-limited.sh
 
+# Change libvirt group ID
+RUN groupmod -g 1000 libvirt && useradd -u 1000 -g 1000 -N -M -s /sbin/nologin virt-handler
+
 # libvirtd.sh in this image differs from upstream
 RUN rm -f /libvirtd.sh
 COPY libvirtd.sh /libvirtd.sh
