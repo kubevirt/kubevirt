@@ -63,7 +63,7 @@ var _ = Describe("CloudInit UserData", func() {
 		return obj
 	}
 
-	VerifyUserDataVM := func(vm *v1.VM, obj runtime.Object) {
+	VerifyUserDataVM := func(vm *v1.VM, obj runtime.Object, magicStr string) {
 		_, ok := obj.(*v1.VM)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 		tests.WaitForSuccessfulVMStart(obj)
@@ -82,7 +82,7 @@ var _ = Describe("CloudInit UserData", func() {
 				Expect(err).ToNot(HaveOccurred())
 				next = next + string(data)
 			}
-		}, 45*time.Second).Should(ContainSubstring("found datasource (nocloud, local)"))
+		}, 45*time.Second).Should(ContainSubstring(magicStr))
 	}
 
 	BeforeEach(func() {
@@ -91,15 +91,20 @@ var _ = Describe("CloudInit UserData", func() {
 
 	Context("CloudInit Data Source NoCloud", func() {
 		It("should launch vm with cloud-init data source NoCloud", func(done Done) {
-			vm, err := tests.NewRandomVMWithUserData("noCloud")
+			magicStr := "printed from cloud-init userdata"
+			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
+
+			vm, err := tests.NewRandomVMWithUserData("noCloud", userData)
 			Expect(err).ToNot(HaveOccurred())
 			obj := LaunchVM(vm)
-			VerifyUserDataVM(vm, obj)
+			VerifyUserDataVM(vm, obj, magicStr)
 			close(done)
 		}, 60)
 
 		It("should launch VMs with user-data in k8s secret", func(done Done) {
-			vm, err := tests.NewRandomVMWithUserData("noCloud")
+			magicStr := "printed from cloud-init userdata"
+			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
+			vm, err := tests.NewRandomVMWithUserData("noCloud", userData)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, disk := range vm.Spec.Domain.Devices.Disks {
@@ -129,7 +134,7 @@ var _ = Describe("CloudInit UserData", func() {
 				break
 			}
 			obj := LaunchVM(vm)
-			VerifyUserDataVM(vm, obj)
+			VerifyUserDataVM(vm, obj, magicStr)
 
 			close(done)
 		}, 60)

@@ -511,10 +511,9 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VM {
 	return vm
 }
 
-func NewRandomVMWithUserData(cloudInitDataSource string) (*v1.VM, error) {
+func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.VM, error) {
 	switch cloudInitDataSource {
 	case "noCloud":
-		userData := "#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"
 		vm := NewRandomVMWithSerialConsole()
 		spec := &v1.CloudInitSpec{
 			NoCloudData: &v1.CloudInitDataSourceNoCloud{
