@@ -169,7 +169,9 @@ func (v *vmService) CreateMigrationTargetPod(migration *corev1.Migration, vm *co
 
 	pod.ObjectMeta.Labels[corev1.MigrationLabel] = migrationLabel
 	pod.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
-	pod.Spec.Affinity = corev1.AntiAffinityFromVMNode(vm)
+
+	pod.Spec.Affinity = corev1.UpdateAntiAffinityFromVMNode(pod, vm)
+
 	if err == nil {
 		_, err = v.KubeCli.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).Create(pod)
 	}

@@ -72,7 +72,7 @@ var _ = Describe("VM", func() {
 
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
-					VerifyAffinity(v1.AntiAffinityFromVMNode(vm)),
+					VerifyAffinity(v1.UpdateAntiAffinityFromVMNode(&pod, vm)),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
 				),
 			)
