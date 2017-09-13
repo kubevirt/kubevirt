@@ -125,6 +125,14 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		},
 	}
 
+	if vm.Spec.Affinity != nil {
+		pod.Spec.Affinity = &kubev1.Affinity{}
+
+		if vm.Spec.Affinity.NodeAffinity != nil {
+			pod.Spec.Affinity.NodeAffinity = vm.Spec.Affinity.NodeAffinity
+		}
+	}
+
 	return &pod, nil
 }
 

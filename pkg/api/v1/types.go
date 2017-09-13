@@ -180,6 +180,14 @@ type VMSpec struct {
 	Domain *DomainSpec `json:"domain,omitempty"`
 	// If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// If affinity is specifies, obey all the affinity rules
+	Affinity *Affinity `json:"affinity,omitempty"`
+}
+
+// Affinity groups all the affinity rules related to a VM
+type Affinity struct {
+	// Host affinity support
+	NodeAffinity *k8sv1.NodeAffinity `json:"nodeAffinity,omitempty"`
 }
 
 // VMStatus represents information about the status of a VM. Status may trail the actual
