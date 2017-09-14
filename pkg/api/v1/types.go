@@ -111,8 +111,11 @@ type VM struct {
 }
 
 func (in *VM) DeepCopyInto(out *VM) {
-	v, _ := model.Clone(in)
-	out, _ = v.(*VM)
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*VM)
 	return
 }
 
@@ -141,8 +144,11 @@ type VMList struct {
 }
 
 func (in *VMList) DeepCopyInto(out *VMList) {
-	v, _ := model.Clone(in)
-	out, _ = v.(*VMList)
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*VMList)
 	return
 }
 
@@ -370,8 +376,11 @@ type Spice struct {
 }
 
 func (in *Spice) DeepCopyInto(out *Spice) {
-	v, _ := model.Clone(in)
-	out, _ = v.(*Spice)
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*Spice)
 	return
 }
 
@@ -453,8 +462,11 @@ type Migration struct {
 }
 
 func (in *Migration) DeepCopyInto(out *Migration) {
-	v, _ := model.Clone(in)
-	out, _ = v.(*Migration)
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*Migration)
 	return
 }
 
@@ -553,8 +565,11 @@ type MigrationList struct {
 }
 
 func (in *MigrationList) DeepCopyInto(out *MigrationList) {
-	v, _ := model.Clone(in)
-	out, _ = v.(*MigrationList)
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*MigrationList)
 	return
 }
 
