@@ -511,13 +511,10 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VM {
 	return vm
 }
 
-func NewRandomVMWithUserData(containerImage string, cloudInitDataSource string) (*v1.VM, error) {
-
+func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.VM, error) {
 	switch cloudInitDataSource {
 	case "noCloud":
-		userData := "#cloud-config\npassword: atomic\nssh_pwauth: True\nchpasswd: { expire: False }\n"
-
-		vm := NewRandomVMWithEphemeralDisk(containerImage)
+		vm := NewRandomVMWithSerialConsole()
 		spec := &v1.CloudInitSpec{
 			NoCloudData: &v1.CloudInitDataSourceNoCloud{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
