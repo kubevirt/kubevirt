@@ -1,5 +1,5 @@
 hash: 0bbc356631e6f43e5b2022c18bfd42e07f8f6be526593d873a3309a5a31763f4
-updated: 2017-09-13T16:07:09.702453294+03:00
+updated: 2017-09-17T09:22:45.36183886+03:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: 73945b6115bfbbcc57d89b7316e28109364124e1
@@ -48,7 +48,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 18f6dd13ccdd227b8ebc546ca95cd62a02f3970c
+  version: c7d0ee73a597d1349404607d9f692cacd09cdc06
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -68,7 +68,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gorilla/websocket
-  version: a69d9f6de432e2c6b296a947d8a5ee88f68522cf
+  version: 6f34763140ed8887aed6a044912009832b4733d7
 - name: github.com/hashicorp/golang-lru
   version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
   subpackages:
