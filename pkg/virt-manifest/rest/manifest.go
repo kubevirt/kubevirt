@@ -72,8 +72,8 @@ func ManifestService(connection cli.Connection) (*restful.WebService, error) {
 
 	ctx = context.Background()
 	mapManifestEndpoint := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().
-		Post(&v1.VM{}).
-		Decoder(NewNonNamespacedJsonPostDecodeRequestFunc(&v1.VM{})).
+		Post(&v1.VirtualMachine{}).
+		Decoder(NewNonNamespacedJsonPostDecodeRequestFunc(&v1.VirtualMachine{})).
 		Endpoint(m.mapManifest).
 		Build(ctx))
 
@@ -90,7 +90,7 @@ func alive(_ context.Context, request interface{}) (interface{}, error) {
 }
 
 func (m manifest) mapManifest(_ context.Context, request interface{}) (interface{}, error) {
-	vm := request.(*endpoints.PutObject).Payload.(*v1.VM)
+	vm := request.(*endpoints.PutObject).Payload.(*v1.VirtualMachine)
 
 	virt_manifest.AddMinimalVMSpec(vm)
 

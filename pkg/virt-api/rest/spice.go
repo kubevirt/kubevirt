@@ -48,7 +48,7 @@ func NewSpiceEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource) end
 			return nil, middleware.NewInternalServerError(err)
 		}
 
-		vm := obj.(*v1.VM)
+		vm := obj.(*v1.VirtualMachine)
 		spice, err := spiceFromVM(vm)
 		if err != nil {
 			return nil, err
@@ -59,7 +59,7 @@ func NewSpiceEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource) end
 	}
 }
 
-func spiceFromVM(vm *v1.VM) (*v1.Spice, error) {
+func spiceFromVM(vm *v1.VirtualMachine) (*v1.Spice, error) {
 
 	if vm.Status.Phase != v1.Running {
 		return nil, middleware.NewResourceNotFoundError("VM is not running")

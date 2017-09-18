@@ -56,7 +56,7 @@ func newVirtAPIApp(host *string, port *int, swaggerUI *string) *virtAPIApp {
 
 func (app *virtAPIApp) Run() {
 	ctx := context.Background()
-	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "vms"}
+	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "migrations"}
 
 	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
@@ -64,7 +64,7 @@ func (app *virtAPIApp) Run() {
 		log.Fatal(err)
 	}
 
-	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VM{}, v1.VMGroupVersionKind.Kind, &v1.VMList{})
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
 	if err != nil {
 		log.Fatal(err)
 	}

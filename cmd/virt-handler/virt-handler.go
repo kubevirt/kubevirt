@@ -127,7 +127,7 @@ func (app *virtHandlerApp) Run() {
 	configDiskClient := configdisk.NewConfigDiskClient(virtCli)
 
 	// Wire VM controller
-	vmListWatcher := kubecli.NewListWatchFromClient(virtCli.RestClient(), "vms", k8sv1.NamespaceAll, fields.Everything(), l)
+	vmListWatcher := kubecli.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", k8sv1.NamespaceAll, fields.Everything(), l)
 	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, app.HostOverride, configDiskClient)
 
 	// Wire Domain controller
@@ -173,8 +173,8 @@ func (app *virtHandlerApp) Run() {
 	console := rest.NewConsoleResource(domainConn)
 	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.SocketDir))
 	ws := new(restful.WebService)
-	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/console").To(console.Console))
-	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
+	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/console").To(console.Console))
+	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{Addr: app.Service.Address(), Handler: restful.DefaultContainer}
 	server.ListenAndServe()

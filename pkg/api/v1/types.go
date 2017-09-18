@@ -53,7 +53,7 @@ const GroupName = "kubevirt.io"
 var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 // GroupVersionKind
-var VMGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VM"}
+var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 
 var MigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "Migration"}
 
@@ -65,8 +65,8 @@ var (
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
-		&VM{},
-		&VMList{},
+		&VirtualMachine{},
+		&VirtualMachineList{},
 		&metav1.ListOptions{},
 		&metav1.DeleteOptions{},
 		&Spice{},
@@ -100,8 +100,8 @@ func init() {
 	})
 }
 
-// VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
-type VM struct {
+// VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
+type VirtualMachine struct {
 	metav1.TypeMeta `json:",inline"`
 	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VM Spec contains the VM specification.
@@ -136,11 +136,11 @@ func (in *VM) DeepCopyObject() runtime.Object {
 	}
 }
 
-// VMList is a list of VMs
-type VMList struct {
+// VirtualMachineList is a list of VirtualMachines
+type VirtualMachineList struct {
 	metav1.TypeMeta `json:",inline"`
-	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VM            `json:"items"`
+	ListMeta        metav1.ListMeta  `json:"metadata,omitempty"`
+	Items           []VirtualMachine `json:"items"`
 }
 
 func (in *VMList) DeepCopyInto(out *VMList) {
@@ -200,49 +200,49 @@ type VMGraphics struct {
 }
 
 // Required to satisfy Object interface
-func (v *VM) GetObjectKind() schema.ObjectKind {
+func (v *VirtualMachine) GetObjectKind() schema.ObjectKind {
 	return &v.TypeMeta
 }
 
 // Required to satisfy ObjectMetaAccessor interface
-func (v *VM) GetObjectMeta() metav1.Object {
+func (v *VirtualMachine) GetObjectMeta() metav1.Object {
 	return &v.ObjectMeta
 }
 
-func (v *VM) IsRunning() bool {
+func (v *VirtualMachine) IsRunning() bool {
 	return v.Status.Phase == Running || v.Status.Phase == Migrating
 }
 
 // Required to satisfy Object interface
-func (vl *VMList) GetObjectKind() schema.ObjectKind {
+func (vl *VirtualMachineList) GetObjectKind() schema.ObjectKind {
 	return &vl.TypeMeta
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (vl *VMList) GetListMeta() meta.List {
+func (vl *VirtualMachineList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
 
-func (v *VM) UnmarshalJSON(data []byte) error {
-	type VMCopy VM
+func (v *VirtualMachine) UnmarshalJSON(data []byte) error {
+	type VMCopy VirtualMachine
 	tmp := VMCopy{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
 	}
-	tmp2 := VM(tmp)
+	tmp2 := VirtualMachine(tmp)
 	*v = tmp2
 	return nil
 }
 
-func (vl *VMList) UnmarshalJSON(data []byte) error {
-	type VMListCopy VMList
+func (vl *VirtualMachineList) UnmarshalJSON(data []byte) error {
+	type VMListCopy VirtualMachineList
 	tmp := VMListCopy{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
 	}
-	tmp2 := VMList(tmp)
+	tmp2 := VirtualMachineList(tmp)
 	*vl = tmp2
 	return nil
 }
@@ -306,8 +306,8 @@ const (
 	MigrationLabel    string = "kubevirt.io/migration"
 )
 
-func NewVM(name string, uid types.UID) *VM {
-	return &VM{
+func NewVM(name string, uid types.UID) *VirtualMachine {
+	return &VirtualMachine{
 		Spec: VMSpec{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -317,7 +317,7 @@ func NewVM(name string, uid types.UID) *VM {
 		Status: VMStatus{},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
-			Kind:       VMGroupVersionKind.Kind,
+			Kind:       VirtualMachineGroupVersionKind.Kind,
 		},
 	}
 }
@@ -337,32 +337,32 @@ func (s SyncEvent) String() string {
 	return string(s)
 }
 
-func NewMinimalVM(vmName string) *VM {
+func NewMinimalVM(vmName string) *VirtualMachine {
 	return NewMinimalVMWithNS(k8sv1.NamespaceDefault, vmName)
 }
 
-func NewMinimalVMWithNS(namespace string, vmName string) *VM {
+func NewMinimalVMWithNS(namespace string, vmName string) *VirtualMachine {
 	precond.CheckNotEmpty(vmName)
 	vm := NewVMReferenceFromNameWithNS(namespace, vmName)
 	vm.Spec = VMSpec{Domain: NewMinimalDomainSpec()}
 	vm.TypeMeta = metav1.TypeMeta{
 		APIVersion: GroupVersion.String(),
-		Kind:       "VM",
+		Kind:       "VirtualMachine",
 	}
 	return vm
 }
 
 // TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
-func NewVMReferenceFromName(name string) *VM {
+func NewVMReferenceFromName(name string) *VirtualMachine {
 	return NewVMReferenceFromNameWithNS(k8sv1.NamespaceDefault, name)
 }
 
-func NewVMReferenceFromNameWithNS(namespace string, name string) *VM {
-	vm := &VM{
+func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine {
+	vm := &VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/vms/%s", GroupVersion.String(), namespace, name),
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/virtualmachines/%s", GroupVersion.String(), namespace, name),
 		},
 	}
 	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
@@ -621,7 +621,7 @@ type MigrationHostInfo struct {
 
 // Given a VM, create a NodeSelectorTerm with anti-affinity for that VM's node.
 // This is useful for the case when a migration away from a node must occur.
-func AntiAffinityFromVMNode(vm *VM) *k8sv1.Affinity {
+func AntiAffinityFromVMNode(vm *VirtualMachine) *k8sv1.Affinity {
 	selector := k8sv1.NodeSelectorTerm{
 		MatchExpressions: []k8sv1.NodeSelectorRequirement{
 			{

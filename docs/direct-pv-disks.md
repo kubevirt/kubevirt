@@ -64,7 +64,7 @@ release: "stable"
 this is used by the VM in the following way:
 
 ```yaml
-kind: VM
+kind: VirtualMachine
 spec:
   domain:
     devices:

@@ -38,7 +38,7 @@ cat << END > vm.yaml
 metadata:
   name: testvm-ephemeral
 apiVersion: kubevirt.io/v1alpha1
-kind: VM
+kind: VirtualMachine
 spec:
   domain:
     devices:

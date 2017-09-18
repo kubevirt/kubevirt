@@ -57,7 +57,7 @@ func NewVMController(lw cache.ListerWatcher,
 
 	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host, configDiskClient)
 
-	indexer, informer := kubecli.NewController(lw, queue, &v1.VM{}, dispatch)
+	indexer, informer := kubecli.NewController(lw, queue, &v1.VirtualMachine{}, dispatch)
 	return indexer, queue, informer
 
 }
@@ -86,7 +86,7 @@ type VMHandlerDispatch struct {
 	configDisk    configdisk.ConfigDiskClient
 }
 
-func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VM) (string, error) {
+func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
 	node, err := d.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
 	if err != nil {
 		logging.DefaultLogger().Error().Reason(err).Msgf("fetching source node %s failed", vm.Status.NodeName)
@@ -109,12 +109,12 @@ func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VM) (string, error) {
 	return addrStr, nil
 }
 
-func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VM, cfg *api.DomainSpec) error {
+func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VirtualMachine, cfg *api.DomainSpec) error {
 	obj, err := scheme.Scheme.Copy(vm)
 	if err != nil {
 		return err
 	}
-	vm = obj.(*v1.VM)
+	vm = obj.(*v1.VirtualMachine)
 
 	// XXX When we start supporting hotplug, this needs to be altered.
 	// Check if the VM is already marked as running. If yes, don't update the VM.
@@ -144,7 +144,7 @@ func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VM, cfg *api.DomainSpec) error
 		vm.Status.Graphics = append(vm.Status.Graphics, dst)
 	}
 
-	return d.restClient.Put().Resource("vms").Body(vm).
+	return d.restClient.Put().Resource("virtualmachines").Body(vm).
 		Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
 
 }
@@ -162,7 +162,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	}
 
 	// Retrieve the VM
-	var vm *v1.VM
+	var vm *v1.VirtualMachine
 	if !exists {
 		namespace, name, err := cache.SplitMetaNamespaceKey(key.(string))
 		if err != nil {
@@ -172,7 +172,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 		}
 		vm = v1.NewVMReferenceFromNameWithNS(namespace, name)
 	} else {
-		vm = obj.(*v1.VM)
+		vm = obj.(*v1.VirtualMachine)
 	}
 
 	// Check For Migration before processing vm not in our cache
@@ -219,8 +219,8 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 // Almost everything in the VM object maps exactly to its domain counterpart
 // One exception is persistent volume claims. This function looks up each PV
 // and inserts a corrected disk entry into the VM's device map.
-func MapPersistentVolumes(vm *v1.VM, restClient cache.Getter, namespace string) (*v1.VM, error) {
-	vmCopy := &v1.VM{}
+func MapPersistentVolumes(vm *v1.VirtualMachine, restClient cache.Getter, namespace string) (*v1.VirtualMachine, error) {
+	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
 	logger := logging.DefaultLogger().Object(vm)
 
@@ -327,7 +327,7 @@ func mapPVToDisk(disk *v1.Disk, pv *k8sv1.PersistentVolume) (*v1.Disk, error) {
 	}
 }
 
-func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
+func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	for idx, disk := range vm.Spec.Domain.Devices.Disks {
 		if disk.Auth == nil || disk.Auth.Secret == nil || disk.Auth.Secret.Usage == "" {
 			continue
@@ -376,7 +376,7 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VM) (*v1.VM, error) {
 	return vm, nil
 }
 
-func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) (bool, error) {
+func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteVm bool) (bool, error) {
 
 	if shouldDeleteVm {
 		// Since the VM was not in the cache, we delete it
@@ -445,14 +445,14 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VM, shouldDeleteVm bool) (boo
 func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName string) (bool, error) {
 
 	// If we don't have the VM in the cache, it could be that it is currently migrating to us
-	result := d.restClient.Get().Name(vmName).Resource("vms").Namespace(namespace).Do()
+	result := d.restClient.Get().Name(vmName).Resource("virtualmachines").Namespace(namespace).Do()
 	if result.Error() == nil {
 		// So the VM still seems to exist
 		fetchedVM, err := result.Get()
 		if err != nil {
 			return false, err
 		}
-		if fetchedVM.(*v1.VM).Status.MigrationNodeName == d.host {
+		if fetchedVM.(*v1.VirtualMachine).Status.MigrationNodeName == d.host {
 			return true, nil
 		}
 	} else if !errors.IsNotFound(result.Error()) {
@@ -464,6 +464,6 @@ func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName stri
 	return false, nil
 }
 
-func isWorthSyncing(vm *v1.VM) bool {
+func isWorthSyncing(vm *v1.VirtualMachine) bool {
 	return vm.Status.Phase != v1.Succeeded && vm.Status.Phase != v1.Failed
 }

@@ -2,17 +2,17 @@
 
 package v1
 
-func (VM) SwaggerDoc() map[string]string {
+func (VirtualMachine) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+		"":       "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
 		"spec":   "VM Spec contains the VM specification.",
 		"status": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
 	}
 }
 
-func (VMList) SwaggerDoc() map[string]string {
+func (VirtualMachineList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VMList is a list of VMs",
+		"": "VirtualMachineList is a list of VirtualMachines",
 	}
 }
 

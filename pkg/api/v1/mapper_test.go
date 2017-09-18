@@ -32,8 +32,8 @@ import (
 var _ = Describe("Mapper", func() {
 	Context("With a VM supplied", func() {
 		It("should map to json and back with custom mapper", func() {
-			vm := VM{ObjectMeta: metav1.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
-			newVM := VM{}
+			vm := VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
+			newVM := VirtualMachine{}
 			buf, err := json.Marshal(&vm)
 			Expect(err).To(BeNil())
 			err = json.Unmarshal(buf, &newVM)

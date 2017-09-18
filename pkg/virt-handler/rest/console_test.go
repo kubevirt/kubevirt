@@ -55,7 +55,7 @@ var _ = Describe("Console", func() {
 
 	dial := func(vm string, console string) *websocket.Conn {
 		wsUrl.Scheme = "ws"
-		wsUrl.Path = "/api/v1/namespaces/" + k8sv1.NamespaceDefault + "/vms/" + vm + "/console"
+		wsUrl.Path = "/api/v1/namespaces/" + k8sv1.NamespaceDefault + "/virtualmachines/" + vm + "/console"
 		wsUrl.RawQuery = "console=" + console
 		c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), nil)
 		Expect(err).ToNot(HaveOccurred())
@@ -64,7 +64,7 @@ var _ = Describe("Console", func() {
 
 	get := func(vm string) (*http.Response, error) {
 		wsUrl.Scheme = "http"
-		wsUrl.Path = "/api/v1/namespaces/" + k8sv1.NamespaceDefault + "/vms/" + vm + "/console"
+		wsUrl.Path = "/api/v1/namespaces/" + k8sv1.NamespaceDefault + "/virtualmachines/" + vm + "/console"
 		return http.DefaultClient.Get(wsUrl.String())
 	}
 
@@ -88,7 +88,7 @@ var _ = Describe("Console", func() {
 			NewConsoleResource(mockConn).Console(request, response)
 			close(serverDone)
 		}
-		ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/console").To(waiter))
+		ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/console").To(waiter))
 		server = httptest.NewServer(handler)
 		wsUrl, err = url.Parse(server.URL)
 		Expect(err).ToNot(HaveOccurred())

@@ -29,7 +29,7 @@ END
 2. create a vm that references the **name** given to the k8s secret in the iscsi usage field
 ```
 cat << END > my-vm.yaml
-kind: VM
+kind: VirtualMachine
 metadata:
   name: testvm
   namespace: default

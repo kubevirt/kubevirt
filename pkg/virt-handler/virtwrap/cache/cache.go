@@ -154,7 +154,7 @@ func NewDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 
 // VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
-func VMNamespaceKeyFunc(vm *v1.VM) string {
+func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
 	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 	return domName
 }

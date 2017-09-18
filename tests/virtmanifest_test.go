@@ -41,7 +41,7 @@ var _ = Describe("Virtmanifest", func() {
 		flag.Parse()
 
 		var manifestClient *rest.RESTClient
-		var vm *v1.VM
+		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
@@ -84,7 +84,7 @@ var _ = Describe("Virtmanifest", func() {
 
 		It("Should map a VM manifest", func() {
 			vmName := vm.ObjectMeta.Name
-			mappedVm := v1.VM{}
+			mappedVm := v1.VirtualMachine{}
 
 			request, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -98,7 +98,7 @@ var _ = Describe("Virtmanifest", func() {
 		})
 
 		It("Should map PersistentVolumeClaims", func() {
-			mappedVm := v1.VM{}
+			mappedVm := v1.VirtualMachine{}
 			vm.Spec.Domain.Devices.Disks = []v1.Disk{v1.Disk{
 				Device: "disk",
 				Type:   virt_manifest.Type_PersistentVolumeClaim,

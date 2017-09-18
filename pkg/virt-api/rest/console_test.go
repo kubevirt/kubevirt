@@ -51,7 +51,7 @@ var _ = Describe("Console", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var vmInterface *kubecli.MockVMInterface
 	var k8sClient k8scorev1.CoreV1Interface
-	var vm *v1.VM
+	var vm *v1.VirtualMachine
 	var node *k8sv1.Node
 	var virtHandlerPod *k8sv1.Pod
 	var server *httptest.Server
@@ -94,10 +94,10 @@ var _ = Describe("Console", func() {
 
 		// Endpoint to test
 		consoleResource := NewConsoleResource(virtClient, k8sClient)
-		ws.Route(ws.GET("/virt-api/namespaces/{namespace}/vms/{name}/console").To(consoleResource.Console))
+		ws.Route(ws.GET("/virt-api/namespaces/{namespace}/virtualmachines/{name}/console").To(consoleResource.Console))
 
 		// Mock out virt-handler. Mirror the first message and exit.
-		ws.Route(ws.GET("/api/v1/namespaces/{namespace}/vms/{name}/console").To(func(request *restful.Request, response *restful.Response) {
+		ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/console").To(func(request *restful.Request, response *restful.Response) {
 			defer GinkgoRecover()
 			ws, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -118,7 +118,7 @@ var _ = Describe("Console", func() {
 
 		dial = func(vm string, console string) *websocket.Conn {
 			wsUrl.Scheme = "ws"
-			wsUrl.Path = "/virt-api/namespaces/" + k8sv1.NamespaceDefault + "/vms/" + vm + "/console"
+			wsUrl.Path = "/virt-api/namespaces/" + k8sv1.NamespaceDefault + "/virtualmachines/" + vm + "/console"
 			wsUrl.RawQuery = "console=" + console
 			c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -127,7 +127,7 @@ var _ = Describe("Console", func() {
 
 		get = func(vm string) (*http.Response, error) {
 			wsUrl.Scheme = "http"
-			wsUrl.Path = "/virt-api/namespaces/" + k8sv1.NamespaceDefault + "/vms/" + vm + "/console"
+			wsUrl.Path = "/virt-api/namespaces/" + k8sv1.NamespaceDefault + "/virtualmachines/" + vm + "/console"
 			return http.DefaultClient.Get(wsUrl.String())
 		}
 		Expect(err).ToNot(HaveOccurred())

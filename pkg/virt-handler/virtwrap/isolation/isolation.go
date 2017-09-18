@@ -43,7 +43,7 @@ import (
 type PodIsolationDetector interface {
 	// Detect takes a vm, looks up a socket based the VM and detects pid, cgroups and namespaces of the owner of that socket.
 	// It returns an IsolationResult containing all isolation information
-	Detect(vm *v1.VM) (*IsolationResult, error)
+	Detect(vm *v1.VirtualMachine) (*IsolationResult, error)
 
 	// Whitelist allows specifying cgroup controller which should be considered to detect the cgroup slice
 	// It returns a PodIsolationDetector to allow configuring the PodIsolationDetector via the builder pattern.
@@ -70,7 +70,7 @@ func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolati
 	return s
 }
 
-func (s *socketBasedIsolationDetector) Detect(vm *v1.VM) (*IsolationResult, error) {
+func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachine) (*IsolationResult, error) {
 	var pid int
 	var slice string
 	var err error

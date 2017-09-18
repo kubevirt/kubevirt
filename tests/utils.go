@@ -397,7 +397,7 @@ func cleanNamespaces() {
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("migrations").Do().Error())
 
 		// Remove all VMs
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("vms").Do().Error())
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
 
 		// Remove all Pods
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
@@ -486,15 +486,15 @@ func PanicOnError(err error) {
 	}
 }
 
-func NewRandomVM() *v1.VM {
+func NewRandomVM() *v1.VirtualMachine {
 	return NewRandomVMWithNS(NamespaceTestDefault)
 }
 
-func NewRandomVMWithNS(namespace string) *v1.VM {
+func NewRandomVMWithNS(namespace string) *v1.VirtualMachine {
 	return v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
 }
 
-func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VM {
+func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
@@ -511,7 +511,7 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VM {
 	return vm
 }
 
-func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.VM, error) {
+func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.VirtualMachine, error) {
 	switch cloudInitDataSource {
 	case "noCloud":
 		vm := NewRandomVMWithSerialConsole()
@@ -534,7 +534,7 @@ func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.V
 	return nil, goerrors.New("Unknown cloud-init data source")
 }
 
-func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VM {
+func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
@@ -572,7 +572,7 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VM {
 	return vm
 }
 
-func NewRandomVMWithPVC(claimName string) *v1.VM {
+func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
@@ -590,12 +590,12 @@ func NewRandomVMWithPVC(claimName string) *v1.VM {
 	return vm
 }
 
-func NewRandomMigrationForVm(vm *v1.VM) *v1.Migration {
+func NewRandomMigrationForVm(vm *v1.VirtualMachine) *v1.Migration {
 	ns := vm.GetObjectMeta().GetNamespace()
 	return v1.NewMinimalMigrationWithNS(ns, vm.ObjectMeta.Name+"migrate"+rand.String(5), vm.ObjectMeta.Name)
 }
 
-func NewRandomVMWithSerialConsole() *v1.VM {
+func NewRandomVMWithSerialConsole() *v1.VirtualMachine {
 	vm := NewRandomVMWithPVC("disk-cirros")
 	vm.Spec.Domain.Devices.Serials = []v1.Serial{
 		{
@@ -617,7 +617,7 @@ func NewRandomVMWithSerialConsole() *v1.VM {
 	return vm
 }
 
-func NewRandomVMWithSpice() *v1.VM {
+func NewRandomVMWithSpice() *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Devices.Video = []v1.Video{
 		{
@@ -639,21 +639,21 @@ func NewRandomVMWithSpice() *v1.VM {
 
 // Block until the specified VM started and return the target node name.
 func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
-	_, ok := vm.(*v1.VM)
+	_, ok := vm.(*v1.VirtualMachine)
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 
 	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
-	vmMeta := vm.(*v1.VM).ObjectMeta
-	obj, err := virtClient.RestClient().Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
+	vmMeta := vm.(*v1.VirtualMachine).ObjectMeta
+	obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() v1.VMPhase {
-		obj, err := virtClient.RestClient().Get().Resource("vms").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
+		obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 		Expect(err).ToNot(HaveOccurred())
-		fetchedVM := obj.(*v1.VM)
+		fetchedVM := obj.(*v1.VirtualMachine)
 		nodeName = fetchedVM.Status.NodeName
 		return fetchedVM.Status.Phase
 	}).Should(Equal(v1.Running))

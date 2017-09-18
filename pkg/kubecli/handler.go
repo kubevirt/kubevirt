@@ -25,9 +25,9 @@ type VirtHandlerClient interface {
 }
 
 type VirtHandlerConn interface {
-	NodeMigrationDetails(vm *virtv1.VM) (*virtv1.MigrationHostInfo, error)
+	NodeMigrationDetails(vm *virtv1.VirtualMachine) (*virtv1.MigrationHostInfo, error)
 	ConnectionDetails() (ip string, port string, err error)
-	ConsoleURI(vm *virtv1.VM) (*url.URL, error)
+	ConsoleURI(vm *virtv1.VirtualMachine) (*url.URL, error)
 	Pod() (pod *v1.Pod, err error)
 }
 
@@ -79,13 +79,13 @@ func (v *virtHandler) getVirtHandler(nodeName string) (*v1.Pod, bool, error) {
 	return &pods.Items[0], true, nil
 }
 
-func (v *virtHandlerConn) NodeMigrationDetails(vm *virtv1.VM) (*virtv1.MigrationHostInfo, error) {
+func (v *virtHandlerConn) NodeMigrationDetails(vm *virtv1.VirtualMachine) (*virtv1.MigrationHostInfo, error) {
 	ip, port, err := v.ConnectionDetails()
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := http.Get(fmt.Sprintf("http://%s:%s/api/v1/namespaces/%s/vms/%s/migrationHostInfo",
+	resp, err := http.Get(fmt.Sprintf("http://%s:%s/api/v1/namespaces/%s/virtualmachines/%s/migrationHostInfo",
 		ip,
 		port,
 		vm.ObjectMeta.Namespace,
@@ -120,13 +120,13 @@ func (v *virtHandlerConn) ConnectionDetails() (ip string, port string, err error
 }
 
 //TODO move the actual ws handling in here, and work with channels
-func (v *virtHandlerConn) ConsoleURI(vm *virtv1.VM) (*url.URL, error) {
+func (v *virtHandlerConn) ConsoleURI(vm *virtv1.VirtualMachine) (*url.URL, error) {
 	ip, port, err := v.ConnectionDetails()
 	if err != nil {
 		return nil, err
 	}
 	return &url.URL{
-		Path: fmt.Sprintf("/api/v1/namespaces/%s/vms/%s/console", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),
+		Path: fmt.Sprintf("/api/v1/namespaces/%s/virtualmachines/%s/console", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),
 		Host: ip + ":" + port,
 	}, nil
 }

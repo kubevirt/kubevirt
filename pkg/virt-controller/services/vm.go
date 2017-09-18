@@ -43,18 +43,18 @@ import (
 */
 
 type VMService interface {
-	StartVMPod(*corev1.VM) error
-	DeleteVMPod(*corev1.VM) error
-	GetRunningVMPods(*corev1.VM) (*v1.PodList, error)
+	StartVMPod(*corev1.VirtualMachine) error
+	DeleteVMPod(*corev1.VirtualMachine) error
+	GetRunningVMPods(*corev1.VirtualMachine) (*v1.PodList, error)
 	DeleteMigrationTargetPods(*corev1.Migration) error
 	GetRunningMigrationPods(*corev1.Migration) (*v1.PodList, error)
-	CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VM) error
+	CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VirtualMachine) error
 	UpdateMigration(migration *corev1.Migration) error
-	FetchVM(namespace string, vmName string) (*corev1.VM, bool, error)
+	FetchVM(namespace string, vmName string) (*corev1.VirtualMachine, bool, error)
 	FetchMigration(namespace string, migrationName string) (*corev1.Migration, bool, error)
-	StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error
+	StartMigration(migration *corev1.Migration, vm *corev1.VirtualMachine, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error
 	GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error)
-	PutVm(vm *corev1.VM) (*corev1.VM, error)
+	PutVm(vm *corev1.VirtualMachine) (*corev1.VirtualMachine, error)
 }
 
 type vmService struct {
@@ -63,7 +63,7 @@ type vmService struct {
 	TemplateService TemplateService
 }
 
-func (v *vmService) StartVMPod(vm *corev1.VM) error {
+func (v *vmService) StartVMPod(vm *corev1.VirtualMachine) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -88,17 +88,17 @@ func (v *vmService) StartVMPod(vm *corev1.VM) error {
 }
 
 // synchronously put updated VM object to API server.
-func (v *vmService) PutVm(vm *corev1.VM) (*corev1.VM, error) {
+func (v *vmService) PutVm(vm *corev1.VirtualMachine) (*corev1.VirtualMachine, error) {
 	logger := logging.DefaultLogger().Object(vm)
-	obj, err := v.RestClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Get()
+	obj, err := v.RestClient.Put().Resource("virtualmachines").Body(vm).Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Get()
 	if err != nil {
 		logger.Error().Reason(err).Msg("Setting the VM state failed.")
 		return nil, err
 	}
-	return obj.(*corev1.VM), nil
+	return obj.(*corev1.VirtualMachine), nil
 }
 
-func (v *vmService) DeleteVMPod(vm *corev1.VM) error {
+func (v *vmService) DeleteVMPod(vm *corev1.VirtualMachine) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -112,7 +112,7 @@ func (v *vmService) DeleteVMPod(vm *corev1.VM) error {
 	return nil
 }
 
-func (v *vmService) GetRunningVMPods(vm *corev1.VM) (*v1.PodList, error) {
+func (v *vmService) GetRunningVMPods(vm *corev1.VirtualMachine) (*v1.PodList, error) {
 	podList, err := v.KubeCli.CoreV1().Pods(vm.ObjectMeta.Namespace).List(UnfinishedVMPodSelector(vm))
 
 	if err != nil {
@@ -127,15 +127,15 @@ func (v *vmService) UpdateMigration(migration *corev1.Migration) error {
 	return err
 }
 
-func (v *vmService) FetchVM(namespace string, vmName string) (*corev1.VM, bool, error) {
-	resp, err := v.RestClient.Get().Namespace(namespace).Resource("vms").Name(vmName).Do().Get()
+func (v *vmService) FetchVM(namespace string, vmName string) (*corev1.VirtualMachine, bool, error) {
+	resp, err := v.RestClient.Get().Namespace(namespace).Resource("virtualmachines").Name(vmName).Do().Get()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, false, nil
 		}
 		return nil, false, err
 	}
-	vm := resp.(*corev1.VM)
+	vm := resp.(*corev1.VirtualMachine)
 	return vm, true, nil
 }
 
@@ -162,7 +162,7 @@ func NewVMService(KubeCli kubecli.KubevirtClient,
 	return &svc
 }
 
-func UnfinishedVMPodSelector(vm *corev1.VM) metav1.ListOptions {
+func UnfinishedVMPodSelector(vm *corev1.VirtualMachine) metav1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(v1.PodFailed) +
 			",status.phase!=" + string(v1.PodSucceeded))
@@ -173,7 +173,7 @@ func UnfinishedVMPodSelector(vm *corev1.VM) metav1.ListOptions {
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }
 
-func (v *vmService) CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VM) error {
+func (v *vmService) CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VirtualMachine) error {
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
 	migrationLabel := migration.GetObjectMeta().GetName()
 
@@ -204,7 +204,7 @@ func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.Po
 	return podList, nil
 }
 
-func (v *vmService) StartMigration(migration *corev1.Migration, vm *corev1.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error {
+func (v *vmService) StartMigration(migration *corev1.Migration, vm *corev1.VirtualMachine, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error {
 
 	// Look up node migration details
 	nodeDetails, err := kubecli.NewVirtHandlerClient(v.KubeCli).ForNode(targetNode.Name).NodeMigrationDetails(vm)

@@ -324,7 +324,7 @@ func investigateTargetPodSituation(migration *kubev1.Migration, podList *k8sv1.P
 	return podCount, targetPod, nil
 }
 
-func mergeConstraints(migration *kubev1.Migration, vm *kubev1.VM) error {
+func mergeConstraints(migration *kubev1.Migration, vm *kubev1.VirtualMachine) error {
 
 	merged := map[string]string{}
 	for k, v := range vm.Spec.NodeSelector {

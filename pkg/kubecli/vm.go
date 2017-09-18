@@ -28,7 +28,7 @@ import (
 )
 
 func (k *kubevirt) VM(namespace string) VMInterface {
-	return &vms{k.restClient, namespace, "vms"}
+	return &vms{k.restClient, namespace, "virtualmachines"}
 }
 
 type vms struct {
@@ -37,8 +37,8 @@ type vms struct {
 	resource   string
 }
 
-func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VM, err error) {
-	vm = &v1.VM{}
+func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMachine, err error) {
+	vm = &v1.VirtualMachine{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -46,12 +46,12 @@ func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VM, err err
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(vm)
-	vm.SetGroupVersionKind(v1.VMGroupVersionKind)
+	vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	return
 }
 
-func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VMList, err error) {
-	vmList = &v1.VMList{}
+func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VirtualMachineList, err error) {
+	vmList = &v1.VirtualMachineList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -59,33 +59,33 @@ func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VMList, err error)
 		Do().
 		Into(vmList)
 	for _, vm := range vmList.Items {
-		vm.SetGroupVersionKind(v1.VMGroupVersionKind)
+		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	}
 
 	return
 }
 
-func (v *vms) Create(vm *v1.VM) (result *v1.VM, err error) {
-	result = &v1.VM{}
+func (v *vms) Create(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
+	result = &v1.VirtualMachine{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vm).
 		Do().
 		Into(result)
-	result.SetGroupVersionKind(v1.VMGroupVersionKind)
+	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	return
 }
 
-func (v *vms) Update(vm *v1.VM) (result *v1.VM, err error) {
-	result = &v1.VM{}
+func (v *vms) Update(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
+	result = &v1.VirtualMachine{}
 	err = v.restClient.Put().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vm).
 		Do().
 		Into(result)
-	result.SetGroupVersionKind(v1.VMGroupVersionKind)
+	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	return
 }
 

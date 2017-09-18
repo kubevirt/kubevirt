@@ -86,12 +86,12 @@ var _ = Describe("VM", func() {
 		It("should kill the Domain if no cluster wide equivalent exists", func(done Done) {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, struct{}{}),
 				),
 			)
 			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
-			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm")).Do(func(vm *v1.VM) {
+			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm")).Do(func(vm *v1.VirtualMachine) {
 				close(done)
 			})
 
@@ -102,7 +102,7 @@ var _ = Describe("VM", func() {
 			vm.Status.MigrationNodeName = "master"
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -200,7 +200,7 @@ var _ = Describe("PVC", func() {
 
 	Context("Map Source Disks", func() {
 		It("looks up and applies PVC", func() {
-			vm := v1.VM{}
+			vm := v1.VirtualMachine{}
 
 			disk := v1.Disk{
 				Type: "PersistentVolumeClaim",

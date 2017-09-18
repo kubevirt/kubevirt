@@ -88,7 +88,7 @@ var _ = Describe("VM watcher", func() {
 			podListPostCreate := clientv1.PodList{}
 			podListPostCreate.Items = []clientv1.Pod{*pod}
 
-			expectedVM := obj.(*v1.VM)
+			expectedVM := obj.(*v1.VirtualMachine)
 			expectedVM.Status.Phase = v1.Scheduling
 			expectedVM.Status.MigrationNodeName = pod.Spec.NodeName
 
@@ -104,7 +104,7 @@ var _ = Describe("VM watcher", func() {
 				),
 
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -150,7 +150,7 @@ var _ = Describe("VM watcher", func() {
 			// We want to ensure the vm object we initially post
 			// doesn't have ports set, so we make a copy in order
 			// to render the pod object early for the test.
-			vmCopy := v1.VM{}
+			vmCopy := v1.VirtualMachine{}
 			model.Copy(&vmCopy, vm)
 
 			pod, err := templateService.RenderLaunchManifest(&vmCopy)
@@ -189,7 +189,7 @@ var _ = Describe("VM watcher", func() {
 				),
 
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -229,7 +229,7 @@ var _ = Describe("VM watcher", func() {
 			obj, err := conversion.NewCloner().DeepCopy(vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedVM := obj.(*v1.VM)
+			expectedVM := obj.(*v1.VirtualMachine)
 			expectedVM.Status.Phase = v1.Scheduled
 			expectedVM.Status.NodeName = pod.Spec.NodeName
 			expectedVM.ObjectMeta.Labels = map[string]string{v1.NodeNameLabel: pod.Spec.NodeName}
@@ -241,7 +241,7 @@ var _ = Describe("VM watcher", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, pods),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
 					ghttp.VerifyJSONRepresenting(expectedVM),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedVM),
 				),

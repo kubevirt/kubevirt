@@ -30,31 +30,31 @@ choreography, where all components act by themselves to realize the state
 provided by the `VM` objects.
 
 ```
-Client         K8s API     VM TPR  Virt Controller  VM Handler
--------------- ----------- ------- ---------------- ----------
+Client                     K8s API     VM TPR  Virt Controller         VM Handler
+-------------------------- ----------- ------- ----------------------- ----------
 
-               listen <----------- WATCH /vms
-               listen <---------------------------- WATCH /vms
-                                      |                |
-POST /vms ---> validate               |                |
-               create ---> VM ---> observe -------> observe
-                 |          |         v                v
-               validate <--------- POST /pods       defineVM
-               create       |         |                |
-                 |          |         |                |
-               schedPod ---------> observe             |
-                 |          |         v                |
-               validate <--------- PUT /vms            |
-               update ---> VM --------------------> observe
-                 |          |         |             launchVM
-                 |          |         |                |
-                 :          :         :                :
-                 |          |         |                |
-DELETE /vms -> validate     |         |                |
-               delete ----> * --------------------> observe
-                 |                    |             shutdownVM
-                 |                    |                |
-                 :                    :                :
+                           listen <----------- WATCH /virtualmachines
+                           listen <----------------------------------- WATCH /virtualmachines
+                                                  |                       |
+POST /virtualmachines ---> validate               |                       |
+                           create ---> VM ---> observe --------------> observe
+                             |          |         v                       v
+                           validate <--------- POST /pods              defineVM
+                           create       |         |                       |
+                             |          |         |                       |
+                           schedPod ---------> observe                    |
+                             |          |         v                       |
+                           validate <--------- PUT /virtualmachines       |
+                           update ---> VM ---------------------------> observe
+                             |          |         |                    launchVM
+                             |          |         |                       |
+                             :          :         :                       :
+                             |          |         |                       |
+DELETE /virtualmachines -> validate     |         |                       |
+                           delete ----> * ---------------------------> observe
+                             |                    |                    shutdownVM
+                             |                    |                       |
+                             :                    :                       :
 ```
 
 **Disclaimer:** The diagram above is not completely accurate, because

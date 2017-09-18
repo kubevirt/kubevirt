@@ -30,7 +30,7 @@ func (_m *MockPodIsolationDetector) EXPECT() *_MockPodIsolationDetectorRecorder 
 	return _m.recorder
 }
 
-func (_m *MockPodIsolationDetector) Detect(vm *v1.VM) (*IsolationResult, error) {
+func (_m *MockPodIsolationDetector) Detect(vm *v1.VirtualMachine) (*IsolationResult, error) {
 	ret := _m.ctrl.Call(_m, "Detect", vm)
 	ret0, _ := ret[0].(*IsolationResult)
 	ret1, _ := ret[1].(error)
