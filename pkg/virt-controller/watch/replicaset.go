@@ -90,10 +90,10 @@ func (c *VMReplicaSet) Execute() bool {
 	}
 	defer c.queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
-		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing VirtualmachinePool %v", key)
+		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing VirtualMachineReplicaSet %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
-		logging.DefaultLogger().Info().V(4).Msgf("processed VirtualMachinePool %v", key)
+		logging.DefaultLogger().Info().V(4).Msgf("processed VirtualMachineReplicaSet %v", key)
 		c.queue.Forget(key)
 	}
 	return true
@@ -145,10 +145,10 @@ func (c *VMReplicaSet) execute(key string) error {
 	if vmCount < wantedReplicas {
 		// create VM
 		vm := kubev1.NewVMReferenceFromNameWithNS(rs.ObjectMeta.Namespace, "")
-		vm.ObjectMeta.GenerateName = rs.ObjectMeta.Namespace + "-"
+		vm.ObjectMeta.GenerateName = rs.ObjectMeta.Name + "-"
 		vm.Spec = rs.Spec.Template.Spec
 		// TODO check if vm labels exist, and when make sure that they match. For now just override them
-		vm.ObjectMeta.Labels = rs.Spec.Selector.MatchLabels
+		vm.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
 		_, err := c.clientset.VM(rs.ObjectMeta.Namespace).Create(vm)
 		if err != nil {
 			return err
