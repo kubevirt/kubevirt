@@ -57,6 +57,8 @@ var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, V
 
 var MigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "Migration"}
 
+var VMReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineReplicaSet"}
+
 var (
 	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
 	registry             = registered.NewOrDie(GroupVersion.String())
@@ -72,6 +74,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&Spice{},
 		&Migration{},
 		&MigrationList{},
+		&VirtualMachineReplicaSet{},
+		&VirtualMachineReplicaSetList{},
 		&metav1.GetOptions{},
 	)
 	return nil
@@ -213,6 +217,10 @@ func (v *VirtualMachine) IsRunning() bool {
 	return v.Status.Phase == Running || v.Status.Phase == Migrating
 }
 
+func (v *VM) IsFinal() bool {
+	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
+}
+
 // Required to satisfy Object interface
 func (vl *VirtualMachineList) GetObjectKind() schema.ObjectKind {
 	return &vl.TypeMeta
@@ -275,8 +283,8 @@ type VMPhase string
 const (
 	//When a VM Object is first initialized and no phase, or Pending is present.
 	VmPhaseUnset VMPhase = ""
-	Pending      VMPhase = "Pending"
-	// VMPending means the VM has been accepted by the system.
+	// Pending means the VM has been accepted by the system.
+	Pending VMPhase = "Pending"
 	// Either a target pod does not yet exist or a target Pod exists but is not yet scheduled and in running state.
 	Scheduling VMPhase = "Scheduling"
 	// A target pod was scheduled and the system saw that Pod in runnig state.
@@ -636,4 +644,102 @@ func AntiAffinityFromVMNode(vm *VirtualMachine) *k8sv1.Affinity {
 			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{NodeSelectorTerms: []k8sv1.NodeSelectorTerm{selector}},
 		},
 	}
+}
+
+// VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
+type VirtualMachineReplicaSet struct {
+	metav1.TypeMeta `json:",inline"`
+	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
+	// VM Spec contains the VM specification.
+	Spec VMReplicaSetSpec `json:"spec,omitempty" valid:"required"`
+	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
+	Status VMReplicaSetStatus `json:"status"`
+}
+
+// VMList is a list of VMs
+type VirtualMachineReplicaSetList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta            `json:"metadata,omitempty"`
+	Items           []VirtualMachineReplicaSet `json:"items"`
+}
+
+type VMReplicaSetSpec struct {
+	// Number of desired pods. This is a pointer to distinguish between explicit
+	// zero and not specified. Defaults to 1.
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Label selector for pods. Existing ReplicaSets whose pods are
+	// selected by this will be the ones affected by this deployment.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+
+	// Template describes the pods that will be created.
+	Template *VMTemplateSpec `json:"template"`
+}
+
+type VMReplicaSetStatus struct {
+	// Total number of non-terminated pods targeted by this deployment (their labels match the selector).
+	// +optional
+	Replicas int32 `json:"replicas,omitempty" protobuf:"varint,2,opt,name=replicas"`
+
+	Conditions []VMReplicaSetCondition `json:"conditions"`
+}
+
+type VMReplicaSetCondition struct {
+	Type               VMReplicaSetConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus     `json:"status"`
+	LastProbeTime      metav1.Time               `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time               `json:"lastTransitionTime,omitempty"`
+	Reason             string                    `json:"reason,omitempty"`
+	Message            string                    `json:"message,omitempty"`
+}
+
+type VMReplicaSetConditionType string
+
+const (
+	// VMReplicaSetReplicaFailure is added in a replication controller when one of its vms
+	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
+	// etc. or deleted due to kubelet being down or finalizers are failing.
+	VMReplicaSetReplicaFailure VMReplicaSetConditionType = "ReplicaFailure"
+)
+
+type VMTemplateSpec struct {
+	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
+	// VM Spec contains the VM specification.
+	Spec VMSpec `json:"spec,omitempty" valid:"required"`
+}
+
+// Required to satisfy Object interface
+func (v *VirtualMachineReplicaSet) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (v *VirtualMachineReplicaSet) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
+
+func (v *VirtualMachineReplicaSet) UnmarshalJSON(data []byte) error {
+	type VMReplicaSetCopy VirtualMachineReplicaSet
+	tmp := VMReplicaSetCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := VirtualMachineReplicaSet(tmp)
+	*v = tmp2
+	return nil
+}
+
+func (vl *VirtualMachineReplicaSetList) UnmarshalJSON(data []byte) error {
+	type VMReplicaSetListCopy VirtualMachineReplicaSetList
+	tmp := VMReplicaSetListCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := VirtualMachineReplicaSetList(tmp)
+	*vl = tmp2
+	return nil
 }

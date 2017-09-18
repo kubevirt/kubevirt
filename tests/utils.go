@@ -728,3 +728,18 @@ func newUInt(x uint) *uint {
 func newString(x string) *string {
 	return &x
 }
+
+func NewRandomReplicaSetFromVM(vm *v1.VM, replicas int32) *v1.VirtualMachineReplicaSet {
+	name := "replicaset" + rand.String(5)
+	rs := &v1.VirtualMachineReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(5), ResourceVersion: "1"},
+		Spec: v1.VMReplicaSetSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"name": name},
+			},
+			Template: &v1.VMTemplateSpec{Spec: vm.Spec},
+		},
+	}
+	return rs
+}

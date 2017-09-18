@@ -47,6 +47,8 @@ type KubeInformerFactory interface {
 	VM() cache.SharedIndexInformer
 	// Watches for migration objects
 	Migration() cache.SharedIndexInformer
+
+	VMReplicaSet() cache.SharedIndexInformer
 	// Watches for pods related only to kubevirt
 	KubeVirtPod() cache.SharedIndexInformer
 }
@@ -109,7 +111,7 @@ func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer)
 func (f *kubeInformerFactory) VM() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, cache.Indexers{})
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
@@ -117,6 +119,13 @@ func (f *kubeInformerFactory) Migration() cache.SharedIndexInformer {
 	return f.getInformer("migrationInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "migrations", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.Migration{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) VMReplicaSet() cache.SharedIndexInformer {
+	return f.getInformer("VirtualMachineReplicaSet", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachinereplicasets", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineReplicaSet{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

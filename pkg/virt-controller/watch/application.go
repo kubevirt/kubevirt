@@ -37,6 +37,9 @@ type VirtControllerApp struct {
 	vmInformer   cache.SharedIndexInformer
 	vmQueue      workqueue.RateLimitingInterface
 
+	rsController *VMReplicaSet
+	rsInformer   cache.SharedIndexInformer
+
 	host          string
 	port          int
 	launcherImage string
@@ -81,7 +84,10 @@ func Execute() {
 	app.podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(app.migrationQueue)))
 	app.migrationCache = app.migrationInformer.GetStore()
 
+	app.rsInformer = app.informerFactory.VMReplicaSet()
+
 	app.initCommon()
+	app.initReplicaSet()
 	app.Run()
 }
 func (vca *VirtControllerApp) Run() {
@@ -90,8 +96,8 @@ func (vca *VirtControllerApp) Run() {
 	defer close(stop)
 	vca.informerFactory.Start(stop)
 	go vca.vmController.Run(3, stop)
-	//FIXME when we have more than one worker, we need a lock on the VM
 	go vca.migrationController.Run(3, stop)
+	go vca.rsController.Run(3, stop)
 	httpLogger := logger.With("service", "http")
 	httpLogger.Info().Log("action", "listening", "interface", vca.host, "port", vca.port)
 	if err := http.ListenAndServe(vca.host+":"+strconv.Itoa(vca.port), nil); err != nil {
@@ -108,6 +114,10 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
 	vca.migrationController = NewMigrationController(vca.restClient, vca.vmService, vca.clientSet, vca.migrationQueue, vca.migrationInformer, vca.podInformer, vca.migrationCache)
+}
+
+func (vca *VirtControllerApp) initReplicaSet() {
+	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, nil, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) DefineFlags() {
