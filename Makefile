@@ -35,10 +35,12 @@ distclean: clean
 	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
 	rm -f manifest/*.yaml
 	rm -f .glide.*.hash
+	glide cc
 
 checksync:
 	test -f .glide.yaml.hash || ${HASH} glide.yaml > .glide.yaml.hash
 	if [ "`${HASH} glide.yaml`" != "`cat .glide.yaml.hash`" ]; then \
+		glide cc; \
 		glide update --strip-vendor; \
 		${HASH} glide.yaml > .glide.yaml.hash; \
 		${HASH} glide.lock > .glide.lock.hash; \
