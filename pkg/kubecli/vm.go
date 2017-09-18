@@ -80,6 +80,7 @@ func (v *vms) Create(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err erro
 func (v *vms) Update(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
 	result = &v1.VirtualMachine{}
 	err = v.restClient.Put().
+		Name(vm.ObjectMeta.Name).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vm).
