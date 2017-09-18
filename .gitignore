@@ -2,11 +2,12 @@ vendor/*
 !vendor/vendor.json
 .idea
 *.iml
-cmd/virt-manifest/virt-manifest*
-cmd/virt-controller/virt-controller*
-cmd/virt-launcher/virt-launcher*
-cmd/virt-handler/virt-handler*
 cmd/virt-api/virt-api*
+cmd/virt-controller/virt-controller*
+cmd/virt-handler/virt-handler*
+cmd/virt-launcher/virt-launcher*
+cmd/virt-manifest/virt-manifest*
+cmd/virt-vmconfig/virt-vmconfig*
 cmd/virtctl/virtctl*
 manifests/*.yaml
 **/bin

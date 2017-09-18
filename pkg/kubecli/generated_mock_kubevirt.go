@@ -30,6 +30,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	v17 "kubevirt.io/kubevirt/pkg/api/v1"
+	v18 "kubevirt.io/kubevirt/pkg/virt-vmconfig/api/v1"
 )
 
 // Mock of KubevirtClient interface
@@ -71,6 +72,16 @@ func (_m *MockKubevirtClient) Migration(namespace string) MigrationInterface {
 
 func (_mr *_MockKubevirtClientRecorder) Migration(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migration", arg0)
+}
+
+func (_m *MockKubevirtClient) VMConfig(namespace string) VMConfigInterface {
+	ret := _m.ctrl.Call(_m, "VMConfig", namespace)
+	ret0, _ := ret[0].(VMConfigInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) VMConfig(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VMConfig", arg0)
 }
 
 func (_m *MockKubevirtClient) RestClient() *rest.RESTClient {
@@ -581,4 +592,36 @@ func (_m *MockMigrationInterface) Delete(name string, options *v1.DeleteOptions)
 
 func (_mr *_MockMigrationInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
+}
+
+// Mock of VMConfigInterface interface
+type MockVMConfigInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockVMConfigInterfaceRecorder
+}
+
+// Recorder for MockVMConfigInterface (not exported)
+type _MockVMConfigInterfaceRecorder struct {
+	mock *MockVMConfigInterface
+}
+
+func NewMockVMConfigInterface(ctrl *gomock.Controller) *MockVMConfigInterface {
+	mock := &MockVMConfigInterface{ctrl: ctrl}
+	mock.recorder = &_MockVMConfigInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockVMConfigInterface) EXPECT() *_MockVMConfigInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockVMConfigInterface) Get(name string, options v1.GetOptions) (*v18.VMConfig, error) {
+	ret := _m.ctrl.Call(_m, "Get", name, options)
+	ret0, _ := ret[0].(*v18.VMConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVMConfigInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
 }
