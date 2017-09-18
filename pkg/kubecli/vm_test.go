@@ -104,7 +104,7 @@ var _ = Describe("Kubevirt VM Client", func() {
 	It("should update a VM", func() {
 		vm := v1.NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", basePath),
+			ghttp.VerifyRequest("PUT", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
 		updatedVM, err := client.VM(k8sv1.NamespaceDefault).Update(vm)

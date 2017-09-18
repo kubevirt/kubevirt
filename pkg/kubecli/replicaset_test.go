@@ -104,7 +104,7 @@ var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
 	It("should update a VirtualMachineReplicaSet", func() {
 		rs := NewMinimalVMReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", basePath),
+			ghttp.VerifyRequest("PUT", rsPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
 		updatedVMReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Update(rs)

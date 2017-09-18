@@ -102,7 +102,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 	It("should update a Migration", func() {
 		migration := v1.NewMinimalMigration("testmigration", "testmigration")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", basePath),
+			ghttp.VerifyRequest("PUT", migrationPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
 		updatedMigration, err := client.Migration(k8sv1.NamespaceDefault).Update(migration)

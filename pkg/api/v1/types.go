@@ -672,10 +672,10 @@ type VMReplicaSetSpec struct {
 	// Label selector for pods. Existing ReplicaSets whose pods are
 	// selected by this will be the ones affected by this deployment.
 	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+	Selector *metav1.LabelSelector `json:"selector,omitempty" valid:"required"`
 
 	// Template describes the pods that will be created.
-	Template *VMTemplateSpec `json:"template"`
+	Template *VMTemplateSpec `json:"template" valid:"required"`
 }
 
 type VMReplicaSetStatus struct {
@@ -742,4 +742,14 @@ func (vl *VirtualMachineReplicaSetList) UnmarshalJSON(data []byte) error {
 	tmp2 := VirtualMachineReplicaSetList(tmp)
 	*vl = tmp2
 	return nil
+}
+
+// Required to satisfy Object interface
+func (vl *VirtualMachineReplicaSetList) GetObjectKind() schema.ObjectKind {
+	return &vl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (vl *VirtualMachineReplicaSetList) GetListMeta() metav1.List {
+	return &vl.ListMeta
 }
