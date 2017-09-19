@@ -51,20 +51,20 @@ var _ = Describe("Replicaset", func() {
 
 	Context("One valid ReplicaSet controller given", func() {
 
-		It("should create a VM and increase the replica count", func() {
+		It("should create missing VMs and increase the replica count", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 			rs := ReplicaSetFromVM("rs", vm, 3)
 
 			expectedRS := clone(rs)
-			expectedRS.Status.Replicas = 1
+			expectedRS.Status.Replicas = 3
 
 			rsSource.Add(rs)
 
 			sync(stop)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
-			vmInterface.EXPECT().Create(gomock.Any())
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
+			vmInterface.EXPECT().Create(gomock.Any()).Times(3)
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 			rsInterface.EXPECT().Update(expectedRS)
 

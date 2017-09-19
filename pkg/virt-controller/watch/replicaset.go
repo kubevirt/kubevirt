@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"sync"
+
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -117,19 +119,13 @@ func (c *VMReplicaSet) execute(key string) error {
 		return nil
 	}
 
-	//TODO should be added when creating the controller
-	// This is a default value
-	wantedReplicas := int32(1)
-	if rs.Spec.Replicas != nil {
-		wantedReplicas = *rs.Spec.Replicas
-	}
 	selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
 	if err != nil {
 		return nil
 	}
 
 	// get all potentially interesting VMs from the cache
-	vms, err := c.listPodsFromNamespace(rs.ObjectMeta.Namespace)
+	vms, err := c.listVMsFromNamespace(rs.ObjectMeta.Namespace)
 
 	if err != nil {
 		return err
@@ -141,42 +137,95 @@ func (c *VMReplicaSet) execute(key string) error {
 	// make sure the selector of the controller matches and the VMs match
 	vms = c.filterMatchingVMs(selector, vms)
 
-	vmCount := int32(len(vms))
-	if vmCount < wantedReplicas {
-		// create VM
-		vm := kubev1.NewVMReferenceFromNameWithNS(rs.ObjectMeta.Namespace, "")
-		vm.ObjectMeta.GenerateName = rs.ObjectMeta.Name + "-"
-		vm.Spec = rs.Spec.Template.Spec
-		// TODO check if vm labels exist, and when make sure that they match. For now just override them
-		vm.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
-		_, err := c.clientset.VM(rs.ObjectMeta.Namespace).Create(vm)
-		if err != nil {
-			return err
-		}
-		vmCount += 1
-	} else if vmCount > wantedReplicas {
-		// delete VM
-		// TODO graceful delete only
-		deleteCandidate := vms[0]
-		if err != nil {
-			return err
-		}
-		c.clientset.VM(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
-		vmCount -= 1
+	// Scale up or down
+	err = c.scale(rs, vms)
+	if err != nil {
+		return err
 	}
-	if rs.Status.Replicas != vmCount {
+
+	//TODO default this on the aggregated api server
+	// This is a default value
+	wantedReplicas := int32(1)
+	if rs.Spec.Replicas != nil {
+		wantedReplicas = *rs.Spec.Replicas
+	}
+
+	//If we ever reach this point, we only have to make sure that the replica count in the spec and status match
+	if rs.Status.Replicas != wantedReplicas {
 		obj, err = model.Clone(rs)
 		if err != nil {
 			return err
 		}
 		rsCopy := obj.(*kubev1.VirtualMachineReplicaSet)
-		rsCopy.Status.Replicas = vmCount
+		rsCopy.Status.Replicas = wantedReplicas
 		_, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rsCopy)
 		if err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (c *VMReplicaSet) scale(rs *kubev1.VirtualMachineReplicaSet, vms []kubev1.VM) error {
+
+	// TODO default this on the aggregated api server
+	wantedReplicas := int32(1)
+	if rs.Spec.Replicas != nil {
+		wantedReplicas = *rs.Spec.Replicas
+	}
+
+	diff := len(vms) - int(wantedReplicas)
+
+	if diff == 0 {
+		return nil
+	}
+
+	// Every delete request can fail, give the channel enough room, to not block the go routines
+	errChan := make(chan error, abs(diff))
+
+	var wg sync.WaitGroup
+	wg.Add(abs(diff))
+
+	if diff > 0 {
+		// We have to delete VMs
+		for i := 0; i < diff; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				deleteCandidate := vms[idx]
+				// TODO graceful delete
+				err := c.clientset.VM(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
+				if err != nil {
+					errChan <- err
+				}
+			}(i)
+		}
+
+	} else if diff < 0 {
+		// We have to create VMs
+		for i := diff; i < 0; i++ {
+			go func() {
+				defer wg.Done()
+				vm := kubev1.NewVMReferenceFromNameWithNS(rs.ObjectMeta.Namespace, "")
+				vm.ObjectMeta.GenerateName = rs.ObjectMeta.Name + "-"
+				vm.Spec = rs.Spec.Template.Spec
+				// TODO check if vm labels exist, and when make sure that they match. For now just override them
+				vm.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
+				_, err := c.clientset.VM(rs.ObjectMeta.Namespace).Create(vm)
+				if err != nil {
+					errChan <- err
+				}
+			}()
+		}
+	}
+	wg.Wait()
+
+	select {
+	case err := <-errChan:
+		// Only return the first error which occurred, the others will most likely be equal errors
+		return err
+	default:
+	}
 	return nil
 }
 
@@ -206,8 +255,8 @@ func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []kubev1.
 	return filtered
 }
 
-// listPodsFromNamespace takes a namespace and returns all VMs from the VM cache which run in this namespace
-func (c *VMReplicaSet) listPodsFromNamespace(namespace string) ([]kubev1.VM, error) {
+// listVMsFromNamespace takes a namespace and returns all VMs from the VM cache which run in this namespace
+func (c *VMReplicaSet) listVMsFromNamespace(namespace string) ([]kubev1.VM, error) {
 	objs, err := c.vmInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
@@ -234,7 +283,7 @@ func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]kubev1.V
 }
 
 // vmChangeFunc checks if the supplied VM matches a replica set controller in it's namespace
-// and wakes the first controller it encounters.
+// and wakes the first controller which matches the VM labels.
 func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
 	vm := obj.(*kubev1.VM)
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
@@ -263,4 +312,11 @@ func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
 		}
 
 	}
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
