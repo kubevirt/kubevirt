@@ -593,9 +593,9 @@ func (_m *MockReplicaSetInterface) EXPECT() *_MockReplicaSetInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockReplicaSetInterface) Get(name string, options v1.GetOptions) (*v17.VirtualMachineReplicaSet, error) {
+func (_m *MockReplicaSetInterface) Get(name string, options v1.GetOptions) (*v18.VirtualMachineReplicaSet, error) {
 	ret := _m.ctrl.Call(_m, "Get", name, options)
-	ret0, _ := ret[0].(*v17.VirtualMachineReplicaSet)
+	ret0, _ := ret[0].(*v18.VirtualMachineReplicaSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -604,9 +604,9 @@ func (_mr *_MockReplicaSetInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
 }
 
-func (_m *MockReplicaSetInterface) List(opts v1.ListOptions) (*v17.VirtualMachineReplicaSetList, error) {
+func (_m *MockReplicaSetInterface) List(opts v1.ListOptions) (*v18.VirtualMachineReplicaSetList, error) {
 	ret := _m.ctrl.Call(_m, "List", opts)
-	ret0, _ := ret[0].(*v17.VirtualMachineReplicaSetList)
+	ret0, _ := ret[0].(*v18.VirtualMachineReplicaSetList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -615,9 +615,9 @@ func (_mr *_MockReplicaSetInterfaceRecorder) List(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
 }
 
-func (_m *MockReplicaSetInterface) Create(_param0 *v17.VirtualMachineReplicaSet) (*v17.VirtualMachineReplicaSet, error) {
+func (_m *MockReplicaSetInterface) Create(_param0 *v18.VirtualMachineReplicaSet) (*v18.VirtualMachineReplicaSet, error) {
 	ret := _m.ctrl.Call(_m, "Create", _param0)
-	ret0, _ := ret[0].(*v17.VirtualMachineReplicaSet)
+	ret0, _ := ret[0].(*v18.VirtualMachineReplicaSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -626,9 +626,9 @@ func (_mr *_MockReplicaSetInterfaceRecorder) Create(arg0 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
 }
 
-func (_m *MockReplicaSetInterface) Update(_param0 *v17.VirtualMachineReplicaSet) (*v17.VirtualMachineReplicaSet, error) {
+func (_m *MockReplicaSetInterface) Update(_param0 *v18.VirtualMachineReplicaSet) (*v18.VirtualMachineReplicaSet, error) {
 	ret := _m.ctrl.Call(_m, "Update", _param0)
-	ret0, _ := ret[0].(*v17.VirtualMachineReplicaSet)
+	ret0, _ := ret[0].(*v18.VirtualMachineReplicaSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -750,6 +750,58 @@ func (vl *VirtualMachineReplicaSetList) GetObjectKind() schema.ObjectKind {
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (vl *VirtualMachineReplicaSetList) GetListMeta() metav1.List {
+func (vl *VirtualMachineReplicaSetList) GetListMeta() meta.List {
 	return &vl.ListMeta
+}
+
+func (in *VirtualMachineReplicaSet) DeepCopyInto(out *VirtualMachineReplicaSet) {
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*VirtualMachineReplicaSet)
+	return
+}
+
+func (in *VirtualMachineReplicaSet) DeepCopy() *VirtualMachineReplicaSet {
+	if in == nil {
+		return nil
+	}
+	out := new(VirtualMachineReplicaSet)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *VirtualMachineReplicaSet) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
+}
+
+func (in *VirtualMachineReplicaSetList) DeepCopyInto(out *VirtualMachineReplicaSetList) {
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*VirtualMachineReplicaSetList)
+	return
+}
+
+func (in *VirtualMachineReplicaSetList) DeepCopy() *VirtualMachineReplicaSetList {
+	if in == nil {
+		return nil
+	}
+	out := new(VirtualMachineReplicaSetList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *VirtualMachineReplicaSetList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
 }
