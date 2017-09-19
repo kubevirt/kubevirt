@@ -38,23 +38,23 @@ import (
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
+		options.FieldSelector = fieldSelector.String()
+		options.LabelSelector = labelSelector.String()
 		return c.Get().
 			Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
-			FieldsSelectorParam(fieldSelector).
-			LabelsSelectorParam(labelSelector).
 			Do().
 			Get()
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
+		options.FieldSelector = fieldSelector.String()
+		options.LabelSelector = labelSelector.String()
 		return c.Get().
 			Prefix("watch").
 			Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
-			FieldsSelectorParam(fieldSelector).
-			LabelsSelectorParam(labelSelector).
 			Watch()
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}

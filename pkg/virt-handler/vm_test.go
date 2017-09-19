@@ -232,7 +232,7 @@ var _ = Describe("PVC", func() {
 		})
 		It("should fail on unsupported PV disk types", func() {
 			expectedPV.Spec.ISCSI = nil
-			expectedPV.Spec.CephFS = &k8sv1.CephFSVolumeSource{}
+			expectedPV.Spec.CephFS = &k8sv1.CephFSPersistentVolumeSource{}
 			disk := v1.Disk{
 				Type: "PersistentVolumeClaim",
 				Source: v1.DiskSource{

@@ -33,8 +33,6 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -227,17 +225,7 @@ func NewGenericGetListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionReso
 		if err != nil {
 			return middleware.NewBadRequestError(err.Error()), nil
 		}
-		fieldSelector, err := fields.ParseSelector(listOptions.FieldSelector)
-		if err != nil {
-			return middleware.NewBadRequestError(err.Error()), nil
-		}
-		labelSelector, err := labels.Parse(listOptions.LabelSelector)
-		if err != nil {
-			return middleware.NewBadRequestError(err.Error()), nil
-		}
 		result := cli.Get().Namespace(metadata.Namespace).
-			FieldsSelectorParam(fieldSelector).
-			LabelsSelectorParam(labelSelector).
 			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
 			Resource(gvr.Resource).Do()
 		return response(result)
@@ -251,17 +239,7 @@ func NewGenericDeleteListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionR
 		if err != nil {
 			return middleware.NewBadRequestError(err.Error()), nil
 		}
-		fieldSelector, err := fields.ParseSelector(listOptions.FieldSelector)
-		if err != nil {
-			return middleware.NewBadRequestError(err.Error()), nil
-		}
-		labelSelector, err := labels.Parse(listOptions.LabelSelector)
-		if err != nil {
-			return middleware.NewBadRequestError(err.Error()), nil
-		}
 		result := cli.Delete().Namespace(metadata.Namespace).
-			FieldsSelectorParam(fieldSelector).
-			LabelsSelectorParam(labelSelector).
 			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
 			Resource(gvr.Resource).Do()
 		return response(result)

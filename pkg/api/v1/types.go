@@ -34,6 +34,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	k8sv1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apimachinery/announced"
 	"k8s.io/apimachinery/pkg/apimachinery/registered"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,7 +83,6 @@ func init() {
 		&announced.GroupMetaFactoryArgs{
 			GroupName:              GroupName,
 			VersionPreferenceOrder: []string{GroupVersion.Version},
-			ImportPrefix:           "kubevirt.io/kubevirt/pkg/api/v1",
 		},
 		announced.VersionToSchemeFunc{
 			GroupVersion.Version: SchemeBuilder.AddToScheme,
@@ -110,11 +110,63 @@ type VM struct {
 	Status VMStatus `json:"status"`
 }
 
+func (in *VM) DeepCopyInto(out *VM) {
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*VM)
+	return
+}
+
+func (in *VM) DeepCopy() *VM {
+	if in == nil {
+		return nil
+	}
+	out := new(VM)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *VM) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
+}
+
 // VMList is a list of VMs
 type VMList struct {
 	metav1.TypeMeta `json:",inline"`
 	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VM            `json:"items"`
+}
+
+func (in *VMList) DeepCopyInto(out *VMList) {
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*VMList)
+	return
+}
+
+func (in *VMList) DeepCopy() *VMList {
+	if in == nil {
+		return nil
+	}
+	out := new(VMList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *VMList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
 }
 
 // VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.
@@ -167,7 +219,7 @@ func (vl *VMList) GetObjectKind() schema.ObjectKind {
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (vl *VMList) GetListMeta() metav1.List {
+func (vl *VMList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
 
@@ -323,6 +375,32 @@ type Spice struct {
 	Info            SpiceInfo         `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
 }
 
+func (in *Spice) DeepCopyInto(out *Spice) {
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*Spice)
+	return
+}
+
+func (in *Spice) DeepCopy() *Spice {
+	if in == nil {
+		return nil
+	}
+	out := new(Spice)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *Spice) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
+}
+
 type SpiceInfo struct {
 	Type  string `json:"type" ini:"type"`
 	Host  string `json:"host" ini:"host"`
@@ -381,6 +459,32 @@ type Migration struct {
 	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec            MigrationSpec     `json:"spec,omitempty" valid:"required"`
 	Status          MigrationStatus   `json:"status,omitempty"`
+}
+
+func (in *Migration) DeepCopyInto(out *Migration) {
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*Migration)
+	return
+}
+
+func (in *Migration) DeepCopy() *Migration {
+	if in == nil {
+		return nil
+	}
+	out := new(Migration)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *Migration) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
 }
 
 // MigrationSpec is a description of a VM Migration
@@ -460,13 +564,39 @@ type MigrationList struct {
 	Items           []Migration     `json:"items"`
 }
 
+func (in *MigrationList) DeepCopyInto(out *MigrationList) {
+	v, err := model.Clone(in)
+	if err != nil {
+		panic(err)
+	}
+	out = v.(*MigrationList)
+	return
+}
+
+func (in *MigrationList) DeepCopy() *MigrationList {
+	if in == nil {
+		return nil
+	}
+	out := new(MigrationList)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *MigrationList) DeepCopyObject() runtime.Object {
+	if c := in.DeepCopy(); c != nil {
+		return c
+	} else {
+		return nil
+	}
+}
+
 // Required to satisfy Object interface
 func (ml *MigrationList) GetObjectKind() schema.ObjectKind {
 	return &ml.TypeMeta
 }
 
 // Required to satisfy ListMetaAccessor interface
-func (ml *MigrationList) GetListMeta() metav1.List {
+func (ml *MigrationList) GetListMeta() meta.List {
 	return &ml.ListMeta
 }
 
