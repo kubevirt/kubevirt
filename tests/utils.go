@@ -393,6 +393,9 @@ func cleanNamespaces() {
 			continue
 		}
 
+		// Remove all VirtualMachineReplicaSets
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachinereplicasets").Do().Error())
+
 		// Remove all Migrations
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("migrations").Do().Error())
 
