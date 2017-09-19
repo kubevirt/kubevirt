@@ -33,7 +33,9 @@ import (
 
 	"sync"
 
-	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	k8score "k8s.io/api/core/v1"
+
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 )
@@ -111,7 +113,7 @@ func (c *VMReplicaSet) execute(key string) error {
 		// nothing we need to do. It should always be possible to re-create this type of controller
 		return nil
 	}
-	rs := obj.(*kubev1.VirtualMachineReplicaSet)
+	rs := obj.(*virtv1.VirtualMachineReplicaSet)
 
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
 	if rs.Spec.Template == nil || rs.Spec.Selector == nil || rs.Spec.Selector.Size() == 0 {
@@ -138,44 +140,20 @@ func (c *VMReplicaSet) execute(key string) error {
 	vms = c.filterMatchingVMs(selector, vms)
 
 	// Scale up or down
-	err = c.scale(rs, vms)
+	scaleErr := c.scale(rs, vms)
+
+	obj, err = model.Clone(rs)
 	if err != nil {
 		return err
 	}
+	rsCopy := obj.(*virtv1.VirtualMachineReplicaSet)
 
-	//TODO default this on the aggregated api server
-	// This is a default value
-	wantedReplicas := int32(1)
-	if rs.Spec.Replicas != nil {
-		wantedReplicas = *rs.Spec.Replicas
-	}
-
-	//If we ever reach this point, we only have to make sure that the replica count in the spec and status match
-	if rs.Status.Replicas != wantedReplicas {
-		obj, err = model.Clone(rs)
-		if err != nil {
-			return err
-		}
-		rsCopy := obj.(*kubev1.VirtualMachineReplicaSet)
-		rsCopy.Status.Replicas = wantedReplicas
-		_, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rsCopy)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return c.updateStatus(rsCopy, vms, scaleErr)
 }
 
-func (c *VMReplicaSet) scale(rs *kubev1.VirtualMachineReplicaSet, vms []kubev1.VM) error {
+func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VM) error {
 
-	// TODO default this on the aggregated api server
-	wantedReplicas := int32(1)
-	if rs.Spec.Replicas != nil {
-		wantedReplicas = *rs.Spec.Replicas
-	}
-
-	diff := len(vms) - int(wantedReplicas)
+	diff := c.calcDiff(rs, vms)
 
 	if diff == 0 {
 		return nil
@@ -206,7 +184,7 @@ func (c *VMReplicaSet) scale(rs *kubev1.VirtualMachineReplicaSet, vms []kubev1.V
 		for i := diff; i < 0; i++ {
 			go func() {
 				defer wg.Done()
-				vm := kubev1.NewVMReferenceFromNameWithNS(rs.ObjectMeta.Namespace, "")
+				vm := virtv1.NewVMReferenceFromNameWithNS(rs.ObjectMeta.Namespace, "")
 				vm.ObjectMeta.GenerateName = rs.ObjectMeta.Name + "-"
 				vm.Spec = rs.Spec.Template.Spec
 				// TODO check if vm labels exist, and when make sure that they match. For now just override them
@@ -232,8 +210,8 @@ func (c *VMReplicaSet) scale(rs *kubev1.VirtualMachineReplicaSet, vms []kubev1.V
 // filterActiveVMs takes a list of VMs and returns all VMs which are not in a final state
 // Note that vms which have a deletion timestamp set, are still treated as active.
 // This is a difference to Pod ReplicaSets
-func (c *VMReplicaSet) filterActiveVMs(vms []kubev1.VM) []kubev1.VM {
-	filtered := []kubev1.VM{}
+func (c *VMReplicaSet) filterActiveVMs(vms []virtv1.VM) []virtv1.VM {
+	filtered := []virtv1.VM{}
 	for _, vm := range vms {
 		if !vm.IsFinal() {
 			filtered = append(filtered, vm)
@@ -244,9 +222,9 @@ func (c *VMReplicaSet) filterActiveVMs(vms []kubev1.VM) []kubev1.VM {
 
 // filterMatchingVMs takes a selector and a list of VMs. If the VM labels match the selector it is added to the filtered collection.
 // Returns the list of all VMs which match the selector
-func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []kubev1.VM) []kubev1.VM {
+func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []virtv1.VM) []virtv1.VM {
 	//TODO take owner reference into account
-	filtered := []kubev1.VM{}
+	filtered := []virtv1.VM{}
 	for _, vm := range vms {
 		if selector.Matches(labels.Set(vm.ObjectMeta.Labels)) {
 			filtered = append(filtered, vm)
@@ -256,27 +234,27 @@ func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []kubev1.
 }
 
 // listVMsFromNamespace takes a namespace and returns all VMs from the VM cache which run in this namespace
-func (c *VMReplicaSet) listVMsFromNamespace(namespace string) ([]kubev1.VM, error) {
+func (c *VMReplicaSet) listVMsFromNamespace(namespace string) ([]virtv1.VM, error) {
 	objs, err := c.vmInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
-	vms := []kubev1.VM{}
+	vms := []virtv1.VM{}
 	for _, obj := range objs {
-		vms = append(vms, *obj.(*kubev1.VM))
+		vms = append(vms, *obj.(*virtv1.VM))
 	}
 	return vms, nil
 }
 
 // listControllerFromNamespace takes a namespace and returns all VMReplicaSets from the ReplicaSet cache which run in this namespace
-func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]kubev1.VirtualMachineReplicaSet, error) {
+func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]virtv1.VirtualMachineReplicaSet, error) {
 	objs, err := c.vmRSInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
-	replicaSets := []kubev1.VirtualMachineReplicaSet{}
+	replicaSets := []virtv1.VirtualMachineReplicaSet{}
 	for _, obj := range objs {
-		rs := obj.(*kubev1.VirtualMachineReplicaSet)
+		rs := obj.(*virtv1.VirtualMachineReplicaSet)
 		replicaSets = append(replicaSets, *rs)
 	}
 	return replicaSets, nil
@@ -285,7 +263,7 @@ func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]kubev1.V
 // vmChangeFunc checks if the supplied VM matches a replica set controller in it's namespace
 // and wakes the first controller which matches the VM labels.
 func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
-	vm := obj.(*kubev1.VM)
+	vm := obj.(*virtv1.VM)
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
 		//TODO error handling
@@ -319,4 +297,61 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+func (c *VMReplicaSet) getCondition(rs *virtv1.VirtualMachineReplicaSet, cond virtv1.VMReplicaSetConditionType) *virtv1.VMReplicaSetCondition {
+	for _, c := range rs.Status.Conditions {
+		if c.Type == cond {
+			return &c
+		}
+	}
+	return nil
+}
+
+func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VM, scaleErr error) error {
+
+	diff := c.calcDiff(rs, vms)
+
+	if scaleErr != nil {
+		// If an error occured, only update to filtered pod count
+		rs.Status.Replicas = int32(len(vms))
+	} else {
+		// If no error occured we have reached our required scale number
+		rs.Status.Replicas = int32(len(vms) - diff)
+	}
+
+	if scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil {
+		var reason string
+		if diff < 0 {
+			reason = "FailedCreate"
+		} else {
+			reason = "FailedDelete"
+		}
+
+		rs.Status.Conditions = []virtv1.VMReplicaSetCondition{
+			{
+				Type:               virtv1.VMReplicaSetReplicaFailure,
+				Reason:             reason,
+				Message:            scaleErr.Error(),
+				LastTransitionTime: v1.Now(),
+				Status:             k8score.ConditionTrue,
+			},
+		}
+
+	} else if scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil {
+		rs.Status.Conditions = []virtv1.VMReplicaSetCondition{}
+	}
+
+	_, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+	return err
+}
+
+func (c *VMReplicaSet) calcDiff(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VM) int {
+	// TODO default this on the aggregated api server
+	wantedReplicas := int32(1)
+	if rs.Spec.Replicas != nil {
+		wantedReplicas = *rs.Spec.Replicas
+	}
+
+	return len(vms) - int(wantedReplicas)
 }

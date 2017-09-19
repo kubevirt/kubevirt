@@ -11,6 +11,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
 
+	"fmt"
+
+	v13 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
@@ -71,6 +75,29 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 		})
 
+		It("should ignore non-matching VMs", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 3)
+
+			expectedRS := clone(rs)
+			expectedRS.Status.Replicas = 3
+
+			// We still expect three calls to create VMs, since VM does not meet the requirements
+			vm.ObjectMeta.Labels = map[string]string{"test": "test1"}
+			vmSource.Add(vm)
+			rsSource.Add(rs)
+
+			sync(stop)
+
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
+			vmInterface.EXPECT().Create(gomock.Any()).Times(3)
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
+			rsInterface.EXPECT().Update(expectedRS)
+
+			controller.Execute()
+		})
+
 		It("should delete a VM and decrease the replica count", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
@@ -104,6 +131,8 @@ var _ = Describe("Replicaset", func() {
 
 			sync(stop)
 
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
+			rsInterface.EXPECT().Update(rs)
 			controller.Execute()
 		})
 
@@ -117,6 +146,9 @@ var _ = Describe("Replicaset", func() {
 			rsSource.Add(rs)
 
 			sync(stop)
+
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
+			rsInterface.EXPECT().Update(rs).Times(2)
 
 			// First make sure that we don't have to do anything
 			controller.Execute()
@@ -132,6 +164,109 @@ var _ = Describe("Replicaset", func() {
 			// Run the controller again
 			controller.Execute()
 		})
+
+		It("should add a fail condition if scaling fails", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 3)
+
+			vmSource.Add(vm)
+			rsSource.Add(rs)
+
+			sync(stop)
+
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
+			// Let first one succeed
+			vmInterface.EXPECT().Create(gomock.Any())
+			// Let second one fail
+			vmInterface.EXPECT().Create(gomock.Any()).Return(nil, fmt.Errorf("failure"))
+
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
+
+			// We should see the failed condition, replicas should stay at 0
+			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objRS := obj.(*v1.VirtualMachineReplicaSet)
+				Expect(objRS.Status.Replicas).To(Equal(int32(1)))
+				Expect(objRS.Status.Conditions).To(HaveLen(1))
+				cond := objRS.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.VMReplicaSetReplicaFailure))
+				Expect(cond.Reason).To(Equal("FailedCreate"))
+				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Status).To(Equal(v13.ConditionTrue))
+			})
+
+			controller.Execute()
+		})
+
+		It("should update the replica count but keep the failed state", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 3)
+			rs.Status.Conditions = []v1.VMReplicaSetCondition{
+				{
+					Type:               v1.VMReplicaSetReplicaFailure,
+					LastTransitionTime: v12.Now(),
+					Message:            "test",
+				},
+			}
+
+			vmSource.Add(vm)
+			rsSource.Add(rs)
+
+			sync(stop)
+
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
+			// Let first one succeed
+			vmInterface.EXPECT().Create(gomock.Any())
+			// Let second one fail
+			vmInterface.EXPECT().Create(gomock.Any()).Return(nil, fmt.Errorf("failure"))
+
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
+
+			// We should see the failed condition, replicas should stay at 0
+			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objRS := obj.(*v1.VirtualMachineReplicaSet)
+				Expect(objRS.Status.Replicas).To(Equal(int32(1)))
+				Expect(objRS.Status.Conditions).To(HaveLen(1))
+				cond := objRS.Status.Conditions[0]
+				Expect(cond.Message).To(Equal(rs.Status.Conditions[0].Message))
+				Expect(cond.LastTransitionTime).To(Equal(rs.Status.Conditions[0].LastTransitionTime))
+			})
+
+			controller.Execute()
+		})
+		It("should update the replica count and remove the failed condition", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 3)
+			rs.Status.Conditions = []v1.VMReplicaSetCondition{
+				{
+					Type:               v1.VMReplicaSetReplicaFailure,
+					LastTransitionTime: v12.Now(),
+					Message:            "test",
+				},
+			}
+
+			vmSource.Add(vm)
+			rsSource.Add(rs)
+
+			sync(stop)
+
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
+			vmInterface.EXPECT().Create(gomock.Any()).Times(2)
+
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
+
+			// We should see the failed condition, replicas should stay at 0
+			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objRS := obj.(*v1.VirtualMachineReplicaSet)
+				Expect(objRS.Status.Replicas).To(Equal(int32(3)))
+				Expect(objRS.Status.Conditions).To(HaveLen(0))
+			})
+
+			controller.Execute()
+		})
+
 	})
 })
 
