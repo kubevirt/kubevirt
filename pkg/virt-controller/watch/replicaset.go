@@ -116,7 +116,7 @@ func (c *VMReplicaSet) execute(key string) error {
 	rs := obj.(*virtv1.VirtualMachineReplicaSet)
 
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
-	if rs.Spec.Template == nil || rs.Spec.Selector == nil || rs.Spec.Selector.Size() == 0 {
+	if rs.Spec.Template == nil || rs.Spec.Selector == nil || len(rs.Spec.Template.ObjectMeta.Labels) == 0 {
 		logging.DefaultLogger().Object(rs).Error().Msg("Invalid controller spec, will not retry processing it.")
 		return nil
 	}
@@ -181,11 +181,14 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 
 	} else if diff < 0 {
 		// We have to create VMs
+		basename := c.getVirtualMachineBaseName(rs)
 		for i := diff; i < 0; i++ {
 			go func() {
 				defer wg.Done()
 				vm := virtv1.NewVMReferenceFromNameWithNS(rs.ObjectMeta.Namespace, "")
-				vm.ObjectMeta.GenerateName = rs.ObjectMeta.Name + "-"
+				vm.ObjectMeta = rs.Spec.Template.ObjectMeta
+				vm.ObjectMeta.Name = ""
+				vm.ObjectMeta.GenerateName = basename
 				vm.Spec = rs.Spec.Template.Spec
 				// TODO check if vm labels exist, and when make sure that they match. For now just override them
 				vm.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
@@ -354,4 +357,16 @@ func (c *VMReplicaSet) calcDiff(rs *virtv1.VirtualMachineReplicaSet, vms []virtv
 	}
 
 	return len(vms) - int(wantedReplicas)
+}
+
+func (c *VMReplicaSet) getVirtualMachineBaseName(replicaset *virtv1.VirtualMachineReplicaSet) string {
+
+	// TODO defaulting should make sure that the right field is set, instead of doing this
+	if len(replicaset.Spec.Template.ObjectMeta.Name) > 0 {
+		return replicaset.Spec.Template.ObjectMeta.Name
+	}
+	if len(replicaset.Spec.Template.ObjectMeta.GenerateName) > 0 {
+		return replicaset.Spec.Template.ObjectMeta.GenerateName
+	}
+	return replicaset.ObjectMeta.Name
 }

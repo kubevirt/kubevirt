@@ -68,7 +68,9 @@ var _ = Describe("Replicaset", func() {
 			sync(stop)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
-			vmInterface.EXPECT().Create(gomock.Any()).Times(3)
+			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VM).ObjectMeta.GenerateName).To(Equal("testvm"))
+			})
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 			rsInterface.EXPECT().Update(expectedRS)
 
