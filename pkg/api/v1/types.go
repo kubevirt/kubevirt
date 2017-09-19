@@ -110,25 +110,25 @@ type VirtualMachine struct {
 	Status VMStatus `json:"status"`
 }
 
-func (in *VM) DeepCopyInto(out *VM) {
+func (in *VirtualMachine) DeepCopyInto(out *VirtualMachine) {
 	v, err := model.Clone(in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*VM)
+	out = v.(*VirtualMachine)
 	return
 }
 
-func (in *VM) DeepCopy() *VM {
+func (in *VirtualMachine) DeepCopy() *VirtualMachine {
 	if in == nil {
 		return nil
 	}
-	out := new(VM)
+	out := new(VirtualMachine)
 	in.DeepCopyInto(out)
 	return out
 }
 
-func (in *VM) DeepCopyObject() runtime.Object {
+func (in *VirtualMachine) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	} else {
@@ -143,25 +143,25 @@ type VirtualMachineList struct {
 	Items           []VirtualMachine `json:"items"`
 }
 
-func (in *VMList) DeepCopyInto(out *VMList) {
+func (in *VirtualMachineList) DeepCopyInto(out *VirtualMachineList) {
 	v, err := model.Clone(in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*VMList)
+	out = v.(*VirtualMachineList)
 	return
 }
 
-func (in *VMList) DeepCopy() *VMList {
+func (in *VirtualMachineList) DeepCopy() *VirtualMachineList {
 	if in == nil {
 		return nil
 	}
-	out := new(VMList)
+	out := new(VirtualMachineList)
 	in.DeepCopyInto(out)
 	return out
 }
 
-func (in *VMList) DeepCopyObject() runtime.Object {
+func (in *VirtualMachineList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c
 	} else {
