@@ -40,7 +40,7 @@ spec:
       [...]  
 ```
 
-`spec.template` is similar to a `VirtualMachineSpec`. `spec.replicas` specifies
+`spec.template` is equal to a `VirtualMachineSpec`. `spec.replicas` specifies
 how many instances should be created out of `spec.temlate`. `spec.selector`
 contains selectors, which need to match `spec.template.metadata.labels`.
 
