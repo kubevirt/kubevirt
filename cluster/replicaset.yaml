@@ -1,0 +1,50 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachineReplicaSet
+metadata:
+  name: testreplicaset
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      myvm: "myvm"
+  template:
+    metadata:
+      name: test
+      labels:
+        myvm: "myvm"
+    spec:
+      domain:
+        devices:
+          graphics:
+          - type: spice
+          interfaces:
+          - type: network
+            source:
+              network: default
+          video:
+          - type: qxl
+          disks:
+          - type: network
+            snapshot: external
+            device: disk
+            driver:
+              name: qemu
+              type: raw
+              cache: none
+            source:
+              host:
+                name: iscsi-demo-target.default
+                port: "3260"
+              protocol: iscsi
+              name: iqn.2017-01.io.kubevirt:sn.42/2
+            target:
+              dev: vda
+          consoles:
+          - type: pty
+        memory:
+          unit: MB
+          value: 64
+        os:
+          type:
+            os: hvm
+        type: qemu

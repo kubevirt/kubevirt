@@ -23,7 +23,7 @@ implemented:
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachineReplicaSet
 metadata:
-  name: replicasetn9z3w
+  name: myreplicaset
 spec:
   replicas: 3
   selector:
