@@ -5,6 +5,8 @@ kind: VirtualMachine
 spec:
   domain:
     devices:
+      graphics:
+      - type: spice
       disks:
       - type: ContainerRegistryDisk:v1alpha
         source:
@@ -15,6 +17,10 @@ spec:
       - source:
           network: default
         type: network
+      video:
+      - type: qxl
+      consoles:
+      - type: pty
     memory:
       unit: MB
       value: 64
