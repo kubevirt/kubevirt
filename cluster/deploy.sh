@@ -32,6 +32,9 @@ cluster/kubectl.sh --core delete pods -l=daemon=libvirt --force --grace-period 0
 # Make sure TPRs are deleted, we use CRDs now
 cluster/kubectl.sh --core delete thirdpartyresources --all  || :
 
+# Make sure that the vms CRD is deleted, we use virtualmachines now
+cluster/kubectl.sh --core delete customresourcedefinitions vms.kubevirt.io  || :
+
 # Delete everything else
 for i in `ls manifests/*.yaml`; do
     $KUBECTL delete -f $i --grace-period 0 2>/dev/null || :
