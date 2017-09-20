@@ -217,7 +217,7 @@ func (v *VirtualMachine) IsRunning() bool {
 	return v.Status.Phase == Running || v.Status.Phase == Migrating
 }
 
-func (v *VM) IsFinal() bool {
+func (v *VirtualMachine) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
 

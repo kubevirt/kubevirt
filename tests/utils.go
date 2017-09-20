@@ -732,7 +732,7 @@ func newString(x string) *string {
 	return &x
 }
 
-func NewRandomReplicaSetFromVM(vm *v1.VM, replicas int32) *v1.VirtualMachineReplicaSet {
+func NewRandomReplicaSetFromVM(vm *v1.VirtualMachine, replicas int32) *v1.VirtualMachineReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(5)},

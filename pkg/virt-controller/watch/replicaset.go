@@ -151,7 +151,7 @@ func (c *VMReplicaSet) execute(key string) error {
 	return c.updateStatus(rsCopy, vms, scaleErr)
 }
 
-func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VM) error {
+func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine) error {
 
 	diff := c.calcDiff(rs, vms)
 
@@ -213,8 +213,8 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 // filterActiveVMs takes a list of VMs and returns all VMs which are not in a final state
 // Note that vms which have a deletion timestamp set, are still treated as active.
 // This is a difference to Pod ReplicaSets
-func (c *VMReplicaSet) filterActiveVMs(vms []virtv1.VM) []virtv1.VM {
-	filtered := []virtv1.VM{}
+func (c *VMReplicaSet) filterActiveVMs(vms []virtv1.VirtualMachine) []virtv1.VirtualMachine {
+	filtered := []virtv1.VirtualMachine{}
 	for _, vm := range vms {
 		if !vm.IsFinal() {
 			filtered = append(filtered, vm)
@@ -225,9 +225,9 @@ func (c *VMReplicaSet) filterActiveVMs(vms []virtv1.VM) []virtv1.VM {
 
 // filterMatchingVMs takes a selector and a list of VMs. If the VM labels match the selector it is added to the filtered collection.
 // Returns the list of all VMs which match the selector
-func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []virtv1.VM) []virtv1.VM {
+func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []virtv1.VirtualMachine) []virtv1.VirtualMachine {
 	//TODO take owner reference into account
-	filtered := []virtv1.VM{}
+	filtered := []virtv1.VirtualMachine{}
 	for _, vm := range vms {
 		if selector.Matches(labels.Set(vm.ObjectMeta.Labels)) {
 			filtered = append(filtered, vm)
@@ -237,14 +237,14 @@ func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []virtv1.
 }
 
 // listVMsFromNamespace takes a namespace and returns all VMs from the VM cache which run in this namespace
-func (c *VMReplicaSet) listVMsFromNamespace(namespace string) ([]virtv1.VM, error) {
+func (c *VMReplicaSet) listVMsFromNamespace(namespace string) ([]virtv1.VirtualMachine, error) {
 	objs, err := c.vmInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
-	vms := []virtv1.VM{}
+	vms := []virtv1.VirtualMachine{}
 	for _, obj := range objs {
-		vms = append(vms, *obj.(*virtv1.VM))
+		vms = append(vms, *obj.(*virtv1.VirtualMachine))
 	}
 	return vms, nil
 }
@@ -266,7 +266,7 @@ func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]virtv1.V
 // vmChangeFunc checks if the supplied VM matches a replica set controller in it's namespace
 // and wakes the first controller which matches the VM labels.
 func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
-	vm := obj.(*virtv1.VM)
+	vm := obj.(*virtv1.VirtualMachine)
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
 		//TODO error handling
@@ -311,7 +311,7 @@ func (c *VMReplicaSet) getCondition(rs *virtv1.VirtualMachineReplicaSet, cond vi
 	return nil
 }
 
-func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VM, scaleErr error) error {
+func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine, scaleErr error) error {
 
 	diff := c.calcDiff(rs, vms)
 
@@ -349,7 +349,7 @@ func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []v
 	return err
 }
 
-func (c *VMReplicaSet) calcDiff(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VM) int {
+func (c *VMReplicaSet) calcDiff(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine) int {
 	// TODO default this on the aggregated api server
 	wantedReplicas := int32(1)
 	if rs.Spec.Replicas != nil {

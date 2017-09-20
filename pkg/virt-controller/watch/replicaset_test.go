@@ -47,7 +47,7 @@ var _ = Describe("Replicaset", func() {
 
 		vmSource = framework.NewFakeControllerSource()
 		rsSource = framework.NewFakeControllerSource()
-		vmInformer = cache.NewSharedIndexInformer(vmSource, &v1.VM{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		vmInformer = cache.NewSharedIndexInformer(vmSource, &v1.VirtualMachine{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		rsInformer = cache.NewSharedIndexInformer(rsSource, &v1.VirtualMachineReplicaSet{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 		controller = NewVMReplicaSet(vmInformer, rsInformer, nil, virtClient)
@@ -69,7 +69,7 @@ var _ = Describe("Replicaset", func() {
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VM).ObjectMeta.GenerateName).To(Equal("testvm"))
+				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal("testvm"))
 			})
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 			rsInterface.EXPECT().Update(expectedRS)
@@ -278,7 +278,7 @@ func clone(rs *v1.VirtualMachineReplicaSet) *v1.VirtualMachineReplicaSet {
 	return c.(*v1.VirtualMachineReplicaSet)
 }
 
-func ReplicaSetFromVM(name string, vm *v1.VM, replicas int32) *v1.VirtualMachineReplicaSet {
+func ReplicaSetFromVM(name string, vm *v1.VirtualMachine, replicas int32) *v1.VirtualMachineReplicaSet {
 	rs := &v1.VirtualMachineReplicaSet{
 		ObjectMeta: v12.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
 		Spec: v1.VMReplicaSetSpec{
