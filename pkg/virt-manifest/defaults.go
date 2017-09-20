@@ -23,7 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-func AddMinimalVMSpec(vm *v1.VM) {
+func AddMinimalVMSpec(vm *v1.VirtualMachine) {
 	// Make sure the domain name matches the VM name
 	if vm.Spec.Domain == nil {
 		vm.Spec.Domain = new(v1.DomainSpec)

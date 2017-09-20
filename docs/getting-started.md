@@ -240,7 +240,7 @@ $ ./cluster/kubectl.sh get vms -o json
     "items": [
         {
             "apiVersion": "kubevirt.io/v1alpha1",
-            "kind": "VM",
+            "kind": "VirtualMachine",
             "metadata": {
                 "creationTimestamp": "2016-12-09T17:54:52Z",
                 "labels": {
@@ -249,7 +249,7 @@ $ ./cluster/kubectl.sh get vms -o json
                 "name": "testvm",
                 "namespace": "default",
                 "resourceVersion": "102534",
-                "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm",
+                "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
                 "uid": "7e89280a-be62-11e6-a69f-525400efd09f"
             },
             "spec": {
@@ -281,7 +281,7 @@ cluster/kubectl.sh spice testvm --details
 To directly query the config, do
 
 ```bash
-curl 192.168.200.2:8184/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm/spice -H"Accept:text/plain"
+curl 192.168.200.2:8184/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm/spice -H"Accept:text/plain"
 ```
 
 ### Accessing the Domain via the SPICE primary resource

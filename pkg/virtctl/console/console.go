@@ -194,7 +194,7 @@ func requestFromConfig(config *rest.Config, vm string, namespace string, device 
 		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
 	}
 
-	u.Path = fmt.Sprintf("/apis/kubevirt.io/v1alpha1/namespaces/%s/vms/%s/console", namespace, vm)
+	u.Path = fmt.Sprintf("/apis/kubevirt.io/v1alpha1/namespaces/%s/virtualmachines/%s/console", namespace, vm)
 	if device != "" {
 		u.RawQuery = "console=" + device
 	}

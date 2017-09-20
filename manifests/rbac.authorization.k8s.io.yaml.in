@@ -28,7 +28,7 @@ rules:
   - apiGroups:
       - kubevirt.io
     resources:
-      - vms
+      - virtualmachines
       - migrations  
     verbs:
       - get

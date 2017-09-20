@@ -50,10 +50,10 @@ func (k kubevirt) RestClient() *rest.RESTClient {
 }
 
 type VMInterface interface {
-	Get(name string, options k8smetav1.GetOptions) (*v1.VM, error)
-	List(opts k8smetav1.ListOptions) (*v1.VMList, error)
-	Create(*v1.VM) (*v1.VM, error)
-	Update(*v1.VM) (*v1.VM, error)
+	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachine, error)
+	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineList, error)
+	Create(*v1.VirtualMachine) (*v1.VirtualMachine, error)
+	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 }
 

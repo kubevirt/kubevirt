@@ -1,5 +1,5 @@
 apiVersion: kubevirt.io/v1alpha1
-kind: VM
+kind: VirtualMachine
 metadata:
   name: testvm
 spec:

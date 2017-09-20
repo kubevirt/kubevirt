@@ -33,8 +33,8 @@ import (
 )
 
 type ConfigDiskClient interface {
-	Define(vm *v1.VM) (bool, error)
-	Undefine(vm *v1.VM) error
+	Define(vm *v1.VirtualMachine) (bool, error)
+	Undefine(vm *v1.VirtualMachine) error
 	UndefineUnseen(indexer cache.Store) error
 }
 
@@ -51,13 +51,13 @@ func NewConfigDiskClient(clientset kubecli.KubevirtClient) ConfigDiskClient {
 	}
 }
 
-func createKey(vm *v1.VM) string {
+func createKey(vm *v1.VirtualMachine) string {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	return fmt.Sprintf("%s/%s", namespace, domain)
 }
 
-func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
+func (c *configDiskClient) Define(vm *v1.VirtualMachine) (bool, error) {
 	pending := false
 
 	cloudInitSpec := cloudinit.GetCloudInitSpec(vm)
@@ -112,7 +112,7 @@ func (c *configDiskClient) Define(vm *v1.VM) (bool, error) {
 	return pending, nil
 }
 
-func (c *configDiskClient) Undefine(vm *v1.VM) error {
+func (c *configDiskClient) Undefine(vm *v1.VirtualMachine) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	jobKey := createKey(vm)

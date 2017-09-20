@@ -3,7 +3,7 @@
     "name": "testvm"
   },
   "apiVersion": "kubevirt.io/v1alpha1",
-  "kind": "VM",
+  "kind": "VirtualMachine",
   "spec": {
     "domain": {
       "devices": {

@@ -31,7 +31,7 @@ func (_m *MockVMService) EXPECT() *_MockVMServiceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVMService) StartVMPod(_param0 *v10.VM) error {
+func (_m *MockVMService) StartVMPod(_param0 *v10.VirtualMachine) error {
 	ret := _m.ctrl.Call(_m, "StartVMPod", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -41,7 +41,7 @@ func (_mr *_MockVMServiceRecorder) StartVMPod(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartVMPod", arg0)
 }
 
-func (_m *MockVMService) DeleteVMPod(_param0 *v10.VM) error {
+func (_m *MockVMService) DeleteVMPod(_param0 *v10.VirtualMachine) error {
 	ret := _m.ctrl.Call(_m, "DeleteVMPod", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -51,7 +51,7 @@ func (_mr *_MockVMServiceRecorder) DeleteVMPod(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteVMPod", arg0)
 }
 
-func (_m *MockVMService) GetRunningVMPods(_param0 *v10.VM) (*v1.PodList, error) {
+func (_m *MockVMService) GetRunningVMPods(_param0 *v10.VirtualMachine) (*v1.PodList, error) {
 	ret := _m.ctrl.Call(_m, "GetRunningVMPods", _param0)
 	ret0, _ := ret[0].(*v1.PodList)
 	ret1, _ := ret[1].(error)
@@ -83,7 +83,7 @@ func (_mr *_MockVMServiceRecorder) GetRunningMigrationPods(arg0 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetRunningMigrationPods", arg0)
 }
 
-func (_m *MockVMService) CreateMigrationTargetPod(migration *v10.Migration, vm *v10.VM) error {
+func (_m *MockVMService) CreateMigrationTargetPod(migration *v10.Migration, vm *v10.VirtualMachine) error {
 	ret := _m.ctrl.Call(_m, "CreateMigrationTargetPod", migration, vm)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -103,9 +103,9 @@ func (_mr *_MockVMServiceRecorder) UpdateMigration(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateMigration", arg0)
 }
 
-func (_m *MockVMService) FetchVM(namespace string, vmName string) (*v10.VM, bool, error) {
+func (_m *MockVMService) FetchVM(namespace string, vmName string) (*v10.VirtualMachine, bool, error) {
 	ret := _m.ctrl.Call(_m, "FetchVM", namespace, vmName)
-	ret0, _ := ret[0].(*v10.VM)
+	ret0, _ := ret[0].(*v10.VirtualMachine)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -127,7 +127,7 @@ func (_mr *_MockVMServiceRecorder) FetchMigration(arg0, arg1 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FetchMigration", arg0, arg1)
 }
 
-func (_m *MockVMService) StartMigration(migration *v10.Migration, vm *v10.VM, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error {
+func (_m *MockVMService) StartMigration(migration *v10.Migration, vm *v10.VirtualMachine, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error {
 	ret := _m.ctrl.Call(_m, "StartMigration", migration, vm, sourceNode, targetNode, targetPod)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -149,9 +149,9 @@ func (_mr *_MockVMServiceRecorder) GetMigrationJob(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMigrationJob", arg0)
 }
 
-func (_m *MockVMService) PutVm(vm *v10.VM) (*v10.VM, error) {
+func (_m *MockVMService) PutVm(vm *v10.VirtualMachine) (*v10.VirtualMachine, error) {
 	ret := _m.ctrl.Call(_m, "PutVm", vm)
-	ret0, _ := ret[0].(*v10.VM)
+	ret0, _ := ret[0].(*v10.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

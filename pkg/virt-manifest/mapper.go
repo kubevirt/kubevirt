@@ -70,10 +70,10 @@ func ExtractPvc(dom *v1.DomainSpec) (*v1.DomainSpec, []savedDisk) {
 
 // This is a simplified version of the domain creation portion of SyncVM. This is intended primarily
 // for mapping the VM spec without starting a domain.
-func MapVM(con cli.Connection, vm *v1.VM) (*v1.VM, error) {
+func MapVM(con cli.Connection, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	log := logging.DefaultLogger()
 
-	vmCopy := &v1.VM{}
+	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
 
 	specCopy, pvcs := ExtractPvc(vm.Spec.Domain)

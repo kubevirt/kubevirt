@@ -42,7 +42,7 @@ type Spice struct {
 
 func DownloadSpice(namespace string, vm string, restClient *rest.RESTClient) (string, error) {
 	body, err := restClient.Get().
-		Resource("vms").SetHeader("Accept", "text/plain").
+		Resource("virtualmachines").SetHeader("Accept", "text/plain").
 		SubResource("spice").
 		Namespace(namespace).
 		Name(vm).Do().Raw()

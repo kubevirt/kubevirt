@@ -47,7 +47,7 @@ var _ = Describe("Migration", func() {
 		app            VirtControllerApp = VirtControllerApp{}
 		server         *ghttp.Server
 		migration      *v1.Migration
-		vm             *v1.VM
+		vm             *v1.VirtualMachine
 		pod            *clientv1.Pod
 		podList        clientv1.PodList
 		migrationKey   interface{}
@@ -142,12 +142,12 @@ var _ = Describe("Migration", func() {
 
 	})
 
-	buildExpectedVM := func(phase v1.VMPhase) *v1.VM {
+	buildExpectedVM := func(phase v1.VMPhase) *v1.VirtualMachine {
 
 		obj, err := conversion.NewCloner().DeepCopy(vm)
 		Expect(err).ToNot(HaveOccurred())
 
-		expectedVM := obj.(*v1.VM)
+		expectedVM := obj.(*v1.VirtualMachine)
 		expectedVM.Status.Phase = phase
 		expectedVM.Status.MigrationNodeName = pod.Spec.NodeName
 		expectedVM.Spec.NodeSelector = map[string]string{"beta.kubernetes.io/arch": "amd64"}
@@ -719,23 +719,23 @@ func handleGetPodListAuthError(podList clientv1.PodList) http.HandlerFunc {
 	)
 }
 
-func handleGetTestVM(expectedVM *v1.VM) http.HandlerFunc {
+func handleGetTestVM(expectedVM *v1.VirtualMachine) http.HandlerFunc {
 	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, expectedVM),
 	)
 }
 
 func handleGetTestVMNotFound() http.HandlerFunc {
 	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
 		ghttp.RespondWithJSONEncoded(http.StatusNotFound, ""),
 	)
 }
 
-func handleGetTestVMAuthError(expectedVM *v1.VM) http.HandlerFunc {
+func handleGetTestVMAuthError(expectedVM *v1.VirtualMachine) http.HandlerFunc {
 	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/testvm"),
+		ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
 		ghttp.RespondWithJSONEncoded(http.StatusForbidden, expectedVM),
 	)
 }
@@ -756,7 +756,7 @@ func mockPod(i int, label string) clientv1.Pod {
 	}
 }
 
-func mockMigrationPod(vm *v1.VM) *kubev1.Pod {
+func mockMigrationPod(vm *v1.VirtualMachine) *kubev1.Pod {
 	temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
 	Expect(err).ToNot(HaveOccurred())
 	pod, err := temlateService.RenderLaunchManifest(vm)
@@ -766,9 +766,9 @@ func mockMigrationPod(vm *v1.VM) *kubev1.Pod {
 	return pod
 }
 
-func handlePutVM(vm *v1.VM) http.HandlerFunc {
+func handlePutVM(vm *v1.VirtualMachine) http.HandlerFunc {
 	return ghttp.CombineHandlers(
-		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/vms/"+vm.ObjectMeta.Name),
+		ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/"+vm.ObjectMeta.Name),
 		ghttp.VerifyJSONRepresenting(vm),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 	)

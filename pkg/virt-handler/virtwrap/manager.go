@@ -48,10 +48,10 @@ import (
 )
 
 type DomainManager interface {
-	SyncVMSecret(vm *v1.VM, usageType string, usageID string, secretValue string) error
-	RemoveVMSecrets(*v1.VM) error
-	SyncVM(*v1.VM) (*api.DomainSpec, error)
-	KillVM(*v1.VM) error
+	SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error
+	RemoveVMSecrets(*v1.VirtualMachine) error
+	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
+	KillVM(*v1.VirtualMachine) error
 }
 
 type LibvirtDomainManager struct {
@@ -115,7 +115,7 @@ func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRec
 	return &manager, nil
 }
 
-func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID string, secretValue string) error {
+func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error {
 
 	domName := cache.VMNamespaceKeyFunc(vm)
 
@@ -172,7 +172,7 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VM, usageType string, usageID
 	return nil
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, error) {
 	var wantedSpec api.DomainSpec
 	wantedSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 	wantedSpec.Type = "qemu"
@@ -274,7 +274,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VM) (*api.DomainSpec, error) {
 	return &newSpec, nil
 }
 
-func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VM) error {
+func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
 	domName := cache.VMNamespaceKeyFunc(vm)
 
 	secretUUIDs, ok := l.secretCache[domName]
@@ -303,7 +303,7 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VM) error {
 	return nil
 }
 
-func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
+func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	domName := cache.VMNamespaceKeyFunc(vm)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -343,7 +343,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VM) error {
 	return nil
 }
 
-func (l *LibvirtDomainManager) setDomainXML(vm *v1.VM, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
+func (l *LibvirtDomainManager) setDomainXML(vm *v1.VirtualMachine, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
 	xmlStr, err := xml.Marshal(&wantedSpec)
 	if err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")

@@ -36,7 +36,7 @@ All other fields, concerning the properties of the interface, can be used as
 usual.
 
 ```yaml
-kind: VM
+kind: VirtualMachine
 spec:
   domain:
     devices:

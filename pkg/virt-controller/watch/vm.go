@@ -110,7 +110,7 @@ func (c *VMController) execute(key string) error {
 	}
 
 	// Retrieve the VM
-	var vm *kubev1.VM
+	var vm *kubev1.VirtualMachine
 	if !exists {
 		namespace, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
@@ -118,7 +118,7 @@ func (c *VMController) execute(key string) error {
 		}
 		vm = kubev1.NewVMReferenceFromNameWithNS(namespace, name)
 	} else {
-		vm = obj.(*kubev1.VM)
+		vm = obj.(*kubev1.VirtualMachine)
 	}
 	logger := logging.DefaultLogger().Object(vm)
 
@@ -138,7 +138,7 @@ func (c *VMController) execute(key string) error {
 		// Schedule the VM
 
 		// Deep copy the object, so that we can safely manipulate it
-		vmCopy := kubev1.VM{}
+		vmCopy := kubev1.VirtualMachine{}
 		model.Copy(&vmCopy, vm)
 		logger = logging.DefaultLogger().Object(&vmCopy)
 
@@ -188,7 +188,7 @@ func (c *VMController) execute(key string) error {
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
 		// kubernetes, virt-handler can take over.
 		vmCopy.Status.Phase = kubev1.Scheduling
-		if err := c.restClient.Put().Resource("vms").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(vmCopy.ObjectMeta.Namespace).Do().Error(); err != nil {
+		if err := c.restClient.Put().Resource("virtualmachines").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(vmCopy.ObjectMeta.Namespace).Do().Error(); err != nil {
 			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
 			return err
 		}
@@ -197,7 +197,7 @@ func (c *VMController) execute(key string) error {
 		// Target Pod for the VM was already created, check if it is  running and update the VM to Scheduled
 
 		// Deep copy the object, so that we can safely manipulate it
-		vmCopy := kubev1.VM{}
+		vmCopy := kubev1.VirtualMachine{}
 		model.Copy(&vmCopy, vm)
 		logger = logging.DefaultLogger().Object(&vmCopy)
 

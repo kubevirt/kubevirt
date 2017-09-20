@@ -70,7 +70,7 @@ var _ = Describe("Defaults", func() {
 	})
 
 	Context("Default VMs", func() {
-		var vm *v1.VM
+		var vm *v1.VirtualMachine
 		BeforeEach(func() {
 			vm = tests.NewRandomVM()
 		})

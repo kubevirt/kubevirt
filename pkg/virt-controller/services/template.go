@@ -34,8 +34,8 @@ import (
 )
 
 type TemplateService interface {
-	RenderLaunchManifest(*v1.VM) (*kubev1.Pod, error)
-	RenderMigrationJob(*v1.VM, *kubev1.Node, *kubev1.Node, *kubev1.Pod, *v1.MigrationHostInfo) (*kubev1.Pod, error)
+	RenderLaunchManifest(*v1.VirtualMachine) (*kubev1.Pod, error)
+	RenderMigrationJob(*v1.VirtualMachine, *kubev1.Node, *kubev1.Node, *kubev1.Pod, *v1.MigrationHostInfo) (*kubev1.Pod, error)
 }
 
 type templateService struct {
@@ -44,7 +44,7 @@ type templateService struct {
 	socketBaseDir string
 }
 
-func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
+func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.Pod, error) {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -128,7 +128,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VM) (*kubev1.Pod, error) {
 	return &pod, nil
 }
 
-func (t *templateService) RenderMigrationJob(vm *v1.VM, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod, targetHostInfo *v1.MigrationHostInfo) (*kubev1.Pod, error) {
+func (t *templateService) RenderMigrationJob(vm *v1.VirtualMachine, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod, targetHostInfo *v1.MigrationHostInfo) (*kubev1.Pod, error) {
 	srcAddr := ""
 	dstAddr := ""
 	for _, addr := range sourceNode.Status.Addresses {

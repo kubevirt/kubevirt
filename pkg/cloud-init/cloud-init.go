@@ -229,7 +229,7 @@ func GetDomainBasePath(domain string, namespace string) string {
 // This is called right before a VM is defined with libvirt.
 // If the cloud-init type requires altering the domain, this
 // is the place to do that.
-func MapCloudInitDisks(vm *v1.VM) (*v1.VM, error) {
+func MapCloudInitDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
@@ -246,7 +246,7 @@ func MapCloudInitDisks(vm *v1.VM) (*v1.VM, error) {
 	dataSource := getDataSource(spec)
 	switch dataSource {
 	case dataSourceNoCloud:
-		vmCopy := &v1.VM{}
+		vmCopy := &v1.VirtualMachine{}
 		model.Copy(vmCopy, vm)
 		filePath := fmt.Sprintf("%s/%s", GetDomainBasePath(domain, namespace), noCloudFile)
 
@@ -295,7 +295,7 @@ func ValidateArgs(spec *v1.CloudInitSpec) error {
 }
 
 // Place metadata auto-generation code in here
-func ApplyMetadata(vm *v1.VM) {
+func ApplyMetadata(vm *v1.VirtualMachine) {
 	spec := GetCloudInitSpec(vm)
 	if spec == nil {
 		return
@@ -325,7 +325,7 @@ func RemoveLocalData(domain string, namespace string) error {
 	return err
 }
 
-func GetCloudInitSpec(vm *v1.VM) *v1.CloudInitSpec {
+func GetCloudInitSpec(vm *v1.VirtualMachine) *v1.CloudInitSpec {
 	// search various places cloud init spec may live.
 	// at the moment, cloud init only exists on disks.
 	for _, disk := range vm.Spec.Domain.Devices.Disks {
@@ -457,8 +457,8 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 }
 
 // Lists all vms cloud-init has local data for
-func ListVmWithLocalData() ([]*v1.VM, error) {
-	var keys []*v1.VM
+func ListVmWithLocalData() ([]*v1.VirtualMachine, error) {
+	var keys []*v1.VirtualMachine
 
 	err := filepath.Walk(cloudInitLocalDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

@@ -297,7 +297,7 @@ func TestObject(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
-	vm := v1.VM{}
+	vm := v1.VirtualMachine{}
 	log.Object(&vm).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")

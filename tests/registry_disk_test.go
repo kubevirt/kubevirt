@@ -45,14 +45,14 @@ var _ = Describe("RegistryDisk", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	LaunchVM := func(vm *v1.VM) runtime.Object {
-		obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+	LaunchVM := func(vm *v1.VirtualMachine) runtime.Object {
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 		return obj
 	}
 
-	VerifyRegistryDiskVM := func(vm *v1.VM, obj runtime.Object) {
-		_, ok := obj.(*v1.VM)
+	VerifyRegistryDiskVM := func(vm *v1.VirtualMachine, obj runtime.Object) {
+		_, ok := obj.(*v1.VirtualMachine)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 		tests.WaitForSuccessfulVMStart(obj)
 
@@ -81,7 +81,7 @@ var _ = Describe("RegistryDisk", func() {
 	Context("Ephemeral RegistryDisk", func() {
 		It("should launch multiple VMs using ephemeral registry disks", func(done Done) {
 			num := 5
-			vms := make([]*v1.VM, 0, num)
+			vms := make([]*v1.VirtualMachine, 0, num)
 			objs := make([]runtime.Object, 0, num)
 			for i := 0; i < num; i++ {
 				vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")

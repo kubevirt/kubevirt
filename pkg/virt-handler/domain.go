@@ -86,11 +86,11 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 		queue.AddRateLimited(key)
 		return
 	}
-	if !vmExists || obj.(*v1.VM).GetObjectMeta().GetUID() != domain.GetObjectMeta().GetUID() {
+	if !vmExists || obj.(*v1.VirtualMachine).GetObjectMeta().GetUID() != domain.GetObjectMeta().GetUID() {
 		// The VM is not in the vm cache, or is a VM with a differend uuid, tell the VM controller to investigate it
 		d.vmQueue.Add(key)
 	} else {
-		err := d.setVmPhaseForStatusReason(domain, obj.(*v1.VM))
+		err := d.setVmPhaseForStatusReason(domain, obj.(*v1.VirtualMachine))
 		if err != nil {
 			queue.AddRateLimited(key)
 		}
@@ -99,7 +99,7 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 	return
 }
 
-func (d *DomainDispatch) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VM) error {
+func (d *DomainDispatch) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) error {
 	flag := false
 	if domain.Status.Status == api.Shutoff || domain.Status.Status == api.Crashed {
 		switch domain.Status.Reason {
@@ -116,7 +116,7 @@ func (d *DomainDispatch) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VM
 
 	if flag {
 		logging.DefaultLogger().Info().Object(vm).Msgf("Changing VM phase to %s", vm.Status.Phase)
-		return d.restClient.Put().Resource("vms").Body(vm).Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
+		return d.restClient.Put().Resource("virtualmachines").Body(vm).Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
 	}
 
 	return nil

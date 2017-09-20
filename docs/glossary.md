@@ -18,7 +18,7 @@ Below is an example of a VM definition. A user can post this definition to the
 cluster and expect the KubeVirt runtime to fulfill creating a VM matching the
 posted definition.
 ```
-kind: VM
+kind: VirtualMachine
 metadata:
   name: testvm
 spec:

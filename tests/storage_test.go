@@ -78,8 +78,8 @@ var _ = Describe("Storage", func() {
 			Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
 	})
 
-	RunVMAndExpectLaunch := func(vm *v1.VM, withAuth bool) {
-		obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool) {
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStart(obj)
 

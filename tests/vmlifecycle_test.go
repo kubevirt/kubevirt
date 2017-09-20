@@ -53,7 +53,7 @@ var _ = Describe("Vmlifecycle", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var vm *v1.VM
+	var vm *v1.VirtualMachine
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
@@ -63,14 +63,14 @@ var _ = Describe("Vmlifecycle", func() {
 	Context("New VM given", func() {
 
 		It("Should be accepted on POST", func() {
-			err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).To(BeNil())
 		})
 
 		It("Should reject posting the same VM a second time", func() {
-			err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).To(BeNil())
-			b, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).DoRaw()
+			b, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).DoRaw()
 			Expect(err).ToNot(BeNil())
 			status := metav1.Status{}
 			err = json.Unmarshal(b, &status)
@@ -79,7 +79,7 @@ var _ = Describe("Vmlifecycle", func() {
 		})
 
 		It("Should return 404 if VM does not exist", func() {
-			b, err := virtClient.RestClient().Get().Resource("vms").Namespace(tests.NamespaceTestDefault).Name("nonexistnt").DoRaw()
+			b, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name("nonexistnt").DoRaw()
 			Expect(err).ToNot(BeNil())
 			status := metav1.Status{}
 			err = json.Unmarshal(b, &status)
@@ -88,7 +88,7 @@ var _ = Describe("Vmlifecycle", func() {
 		})
 
 		It("Should start the VM on POST", func(done Done) {
-			obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMStart(obj)
 
@@ -99,7 +99,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 			It("Should retry starting the VM", func(done Done) {
 				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
-				obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
 				retryCount := 0
@@ -118,14 +118,14 @@ var _ = Describe("Vmlifecycle", func() {
 
 			It("Should stop retrying invalid VM and go on to latest change request", func(done Done) {
 				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
-				obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
 				// Wait until we see that starting the VM is failing
 				event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
 				Expect(event.Message).To(ContainSubstring("nonexistent"))
 
-				_, err = virtClient.RestClient().Delete().Resource("vms").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
 
 				// Check that the definition is deleted from the host
@@ -138,11 +138,11 @@ var _ = Describe("Vmlifecycle", func() {
 
 		Context("New VM that will be killed", func() {
 			It("Should be in Failed phase", func(done Done) {
-				obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
 				nodeName := tests.WaitForSuccessfulVMStart(obj)
-				_, ok := obj.(*v1.VM)
+				_, ok := obj.(*v1.VirtualMachine)
 				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 				Expect(err).ToNot(HaveOccurred())
 
@@ -153,8 +153,8 @@ var _ = Describe("Vmlifecycle", func() {
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
 
 				Expect(func() v1.VMPhase {
-					vm := &v1.VM{}
-					err := virtClient.RestClient().Get().Resource("vms").Namespace(tests.NamespaceTestDefault).Name(obj.(*v1.VM).ObjectMeta.Name).Do().Into(vm)
+					vm := &v1.VirtualMachine{}
+					err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(obj.(*v1.VirtualMachine).ObjectMeta.Name).Do().Into(vm)
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Phase
 				}()).To(Equal(v1.Failed))
@@ -162,11 +162,11 @@ var _ = Describe("Vmlifecycle", func() {
 				close(done)
 			}, 50)
 			It("should be left alone by virt-handler", func(done Done) {
-				obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
 				nodeName := tests.WaitForSuccessfulVMStart(obj)
-				_, ok := obj.(*v1.VM)
+				_, ok := obj.(*v1.VirtualMachine)
 				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 				Expect(err).ToNot(HaveOccurred())
 
@@ -204,7 +204,7 @@ var _ = Describe("Vmlifecycle", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": primaryNodeName}
 
 				// Start the VM and wait for the confirmation of the start
-				obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(vm.GetObjectMeta().GetNamespace()).Body(vm).Do().Get()
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Body(vm).Do().Get()
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMStart(obj)
 
@@ -218,7 +218,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(vm.GetObjectMeta().GetNamespace()).To(Equal(namespace))
 
 				// Delete the VM and wait for the confirmation of the delete
-				_, err = virtClient.RestClient().Delete().Resource("vms").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
+				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
 

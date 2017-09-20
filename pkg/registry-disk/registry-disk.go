@@ -51,15 +51,15 @@ func generateRandomString(len int) (string, error) {
 	return base64.URLEncoding.EncodeToString(bytes), nil
 }
 
-func k8sSecretName(vm *v1.VM) string {
+func k8sSecretName(vm *v1.VirtualMachine) string {
 	return fmt.Sprintf("registrydisk-iscsi-%s-%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 }
 
 // The virt-handler converts registry disks to their corresponding iscsi network
 // disks when the VM spec is being defined as a domain with libvirt.
 // The ports and host of the iscsi disks are already provided here by the controller.
-func MapRegistryDisks(vm *v1.VM) (*v1.VM, error) {
-	vmCopy := &v1.VM{}
+func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
 
 	for idx, disk := range vmCopy.Spec.Domain.Devices.Disks {
@@ -89,7 +89,7 @@ func MapRegistryDisks(vm *v1.VM) (*v1.VM, error) {
 	return vmCopy, nil
 }
 
-func CleanUp(vm *v1.VM, virtCli kubecli.KubevirtClient) error {
+func CleanUp(vm *v1.VirtualMachine, virtCli kubecli.KubevirtClient) error {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -109,7 +109,7 @@ func CleanUp(vm *v1.VM, virtCli kubecli.KubevirtClient) error {
 }
 
 // The controller applies ports to registry disks when a VM spec is introduced into the cluster.
-func Initialize(vm *v1.VM, virtCli kubecli.KubevirtClient) error {
+func Initialize(vm *v1.VirtualMachine, virtCli kubecli.KubevirtClient) error {
 
 	var err error
 	authUser := ""
@@ -189,7 +189,7 @@ func Initialize(vm *v1.VM, virtCli kubecli.KubevirtClient) error {
 
 // The controller uses this function communicate the IP address of the POD
 // with the containers hosting the registry disks.
-func ApplyHost(vm *v1.VM, pod *kubev1.Pod) {
+func ApplyHost(vm *v1.VirtualMachine, pod *kubev1.Pod) {
 	ip := pod.Status.PodIP
 	for idx, disk := range vm.Spec.Domain.Devices.Disks {
 		if disk.Type == registryDiskV1Alpha {
@@ -208,7 +208,7 @@ func ApplyHost(vm *v1.VM, pod *kubev1.Pod) {
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vm *v1.VM) ([]kubev1.Container, error) {
+func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, error) {
 	var containers []kubev1.Container
 
 	initialDelaySeconds := 5

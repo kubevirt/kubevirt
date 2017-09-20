@@ -1,7 +1,7 @@
 metadata:
   name: atomic-ephemeral
 apiVersion: kubevirt.io/v1alpha1
-kind: VM
+kind: VirtualMachine
 spec:
   domain:
     devices:

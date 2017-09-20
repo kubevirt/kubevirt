@@ -50,21 +50,21 @@ var _ = Describe("CloudInit UserData", func() {
 		wsUrl, err := url.Parse(flag.Lookup("master").Value.String())
 		Expect(err).ToNot(HaveOccurred())
 		wsUrl.Scheme = "ws"
-		wsUrl.Path = "/apis/kubevirt.io/v1alpha1/namespaces/" + tests.NamespaceTestDefault + "/vms/" + vm + "/console"
+		wsUrl.Path = "/apis/kubevirt.io/v1alpha1/namespaces/" + tests.NamespaceTestDefault + "/virtualmachines/" + vm + "/console"
 		wsUrl.RawQuery = "console=" + console
 		c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), nil)
 		Expect(err).ToNot(HaveOccurred())
 		return c
 	}
 
-	LaunchVM := func(vm *v1.VM) runtime.Object {
-		obj, err := virtClient.RestClient().Post().Resource("vms").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+	LaunchVM := func(vm *v1.VirtualMachine) runtime.Object {
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 		return obj
 	}
 
-	VerifyUserDataVM := func(vm *v1.VM, obj runtime.Object, magicStr string) {
-		_, ok := obj.(*v1.VM)
+	VerifyUserDataVM := func(vm *v1.VirtualMachine, obj runtime.Object, magicStr string) {
+		_, ok := obj.(*v1.VirtualMachine)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 		tests.WaitForSuccessfulVMStart(obj)
 

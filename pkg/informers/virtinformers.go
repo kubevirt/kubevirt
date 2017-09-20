@@ -108,8 +108,8 @@ func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer)
 
 func (f *kubeInformerFactory) VM() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.restClient, "vms", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &kubev1.VM{}, f.defaultResync, cache.Indexers{})
+		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
