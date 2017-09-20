@@ -22,7 +22,6 @@ package watch
 import (
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -34,6 +33,8 @@ import (
 	"sync"
 
 	k8score "k8s.io/api/core/v1"
+
+	"github.com/jeevatkm/go-model"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -68,7 +69,7 @@ type VMReplicaSet struct {
 func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
 	defer kubecli.HandlePanic()
 	defer c.queue.ShutDown()
-	logging.DefaultLogger().Info().Msg("Starting controller.")
+	logging.DefaultLogger().Info().Msg("Starting VirtualMachineReplicaSet controller.")
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmRSInformer.HasSynced)
@@ -79,7 +80,7 @@ func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	<-stopCh
-	logging.DefaultLogger().Info().Msg("Stopping controller.")
+	logging.DefaultLogger().Info().Msg("Stopping VirtualMachineReplicaSet controller.")
 }
 
 func (c *VMReplicaSet) runWorker() {
@@ -94,7 +95,7 @@ func (c *VMReplicaSet) Execute() bool {
 	}
 	defer c.queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
-		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing VirtualMachineReplicaSet %v", key)
+		logging.DefaultLogger().Info().Reason(err).Msgf("re-enqueuing VirtualMachineReplicaSet %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
 		logging.DefaultLogger().Info().V(4).Msgf("processed VirtualMachineReplicaSet %v", key)
@@ -115,14 +116,17 @@ func (c *VMReplicaSet) execute(key string) error {
 	}
 	rs := obj.(*virtv1.VirtualMachineReplicaSet)
 
+	log := logging.DefaultLogger().Object(rs)
+
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
 	if rs.Spec.Template == nil || rs.Spec.Selector == nil || len(rs.Spec.Template.ObjectMeta.Labels) == 0 {
-		logging.DefaultLogger().Object(rs).Error().Msg("Invalid controller spec, will not retry processing it.")
+		log.Error().Msg("Invalid controller spec, will not re-enqueue.")
 		return nil
 	}
 
 	selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
 	if err != nil {
+		log.Error().Reason(err).Msg("Invalid selector on replicaset, will not re-enqueue.")
 		return nil
 	}
 
@@ -130,6 +134,7 @@ func (c *VMReplicaSet) execute(key string) error {
 	vms, err := c.listVMsFromNamespace(rs.ObjectMeta.Namespace)
 
 	if err != nil {
+		log.Error().Reason(err).Msg("Failed to fetch vms for namespace from cache.")
 		return err
 	}
 
@@ -142,13 +147,24 @@ func (c *VMReplicaSet) execute(key string) error {
 	// Scale up or down
 	scaleErr := c.scale(rs, vms)
 
-	obj, err = model.Clone(rs)
-	if err != nil {
-		return err
+	if scaleErr != nil {
+		log.Error().Reason(err).Msg("Scaling the replicaset failed.")
 	}
-	rsCopy := obj.(*virtv1.VirtualMachineReplicaSet)
 
-	return c.updateStatus(rsCopy, vms, scaleErr)
+	clone, err := model.Clone(rs)
+
+	if err != nil {
+		log.Error().Reason(err).Msg("Cloning the replicaset failed.")
+		return nil
+	}
+	rsCopy := clone.(*virtv1.VirtualMachineReplicaSet)
+
+	err = c.updateStatus(rsCopy, vms, scaleErr)
+	if err != nil {
+		log.Error().Reason(err).Msg("Updating the replicaset status failed.")
+	}
+
+	return err
 }
 
 func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine) error {
@@ -267,9 +283,10 @@ func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]virtv1.V
 // and wakes the first controller which matches the VM labels.
 func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
+	log := logging.DefaultLogger()
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
-		//TODO error handling
+		log.Error().Object(vm).Reason(err).Msg("Failed to fetch replicasets for namespace of the VM from cache.")
 		return
 	}
 
@@ -278,7 +295,7 @@ func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
 	for _, rs := range controllers {
 		selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
 		if err != nil {
-			// selector is invalid, continue with next controller
+			log.Error().Object(&rs).Reason(err).Msg("Failed to fetch replicasets for namespace from cache.")
 			continue
 		}
 
@@ -286,6 +303,7 @@ func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
 			// The first matching rs will be informed
 			key, err := cache.MetaNamespaceKeyFunc(&rs)
 			if err != nil {
+				log.Error().Object(&rs).Reason(err).Msg("Failed to extract key from replicaset.")
 				return
 			}
 			c.queue.Add(key)
