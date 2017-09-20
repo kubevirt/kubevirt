@@ -30,6 +30,18 @@ spec:
           - containerPort: 8184
             name: "haproxy"
             protocol: "TCP"
+        livenessProbe:
+          httpGet:
+            path: /apis/kubevirt.io/v1alpha1/healthz
+            port: 8184
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /apis/kubevirt.io/v1alpha1/healthz
+            port: 8184
+          initialDelaySeconds: 10
+          periodSeconds: 20
       securityContext:
         runAsNonRoot: true
       nodeSelector:
