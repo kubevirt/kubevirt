@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
@@ -69,13 +68,6 @@ func (v *vmService) StartVMPod(vm *corev1.VirtualMachine) error {
 	precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
 
-	err := registrydisk.Initialize(vm, v.KubeCli)
-	if err != nil {
-		logger := logging.DefaultLogger().Object(vm)
-		logger.Error().Reason(err).Msg("Initializing container registry disks failed.")
-		return err
-	}
-
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
 	if err != nil {
 		return err
@@ -106,8 +98,6 @@ func (v *vmService) DeleteVMPod(vm *corev1.VirtualMachine) error {
 	if err := v.KubeCli.CoreV1().Pods(vm.ObjectMeta.Namespace).DeleteCollection(nil, UnfinishedVMPodSelector(vm)); err != nil {
 		return err
 	}
-
-	registrydisk.CleanUp(vm, v.KubeCli)
 
 	return nil
 }

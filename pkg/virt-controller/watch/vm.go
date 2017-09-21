@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -234,9 +233,6 @@ func (c *VMController) execute(key string) error {
 
 		// VM got scheduled
 		vmCopy.Status.Phase = kubev1.Scheduled
-
-		// Fill in host info for container registry disks
-		registrydisk.ApplyHost(&vmCopy, &pods.Items[0])
 
 		// FIXME we store this in the metadata since field selectors are currently not working for TPRs
 		if vmCopy.GetObjectMeta().GetLabels() == nil {
