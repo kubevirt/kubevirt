@@ -11,7 +11,7 @@ metadata:
   name: "kubevirt.io:virt-apiserver"
 rules:
 - apiGroups: ["kubevirt.io"] # "" indicates the core API group
-  resources: ["vms", "manifests"]
+  resources: ["virtualmachines", "manifests"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 # Bind admin role to apiserver service account and admin user
@@ -132,6 +132,48 @@ spec:
         volumeMounts:
           - mountPath: /var/run/virt-apiserver-cert
             name: virt-apiserver-cert
+      - name: etcd
+        image: quay.io/coreos/etcd:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 20Mi
+          limits:
+            cpu: 100m
+            memory: 30Mi
+        env:
+        - name: ETCD_DATA_DIR
+          value: /etcd-data-dir
+        command:
+        - /usr/local/bin/etcd
+        - --listen-client-urls
+        - http://0.0.0.0:2379
+        - --advertise-client-urls
+        - http://localhost:2379
+        ports:
+        - containerPort: 2379
+        volumeMounts:
+        - name: etcd-data-dir
+          mountPath: /etcd-data-dir
+        readinessProbe:
+          httpGet:
+            port: 2379
+            path: /health
+          failureThreshold: 1
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        livenessProbe:
+          httpGet:
+            port: 2379
+            path: /health
+          failureThreshold: 3
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
       serviceAccountName: virt-apiserver
       automountServiceAccountToken: true
       securityContext:
@@ -149,3 +191,5 @@ spec:
             path: virt-apiserver.key
           - key: requestheader-ca.crt
             path: requestheader-ca.crt
+      - name: etcd-data-dir
+        emptyDir: {}
