@@ -41,7 +41,7 @@ var _ = Describe("RegistryDisk", func() {
 	VerifyDiskType := func(diskExtension string) {
 		vm := v1.NewMinimalVM("fake-vm")
 		vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-			Type:   "ContainerRegistryDisk:v1alpha",
+			Type:   "RegistryDisk:v1alpha",
 			Device: "disk",
 			Source: v1.DiskSource{
 				Name: "someimage:v1.2.3.4",
@@ -105,7 +105,7 @@ var _ = Describe("RegistryDisk", func() {
 
 				vm := v1.NewMinimalVM("fake-vm")
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-					Type:   "ContainerRegistryDisk:v1alpha",
+					Type:   "RegistryDisk:v1alpha",
 					Device: "disk",
 					Source: v1.DiskSource{
 						Name: "someimage:v1.2.3.4",
@@ -130,7 +130,7 @@ var _ = Describe("RegistryDisk", func() {
 			It("by verifying container generation", func() {
 				vm := v1.NewMinimalVM("fake-vm")
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-					Type:   "ContainerRegistryDisk:v1alpha",
+					Type:   "RegistryDisk:v1alpha",
 					Device: "disk",
 					Source: v1.DiskSource{
 						Name: "someimage:v1.2.3.4",
@@ -140,7 +140,7 @@ var _ = Describe("RegistryDisk", func() {
 					},
 				})
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-					Type:   "ContainerRegistryDisk:v1alpha",
+					Type:   "RegistryDisk:v1alpha",
 					Device: "disk",
 					Source: v1.DiskSource{
 						Name: "someimage:v1.2.3.4",
@@ -161,7 +161,7 @@ var _ = Describe("RegistryDisk", func() {
 
 				vm := v1.NewMinimalVM("fake-vm")
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-					Type:   "ContainerRegistryDisk:v1alpha",
+					Type:   "RegistryDisk:v1alpha",
 					Device: "disk",
 					Source: v1.DiskSource{
 						Name: "someimage:v1.2.3.4",

@@ -4,9 +4,9 @@ The KubeVirt Registry Disk Base Container allows users to store VM disks in
 a container registry and attach those disk to VMs automatically using the
 KubeVirt runtime.
 
-This Base Container is compatible with disk type ContainerRegistryDisk:v1alpha
+This Base Container is compatible with disk type RegistryDisk:v1alpha
 
-# ContainerRegistryDisk:v1alpha
+# RegistryDisk:v1alpha
 ## Storing Disks in Container Registry
 
 VM disks can be stored in either qcow2 format or raw format by copying the vm
@@ -28,7 +28,7 @@ docker push vmdisks/fedora25:latest
 ## Assigning Ephemeral Disks to VMs
 
 Assign an ephemeral disk backed by an image in the container registry by
-adding a ContainerRegistryDisk:v1alpha disk to the VM definition and supplying
+adding a RegistryDisk:v1alpha disk to the VM definition and supplying
 the container image as the disk's source name.
 
 Example: Create a KubeVirt VM definition with container backed ephemeral disk.
@@ -43,7 +43,7 @@ spec:
   domain:
     devices:
       disks:
-      - type: ContainerRegistryDisk:v1alpha
+      - type: RegistryDisk:v1alpha
         source:
           name: vmdisks/fedora25:devel
         target:

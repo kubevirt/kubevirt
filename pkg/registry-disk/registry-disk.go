@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
-const registryDiskV1Alpha = "ContainerRegistryDisk:v1alpha"
+const registryDiskV1Alpha = "RegistryDisk:v1alpha"
 const defaultIqn = "iqn.2017-01.io.kubevirt:wrapper/1"
 const defaultPort = 3261
 const defaultPortStr = "3261"

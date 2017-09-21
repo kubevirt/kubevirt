@@ -502,7 +502,7 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm.Spec.Domain.Memory.Unit = "MB"
 	vm.Spec.Domain.Memory.Value = 64
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Type:   "ContainerRegistryDisk:v1alpha",
+		Type:   "RegistryDisk:v1alpha",
 		Device: "disk",
 		Source: v1.DiskSource{
 			Name: containerImage,
