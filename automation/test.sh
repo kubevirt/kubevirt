@@ -102,14 +102,14 @@ cluster/sync.sh
 # Wait until kubevirt pods are running
 while [ -n "$(kubectl get pods --no-headers | grep -v Running)" ]; do
     echo "Waiting for kubevirt pods to enter the Running state ..."
-    kubectl get pods --no-headers | >&2 grep -v Running
+    kubectl get pods --no-headers | >&2 grep -v Running || true
     sleep 10
 done
 
 # Make sure all containers are ready
 while [ -n "$(kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false)" ]; do
     echo "Waiting for KubeVirt containers to become ready ..."
-    kubectl get pods -ocustom-columns='name:metadata.name,ready:status.containerStatuses[*].ready' | grep false
+    kubectl get pods -ocustom-columns='name:metadata.name,ready:status.containerStatuses[*].ready' | grep false || true
     sleep 10
 done
 
