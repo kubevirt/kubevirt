@@ -69,9 +69,7 @@ var _ = Describe("RegistryDisk", func() {
 					// only check readiness of disk containers
 					continue
 				}
-				if containerStatus.Ready == true {
-					disksFound++
-				}
+				disksFound++
 			}
 			break
 		}
