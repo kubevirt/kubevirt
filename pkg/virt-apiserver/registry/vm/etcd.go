@@ -20,11 +20,11 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*RES
 	strategy := NewStrategy(scheme)
 
 	store := &genericregistry.Store{
-		Copier:            scheme,
-		NewFunc:           func() runtime.Object { return &v1.VM{} },
-		NewListFunc:       func() runtime.Object { return &v1.VMList{} },
-		PredicateFunc:     MatchVM,
-		QualifiedResource: v1.Resource("vms"),
+		Copier:                   scheme,
+		NewFunc:                  func() runtime.Object { return &v1.VirtualMachine{} },
+		NewListFunc:              func() runtime.Object { return &v1.VirtualMachineList{} },
+		PredicateFunc:            MatchVM,
+		DefaultQualifiedResource: v1.Resource("virtualmachines"),
 
 		CreateStrategy: strategy,
 		UpdateStrategy: strategy,

@@ -20,11 +20,11 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*RES
 	strategy := NewStrategy(scheme)
 
 	store := &genericregistry.Store{
-		Copier:            scheme,
-		NewFunc:           func() runtime.Object { return &v1.Migration{} },
-		NewListFunc:       func() runtime.Object { return &v1.MigrationList{} },
-		PredicateFunc:     MatchMigration,
-		QualifiedResource: v1.Resource("migrations"),
+		Copier:                   scheme,
+		NewFunc:                  func() runtime.Object { return &v1.Migration{} },
+		NewListFunc:              func() runtime.Object { return &v1.MigrationList{} },
+		PredicateFunc:            MatchMigration,
+		DefaultQualifiedResource: v1.Resource("migrations"),
 
 		CreateStrategy: strategy,
 		UpdateStrategy: strategy,

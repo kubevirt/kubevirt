@@ -16,7 +16,6 @@ func Install(groupFactoryRegistry announced.APIGroupFactoryRegistry, registry *r
 			GroupName:                  v1.GroupName,
 			RootScopedKinds:            sets.NewString("APIService"),
 			VersionPreferenceOrder:     []string{v1.SchemeGroupVersion.Version},
-			ImportPrefix:               "kubevirt.io/kubevirt/pkg/api",
 			AddInternalObjectsToScheme: v1.AddToScheme,
 		},
 		announced.VersionToSchemeFunc{

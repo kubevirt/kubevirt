@@ -20,7 +20,7 @@ func NewStrategy(typer runtime.ObjectTyper) kubevirtStrategy {
 }
 
 func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, bool, error) {
-	vm, ok := obj.(*v1.VM)
+	vm, ok := obj.(*v1.VirtualMachine)
 	if !ok {
 		return nil, nil, false, fmt.Errorf("given object is not a VM.")
 	}
@@ -38,7 +38,7 @@ func MatchVM(label labels.Selector, field fields.Selector) storage.SelectionPred
 }
 
 // vmToSelectableFields returns a field set that represents the object.
-func vmToSelectableFields(obj *v1.VM) fields.Set {
+func vmToSelectableFields(obj *v1.VirtualMachine) fields.Set {
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 

@@ -44,8 +44,8 @@ func init() {
 
 	metav1.AddToGroupVersion(Scheme, v1.GroupVersion)
 	Scheme.AddKnownTypes(v1.GroupVersion,
-		&v1.VM{},
-		&v1.VMList{},
+		&v1.VirtualMachine{},
+		&v1.VirtualMachineList{},
 		&metav1.ListOptions{},
 		&metav1.DeleteOptions{},
 		&v1.Spice{},
@@ -84,7 +84,7 @@ func (c completedConfig) New() (*VirtApiServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	storage["vms"] = vms
+	storage["virtualmachines"] = vms
 
 	migrations, err := migration.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter)
 	if err != nil {
