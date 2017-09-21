@@ -511,6 +511,46 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	return vm
 }
 
+func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, cloudInitDataSource, userData string) (*v1.VirtualMachine, error) {
+	vm := NewRandomVMWithEphemeralDisk(containerImage)
+	vm.Spec.Domain.Devices.Serials = []v1.Serial{
+		{
+			Type: "pty",
+			Target: &v1.SerialTarget{
+				Port: newUInt(0),
+			},
+		},
+	}
+	vm.Spec.Domain.Devices.Consoles = []v1.Console{
+		{
+			Type: "pty",
+			Target: &v1.ConsoleTarget{
+				Type: newString("serial"),
+				Port: newUInt(0),
+			},
+		},
+	}
+	switch cloudInitDataSource {
+	case "noCloud":
+		spec := &v1.CloudInitSpec{
+			NoCloudData: &v1.CloudInitDataSourceNoCloud{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+			},
+		}
+		newDisk := v1.Disk{}
+		newDisk.Type = "file"
+		newDisk.Target = v1.DiskTarget{
+			Device: "vdb",
+		}
+		newDisk.CloudInit = spec
+
+		vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
+		return vm, nil
+	}
+
+	return nil, goerrors.New("Unknown cloud-init data source")
+}
+
 func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.VirtualMachine, error) {
 	switch cloudInitDataSource {
 	case "noCloud":

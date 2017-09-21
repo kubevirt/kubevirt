@@ -82,7 +82,7 @@ var _ = Describe("CloudInit UserData", func() {
 				Expect(err).ToNot(HaveOccurred())
 				next = next + string(data)
 			}
-		}, 45*time.Second).Should(ContainSubstring(magicStr))
+		}, 60*time.Second).Should(ContainSubstring(magicStr))
 	}
 
 	BeforeEach(func() {
@@ -99,7 +99,18 @@ var _ = Describe("CloudInit UserData", func() {
 			obj := LaunchVM(vm)
 			VerifyUserDataVM(vm, obj, magicStr)
 			close(done)
-		}, 60)
+		}, 90)
+
+		It("should launch ephemeral vm with cloud-init data source NoCloud", func(done Done) {
+			magicStr := "printed from cloud-init userdata"
+			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
+
+			vm, err := tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", "noCloud", userData)
+			Expect(err).ToNot(HaveOccurred())
+			obj := LaunchVM(vm)
+			VerifyUserDataVM(vm, obj, magicStr)
+			close(done)
+		}, 90)
 
 		It("should launch VMs with user-data in k8s secret", func(done Done) {
 			magicStr := "printed from cloud-init userdata"
@@ -137,6 +148,6 @@ var _ = Describe("CloudInit UserData", func() {
 			VerifyUserDataVM(vm, obj, magicStr)
 
 			close(done)
-		}, 60)
+		}, 90)
 	})
 })
