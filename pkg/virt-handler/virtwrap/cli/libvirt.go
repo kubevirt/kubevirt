@@ -22,7 +22,6 @@ package cli
 //go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -318,29 +317,28 @@ type VirDomain interface {
 	Free() error
 }
 
-func waitForLibvirt(uri string, user string, pass string, timeout time.Duration) error {
-	interval := 10 * time.Second
-	return utilwait.PollImmediate(interval, timeout, func() (done bool, err error) {
-		if virConn, err := newConnection(uri, user, pass); err == nil {
-			defer virConn.Close()
-			return true, nil
-		}
-		return false, nil
-	})
-}
-
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
 	timeout := 15 * time.Second
+	interval := 10 * time.Second
+
 	logger := logging.DefaultLogger()
 	logger.Info().V(1).Msgf("Connecting to libvirt daemon: %s", uri)
-	if err := waitForLibvirt(uri, user, pass, timeout); err != nil {
-		return nil, fmt.Errorf("cannot connect to libvirt daemon: %v", err)
-	}
-	logger.Info().V(1).Msg("Connected to libvirt daemon")
-	virConn, err := newConnection(uri, user, pass)
+
+	var err error
+	var virConn *libvirt.Connect
+
+	err = utilwait.PollImmediate(interval, timeout, func() (done bool, err error) {
+		virConn, err = newConnection(uri, user, pass)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
 	if err != nil {
 		return nil, err
 	}
+	logger.Info().V(1).Msg("Connected to libvirt daemon")
+
 	lvConn := &LibvirtConnection{
 		Connect: virConn, user: user, pass: pass, uri: uri, alive: true,
 		callbacks:     make([]libvirt.DomainEventLifecycleCallback, 0),
