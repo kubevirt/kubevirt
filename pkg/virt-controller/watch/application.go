@@ -12,6 +12,11 @@ import (
 
 	"k8s.io/client-go/util/workqueue"
 
+	"k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	v12 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
+
 	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -117,7 +122,12 @@ func (vca *VirtControllerApp) initCommon() {
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
-	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, nil, vca.clientSet)
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartRecordingToSink(&v12.EventSinkImpl{Interface: vca.clientSet.CoreV1().Events(v1.NamespaceAll)})
+	// TODO what is scheme used for in Recorder?
+	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "virtualmachinereplicaset-controller"})
+
+	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) DefineFlags() {

@@ -15,6 +15,8 @@ import (
 
 	v13 "k8s.io/api/core/v1"
 
+	"k8s.io/client-go/tools/record"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
@@ -31,6 +33,7 @@ var _ = Describe("Replicaset", func() {
 	var rsInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *VMReplicaSet
+	var recorder *record.FakeRecorder
 
 	sync := func(stop chan struct{}) {
 		go vmInformer.Run(stop)
@@ -49,8 +52,9 @@ var _ = Describe("Replicaset", func() {
 		rsSource = framework.NewFakeControllerSource()
 		vmInformer = cache.NewSharedIndexInformer(vmSource, &v1.VirtualMachine{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		rsInformer = cache.NewSharedIndexInformer(rsSource, &v1.VirtualMachineReplicaSet{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		recorder = record.NewFakeRecorder(100)
 
-		controller = NewVMReplicaSet(vmInformer, rsInformer, nil, virtClient)
+		controller = NewVMReplicaSet(vmInformer, rsInformer, recorder, virtClient)
 	})
 
 	Context("One valid ReplicaSet controller given", func() {

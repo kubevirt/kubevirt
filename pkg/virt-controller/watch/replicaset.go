@@ -36,9 +36,27 @@ import (
 
 	"github.com/jeevatkm/go-model"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+)
+
+// Reasons for virtual machine events
+const (
+	// FailedCreateVirtualMachineReason is added in an event and in a replica set condition
+	// when a virtual machine for a replica set is failed to be created.
+	FailedCreateVirtualMachineReason = "FailedCreate"
+	// SuccessfulCreateVirtualMachineReason is added in an event when a virtual machine for a replica set
+	// is successfully created.
+	SuccessfulCreateVirtualMachineReason = "SuccessfulCreate"
+	// FailedDeleteVirtualMachineReason is added in an event and in a replica set condition
+	// when a virtual machine for a replica set is failed to be deleted.
+	FailedDeleteVirtualMachineReason = "FailedDelete"
+	// SuccessfulDeleteVirtualMachineReason is added in an event when a virtual machine for a replica set
+	// is successfully deleted.
+	SuccessfulDeleteVirtualMachineReason = "SuccessfulDelete"
 )
 
 func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMReplicaSet {
@@ -186,11 +204,18 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 		for i := 0; i < diff; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				deleteCandidate := vms[idx]
+				deleteCandidate := &vms[idx]
 				// TODO graceful delete
 				err := c.clientset.VM(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
+				// Don't log an error if it is already deleted
 				if err != nil {
+					c.recorder.Eventf(deleteCandidate, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting: %v", err)
 					errChan <- err
+					return
+				}
+				// If already deleted, don't log an event
+				if !errors.IsNotFound(err) {
+					c.recorder.Eventf(deleteCandidate, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", deleteCandidate.ObjectMeta.UID)
 				}
 			}(i)
 		}
@@ -208,10 +233,13 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 				vm.Spec = rs.Spec.Template.Spec
 				// TODO check if vm labels exist, and when make sure that they match. For now just override them
 				vm.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
-				_, err := c.clientset.VM(rs.ObjectMeta.Namespace).Create(vm)
+				vm, err := c.clientset.VM(rs.ObjectMeta.Namespace).Create(vm)
 				if err != nil {
+					c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error deleting: %v", err)
 					errChan <- err
+					return
 				}
+				c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created virtual machine: %v", vm.ObjectMeta.Name)
 			}()
 		}
 	}
