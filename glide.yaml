@@ -25,12 +25,14 @@ import:
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: github.com/spf13/cobra
   version: f62e98d28ab7ad31d707ba837a966378465c7b57
+- package: k8s.io/api
+  version: 5d7eaafc89ac66da6bfbbcc4bc6a14fecd813084
 - package: k8s.io/apiserver
-  version: 7eb7a42b3f4b3aaeccab8fdf89095bb6bea20695
+  version: 55fb378db30d2673d7b78faa67403b8781fb9626
 - package: k8s.io/apimachinery
-  version: a13245d02534abe88286859b547d041816f9a3f4
+  version: f16ee4db044a21569fc95031aba96d08c5f28e7e
 - package: k8s.io/client-go
-  version: db8228460e2de17f5d3a9a453f61dde0ba86545a
+  version: aa671fcc5b8ed2a6ef9c8d40b3976804a7c9befc
   subpackages:
   - discovery
   - discovery/fake
