@@ -368,7 +368,7 @@ func (c *VMReplicaSet) addVirtualMachine(obj interface{}) {
 		return
 	}
 
-	// If an unexpected error occured, log it and ignore
+	// If an unexpected error occurred, log it and ignore
 	if err != nil {
 		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
 		return
@@ -432,7 +432,7 @@ func (c *VMReplicaSet) updateVirtualMachine(old, curr interface{}) {
 		return
 	}
 
-	// If an unexpected error occured, log it and ignore
+	// If an unexpected error occurred, log it and ignore
 	if err != nil {
 		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
 		return
@@ -470,17 +470,17 @@ func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []v
 	diff := c.calcDiff(rs, vms)
 
 	// check if we have reached the equilibrium
-	// in case the replica count matches and the scaleErr and the error conditaion equal, don't update
+	// in case the replica count matches and the scaleErr and the error condition equal, don't update
 	if diff == 0 && scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil ||
 		diff == 0 && scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil {
 		return nil
 	}
 
 	if scaleErr != nil {
-		// If an error occured, only update to filtered pod count
+		// If an error occurred, only update to filtered pod count
 		rs.Status.Replicas = int32(len(vms))
 	} else {
-		// If no error occured we have reached our required scale number
+		// If no error occurred we have reached our required scale number
 		rs.Status.Replicas = int32(len(vms) - diff)
 	}
 
