@@ -32,6 +32,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"fmt"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 )
 
@@ -179,4 +182,16 @@ func (c *Controller) runWorker() {
 // new items will be accepted. It is possible to wait via #WaitUntilDone() until the last item was processed.
 func (c *Controller) ShutDownQueue() {
 	c.queue.ShutDown()
+}
+
+func VirtualMachineKey(vm *v1.VirtualMachine) string {
+	return fmt.Sprintf("%v/%v", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
+}
+
+func VirtualMachineKeys(vms []v1.VirtualMachine) []string {
+	keys := []string{}
+	for _, vm := range vms {
+		keys = append(keys, VirtualMachineKey(&vm))
+	}
+	return keys
 }

@@ -31,8 +31,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	"time"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -73,7 +71,6 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 					break
 				}
 
-				//resourceVersion := rs.ObjectMeta.ResourceVersion
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() int32 {
@@ -85,14 +82,6 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 				vms, err := virtClient.VM(tests.NamespaceTestDefault).List(v12.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vms.Items).To(HaveLen(int(scale)))
-
-				/*
-					for _, vm := range vms.Items {
-						tests.NewObjectEventWatcher(&vm).SinceResourceVersion(resourceVersion).Timeout(20 * time.Second).WaitFor(tests.NormalEvent, watch.SuccessfulCreateVirtualMachineReason)
-						tests.NewObjectEventWatcher(&vm).SinceResourceVersion(resourceVersion).Timeout(20 * time.Second).WaitFor(tests.NormalEvent, watch.SuccessfulDeleteVirtualMachineReason)
-					}
-				*/
-				time.Sleep(20)
 			}
 
 			doScale(newRS.ObjectMeta.Name, int32(startScale))
@@ -100,7 +89,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 			doScale(newRS.ObjectMeta.Name, int32(0))
 
 		},
-			table.FEntry("to three, to two and then to zero replicas", 3, 2),
+			table.Entry("to three, to two and then to zero replicas", 3, 2),
 			table.Entry("to four, to six and then to zero replicas", 5, 6),
 		)
 	})

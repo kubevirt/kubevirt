@@ -36,6 +36,7 @@ import (
 
 	"github.com/jeevatkm/go-model"
 
+	"k8s.io/api/apps/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -67,11 +68,16 @@ func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.Sh
 		vmRSInformer: vmRSInformer,
 		recorder:     recorder,
 		clientset:    clientset,
+		expectations: kubecli.NewUIDTrackingControllerExpectations(kubecli.NewControllerExpectations()),
 	}
 
 	vmRSInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(c.queue))
 
-	c.vmInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(c.vmChangeFunc))
+	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addVirtualMachine,
+		DeleteFunc: c.deleteVirtualMachine,
+		UpdateFunc: c.updateVirtualMachine,
+	})
 
 	return c
 }
@@ -82,6 +88,7 @@ type VMReplicaSet struct {
 	vmInformer   cache.SharedIndexInformer
 	vmRSInformer cache.SharedIndexInformer
 	recorder     record.EventRecorder
+	expectations *kubecli.UIDTrackingControllerExpectations
 }
 
 func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
@@ -130,6 +137,7 @@ func (c *VMReplicaSet) execute(key string) error {
 	}
 	if !exists {
 		// nothing we need to do. It should always be possible to re-create this type of controller
+		c.expectations.DeleteExpectations(key)
 		return nil
 	}
 	rs := obj.(*virtv1.VirtualMachineReplicaSet)
@@ -148,6 +156,8 @@ func (c *VMReplicaSet) execute(key string) error {
 		return nil
 	}
 
+	needsSync := c.expectations.SatisfiedExpectations(key)
+
 	// get all potentially interesting VMs from the cache
 	vms, err := c.listVMsFromNamespace(rs.ObjectMeta.Namespace)
 
@@ -162,8 +172,11 @@ func (c *VMReplicaSet) execute(key string) error {
 	// make sure the selector of the controller matches and the VMs match
 	vms = c.filterMatchingVMs(selector, vms)
 
-	// Scale up or down
-	scaleErr := c.scale(rs, vms)
+	// Scale up or down, if all expected creates and deletes were report by the listener
+	var scaleErr error
+	if needsSync {
+		scaleErr = c.scale(rs, vms)
+	}
 
 	if scaleErr != nil {
 		log.Error().Reason(err).Msg("Scaling the replicaset failed.")
@@ -188,6 +201,11 @@ func (c *VMReplicaSet) execute(key string) error {
 func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine) error {
 
 	diff := c.calcDiff(rs, vms)
+	rsKey, err := kubecli.KeyFunc(rs)
+	if err != nil {
+		logging.DefaultLogger().Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+		return nil
+	}
 
 	if diff == 0 {
 		return nil
@@ -200,7 +218,9 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 	wg.Add(abs(diff))
 
 	if diff > 0 {
-		// We have to delete VMs
+		// We have to delete VMs, use a very simple se
+		deleteCandidates := vms[0:diff]
+		c.expectations.ExpectDeletions(rsKey, kubecli.VirtualMachineKeys(deleteCandidates))
 		for i := 0; i < diff; i++ {
 			go func(idx int) {
 				defer wg.Done()
@@ -209,19 +229,19 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 				err := c.clientset.VM(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
 				// Don't log an error if it is already deleted
 				if err != nil {
+					// We can't observe a delete if it was not accepted by the server
+					c.expectations.DeletionObserved(rsKey, kubecli.VirtualMachineKey(deleteCandidate))
 					c.recorder.Eventf(deleteCandidate, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting: %v", err)
 					errChan <- err
 					return
 				}
-				// If already deleted, don't log an event
-				if !errors.IsNotFound(err) {
-					c.recorder.Eventf(deleteCandidate, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", deleteCandidate.ObjectMeta.UID)
-				}
+				c.recorder.Eventf(deleteCandidate, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", deleteCandidate.ObjectMeta.UID)
 			}(i)
 		}
 
 	} else if diff < 0 {
 		// We have to create VMs
+		c.expectations.ExpectCreations(rsKey, abs(diff))
 		basename := c.getVirtualMachineBaseName(rs)
 		for i := diff; i < 0; i++ {
 			go func() {
@@ -235,6 +255,7 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 				vm.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
 				vm, err := c.clientset.VM(rs.ObjectMeta.Namespace).Create(vm)
 				if err != nil {
+					c.expectations.CreationObserved(rsKey)
 					c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error deleting: %v", err)
 					errChan <- err
 					return
@@ -307,15 +328,13 @@ func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]virtv1.V
 	return replicaSets, nil
 }
 
-// vmChangeFunc checks if the supplied VM matches a replica set controller in it's namespace
-// and wakes the first controller which matches the VM labels.
-func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
-	vm := obj.(*virtv1.VirtualMachine)
+// getMatchingController returns the first VMReplicaSet which matches the labels of the VM from the listener cache.
+// If there are no matching controllers, a NotFound error is returned.
+func (c *VMReplicaSet) getMatchingController(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineReplicaSet, error) {
 	log := logging.DefaultLogger()
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
-		log.Error().Object(vm).Reason(err).Msg("Failed to fetch replicasets for namespace of the VM from cache.")
-		return
+		return nil, err
 	}
 
 	// TODO check owner reference, if we have an existing controller which owns this one
@@ -323,22 +342,111 @@ func (c *VMReplicaSet) vmChangeFunc(obj interface{}) {
 	for _, rs := range controllers {
 		selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
 		if err != nil {
-			log.Error().Object(&rs).Reason(err).Msg("Failed to fetch replicasets for namespace from cache.")
+			log.Error().Object(&rs).Reason(err).Msg("Failed to parse label selector from replicaset.")
 			continue
 		}
 
 		if selector.Matches(labels.Set(vm.ObjectMeta.Labels)) {
-			// The first matching rs will be informed
-			key, err := cache.MetaNamespaceKeyFunc(&rs)
-			if err != nil {
-				log.Error().Object(&rs).Reason(err).Msg("Failed to extract key from replicaset.")
-				return
-			}
-			c.queue.Add(key)
-			return
+			// The first matching rs will be returned
+			return &rs, nil
 		}
 
 	}
+	return nil, errors.NewNotFound(v1beta1.Resource("virtualmachinereplicaset"), "")
+}
+
+// addVirtualMachine searchs for a matching VMReplicaSet, updates it's expectations and wakes it up
+func (c *VMReplicaSet) addVirtualMachine(obj interface{}) {
+	vm := obj.(*virtv1.VirtualMachine)
+	log := logging.DefaultLogger()
+
+	// Let's search for a matching controller
+	rs, err := c.getMatchingController(vm)
+
+	// If none exists, ignore
+	if errors.IsNotFound(err) {
+		return
+	}
+
+	// If an unexpected error occured, log it and ignore
+	if err != nil {
+		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
+		return
+	}
+
+	// If we can't extract the key, log it and ignore
+	rsKey, err := kubecli.KeyFunc(rs)
+	if err != nil {
+		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+		return
+	}
+
+	// In case the controller is waiting for a creation, tell it that we observed one
+	c.expectations.CreationObserved(rsKey)
+	c.queue.Add(rsKey)
+	return
+}
+
+// deleteVirtualMachine searchs for a matching VMReplicaSet, updates it's expectations and wakes it up
+func (c *VMReplicaSet) deleteVirtualMachine(obj interface{}) {
+	vm := obj.(*virtv1.VirtualMachine)
+	log := logging.DefaultLogger()
+
+	// Let's search for a matching controller
+	rs, err := c.getMatchingController(vm)
+
+	// If none exists, ignore
+	if errors.IsNotFound(err) {
+		return
+	}
+
+	// If an unexpected error occured, log it and ignore
+	if err != nil {
+		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
+		return
+	}
+
+	// If we can't extract the key, log it and ignore
+	rsKey, err := kubecli.KeyFunc(rs)
+	if err != nil {
+		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+		return
+	}
+
+	// In case the controller is waiting for a deletion, tell it that we observed one
+	c.expectations.DeletionObserved(rsKey, kubecli.VirtualMachineKey(vm))
+	c.queue.Add(rsKey)
+	return
+}
+
+// deleteVirtualMachine searchs for a matching VMReplicaSet and wakes it up
+func (c *VMReplicaSet) updateVirtualMachine(old, curr interface{}) {
+	vm := curr.(*virtv1.VirtualMachine)
+	log := logging.DefaultLogger()
+
+	// Let's search for a matching controller
+	rs, err := c.getMatchingController(vm)
+
+	// If none exists, ignore
+	if errors.IsNotFound(err) {
+		return
+	}
+
+	// If an unexpected error occured, log it and ignore
+	if err != nil {
+		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
+		return
+	}
+
+	// If we can't extract the key, log it and ignore
+	rsKey, err := kubecli.KeyFunc(rs)
+	if err != nil {
+		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+		return
+	}
+
+	c.queue.Add(rsKey)
+	return
 }
 
 func abs(x int) int {

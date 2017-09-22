@@ -83,6 +83,7 @@ func (f *kubeInformerFactory) Start(stopCh <-chan struct{}) {
 	for name, informer := range f.informers {
 		if f.startedInformers[name] {
 			// skip informers that have already started.
+			logging.DefaultLogger().Info().Msgf("SKIPPING informer %s", name)
 			continue
 		}
 		logging.DefaultLogger().Info().Msgf("STARTING informer %s", name)
@@ -123,7 +124,7 @@ func (f *kubeInformerFactory) Migration() cache.SharedIndexInformer {
 }
 
 func (f *kubeInformerFactory) VMReplicaSet() cache.SharedIndexInformer {
-	return f.getInformer("VirtualMachineReplicaSet", func() cache.SharedIndexInformer {
+	return f.getInformer("vmrsInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachinereplicasets", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineReplicaSet{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
