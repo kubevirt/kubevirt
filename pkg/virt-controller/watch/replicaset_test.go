@@ -79,6 +79,10 @@ var _ = Describe("Replicaset", func() {
 			rsInterface.EXPECT().Update(expectedRS)
 
 			controller.Execute()
+
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should ignore non-matching VMs", func() {
@@ -103,6 +107,10 @@ var _ = Describe("Replicaset", func() {
 			rsInterface.EXPECT().Update(expectedRS)
 
 			controller.Execute()
+
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should delete a VM and decrease the replica count", func() {
@@ -125,6 +133,8 @@ var _ = Describe("Replicaset", func() {
 			rsInterface.EXPECT().Update(expectedRS)
 
 			controller.Execute()
+
+			expectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
 		It("should detect that it has nothing to do", func() {
@@ -170,6 +180,8 @@ var _ = Describe("Replicaset", func() {
 
 			// Run the controller again
 			controller.Execute()
+
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should be woken by a deleted VM and create a new one", func() {
@@ -198,9 +210,11 @@ var _ = Describe("Replicaset", func() {
 
 			// Run the controller again
 			controller.Execute()
+
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
-		It("should add a fail condition if scaling fails", func() {
+		It("should add a fail condition if scaling up fails", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 			rs := ReplicaSetFromVM("rs", vm, 3)
@@ -231,6 +245,46 @@ var _ = Describe("Replicaset", func() {
 			})
 
 			controller.Execute()
+
+			expectEvent(recorder, FailedCreateVirtualMachineReason)
+		})
+
+		It("should add a fail condition if scaling down fails", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			vm1 := v1.NewMinimalVM("testvm1")
+			vm1.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 0)
+
+			vmSource.Add(vm)
+			vmSource.Add(vm1)
+			rsSource.Add(rs)
+
+			sync(stop)
+
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
+			// Let first one succeed
+			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any()).Return(nil)
+			// Let second one fail
+			vmInterface.EXPECT().Delete(vm1.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
+
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
+
+			// We should see the failed condition, replicas should stay at 2
+			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objRS := obj.(*v1.VirtualMachineReplicaSet)
+				Expect(objRS.Status.Replicas).To(Equal(int32(2)))
+				Expect(objRS.Status.Conditions).To(HaveLen(1))
+				cond := objRS.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.VMReplicaSetReplicaFailure))
+				Expect(cond.Reason).To(Equal("FailedDelete"))
+				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Status).To(Equal(v13.ConditionTrue))
+			})
+
+			controller.Execute()
+
+			expectEvent(recorder, FailedDeleteVirtualMachineReason)
 		})
 
 		It("should update the replica count but keep the failed state", func() {
@@ -329,4 +383,8 @@ func ReplicaSetFromVM(name string, vm *v1.VirtualMachine, replicas int32) *v1.Vi
 		},
 	}
 	return rs
+}
+
+func expectEvent(recorder *record.FakeRecorder, reason string) {
+	Eventually(recorder.Events).Should(Receive(ContainSubstring(reason)))
 }
