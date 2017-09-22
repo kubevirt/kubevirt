@@ -74,7 +74,7 @@ var _ = Describe("Replicaset", func() {
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal("testvm"))
-			})
+			}).Return(vm, nil)
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 			rsInterface.EXPECT().Update(expectedRS)
 
@@ -84,20 +84,21 @@ var _ = Describe("Replicaset", func() {
 		It("should ignore non-matching VMs", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			nonMatchingVM := v1.NewMinimalVM("testvm1")
+			nonMatchingVM.ObjectMeta.Labels = map[string]string{"test": "test1"}
 			rs := ReplicaSetFromVM("rs", vm, 3)
 
 			expectedRS := clone(rs)
 			expectedRS.Status.Replicas = 3
 
 			// We still expect three calls to create VMs, since VM does not meet the requirements
-			vm.ObjectMeta.Labels = map[string]string{"test": "test1"}
-			vmSource.Add(vm)
+			vmSource.Add(nonMatchingVM)
 			rsSource.Add(rs)
 
 			sync(stop)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
-			vmInterface.EXPECT().Create(gomock.Any()).Times(3)
+			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Return(vm, nil)
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 			rsInterface.EXPECT().Update(expectedRS)
 
@@ -165,7 +166,35 @@ var _ = Describe("Replicaset", func() {
 
 			// Expect the recrate of the VM
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
-			vmInterface.EXPECT().Create(gomock.Any())
+			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
+
+			// Run the controller again
+			controller.Execute()
+		})
+
+		It("should be woken by a deleted VM and create a new one", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 1)
+			rs.Status.Replicas = 1
+
+			vmSource.Add(vm)
+			rsSource.Add(rs)
+
+			sync(stop)
+
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
+			rsInterface.EXPECT().Update(rs).Times(2)
+
+			// First make sure that we don't have to do anything
+			controller.Execute()
+
+			// Delete one VM
+			vmSource.Delete(vm)
+
+			// Expect the recrate of the VM
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
+			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 
 			// Run the controller again
 			controller.Execute()
@@ -183,7 +212,7 @@ var _ = Describe("Replicaset", func() {
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			// Let first one succeed
-			vmInterface.EXPECT().Create(gomock.Any())
+			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 			// Let second one fail
 			vmInterface.EXPECT().Create(gomock.Any()).Return(nil, fmt.Errorf("failure"))
 
@@ -223,7 +252,7 @@ var _ = Describe("Replicaset", func() {
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			// Let first one succeed
-			vmInterface.EXPECT().Create(gomock.Any())
+			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 			// Let second one fail
 			vmInterface.EXPECT().Create(gomock.Any()).Return(nil, fmt.Errorf("failure"))
 
@@ -259,7 +288,7 @@ var _ = Describe("Replicaset", func() {
 			sync(stop)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
-			vmInterface.EXPECT().Create(gomock.Any()).Times(2)
+			vmInterface.EXPECT().Create(gomock.Any()).Times(2).Return(vm, nil)
 
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 
@@ -290,7 +319,13 @@ func ReplicaSetFromVM(name string, vm *v1.VirtualMachine, replicas int32) *v1.Vi
 			Selector: &v12.LabelSelector{
 				MatchLabels: vm.ObjectMeta.Labels,
 			},
-			Template: &v1.VMTemplateSpec{Spec: vm.Spec},
+			Template: &v1.VMTemplateSpec{
+				ObjectMeta: v12.ObjectMeta{
+					Name:   vm.ObjectMeta.Name,
+					Labels: vm.ObjectMeta.Labels,
+				},
+				Spec: vm.Spec,
+			},
 		},
 	}
 	return rs
