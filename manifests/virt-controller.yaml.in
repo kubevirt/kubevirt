@@ -16,6 +16,7 @@ kind: Deployment
 metadata:
   name: virt-controller
 spec:
+  replicas: 2
   template:
     metadata:
       labels:
