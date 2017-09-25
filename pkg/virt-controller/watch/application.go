@@ -127,7 +127,7 @@ func (vca *VirtControllerApp) initReplicaSet() {
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "virtualmachinereplicaset-controller"})
 
-	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet)
+	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, kubecli.BurstReplicas)
 }
 
 func (vca *VirtControllerApp) DefineFlags() {

@@ -38,6 +38,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/logging"
 )
 
+const (
+	// BurstReplicas is the maximum amount of requests in a row for CRUD operations on resources by controllers,
+	// to avoid unintentional DoS
+	BurstReplicas uint = 250
+)
+
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {

@@ -1,8 +1,6 @@
-package watch_test
+package watch
 
 import (
-	. "kubevirt.io/kubevirt/pkg/virt-controller/watch"
-
 	"github.com/golang/mock/gomock"
 	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
@@ -17,47 +15,59 @@ import (
 
 	"k8s.io/client-go/tools/record"
 
+	"github.com/onsi/ginkgo/extensions/table"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
 var _ = Describe("Replicaset", func() {
 
-	var ctrl *gomock.Controller
-	var virtClient *kubecli.MockKubevirtClient
-	var vmInterface *kubecli.MockVMInterface
-	var rsInterface *kubecli.MockReplicaSetInterface
-	var vmSource *framework.FakeControllerSource
-	var rsSource *framework.FakeControllerSource
-	var vmInformer cache.SharedIndexInformer
-	var rsInformer cache.SharedIndexInformer
-	var stop chan struct{}
-	var controller *VMReplicaSet
-	var recorder *record.FakeRecorder
-
-	sync := func(stop chan struct{}) {
-		go vmInformer.Run(stop)
-		go rsInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, rsInformer.HasSynced)).To(BeTrue())
-	}
-
-	BeforeEach(func() {
-		stop = make(chan struct{})
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVMInterface(ctrl)
-		rsInterface = kubecli.NewMockReplicaSetInterface(ctrl)
-
-		vmSource = framework.NewFakeControllerSource()
-		rsSource = framework.NewFakeControllerSource()
-		vmInformer = cache.NewSharedIndexInformer(vmSource, &v1.VirtualMachine{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-		rsInformer = cache.NewSharedIndexInformer(rsSource, &v1.VirtualMachineReplicaSet{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-		recorder = record.NewFakeRecorder(100)
-
-		controller = NewVMReplicaSet(vmInformer, rsInformer, recorder, virtClient)
-	})
+	table.DescribeTable("Different replica diffs given", func(diff int, burstReplicas int, result int) {
+		Expect(limit(diff, uint(burstReplicas))).To(Equal(result))
+	},
+		table.Entry("should limit negative diff to negative burst maximum", -10, 5, -5),
+		table.Entry("should return negative diff if bigger than negative burst maximum", -4, 5, -4),
+		table.Entry("should limit positive diff to positive burst maximum", 10, 5, 5),
+		table.Entry("should return positive diff if less than positive burst maximum", 4, 5, 4),
+		table.Entry("should return 0 for zero diff", 0, 5, 0),
+	)
 
 	Context("One valid ReplicaSet controller given", func() {
+
+		var ctrl *gomock.Controller
+		var virtClient *kubecli.MockKubevirtClient
+		var vmInterface *kubecli.MockVMInterface
+		var rsInterface *kubecli.MockReplicaSetInterface
+		var vmSource *framework.FakeControllerSource
+		var rsSource *framework.FakeControllerSource
+		var vmInformer cache.SharedIndexInformer
+		var rsInformer cache.SharedIndexInformer
+		var stop chan struct{}
+		var controller *VMReplicaSet
+		var recorder *record.FakeRecorder
+
+		sync := func(stop chan struct{}) {
+			go vmInformer.Run(stop)
+			go rsInformer.Run(stop)
+			Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, rsInformer.HasSynced)).To(BeTrue())
+		}
+
+		BeforeEach(func() {
+			stop = make(chan struct{})
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			vmInterface = kubecli.NewMockVMInterface(ctrl)
+			rsInterface = kubecli.NewMockReplicaSetInterface(ctrl)
+
+			vmSource = framework.NewFakeControllerSource()
+			rsSource = framework.NewFakeControllerSource()
+			vmInformer = cache.NewSharedIndexInformer(vmSource, &v1.VirtualMachine{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			rsInformer = cache.NewSharedIndexInformer(rsSource, &v1.VirtualMachineReplicaSet{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			recorder = record.NewFakeRecorder(100)
+
+			controller = NewVMReplicaSet(vmInformer, rsInformer, recorder, virtClient, uint(10))
+		})
 
 		It("should create missing VMs and increase the replica count", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -83,6 +93,68 @@ var _ = Describe("Replicaset", func() {
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should create missing VMs in batches of a maximum of 10 VMs at once", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 15)
+
+			rsSource.Add(rs)
+
+			sync(stop)
+
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).AnyTimes()
+			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
+
+			invocations := 0
+			// Count up on every invocation, so that we can measure how often this was called on one invocation
+			vmInterface.EXPECT().Create(gomock.Any()).Times(15).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal("testvm"))
+			}).Return(vm, nil).Do(func(obj interface{}) {
+				invocations++
+			})
+
+			// Check if only 10 are created
+			controller.Execute()
+			Expect(invocations).To(Equal(10))
+
+			// TODO test for missing 5
+		})
+
+		It("should delete missing VMs in batches of a maximum of 10 VMs at once", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 0)
+
+			rsSource.Add(rs)
+
+			// Add 15 VMs to the cache
+			for x := 0; x < 10; x++ {
+				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
+				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+				vmSource.Add(vm)
+			}
+
+			sync(stop)
+
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).AnyTimes()
+			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
+
+			invocations := 0
+			// Count up on every invocation, so that we can measure how often this was called on one invocation
+			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).
+				Times(15).Return(nil).Do(func(vm interface{}, _ interface{}) {
+				invocations++
+			})
+
+			// Check if only 10 are deleted
+			controller.Execute()
+			Expect(invocations).To(Equal(10))
+
+			// TODO test for missing 5
 		})
 
 		It("should ignore non-matching VMs", func() {

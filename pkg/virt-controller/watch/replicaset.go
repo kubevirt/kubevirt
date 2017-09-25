@@ -60,15 +60,16 @@ const (
 	SuccessfulDeleteVirtualMachineReason = "SuccessfulDelete"
 )
 
-func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMReplicaSet {
+func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) *VMReplicaSet {
 
 	c := &VMReplicaSet{
-		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmInformer:   vmInformer,
-		vmRSInformer: vmRSInformer,
-		recorder:     recorder,
-		clientset:    clientset,
-		expectations: kubecli.NewUIDTrackingControllerExpectations(kubecli.NewControllerExpectations()),
+		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmInformer:    vmInformer,
+		vmRSInformer:  vmRSInformer,
+		recorder:      recorder,
+		clientset:     clientset,
+		expectations:  kubecli.NewUIDTrackingControllerExpectations(kubecli.NewControllerExpectations()),
+		burstReplicas: burstReplicas,
 	}
 
 	vmRSInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(c.queue))
@@ -83,12 +84,13 @@ func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.Sh
 }
 
 type VMReplicaSet struct {
-	clientset    kubecli.KubevirtClient
-	queue        workqueue.RateLimitingInterface
-	vmInformer   cache.SharedIndexInformer
-	vmRSInformer cache.SharedIndexInformer
-	recorder     record.EventRecorder
-	expectations *kubecli.UIDTrackingControllerExpectations
+	clientset     kubecli.KubevirtClient
+	queue         workqueue.RateLimitingInterface
+	vmInformer    cache.SharedIndexInformer
+	vmRSInformer  cache.SharedIndexInformer
+	recorder      record.EventRecorder
+	expectations  *kubecli.UIDTrackingControllerExpectations
+	burstReplicas uint
 }
 
 func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
@@ -211,6 +213,9 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 		return nil
 	}
 
+	// Make sure that we don't overload the cluster
+	diff = limit(diff, c.burstReplicas)
+
 	// Every delete request can fail, give the channel enough room, to not block the go routines
 	errChan := make(chan error, abs(diff))
 
@@ -218,7 +223,8 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 	wg.Add(abs(diff))
 
 	if diff > 0 {
-		// We have to delete VMs, use a very simple se
+		// We have to delete VMs, use a very simple selection strategy for now
+		// TODO: Possible deletion order: not yet running VMs < migrating VMs < other
 		deleteCandidates := vms[0:diff]
 		c.expectations.ExpectDeletions(rsKey, kubecli.VirtualMachineKeys(deleteCandidates))
 		for i := 0; i < diff; i++ {
@@ -428,6 +434,29 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+func min(x int, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func max(x int, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+//limit
+func limit(x int, burstReplicas uint) int {
+	replicas := int(burstReplicas)
+	if x <= 0 {
+		return max(x, -replicas)
+	}
+	return min(x, replicas)
 }
 
 func (c *VMReplicaSet) getCondition(rs *virtv1.VirtualMachineReplicaSet, cond virtv1.VMReplicaSetConditionType) *virtv1.VMReplicaSetCondition {
