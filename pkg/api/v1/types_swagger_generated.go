@@ -113,7 +113,8 @@ func (VMReplicaSetSpec) SwaggerDoc() map[string]string {
 
 func (VMReplicaSetStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"replicas": "Total number of non-terminated pods targeted by this deployment (their labels match the selector).\n+optional",
+		"replicas":      "Total number of non-terminated pods targeted by this deployment (their labels match the selector).\n+optional",
+		"readyReplicas": "The number of ready replicas for this replica set.\n+optional",
 	}
 }
 

@@ -482,7 +482,7 @@ func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []v
 	readyReplicas := int32(len(c.filterReadyVMs(vms)))
 
 	// check if we have reached the equilibrium
-	statesMatch := diff == 0 && readyReplicas == rs.Status.ReadyReplicas
+	statesMatch := int32(len(vms)) == rs.Status.Replicas && readyReplicas == rs.Status.ReadyReplicas
 
 	// check if we need to update because of appeared or disappeard errors
 	errorsMatch := scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil || scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil
@@ -492,13 +492,7 @@ func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []v
 		return nil
 	}
 
-	if scaleErr != nil {
-		// If an error occurred, only update to filtered pod count
-		rs.Status.Replicas = int32(len(vms))
-	} else {
-		// If no error occurred we have reached our required scale number
-		rs.Status.Replicas = int32(len(vms) - diff)
-	}
+	rs.Status.Replicas = int32(len(vms))
 	rs.Status.ReadyReplicas = readyReplicas
 
 	if scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil {

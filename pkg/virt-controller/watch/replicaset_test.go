@@ -75,7 +75,7 @@ var _ = Describe("Replicaset", func() {
 			rs := ReplicaSetFromVM("rs", vm, 3)
 
 			expectedRS := clone(rs)
-			expectedRS.Status.Replicas = 3
+			expectedRS.Status.Replicas = 0
 			expectedRS.Status.ReadyReplicas = 0
 
 			rsSource.Add(rs)
@@ -131,7 +131,7 @@ var _ = Describe("Replicaset", func() {
 
 			rsSource.Add(rs)
 
-			// Add 15 VMs to the cache
+			// Add 10 VMs to the cache
 			for x := 0; x < 10; x++ {
 				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
 				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
@@ -166,7 +166,7 @@ var _ = Describe("Replicaset", func() {
 			rs := ReplicaSetFromVM("rs", vm, 3)
 
 			expectedRS := clone(rs)
-			expectedRS.Status.Replicas = 3
+			expectedRS.Status.Replicas = 0
 
 			// We still expect three calls to create VMs, since VM does not meet the requirements
 			vmSource.Add(nonMatchingVM)
@@ -193,7 +193,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 
 			expectedRS := clone(rs)
-			expectedRS.Status.Replicas = 0
+			expectedRS.Status.Replicas = 1
 
 			vmSource.Add(vm)
 			rsSource.Add(rs)
@@ -230,7 +230,10 @@ var _ = Describe("Replicaset", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 			rs := ReplicaSetFromVM("rs", vm, 1)
-			rs.Status.Replicas = 1
+			rs.Status.Replicas = 0
+
+			rsCopy := clone(rs)
+			rsCopy.Status.Replicas = 1
 
 			vmSource.Add(vm)
 			rsSource.Add(rs)
@@ -238,7 +241,8 @@ var _ = Describe("Replicaset", func() {
 			sync(stop)
 
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
-			rsInterface.EXPECT().Update(rs).Times(2)
+			rsInterface.EXPECT().Update(rs).Times(1)
+			rsInterface.EXPECT().Update(rsCopy).Times(1)
 
 			// First make sure that we don't have to do anything
 			controller.Execute()
@@ -257,11 +261,12 @@ var _ = Describe("Replicaset", func() {
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
-		FIt("should be woken by a ready VM and update the readyReplicas counter", func() {
+		It("should be woken by a ready VM and update the readyReplicas counter", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 			rs := ReplicaSetFromVM("rs", vm, 1)
 			rs.Status.Replicas = 1
+			rs.Status.ReadyReplicas = 0
 
 			expectedRS := clone(rs)
 			expectedRS.Status.Replicas = 1
@@ -295,7 +300,10 @@ var _ = Describe("Replicaset", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 			rs := ReplicaSetFromVM("rs", vm, 1)
-			rs.Status.Replicas = 1
+			rs.Status.Replicas = 0
+
+			rsCopy := clone(rs)
+			rsCopy.Status.Replicas = 1
 
 			vmSource.Add(vm)
 			rsSource.Add(rs)
@@ -303,7 +311,8 @@ var _ = Describe("Replicaset", func() {
 			sync(stop)
 
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
-			rsInterface.EXPECT().Update(rs).Times(2)
+			rsInterface.EXPECT().Update(rs).Times(1)
+			rsInterface.EXPECT().Update(rsCopy).Times(1)
 
 			// First make sure that we don't have to do anything
 			controller.Execute()
@@ -456,7 +465,7 @@ var _ = Describe("Replicaset", func() {
 			// We should see the failed condition, replicas should stay at 0
 			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
 				objRS := obj.(*v1.VirtualMachineReplicaSet)
-				Expect(objRS.Status.Replicas).To(Equal(int32(3)))
+				Expect(objRS.Status.Replicas).To(Equal(int32(1)))
 				Expect(objRS.Status.Conditions).To(HaveLen(0))
 			})
 
