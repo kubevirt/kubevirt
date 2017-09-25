@@ -28,8 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
+	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -41,6 +43,10 @@ import (
 
 func NewMigrationController(restClient *rest.RESTClient, migrationService services.VMService, clientset kubecli.KubevirtClient, queue workqueue.RateLimitingInterface, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, migrationCache cache.Store) *MigrationController {
 
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: clientset.CoreV1().Events(k8sv1.NamespaceAll)})
+	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-migration-controller"})
+
 	return &MigrationController{
 		restClient:        restClient,
 		vmService:         migrationService,
@@ -49,6 +55,7 @@ func NewMigrationController(restClient *rest.RESTClient, migrationService servic
 		store:             migrationCache,
 		migrationInformer: migrationInformer,
 		podInformer:       podInformer,
+		recorder:          recorder,
 	}
 }
 
@@ -60,6 +67,7 @@ type MigrationController struct {
 	store             cache.Store
 	migrationInformer cache.SharedIndexInformer
 	podInformer       cache.SharedIndexInformer
+	recorder          record.EventRecorder
 }
 
 func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
@@ -274,6 +282,7 @@ func (md *MigrationController) execute(key string) error {
 			}
 			return setMigrationFailed(migration)
 		case k8sv1.PodSucceeded:
+			eventMsg := fmt.Sprintf("VM migrated from %s to %s", vm.Status.NodeName, targetPod.Spec.NodeName)
 			vm.Status.NodeName = targetPod.Spec.NodeName
 			vm.Status.MigrationNodeName = ""
 			vm.Status.Phase = kubev1.Running
@@ -281,6 +290,8 @@ func (md *MigrationController) execute(key string) error {
 				vm.ObjectMeta.Labels = map[string]string{}
 			}
 			vm.ObjectMeta.Labels[kubev1.NodeNameLabel] = vm.Status.NodeName
+
+			md.recorder.Event(vm, k8sv1.EventTypeNormal, "Migrated", eventMsg)
 			if _, err = md.vmService.PutVm(vm); err != nil {
 				logger.Error().Reason(err).Msg("updating the VM failed.")
 				return err
