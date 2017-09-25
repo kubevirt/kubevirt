@@ -357,27 +357,9 @@ func (c *VMReplicaSet) getMatchingController(vm *virtv1.VirtualMachine) (*virtv1
 
 // addVirtualMachine searchs for a matching VMReplicaSet, updates it's expectations and wakes it up
 func (c *VMReplicaSet) addVirtualMachine(obj interface{}) {
-	vm := obj.(*virtv1.VirtualMachine)
-	log := logging.DefaultLogger()
 
-	// Let's search for a matching controller
-	rs, err := c.getMatchingController(vm)
-
-	// If none exists, ignore
-	if errors.IsNotFound(err) {
-		return
-	}
-
-	// If an unexpected error occurred, log it and ignore
-	if err != nil {
-		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
-		return
-	}
-
-	// If we can't extract the key, log it and ignore
-	rsKey, err := kubecli.KeyFunc(rs)
-	if err != nil {
-		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+	rsKey := c.getMatchingControllerKey(obj.(*virtv1.VirtualMachine))
+	if rsKey == "" {
 		return
 	}
 
@@ -387,29 +369,12 @@ func (c *VMReplicaSet) addVirtualMachine(obj interface{}) {
 	return
 }
 
-// deleteVirtualMachine searchs for a matching VMReplicaSet, updates it's expectations and wakes it up
+// deleteVirtualMachine searches for a matching VMReplicaSet, updates it's expectations and wakes it up
 func (c *VMReplicaSet) deleteVirtualMachine(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
-	log := logging.DefaultLogger()
 
-	// Let's search for a matching controller
-	rs, err := c.getMatchingController(vm)
-
-	// If none exists, ignore
-	if errors.IsNotFound(err) {
-		return
-	}
-
-	// If an unexpected error occured, log it and ignore
-	if err != nil {
-		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
-		return
-	}
-
-	// If we can't extract the key, log it and ignore
-	rsKey, err := kubecli.KeyFunc(rs)
-	if err != nil {
-		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+	rsKey := c.getMatchingControllerKey(vm)
+	if rsKey == "" {
 		return
 	}
 
@@ -421,7 +386,18 @@ func (c *VMReplicaSet) deleteVirtualMachine(obj interface{}) {
 
 // deleteVirtualMachine searchs for a matching VMReplicaSet and wakes it up
 func (c *VMReplicaSet) updateVirtualMachine(old, curr interface{}) {
-	vm := curr.(*virtv1.VirtualMachine)
+	rsKey := c.getMatchingControllerKey(curr.(*virtv1.VirtualMachine))
+	if rsKey == "" {
+		return
+	}
+
+	c.queue.Add(rsKey)
+	return
+}
+
+// getMatchingControllerKey takes a VirtualMachine and returns a the key of a macthing VMReplicaSet, if one exists.
+// Returns an empty string if no matching controller exists
+func (c *VMReplicaSet) getMatchingControllerKey(vm *virtv1.VirtualMachine) string {
 	log := logging.DefaultLogger()
 
 	// Let's search for a matching controller
@@ -429,24 +405,22 @@ func (c *VMReplicaSet) updateVirtualMachine(old, curr interface{}) {
 
 	// If none exists, ignore
 	if errors.IsNotFound(err) {
-		return
+		return ""
 	}
 
 	// If an unexpected error occurred, log it and ignore
 	if err != nil {
 		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
-		return
+		return ""
 	}
 
 	// If we can't extract the key, log it and ignore
 	rsKey, err := kubecli.KeyFunc(rs)
 	if err != nil {
 		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
-		return
+		return ""
 	}
-
-	c.queue.Add(rsKey)
-	return
+	return rsKey
 }
 
 func abs(x int) int {
