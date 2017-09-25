@@ -285,22 +285,30 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 // Note that vms which have a deletion timestamp set, are still treated as active.
 // This is a difference to Pod ReplicaSets
 func (c *VMReplicaSet) filterActiveVMs(vms []virtv1.VirtualMachine) []virtv1.VirtualMachine {
-	filtered := []virtv1.VirtualMachine{}
-	for _, vm := range vms {
-		if !vm.IsFinal() {
-			filtered = append(filtered, vm)
-		}
-	}
-	return filtered
+	return filter(vms, func(vm *virtv1.VirtualMachine) bool {
+		return !vm.IsFinal()
+	})
+}
+
+// filterReadyVMs takes a list of VMs and returns all VMs which are in ready state.
+func (c *VMReplicaSet) filterReadyVMs(vms []virtv1.VirtualMachine) []virtv1.VirtualMachine {
+	return filter(vms, func(vm *virtv1.VirtualMachine) bool {
+		return vm.IsReady()
+	})
 }
 
 // filterMatchingVMs takes a selector and a list of VMs. If the VM labels match the selector it is added to the filtered collection.
 // Returns the list of all VMs which match the selector
 func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []virtv1.VirtualMachine) []virtv1.VirtualMachine {
-	//TODO take owner reference into account
+	return filter(vms, func(vm *virtv1.VirtualMachine) bool {
+		return selector.Matches(labels.Set(vm.ObjectMeta.Labels))
+	})
+}
+
+func filter(vms []virtv1.VirtualMachine, f func(vm *virtv1.VirtualMachine) bool) []virtv1.VirtualMachine {
 	filtered := []virtv1.VirtualMachine{}
 	for _, vm := range vms {
-		if selector.Matches(labels.Set(vm.ObjectMeta.Labels)) {
+		if f(&vm) {
 			filtered = append(filtered, vm)
 		}
 	}
@@ -471,11 +479,16 @@ func (c *VMReplicaSet) getCondition(rs *virtv1.VirtualMachineReplicaSet, cond vi
 func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine, scaleErr error) error {
 
 	diff := c.calcDiff(rs, vms)
+	readyReplicas := int32(len(c.filterReadyVMs(vms)))
 
 	// check if we have reached the equilibrium
+	statesMatch := diff == 0 && readyReplicas == rs.Status.ReadyReplicas
+
+	// check if we need to update because of appeared or disappeard errors
+	errorsMatch := scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil || scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil
+
 	// in case the replica count matches and the scaleErr and the error condition equal, don't update
-	if diff == 0 && scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil ||
-		diff == 0 && scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil {
+	if statesMatch && errorsMatch {
 		return nil
 	}
 
@@ -486,6 +499,7 @@ func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []v
 		// If no error occurred we have reached our required scale number
 		rs.Status.Replicas = int32(len(vms) - diff)
 	}
+	rs.Status.ReadyReplicas = readyReplicas
 
 	if scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil {
 		var reason string

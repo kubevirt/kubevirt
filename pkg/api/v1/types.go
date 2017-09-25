@@ -213,6 +213,11 @@ func (v *VirtualMachine) GetObjectMeta() metav1.Object {
 	return &v.ObjectMeta
 }
 
+func (v *VirtualMachine) IsReady() bool {
+	// TODO once we support a ready condition, use it instead
+	return v.IsRunning()
+}
+
 func (v *VirtualMachine) IsRunning() bool {
 	return v.Status.Phase == Running || v.Status.Phase == Migrating
 }
@@ -682,6 +687,10 @@ type VMReplicaSetStatus struct {
 	// Total number of non-terminated pods targeted by this deployment (their labels match the selector).
 	// +optional
 	Replicas int32 `json:"replicas,omitempty" protobuf:"varint,2,opt,name=replicas"`
+
+	// The number of ready replicas for this replica set.
+	// +optional
+	ReadyReplicas int32 `json:"readyReplicas,omitempty" protobuf:"varint,4,opt,name=readyReplicas"`
 
 	Conditions []VMReplicaSetCondition `json:"conditions"`
 }

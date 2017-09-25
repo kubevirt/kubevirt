@@ -76,6 +76,7 @@ var _ = Describe("Replicaset", func() {
 
 			expectedRS := clone(rs)
 			expectedRS.Status.Replicas = 3
+			expectedRS.Status.ReadyReplicas = 0
 
 			rsSource.Add(rs)
 
@@ -254,6 +255,40 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		FIt("should be woken by a ready VM and update the readyReplicas counter", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs := ReplicaSetFromVM("rs", vm, 1)
+			rs.Status.Replicas = 1
+
+			expectedRS := clone(rs)
+			expectedRS.Status.Replicas = 1
+			expectedRS.Status.ReadyReplicas = 1
+
+			vmSource.Add(vm)
+			rsSource.Add(rs)
+
+			sync(stop)
+
+			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
+			rsInterface.EXPECT().Update(rs).Times(1)
+			rsInterface.EXPECT().Update(expectedRS).Times(1)
+
+			// First make sure that we don't have to do anything
+			controller.Execute()
+
+			// Move one VM to a final state
+			vm.Status.Phase = v1.Running
+			vmSource.Modify(vm)
+
+			// Expect the recrate of the VM
+			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
+			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
+
+			// Run the controller again
+			controller.Execute()
 		})
 
 		It("should be woken by a deleted VM and create a new one", func() {
