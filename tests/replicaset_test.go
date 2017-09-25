@@ -51,7 +51,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 
 		table.DescribeTable("should scale", func(startScale int, stopScale int) {
 
-			template := tests.NewRandomVM()
+			template := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
 			newRS := tests.NewRandomReplicaSetFromVM(template, int32(0))
 			newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
 			Expect(err).ToNot(HaveOccurred())

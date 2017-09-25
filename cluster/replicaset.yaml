@@ -24,21 +24,17 @@ spec:
           video:
           - type: qxl
           disks:
-          - type: network
-            snapshot: external
-            device: disk
-            driver:
-              name: qemu
-              type: raw
-              cache: none
+          - type: ContainerRegistryDisk:v1alpha
             source:
-              host:
-                name: iscsi-demo-target.default
-                port: "3260"
-              protocol: iscsi
-              name: iqn.2017-01.io.kubevirt:sn.42/2
+              name: kubevirt/cirros-registry-disk-demo:devel
             target:
               dev: vda
+          - type: file
+            target:
+              dev: vdb
+            cloudinit:
+                nocloud:
+                    userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
           consoles:
           - type: pty
         memory:
