@@ -130,17 +130,12 @@ var _ = Describe("Replicaset", func() {
 
 			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
 
-			invocations := 0
-			// Count up on every invocation, so that we can measure how often this was called on one invocation
+			// Check if only 10 are created
 			vmInterface.EXPECT().Create(gomock.Any()).Times(10).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal("testvm"))
-			}).Return(vm, nil).Do(func(obj interface{}) {
-				invocations++
-			})
+			}).Return(vm, nil)
 
-			// Check if only 10 are created
 			controller.Execute()
-			Expect(invocations).To(Equal(10))
 
 			// TODO test for missing 5
 		})
@@ -159,16 +154,11 @@ var _ = Describe("Replicaset", func() {
 
 			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
 
-			invocations := 0
-			// Count up on every invocation, so that we can measure how often this was called on one invocation
-			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).
-				Times(10).Return(nil).Do(func(vm interface{}, _ interface{}) {
-				invocations++
-			})
-
 			// Check if only 10 are deleted
+			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).
+				Times(10).Return(nil)
+
 			controller.Execute()
-			Expect(invocations).To(Equal(10))
 
 			// TODO test for missing 5
 		})
