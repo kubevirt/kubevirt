@@ -29,7 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
@@ -76,10 +76,10 @@ func (d *DomainDispatch) Execute(indexer cache.Store, queue workqueue.RateLimiti
 			return
 		}
 		domain = api.NewDomainReferenceFromName(namespace, name)
-		logging.DefaultLogger().Info().Object(domain).Msgf("Domain deleted")
+		log.Log.Object(domain).Info("Domain deleted")
 	} else {
 		domain = obj.(*api.Domain)
-		logging.DefaultLogger().Info().Object(domain).Msgf("Domain is in state %s reason %s", domain.Status.Status, domain.Status.Reason)
+		log.Log.Object(domain).Infof("Domain is in state %s reason %s", domain.Status.Status, domain.Status.Reason)
 	}
 	obj, vmExists, err := d.vmStore.GetByKey(key.(string))
 	if err != nil {
@@ -115,7 +115,7 @@ func (d *DomainDispatch) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.Vi
 	}
 
 	if flag {
-		logging.DefaultLogger().Info().Object(vm).Msgf("Changing VM phase to %s", vm.Status.Phase)
+		log.Log.Object(vm).Infof("Changing VM phase to %s", vm.Status.Phase)
 		return d.restClient.Put().Resource("virtualmachines").Body(vm).Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
 	}
 

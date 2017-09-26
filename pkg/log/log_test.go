@@ -17,7 +17,7 @@
  *
  */
 
-package logging
+package log
 
 import (
 	"errors"
@@ -117,11 +117,11 @@ func TestDebugCutoff(t *testing.T) {
 	log.SetLogLevel(INFO)
 	assert(t, log.filterLevel == INFO, "Unable to set log level")
 
-	log = log.Debug()
+	log = log.Level(DEBUG)
 	log.Log("This is a debug message")
 	assert(t, !logCalled, "Debug log entry should not have been recorded")
 
-	log = log.Info()
+	log = log.Level(INFO)
 	log.Log("This is an info message")
 	assert(t, logCalled, "Info log entry should have been recorded")
 	tearDown()
@@ -133,15 +133,15 @@ func TestInfoCutoff(t *testing.T) {
 	log.SetLogLevel(WARNING)
 	assert(t, log.filterLevel == WARNING, "Unable to set log level")
 
-	log = log.Debug()
+	log = log.Level(DEBUG)
 	log.Log("This is a debug message")
 	assert(t, !logCalled, "Debug log entry should not have been recorded")
 
-	log = log.Info()
+	log = log.Level(INFO)
 	log.Log("This is an info message")
 	assert(t, !logCalled, "Info log entry should not have been recorded")
 
-	log = log.Warning()
+	log = log.Level(WARNING)
 	log.Log("This is a warning message")
 	assert(t, logCalled, "Warning log entry should have been recorded")
 	tearDown()
@@ -205,10 +205,10 @@ func TestWarningCutoff(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 
-	log.Warning().Log("message", "test warning message")
+	log.Level(WARNING).Log("message", "test warning message")
 	assert(t, logCalled, "Warning level message should have been recorded")
 
-	log.Error().Log("error", "test error message")
+	log.Level(ERROR).Log("error", "test error message")
 	assert(t, logCalled, "Error level message should have been recorded")
 	tearDown()
 }
@@ -217,7 +217,7 @@ func TestLogConcurrency(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	// create a new log object from the previous one.
-	log2 := log.Warning()
+	log2 := log.Level(WARNING)
 	assert(t, log.currentLogLevel != log2.currentLogLevel, "log and log2 should not have the same log level")
 	assert(t, log.currentLogLevel == INFO, "Calling Warning() did not create a new log object")
 	tearDown()
@@ -227,7 +227,7 @@ func TestDebugMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
-	log.Debug().Log("test", "message")
+	log.Level(DEBUG).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
 	assert(t, logEntry[1].(string) == logLevelNames[DEBUG], "Logged line was not DEBUG level")
@@ -241,7 +241,7 @@ func TestInfoMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
-	log.Info().Log("test", "message")
+	log.Level(INFO).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
 	assert(t, logEntry[1].(string) == logLevelNames[INFO], "Logged line was not INFO level")
@@ -255,7 +255,7 @@ func TestWarningMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
-	log.Warning().Log("test", "message")
+	log.Level(WARNING).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
 	assert(t, logEntry[1].(string) == logLevelNames[WARNING], "Logged line was not WARNING level")
@@ -269,7 +269,7 @@ func TestErrorMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
-	log.Error().Log("test", "message")
+	log.Level(ERROR).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
 	assert(t, logEntry[1].(string) == logLevelNames[ERROR], "Logged line was not ERROR level")
@@ -283,7 +283,7 @@ func TestCriticalMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
-	log.Critical().Log("test", "message")
+	log.Level(CRITICAL).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
 	assert(t, logEntry[1].(string) == logLevelNames[CRITICAL], "Logged line was not CRITICAL level")
@@ -317,7 +317,7 @@ func TestError(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
 	err := errors.New("Test error")
-	log.Error().Log(err)
+	log.Level(ERROR).Log(err)
 	assert(t, logCalled, "Error was not logged via .Log()")
 
 	logCalled = false
@@ -340,7 +340,7 @@ func TestMultipleLevels(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
 	// change levels more than once
-	log.Info().Debug().Info().Msg("test")
+	log.Level(INFO).Level(DEBUG).Level(INFO).Msg("test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
@@ -363,7 +363,7 @@ func TestLogVerbosity(t *testing.T) {
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[5].(string), "logging_test.go"), "Logged line referenced wrong module")
+	assert(t, strings.HasPrefix(logEntry[5].(string), "log_test.go"), "Logged line referenced wrong module")
 	tearDown()
 }
 
@@ -376,7 +376,7 @@ func TestMsgVerbosity(t *testing.T) {
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[5].(string), "logging_test.go"), "Logged line referenced wrong module")
+	assert(t, strings.HasPrefix(logEntry[5].(string), "log_test.go"), "Logged line referenced wrong module")
 	tearDown()
 }
 
@@ -389,7 +389,7 @@ func TestMsgfVerbosity(t *testing.T) {
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[5].(string), "logging_test.go"), "Logged line referenced wrong module")
+	assert(t, strings.HasPrefix(logEntry[5].(string), "log_test.go"), "Logged line referenced wrong module")
 	tearDown()
 }
 

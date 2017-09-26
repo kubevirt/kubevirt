@@ -42,7 +42,7 @@ import (
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 // Reasons for replicaset events
@@ -109,7 +109,7 @@ type VMReplicaSet struct {
 func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
-	logging.DefaultLogger().Info().Msg("Starting VirtualMachineReplicaSet controller.")
+	log.Log.Info("Starting VirtualMachineReplicaSet controller.")
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmRSInformer.HasSynced)
@@ -120,7 +120,7 @@ func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	<-stopCh
-	logging.DefaultLogger().Info().Msg("Stopping VirtualMachineReplicaSet controller.")
+	log.Log.Info("Stopping VirtualMachineReplicaSet controller.")
 }
 
 func (c *VMReplicaSet) runWorker() {
@@ -135,10 +135,10 @@ func (c *VMReplicaSet) Execute() bool {
 	}
 	defer c.Queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
-		logging.DefaultLogger().Info().Reason(err).Msgf("re-enqueuing VirtualMachineReplicaSet %v", key)
+		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineReplicaSet %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		logging.DefaultLogger().Info().V(4).Msgf("processed VirtualMachineReplicaSet %v", key)
+		log.Log.V(4).Infof("processed VirtualMachineReplicaSet %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
@@ -157,22 +157,22 @@ func (c *VMReplicaSet) execute(key string) error {
 	}
 	rs := obj.(*virtv1.VirtualMachineReplicaSet)
 
-	log := logging.DefaultLogger().Object(rs)
+	logger := log.Log.Object(rs)
 
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
 	if rs.Spec.Template == nil || rs.Spec.Selector == nil || len(rs.Spec.Template.ObjectMeta.Labels) == 0 {
-		log.Error().Msg("Invalid controller spec, will not re-enqueue.")
+		logger.Error("Invalid controller spec, will not re-enqueue.")
 		return nil
 	}
 
 	selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
 	if err != nil {
-		log.Error().Reason(err).Msg("Invalid selector on replicaset, will not re-enqueue.")
+		logger.Reason(err).Error("Invalid selector on replicaset, will not re-enqueue.")
 		return nil
 	}
 
 	if !selector.Matches(labels.Set(rs.Spec.Template.ObjectMeta.Labels)) {
-		log.Error().Reason(err).Msg("Selector does not match template labels, will not re-enqueue.")
+		logger.Reason(err).Error("Selector does not match template labels, will not re-enqueue.")
 		return nil
 	}
 
@@ -182,7 +182,7 @@ func (c *VMReplicaSet) execute(key string) error {
 	vms, err := c.listVMsFromNamespace(rs.ObjectMeta.Namespace)
 
 	if err != nil {
-		log.Error().Reason(err).Msg("Failed to fetch vms for namespace from cache.")
+		logger.Reason(err).Error("Failed to fetch vms for namespace from cache.")
 		return err
 	}
 
@@ -199,20 +199,20 @@ func (c *VMReplicaSet) execute(key string) error {
 	}
 
 	if scaleErr != nil {
-		log.Error().Reason(err).Msg("Scaling the replicaset failed.")
+		logger.Reason(err).Error("Scaling the replicaset failed.")
 	}
 
 	clone, err := model.Clone(rs)
 
 	if err != nil {
-		log.Error().Reason(err).Msg("Cloning the replicaset failed.")
+		logger.Reason(err).Error("Cloning the replicaset failed.")
 		return nil
 	}
 	rsCopy := clone.(*virtv1.VirtualMachineReplicaSet)
 
 	err = c.updateStatus(rsCopy, vms, scaleErr)
 	if err != nil {
-		log.Error().Reason(err).Msg("Updating the replicaset status failed.")
+		logger.Reason(err).Error("Updating the replicaset status failed.")
 	}
 
 	return err
@@ -223,7 +223,7 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 	diff := c.calcDiff(rs, vms)
 	rsKey, err := controller.KeyFunc(rs)
 	if err != nil {
-		logging.DefaultLogger().Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+		log.Log.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
 		return nil
 	}
 
@@ -363,7 +363,7 @@ func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]virtv1.V
 // getMatchingController returns the first VMReplicaSet which matches the labels of the VM from the listener cache.
 // If there are no matching controllers, a NotFound error is returned.
 func (c *VMReplicaSet) getMatchingController(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineReplicaSet, error) {
-	log := logging.DefaultLogger()
+	logger := log.Log
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
 		return nil, err
@@ -374,7 +374,7 @@ func (c *VMReplicaSet) getMatchingController(vm *virtv1.VirtualMachine) (*virtv1
 	for _, rs := range controllers {
 		selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
 		if err != nil {
-			log.Error().Object(&rs).Reason(err).Msg("Failed to parse label selector from replicaset.")
+			logger.Object(&rs).Reason(err).Error("Failed to parse label selector from replicaset.")
 			continue
 		}
 
@@ -440,11 +440,11 @@ func (c *VMReplicaSet) updateReplicaSet(old, curr interface{}) {
 }
 
 func (c *VMReplicaSet) enqueueReplicaSet(obj interface{}) {
-	log := logging.DefaultLogger()
+	logger := log.Log
 	rs := obj.(*virtv1.VirtualMachineReplicaSet)
 	key, err := controller.KeyFunc(rs)
 	if err != nil {
-		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+		logger.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
 	}
 	c.Queue.Add(key)
 }
@@ -452,7 +452,7 @@ func (c *VMReplicaSet) enqueueReplicaSet(obj interface{}) {
 // getMatchingControllerKey takes a VirtualMachine and returns a the key of a macthing VMReplicaSet, if one exists.
 // Returns an empty string if no matching controller exists
 func (c *VMReplicaSet) getMatchingControllerKey(vm *virtv1.VirtualMachine) string {
-	log := logging.DefaultLogger()
+	logger := log.Log
 
 	// Let's search for a matching controller
 	rs, err := c.getMatchingController(vm)
@@ -464,14 +464,14 @@ func (c *VMReplicaSet) getMatchingControllerKey(vm *virtv1.VirtualMachine) strin
 
 	// If an unexpected error occurred, log it and ignore
 	if err != nil {
-		log.Error().Object(vm).Reason(err).Msg("Searching for matching replicasets failed.")
+		logger.Object(vm).Reason(err).Error("Searching for matching replicasets failed.")
 		return ""
 	}
 
 	// If we can't extract the key, log it and ignore
 	rsKey, err := controller.KeyFunc(rs)
 	if err != nil {
-		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+		logger.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
 		return ""
 	}
 	return rsKey

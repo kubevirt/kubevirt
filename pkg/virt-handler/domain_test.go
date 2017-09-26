@@ -31,7 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
@@ -44,7 +44,7 @@ var _ = Describe("Domain", func() {
 	var dispatch controller.ControllerDispatch
 	var restClient rest.RESTClient
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		vmStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)

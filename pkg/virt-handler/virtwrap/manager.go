@@ -39,7 +39,7 @@ import (
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
@@ -126,7 +126,7 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 		// If the secret doesn't exist, make it
 		if err != nil {
 			if err.(libvirt.Error).Code != libvirt.ERR_NO_SECRET {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Failed to get libvirt secret.")
+				log.Log.Object(vm).Reason(err).Error("Failed to get libvirt secret.")
 				return err
 
 			}
@@ -143,7 +143,7 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 			xmlStr, err := xml.Marshal(&secretSpec)
 			libvirtSecret, err = l.virConn.SecretDefineXML(string(xmlStr))
 			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("Defining the VM secret failed.")
+				log.Log.Reason(err).Error("Defining the VM secret failed.")
 				return err
 			}
 
@@ -162,7 +162,7 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 
 		err = libvirtSecret.SetValue([]byte(secretValue), 0)
 		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Setting secret value for the VM failed.")
+			log.Log.Reason(err).Error("Setting secret value for the VM failed.")
 			return err
 		}
 
@@ -177,19 +177,20 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	wantedSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 	wantedSpec.Type = "qemu"
 	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
+	logger := log.Log.Object(vm)
 
 	if len(mappingErrs) > 0 {
-		logging.DefaultLogger().Error().Msg("model copy failed.")
+		logger.Error("model copy failed.")
 		return nil, errors.NewAggregate(mappingErrs)
 	}
 
 	res, err := l.podIsolationDetector.Detect(vm)
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Could not detect virt-launcher cgroups.")
+		logger.V(3).Reason(err).Error("Could not detect virt-launcher cgroups.")
 		return nil, err
 	}
 
-	logging.DefaultLogger().Object(vm).Info().With("slice", res.Slice()).V(3).Msg("Detected cgroup slice.")
+	logger.With("slice", res.Slice()).V(3).Info("Detected cgroup slice.")
 	wantedSpec.QEMUCmd = &api.Commandline{
 		QEMUEnv: []api.Env{
 			{Name: "SLICE", Value: res.Slice()},
@@ -210,17 +211,17 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 			if err != nil {
 				return nil, err
 			}
-			logging.DefaultLogger().Object(vm).Info().Msg("Domain defined.")
+			logger.Info("Domain defined.")
 			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined.")
 		} else {
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
+			logger.Reason(err).Error("Getting the domain failed.")
 			return nil, err
 		}
 	}
 	defer dom.Free()
 	domState, _, err := dom.GetState()
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
+		logger.Reason(err).Error("Getting the domain state failed.")
 		return nil, err
 	}
 
@@ -239,19 +240,19 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	if cli.IsDown(domState) {
 		err := dom.Create()
 		if err != nil {
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Starting the VM failed.")
+			logger.Reason(err).Error("Starting the VM failed.")
 			return nil, err
 		}
-		logging.DefaultLogger().Object(vm).Info().Msg("Domain started.")
+		logger.Info("Domain started.")
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started.")
 	} else if cli.IsPaused(domState) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Resuming the VM failed.")
+			logger.Reason(err).Error("Resuming the VM failed.")
 			return nil, err
 		}
-		logging.DefaultLogger().Object(vm).Info().Msg("Domain resumed.")
+		logger.Info("Domain resumed.")
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
 	} else {
 		// Nothing to do
@@ -265,7 +266,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	var newSpec api.DomainSpec
 	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Parsing domain XML failed.")
+		logger.Reason(err).Error("Parsing domain XML failed.")
 		return nil, err
 	}
 
@@ -285,7 +286,7 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
 		secret, err := l.virConn.LookupSecretByUUIDString(secretUUID)
 		if err != nil {
 			if err.(libvirt.Error).Code != libvirt.ERR_NO_SECRET {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg(fmt.Sprintf("Failed to lookup secret with UUID %s.", secretUUID))
+				log.Log.Object(vm).Reason(err).Errorf("Failed to lookup secret with UUID %s.", secretUUID)
 				return err
 			}
 			continue
@@ -310,7 +311,7 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 		if domainerrors.IsNotFound(err) {
 			return nil
 		} else {
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain failed.")
+			log.Log.Object(vm).Reason(err).Error("Getting the domain failed.")
 			return err
 		}
 	}
@@ -318,26 +319,26 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	// TODO: Graceful shutdown
 	domState, _, err := dom.GetState()
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Getting the domain state failed.")
+		log.Log.Object(vm).Reason(err).Error("Getting the domain state failed.")
 		return err
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
 		err = dom.Destroy()
 		if err != nil {
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Destroying the domain state failed.")
+			log.Log.Object(vm).Reason(err).Error("Destroying the domain state failed.")
 			return err
 		}
-		logging.DefaultLogger().Object(vm).Info().Msg("Domain stopped.")
+		log.Log.Object(vm).Info("Domain stopped.")
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Stopped.String(), "VM stopped")
 	}
 
 	err = dom.Undefine()
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Undefining the domain state failed.")
+		log.Log.Object(vm).Reason(err).Error("Undefining the domain state failed.")
 		return err
 	}
-	logging.DefaultLogger().Object(vm).Info().Msg("Domain undefined.")
+	log.Log.Object(vm).Info("Domain undefined.")
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
 }
@@ -345,13 +346,13 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 func (l *LibvirtDomainManager) setDomainXML(vm *v1.VirtualMachine, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
 	xmlStr, err := xml.Marshal(&wantedSpec)
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
+		log.Log.Object(vm).Reason(err).Error("Generating the domain XML failed.")
 		return nil, err
 	}
-	logging.DefaultLogger().Object(vm).Info().V(3).With("xml", xmlStr).Msgf("Domain XML generated.")
+	log.Log.Object(vm).V(3).With("xml", xmlStr).Info("Domain XML generated.")
 	dom, err := l.virConn.DomainDefineXML(string(xmlStr))
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
+		log.Log.Object(vm).Reason(err).Error("Defining the VM failed.")
 		return nil, err
 	}
 	return dom, nil

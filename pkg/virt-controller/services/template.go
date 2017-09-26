@@ -28,7 +28,7 @@ import (
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
@@ -147,7 +147,7 @@ func (t *templateService) RenderMigrationJob(vm *v1.VirtualMachine, sourceNode *
 	}
 	if srcAddr == "" {
 		err := fmt.Errorf("migration source node is unreachable")
-		logging.DefaultLogger().Error().Msg("migration target node is unreachable")
+		log.Log.Error("migration target node is unreachable")
 		return nil, err
 	}
 	srcUri := fmt.Sprintf("qemu+tcp://%s/system", srcAddr)
@@ -160,7 +160,7 @@ func (t *templateService) RenderMigrationJob(vm *v1.VirtualMachine, sourceNode *
 	}
 	if dstAddr == "" {
 		err := fmt.Errorf("migration target node is unreachable")
-		logging.DefaultLogger().Error().Msg("migration target node is unreachable")
+		log.Log.Error("migration target node is unreachable")
 		return nil, err
 	}
 	destUri := fmt.Sprintf("qemu+tcp://%s/system", dstAddr)

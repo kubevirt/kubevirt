@@ -17,7 +17,7 @@
  *
  */
 
-package logging
+package log
 
 import (
 	"errors"
@@ -125,6 +125,8 @@ func Logger(component string) *FilteredLogger {
 func DefaultLogger() *FilteredLogger {
 	return Logger(defaultComponent)
 }
+
+var Log = DefaultLogger()
 
 func (l *FilteredLogger) SetIOWriter(w io.Writer) {
 	l.logContext = log.NewContext(log.NewLogfmtLogger(w))
@@ -234,32 +236,52 @@ func (l FilteredLogger) V(level int) *FilteredLogger {
 	return &l
 }
 
-func (l FilteredLogger) Debug() *FilteredLogger {
-	l.currentLogLevel = DEBUG
-	return &l
-}
-
-func (l FilteredLogger) Info() *FilteredLogger {
-	l.currentLogLevel = INFO
-	return &l
-}
-
-func (l FilteredLogger) Warning() *FilteredLogger {
-	l.currentLogLevel = WARNING
-	return &l
-}
-
-func (l FilteredLogger) Error() *FilteredLogger {
-	l.currentLogLevel = ERROR
-	return &l
-}
-
-func (l FilteredLogger) Critical() *FilteredLogger {
-	l.currentLogLevel = CRITICAL
-	return &l
-}
-
 func (l FilteredLogger) Reason(err error) *FilteredLogger {
 	l.err = err
 	return &l
+}
+
+func (l FilteredLogger) Level(level logLevel) *FilteredLogger {
+	l.currentLogLevel = level
+	return &l
+}
+
+func (l FilteredLogger) Debug(msg string) {
+	l.Level(DEBUG).Msg(msg)
+}
+
+func (l FilteredLogger) Debugf(msg string, args ...interface{}) {
+	l.Level(DEBUG).Msgf(msg, args...)
+}
+
+func (l FilteredLogger) Info(msg string) {
+	l.Level(INFO).Msg(msg)
+}
+
+func (l FilteredLogger) Infof(msg string, args ...interface{}) {
+	l.Level(INFO).Msgf(msg, args...)
+}
+
+func (l FilteredLogger) Warning(msg string) {
+	l.Level(WARNING).Msg(msg)
+}
+
+func (l FilteredLogger) Warningf(msg string, args ...interface{}) {
+	l.Level(WARNING).Msgf(msg, args...)
+}
+
+func (l FilteredLogger) Error(msg string) {
+	l.Level(ERROR).Msg(msg)
+}
+
+func (l FilteredLogger) Errorf(msg string, args ...interface{}) {
+	l.Level(ERROR).Msgf(msg, args...)
+}
+
+func (l FilteredLogger) Critical(msg string) {
+	l.Level(CRITICAL).Msg(msg)
+}
+
+func (l FilteredLogger) Criticalf(msg string, args ...interface{}) {
+	l.Level(CRITICAL).Msgf(msg, args...)
 }

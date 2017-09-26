@@ -30,7 +30,7 @@ import (
 	"github.com/libvirt/libvirt-go"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
 
@@ -240,7 +240,7 @@ func (l *LibvirtConnection) installWatchdog(checkInterval time.Duration) {
 
 				if err == nil {
 					// Connection is not alive but we have no error
-					logging.DefaultLogger().Error().Msg("Connection to libvirt lost")
+					log.Log.Error("Connection to libvirt lost")
 					l.reconnectLock.Lock()
 					l.alive = false
 					l.reconnectLock.Unlock()
@@ -295,7 +295,7 @@ func (l *LibvirtConnection) checkConnectionLost() {
 		libvirt.ERR_SYSTEM_ERROR,
 		libvirt.ERR_RPC:
 		l.alive = false
-		logging.DefaultLogger().Error().Reason(err).With("code", err.Code).Msg("Connection to libvirt lost.")
+		log.Log.With("code", err.Code).Reason(err).Error("Connection to libvirt lost.")
 	}
 }
 
@@ -322,8 +322,8 @@ type VirDomain interface {
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
-	logger := logging.DefaultLogger()
-	logger.Info().V(1).Msgf("Connecting to libvirt daemon: %s", uri)
+	logger := log.Log
+	logger.V(1).Infof("Connecting to libvirt daemon: %s", uri)
 
 	var err error
 	var virConn *libvirt.Connect
@@ -338,7 +338,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to libvirt daemon: %v", err)
 	}
-	logger.Info().V(1).Msg("Connected to libvirt daemon")
+	logger.V(1).Info("Connected to libvirt daemon")
 
 	lvConn := &LibvirtConnection{
 		Connect: virConn, user: user, pass: pass, uri: uri, alive: true,

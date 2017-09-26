@@ -41,7 +41,7 @@ import (
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
@@ -106,7 +106,7 @@ type VMHandlerDispatch struct {
 func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
 	node, err := d.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
 	if err != nil {
-		logging.DefaultLogger().Error().Reason(err).Msgf("fetching source node %s failed", vm.Status.NodeName)
+		log.Log.Reason(err).Errorf("fetching source node %s failed", vm.Status.NodeName)
 		return "", err
 	}
 
@@ -119,7 +119,7 @@ func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VirtualMachine) (string, err
 	}
 	if addrStr == "" {
 		err := fmt.Errorf("VM node is unreachable")
-		logging.DefaultLogger().Error().Msg("VM node is unreachable")
+		log.Log.Error("VM node is unreachable")
 		return "", err
 	}
 
@@ -214,7 +214,7 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	watchdogExpired, _ := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
 	if watchdogExpired {
 		if vm.IsRunning() {
-			logging.DefaultLogger().V(2).Info().Object(vm).Msg("Detected expired watchdog file for running VM.")
+			log.Log.V(2).Object(vm).Info("Detected expired watchdog file for running VM.")
 			shouldDeleteVm = true
 		} else if vm.IsFinal() {
 			err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
@@ -225,25 +225,25 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 		}
 	}
 
-	logging.DefaultLogger().V(3).Info().Object(vm).Msg("Processing VM update.")
+	log.Log.Object(vm).V(3).Info("Processing VM update.")
 
 	// Process the VM
 	isPending, err := d.processVmUpdate(vm, shouldDeleteVm)
 	if err != nil {
 		// Something went wrong, reenqueue the item with a delay
-		logging.DefaultLogger().Error().Object(vm).Reason(err).Msg("Synchronizing the VM failed.")
+		log.Log.Object(vm).Reason(err).Error("Synchronizing the VM failed.")
 		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
 		queue.AddRateLimited(key)
 		return
 	} else if isPending {
 		// waiting on an async action to complete
-		logging.DefaultLogger().V(3).Info().Object(vm).Reason(err).Msg("Synchronizing is in a pending state.")
+		log.Log.Object(vm).V(3).Reason(err).Info("Synchronizing is in a pending state.")
 		queue.AddAfter(key, 1*time.Second)
 		queue.Forget(key)
 		return
 	}
 
-	logging.DefaultLogger().V(3).Info().Object(vm).Msg("Synchronizing the VM succeeded.")
+	log.Log.Object(vm).V(3).Info("Synchronizing the VM succeeded.")
 	queue.Forget(key)
 	return
 }
@@ -254,23 +254,23 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 func MapPersistentVolumes(vm *v1.VirtualMachine, restClient cache.Getter, namespace string) (*v1.VirtualMachine, error) {
 	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
-	logger := logging.DefaultLogger().Object(vm)
+	logger := log.Log.Object(vm)
 
 	for idx, disk := range vmCopy.Spec.Domain.Devices.Disks {
 		if disk.Type == "PersistentVolumeClaim" {
-			logger.V(3).Info().Msgf("Mapping PersistentVolumeClaim: %s", disk.Source.Name)
+			logger.V(3).Infof("Mapping PersistentVolumeClaim: %s", disk.Source.Name)
 
 			// Look up existing persistent volume
 			obj, err := restClient.Get().Namespace(namespace).Resource("persistentvolumeclaims").Name(disk.Source.Name).Do().Get()
 
 			if err != nil {
-				logger.Error().Reason(err).Msg("unable to look up persistent volume claim")
+				logger.Reason(err).Error("unable to look up persistent volume claim")
 				return vm, fmt.Errorf("unable to look up persistent volume claim: %v", err)
 			}
 
 			pvc := obj.(*k8sv1.PersistentVolumeClaim)
 			if pvc.Status.Phase != k8sv1.ClaimBound {
-				logger.Error().Msg("attempted use of unbound persistent volume")
+				logger.Error("attempted use of unbound persistent volume")
 				return vm, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
 			}
 
@@ -279,16 +279,16 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, restClient cache.Getter, namesp
 			obj, err = restClient.Get().Resource("persistentvolumes").Name(pvc.Spec.VolumeName).Do().Get()
 
 			if err != nil {
-				logger.Error().Reason(err).Msg("unable to access persistent volume record")
+				logger.Reason(err).Error("unable to access persistent volume record")
 				return vm, fmt.Errorf("unable to access persistent volume record: %v", err)
 			}
 			pv := obj.(*k8sv1.PersistentVolume)
 
-			logger.Info().Msgf("Mapping PVC %s", pv.Name)
+			logger.Infof("Mapping PVC %s", pv.Name)
 			newDisk, err := mapPVToDisk(&disk, pv)
 
 			if err != nil {
-				logger.Error().Reason(err).Msgf("Mapping PVC %s failed", pv.Name)
+				logger.Reason(err).Errorf("Mapping PVC %s failed", pv.Name)
 				return vm, err
 			}
 
@@ -298,13 +298,13 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, restClient cache.Getter, namesp
 			model.Copy(&newDisk, disk)
 
 			if disk.Source.Host == nil {
-				logger.Error().Msg("Missing disk source host")
+				logger.Error("Missing disk source host")
 				return vm, fmt.Errorf("Missing disk source host")
 			}
 
 			ipAddrs, err := net.LookupIP(disk.Source.Host.Name)
 			if err != nil || ipAddrs == nil || len(ipAddrs) < 1 {
-				logger.Error().Reason(err).Msgf("Unable to resolve host '%s'", disk.Source.Host.Name)
+				logger.Reason(err).Errorf("Unable to resolve host '%s'", disk.Source.Host.Name)
 				return vm, fmt.Errorf("Unable to resolve host '%s': %s", disk.Source.Host.Name, err)
 			}
 
@@ -378,7 +378,7 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VirtualMachine) (*v1.VirtualMa
 
 		secret, err := d.clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(secretID, metav1.GetOptions{})
 		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Defining the VM secret failed unable to pull corresponding k8s secret value")
+			log.Log.Reason(err).Error("Defining the VM secret failed unable to pull corresponding k8s secret value")
 			return nil, err
 		}
 
@@ -441,11 +441,11 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteV
 
 	hasWatchdog, err := watchdog.WatchdogFileExists(d.virtShareDir, vm)
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Error accessing virt-launcher watchdog file.")
+		log.Log.Object(vm).Reason(err).V(3).Error("Error accessing virt-launcher watchdog file.")
 		return false, err
 	}
 	if hasWatchdog == false {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Could not detect virt-launcher watchdog file.")
+		log.Log.Object(vm).Reason(err).V(3).Error("Could not detect virt-launcher watchdog file.")
 		return false, goerror.New(fmt.Sprintf("No watchdog file found for vm"))
 	}
 

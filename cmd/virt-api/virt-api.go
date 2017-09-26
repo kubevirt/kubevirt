@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	klog "kubevirt.io/kubevirt/pkg/log"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
@@ -153,7 +153,7 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 }
 
 func main() {
-	logging.InitializeLogging("virt-api")
+	klog.InitializeLogging("virt-api")
 	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8183, "Port to listen on")

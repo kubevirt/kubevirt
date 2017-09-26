@@ -31,7 +31,7 @@ import (
 	"time"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
@@ -91,11 +91,11 @@ func matchPidCgroupSlice(pid int) (bool, error) {
 
 func (mon *monitor) refresh() {
 	if mon.isDone {
-		logging.DefaultLogger().Error().Msg("Called refresh after done!")
+		log.Log.Error("Called refresh after done!")
 		return
 	}
 
-	logging.DefaultLogger().Debug().Msgf("Refreshing. CommandPrefix %s pid %d", mon.commandPrefix, mon.pid)
+	log.Log.Debugf("Refreshing. CommandPrefix %s pid %d", mon.commandPrefix, mon.pid)
 
 	// is the process there?
 	if mon.pid == 0 {
@@ -104,26 +104,26 @@ func (mon *monitor) refresh() {
 		mon.pid, err = findPidInMyCgroup(mon.commandPrefix)
 		if err != nil {
 
-			logging.DefaultLogger().Info().Msgf("Still missing PID for %s, %v", mon.commandPrefix, err)
+			log.Log.Infof("Still missing PID for %s, %v", mon.commandPrefix, err)
 			// check to see if we've timed out looking for the process
 			elapsed := time.Since(mon.start)
 			if mon.timeout > 0 && elapsed >= mon.timeout {
-				logging.DefaultLogger().Info().Msgf("%s not found after timeout", mon.commandPrefix)
+				log.Log.Infof("%s not found after timeout", mon.commandPrefix)
 				mon.isDone = true
 			}
 			return
 		}
 
-		logging.DefaultLogger().Info().Msgf("Found PID for %s: %d", mon.commandPrefix, mon.pid)
+		log.Log.Infof("Found PID for %s: %d", mon.commandPrefix, mon.pid)
 	}
 
 	exists, err := pidExistsInMyCgroup(mon.pid)
 	if err != nil {
-		logging.DefaultLogger().Reason(err).Error().Msgf("Error detecting pid (%d) status.", mon.pid)
+		log.Log.Reason(err).Errorf("Error detecting pid (%d) status.", mon.pid)
 		return
 	}
 	if exists == false {
-		logging.DefaultLogger().Info().Msgf("Process %s and pid %d is gone!", mon.commandPrefix, mon.pid)
+		log.Log.Infof("Process %s and pid %d is gone!", mon.commandPrefix, mon.pid)
 		mon.pid = 0
 		mon.isDone = true
 		return
@@ -140,7 +140,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 	if startTimeout == 0 {
 		timeoutRepr = "disabled"
 	}
-	logging.DefaultLogger().Info().Msgf("Monitoring loop: rate %v start timeout %s", rate, timeoutRepr)
+	log.Log.Infof("Monitoring loop: rate %v start timeout %s", rate, timeoutRepr)
 
 	ticker := time.NewTicker(rate)
 
@@ -153,7 +153,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 		case <-ticker.C:
 			mon.refresh()
 		case s := <-signalChan:
-			logging.DefaultLogger().Info().Msgf("Received signal %d.", s)
+			log.Log.Infof("Received signal %d.", s)
 			if mon.pid != 0 {
 				mon.forwardedSignal = s.(syscall.Signal)
 				syscall.Kill(mon.pid, s.(syscall.Signal))
@@ -162,7 +162,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 	}
 
 	ticker.Stop()
-	logging.DefaultLogger().Info().Msgf("Exiting...")
+	log.Log.Info("Exiting...")
 }
 
 func (mon *monitor) RunForever(startTimeout time.Duration) {

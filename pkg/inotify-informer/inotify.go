@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
@@ -128,7 +128,7 @@ func (d *DirectoryListWatcher) startBackground() error {
 				if sendEvent {
 					namespace, name, err := splitFileNamespaceName(event.Name)
 					if err != nil {
-						logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
+						log.Log.Reason(err).Error("Invalid content detected, ignoring and continuing.")
 						continue
 					}
 					d.eventChan <- watch.Event{Type: e, Object: api.NewMinimalDomainWithNS(namespace, name)}
@@ -172,7 +172,7 @@ func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, err
 	for _, file := range files {
 		namespace, name, err := splitFileNamespaceName(file.Name())
 		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
+			log.Log.Reason(err).Error("Invalid content detected, ignoring and continuing.")
 			continue
 		}
 		domainList.Items = append(domainList.Items, *api.NewMinimalDomainWithNS(namespace, name))

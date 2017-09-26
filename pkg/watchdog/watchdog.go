@@ -35,7 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
@@ -85,7 +85,7 @@ func WatchdogFileExists(baseDir string, vm *v1.VirtualMachine) (bool, error) {
 	filePath := WatchdogFileFromNamespaceName(baseDir, namespace, domain)
 	exists, err := diskutils.FileExists(filePath)
 	if err != nil {
-		logging.DefaultLogger().Error().Reason(err).Msgf("Error encountered while attempting to verify if watchdog file at path %s exists.", filePath)
+		log.Log.Reason(err).Errorf("Error encountered while attempting to verify if watchdog file at path %s exists.", filePath)
 
 		return false, err
 	}
@@ -193,14 +193,14 @@ func (d *WatchdogListWatcher) startBackground() error {
 			case <-d.watchDogTicker:
 				expiredKeys, err := detectExpiredFiles(d.watchdogTimeout, d.fileDir)
 				if err != nil {
-					logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected during watchdog tick, ignoring and continuing.")
+					log.Log.Reason(err).Error("Invalid content detected during watchdog tick, ignoring and continuing.")
 					continue
 				}
 
 				for _, key := range expiredKeys {
 					namespace, name, err := splitFileNamespaceName(key)
 					if err != nil {
-						logging.DefaultLogger().Error().Reason(err).Msgf("Invalid key (%s) detected during watchdog tick, ignoring and continuing.", key)
+						log.Log.Reason(err).Errorf("Invalid key (%s) detected during watchdog tick, ignoring and continuing.", key)
 						continue
 					}
 					d.eventChan <- watch.Event{Type: watch.Modified, Object: api.NewMinimalDomainWithNS(namespace, name)}
@@ -226,7 +226,7 @@ func (d *WatchdogListWatcher) List(options k8sv1.ListOptions) (runtime.Object, e
 	for _, file := range files {
 		namespace, name, err := splitFileNamespaceName(file)
 		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
+			log.Log.Reason(err).Error("Invalid content detected, ignoring and continuing.")
 			continue
 		}
 		domainList.Items = append(domainList.Items, *api.NewMinimalDomainWithNS(namespace, name))

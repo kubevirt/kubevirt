@@ -35,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
 
@@ -51,7 +51,7 @@ var _ = Describe("Console", func() {
 	var wsUrl *url.URL
 	var serverDone chan bool
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	dial := func(vm string, console string) *websocket.Conn {
 		wsUrl.Scheme = "ws"

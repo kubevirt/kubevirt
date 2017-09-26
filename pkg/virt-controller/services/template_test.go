@@ -29,12 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 var _ = Describe("Template", func() {
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 	svc, err := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler", "/var/run/kubevirt")
 
 	Describe("Rendering", func() {

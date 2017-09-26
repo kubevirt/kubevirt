@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
@@ -53,16 +53,16 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	vmName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 	vm := v1.NewVMReferenceFromNameWithNS(namespace, vmName)
-	log := logging.DefaultLogger().Object(vm)
+	logger := log.Log.Object(vm)
 	domain, err := t.connection.LookupDomainByName(cache.VMNamespaceKeyFunc(vm))
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Error().Reason(err).Msg("Domain not found.")
+			logger.Reason(err).Error("Domain not found.")
 			response.WriteError(http.StatusNotFound, err)
 			return
 		} else {
 			response.WriteError(http.StatusInternalServerError, err)
-			log.Error().Reason(err).Msg("Failed to look up domain.")
+			logger.Reason(err).Error("Failed to look up domain.")
 			return
 		}
 	}
@@ -71,37 +71,37 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	uid, err := domain.GetUUIDString()
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
-		log.Error().Reason(err).Msg("Failed to look up domain UID.")
+		logger.Reason(err).Error("Failed to look up domain UID.")
 		return
 	}
 	vm.GetObjectMeta().SetUID(types.UID(uid))
-	log = logging.DefaultLogger().Object(vm)
+	logger = log.Log.Object(vm)
 
-	log.Info().Msgf("Opening connection to console %s", console)
+	logger.Infof("Opening connection to console %s", console)
 
 	consoleStream, err := t.connection.NewStream(0)
 	if err != nil {
-		log.Error().Reason(err).Msg("Creating a consoleStream failed.")
+		logger.Reason(err).Error("Creating a consoleStream failed.")
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 	defer consoleStream.Close()
 
-	log.Info().V(3).Msg("Stream created.")
+	logger.V(3).Info("Stream created.")
 
 	err = domain.OpenConsole(console, consoleStream.UnderlyingStream(), libvirt.DOMAIN_CONSOLE_FORCE)
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
-		log.Error().Reason(err).Msg("Failed to open console.")
+		logger.Reason(err).Error("Failed to open console.")
 		return
 	}
-	log.Info().V(3).Msg("Connection to console created.")
+	logger.V(3).Info("Connection to console created.")
 
 	errorChan := make(chan error)
 
 	ws, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
-		log.Error().Reason(err).Msg("Failed to upgrade websocket connection.")
+		logger.Reason(err).Error("Failed to upgrade websocket connection.")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -122,10 +122,10 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	err = <-errorChan
 
 	if err != nil {
-		log.Error().Reason(err).Msg("Proxying data between libvirt and the websocket failed.")
+		logger.Reason(err).Error("Proxying data between libvirt and the websocket failed.")
 	}
 
-	log.Info().V(3).Msg("Done.")
+	logger.V(3).Info("Done.")
 	response.WriteHeader(http.StatusOK)
 }
 

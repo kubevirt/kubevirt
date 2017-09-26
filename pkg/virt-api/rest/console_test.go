@@ -42,7 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 var _ = Describe("Console", func() {
@@ -58,7 +58,7 @@ var _ = Describe("Console", func() {
 	var dial func(vm string, console string) *websocket.Conn
 	var get func(vm string) (*http.Response, error)
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())

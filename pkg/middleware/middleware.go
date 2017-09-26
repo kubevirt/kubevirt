@@ -29,11 +29,11 @@ import (
 
 	"encoding/json"
 
-	"github.com/go-kit/kit/log"
+	gklog "github.com/go-kit/kit/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -114,7 +114,7 @@ func (k *KubernetesError) Body() []byte {
 // level PreconditionError. All other detected panics will be converted into an InternalServerError. In both cases it
 // is most likely that there is an error withing the application or a library. Long story short, this is about
 // failing early in non recoverable situations.
-func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
+func InternalErrorMiddleware(logger gklog.Logger) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (d interface{}, e error) {
 			var data interface{}
@@ -135,7 +135,7 @@ func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
 						e = nil
 					}
 					// TODO log it with a logger at the right locations
-					logging.DefaultLogger().Critical().Msgf("stacktrace: %v", string(debug.Stack()))
+					log.Log.Criticalf("stacktrace: %v", string(debug.Stack()))
 				}
 			}()
 			data, err = next(ctx, request)
@@ -144,7 +144,7 @@ func InternalErrorMiddleware(logger log.Logger) endpoint.Middleware {
 			// For instance a service can just return an AppError instance as normal err and this check
 			// makes sure that our application error handler handles the response
 			if _, ok := err.(AppError); ok {
-				logging.DefaultLogger().Critical().Msg(err)
+				log.Log.Criticalf("%s", err)
 				return err, nil
 			}
 			return data, err

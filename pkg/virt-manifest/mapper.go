@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
@@ -71,7 +71,7 @@ func ExtractPvc(dom *v1.DomainSpec) (*v1.DomainSpec, []savedDisk) {
 // This is a simplified version of the domain creation portion of SyncVM. This is intended primarily
 // for mapping the VM spec without starting a domain.
 func MapVM(con cli.Connection, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	log := logging.DefaultLogger()
+	logger := log.Log
 
 	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
@@ -89,30 +89,30 @@ func MapVM(con cli.Connection, vm *v1.VirtualMachine) (*v1.VirtualMachine, error
 	wantedSpec.UUID = string(vmCopy.GetObjectMeta().GetUID())
 	xmlStr, err := xml.Marshal(&wantedSpec)
 	if err != nil {
-		log.Object(vm).Error().Reason(err).Msg("Generating the domain XML failed.")
+		logger.Object(vm).Reason(err).Error("Generating the domain XML failed.")
 		return nil, err
 	}
 
-	log.Object(vm).Info().V(3).Msg("Domain XML generated.")
+	logger.Object(vm).V(3).Info("Domain XML generated.")
 	dom, err := con.DomainDefineXML(string(xmlStr))
 	if err != nil {
-		log.Object(vm).Error().Reason(err).Msg("Defining the VM failed.")
+		logger.Object(vm).Reason(err).Error("Defining the VM failed.")
 		return nil, err
 	}
-	log.Object(vm).Info().Msg("Domain defined.")
+	logger.Object(vm).Info("Domain defined.")
 
 	defer func() {
 		err = dom.Undefine()
 		if err != nil {
-			log.Object(vm).Warning().Reason(err).Msg("Undefining the domain failed.")
+			logger.Object(vm).Reason(err).Warning("Undefining the domain failed.")
 		} else {
-			log.Object(vm).Info().Msg("Domain defined.")
+			logger.Object(vm).Info("Domain defined.")
 		}
 	}()
 
 	domXml, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
 	if err != nil {
-		log.Object(vm).Error().Reason(err).Msg("Error retrieving domain XML.")
+		logger.Object(vm).Reason(err).Error("Error retrieving domain XML.")
 		return nil, err
 	}
 

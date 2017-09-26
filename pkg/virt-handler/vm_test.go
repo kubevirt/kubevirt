@@ -46,7 +46,7 @@ import (
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 )
 
@@ -63,7 +63,7 @@ var _ = Describe("VM", func() {
 
 	var shareDir string
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		shareDir, err := ioutil.TempDir("", "kubevirt-share")
@@ -150,7 +150,7 @@ var _ = Describe("VM", func() {
 var _ = Describe("PVC", func() {
 	RegisterFailHandler(Fail)
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	var (
 		expectedPVC k8sv1.PersistentVolumeClaim
