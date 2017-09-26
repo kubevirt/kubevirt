@@ -37,11 +37,11 @@ spec:
     spec:
       domain:
         devices:
-      [...]  
+      [...]
 ```
 
 `spec.template` is equal to a `VirtualMachineSpec`. `spec.replicas` specifies
-how many instances should be created out of `spec.temlate`. `spec.selector`
+how many instances should be created out of `spec.template`. `spec.selector`
 contains selectors, which need to match `spec.template.metadata.labels`.
 
 The status looks like this:
@@ -50,11 +50,17 @@ The status looks like this:
 status:
   conditions: null
   replicas: 3
+  readyReplicas : 2
 ```
+In case of a scaling error, a `ReplicaFailure` condition is added to the
+`status.conditions`. Further it shows the number of `VirtualMachine`s which
+are in a non-final state and which match `spec.selector` in the
+`status.replicas` field.  `status.readyReplicas` indicates how many of these
+replicas meet the ready condition.
 
-It shows the number of `VirtualMachine`s which are in a non-final state nad
-which match `spec.selector`. In case of a scaling error, a `ReplicaFailure`
-condition is added to the status.
+*Note* that at the moment when writing this proposal, there exist no
+readiness checks for VirtualMachines in Kubevirt. Therefore a `VirtualMachine` is
+considered to be ready, when reported by virt-handler as running or migrating.
 
 In case of a delete failure:
 
@@ -67,6 +73,7 @@ status:
     message: "no permission to delete VMs"
     lastTransmissionTime: "..."
   replicas: 4
+  readyReplicas: 3
 ```
 
 In case of a create failure:
@@ -80,31 +87,25 @@ status:
     message: "no permission to create VMs"
     lastTransmissionTime: "..."
   replicas: 2
+  readyReplicas: 3
 ```
 
 ### Guarantees
 
-Once Graceful Deletes are implemented, the VirtualMachineReplicaSet guarantees
-that it will never create more than the requested numbers of VMs in a non-final
-state.
-
-As a consequence, in case of node failures, or in case of connection loss to
-virt-handlers which run VMs which are part of that set, no new VMs will be
-spawned until the VMs in unknown state are explicitly removed, or the node
-reconnects. This behaviour allows plugging in fencing controllers in a well
-defined way.
-
-It might make sense to weaken these guarantees in the future, and instead add a
-`StatefulSet` equivalent to KubeVirt in the future.
+The VirtualMachineReplicaSet  does **not** guarantee that there will never be
+more than the wanted replicas active in the cluster. Based on readiness checks,
+unknown VirtualMachine states and graceful deletes, it might decide to already
+create new replicas in advance, to make sure that the amount of ready replicas
+stays close to the expected replica count.
 
 ### Milestones
 
  * Basic functionality
+ * Support label changes
+ * Define a well known scale-down order
  * Support graceful delete [1]
  * Support controller references [2]
- * Support label changes
  * Support adopting orphaned Pods [2]
- * Define a well known scale-down order
 
 The basic functionality includes scaling up, down and reporting errors if
 scaling does not work. In this stage it is the full responsibility of the user
