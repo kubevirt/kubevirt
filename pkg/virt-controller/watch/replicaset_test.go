@@ -72,6 +72,10 @@ var _ = Describe("Replicaset", func() {
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testing.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
+
+			// Set up mock client
+			virtClient.EXPECT().VM(v12.NamespaceDefault).Return(vmInterface).AnyTimes()
+			virtClient.EXPECT().ReplicaSet(v12.NamespaceDefault).Return(rsInterface).AnyTimes()
 		})
 
 		addReplicaSet := func(rs *v1.VirtualMachineReplicaSet) {
@@ -108,12 +112,9 @@ var _ = Describe("Replicaset", func() {
 
 			addReplicaSet(rs)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal("testvm"))
 			}).Return(vm, nil)
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
-			rsInterface.EXPECT().Update(expectedRS)
 
 			controller.Execute()
 
@@ -127,13 +128,11 @@ var _ = Describe("Replicaset", func() {
 
 			addReplicaSet(rs)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).AnyTimes()
 			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
 
 			invocations := 0
 			// Count up on every invocation, so that we can measure how often this was called on one invocation
-			vmInterface.EXPECT().Create(gomock.Any()).Times(15).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Create(gomock.Any()).Times(10).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal("testvm"))
 			}).Return(vm, nil).Do(func(obj interface{}) {
 				invocations++
@@ -147,25 +146,23 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should delete missing VMs in batches of a maximum of 10 VMs at once", func() {
-			rs, vm := DefaultReplicaSet(0)
+			rs, _ := DefaultReplicaSet(0)
 
 			addReplicaSet(rs)
 
-			// Add 10 VMs to the cache
-			for x := 0; x < 10; x++ {
+			// Add 15 VMs to the cache
+			for x := 0; x < 15; x++ {
 				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
 				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 				add(vm)
 			}
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).AnyTimes()
 			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
 
 			invocations := 0
 			// Count up on every invocation, so that we can measure how often this was called on one invocation
 			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).
-				Times(15).Return(nil).Do(func(vm interface{}, _ interface{}) {
+				Times(10).Return(nil).Do(func(vm interface{}, _ interface{}) {
 				invocations++
 			})
 
@@ -182,18 +179,12 @@ var _ = Describe("Replicaset", func() {
 			nonMatchingVM := v1.NewMinimalVM("testvm1")
 			nonMatchingVM.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
-			expectedRS := clone(rs)
-			expectedRS.Status.Replicas = 0
-
 			addReplicaSet(rs)
 
 			// We still expect three calls to create VMs, since VM does not meet the requirements
 			vmSource.Add(nonMatchingVM)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Return(vm, nil)
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
-			rsInterface.EXPECT().Update(expectedRS)
 
 			controller.Execute()
 
@@ -202,10 +193,10 @@ var _ = Describe("Replicaset", func() {
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
-		It("should delete a VM and decrease the replica count", func() {
+		It("should delete a VM and increase the replica count", func() {
 			rs, vm := DefaultReplicaSet(0)
 
-			rs.Status.Replicas = 1
+			rs.Status.Replicas = 0
 
 			expectedRS := clone(rs)
 			expectedRS.Status.Replicas = 1
@@ -213,9 +204,7 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			add(vm)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any())
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 			rsInterface.EXPECT().Update(expectedRS)
 
 			controller.Execute()
@@ -230,8 +219,6 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			add(vm)
 
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
-			rsInterface.EXPECT().Update(rs)
 			controller.Execute()
 		})
 
@@ -245,8 +232,6 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			add(vm)
 
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
-			rsInterface.EXPECT().Update(rs).Times(1)
 			rsInterface.EXPECT().Update(rsCopy).Times(1)
 
 			// First make sure that we don't have to do anything
@@ -256,8 +241,7 @@ var _ = Describe("Replicaset", func() {
 			vm.Status.Phase = v1.Succeeded
 			modify(vm)
 
-			// Expect the recrate of the VM
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
+			// Expect the re-crate of the VM
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 
 			// Run the controller again
@@ -278,8 +262,6 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			add(vm)
 
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
-			rsInterface.EXPECT().Update(rs).Times(1)
 			rsInterface.EXPECT().Update(expectedRS).Times(1)
 
 			// First make sure that we don't have to do anything
@@ -288,10 +270,6 @@ var _ = Describe("Replicaset", func() {
 			// Move one VM to a final state
 			vm.Status.Phase = v1.Running
 			modify(vm)
-
-			// Expect the recrate of the VM
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
-			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 
 			// Run the controller again
 			controller.Execute()
@@ -308,18 +286,16 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			add(vm)
 
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
-			rsInterface.EXPECT().Update(rs).Times(1)
-			rsInterface.EXPECT().Update(rsCopy).Times(1)
-
 			// First make sure that we don't have to do anything
 			controller.Execute()
 
 			// Delete one VM
 			delete(vm)
 
+			// Expect the update from 1 to zero replicas
+			rsInterface.EXPECT().Update(rsCopy).Times(1)
+
 			// Expect the recrate of the VM
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 
 			// Run the controller again
@@ -334,13 +310,10 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			add(vm)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			// Let first one succeed
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 			// Let second one fail
 			vmInterface.EXPECT().Create(gomock.Any()).Return(nil, fmt.Errorf("failure"))
-
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 
 			// We should see the failed condition, replicas should stay at 0
 			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
@@ -368,13 +341,10 @@ var _ = Describe("Replicaset", func() {
 			add(vm)
 			add(vm1)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			// Let first one succeed
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any()).Return(nil)
 			// Let second one fail
 			vmInterface.EXPECT().Delete(vm1.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
-
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 
 			// We should see the failed condition, replicas should stay at 2
 			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
@@ -406,13 +376,10 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			add(vm)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			// Let first one succeed
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 			// Let second one fail
 			vmInterface.EXPECT().Create(gomock.Any()).Return(nil, fmt.Errorf("failure"))
-
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 
 			// We should see the failed condition, replicas should stay at 0
 			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
@@ -439,10 +406,7 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			add(vm)
 
-			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			vmInterface.EXPECT().Create(gomock.Any()).Times(2).Return(vm, nil)
-
-			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 
 			// We should see the failed condition, replicas should stay at 0
 			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
@@ -455,7 +419,7 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		AfterEach(func() {
-			//ctrl.Finish()
+			ctrl.Finish()
 		})
 	})
 })
