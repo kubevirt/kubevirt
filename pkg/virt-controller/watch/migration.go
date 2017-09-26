@@ -243,6 +243,8 @@ func (md *MigrationController) execute(key string) error {
 				logger.Error().Reason(err).Msgf("failed to update VM to state %s", kubev1.Migrating)
 				return err
 			}
+			eventMsg := fmt.Sprintf("Started migrating VM from %s to %s", vm.Status.NodeName, targetPod.Spec.NodeName)
+			md.recorder.Event(vm, k8sv1.EventTypeNormal, kubev1.StartedVirtualMachineMigration.String(), eventMsg)
 		}
 
 		// Let's check if the job already exists, it can already exist in case we could not update the VM object in a previous run
@@ -275,14 +277,16 @@ func (md *MigrationController) execute(key string) error {
 		// FIXME, the final state updates must come from virt-handler
 		switch migrationPod.Status.Phase {
 		case k8sv1.PodFailed:
+			eventMsg := fmt.Sprintf("Failed migrating VM from %s to %s", vm.Status.NodeName, targetPod.Spec.NodeName)
 			vm.Status.Phase = kubev1.Running
 			vm.Status.MigrationNodeName = ""
 			if _, err = md.vmService.PutVm(vm); err != nil {
 				return err
 			}
+			md.recorder.Event(vm, k8sv1.EventTypeNormal, kubev1.FailedVirtualMachineMigration.String(), eventMsg)
 			return setMigrationFailed(migration)
 		case k8sv1.PodSucceeded:
-			eventMsg := fmt.Sprintf("VM migrated from %s to %s", vm.Status.NodeName, targetPod.Spec.NodeName)
+			eventMsg := fmt.Sprintf("Finished migrating VM from %s to %s", vm.Status.NodeName, targetPod.Spec.NodeName)
 			vm.Status.NodeName = targetPod.Spec.NodeName
 			vm.Status.MigrationNodeName = ""
 			vm.Status.Phase = kubev1.Running
@@ -291,11 +295,11 @@ func (md *MigrationController) execute(key string) error {
 			}
 			vm.ObjectMeta.Labels[kubev1.NodeNameLabel] = vm.Status.NodeName
 
-			md.recorder.Event(vm, k8sv1.EventTypeNormal, "Migrated", eventMsg)
 			if _, err = md.vmService.PutVm(vm); err != nil {
 				logger.Error().Reason(err).Msg("updating the VM failed.")
 				return err
 			}
+			md.recorder.Event(vm, k8sv1.EventTypeNormal, kubev1.SucceededVirtualMachineMigration.String(), eventMsg)
 			return setMigrationPhase(migration, kubev1.MigrationSucceeded)
 		}
 	}
