@@ -40,9 +40,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/logging"
 )
 
 // Reasons for virtual machine events
