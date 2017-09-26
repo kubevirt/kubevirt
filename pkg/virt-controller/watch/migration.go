@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
-	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -41,12 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func NewMigrationController(restClient *rest.RESTClient, migrationService services.VMService, clientset kubecli.KubevirtClient, queue workqueue.RateLimitingInterface, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, migrationCache cache.Store) *MigrationController {
-
-	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: clientset.CoreV1().Events(k8sv1.NamespaceAll)})
-	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-migration-controller"})
-
+func NewMigrationController(restClient *rest.RESTClient, migrationService services.VMService, clientset kubecli.KubevirtClient, queue workqueue.RateLimitingInterface, migrationInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, migrationCache cache.Store, recorder record.EventRecorder) *MigrationController {
 	return &MigrationController{
 		restClient:        restClient,
 		vmService:         migrationService,

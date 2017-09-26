@@ -7,8 +7,12 @@ import (
 	"strconv"
 
 	"github.com/emicklei/go-restful"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 
 	"k8s.io/client-go/util/workqueue"
 
@@ -36,6 +40,7 @@ type VirtControllerApp struct {
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
 	migrationQueue      workqueue.RateLimitingInterface
+	migrationRecorder   record.EventRecorder
 
 	vmCache      cache.Store
 	vmController *VMController
@@ -89,6 +94,10 @@ func Execute() {
 	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(app.migrationQueue)))
 	app.migrationCache = app.migrationInformer.GetStore()
 
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.clientSet.CoreV1().Events(k8sv1.NamespaceAll)})
+	app.migrationRecorder = broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-migration-controller"})
+
 	app.rsInformer = app.informerFactory.VMReplicaSet()
 
 	app.initCommon()
@@ -118,7 +127,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
-	vca.migrationController = NewMigrationController(vca.restClient, vca.vmService, vca.clientSet, vca.migrationQueue, vca.migrationInformer, vca.podInformer, vca.migrationCache)
+	vca.migrationController = NewMigrationController(vca.restClient, vca.vmService, vca.clientSet, vca.migrationQueue, vca.migrationInformer, vca.podInformer, vca.migrationCache, vca.migrationRecorder)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
