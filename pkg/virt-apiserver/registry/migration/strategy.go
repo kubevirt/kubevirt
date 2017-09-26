@@ -48,7 +48,7 @@ type kubevirtStrategy struct {
 }
 
 func (kubevirtStrategy) NamespaceScoped() bool {
-	return false
+	return true
 }
 
 func (kubevirtStrategy) PrepareForCreate(ctx genericapirequest.Context, obj runtime.Object) {
