@@ -78,19 +78,19 @@ func HandlePanic() {
 func NewResourceEventHandlerFuncsForWorkqueue(queue workqueue.RateLimitingInterface) cache.ResourceEventHandlerFuncs {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			key, err := KeyFunc(obj)
 			if err == nil {
 				queue.Add(key)
 			}
 		},
 		UpdateFunc: func(old interface{}, new interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(new)
+			key, err := KeyFunc(new)
 			if err == nil {
 				queue.Add(key)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			key, err := KeyFunc(obj)
 			if err == nil {
 				queue.Add(key)
 			}

@@ -19,6 +19,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 )
 
 var _ = Describe("Replicaset", func() {
@@ -46,8 +47,9 @@ var _ = Describe("Replicaset", func() {
 		var stop chan struct{}
 		var controller *VMReplicaSet
 		var recorder *record.FakeRecorder
+		var mockQueue *testing.MockWorkQueue
 
-		sync := func(stop chan struct{}) {
+		syncCaches := func(stop chan struct{}) {
 			go vmInformer.Run(stop)
 			go rsInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, rsInformer.HasSynced)).To(BeTrue())
@@ -67,20 +69,44 @@ var _ = Describe("Replicaset", func() {
 			recorder = record.NewFakeRecorder(100)
 
 			controller = NewVMReplicaSet(vmInformer, rsInformer, recorder, virtClient, uint(10))
+			// Wrap our workqueue to have a way to detect when we are done processing updates
+			mockQueue = testing.NewMockWorkQueue(controller.Queue)
+			controller.Queue = mockQueue
 		})
 
+		addReplicaSet := func(rs *v1.VirtualMachineReplicaSet) {
+			syncCaches(stop)
+			mockQueue.ExpectAdds(1)
+			rsSource.Add(rs)
+			mockQueue.Wait()
+		}
+
+		add := func(vm *v1.VirtualMachine) {
+			mockQueue.ExpectAdds(1)
+			vmSource.Add(vm)
+			mockQueue.Wait()
+		}
+
+		modify := func(vm *v1.VirtualMachine) {
+			mockQueue.ExpectAdds(1)
+			vmSource.Modify(vm)
+			mockQueue.Wait()
+		}
+
+		delete := func(vm *v1.VirtualMachine) {
+			mockQueue.ExpectAdds(1)
+			vmSource.Delete(vm)
+			mockQueue.Wait()
+		}
+
 		It("should create missing VMs and increase the replica count", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 3)
+			rs, vm := DefaultReplicaSet(3)
 
 			expectedRS := clone(rs)
 			expectedRS.Status.Replicas = 0
 			expectedRS.Status.ReadyReplicas = 0
 
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
@@ -97,13 +123,9 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should create missing VMs in batches of a maximum of 10 VMs at once", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 15)
+			rs, vm := DefaultReplicaSet(15)
 
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).AnyTimes()
@@ -125,20 +147,16 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should delete missing VMs in batches of a maximum of 10 VMs at once", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 0)
+			rs, vm := DefaultReplicaSet(0)
 
-			rsSource.Add(rs)
+			addReplicaSet(rs)
 
 			// Add 10 VMs to the cache
 			for x := 0; x < 10; x++ {
 				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
 				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-				vmSource.Add(vm)
+				add(vm)
 			}
-
-			sync(stop)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).AnyTimes()
@@ -159,20 +177,18 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should ignore non-matching VMs", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+			rs, vm := DefaultReplicaSet(3)
+
 			nonMatchingVM := v1.NewMinimalVM("testvm1")
 			nonMatchingVM.ObjectMeta.Labels = map[string]string{"test": "test1"}
-			rs := ReplicaSetFromVM("rs", vm, 3)
 
 			expectedRS := clone(rs)
 			expectedRS.Status.Replicas = 0
 
+			addReplicaSet(rs)
+
 			// We still expect three calls to create VMs, since VM does not meet the requirements
 			vmSource.Add(nonMatchingVM)
-			rsSource.Add(rs)
-
-			sync(stop)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).AnyTimes()
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Return(vm, nil)
@@ -187,18 +203,15 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should delete a VM and decrease the replica count", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 0)
+			rs, vm := DefaultReplicaSet(0)
+
 			rs.Status.Replicas = 1
 
 			expectedRS := clone(rs)
 			expectedRS.Status.Replicas = 1
 
-			vmSource.Add(vm)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any())
@@ -211,15 +224,11 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should detect that it has nothing to do", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 1)
+			rs, vm := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
 
-			vmSource.Add(vm)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
 
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface)
 			rsInterface.EXPECT().Update(rs)
@@ -227,18 +236,14 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should be woken by a stopped VM and create a new one", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 1)
-			rs.Status.Replicas = 0
+			rs, vm := DefaultReplicaSet(1)
+			rs.Status.Replicas = 1
 
 			rsCopy := clone(rs)
-			rsCopy.Status.Replicas = 1
+			rsCopy.Status.Replicas = 0
 
-			vmSource.Add(vm)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
 
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
 			rsInterface.EXPECT().Update(rs).Times(1)
@@ -249,7 +254,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Move one VM to a final state
 			vm.Status.Phase = v1.Succeeded
-			vmSource.Modify(vm)
+			modify(vm)
 
 			// Expect the recrate of the VM
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
@@ -262,9 +267,7 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should be woken by a ready VM and update the readyReplicas counter", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 1)
+			rs, vm := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 0
 
@@ -272,10 +275,8 @@ var _ = Describe("Replicaset", func() {
 			expectedRS.Status.Replicas = 1
 			expectedRS.Status.ReadyReplicas = 1
 
-			vmSource.Add(vm)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
 
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
 			rsInterface.EXPECT().Update(rs).Times(1)
@@ -286,7 +287,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Move one VM to a final state
 			vm.Status.Phase = v1.Running
-			vmSource.Modify(vm)
+			modify(vm)
 
 			// Expect the recrate of the VM
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
@@ -297,18 +298,15 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should be woken by a deleted VM and create a new one", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 1)
-			rs.Status.Replicas = 0
+			rs, vm := DefaultReplicaSet(1)
+			rs.Status.Replicas = 1
 
 			rsCopy := clone(rs)
-			rsCopy.Status.Replicas = 1
+			// The count stays at zero, since we just experienced the delete when we create the new VM
+			rsCopy.Status.Replicas = 0
 
-			vmSource.Add(vm)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
 
 			virtClient.EXPECT().ReplicaSet(vm.ObjectMeta.Namespace).Return(rsInterface).Times(2)
 			rsInterface.EXPECT().Update(rs).Times(1)
@@ -318,7 +316,7 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			// Delete one VM
-			vmSource.Delete(vm)
+			delete(vm)
 
 			// Expect the recrate of the VM
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface)
@@ -331,14 +329,10 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should add a fail condition if scaling up fails", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 3)
+			rs, vm := DefaultReplicaSet(3)
 
-			vmSource.Add(vm)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			// Let first one succeed
@@ -366,17 +360,13 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should add a fail condition if scaling down fails", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			vm1 := v1.NewMinimalVM("testvm1")
-			vm1.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 0)
+			rs, vm := DefaultReplicaSet(0)
+			vm1 := cloneVM(vm)
+			vm1.ObjectMeta.Name = "test1"
 
-			vmSource.Add(vm)
-			vmSource.Add(vm1)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
+			add(vm1)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			// Let first one succeed
@@ -404,9 +394,7 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should update the replica count but keep the failed state", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 3)
+			rs, vm := DefaultReplicaSet(3)
 			rs.Status.Conditions = []v1.VMReplicaSetCondition{
 				{
 					Type:               v1.VMReplicaSetReplicaFailure,
@@ -415,10 +403,8 @@ var _ = Describe("Replicaset", func() {
 				},
 			}
 
-			vmSource.Add(vm)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			// Let first one succeed
@@ -441,9 +427,7 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 		})
 		It("should update the replica count and remove the failed condition", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			rs := ReplicaSetFromVM("rs", vm, 3)
+			rs, vm := DefaultReplicaSet(3)
 			rs.Status.Conditions = []v1.VMReplicaSetCondition{
 				{
 					Type:               v1.VMReplicaSetReplicaFailure,
@@ -452,10 +436,8 @@ var _ = Describe("Replicaset", func() {
 				},
 			}
 
-			vmSource.Add(vm)
-			rsSource.Add(rs)
-
-			sync(stop)
+			addReplicaSet(rs)
+			add(vm)
 
 			virtClient.EXPECT().VM(vm.ObjectMeta.Namespace).Return(vmInterface).Times(3)
 			vmInterface.EXPECT().Create(gomock.Any()).Times(2).Return(vm, nil)
@@ -472,6 +454,9 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 		})
 
+		AfterEach(func() {
+			//ctrl.Finish()
+		})
 	})
 })
 
@@ -479,6 +464,12 @@ func clone(rs *v1.VirtualMachineReplicaSet) *v1.VirtualMachineReplicaSet {
 	c, err := model.Clone(rs)
 	Expect(err).ToNot(HaveOccurred())
 	return c.(*v1.VirtualMachineReplicaSet)
+}
+
+func cloneVM(rs *v1.VirtualMachine) *v1.VirtualMachine {
+	c, err := model.Clone(rs)
+	Expect(err).ToNot(HaveOccurred())
+	return c.(*v1.VirtualMachine)
 }
 
 func ReplicaSetFromVM(name string, vm *v1.VirtualMachine, replicas int32) *v1.VirtualMachineReplicaSet {
@@ -499,6 +490,13 @@ func ReplicaSetFromVM(name string, vm *v1.VirtualMachine, replicas int32) *v1.Vi
 		},
 	}
 	return rs
+}
+
+func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineReplicaSet, *v1.VirtualMachine) {
+	vm := v1.NewMinimalVM("testvm")
+	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+	rs := ReplicaSetFromVM("rs", vm, replicas)
+	return rs, vm
 }
 
 func expectEvent(recorder *record.FakeRecorder, reason string) {

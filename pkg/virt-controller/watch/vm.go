@@ -271,7 +271,7 @@ func vmLabelHandler(vmQueue workqueue.RateLimitingInterface) func(obj interface{
 		_, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
 
 		if phase != k8sv1.PodRunning {
-			// Filter out non running pods from queue
+			// Filter out non running pods from Queue
 			return
 		} else if hasMigrationLabel {
 			// Filter out migration target pods

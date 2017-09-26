@@ -63,7 +63,7 @@ const (
 func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) *VMReplicaSet {
 
 	c := &VMReplicaSet{
-		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		Queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		vmInformer:    vmInformer,
 		vmRSInformer:  vmRSInformer,
 		recorder:      recorder,
@@ -72,7 +72,11 @@ func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.Sh
 		burstReplicas: burstReplicas,
 	}
 
-	vmRSInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(c.queue))
+	c.vmRSInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addReplicaSet,
+		DeleteFunc: c.deleteReplicaSet,
+		UpdateFunc: c.updateReplicaSet,
+	})
 
 	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
@@ -85,7 +89,7 @@ func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.Sh
 
 type VMReplicaSet struct {
 	clientset     kubecli.KubevirtClient
-	queue         workqueue.RateLimitingInterface
+	Queue         workqueue.RateLimitingInterface
 	vmInformer    cache.SharedIndexInformer
 	vmRSInformer  cache.SharedIndexInformer
 	recorder      record.EventRecorder
@@ -95,7 +99,7 @@ type VMReplicaSet struct {
 
 func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
 	defer kubecli.HandlePanic()
-	defer c.queue.ShutDown()
+	defer c.Queue.ShutDown()
 	logging.DefaultLogger().Info().Msg("Starting VirtualMachineReplicaSet controller.")
 
 	// Wait for cache sync before we start the pod controller
@@ -116,17 +120,17 @@ func (c *VMReplicaSet) runWorker() {
 }
 
 func (c *VMReplicaSet) Execute() bool {
-	key, quit := c.queue.Get()
+	key, quit := c.Queue.Get()
 	if quit {
 		return false
 	}
-	defer c.queue.Done(key)
+	defer c.Queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
 		logging.DefaultLogger().Info().Reason(err).Msgf("re-enqueuing VirtualMachineReplicaSet %v", key)
-		c.queue.AddRateLimited(key)
+		c.Queue.AddRateLimited(key)
 	} else {
 		logging.DefaultLogger().Info().V(4).Msgf("processed VirtualMachineReplicaSet %v", key)
-		c.queue.Forget(key)
+		c.Queue.Forget(key)
 	}
 	return true
 }
@@ -369,7 +373,7 @@ func (c *VMReplicaSet) getMatchingController(vm *virtv1.VirtualMachine) (*virtv1
 	return nil, errors.NewNotFound(v1beta1.Resource("virtualmachinereplicaset"), "")
 }
 
-// addVirtualMachine searchs for a matching VMReplicaSet, updates it's expectations and wakes it up
+// addVirtualMachine searches for a matching VMReplicaSet, updates it's expectations and wakes it up
 func (c *VMReplicaSet) addVirtualMachine(obj interface{}) {
 
 	rsKey := c.getMatchingControllerKey(obj.(*virtv1.VirtualMachine))
@@ -379,7 +383,7 @@ func (c *VMReplicaSet) addVirtualMachine(obj interface{}) {
 
 	// In case the controller is waiting for a creation, tell it that we observed one
 	c.expectations.CreationObserved(rsKey)
-	c.queue.Add(rsKey)
+	c.Queue.Add(rsKey)
 	return
 }
 
@@ -394,7 +398,7 @@ func (c *VMReplicaSet) deleteVirtualMachine(obj interface{}) {
 
 	// In case the controller is waiting for a deletion, tell it that we observed one
 	c.expectations.DeletionObserved(rsKey, kubecli.VirtualMachineKey(vm))
-	c.queue.Add(rsKey)
+	c.Queue.Add(rsKey)
 	return
 }
 
@@ -405,8 +409,30 @@ func (c *VMReplicaSet) updateVirtualMachine(old, curr interface{}) {
 		return
 	}
 
-	c.queue.Add(rsKey)
+	c.Queue.Add(rsKey)
 	return
+}
+
+func (c *VMReplicaSet) addReplicaSet(obj interface{}) {
+	c.enqueueReplicaSet(obj)
+}
+
+func (c *VMReplicaSet) deleteReplicaSet(obj interface{}) {
+	c.enqueueReplicaSet(obj)
+}
+
+func (c *VMReplicaSet) updateReplicaSet(old, curr interface{}) {
+	c.enqueueReplicaSet(curr)
+}
+
+func (c *VMReplicaSet) enqueueReplicaSet(obj interface{}) {
+	log := logging.DefaultLogger()
+	rs := obj.(*virtv1.VirtualMachineReplicaSet)
+	key, err := kubecli.KeyFunc(rs)
+	if err != nil {
+		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
+	}
+	c.Queue.Add(key)
 }
 
 // getMatchingControllerKey takes a VirtualMachine and returns a the key of a macthing VMReplicaSet, if one exists.
