@@ -8,7 +8,8 @@ services:
 
 go:
 - 1.8.3
-- tip
+- 1.8
+- 1.9
 
 before_install:
 - sudo add-apt-repository ppa:jacob/virtualisation -y
