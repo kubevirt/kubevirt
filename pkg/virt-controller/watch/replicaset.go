@@ -163,6 +163,11 @@ func (c *VMReplicaSet) execute(key string) error {
 		return nil
 	}
 
+	if !selector.Matches(labels.Set(rs.Spec.Template.ObjectMeta.Labels)) {
+		log.Error().Reason(err).Msg("Selector does not match template labels, will not re-enqueue.")
+		return nil
+	}
+
 	needsSync := c.expectations.SatisfiedExpectations(key)
 
 	// get all potentially interesting VMs from the cache
