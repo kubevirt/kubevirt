@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
@@ -38,14 +38,14 @@ TODO: Define the exact scope of this controller.
 For now it looks like we should use domain events to detect unexpected domain changes like crashes or vms going
 into pause mode because of resource shortage or cut off connections to storage.
 */
-func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, informer cache.SharedInformer, restClient rest.RESTClient, recorder record.EventRecorder) (cache.Store, *kubecli.Controller) {
+func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, informer cache.SharedInformer, restClient rest.RESTClient, recorder record.EventRecorder) (cache.Store, *controller.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	informer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(queue))
+	informer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(queue))
 	dispatch := NewDomainDispatch(vmQueue, vmStore, restClient, recorder)
-	return kubecli.NewControllerFromInformer(informer.GetStore(), informer, queue, dispatch)
+	return controller.NewControllerFromInformer(informer.GetStore(), informer, queue, dispatch)
 }
 
-func NewDomainDispatch(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, restClient rest.RESTClient, recorder record.EventRecorder) kubecli.ControllerDispatch {
+func NewDomainDispatch(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, restClient rest.RESTClient, recorder record.EventRecorder) controller.ControllerDispatch {
 	return &DomainDispatch{
 		vmQueue:    vmQueue,
 		vmStore:    vmStore,

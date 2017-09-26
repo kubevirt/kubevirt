@@ -17,7 +17,7 @@
  *
  */
 
-package kubecli
+package controller
 
 import (
 	"runtime/debug"

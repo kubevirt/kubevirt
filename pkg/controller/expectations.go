@@ -19,7 +19,7 @@ Taken from https://github.com/kubernetes/kubernetes/blob/1889a6ef52eb18b08e24843
 As soon as expectations become available in client-go or apimachinery, delete this and switch.
 */
 
-package kubecli
+package controller
 
 import (
 	"fmt"

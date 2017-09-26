@@ -17,7 +17,7 @@
  *
  */
 
-package informers
+package controller
 
 import (
 	"sync"
@@ -138,7 +138,7 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 			panic(err)
 		}
 
-		lw := kubecli.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{})
 	})
 }

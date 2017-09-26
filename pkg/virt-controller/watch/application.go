@@ -17,7 +17,7 @@ import (
 	v12 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
-	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -29,7 +29,7 @@ type VirtControllerApp struct {
 	templateService services.TemplateService
 	restClient      *clientrest.RESTClient
 	vmService       services.VMService
-	informerFactory kubeinformers.KubeInformerFactory
+	informerFactory controller.KubeInformerFactory
 	podInformer     cache.SharedIndexInformer
 
 	migrationCache      cache.Store
@@ -72,7 +72,7 @@ func Execute() {
 
 	// Bootstrapping. From here on the initialization order is important
 
-	app.informerFactory = kubeinformers.NewKubeInformerFactory(app.restClient, app.clientSet)
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet)
 
 	app.vmInformer = app.informerFactory.VM()
 	app.migrationInformer = app.informerFactory.Migration()
@@ -80,13 +80,13 @@ func Execute() {
 
 	app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmCache = app.vmInformer.GetStore()
-	app.vmInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
-	app.podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
+	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
+	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
 
 	app.migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	app.migrationInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(app.migrationQueue))
-	app.podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(app.migrationQueue)))
-	app.podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(app.migrationQueue)))
+	app.migrationInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.migrationQueue))
+	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(app.migrationQueue)))
+	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(app.migrationQueue)))
 	app.migrationCache = app.migrationInformer.GetStore()
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
@@ -127,7 +127,7 @@ func (vca *VirtControllerApp) initReplicaSet() {
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "virtualmachinereplicaset-controller"})
 
-	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, kubecli.BurstReplicas)
+	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 }
 
 func (vca *VirtControllerApp) DefineFlags() {

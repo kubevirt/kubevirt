@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
@@ -52,12 +53,12 @@ func NewVMController(lw cache.ListerWatcher,
 	restClient rest.RESTClient,
 	clientset kubecli.KubevirtClient,
 	host string,
-	configDiskClient configdisk.ConfigDiskClient) (cache.Store, workqueue.RateLimitingInterface, *kubecli.Controller) {
+	configDiskClient configdisk.ConfigDiskClient) (cache.Store, workqueue.RateLimitingInterface, *controller.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host, configDiskClient)
 
-	indexer, informer := kubecli.NewController(lw, queue, &v1.VirtualMachine{}, dispatch)
+	indexer, informer := controller.NewController(lw, queue, &v1.VirtualMachine{}, dispatch)
 	return indexer, queue, informer
 
 }
@@ -66,7 +67,7 @@ func NewVMHandlerDispatch(domainManager virtwrap.DomainManager,
 	restClient *rest.RESTClient,
 	clientset kubecli.KubevirtClient,
 	host string,
-	configDiskClient configdisk.ConfigDiskClient) kubecli.ControllerDispatch {
+	configDiskClient configdisk.ConfigDiskClient) controller.ControllerDispatch {
 	return &VMHandlerDispatch{
 		domainManager: domainManager,
 		recorder:      recorder,

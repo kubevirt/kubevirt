@@ -40,8 +40,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
 // Reasons for virtual machine events
@@ -68,7 +69,7 @@ func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.Sh
 		vmRSInformer:  vmRSInformer,
 		recorder:      recorder,
 		clientset:     clientset,
-		expectations:  kubecli.NewUIDTrackingControllerExpectations(kubecli.NewControllerExpectations()),
+		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		burstReplicas: burstReplicas,
 	}
 
@@ -93,12 +94,12 @@ type VMReplicaSet struct {
 	vmInformer    cache.SharedIndexInformer
 	vmRSInformer  cache.SharedIndexInformer
 	recorder      record.EventRecorder
-	expectations  *kubecli.UIDTrackingControllerExpectations
+	expectations  *controller.UIDTrackingControllerExpectations
 	burstReplicas uint
 }
 
 func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
-	defer kubecli.HandlePanic()
+	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	logging.DefaultLogger().Info().Msg("Starting VirtualMachineReplicaSet controller.")
 
@@ -207,7 +208,7 @@ func (c *VMReplicaSet) execute(key string) error {
 func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine) error {
 
 	diff := c.calcDiff(rs, vms)
-	rsKey, err := kubecli.KeyFunc(rs)
+	rsKey, err := controller.KeyFunc(rs)
 	if err != nil {
 		logging.DefaultLogger().Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
 		return nil
@@ -230,7 +231,7 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 		// We have to delete VMs, use a very simple selection strategy for now
 		// TODO: Possible deletion order: not yet running VMs < migrating VMs < other
 		deleteCandidates := vms[0:diff]
-		c.expectations.ExpectDeletions(rsKey, kubecli.VirtualMachineKeys(deleteCandidates))
+		c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineKeys(deleteCandidates))
 		for i := 0; i < diff; i++ {
 			go func(idx int) {
 				defer wg.Done()
@@ -240,7 +241,7 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 				// Don't log an error if it is already deleted
 				if err != nil {
 					// We can't observe a delete if it was not accepted by the server
-					c.expectations.DeletionObserved(rsKey, kubecli.VirtualMachineKey(deleteCandidate))
+					c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(deleteCandidate))
 					c.recorder.Eventf(deleteCandidate, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting: %v", err)
 					errChan <- err
 					return
@@ -397,7 +398,7 @@ func (c *VMReplicaSet) deleteVirtualMachine(obj interface{}) {
 	}
 
 	// In case the controller is waiting for a deletion, tell it that we observed one
-	c.expectations.DeletionObserved(rsKey, kubecli.VirtualMachineKey(vm))
+	c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(vm))
 	c.Queue.Add(rsKey)
 	return
 }
@@ -428,7 +429,7 @@ func (c *VMReplicaSet) updateReplicaSet(old, curr interface{}) {
 func (c *VMReplicaSet) enqueueReplicaSet(obj interface{}) {
 	log := logging.DefaultLogger()
 	rs := obj.(*virtv1.VirtualMachineReplicaSet)
-	key, err := kubecli.KeyFunc(rs)
+	key, err := controller.KeyFunc(rs)
 	if err != nil {
 		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
 	}
@@ -455,7 +456,7 @@ func (c *VMReplicaSet) getMatchingControllerKey(vm *virtv1.VirtualMachine) strin
 	}
 
 	// If we can't extract the key, log it and ignore
-	rsKey, err := kubecli.KeyFunc(rs)
+	rsKey, err := controller.KeyFunc(rs)
 	if err != nil {
 		log.Error().Object(rs).Reason(err).Msg("Failed to extract rsKey from replicaset.")
 		return ""
