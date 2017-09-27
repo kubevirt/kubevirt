@@ -7,19 +7,15 @@ import (
 	"strconv"
 
 	"github.com/emicklei/go-restful"
+	"k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	v12 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-
 	"k8s.io/client-go/util/workqueue"
-
-	"k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes/scheme"
-	v12 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
