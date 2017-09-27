@@ -30,6 +30,7 @@ rules:
     resources:
       - virtualmachines
       - migrations  
+      - virtualmachinereplicasets  
     verbs:
       - get
       - list

@@ -17,7 +17,7 @@
  *
  */
 
-package kubecli
+package controller
 
 import (
 	"runtime/debug"
@@ -32,7 +32,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"fmt"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
+)
+
+const (
+	// BurstReplicas is the maximum amount of requests in a row for CRUD operations on resources by controllers,
+	// to avoid unintentional DoS
+	BurstReplicas uint = 250
 )
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
@@ -69,19 +78,19 @@ func HandlePanic() {
 func NewResourceEventHandlerFuncsForWorkqueue(queue workqueue.RateLimitingInterface) cache.ResourceEventHandlerFuncs {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			key, err := KeyFunc(obj)
 			if err == nil {
 				queue.Add(key)
 			}
 		},
 		UpdateFunc: func(old interface{}, new interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(new)
+			key, err := KeyFunc(new)
 			if err == nil {
 				queue.Add(key)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			key, err := KeyFunc(obj)
 			if err == nil {
 				queue.Add(key)
 			}
@@ -179,4 +188,16 @@ func (c *Controller) runWorker() {
 // new items will be accepted. It is possible to wait via #WaitUntilDone() until the last item was processed.
 func (c *Controller) ShutDownQueue() {
 	c.queue.ShutDown()
+}
+
+func VirtualMachineKey(vm *v1.VirtualMachine) string {
+	return fmt.Sprintf("%v/%v", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
+}
+
+func VirtualMachineKeys(vms []v1.VirtualMachine) []string {
+	keys := []string{}
+	for _, vm := range vms {
+		keys = append(keys, VirtualMachineKey(&vm))
+	}
+	return keys
 }

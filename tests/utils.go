@@ -393,6 +393,9 @@ func cleanNamespaces() {
 			continue
 		}
 
+		// Remove all VirtualMachineReplicaSets
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachinereplicasets").Do().Error())
+
 		// Remove all Migrations
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("migrations").Do().Error())
 
@@ -727,4 +730,25 @@ func newUInt(x uint) *uint {
 
 func newString(x string) *string {
 	return &x
+}
+
+func NewRandomReplicaSetFromVM(vm *v1.VirtualMachine, replicas int32) *v1.VirtualMachineReplicaSet {
+	name := "replicaset" + rand.String(5)
+	rs := &v1.VirtualMachineReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(5)},
+		Spec: v1.VMReplicaSetSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"name": name},
+			},
+			Template: &v1.VMTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"name": name},
+					Name:   vm.ObjectMeta.Name,
+				},
+				Spec: vm.Spec,
+			},
+		},
+	}
+	return rs
 }

@@ -77,6 +77,16 @@ func (_mr *_MockKubevirtClientRecorder) Migration(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migration", arg0)
 }
 
+func (_m *MockKubevirtClient) ReplicaSet(namespace string) ReplicaSetInterface {
+	ret := _m.ctrl.Call(_m, "ReplicaSet", namespace)
+	ret0, _ := ret[0].(ReplicaSetInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) ReplicaSet(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReplicaSet", arg0)
+}
+
 func (_m *MockKubevirtClient) RestClient() *rest.RESTClient {
 	ret := _m.ctrl.Call(_m, "RestClient")
 	ret0, _ := ret[0].(*rest.RESTClient)
@@ -559,6 +569,81 @@ func (_m *MockVMInterface) Delete(name string, options *v1.DeleteOptions) error 
 }
 
 func (_mr *_MockVMInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
+}
+
+// Mock of ReplicaSetInterface interface
+type MockReplicaSetInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockReplicaSetInterfaceRecorder
+}
+
+// Recorder for MockReplicaSetInterface (not exported)
+type _MockReplicaSetInterfaceRecorder struct {
+	mock *MockReplicaSetInterface
+}
+
+func NewMockReplicaSetInterface(ctrl *gomock.Controller) *MockReplicaSetInterface {
+	mock := &MockReplicaSetInterface{ctrl: ctrl}
+	mock.recorder = &_MockReplicaSetInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockReplicaSetInterface) EXPECT() *_MockReplicaSetInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockReplicaSetInterface) Get(name string, options v1.GetOptions) (*v18.VirtualMachineReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "Get", name, options)
+	ret0, _ := ret[0].(*v18.VirtualMachineReplicaSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockReplicaSetInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+}
+
+func (_m *MockReplicaSetInterface) List(opts v1.ListOptions) (*v18.VirtualMachineReplicaSetList, error) {
+	ret := _m.ctrl.Call(_m, "List", opts)
+	ret0, _ := ret[0].(*v18.VirtualMachineReplicaSetList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockReplicaSetInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
+}
+
+func (_m *MockReplicaSetInterface) Create(_param0 *v18.VirtualMachineReplicaSet) (*v18.VirtualMachineReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "Create", _param0)
+	ret0, _ := ret[0].(*v18.VirtualMachineReplicaSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockReplicaSetInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+}
+
+func (_m *MockReplicaSetInterface) Update(_param0 *v18.VirtualMachineReplicaSet) (*v18.VirtualMachineReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "Update", _param0)
+	ret0, _ := ret[0].(*v18.VirtualMachineReplicaSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockReplicaSetInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
+}
+
+func (_m *MockReplicaSetInterface) Delete(name string, options *v1.DeleteOptions) error {
+	ret := _m.ctrl.Call(_m, "Delete", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockReplicaSetInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
 }
 

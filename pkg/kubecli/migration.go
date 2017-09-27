@@ -80,6 +80,7 @@ func (v *migrations) Create(migration *v1.Migration) (result *v1.Migration, err 
 func (v *migrations) Update(migration *v1.Migration) (result *v1.Migration, err error) {
 	result = &v1.Migration{}
 	err = v.restClient.Put().
+		Name(migration.ObjectMeta.Name).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(migration).

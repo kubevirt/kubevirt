@@ -12,7 +12,12 @@ import (
 
 	"k8s.io/client-go/util/workqueue"
 
-	kubeinformers "kubevirt.io/kubevirt/pkg/informers"
+	"k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	v12 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -24,7 +29,7 @@ type VirtControllerApp struct {
 	templateService services.TemplateService
 	restClient      *clientrest.RESTClient
 	vmService       services.VMService
-	informerFactory kubeinformers.KubeInformerFactory
+	informerFactory controller.KubeInformerFactory
 	podInformer     cache.SharedIndexInformer
 
 	migrationCache      cache.Store
@@ -36,6 +41,9 @@ type VirtControllerApp struct {
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 	vmQueue      workqueue.RateLimitingInterface
+
+	rsController *VMReplicaSet
+	rsInformer   cache.SharedIndexInformer
 
 	host          string
 	port          int
@@ -64,7 +72,7 @@ func Execute() {
 
 	// Bootstrapping. From here on the initialization order is important
 
-	app.informerFactory = kubeinformers.NewKubeInformerFactory(app.restClient, app.clientSet)
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet)
 
 	app.vmInformer = app.informerFactory.VM()
 	app.migrationInformer = app.informerFactory.Migration()
@@ -72,16 +80,19 @@ func Execute() {
 
 	app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmCache = app.vmInformer.GetStore()
-	app.vmInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
-	app.podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
+	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
+	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
 
 	app.migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	app.migrationInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForWorkqueue(app.migrationQueue))
-	app.podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(app.migrationQueue)))
-	app.podInformer.AddEventHandler(kubecli.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(app.migrationQueue)))
+	app.migrationInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.migrationQueue))
+	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(app.migrationQueue)))
+	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(app.migrationQueue)))
 	app.migrationCache = app.migrationInformer.GetStore()
 
+	app.rsInformer = app.informerFactory.VMReplicaSet()
+
 	app.initCommon()
+	app.initReplicaSet()
 	app.Run()
 }
 func (vca *VirtControllerApp) Run() {
@@ -90,8 +101,8 @@ func (vca *VirtControllerApp) Run() {
 	defer close(stop)
 	vca.informerFactory.Start(stop)
 	go vca.vmController.Run(3, stop)
-	//FIXME when we have more than one worker, we need a lock on the VM
 	go vca.migrationController.Run(3, stop)
+	go vca.rsController.Run(3, stop)
 	httpLogger := logger.With("service", "http")
 	httpLogger.Info().Log("action", "listening", "interface", vca.host, "port", vca.port)
 	if err := http.ListenAndServe(vca.host+":"+strconv.Itoa(vca.port), nil); err != nil {
@@ -108,6 +119,15 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
 	vca.migrationController = NewMigrationController(vca.restClient, vca.vmService, vca.clientSet, vca.migrationQueue, vca.migrationInformer, vca.podInformer, vca.migrationCache)
+}
+
+func (vca *VirtControllerApp) initReplicaSet() {
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartRecordingToSink(&v12.EventSinkImpl{Interface: vca.clientSet.CoreV1().Events(v1.NamespaceAll)})
+	// TODO what is scheme used for in Recorder?
+	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "virtualmachinereplicaset-controller"})
+
+	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 }
 
 func (vca *VirtControllerApp) DefineFlags() {

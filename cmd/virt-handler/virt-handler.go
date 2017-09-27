@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -127,7 +128,7 @@ func (app *virtHandlerApp) Run() {
 	configDiskClient := configdisk.NewConfigDiskClient(virtCli)
 
 	// Wire VM controller
-	vmListWatcher := kubecli.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", k8sv1.NamespaceAll, fields.Everything(), l)
+	vmListWatcher := controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", k8sv1.NamespaceAll, fields.Everything(), l)
 	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, app.HostOverride, configDiskClient)
 
 	// Wire Domain controller

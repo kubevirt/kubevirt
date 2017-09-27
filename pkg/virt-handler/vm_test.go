@@ -42,6 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
@@ -54,7 +55,7 @@ var _ = Describe("VM", func() {
 	var domainManager *virtwrap.MockDomainManager
 
 	var ctrl *gomock.Controller
-	var dispatch kubecli.ControllerDispatch
+	var dispatch controller.ControllerDispatch
 
 	var recorder record.EventRecorder
 
@@ -113,7 +114,7 @@ var _ = Describe("VM", func() {
 		It("should re-enqueue if the Key is unparseable", func() {
 			Expect(vmQueue.Len()).Should(Equal(0))
 			vmQueue.Add("a/b/c/d/e")
-			kubecli.Dequeue(vmStore, vmQueue, dispatch)
+			controller.Dequeue(vmStore, vmQueue, dispatch)
 			Expect(vmQueue.NumRequeues("a/b/c/d/e")).To(Equal(1))
 		})
 
@@ -123,7 +124,7 @@ var _ = Describe("VM", func() {
 			vmStore.Add(vm)
 
 			vmQueue.Add("default/testvm")
-			kubecli.Dequeue(vmStore, vmQueue, dispatch)
+			controller.Dequeue(vmStore, vmQueue, dispatch)
 			// expect no mock interactions
 			Expect(vmQueue.NumRequeues("default/testvm")).To(Equal(0))
 		},

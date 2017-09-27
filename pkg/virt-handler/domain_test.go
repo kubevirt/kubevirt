@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
@@ -41,7 +41,7 @@ var _ = Describe("Domain", func() {
 	var vmQueue workqueue.RateLimitingInterface
 	var domainStore cache.Store
 	var domainQueue workqueue.RateLimitingInterface
-	var dispatch kubecli.ControllerDispatch
+	var dispatch controller.ControllerDispatch
 	var restClient rest.RESTClient
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
@@ -68,7 +68,7 @@ var _ = Describe("Domain", func() {
 			key, _ := cache.MetaNamespaceKeyFunc(dom)
 			domainStore.Add(dom)
 			domainQueue.Add(key)
-			kubecli.Dequeue(domainStore, domainQueue, dispatch)
+			controller.Dequeue(domainStore, domainQueue, dispatch)
 
 			Expect(vmQueue.Len()).To(Equal(1))
 		})
@@ -82,7 +82,7 @@ var _ = Describe("Domain", func() {
 			domainStore.Add(domain)
 			key, _ := cache.MetaNamespaceKeyFunc(domain)
 			domainQueue.Add(key)
-			kubecli.Dequeue(domainStore, domainQueue, dispatch)
+			controller.Dequeue(domainStore, domainQueue, dispatch)
 			Expect(vmQueue.Len()).To(Equal(1))
 		})
 		It("should not inform vm controller if a correspnding VM is in the cache", func() {
@@ -98,7 +98,7 @@ var _ = Describe("Domain", func() {
 		It("should error out if the key is unparsable", func() {
 			key := "a/b/c/d"
 			domainQueue.Add(key)
-			kubecli.Dequeue(domainStore, domainQueue, dispatch)
+			controller.Dequeue(domainStore, domainQueue, dispatch)
 			Expect(domainQueue.NumRequeues(key)).To(Equal(1))
 			Expect(vmQueue.Len()).To(Equal(0))
 		})
@@ -108,7 +108,7 @@ var _ = Describe("Domain", func() {
 			domain := api.NewMinimalDomain("testvm")
 			key, _ := cache.MetaNamespaceKeyFunc(domain)
 			domainQueue.Add(key)
-			kubecli.Dequeue(domainStore, domainQueue, dispatch)
+			controller.Dequeue(domainStore, domainQueue, dispatch)
 			Expect(domainQueue.NumRequeues(key)).To(Equal(0))
 		})
 

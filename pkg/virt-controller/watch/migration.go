@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -62,7 +63,7 @@ type MigrationController struct {
 }
 
 func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
-	defer kubecli.HandlePanic()
+	defer controller.HandlePanic()
 	defer c.queue.ShutDown()
 	logging.DefaultLogger().Info().Msg("Starting controller.")
 

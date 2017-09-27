@@ -27,70 +27,70 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-func (k *kubevirt) VM(namespace string) VMInterface {
-	return &vms{k.restClient, namespace, "virtualmachines"}
+func (k *kubevirt) ReplicaSet(namespace string) ReplicaSetInterface {
+	return &rc{k.restClient, namespace, "virtualmachinereplicasets"}
 }
 
-type vms struct {
+type rc struct {
 	restClient *rest.RESTClient
 	namespace  string
 	resource   string
 }
 
-func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMachine, err error) {
-	vm = &v1.VirtualMachine{}
+func (v *rc) Get(name string, options k8smetav1.GetOptions) (replicaset *v1.VirtualMachineReplicaSet, err error) {
+	replicaset = &v1.VirtualMachineReplicaSet{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
-		Into(vm)
-	vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+		Into(replicaset)
+	replicaset.SetGroupVersionKind(v1.VMReplicaSetGroupVersionKind)
 	return
 }
 
-func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VirtualMachineList, err error) {
-	vmList = &v1.VirtualMachineList{}
+func (v *rc) List(options k8smetav1.ListOptions) (replicasetList *v1.VirtualMachineReplicaSetList, err error) {
+	replicasetList = &v1.VirtualMachineReplicaSetList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
-		Into(vmList)
-	for _, vm := range vmList.Items {
-		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+		Into(replicasetList)
+	for _, replicaset := range replicasetList.Items {
+		replicaset.SetGroupVersionKind(v1.VMReplicaSetGroupVersionKind)
 	}
 
 	return
 }
 
-func (v *vms) Create(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
+func (v *rc) Create(replicaset *v1.VirtualMachineReplicaSet) (result *v1.VirtualMachineReplicaSet, err error) {
+	result = &v1.VirtualMachineReplicaSet{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
 		Resource(v.resource).
-		Body(vm).
+		Body(replicaset).
 		Do().
 		Into(result)
-	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	result.SetGroupVersionKind(v1.VMReplicaSetGroupVersionKind)
 	return
 }
 
-func (v *vms) Update(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
+func (v *rc) Update(replicaset *v1.VirtualMachineReplicaSet) (result *v1.VirtualMachineReplicaSet, err error) {
+	result = &v1.VirtualMachineReplicaSet{}
 	err = v.restClient.Put().
-		Name(vm.ObjectMeta.Name).
+		Name(replicaset.ObjectMeta.Name).
 		Namespace(v.namespace).
 		Resource(v.resource).
-		Body(vm).
+		Body(replicaset).
 		Do().
 		Into(result)
-	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	result.SetGroupVersionKind(v1.VMReplicaSetGroupVersionKind)
 	return
 }
 
-func (v *vms) Delete(name string, options *k8smetav1.DeleteOptions) error {
+func (v *rc) Delete(name string, options *k8smetav1.DeleteOptions) error {
 	return v.restClient.Delete().
 		Namespace(v.namespace).
 		Resource(v.resource).
