@@ -37,6 +37,8 @@ import (
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
+	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
@@ -125,11 +127,18 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	// Create an inotify list watcher which looks for virt-launcher sockets
+	socketInformer := cache.NewSharedIndexInformer(
+		virtcache.NewSocketListWatchFromClient(app.SocketDir),
+		&virt_api.Domain{},
+		0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
 	configDiskClient := configdisk.NewConfigDiskClient(virtCli)
 
 	// Wire VM controller
 	vmListWatcher := controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", k8sv1.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, app.HostOverride, configDiskClient)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, socketInformer, domainManager, recorder, *virtCli.RestClient(), virtCli, app.HostOverride, configDiskClient)
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
@@ -155,6 +164,10 @@ func (app *virtHandlerApp) Run() {
 		d := domain.(*virt_api.Domain)
 		vmStore.Add(v1.NewVMReferenceFromNameWithNS(d.ObjectMeta.Namespace, d.ObjectMeta.Name))
 	}
+
+	// Populate the virt-launcher socket cache
+	go socketInformer.Run(stop)
+	cache.WaitForCacheSync(stop, socketInformer.HasSynced)
 
 	// Watch for VM changes
 	vmController.StartInformer(stop)

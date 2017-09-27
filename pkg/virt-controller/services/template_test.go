@@ -88,8 +88,8 @@ var _ = Describe("Template", func() {
 					"--namespace", "default",
 					"--socket-dir", "/var/run/libvirt",
 					"--readiness-file", "/tmp/healthy"}))
-				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/libvirt/default/testvm"))
-				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/libvirt/default/testvm"))
+				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/libvirt"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/libvirt"))
 			})
 		})
 		Context("migration", func() {

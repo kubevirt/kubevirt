@@ -49,7 +49,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
-	socketDir := t.socketBaseDir + "/" + namespace + "/" + domain
 
 	initialDelaySeconds := 2
 	timeoutSeconds := 5
@@ -72,7 +71,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		VolumeMounts: []kubev1.VolumeMount{
 			{
 				Name:      "sockets",
-				MountPath: socketDir,
+				MountPath: t.socketBaseDir,
 			},
 		},
 		ReadinessProbe: &kubev1.Probe{
@@ -117,7 +116,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 					Name: "sockets",
 					VolumeSource: kubev1.VolumeSource{
 						HostPath: &kubev1.HostPathVolumeSource{
-							Path: socketDir,
+							Path: t.socketBaseDir,
 						},
 					},
 				},
