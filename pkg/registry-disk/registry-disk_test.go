@@ -25,6 +25,7 @@ import (
 	"os/user"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -101,6 +102,13 @@ var _ = Describe("RegistryDisk", func() {
 
 	Describe("registry-disk", func() {
 		Context("verify helper functions", func() {
+			table.DescribeTable("by verifying mapping of ",
+				func(diskType string) {
+					VerifyDiskType(diskType)
+				},
+				table.Entry("qcow2 disk", "qcow2"),
+				table.Entry("raw disk", "raw"),
+			)
 			It("by verifying error when no disk is present", func() {
 
 				vm := v1.NewMinimalVM("fake-vm")
@@ -118,15 +126,6 @@ var _ = Describe("RegistryDisk", func() {
 				vm, err := MapRegistryDisks(vm)
 				Expect(err).To(HaveOccurred())
 			})
-
-			It("by verifying mapping of qcow2 disk", func() {
-				VerifyDiskType("qcow2")
-			})
-
-			It("by verifying mapping of raw disk", func() {
-				VerifyDiskType("raw")
-			})
-
 			It("by verifying container generation", func() {
 				vm := v1.NewMinimalVM("fake-vm")
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
@@ -158,7 +157,6 @@ var _ = Describe("RegistryDisk", func() {
 			})
 
 			It("by verifying data cleanup", func() {
-
 				vm := v1.NewMinimalVM("fake-vm")
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 					Type:   "RegistryDisk:v1alpha",
