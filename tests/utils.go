@@ -681,7 +681,7 @@ func NewRandomVMWithSpice() *v1.VirtualMachine {
 }
 
 // Block until the specified VM started and return the target node name.
-func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
+func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeName string) {
 	_, ok := vm.(*v1.VirtualMachine)
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -699,8 +699,12 @@ func WaitForSuccessfulVMStart(vm runtime.Object) (nodeName string) {
 		fetchedVM := obj.(*v1.VirtualMachine)
 		nodeName = fetchedVM.Status.NodeName
 		return fetchedVM.Status.Phase
-	}).Should(Equal(v1.Running))
+	}, time.Duration(seconds)*time.Second).Should(Equal(v1.Running))
 	return
+}
+
+func WaitForSuccessfulVMStart(vm runtime.Object) string {
+	return WaitForSuccessfulVMStartWithTimeout(vm, 5)
 }
 
 func GetReadyNodes() []k8sv1.Node {
