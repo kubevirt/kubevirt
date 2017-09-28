@@ -335,6 +335,18 @@ func NewVM(name string, uid types.UID) *VirtualMachine {
 	}
 }
 
+type MigrationEvent string
+
+const (
+	StartedVirtualMachineMigration   MigrationEvent = "MigrationStarted"
+	SucceededVirtualMachineMigration MigrationEvent = "MigrationSucceeded"
+	FailedVirtualMachineMigration    MigrationEvent = "MigrationFailed"
+)
+
+func (s MigrationEvent) String() string {
+	return string(s)
+}
+
 type SyncEvent string
 
 const (

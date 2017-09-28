@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -42,7 +43,7 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-
+	var recorder *record.FakeRecorder
 	var (
 		app            VirtControllerApp = VirtControllerApp{}
 		server         *ghttp.Server
@@ -77,6 +78,8 @@ var _ = Describe("Migration", func() {
 
 		app.migrationCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		app.migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		recorder = record.NewFakeRecorder(100)
+		app.migrationRecorder = recorder
 
 		app.initCommon()
 		// Create a VM which is being scheduled
@@ -187,6 +190,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("failed GET oF VM should requeue", func() {
@@ -202,6 +206,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("failed GET oF Pod List should requeue", func() {
@@ -218,6 +223,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("Should Mark Migration as failed if VM Not found.", func() {
@@ -233,6 +239,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("should requeue if VM Not found and Migration update error.", func() {
@@ -247,6 +254,7 @@ var _ = Describe("Migration", func() {
 			app.migrationController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("Should mark Migration failed if VM not running ", func() {
@@ -260,6 +268,7 @@ var _ = Describe("Migration", func() {
 			app.migrationController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("Should Requeue if VM not running and updateMigratio0n Failure", func() {
@@ -273,6 +282,7 @@ var _ = Describe("Migration", func() {
 			app.migrationController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(2))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("should requeue if Migration update fails", func() {
@@ -291,6 +301,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("should fail if conflicting VM and Migration have conflicting Node Selectors", func() {
@@ -308,6 +319,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("should requeue if create of the Target Pod fails ", func() {
@@ -326,6 +338,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("should fail if another migration is in process.", func(done Done) {
@@ -349,6 +362,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(recorder.Events).To(BeEmpty())
 			close(done)
 		}, 10)
 
@@ -373,6 +387,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(1))
+			Expect(recorder.Events).To(BeEmpty())
 
 			close(done)
 		}, 10)
@@ -407,6 +422,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(recorder.Events).To(BeEmpty())
 
 			close(done)
 		}, 10)
@@ -445,6 +461,7 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(3))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(recorder.Events).To(BeEmpty())
 
 			close(done)
 		}, 10)
@@ -489,6 +506,8 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(4))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(<-recorder.Events).To(ContainSubstring(v1.StartedVirtualMachineMigration.String()))
+			Expect(recorder.Events).To(BeEmpty())
 
 			close(done)
 		}, 10)
@@ -541,6 +560,8 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(5))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(<-recorder.Events).To(ContainSubstring(v1.SucceededVirtualMachineMigration.String()))
+			Expect(recorder.Events).To(BeEmpty())
 
 			close(done)
 		}, 10)
@@ -590,6 +611,8 @@ var _ = Describe("Migration", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(5))
 			Expect(app.migrationQueue.NumRequeues(migrationKey)).Should(Equal(0))
+			Expect(<-recorder.Events).To(ContainSubstring(v1.FailedVirtualMachineMigration.String()))
+			Expect(recorder.Events).To(BeEmpty())
 
 			close(done)
 		}, 10)
