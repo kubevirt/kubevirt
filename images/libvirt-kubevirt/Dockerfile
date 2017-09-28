@@ -27,7 +27,8 @@ RUN dnf install -y \
   libcgroup-tools \
   ethtool \
   sudo \
-  docker && dnf -y clean all
+  docker && dnf -y clean all && \
+  test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
 COPY qemu-kube /usr/local/bin/qemu-system-x86_64
 RUN chmod a+x /usr/local/bin/qemu-system-x86_64
