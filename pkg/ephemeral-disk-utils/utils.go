@@ -36,7 +36,7 @@ func RemoveFile(path string) error {
 	if err != nil && os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("failed to remove cloud-init temporary data file %s", path))
+		logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("failed to remove cloud-init temporary data file %s", path))
 		return err
 	}
 	return nil
@@ -53,11 +53,10 @@ func FileExists(path string) (bool, error) {
 	return exists, err
 }
 func Md5CheckSum(filePath string) ([]byte, error) {
-	var result []byte
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	defer file.Close()
 
@@ -65,29 +64,29 @@ func Md5CheckSum(filePath string) ([]byte, error) {
 	_, err = io.Copy(hash, file)
 
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
-	result = hash.Sum(result)
+	result := hash.Sum(nil)
 	return result, nil
 }
 
 func SetFileOwnership(username string, file string) error {
 	usrObj, err := user.Lookup(username)
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to look up username %s", username))
+		logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("unable to look up username %s", username))
 		return err
 	}
 
 	uid, err := strconv.Atoi(usrObj.Uid)
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to find uid for username %s", username))
+		logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("unable to find uid for username %s", username))
 		return err
 	}
 
 	gid, err := strconv.Atoi(usrObj.Gid)
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to find gid for username %s", username))
+		logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("unable to find gid for username %s", username))
 		return err
 	}
 
@@ -97,7 +96,7 @@ func SetFileOwnership(username string, file string) error {
 func FilesAreEqual(path1 string, path2 string) (bool, error) {
 	exists, err := FileExists(path1)
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unexpected error encountered while attempting to determine if %s exists", path1))
+		logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("unexpected error encountered while attempting to determine if %s exists", path1))
 		return false, err
 	} else if exists == false {
 		return false, nil
@@ -105,7 +104,7 @@ func FilesAreEqual(path1 string, path2 string) (bool, error) {
 
 	exists, err = FileExists(path2)
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unexpected error encountered while attempting to determine if %s exists", path2))
+		logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("unexpected error encountered while attempting to determine if %s exists", path2))
 		return false, err
 	} else if exists == false {
 		return false, nil
@@ -113,12 +112,12 @@ func FilesAreEqual(path1 string, path2 string) (bool, error) {
 
 	sum1, err := Md5CheckSum(path1)
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("calculating md5 checksum failed for %s", path1))
+		logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("calculating md5 checksum failed for %s", path1))
 		return false, err
 	}
 	sum2, err := Md5CheckSum(path2)
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("calculating md5 checksum failed for %s", path2))
+		logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("calculating md5 checksum failed for %s", path2))
 		return false, err
 	}
 
