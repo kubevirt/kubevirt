@@ -34,11 +34,7 @@ import (
 )
 
 const registryDiskV1Alpha = "RegistryDisk:v1alpha"
-const defaultIqn = "iqn.2017-01.io.kubevirt:wrapper/1"
-const defaultPort = 3261
-const defaultPortStr = "3261"
 const filePrefix = "disk-image"
-const defaultHost = "127.0.0.1"
 
 var registryDiskOwner = "qemu"
 
@@ -52,10 +48,6 @@ func generateVMBaseDir(vm *v1.VirtualMachine) string {
 func generateVolumeMountDir(vm *v1.VirtualMachine, diskCount int) string {
 	baseDir := generateVMBaseDir(vm)
 	return fmt.Sprintf("%s/disk%d", baseDir, diskCount)
-}
-
-func k8sSecretName(vm *v1.VirtualMachine) string {
-	return fmt.Sprintf("registrydisk-iscsi-%s-%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 }
 
 func SetLocalDirectory(dir string) error {
