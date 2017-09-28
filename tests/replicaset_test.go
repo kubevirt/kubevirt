@@ -107,5 +107,34 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 				return int(rs.Status.ReadyReplicas)
 			}, 60*time.Second, 1*time.Second).Should(Equal(2))
 		})
+
+		It("should add the paused condition once it gets paused", func() {
+			rs := newReplicaSet()
+			// pause controller
+			rs.Spec.Paused = true
+			_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() v1.VMReplicaSetConditionType {
+				rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if len(rs.Status.Conditions) > 0 {
+					return rs.Status.Conditions[0].Type
+				}
+				return ""
+			}, 10*time.Second, 1*time.Second).Should(Equal(v1.VMReplicaSetReplicaPaused))
+
+			// resume controller
+			rs.Spec.Paused = false
+			_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() int {
+				rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return len(rs.Status.Conditions)
+			}, 10*time.Second, 1*time.Second).Should(Equal(0))
+		})
+
 	})
 })

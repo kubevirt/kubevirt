@@ -119,7 +119,36 @@ var _ = Describe("Replicaset", func() {
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
-		It("should not create missing VMs when it is paused", func() {
+		It("should create missing VMs when it gets unpaused", func() {
+			rs, vm := DefaultReplicaSet(3)
+			rs.Spec.Paused = false
+			rs.Status.Conditions = []v1.VMReplicaSetCondition{
+				{
+					Type:               v1.VMReplicaSetReplicaPaused,
+					LastTransitionTime: v12.Now(),
+				},
+			}
+
+			expectedRS := clone(rs)
+			expectedRS.Status.Replicas = 0
+			expectedRS.Status.ReadyReplicas = 0
+			expectedRS.Status.Conditions = nil
+
+			addReplicaSet(rs)
+
+			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal("testvm"))
+			}).Return(vm, nil)
+			rsInterface.EXPECT().Update(expectedRS)
+
+			controller.Execute()
+
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should not create missing VMs when it is paused and add paused condition", func() {
 			rs, _ := DefaultReplicaSet(3)
 			rs.Spec.Paused = true
 
@@ -135,7 +164,11 @@ var _ = Describe("Replicaset", func() {
 			vmInterface.EXPECT().Create(gomock.Any()).Times(0)
 
 			// Synchronizing the state is expected
-			rsInterface.EXPECT().Update(expectedRS).Times(1)
+			rsInterface.EXPECT().Update(gomock.Any()).Times(1).Do(func(obj *v1.VirtualMachineReplicaSet) {
+				Expect(obj.Status.Replicas).To(Equal(int32(0)))
+				Expect(obj.Status.ReadyReplicas).To(Equal(int32(0)))
+				Expect(obj.Status.Conditions[0].Type).To(Equal(v1.VMReplicaSetReplicaPaused))
+			})
 
 			controller.Execute()
 

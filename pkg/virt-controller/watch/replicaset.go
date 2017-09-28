@@ -508,9 +508,21 @@ func (c *VMReplicaSet) getCondition(rs *virtv1.VirtualMachineReplicaSet, cond vi
 	return nil
 }
 
+func (c *VMReplicaSet) removeCondition(rs *virtv1.VirtualMachineReplicaSet, cond virtv1.VMReplicaSetConditionType) {
+	var conds []virtv1.VMReplicaSetCondition
+	for _, c := range rs.Status.Conditions {
+		if c.Type == cond {
+			continue
+		}
+		conds = append(conds, c)
+	}
+	rs.Status.Conditions = conds
+}
+
 func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine, scaleErr error) error {
 
 	diff := c.calcDiff(rs, vms)
+
 	readyReplicas := int32(len(c.filterReadyVMs(vms)))
 
 	// check if we have reached the equilibrium
@@ -519,35 +531,22 @@ func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []v
 	// check if we need to update because of appeared or disappeard errors
 	errorsMatch := scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil || scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil
 
+	// check if we need to update because pause was modified
+	pausedMatch := rs.Spec.Paused == false && c.getCondition(rs, virtv1.VMReplicaSetReplicaPaused) == nil || rs.Spec.Paused == true && c.getCondition(rs, virtv1.VMReplicaSetReplicaPaused) != nil
+
 	// in case the replica count matches and the scaleErr and the error condition equal, don't update
-	if statesMatch && errorsMatch {
+	if statesMatch && errorsMatch && pausedMatch {
 		return nil
 	}
 
 	rs.Status.Replicas = int32(len(vms))
 	rs.Status.ReadyReplicas = readyReplicas
 
-	if scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil {
-		var reason string
-		if diff < 0 {
-			reason = "FailedCreate"
-		} else {
-			reason = "FailedDelete"
-		}
+	// Add/Remove Paused
+	c.checkPaused(rs)
 
-		rs.Status.Conditions = []virtv1.VMReplicaSetCondition{
-			{
-				Type:               virtv1.VMReplicaSetReplicaFailure,
-				Reason:             reason,
-				Message:            scaleErr.Error(),
-				LastTransitionTime: v1.Now(),
-				Status:             k8score.ConditionTrue,
-			},
-		}
-
-	} else if scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil {
-		rs.Status.Conditions = []virtv1.VMReplicaSetCondition{}
-	}
+	// Add/Remove Failure condition if necessary
+	c.checkFailure(rs, diff, scaleErr)
 
 	_, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
 	return err
@@ -573,4 +572,42 @@ func (c *VMReplicaSet) getVirtualMachineBaseName(replicaset *virtv1.VirtualMachi
 		return replicaset.Spec.Template.ObjectMeta.GenerateName
 	}
 	return replicaset.ObjectMeta.Name
+}
+
+func (c *VMReplicaSet) checkPaused(rs *virtv1.VirtualMachineReplicaSet) {
+
+	if rs.Spec.Paused == true && c.getCondition(rs, virtv1.VMReplicaSetReplicaPaused) == nil {
+
+		rs.Status.Conditions = append(rs.Status.Conditions, virtv1.VMReplicaSetCondition{
+			Type:               virtv1.VMReplicaSetReplicaPaused,
+			Reason:             "Paused",
+			Message:            "Controller got paused",
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+		})
+	} else if rs.Spec.Paused == false && c.getCondition(rs, virtv1.VMReplicaSetReplicaPaused) != nil {
+		c.removeCondition(rs, virtv1.VMReplicaSetReplicaPaused)
+	}
+}
+
+func (c *VMReplicaSet) checkFailure(rs *virtv1.VirtualMachineReplicaSet, diff int, scaleErr error) {
+	if scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil {
+		var reason string
+		if diff < 0 {
+			reason = "FailedCreate"
+		} else {
+			reason = "FailedDelete"
+		}
+
+		rs.Status.Conditions = append(rs.Status.Conditions, virtv1.VMReplicaSetCondition{
+			Type:               virtv1.VMReplicaSetReplicaFailure,
+			Reason:             reason,
+			Message:            scaleErr.Error(),
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+		})
+
+	} else if scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil {
+		c.removeCondition(rs, virtv1.VMReplicaSetReplicaFailure)
+	}
 }
