@@ -27,7 +27,8 @@ RUN dnf install -y \
   libcgroup-tools \
   ethtool \
   sudo \
-  docker && dnf -y clean all
+  docker && dnf -y clean all && \
+  test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
 COPY qemu-kube /usr/local/bin/qemu-system-x86_64
 RUN chmod a+x /usr/local/bin/qemu-system-x86_64
@@ -43,10 +44,5 @@ RUN chmod a+x /libvirtd-limited.sh
 RUN rm -f /libvirtd.sh
 COPY libvirtd.sh /libvirtd.sh
 RUN chmod a+x /libvirtd.sh
-
-# Make a predictable uid and gid for qemu user
-# This allows containers to set enforce permissions on files that
-# are shared between containers on the local disk.
-RUN groupmod -g 1111 qemu && usermod  -u 1111 qemu
 
 CMD ["/libvirtd.sh"]
