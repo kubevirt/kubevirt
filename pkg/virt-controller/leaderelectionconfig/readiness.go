@@ -21,6 +21,7 @@ package leaderelectionconfig
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -28,8 +29,6 @@ import (
 	"github.com/emicklei/go-restful"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-
-	"errors"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
