@@ -693,6 +693,10 @@ type VMReplicaSetSpec struct {
 
 	// Template describes the pods that will be created.
 	Template *VMTemplateSpec `json:"template" valid:"required"`
+
+	// Indicates that the replica set is paused.
+	// +optional
+	Paused bool `json:"paused,omitempty" protobuf:"varint,7,opt,name=paused"`
 }
 
 type VMReplicaSetStatus struct {

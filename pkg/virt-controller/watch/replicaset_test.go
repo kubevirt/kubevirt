@@ -103,12 +103,8 @@ var _ = Describe("Replicaset", func() {
 			mockQueue.Wait()
 		}
 
-		It("should create missing VMs and increase the replica count", func() {
+		It("should create missing VMs", func() {
 			rs, vm := DefaultReplicaSet(3)
-
-			expectedRS := clone(rs)
-			expectedRS.Status.Replicas = 0
-			expectedRS.Status.ReadyReplicas = 0
 
 			addReplicaSet(rs)
 
@@ -121,6 +117,30 @@ var _ = Describe("Replicaset", func() {
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should not create missing VMs when it is paused", func() {
+			rs, _ := DefaultReplicaSet(3)
+			rs.Spec.Paused = true
+
+			// This will trigger a status update, since there are no replicas present
+			rs.Status.Replicas = 1
+			expectedRS := clone(rs)
+			expectedRS.Status.Replicas = 0
+			expectedRS.Status.ReadyReplicas = 0
+
+			addReplicaSet(rs)
+
+			// No invocations expected
+			vmInterface.EXPECT().Create(gomock.Any()).Times(0)
+
+			// Synchronizing the state is expected
+			rsInterface.EXPECT().Update(expectedRS).Times(1)
+
+			controller.Execute()
+
+			// No events expected
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("should create missing VMs in batches of a maximum of 10 VMs at once", func() {

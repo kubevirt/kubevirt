@@ -186,7 +186,7 @@ func (c *VMReplicaSet) execute(key string) error {
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	var scaleErr error
-	if needsSync {
+	if needsSync && !rs.Spec.Paused {
 		scaleErr = c.scale(rs, vms)
 	}
 

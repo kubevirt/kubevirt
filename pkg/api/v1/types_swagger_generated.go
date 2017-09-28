@@ -108,6 +108,7 @@ func (VMReplicaSetSpec) SwaggerDoc() map[string]string {
 		"replicas": "Number of desired pods. This is a pointer to distinguish between explicit\nzero and not specified. Defaults to 1.\n+optional",
 		"selector": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.\n+optional",
 		"template": "Template describes the pods that will be created.",
+		"paused":   "Indicates that the replica set is paused.\n+optional",
 	}
 }
 
