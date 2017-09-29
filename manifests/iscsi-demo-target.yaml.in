@@ -3,6 +3,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: disk-custom
 spec:
+  storageClassName: ""
   accessModes:
     - ReadWriteOnce
   resources:
@@ -18,6 +19,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: disk-alpine
 spec:
+  storageClassName: ""
   accessModes:
     - ReadWriteOnce
   resources:
@@ -33,6 +35,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: disk-cirros
 spec:
+  storageClassName: ""
   accessModes:
     - ReadWriteOnce
   resources:
