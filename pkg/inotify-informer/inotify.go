@@ -1,7 +1,10 @@
-package cache
+package inotifyinformer
 
 import (
+	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,7 +14,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 )
 
 // NewSocketListWatchFromClient creates a ListWatcher which watches for virt-launcher socket creations, recreations and deletions.
@@ -20,14 +22,23 @@ import (
 // While for many tasks this is not good enough, it is a sufficient pattern to use the socket creation as a secondary resource for the VM controller in virt-handler
 // TODO: In case Watch is never called, we could leak inotify go-routines, since it is not guaranteed that Stop() would ever be called
 // Since the ListWatcher is only created once at start-up that is not an issue right now
-func NewSocketListWatchFromClient(socketDir string) cache.ListerWatcher {
-	d := &DirectoryListWatcher{socketDir: socketDir}
+func NewSocketListWatchFromClient(fileDir string) cache.ListerWatcher {
+	d := &DirectoryListWatcher{fileDir: fileDir}
 	return d
 }
 
 type DirectoryListWatcher struct {
-	socketDir string
-	watcher   *fsnotify.Watcher
+	fileDir string
+	watcher *fsnotify.Watcher
+}
+
+func splitFileNamespaceName(fullPath string) (namespace string, name string, err error) {
+	socket := strings.TrimSuffix(filepath.Base(fullPath), ".sock")
+	namespaceName := strings.Split(socket, "_")
+	if len(namespaceName) != 2 {
+		return "", "", fmt.Errorf("Invalid socket path: %s", fullPath)
+	}
+	return namespaceName[0], namespaceName[1], nil
 }
 
 func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, error) {
@@ -42,11 +53,11 @@ func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, err
 	// This starts the watch already.
 	// Starting watching before the actual sync, has the advantage, that we don't mich notifications about file changes.
 	// It also means that we can't reliably follow file system changes, because we are informed at least once about changes.
-	err = d.watcher.Add(d.socketDir)
+	err = d.watcher.Add(d.fileDir)
 	if err != nil {
 		return nil, err
 	}
-	files, err := ioutil.ReadDir(d.socketDir)
+	files, err := ioutil.ReadDir(d.fileDir)
 	if err != nil {
 		d.Stop()
 		return nil, err
@@ -56,7 +67,7 @@ func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, err
 		Items: []api.Domain{},
 	}
 	for _, file := range files {
-		namespace, name, err := isolation.SplitSocketNamespaceNameFunc(file.Name())
+		namespace, name, err := splitFileNamespaceName(file.Name())
 		if err != nil {
 			logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
 			continue
@@ -104,7 +115,7 @@ func (d *DirectoryListWatcher) ResultChan() <-chan watch.Event {
 				c <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
 				return
 			}
-			namespace, name, err := isolation.SplitSocketNamespaceNameFunc(fse.Name)
+			namespace, name, err := splitFileNamespaceName(fse.Name)
 			if err != nil {
 				logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
 				continue

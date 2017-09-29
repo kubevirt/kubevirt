@@ -1,4 +1,4 @@
-package cache
+package inotifyinformer
 
 import (
 	"io/ioutil"

@@ -184,6 +184,8 @@ import:
   - util/integer
   - util/jsonpath
   - util/workqueue
+- package: github.com/fsnotify/fsnotify
+  version: ^1.4.2
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
