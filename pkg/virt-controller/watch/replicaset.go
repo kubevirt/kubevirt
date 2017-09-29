@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/logging"
 )
 
-// Reasons for virtual machine events
+// Reasons for replicaset events
 const (
 	// FailedCreateVirtualMachineReason is added in an event and in a replica set condition
 	// when a virtual machine for a replica set is failed to be created.
@@ -59,6 +59,14 @@ const (
 	// SuccessfulDeleteVirtualMachineReason is added in an event when a virtual machine for a replica set
 	// is successfully deleted.
 	SuccessfulDeleteVirtualMachineReason = "SuccessfulDelete"
+	// SuccessfulPausedReplicaSetReason is added in an event when the replica set discovered that it
+	// should be paused. The event is triggered after it successfully managed to add the Paused Condition
+	// to itself.
+	SuccessfulPausedReplicaSetReason = "SuccessfulPaused"
+	// SuccessfulResumedReplicaSetReason is added in an event when the replica set discovered that it
+	// should be resumed. The event is triggered after it successfully managed to remove the Paused Condition
+	// from itself.
+	SuccessfulResumedReplicaSetReason = "SuccessfulResumed"
 )
 
 func NewVMReplicaSet(vmInformer cache.SharedIndexInformer, vmRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) *VMReplicaSet {
@@ -499,58 +507,70 @@ func limit(x int, burstReplicas uint) int {
 	return min(x, replicas)
 }
 
-func (c *VMReplicaSet) getCondition(rs *virtv1.VirtualMachineReplicaSet, cond virtv1.VMReplicaSetConditionType) *virtv1.VMReplicaSetCondition {
+func (c *VMReplicaSet) hasCondition(rs *virtv1.VirtualMachineReplicaSet, cond virtv1.VMReplicaSetConditionType) bool {
 	for _, c := range rs.Status.Conditions {
 		if c.Type == cond {
-			return &c
+			return true
 		}
 	}
-	return nil
+	return false
+}
+
+func (c *VMReplicaSet) removeCondition(rs *virtv1.VirtualMachineReplicaSet, cond virtv1.VMReplicaSetConditionType) {
+	var conds []virtv1.VMReplicaSetCondition
+	for _, c := range rs.Status.Conditions {
+		if c.Type == cond {
+			continue
+		}
+		conds = append(conds, c)
+	}
+	rs.Status.Conditions = conds
 }
 
 func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine, scaleErr error) error {
 
 	diff := c.calcDiff(rs, vms)
+
 	readyReplicas := int32(len(c.filterReadyVMs(vms)))
 
 	// check if we have reached the equilibrium
 	statesMatch := int32(len(vms)) == rs.Status.Replicas && readyReplicas == rs.Status.ReadyReplicas
 
 	// check if we need to update because of appeared or disappeard errors
-	errorsMatch := scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil || scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil
+	errorsMatch := (scaleErr != nil) == c.hasCondition(rs, virtv1.VMReplicaSetReplicaFailure)
+
+	// check if we need to update because pause was modified
+	pausedMatch := rs.Spec.Paused == c.hasCondition(rs, virtv1.VMReplicaSetReplicaPaused)
 
 	// in case the replica count matches and the scaleErr and the error condition equal, don't update
-	if statesMatch && errorsMatch {
+	if statesMatch && errorsMatch && pausedMatch {
 		return nil
 	}
 
 	rs.Status.Replicas = int32(len(vms))
 	rs.Status.ReadyReplicas = readyReplicas
 
-	if scaleErr != nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) == nil {
-		var reason string
-		if diff < 0 {
-			reason = "FailedCreate"
-		} else {
-			reason = "FailedDelete"
-		}
+	// Add/Remove Paused condition
+	c.checkPaused(rs)
 
-		rs.Status.Conditions = []virtv1.VMReplicaSetCondition{
-			{
-				Type:               virtv1.VMReplicaSetReplicaFailure,
-				Reason:             reason,
-				Message:            scaleErr.Error(),
-				LastTransitionTime: v1.Now(),
-				Status:             k8score.ConditionTrue,
-			},
-		}
-
-	} else if scaleErr == nil && c.getCondition(rs, virtv1.VMReplicaSetReplicaFailure) != nil {
-		rs.Status.Conditions = []virtv1.VMReplicaSetCondition{}
-	}
+	// Add/Remove Failure condition if necessary
+	c.checkFailure(rs, diff, scaleErr)
 
 	_, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
-	return err
+
+	if err != nil {
+		return err
+	}
+	// Finally trigger resumed or paused events
+	if !pausedMatch {
+		if rs.Spec.Paused {
+			c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulPausedReplicaSetReason, "Paused")
+		} else {
+			c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulResumedReplicaSetReason, "Resumed")
+		}
+	}
+
+	return nil
 }
 
 func (c *VMReplicaSet) calcDiff(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine) int {
@@ -573,4 +593,42 @@ func (c *VMReplicaSet) getVirtualMachineBaseName(replicaset *virtv1.VirtualMachi
 		return replicaset.Spec.Template.ObjectMeta.GenerateName
 	}
 	return replicaset.ObjectMeta.Name
+}
+
+func (c *VMReplicaSet) checkPaused(rs *virtv1.VirtualMachineReplicaSet) {
+
+	if rs.Spec.Paused == true && !c.hasCondition(rs, virtv1.VMReplicaSetReplicaPaused) {
+
+		rs.Status.Conditions = append(rs.Status.Conditions, virtv1.VMReplicaSetCondition{
+			Type:               virtv1.VMReplicaSetReplicaPaused,
+			Reason:             "Paused",
+			Message:            "Controller got paused",
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+		})
+	} else if rs.Spec.Paused == false && c.hasCondition(rs, virtv1.VMReplicaSetReplicaPaused) {
+		c.removeCondition(rs, virtv1.VMReplicaSetReplicaPaused)
+	}
+}
+
+func (c *VMReplicaSet) checkFailure(rs *virtv1.VirtualMachineReplicaSet, diff int, scaleErr error) {
+	if scaleErr != nil && !c.hasCondition(rs, virtv1.VMReplicaSetReplicaFailure) {
+		var reason string
+		if diff < 0 {
+			reason = "FailedCreate"
+		} else {
+			reason = "FailedDelete"
+		}
+
+		rs.Status.Conditions = append(rs.Status.Conditions, virtv1.VMReplicaSetCondition{
+			Type:               virtv1.VMReplicaSetReplicaFailure,
+			Reason:             reason,
+			Message:            scaleErr.Error(),
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+		})
+
+	} else if scaleErr == nil && c.hasCondition(rs, virtv1.VMReplicaSetReplicaFailure) {
+		c.removeCondition(rs, virtv1.VMReplicaSetReplicaFailure)
+	}
 }

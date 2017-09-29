@@ -30,11 +30,11 @@ import (
 	"fmt"
 	"reflect"
 
-	model "github.com/jeevatkm/go-model"
-	uuid "github.com/satori/go.uuid"
+	"github.com/jeevatkm/go-model"
+	"github.com/satori/go.uuid"
 
 	k8sv1 "k8s.io/api/core/v1"
-	meta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apimachinery/announced"
 	"k8s.io/apimachinery/pkg/apimachinery/registered"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -723,10 +723,14 @@ type VMReplicaSetCondition struct {
 type VMReplicaSetConditionType string
 
 const (
-	// VMReplicaSetReplicaFailure is added in a replication controller when one of its vms
+	// VMReplicaSetReplicaFailure is added in a replica set when one of its vms
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VMReplicaSetReplicaFailure VMReplicaSetConditionType = "ReplicaFailure"
+
+	// VMReplicaSetReplicaPaused is added in a replica set when the replica set got paused by the controller.
+	// After this condition was added, it is safe to remove or add vms by hand and adjust the replica count by hand.
+	VMReplicaSetReplicaPaused VMReplicaSetConditionType = "ReplicaPaused"
 )
 
 type VMTemplateSpec struct {

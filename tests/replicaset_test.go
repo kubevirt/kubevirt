@@ -107,5 +107,56 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 				return int(rs.Status.ReadyReplicas)
 			}, 60*time.Second, 1*time.Second).Should(Equal(2))
 		})
+
+		It("should not scale when paused and scale when resume", func() {
+			rs := newReplicaSet()
+			// pause controller
+			rs.Spec.Paused = true
+			_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() v1.VMReplicaSetConditionType {
+				rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if len(rs.Status.Conditions) > 0 {
+					return rs.Status.Conditions[0].Type
+				}
+				return ""
+			}, 10*time.Second, 1*time.Second).Should(Equal(v1.VMReplicaSetReplicaPaused))
+
+			// set new replica count while still being paused
+			rs.Spec.Replicas = tests.NewInt32(2)
+			_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+			Expect(err).ToNot(HaveOccurred())
+
+			// make sure that we don't scale up
+			Consistently(func() int32 {
+				rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				// Make sure that no failure happened, so that ensure that we don't scale because we are paused
+				Expect(rs.Status.Conditions).To(HaveLen(1))
+				return rs.Status.Replicas
+			}, 3*time.Second, 1*time.Second).Should(Equal(int32(0)))
+
+			// resume controller
+			rs.Spec.Paused = false
+			_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Paused condition should disappear
+			Eventually(func() int {
+				rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return len(rs.Status.Conditions)
+			}, 10*time.Second, 1*time.Second).Should(Equal(0))
+
+			// Replicas should be created
+			Eventually(func() int32 {
+				rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return rs.Status.Replicas
+			}, 10*time.Second, 1*time.Second).Should(Equal(int32(2)))
+		})
+
 	})
 })
