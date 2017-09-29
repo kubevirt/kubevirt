@@ -8,7 +8,9 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
@@ -19,6 +21,30 @@ var _ = Describe("Inotify", func() {
 		var tmpDir string
 		var informer cache.SharedIndexInformer
 		var stopInformer chan struct{}
+		var queue workqueue.RateLimitingInterface
+
+		TestForKeyEvent := func(expectedKey string, shouldExist bool) bool {
+			// wait for key to either enter or exit the store.
+			Eventually(func() bool {
+				_, exists, _ := informer.GetStore().GetByKey(expectedKey)
+
+				if shouldExist == exists {
+					return true
+				}
+				return false
+			}).Should(BeTrue())
+
+			// ensure queue item for key exists
+			len := queue.Len()
+			for i := len; i > 0; i-- {
+				key, _ := queue.Get()
+				defer queue.Done(key)
+				if key == expectedKey {
+					return true
+				}
+			}
+			return false
+		}
 
 		BeforeEach(func() {
 			var err error
@@ -30,12 +56,14 @@ var _ = Describe("Inotify", func() {
 			Expect(os.Create(tmpDir + "/" + "default_testvm.some-extension")).ToNot(BeNil())
 			Expect(os.Create(tmpDir + "/" + "default1_testvm1.some-extension")).ToNot(BeNil())
 
+			queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			informer = cache.NewSharedIndexInformer(
 				NewFileListWatchFromClient(tmpDir),
 				&api.Domain{},
 				0,
 				cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
+			informer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(queue))
 			go informer.Run(stopInformer)
 			Expect(cache.WaitForCacheSync(stopInformer, informer.HasSynced)).To(BeTrue())
 
@@ -49,21 +77,21 @@ var _ = Describe("Inotify", func() {
 			Expect(exists).To(BeTrue())
 		})
 
-		It("should detect a file creation", func() {
-			Expect(os.Create(tmpDir + "/" + "default2_testvm2.some-extension")).ToNot(BeNil())
-			Eventually(func() bool {
-				_, exists, _ := informer.GetStore().GetByKey("default2/testvm2")
-				return exists
-			}).Should(BeTrue())
+		It("should detect multiple creations and deletions", func() {
+			num := 5
+			key := "default2/testvm2"
+			fileName := tmpDir + "/" + "default2_testvm2.some-extension"
+
+			for i := 0; i < num; i++ {
+				Expect(os.Create(fileName)).ToNot(BeNil())
+				Expect(TestForKeyEvent(key, true)).To(Equal(true))
+
+				Expect(os.Remove(fileName)).To(Succeed())
+				Expect(TestForKeyEvent(key, false)).To(Equal(true))
+			}
+
 		})
 
-		It("should detect a file deletion", func() {
-			Expect(os.Remove(tmpDir + "/" + "default1_testvm1.some-extension")).To(Succeed())
-			Eventually(func() bool {
-				_, exists, _ := informer.GetStore().GetByKey("default1/testvm1")
-				return exists
-			}).Should(BeFalse())
-		})
 		Context("and something goes wrong", func() {
 			It("should notify and abort when listing files", func() {
 				lw := NewFileListWatchFromClient(tmpDir)
