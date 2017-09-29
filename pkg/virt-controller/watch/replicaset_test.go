@@ -17,6 +17,8 @@ import (
 
 	"github.com/onsi/ginkgo/extensions/table"
 
+	"strings"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
@@ -146,6 +148,7 @@ var _ = Describe("Replicaset", func() {
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			expectEvent(recorder, SuccessfulResumedReplicaSetReason)
 		})
 
 		It("should not create missing VMs when it is paused and add paused condition", func() {
@@ -172,8 +175,7 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			// No events expected
-			Expect(recorder.Events).To(BeEmpty())
+			expectEvent(recorder, SuccessfulPausedReplicaSetReason)
 		})
 
 		It("should create missing VMs in batches of a maximum of 10 VMs at once", func() {
@@ -189,6 +191,10 @@ var _ = Describe("Replicaset", func() {
 			}).Return(vm, nil)
 
 			controller.Execute()
+
+			for x := 0; x < 10; x++ {
+				expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			}
 
 			// TODO test for missing 5
 		})
@@ -212,6 +218,10 @@ var _ = Describe("Replicaset", func() {
 				Times(10).Return(nil)
 
 			controller.Execute()
+
+			for x := 0; x < 10; x++ {
+				expectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			}
 
 			// TODO test for missing 5
 		})
@@ -372,6 +382,7 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectEvent(recorder, FailedCreateVirtualMachineReason)
 		})
 
@@ -403,7 +414,7 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvent(recorder, FailedDeleteVirtualMachineReason)
+			expectEvents(recorder, SuccessfulDeleteVirtualMachineReason, FailedDeleteVirtualMachineReason)
 		})
 
 		It("should update the replica count but keep the failed state", func() {
@@ -435,6 +446,8 @@ var _ = Describe("Replicaset", func() {
 			})
 
 			controller.Execute()
+
+			expectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
 		})
 		It("should update the replica count and remove the failed condition", func() {
 			rs, vm := DefaultReplicaSet(3)
@@ -459,9 +472,13 @@ var _ = Describe("Replicaset", func() {
 			})
 
 			controller.Execute()
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		AfterEach(func() {
+			// Ensure that we add checks for expected events to every test
+			Expect(recorder.Events).To(BeEmpty())
 			ctrl.Finish()
 		})
 	})
@@ -507,5 +524,33 @@ func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineReplicaSet, *v1.Virtua
 }
 
 func expectEvent(recorder *record.FakeRecorder, reason string) {
-	Eventually(recorder.Events).Should(Receive(ContainSubstring(reason)))
+	Expect(recorder.Events).To(Receive(ContainSubstring(reason)))
+}
+
+// expectEvents checks for given reasons in arbitrary order
+func expectEvents(recorder *record.FakeRecorder, reasons ...string) {
+	l := len(reasons)
+	for x := 0; x < l; x++ {
+		select {
+
+		case e := <-recorder.Events:
+			filtered := []string{}
+			found := false
+			for _, reason := range reasons {
+
+				if strings.Contains(e, reason) && !found {
+					found = true
+					continue
+				}
+				filtered = append(filtered, reason)
+			}
+
+			Expect(found).To(BeTrue(), "Expected to match event reason '%s' with one of %v", e, reasons)
+			reasons = filtered
+
+		default:
+			// There should be something, trigger an error
+			Expect(recorder.Events).To(Receive())
+		}
+	}
 }
