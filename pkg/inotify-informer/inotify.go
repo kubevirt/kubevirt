@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,13 +32,22 @@ import (
 // ListWatcher is only created once at start-up that is not an issue right now
 
 func NewFileListWatchFromClient(fileDir string) cache.ListerWatcher {
-	d := &DirectoryListWatcher{fileDir: fileDir}
+
+	d := &DirectoryListWatcher{
+		fileDir:                  fileDir,
+		backgroundWatcherStarted: false,
+	}
 	return d
 }
 
 type DirectoryListWatcher struct {
-	fileDir string
-	watcher *fsnotify.Watcher
+	lock                     sync.Mutex
+	wg                       sync.WaitGroup
+	fileDir                  string
+	watcher                  *fsnotify.Watcher
+	stopChan                 chan struct{}
+	eventChan                chan watch.Event
+	backgroundWatcherStarted bool
 }
 
 func splitFileNamespaceName(fullPath string) (namespace string, domain string, err error) {
@@ -52,22 +62,79 @@ func splitFileNamespaceName(fullPath string) (namespace string, domain string, e
 	return namespace, domain, nil
 }
 
-func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, error) {
-	// Stop the running watcher if necessary
-	// This ensures we clean up previous watchers, when we encountered an error or when we resync
-	d.Stop()
+func (d *DirectoryListWatcher) startBackground() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	var err error
+	if d.backgroundWatcherStarted == true {
+		return nil
+	}
+
+	d.stopChan = make(chan struct{})
+	d.eventChan = make(chan watch.Event)
+
 	d.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	// This starts the watch already.
-	// Starting watching before the actual sync, has the advantage, that we don't mich notifications about file changes.
-	// It also means that we can't reliably follow file system changes, because we are informed at least once about changes.
+
 	err = d.watcher.Add(d.fileDir)
+	if err != nil {
+		return err
+	}
+
+	d.wg.Add(1)
+	go func() {
+		defer d.wg.Done()
+		for {
+			var e watch.EventType
+			var fse fsnotify.Event
+			select {
+			case <-d.stopChan:
+				d.watcher.Close()
+				return
+			case event := <-d.watcher.Events:
+				fse = event
+				switch event.Op {
+				case fsnotify.Create:
+					e = watch.Added
+				case fsnotify.Remove:
+					e = watch.Deleted
+				}
+			case err := <-d.watcher.Errors:
+				d.eventChan <- watch.Event{
+					Type: watch.Error,
+					Object: &v1.Status{
+						Status: v1.StatusFailure, Message: err.Error(),
+					},
+				}
+			}
+			namespace, name, err := splitFileNamespaceName(fse.Name)
+			if err != nil {
+				logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
+				continue
+			}
+			d.eventChan <- watch.Event{Type: e, Object: api.NewMinimalDomainWithNS(namespace, name)}
+		}
+	}()
+
+	d.backgroundWatcherStarted = true
+	return nil
+}
+
+func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, error) {
+
+	// This starts the watch already.
+	// Starting watching before the actual sync, has the advantage, that we don't
+	// miss notifications about file changes.
+	// It also means that we can't reliably follow file system changes, because we
+	// are informed at least once about changes.
+	err := d.startBackground()
 	if err != nil {
 		return nil, err
 	}
+
 	files, err := ioutil.ReadDir(d.fileDir)
 	if err != nil {
 		d.Stop()
@@ -88,51 +155,23 @@ func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, err
 	}
 	return domainList, nil
 }
-func (d *DirectoryListWatcher) Watch(options v1.ListOptions) (watch.Interface, error) {
 
+func (d *DirectoryListWatcher) Watch(options v1.ListOptions) (watch.Interface, error) {
 	return d, nil
 }
 
 func (d *DirectoryListWatcher) Stop() {
-	if d.watcher != nil {
-		d.watcher.Close()
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	if d.backgroundWatcherStarted == false {
+		return
 	}
+	close(d.stopChan)
+	d.wg.Wait()
+	d.backgroundWatcherStarted = false
 }
 
 func (d *DirectoryListWatcher) ResultChan() <-chan watch.Event {
-	c := make(chan watch.Event)
-	go func() {
-		defer close(c)
-		for {
-			var e watch.EventType
-			var fse fsnotify.Event
-			select {
-			case event, more := <-d.watcher.Events:
-				if !more {
-					return
-				}
-				fse = event
-				switch event.Op {
-				case fsnotify.Create:
-					e = watch.Added
-				case fsnotify.Remove:
-					e = watch.Deleted
-				}
-
-			case err, more := <-d.watcher.Errors:
-				if !more {
-					return
-				}
-				c <- watch.Event{Type: watch.Error, Object: &v1.Status{Status: v1.StatusFailure, Message: err.Error()}}
-				return
-			}
-			namespace, name, err := splitFileNamespaceName(fse.Name)
-			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
-				continue
-			}
-			c <- watch.Event{Type: e, Object: api.NewMinimalDomainWithNS(namespace, name)}
-		}
-	}()
-	return c
+	return d.eventChan
 }
