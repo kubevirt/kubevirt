@@ -48,6 +48,7 @@ type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
 func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restful.WebService, error) {
 	ws := new(restful.WebService)
+	ws.Doc("The KubeVirt API, a virtual machine management.")
 	ws.Path(GroupVersionBasePath(gv))
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -88,7 +89,8 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("create_"+singular).
-			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample), ws,
+			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample).
+			Doc("Create a "+singular+" object."), ws,
 	))
 
 	ws.Route(addPutParams(
@@ -96,7 +98,8 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("update_"+singular).
-			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).Doc("test2"), ws,
+			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).
+			Doc("Update a "+singular+" object."), ws,
 	))
 
 	ws.Route(addDeleteParams(
@@ -104,28 +107,32 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("delete_"+singular).
-			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"), ws,
+			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).
+			Doc("Delete a "+singular+" object."), ws,
 	))
 
 	ws.Route(addGetParams(
 		ws.GET(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("get_"+singular).
-			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"), ws,
+			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).
+			Doc("Get a "+singular+" object."), ws,
 	))
 
 	ws.Route(addGetAllNamespacesListParams(
 		ws.GET(gvr.Resource).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("list_all_"+plural).
-			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).Doc("test4"), ws,
+			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).
+			Doc("Get a list all of "+singular+" objects."), ws,
 	))
 
 	ws.Route(
 		ws.PATCH(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON_PATCH).
 			Operation("patch_" + singular).
-			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample).Doc("test5"),
+			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample).
+			Doc("Patch a " + singular + " object."),
 	)
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
@@ -133,7 +140,8 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET("/watch/"+gvr.Resource).
 			Produces(mime.MIME_JSON).
 			Operation("watch_all_"+plural).
-			To(NotImplementedYet).Writes(objExample), ws,
+			To(NotImplementedYet).Writes(objExample).
+			Doc("Watch a "+singular+" object."), ws,
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
@@ -141,7 +149,8 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET("/watch"+ResourceBasePath(gvr)).
 			Operation("watch_"+plural).
 			Produces(mime.MIME_JSON).
-			To(NotImplementedYet).Writes(objExample), ws,
+			To(NotImplementedYet).Writes(objExample).
+			Doc("Watch a "+plural+" collection."), ws,
 	))
 
 	ws.Route(addWatchGetListParams(
@@ -149,14 +158,16 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("list_"+plural).
 			Writes(listExample).
-			To(endpoints.MakeGoRestfulWrapper(getList)), ws,
+			To(endpoints.MakeGoRestfulWrapper(getList)).
+			Doc("Get a list of "+singular+" objects"), ws,
 	))
 
 	ws.Route(addDeleteListParams(
 		ws.DELETE(ResourceBasePath(gvr)).
 			Operation("delete_"+plural).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample), ws,
+			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample).
+			Doc("Delete a list of "+singular+" objects."), ws,
 	))
 
 	return ws, nil
