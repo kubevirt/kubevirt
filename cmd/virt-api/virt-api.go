@@ -98,12 +98,14 @@ func (app *virtAPIApp) Run() {
 	ws.Route(ws.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
 		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
+		Operation("spice").
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
 
 	ws.Route(ws.GET(rest.ResourcePath(vmGVR) + rest.SubResourcePath("console")).
 		To(rest.NewConsoleResource(virtCli, virtCli.CoreV1()).Console).
 		Param(restful.QueryParameter("console", "Name of the serial console to connect to")).
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
+		Operation("console").
 		Doc("Open a websocket connection to a serial console on the specified VM."))
 
 	restful.Add(ws)
