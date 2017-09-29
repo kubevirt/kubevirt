@@ -14,7 +14,7 @@ import (
 
 var _ = Describe("Inotify", func() {
 
-	Context("When watching virt-launcher files in a directory", func() {
+	Context("When watching files in a directory", func() {
 
 		var tmpDir string
 		var informer cache.SharedIndexInformer
@@ -27,11 +27,11 @@ var _ = Describe("Inotify", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// create two files
-			Expect(os.Create(tmpDir + "/" + "default_testvm.sock")).ToNot(BeNil())
-			Expect(os.Create(tmpDir + "/" + "default1_testvm1.sock")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default_testvm.some-extension")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default1_testvm1.some-extension")).ToNot(BeNil())
 
 			informer = cache.NewSharedIndexInformer(
-				NewSocketListWatchFromClient(tmpDir),
+				NewFileListWatchFromClient(tmpDir),
 				&api.Domain{},
 				0,
 				cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
@@ -50,7 +50,7 @@ var _ = Describe("Inotify", func() {
 		})
 
 		It("should detect a file creation", func() {
-			Expect(os.Create(tmpDir + "/" + "default2_testvm2.sock")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default2_testvm2.some-extension")).ToNot(BeNil())
 			Eventually(func() bool {
 				_, exists, _ := informer.GetStore().GetByKey("default2/testvm2")
 				return exists
@@ -58,7 +58,7 @@ var _ = Describe("Inotify", func() {
 		})
 
 		It("should detect a file deletion", func() {
-			Expect(os.Remove(tmpDir + "/" + "default1_testvm1.sock")).To(Succeed())
+			Expect(os.Remove(tmpDir + "/" + "default1_testvm1.some-extension")).To(Succeed())
 			Eventually(func() bool {
 				_, exists, _ := informer.GetStore().GetByKey("default1/testvm1")
 				return exists
@@ -66,14 +66,14 @@ var _ = Describe("Inotify", func() {
 		})
 		Context("and something goes wrong", func() {
 			It("should notify and abort when listing files", func() {
-				lw := NewSocketListWatchFromClient(tmpDir)
+				lw := NewFileListWatchFromClient(tmpDir)
 				// Deleting the watch directory should have some impact
 				Expect(os.RemoveAll(tmpDir)).To(Succeed())
 				_, err := lw.List(v1.ListOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 			It("should ignore invalid file content", func() {
-				lw := NewSocketListWatchFromClient(tmpDir)
+				lw := NewFileListWatchFromClient(tmpDir)
 				_, err := lw.List(v1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -83,7 +83,7 @@ var _ = Describe("Inotify", func() {
 
 				// Adding files in wrong formats should have an impact
 				// TODO should we just ignore them?
-				Expect(os.Create(tmpDir + "/" + "test.sock")).ToNot(BeNil())
+				Expect(os.Create(tmpDir + "/" + "test.some-extension")).ToNot(BeNil())
 
 				// No event should be received
 				Consistently(i.ResultChan()).ShouldNot(Receive())

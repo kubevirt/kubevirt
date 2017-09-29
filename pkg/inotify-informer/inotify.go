@@ -16,13 +16,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
-// NewSocketListWatchFromClient creates a ListWatcher which watches for virt-launcher socket creations, recreations and deletions.
-// It is a very special ListWatcher, since it can't be used to stay completely in sync with the file system content.
-// Instead of that, it provides at-least-once delivery of events, where the order on an initial sync is not guaranteed.
-// While for many tasks this is not good enough, it is a sufficient pattern to use the socket creation as a secondary resource for the VM controller in virt-handler
-// TODO: In case Watch is never called, we could leak inotify go-routines, since it is not guaranteed that Stop() would ever be called
-// Since the ListWatcher is only created once at start-up that is not an issue right now
-func NewSocketListWatchFromClient(fileDir string) cache.ListerWatcher {
+// NewFileListWatchFromClient creates a ListWatcher which watches for file
+// creations, recreations, and deletions.
+// It is a special ListWatcher, since it can't be used to stay completely
+// in sync with the file system content. Instead it provides at-least-once
+// delivery of events, where the order on an initial sync is not guaranteed.
+
+// While for many tasks this is not good enough, it is a sufficient pattern
+// to use the socket creation as a secondary resource for the VM controller
+// in virt-handler
+
+// TODO: In case Watch is never called, we could leak inotify go-routines,
+// since it is not guaranteed that Stop() would ever be called. Since the
+// ListWatcher is only created once at start-up that is not an issue right now
+
+func NewFileListWatchFromClient(fileDir string) cache.ListerWatcher {
 	d := &DirectoryListWatcher{fileDir: fileDir}
 	return d
 }
@@ -32,13 +40,16 @@ type DirectoryListWatcher struct {
 	watcher *fsnotify.Watcher
 }
 
-func splitFileNamespaceName(fullPath string) (namespace string, name string, err error) {
-	socket := strings.TrimSuffix(filepath.Base(fullPath), ".sock")
-	namespaceName := strings.Split(socket, "_")
+func splitFileNamespaceName(fullPath string) (namespace string, domain string, err error) {
+	fileName := filepath.Base(fullPath)
+	namespaceName := strings.Split(fileName, "_")
 	if len(namespaceName) != 2 {
-		return "", "", fmt.Errorf("Invalid socket path: %s", fullPath)
+		return "", "", fmt.Errorf("Invalid file path: %s", fullPath)
 	}
-	return namespaceName[0], namespaceName[1], nil
+
+	namespace = namespaceName[0]
+	domain = strings.Split(namespaceName[1], ".")[0]
+	return namespace, domain, nil
 }
 
 func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, error) {
