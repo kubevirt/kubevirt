@@ -76,7 +76,7 @@ yum install -y \
 # Latest docker on CentOS uses systemd for cgroup management
 cat << EOT >>/etc/systemd/system/kubelet.service.d/09-kubeadm.conf
 [Service]
-Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd"
+Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --fail-swap-on=false"
 EOT
 systemctl daemon-reload
 
