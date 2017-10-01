@@ -45,14 +45,13 @@ spec:
             port: 8182
             path: /healthz
           initialDelaySeconds: 15
-          timeoutSeconds: 15
+          timeoutSeconds: 10
         readinessProbe:
-          failureThreshold: 8
           httpGet:
             port: 8182
             path: /leader
           initialDelaySeconds: 15
-          timeoutSeconds: 15
+          timeoutSeconds: 10
       securityContext:
         runAsNonRoot: true
       nodeSelector:
