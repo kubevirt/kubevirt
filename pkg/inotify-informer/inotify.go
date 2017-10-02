@@ -22,6 +22,8 @@ import (
 // It is a special ListWatcher, since it can't be used to stay completely
 // in sync with the file system content. Instead it provides at-least-once
 // delivery of events, where the order on an initial sync is not guaranteed.
+// Specifically, create/modify events are delivered at least once, and delete
+// events will be delivered exactly once.
 
 // While for many tasks this is not good enough, it is a sufficient pattern
 // to use the socket creation as a secondary resource for the VM controller
