@@ -73,8 +73,8 @@ func (d *DirectoryListWatcher) startBackground() error {
 		return nil
 	}
 
-	d.stopChan = make(chan struct{})
-	d.eventChan = make(chan watch.Event)
+	d.stopChan = make(chan struct{}, 1)
+	d.eventChan = make(chan watch.Event, 100)
 
 	d.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
