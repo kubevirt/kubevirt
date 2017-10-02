@@ -46,8 +46,11 @@ var _ = Describe("VirtLauncher", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	CleanupProcess := func() {
+	StopProcess := func() {
 		cmd.Process.Kill()
+	}
+
+	CleanupProcess := func() {
 		cmd.Wait()
 	}
 
@@ -89,6 +92,7 @@ var _ = Describe("VirtLauncher", func() {
 			It("verify pid detection works", func() {
 				StartProcess()
 				VerifyProcessStarted()
+				StopProcess()
 				CleanupProcess()
 				VerifyProcessStopped()
 			})
@@ -111,6 +115,7 @@ var _ = Describe("VirtLauncher", func() {
 
 				Expect(exited).To(Equal(true))
 			})
+
 			It("verify signal forwarding works", func() {
 				signalChannel := make(chan os.Signal, 1)
 				done := make(chan string)
@@ -118,12 +123,14 @@ var _ = Describe("VirtLauncher", func() {
 				StartProcess()
 				VerifyProcessStarted()
 
+				go func() { CleanupProcess() }()
+
 				go func() {
 					mon.monitorLoop(1*time.Second, signalChannel)
 					done <- "exit"
 				}()
 
-				signalChannel <- syscall.SIGINT
+				signalChannel <- syscall.SIGQUIT
 
 				noExitCheck := time.After(5 * time.Second)
 				exited := false
@@ -133,9 +140,10 @@ var _ = Describe("VirtLauncher", func() {
 					exited = true
 				}
 				Expect(exited).To(Equal(true))
-				Expect(mon.forwardedSignal).To(Equal(syscall.SIGINT))
+				Expect(mon.forwardedSignal).To(Equal(syscall.SIGQUIT))
 
-				CleanupProcess()
+				pid, _ := pidOf(processName)
+				Expect(pid).To(Equal(0))
 			})
 		})
 	})

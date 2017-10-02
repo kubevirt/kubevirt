@@ -113,23 +113,19 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 
 	ticker := time.NewTicker(rate)
 
-	gotSignal := false
 	mon.isDone = false
 	mon.timeout = startTimeout
 	mon.start = time.Now()
 
 	log.Printf("Waiting forever...")
-	for !gotSignal && !mon.isDone {
+	for !mon.isDone {
 		select {
 		case <-ticker.C:
 			mon.refresh()
 		case s := <-signalChan:
 			log.Print("Got signal: ", s)
-			gotSignal = true
 			if mon.pid != 0 {
 				mon.forwardedSignal = s.(syscall.Signal)
-				// forward the signal to the VM process
-				// TODO allow a delay here to support graceful shutdown from virt-handler side
 				syscall.Kill(mon.pid, s.(syscall.Signal))
 			}
 		}
