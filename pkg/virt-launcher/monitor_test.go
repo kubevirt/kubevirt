@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -45,7 +46,7 @@ var _ = Describe("VirtLauncher", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	StopProcess := func() {
+	CleanupProcess := func() {
 		cmd.Process.Kill()
 		cmd.Wait()
 	}
@@ -88,7 +89,7 @@ var _ = Describe("VirtLauncher", func() {
 			It("verify pid detection works", func() {
 				StartProcess()
 				VerifyProcessStarted()
-				StopProcess()
+				CleanupProcess()
 				VerifyProcessStopped()
 			})
 
@@ -109,6 +110,32 @@ var _ = Describe("VirtLauncher", func() {
 				}
 
 				Expect(exited).To(Equal(true))
+			})
+			It("verify signal forwarding works", func() {
+				signalChannel := make(chan os.Signal, 1)
+				done := make(chan string)
+
+				StartProcess()
+				VerifyProcessStarted()
+
+				go func() {
+					mon.monitorLoop(1*time.Second, signalChannel)
+					done <- "exit"
+				}()
+
+				signalChannel <- syscall.SIGINT
+
+				noExitCheck := time.After(5 * time.Second)
+				exited := false
+				select {
+				case <-noExitCheck:
+				case <-done:
+					exited = true
+				}
+				Expect(exited).To(Equal(true))
+				Expect(mon.forwardedSignal).To(Equal(syscall.SIGINT))
+
+				CleanupProcess()
 			})
 		})
 	})

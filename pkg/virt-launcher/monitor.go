@@ -33,12 +33,13 @@ import (
 )
 
 type monitor struct {
-	timeout   time.Duration
-	pid       int
-	exename   string
-	start     time.Time
-	isDone    bool
-	debugMode bool
+	timeout         time.Duration
+	pid             int
+	exename         string
+	start           time.Time
+	isDone          bool
+	forwardedSignal os.Signal
+	debugMode       bool
 }
 
 type ProcessMonitor interface {
@@ -98,15 +99,7 @@ func (mon *monitor) refresh() {
 	return
 }
 
-func (mon *monitor) RunForever(startTimeout time.Duration) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
-
+func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.Signal) {
 	// random value, no real rationale
 	rate := 500 * time.Millisecond
 
@@ -130,10 +123,11 @@ func (mon *monitor) RunForever(startTimeout time.Duration) {
 		select {
 		case <-ticker.C:
 			mon.refresh()
-		case s := <-c:
+		case s := <-signalChan:
 			log.Print("Got signal: ", s)
 			gotSignal = true
 			if mon.pid != 0 {
+				mon.forwardedSignal = s.(syscall.Signal)
 				// forward the signal to the VM process
 				// TODO allow a delay here to support graceful shutdown from virt-handler side
 				syscall.Kill(mon.pid, s.(syscall.Signal))
@@ -143,6 +137,18 @@ func (mon *monitor) RunForever(startTimeout time.Duration) {
 
 	ticker.Stop()
 	log.Printf("Exiting...")
+}
+
+func (mon *monitor) RunForever(startTimeout time.Duration) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+
+	mon.monitorLoop(startTimeout, c)
 }
 
 func readProcCmdline(pathname string) ([]string, error) {
