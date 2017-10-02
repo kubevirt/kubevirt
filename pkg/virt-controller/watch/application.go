@@ -57,6 +57,7 @@ type VirtControllerApp struct {
 	migratorImage    string
 	socketDir        string
 	ephemeralDiskDir string
+	isLeader         bool
 }
 
 func Execute() {
@@ -64,6 +65,8 @@ func Execute() {
 	var app VirtControllerApp = VirtControllerApp{}
 
 	app.DefineFlags()
+
+	app.isLeader = false
 
 	logging.InitializeLogging("virt-controller")
 
@@ -75,7 +78,21 @@ func Execute() {
 
 	app.restClient = app.clientSet.RestClient()
 
-	restful.Add(rest.WebService)
+	readinessFunc := func(_ *restful.Request, response *restful.Response) {
+		res := map[string]interface{}{}
+		if !app.isLeader {
+			res["apiserver"] = map[string]interface{}{"leader": "failed", "error": "current pod is not leader"}
+			response.WriteHeaderAndJson(http.StatusInternalServerError, res, restful.MIME_JSON)
+			return
+		}
+
+		res["apiserver"] = map[string]interface{}{"leader": "ok"}
+		response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
+		return
+	}
+	webService := rest.WebService
+	webService.Route(webService.GET("/leader").To(readinessFunc).Doc("Leader endpoint"))
+	restful.Add(webService)
 
 	// Bootstrapping. From here on the initialization order is important
 
@@ -146,12 +163,13 @@ func (vca *VirtControllerApp) Run() {
 			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
+					vca.isLeader = true
 					go vca.vmController.Run(3, stop)
-					//FIXME when we have more than one worker, we need a lock on the VM
 					go vca.migrationController.Run(3, stop)
 					go vca.rsController.Run(3, stop)
 				},
 				OnStoppedLeading: func() {
+					vca.isLeader = false
 					golog.Fatal("leaderelection lost")
 				},
 			},
