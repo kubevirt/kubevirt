@@ -58,7 +58,7 @@ func splitFileNamespaceName(fullPath string) (namespace string, domain string, e
 	}
 
 	namespace = namespaceName[0]
-	domain = strings.Split(namespaceName[1], ".")[0]
+	domain = namespaceName[1]
 	return namespace, domain, nil
 }
 

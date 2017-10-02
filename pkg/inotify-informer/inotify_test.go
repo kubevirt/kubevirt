@@ -53,8 +53,8 @@ var _ = Describe("Inotify", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// create two files
-			Expect(os.Create(tmpDir + "/" + "default_testvm.some-extension")).ToNot(BeNil())
-			Expect(os.Create(tmpDir + "/" + "default1_testvm1.some-extension")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default_testvm")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default1_testvm1")).ToNot(BeNil())
 
 			queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			informer = cache.NewSharedIndexInformer(
@@ -79,8 +79,8 @@ var _ = Describe("Inotify", func() {
 
 		It("should detect multiple creations and deletions", func() {
 			num := 5
-			key := "default2/testvm2"
-			fileName := tmpDir + "/" + "default2_testvm2.some-extension"
+			key := "default2/test.vm2"
+			fileName := tmpDir + "/" + "default2_test.vm2"
 
 			for i := 0; i < num; i++ {
 				Expect(os.Create(fileName)).ToNot(BeNil())
@@ -111,7 +111,7 @@ var _ = Describe("Inotify", func() {
 
 				// Adding files in wrong formats should have an impact
 				// TODO should we just ignore them?
-				Expect(os.Create(tmpDir + "/" + "test.some-extension")).ToNot(BeNil())
+				Expect(os.Create(tmpDir + "/" + "test")).ToNot(BeNil())
 
 				// No event should be received
 				Consistently(i.ResultChan()).ShouldNot(Receive())
