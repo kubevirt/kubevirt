@@ -2,6 +2,7 @@ vendor/*
 !vendor/vendor.json
 .idea
 *.iml
+cmd/fake-qemu-process/fake-qemu*
 cmd/virt-manifest/virt-manifest*
 cmd/virt-controller/virt-controller*
 cmd/virt-launcher/virt-launcher*
