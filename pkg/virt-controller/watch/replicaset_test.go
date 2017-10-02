@@ -382,8 +382,7 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, FailedCreateVirtualMachineReason)
+			expectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
 		})
 
 		It("should add a fail condition if scaling down fails", func() {
