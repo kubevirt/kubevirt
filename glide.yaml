@@ -13,10 +13,9 @@ import:
   subpackages:
   - log
 - package: github.com/emicklei/go-restful
-  version: 858e58f98abd32bc4d164a08e8d7ac169ae876e2
+  version: dc0f94ee75de39d6420e5446b0222490264bb90f
   subpackages:
   - log
-  - swagger
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
@@ -186,6 +185,9 @@ import:
   - util/workqueue
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
+- package: github.com/emicklei/go-restful-openapi
+- package: github.com/go-openapi/spec
+- package: github.com/emicklei/go-restful-swagger12
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92

@@ -22,6 +22,7 @@ package endpoints
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	ini "gopkg.in/ini.v1"
 
 	"net/http"
 
@@ -34,7 +35,6 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/ghodss/yaml"
 	"golang.org/x/net/context"
-	"gopkg.in/ini.v1"
 
 	"kubevirt.io/kubevirt/pkg/rest"
 )

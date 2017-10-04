@@ -1,5 +1,5 @@
-hash: 03562ad089d1614b5fa6f67af0163fe38eda2a9bd9b8794bb7460aaa7bd01d21
-updated: 2017-09-29T10:54:40.476113049-04:00
+hash: 89bb7e5c0029b7970d34246cd248f5e31520a3cc462672ec6e7a1bb9c5d64ec0
+updated: 2017-10-05T15:22:32.152710297+03:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: 6fcd5b427f532a5d13738b27415e00a49e36ceef
@@ -8,10 +8,11 @@ imports:
   subpackages:
   - spew
 - name: github.com/emicklei/go-restful
-  version: 858e58f98abd32bc4d164a08e8d7ac169ae876e2
+  version: dc0f94ee75de39d6420e5446b0222490264bb90f
   subpackages:
   - log
-  - swagger
+- name: github.com/emicklei/go-restful-openapi
+  version: efa082cf7dfa43fc8381ca3bfb9ef9a248c5d686
 - name: github.com/emicklei/go-restful-swagger12
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
@@ -39,12 +40,12 @@ imports:
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/gogo/protobuf
-  version: f7f1376d9d231a646d4e62fe1075623ced6db327
+  version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
   - proto
   - sortkeys
 - name: github.com/golang/glog
-  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/golang/groupcache
   version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
   subpackages:
@@ -62,7 +63,7 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/google/gofuzz
-  version: 24818f796faf91cd76ec7bddd72458fbced7a6c1
+  version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/googleapis/gnostic
   version: 0c5108395e2debce0d731cf0287ddf7242066aba
   subpackages:
@@ -130,7 +131,7 @@ imports:
   - matchers/support/goraph/util
   - types
 - name: github.com/pborman/uuid
-  version: e790cca94e6cc75c7064b1332e63811d4aae1a53
+  version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
@@ -212,6 +213,7 @@ imports:
   - certificates/v1beta1
   - core/v1
   - extensions/v1beta1
+  - imagepolicy/v1alpha1
   - networking/v1
   - policy/v1beta1
   - rbac/v1
@@ -447,7 +449,7 @@ imports:
   - util/jsonpath
   - util/workqueue
 - name: k8s.io/kube-openapi
-  version: abfc5fbe1cf87ee697db107fdfd24c32fe4397a8
+  version: 80f07ef71bb4f781233c65aa8d0369e4ecafab87
   subpackages:
   - pkg/common
 testImports:

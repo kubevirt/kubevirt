@@ -27,7 +27,7 @@ import (
 	"github.com/ghodss/yaml"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
-	"gopkg.in/ini.v1"
+	ini "gopkg.in/ini.v1"
 
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"

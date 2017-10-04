@@ -25,7 +25,8 @@ import (
 	"net/http"
 
 	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful/swagger"
+	restfulspec "github.com/emicklei/go-restful-openapi"
+	swagger "github.com/emicklei/go-restful-swagger12"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/context"
@@ -136,6 +137,12 @@ func (app *virtAPIApp) Run() {
 		},
 	}
 	swagger.InstallSwaggerService(config)
+	openapiConf := restfulspec.Config{
+		WebServices:    restful.RegisteredWebServices(),
+		WebServicesURL: "http://localhost:8183",
+		APIPath:        "/openapi.json",
+	}
+	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(openapiConf))
 
 	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
 }
