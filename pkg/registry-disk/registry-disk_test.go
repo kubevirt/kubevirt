@@ -20,9 +20,12 @@
 package registrydisk
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/user"
+
+	"k8s.io/client-go/tools/cache"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -154,6 +157,51 @@ var _ = Describe("RegistryDisk", func() {
 
 				Expect(len(containers)).To(Equal(2))
 				Expect(len(volumes)).To(Equal(2))
+			})
+
+			It("by removing unseen registry disk data", func() {
+				var domains []string
+
+				domains = append(domains, "fakens1/fakedomain1")
+				domains = append(domains, "fakens1/fakedomain2")
+				domains = append(domains, "fakens2/fakedomain1")
+				domains = append(domains, "fakens2/fakedomain2")
+				domains = append(domains, "fakens3/fakedomain1")
+				domains = append(domains, "fakens4/fakedomain1")
+
+				for _, dom := range domains {
+					err := os.MkdirAll(fmt.Sprintf("%s/%s/some-other-dir", tmpDir, dom), 0755)
+					Expect(err).ToNot(HaveOccurred())
+					msg := "fake content"
+					bytes := []byte(msg)
+					err = ioutil.WriteFile(fmt.Sprintf("%s/%s/some-file", tmpDir, dom), bytes, 0644)
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				vmStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
+
+				err := vmStore.Add(v1.NewVMReferenceFromNameWithNS("fakens1", "fakedomain1"))
+				Expect(err).ToNot(HaveOccurred())
+
+				err = CleanupOrphanedEphemeralDisks(vmStore)
+				Expect(err).ToNot(HaveOccurred())
+
+				// expect this domain to still exist
+				_, err = os.Stat(fmt.Sprintf("%s/fakens1/fakedomain1", tmpDir))
+				Expect(err).ToNot(HaveOccurred())
+
+				// expect these domains to not exist
+				for idx, dom := range domains {
+					exists := true
+					if idx == 0 {
+						continue
+					}
+					_, err = os.Stat(fmt.Sprintf("%s/%s", tmpDir, dom))
+					if os.IsNotExist(err) {
+						exists = false
+					}
+					Expect(exists).To(Equal(false))
+				}
 			})
 
 			It("by verifying data cleanup", func() {
