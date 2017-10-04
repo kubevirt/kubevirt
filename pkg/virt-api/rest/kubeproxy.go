@@ -48,6 +48,7 @@ type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
 func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restful.WebService, error) {
 	ws := new(restful.WebService)
+	ws.Doc("The KubeVirt API, a virtual machine management.")
 	ws.Path(GroupVersionBasePath(gv))
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -55,14 +56,16 @@ func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restfu
 		return nil, err
 	}
 	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(virtClient.RestClient())).Build(ctx)
-	ws.Route(ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
+	ws.Route(
+		ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).
+			To(endpoints.MakeGoRestfulWrapper(autodiscover)).
+			Operation("getAPIResources").
+			Doc("Get KubeVirt API Resources"),
+	)
 	return ws, nil
 }
 
 func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
-
-	singular := strings.TrimSuffix(gvr.Resource, "s")
-	plural := gvr.Resource
 
 	objResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind}, objPointer)
 	objListResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind + "List"}, objListPointer)
@@ -87,76 +90,86 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.POST(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
-			Operation("create_"+singular).
-			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample), ws,
+			Operation("createNamespaced"+objKind).
+			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample).
+			Doc("Create a "+objKind+" object."), ws,
 	))
 
 	ws.Route(addPutParams(
 		ws.PUT(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
-			Operation("update_"+singular).
-			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).Doc("test2"), ws,
+			Operation("replaceNamespaced"+objKind).
+			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).
+			Doc("Update a "+objKind+" object."), ws,
 	))
 
 	ws.Route(addDeleteParams(
 		ws.DELETE(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
-			Operation("delete_"+singular).
-			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).Doc("test3"), ws,
+			Operation("deleteNamespaced"+objKind).
+			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).
+			Doc("Delete a "+objKind+" object."), ws,
 	))
 
 	ws.Route(addGetParams(
 		ws.GET(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			Operation("get_"+singular).
-			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).Doc("test4"), ws,
+			Operation("readNamespaced"+objKind).
+			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).
+			Doc("Get a "+objKind+" object."), ws,
 	))
 
 	ws.Route(addGetAllNamespacesListParams(
 		ws.GET(gvr.Resource).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			Operation("list_all_"+plural).
-			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).Doc("test4"), ws,
+			Operation("list"+objKind+"ForAllNamespaces").
+			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).
+			Doc("Get a list of all "+objKind+" objects."), ws,
 	))
 
 	ws.Route(
 		ws.PATCH(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON_PATCH).
-			Operation("patch_" + singular).
-			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample).Doc("test5"),
+			Operation("updateNamespaced" + objKind).
+			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample).
+			Doc("Patch a " + objKind + " object."),
 	)
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(addWatchGetListParams(
 		ws.GET("/watch/"+gvr.Resource).
 			Produces(mime.MIME_JSON).
-			Operation("watch_all_"+plural).
-			To(NotImplementedYet).Writes(objExample), ws,
+			Operation("watch"+objKind+"ListForAllNamespaces").
+			To(NotImplementedYet).Writes(listExample).
+			Doc("Watch a "+objKind+"List object."), ws,
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
 	ws.Route(addWatchGetListParams(
 		ws.GET("/watch"+ResourceBasePath(gvr)).
-			Operation("watch_"+plural).
+			Operation("watchNamespaced"+objKind).
 			Produces(mime.MIME_JSON).
-			To(NotImplementedYet).Writes(objExample), ws,
+			To(NotImplementedYet).Writes(objExample).
+			Doc("Watch a "+objKind+" object."), ws,
 	))
 
 	ws.Route(addWatchGetListParams(
 		ws.GET(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			Operation("list_"+plural).
+			Operation("listNamespaced"+objKind+"List").
 			Writes(listExample).
-			To(endpoints.MakeGoRestfulWrapper(getList)), ws,
+			To(endpoints.MakeGoRestfulWrapper(getList)).
+			Doc("Get a list of "+objKind+" objects."), ws,
 	))
 
 	ws.Route(addDeleteListParams(
 		ws.DELETE(ResourceBasePath(gvr)).
-			Operation("delete_"+plural).
+			Operation("deletecollectionNamespaced"+objKind).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample), ws,
+			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample).
+			Doc("Delete a collection of "+objKind+" objects."), ws,
 	))
 
 	return ws, nil

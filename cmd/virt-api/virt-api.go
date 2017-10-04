@@ -127,6 +127,13 @@ func (app *virtAPIApp) Run() {
 		ApiPath:         "/swaggerapi",
 		SwaggerPath:     "/swagger-ui/",
 		SwaggerFilePath: app.SwaggerUI,
+		Info: swagger.Info{
+			Title:       "KubeVirt API, ",
+			Description: "This is KubeVirt API an add-on for Kubernetes.",
+			Contact:     "kubevirt-dev@googlegroups.com",
+			License:     "Apache 2.0",
+			LicenseUrl:  "https://www.apache.org/licenses/LICENSE-2.0",
+		},
 	}
 	swagger.InstallSwaggerService(config)
 
