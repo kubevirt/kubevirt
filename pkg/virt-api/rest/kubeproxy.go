@@ -126,7 +126,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("list"+objKind+"ForAllNamespaces").
 			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).
-			Doc("Get a list all of "+objKind+" objects."), ws,
+			Doc("Get a list of all "+objKind+" objects."), ws,
 	))
 
 	ws.Route(
