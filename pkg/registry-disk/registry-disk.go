@@ -27,6 +27,7 @@ import (
 	"github.com/jeevatkm/go-model"
 
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -79,6 +80,28 @@ func getFilePath(basePath string) (string, string, error) {
 	}
 
 	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", basePath))
+}
+
+func CleanupOrphanedEphemeralDisks(indexer cache.Store) error {
+	vms, err := diskutils.ListVmWithEphemeralDisk(mountBaseDir)
+	if err != nil {
+		return err
+	}
+
+	for _, vm := range vms {
+		key, err := cache.MetaNamespaceKeyFunc(vm)
+		if err != nil {
+			return err
+		}
+		_, exists, _ := indexer.GetByKey(key)
+		if exists == false {
+			err := CleanupEphemeralDisks(vm)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func CleanupEphemeralDisks(vm *v1.VirtualMachine) error {
