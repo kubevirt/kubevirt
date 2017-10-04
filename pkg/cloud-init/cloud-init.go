@@ -20,18 +20,13 @@
 package cloudinit
 
 import (
-	"bytes"
-	"crypto/md5"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -40,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -98,102 +94,6 @@ func defaultIsoFunc(isoOutFile string, inFiles []string) error {
 	}
 }
 
-func removeFile(path string) error {
-	err := os.Remove(path)
-	if err != nil && os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("failed to remove cloud-init temporary data file %s", path))
-		return err
-	}
-	return nil
-}
-
-func fileExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	exists := false
-
-	if err == nil {
-		exists = true
-	} else if os.IsNotExist(err) {
-		err = nil
-	}
-	return exists, err
-}
-
-func md5CheckSum(filePath string) ([]byte, error) {
-	var result []byte
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return result, err
-	}
-	defer file.Close()
-
-	hash := md5.New()
-	_, err = io.Copy(hash, file)
-
-	if err != nil {
-		return result, err
-	}
-
-	result = hash.Sum(result)
-	return result, nil
-}
-
-func setFileOwnership(username string, file string) error {
-	usrObj, err := user.Lookup(username)
-	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to look up username %s", username))
-		return err
-	}
-
-	uid, err := strconv.Atoi(usrObj.Uid)
-	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to find uid for username %s", username))
-		return err
-	}
-
-	gid, err := strconv.Atoi(usrObj.Gid)
-	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to find gid for username %s", username))
-		return err
-	}
-
-	return os.Chown(file, uid, gid)
-}
-
-func filesAreEqual(path1 string, path2 string) (bool, error) {
-	exists, err := fileExists(path1)
-	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unexpected error encountered while attempting to determine if %s exists", path1))
-		return false, err
-	} else if exists == false {
-		return false, nil
-	}
-
-	exists, err = fileExists(path2)
-	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unexpected error encountered while attempting to determine if %s exists", path2))
-		return false, err
-	} else if exists == false {
-		return false, nil
-	}
-
-	sum1, err := md5CheckSum(path1)
-	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("calculating md5 checksum failed for %s", path1))
-		return false, err
-	}
-	sum2, err := md5CheckSum(path2)
-	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("calculating md5 checksum failed for %s", path2))
-		return false, err
-	}
-
-	return bytes.Equal(sum1, sum2), nil
-}
-
 // The unit test suite uses this function
 func SetIsoCreationFunction(isoFunc IsoCreationFunc) {
 	cloudInitIsoFunc = isoFunc
@@ -205,13 +105,12 @@ func SetLocalDataOwner(user string) {
 }
 
 func SetLocalDirectory(dir string) error {
-
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Unable to initalize cloudInit local cache directory (%s). %v", dir, err))
 	}
 
-	exists, err := fileExists(dir)
+	exists, err := diskutils.FileExists(dir)
 	if err != nil {
 		return errors.New(fmt.Sprintf("CloudInit local cache directory (%s) does not exist or is inaccessible. %v", dir, err))
 	} else if exists == false {
@@ -396,9 +295,9 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 		userData64 := spec.NoCloudData.UserDataBase64
 		metaData64 := spec.NoCloudData.MetaDataBase64
 
-		removeFile(userFile)
-		removeFile(metaFile)
-		removeFile(isoStaging)
+		diskutils.RemoveFile(userFile)
+		diskutils.RemoveFile(metaFile)
+		diskutils.RemoveFile(isoStaging)
 
 		userDataBytes, err := base64.StdEncoding.DecodeString(userData64)
 		if err != nil {
@@ -425,24 +324,24 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 		if err != nil {
 			return err
 		}
-		removeFile(metaFile)
-		removeFile(userFile)
+		diskutils.RemoveFile(metaFile)
+		diskutils.RemoveFile(userFile)
 
-		err = setFileOwnership(cloudInitOwner, isoStaging)
+		err = diskutils.SetFileOwnership(cloudInitOwner, isoStaging)
 		if err != nil {
 			return err
 		}
 
-		isEqual, err := filesAreEqual(iso, isoStaging)
+		isEqual, err := diskutils.FilesAreEqual(iso, isoStaging)
 		if err != nil {
 			return err
 		}
 
 		// Only replace the dynamically generated iso if it has a different checksum
 		if isEqual {
-			removeFile(isoStaging)
+			diskutils.RemoveFile(isoStaging)
 		} else {
-			removeFile(iso)
+			diskutils.RemoveFile(iso)
 			err = os.Rename(isoStaging, iso)
 			if err != nil {
 				// This error is not something we need to block iso creation for.

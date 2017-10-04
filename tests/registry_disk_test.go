@@ -69,9 +69,7 @@ var _ = Describe("RegistryDisk", func() {
 					// only check readiness of disk containers
 					continue
 				}
-				if containerStatus.Ready == true {
-					disksFound++
-				}
+				disksFound++
 			}
 			break
 		}
@@ -79,6 +77,20 @@ var _ = Describe("RegistryDisk", func() {
 	}
 
 	Context("Ephemeral RegistryDisk", func() {
+		It("should be able to start and stop the same VM multiple times.", func(done Done) {
+			vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+			num := 3
+			for i := 0; i < num; i++ {
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				Expect(err).To(BeNil())
+				tests.WaitForSuccessfulVMStartWithTimeout(obj, 30)
+				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
+				Expect(err).To(BeNil())
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+			}
+			close(done)
+		}, 90)
+
 		It("should launch multiple VMs using ephemeral registry disks", func(done Done) {
 			num := 5
 			vms := make([]*v1.VirtualMachine, 0, num)

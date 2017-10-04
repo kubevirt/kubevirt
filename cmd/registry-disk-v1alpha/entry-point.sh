@@ -19,67 +19,40 @@
 
 # https://fedoraproject.org/wiki/Scsi-target-utils_Quickstart_Guide
 
-PORT=${PORT:-3260}
-WWN=${WWN:-iqn.2017-01.io.kubevirt:wrapper}
-LUNID=1
-IMAGE_NAME=$(ls -1 /disk/ | tail -n 1)
-IMAGE_PATH=/disk/$IMAGE_NAME
-
-if [ -n "$PASSWORD_BASE64" ]; then
-	PASSWORD=$(echo $PASSWORD_BASE64 | base64 -d)
-fi
-if [ -n "$USERNAME_BASE64" ]; then
-	USERNAME=$(echo $USERNAME_BASE64 | base64 -d)
-fi
-
-# If PASSWORD is provided, enable authentication features
-authenticate=0
-if [ -n "$PASSWORD" ]; then
-	authenticate=1
-fi
-
-if [ -z "$IMAGE_NAME" ] || ! [ -f "$IMAGE_PATH" ]; then
-	echo "vm image not found in /disk directory"
+if [ -z "$COPY_PATH" ]; then
+	echo "COPY_PATH variable not set"
 	exit 1
 fi
 
-echo $IMAGE_NAME | grep -q "\.raw$"
+IMAGE_NAME=$(ls -1 /disk/ | tail -n 1)
+if [ -z "$IMAGE_NAME" ]; then
+	echo "no images found in /disk directory"
+	exit 1
+fi
+
+IMAGE_PATH=/disk/$IMAGE_NAME
+IMAGE_EXTENSION=$(echo $IMAGE_NAME | sed  -n -e 's/^.*\.\(.*\)$/\1/p')
+
+echo $IMAGE_NAME | grep -q -e "raw" -e "qcow2"
 if [ $? -ne 0 ]; then
-	/usr/bin/qemu-img convert $IMAGE_PATH /disk/image.raw
+	IMAGE_EXTENSION="raw"
+	/usr/bin/qemu-img convert $IMAGE_PATH ${COPY_PATH}.${IMAGE_EXTENSION}
 	if [ $? -ne 0 ]; then
 		echo "Failed to convert image $IMAGE_PATH to .raw file"
 		exit 1
 	fi
-	IMAGE_PATH=/disk/image.raw
+else 
+	cp $IMAGE_PATH ${COPY_PATH}.${IMAGE_EXTENSION}
+	if [ $? -ne 0 ]; then
+		echo "Failed to copy $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
+		exit 1
+	fi
 fi
+echo "copied $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
 
-# USING 'set -e' error detection for everything below this point.
-set -e
+trap "rm -f ${COPY_PATH}.${IMAGE_EXTENSION}" TERM INT HUP QUIT EXIT ERR
 
-echo "Starting tgtd at port $PORT"
-tgtd -f --iscsi portal="0.0.0.0:${PORT}" &
-sleep 5
-
-echo "Adding target and exposing it"
-tgtadm --lld iscsi --mode target --op new --tid=1 --targetname $WWN
-tgtadm --lld iscsi --mode target --op bind --tid=1 -I ALL
-
-if [ $authenticate -eq 1 ]; then
-	echo "Adding authentication for user $USERNAME"
-	tgtadm --lld iscsi --op new --mode account --user $USERNAME --password $PASSWORD
-	tgtadm --lld iscsi --op bind --mode account --tid=1 --user $USERNAME
-fi
-
-echo "Adding volume file as LUN"
-tgtadm --lld iscsi --mode logicalunit --op new --tid=1 --lun=$LUNID -b $IMAGE_PATH
-tgtadm --lld iscsi --mode logicalunit --op update --tid=1 --lun=$LUNID --params thin_provisioning=1
-
-echo "Start monitoring"
 touch /tmp/healthy
-touch previous_state
-while true ; do
-	tgtadm --lld iscsi --mode target --op show > current_state
-	diff -q previous_state current_state || ( date ; cat current_state ; )
-	mv -f current_state previous_state
+while [ -f "${COPY_PATH}.${IMAGE_EXTENSION}" ]; do
 	sleep 5
 done

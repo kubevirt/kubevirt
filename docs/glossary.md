@@ -127,7 +127,7 @@ Likely, like a PodPreset. It will allow to inject specific resources into a VM.
 VMP is a good candidate for injecting disks and devices into VMs during VM spec
 completion.
 
-## ContainerRegistryDisk (WIP)
+## RegistryDisk (WIP)
 
 Method of storing and distributing VM disks with KubeVirt using the container
 registry.

@@ -24,8 +24,6 @@ spec:
           - "3"
           - "--libvirt-uri"
           - "qemu:///system"
-          - "--cloud-init-dir"
-          - "/var/run/libvirt/cloud-init-dir"
           - "--hostname-override"
           - "$(NODE_NAME)"
         securityContext:

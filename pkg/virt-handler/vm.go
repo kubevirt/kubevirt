@@ -391,6 +391,12 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteV
 		if err != nil {
 			return false, err
 		}
+
+		err = registrydisk.CleanupEphemeralDisks(vm)
+		if err != nil {
+			return false, err
+		}
+
 		return false, d.configDisk.Undefine(vm)
 	} else if isWorthSyncing(vm) == false {
 		// nothing to do here.

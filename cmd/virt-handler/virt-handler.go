@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
@@ -54,14 +55,14 @@ import (
 )
 
 type virtHandlerApp struct {
-	Service      *service.Service
-	HostOverride string
-	LibvirtUri   string
-	SocketDir    string
-	CloudInitDir string
+	Service          *service.Service
+	HostOverride     string
+	LibvirtUri       string
+	SocketDir        string
+	EphemeralDiskDir string
 }
 
-func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, socketDir *string, cloudInitDir *string) *virtHandlerApp {
+func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, socketDir *string, ephemeralDiskDir *string) *virtHandlerApp {
 	if *hostOverride == "" {
 		defaultHostName, err := os.Hostname()
 		if err != nil {
@@ -71,11 +72,11 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 	}
 
 	return &virtHandlerApp{
-		Service:      service.NewService("virt-handler", host, port),
-		HostOverride: *hostOverride,
-		LibvirtUri:   *libvirtUri,
-		SocketDir:    *socketDir,
-		CloudInitDir: *cloudInitDir,
+		Service:          service.NewService("virt-handler", host, port),
+		HostOverride:     *hostOverride,
+		LibvirtUri:       *libvirtUri,
+		SocketDir:        *socketDir,
+		EphemeralDiskDir: *ephemeralDiskDir,
 	}
 }
 
@@ -83,7 +84,11 @@ func (app *virtHandlerApp) Run() {
 	log := logging.DefaultLogger()
 	log.Info().V(1).Log("hostname", app.HostOverride)
 
-	err := cloudinit.SetLocalDirectory(app.CloudInitDir)
+	err := cloudinit.SetLocalDirectory(app.EphemeralDiskDir + "/cloud-init-data")
+	if err != nil {
+		panic(err)
+	}
+	err = registrydisk.SetLocalDirectory(app.EphemeralDiskDir + "/registry-disk-data")
 	if err != nil {
 		panic(err)
 	}
@@ -189,10 +194,10 @@ func main() {
 	port := flag.Int("port", 8185, "Port to listen on")
 	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
-	cloudInitDir := flag.String("cloud-init-dir", "/var/run/libvirt/cloud-init-dir", "Base directory for ephemeral cloud init data")
+	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, socketDir, cloudInitDir)
+	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, socketDir, ephemeralDiskDir)
 	app.Run()
 }

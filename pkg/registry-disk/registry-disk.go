@@ -20,39 +20,74 @@
 package registrydisk
 
 import (
-	"crypto/rand"
-	"encoding/base64"
+	"errors"
 	"fmt"
-	"strconv"
+	"os"
 
 	"github.com/jeevatkm/go-model"
 
 	kubev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
-const registryDiskV1Alpha = "ContainerRegistryDisk:v1alpha"
-const defaultIqn = "iqn.2017-01.io.kubevirt:wrapper/1"
-const defaultPort = 3261
-const defaultPortStr = "3261"
-const defaultHost = "127.0.0.1"
+const registryDiskV1Alpha = "RegistryDisk:v1alpha"
+const filePrefix = "disk-image"
 
-func generateRandomString(len int) (string, error) {
-	bytes := make([]byte, len)
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return "", err
-	}
-	return base64.URLEncoding.EncodeToString(bytes), nil
+var registryDiskOwner = "qemu"
+
+var mountBaseDir = "/var/run/libvirt/kubevirt-disk-dir"
+
+func generateVMBaseDir(vm *v1.VirtualMachine) string {
+	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+	return fmt.Sprintf("%s/%s/%s", mountBaseDir, namespace, domain)
+}
+func generateVolumeMountDir(vm *v1.VirtualMachine, diskCount int) string {
+	baseDir := generateVMBaseDir(vm)
+	return fmt.Sprintf("%s/disk%d", baseDir, diskCount)
 }
 
-func k8sSecretName(vm *v1.VirtualMachine) string {
-	return fmt.Sprintf("registrydisk-iscsi-%s-%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
+func SetLocalDirectory(dir string) error {
+	mountBaseDir = dir
+	return nil
+}
+
+// The unit test suite uses this function
+func SetLocalDataOwner(user string) {
+	registryDiskOwner = user
+}
+
+func getFilePath(basePath string) (string, string, error) {
+	rawPath := basePath + "/" + filePrefix + ".raw"
+	qcow2Path := basePath + "/" + filePrefix + ".qcow2"
+
+	exists, err := diskutils.FileExists(rawPath)
+	if err != nil {
+		return "", "", err
+	} else if exists {
+		return rawPath, "raw", nil
+	}
+
+	exists, err = diskutils.FileExists(qcow2Path)
+	if err != nil {
+		return "", "", err
+	} else if exists {
+		return qcow2Path, "qcow2", nil
+	}
+
+	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", basePath))
+}
+
+func CleanupEphemeralDisks(vm *v1.VirtualMachine) error {
+	volumeMountDir := generateVMBaseDir(vm)
+	err := os.RemoveAll(volumeMountDir)
+	if err != nil && os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 // The virt-handler converts registry disks to their corresponding iscsi network
@@ -62,215 +97,92 @@ func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
 
-	for idx, disk := range vmCopy.Spec.Domain.Devices.Disks {
+	for diskCount, disk := range vmCopy.Spec.Domain.Devices.Disks {
 		if disk.Type == registryDiskV1Alpha {
-			newDisk := v1.Disk{}
+			volumeMountDir := generateVolumeMountDir(vm, diskCount)
 
-			newDisk.Type = "network"
-			newDisk.Device = "disk"
-			newDisk.Target = disk.Target
-
-			newDisk.Driver = &v1.DiskDriver{
-				Type:  "raw",
-				Name:  "qemu",
-				Cache: "none",
+			diskPath, diskType, err := getFilePath(volumeMountDir)
+			if err != nil {
+				return vm, err
 			}
 
-			newDisk.Source.Name = defaultIqn
-			newDisk.Source.Protocol = "iscsi"
-			newDisk.Source.Host = disk.Source.Host
+			// Rename file to release management of it from container process.
+			oldDiskPath := diskPath
+			diskPath = oldDiskPath + ".virt"
+			err = os.Rename(oldDiskPath, diskPath)
+			if err != nil {
+				return vm, err
+			}
 
-			newDisk.Auth = disk.Auth
+			err = diskutils.SetFileOwnership(registryDiskOwner, diskPath)
+			if err != nil {
+				return vm, err
+			}
 
-			vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
+			newDisk := v1.Disk{}
+			newDisk.Type = "file"
+			newDisk.Device = "disk"
+			newDisk.Driver = &v1.DiskDriver{
+				Type: diskType,
+				Name: "qemu",
+			}
+			newDisk.Source.File = diskPath
+			newDisk.Target = disk.Target
+			vmCopy.Spec.Domain.Devices.Disks[diskCount] = newDisk
 		}
 	}
 
 	return vmCopy, nil
 }
 
-func CleanUp(vm *v1.VirtualMachine, virtCli kubecli.KubevirtClient) error {
-	precond.MustNotBeNil(vm)
-	precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-	precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.DomainLabel+" in (%s)", vm.GetObjectMeta().GetName()))
-	if err != nil {
-		panic(err)
-	}
-
-	listOptions := metav1.ListOptions{LabelSelector: labelSelector.String()}
-
-	if err := virtCli.CoreV1().Secrets(vm.ObjectMeta.Namespace).DeleteCollection(nil, listOptions); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// The controller applies ports to registry disks when a VM spec is introduced into the cluster.
-func Initialize(vm *v1.VirtualMachine, virtCli kubecli.KubevirtClient) error {
-
-	var err error
-	authUser := ""
-	secretID := k8sSecretName(vm)
-	wrapperStartingPort := defaultPort
-	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-
-	for idx, disk := range vm.Spec.Domain.Devices.Disks {
-		if disk.Type == registryDiskV1Alpha {
-
-			// Generate Dynamic Auth Credential for Registry Disks the first
-			// time one is encountered. This random user will be used to authenticate
-			// all ephemeral disks associated with this VM.
-			if authUser == "" {
-				authUser, err = generateRandomString(32)
-				if err != nil {
-					return err
-				}
-			}
-
-			port := fmt.Sprintf("%d", wrapperStartingPort)
-			name := defaultHost
-			if disk.Source.Host != nil {
-				name = disk.Source.Host.Name
-			}
-			// We fill in the port here for the iscsi target
-			// to coordinate avoiding port collisions in the virt-launcher pod.
-			vm.Spec.Domain.Devices.Disks[idx].Source.Host = &v1.DiskSourceHost{
-				Port: port,
-				Name: name,
-			}
-			wrapperStartingPort++
-
-			// Reference k8s secret in Disk device
-			vm.Spec.Domain.Devices.Disks[idx].Auth = &v1.DiskAuth{
-				Secret: &v1.DiskSecret{
-					Type:  "iscsi",
-					Usage: secretID,
-				},
-			}
-
-		}
-	}
-
-	/* add k8s secret if authUser was generated */
-	if authUser != "" {
-		pass, err := generateRandomString(32)
-		if err != nil {
-			return err
-		}
-
-		// Store Auth as k8s secret
-		secret := kubev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretID,
-				Namespace: vm.GetObjectMeta().GetNamespace(),
-				Labels: map[string]string{
-					v1.DomainLabel: domain,
-				},
-			},
-			Type: "kubernetes.io/iscsi-chap",
-			Data: map[string][]byte{
-				"node.session.auth.password": []byte(pass),
-				"node.session.auth.username": []byte(authUser),
-			},
-		}
-
-		_, err = virtCli.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(secretID, metav1.GetOptions{})
-		if err != nil {
-			if _, err := virtCli.Core().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// The controller uses this function communicate the IP address of the POD
-// with the containers hosting the registry disks.
-func ApplyHost(vm *v1.VirtualMachine, pod *kubev1.Pod) {
-	ip := pod.Status.PodIP
-	for idx, disk := range vm.Spec.Domain.Devices.Disks {
-		if disk.Type == registryDiskV1Alpha {
-			port := defaultPortStr
-			name := ip
-			if disk.Source.Host != nil {
-				port = disk.Source.Host.Port
-			}
-			vm.Spec.Domain.Devices.Disks[idx].Source.Host = &v1.DiskSourceHost{
-				Port: port,
-				Name: name,
-			}
-		}
-	}
-}
-
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, error) {
+func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Volume, error) {
 	var containers []kubev1.Container
+	var volumes []kubev1.Volume
 
-	initialDelaySeconds := 5
+	initialDelaySeconds := 2
 	timeoutSeconds := 5
-	periodSeconds := 10
+	periodSeconds := 5
 	successThreshold := 2
 	failureThreshold := 5
 
 	// Make VM Image Wrapper Containers
-	diskCount := 0
-	for _, disk := range vm.Spec.Domain.Devices.Disks {
+	for diskCount, disk := range vm.Spec.Domain.Devices.Disks {
 		if disk.Type == registryDiskV1Alpha {
+
+			volumeMountDir := generateVolumeMountDir(vm, diskCount)
+			volumeName := fmt.Sprintf("disk%d-volume", diskCount)
 			diskContainerName := fmt.Sprintf("disk%d", diskCount)
 			// container image is disk.Source.Name
 			diskContainerImage := disk.Source.Name
-			// disk.Source.Host.Port has the port field expanded before templating.
-			port := disk.Source.Host.Port
-			portInt, err := strconv.Atoi(port)
-			if err != nil {
-				return nil, err
-			}
 
+			volumes = append(volumes, kubev1.Volume{
+				Name: volumeName,
+				VolumeSource: kubev1.VolumeSource{
+					HostPath: &kubev1.HostPathVolumeSource{
+						Path: volumeMountDir,
+					},
+				},
+			})
 			containers = append(containers, kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
 				ImagePullPolicy: kubev1.PullIfNotPresent,
-				Command:         []string{"/entry-point.sh", port},
-				Ports: []kubev1.ContainerPort{
-					kubev1.ContainerPort{
-						ContainerPort: int32(portInt),
-						Protocol:      kubev1.ProtocolTCP,
-					},
-				},
+				Command:         []string{"/entry-point.sh"},
 				Env: []kubev1.EnvVar{
 					kubev1.EnvVar{
-						Name:  "PORT",
-						Value: port,
-					},
-					kubev1.EnvVar{
-						Name: "PASSWORD",
-						ValueFrom: &kubev1.EnvVarSource{
-							SecretKeyRef: &kubev1.SecretKeySelector{
-								LocalObjectReference: kubev1.LocalObjectReference{
-									Name: k8sSecretName(vm),
-								},
-								Key: "node.session.auth.password",
-							},
-						},
-					},
-					kubev1.EnvVar{
-						Name: "USERNAME",
-						ValueFrom: &kubev1.EnvVarSource{
-							SecretKeyRef: &kubev1.SecretKeySelector{
-								LocalObjectReference: kubev1.LocalObjectReference{
-									Name: k8sSecretName(vm),
-								},
-								Key: "node.session.auth.username",
-							},
-						},
+						Name:  "COPY_PATH",
+						Value: volumeMountDir + "/" + filePrefix,
 					},
 				},
-				// The readiness probes ensure the ISCSI targets are available
+				VolumeMounts: []kubev1.VolumeMount{
+					{
+						Name:      volumeName,
+						MountPath: volumeMountDir,
+					},
+				},
+				// The readiness probes ensure the disk coversion and copy finished
 				// before the container is marked as "Ready: True"
 				ReadinessProbe: &kubev1.Probe{
 					Handler: kubev1.Handler{
@@ -290,5 +202,5 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, error) {
 			})
 		}
 	}
-	return containers, nil
+	return containers, volumes, nil
 }

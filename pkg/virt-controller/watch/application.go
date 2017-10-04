@@ -20,6 +20,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
@@ -46,11 +47,12 @@ type VirtControllerApp struct {
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
-	host          string
-	port          int
-	launcherImage string
-	migratorImage string
-	socketDir     string
+	host             string
+	port             int
+	launcherImage    string
+	migratorImage    string
+	socketDir        string
+	ephemeralDiskDir string
 }
 
 func Execute() {
@@ -117,6 +119,11 @@ func (vca *VirtControllerApp) Run() {
 
 func (vca *VirtControllerApp) initCommon() {
 	var err error
+
+	err = registrydisk.SetLocalDirectory(vca.ephemeralDiskDir + "/registry-disk-data")
+	if err != nil {
+		golog.Fatal(err)
+	}
 	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.migratorImage, vca.socketDir)
 	if err != nil {
 		golog.Fatal(err)
@@ -141,5 +148,6 @@ func (vca *VirtControllerApp) DefineFlags() {
 	flag.StringVar(&vca.launcherImage, "launcher-image", "virt-launcher", "Shim container for containerized VMs")
 	flag.StringVar(&vca.migratorImage, "migrator-image", "virt-handler", "Container which orchestrates a VM migration")
 	flag.StringVar(&vca.socketDir, "socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
+	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base direcetory for ephemeral disk data")
 	flag.Parse()
 }

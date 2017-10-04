@@ -92,10 +92,19 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		},
 	}
 
-	containers, err := registrydisk.GenerateContainers(vm)
+	containers, volumes, err := registrydisk.GenerateContainers(vm)
 	if err != nil {
 		return nil, err
 	}
+
+	volumes = append(volumes, kubev1.Volume{
+		Name: "sockets",
+		VolumeSource: kubev1.VolumeSource{
+			HostPath: &kubev1.HostPathVolumeSource{
+				Path: socketDir,
+			},
+		},
+	})
 	containers = append(containers, container)
 
 	// TODO use constants for labels
@@ -112,16 +121,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			RestartPolicy: kubev1.RestartPolicyNever,
 			Containers:    containers,
 			NodeSelector:  vm.Spec.NodeSelector,
-			Volumes: []kubev1.Volume{
-				{
-					Name: "sockets",
-					VolumeSource: kubev1.VolumeSource{
-						HostPath: &kubev1.HostPathVolumeSource{
-							Path: socketDir,
-						},
-					},
-				},
-			},
+			Volumes:       volumes,
 		},
 	}
 
