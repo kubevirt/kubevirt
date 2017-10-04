@@ -18,7 +18,7 @@ A quick start guide to get KubeVirt up and running inside Vagrant.
 ```bash
     # If you haven't set it already, set a GOPATH
     echo "export GOPATH=~/go" >> ~/.bashrc
-    echo "export PATH=$PATH:$GOPATH/bin" >> ~/.bashrc
+    echo "export PATH=\$GOPATH/bin:\$PATH" >> ~/.bashrc
     source ~/.bashrc
 
     mkdir -p ~/go
@@ -39,8 +39,8 @@ demo environment:
 
 ```bash
     sudo dnf install vagrant vagrant-libvirt
+    sudo systemctl enable --now libvirtd
     sudo systemctl restart virtlogd # Work around rpm packaging bug
-    sudo systemctl restart libvirtd
 ```
 
 On some systems Vagrant will always ask you for your sudo password when you try
