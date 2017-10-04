@@ -26,8 +26,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 	"time"
 
 	model "github.com/jeevatkm/go-model"
@@ -357,33 +355,5 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 
 // Lists all vms cloud-init has local data for
 func ListVmWithLocalData() ([]*v1.VirtualMachine, error) {
-	var keys []*v1.VirtualMachine
-
-	err := filepath.Walk(cloudInitLocalDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() == false {
-			return nil
-		}
-
-		relativePath := strings.TrimPrefix(path, cloudInitLocalDir+"/")
-		if relativePath == "" {
-			return nil
-		}
-		dirs := strings.Split(relativePath, "/")
-		if len(dirs) != 2 {
-			return nil
-		}
-
-		namespace := dirs[0]
-		domain := dirs[1]
-		if namespace == "" || domain == "" {
-			return nil
-		}
-		keys = append(keys, v1.NewVMReferenceFromNameWithNS(dirs[0], dirs[1]))
-		return nil
-	})
-
-	return keys, err
+	return diskutils.ListVmWithEphemeralDisk(cloudInitLocalDir)
 }

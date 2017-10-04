@@ -26,8 +26,11 @@ import (
 	"io"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strconv"
+	"strings"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
 )
 
@@ -122,4 +125,37 @@ func FilesAreEqual(path1 string, path2 string) (bool, error) {
 	}
 
 	return bytes.Equal(sum1, sum2), nil
+}
+
+// Lists all vms ephemeral disk has local data for
+func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachine, error) {
+	var keys []*v1.VirtualMachine
+
+	err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() == false {
+			return nil
+		}
+
+		relativePath := strings.TrimPrefix(path, localPath+"/")
+		if relativePath == "" {
+			return nil
+		}
+		dirs := strings.Split(relativePath, "/")
+		if len(dirs) != 2 {
+			return nil
+		}
+
+		namespace := dirs[0]
+		domain := dirs[1]
+		if namespace == "" || domain == "" {
+			return nil
+		}
+		keys = append(keys, v1.NewVMReferenceFromNameWithNS(dirs[0], dirs[1]))
+		return nil
+	})
+
+	return keys, err
 }
