@@ -28,12 +28,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 )
+
+var lock sync.Mutex
 
 type logLevel int
 
@@ -99,12 +102,22 @@ var loggers = make(map[string]*FilteredLogger)
 var defaultComponent = ""
 var defaultVerbosity = 0
 
-func Logger(component string) *FilteredLogger {
-	if _, ok := loggers[component]; !ok {
+func createLogger(component string) {
+	lock.Lock()
+	defer lock.Unlock()
+	_, ok := loggers[component]
+	if ok == false {
 		logger := log.NewLogfmtLogger(os.Stderr)
 		log := MakeLogger(logger)
 		log.component = component
 		loggers[component] = log
+	}
+}
+
+func Logger(component string) *FilteredLogger {
+	_, ok := loggers[component]
+	if ok == false {
+		createLogger(component)
 	}
 	return loggers[component]
 }
