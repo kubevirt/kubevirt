@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/emicklei/go-restful"
 	k8sv1 "k8s.io/api/core/v1"
@@ -21,7 +22,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -57,12 +58,16 @@ type VirtControllerApp struct {
 	migratorImage    string
 	socketDir        string
 	ephemeralDiskDir string
-	isLeader         bool
+
+	sync.Mutex
+	isLeader bool
 }
 
 func Execute() {
 	var err error
 	var app VirtControllerApp = VirtControllerApp{}
+
+	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	app.DefineFlags()
 
@@ -81,12 +86,12 @@ func Execute() {
 	readinessFunc := func(_ *restful.Request, response *restful.Response) {
 		res := map[string]interface{}{}
 		if !app.isLeader {
-			res["apiserver"] = map[string]interface{}{"leader": "failed", "error": "current pod is not leader"}
-			response.WriteHeaderAndJson(http.StatusInternalServerError, res, restful.MIME_JSON)
+			res["apiserver"] = map[string]interface{}{"leader": "false", "error": "current pod is not leader"}
+			response.WriteHeaderAndJson(http.StatusServiceUnavailable, res, restful.MIME_JSON)
 			return
 		}
 
-		res["apiserver"] = map[string]interface{}{"leader": "ok"}
+		res["apiserver"] = map[string]interface{}{"leader": "true"}
 		response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
 		return
 	}
@@ -116,8 +121,6 @@ func Execute() {
 	app.migrationRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-migration-controller")
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
-
-	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -163,13 +166,14 @@ func (vca *VirtControllerApp) Run() {
 			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
+					vca.Lock()
 					vca.isLeader = true
+					vca.Unlock()
 					go vca.vmController.Run(3, stop)
 					go vca.migrationController.Run(3, stop)
 					go vca.rsController.Run(3, stop)
 				},
 				OnStoppedLeading: func() {
-					vca.isLeader = false
 					golog.Fatal("leaderelection lost")
 				},
 			},
@@ -216,5 +220,6 @@ func (vca *VirtControllerApp) DefineFlags() {
 	flag.StringVar(&vca.migratorImage, "migrator-image", "virt-handler", "Container which orchestrates a VM migration")
 	flag.StringVar(&vca.socketDir, "socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base direcetory for ephemeral disk data")
+	leaderelectionconfig.BindFlags(&vca.LeaderElection)
 	flag.Parse()
 }

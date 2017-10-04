@@ -44,7 +44,7 @@ func DefaultLeaderElectionConfiguration() Configuration {
 	}
 }
 
-// BindFlags binds the common LeaderElectionCLIConfig flags to a flagset
+// BindFlags binds the common LeaderElectionCLIConfig flags
 func BindFlags(l *Configuration) {
 	flag.DurationVar(&l.LeaseDuration.Duration, "leader-elect-lease-duration", l.LeaseDuration.Duration, ""+
 		"The duration that non-leader candidates will wait after observing a leadership "+
