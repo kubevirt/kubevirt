@@ -58,11 +58,11 @@ type virtHandlerApp struct {
 	Service          *service.Service
 	HostOverride     string
 	LibvirtUri       string
-	SocketDir        string
+	VirtShareDir     string
 	EphemeralDiskDir string
 }
 
-func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, socketDir *string, ephemeralDiskDir *string) *virtHandlerApp {
+func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string) *virtHandlerApp {
 	if *hostOverride == "" {
 		defaultHostName, err := os.Hostname()
 		if err != nil {
@@ -75,7 +75,7 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 		Service:          service.NewService("virt-handler", host, port),
 		HostOverride:     *hostOverride,
 		LibvirtUri:       *libvirtUri,
-		SocketDir:        *socketDir,
+		VirtShareDir:     *virtShareDir,
 		EphemeralDiskDir: *ephemeralDiskDir,
 	}
 }
@@ -119,7 +119,7 @@ func (app *virtHandlerApp) Run() {
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
 		recorder,
-		isolation.NewSocketBasedIsolationDetector(app.SocketDir),
+		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
 	)
 	if err != nil {
 		panic(err)
@@ -182,7 +182,7 @@ func (app *virtHandlerApp) Run() {
 
 	// Add websocket route to access consoles remotely
 	console := rest.NewConsoleResource(domainConn)
-	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.SocketDir))
+	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.VirtShareDir))
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/console").To(console.Console))
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
@@ -198,11 +198,11 @@ func main() {
 	host := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8185, "Port to listen on")
 	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
-	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
+	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, socketDir, ephemeralDiskDir)
+	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir)
 	app.Run()
 }

@@ -26,7 +26,7 @@ var _ = Describe("Isolation", func() {
 		BeforeEach(func() {
 			var err error
 			tmpDir, err = ioutil.TempDir("", "kubevirt")
-			os.MkdirAll(tmpDir+"/default/testvm", os.ModePerm)
+			os.MkdirAll(tmpDir+"/sockets", os.ModePerm)
 			socket, err = net.Listen("unix", SocketFromNamespaceName(
 				tmpDir,
 				vm.ObjectMeta.Namespace,

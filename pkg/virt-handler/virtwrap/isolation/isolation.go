@@ -51,18 +51,18 @@ type PodIsolationDetector interface {
 }
 
 type socketBasedIsolationDetector struct {
-	socketDir  string
-	controller []string
+	virtShareDir string
+	controller   []string
 }
 
-// NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
+// NewSocketBasedIsolationDetector takes virtShareDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
-func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
-	return &socketBasedIsolationDetector{socketDir: socketDir, controller: []string{"cpu", "cpuacct", "cpuset", "freezer", "memory", "net_cls", "perf_event"}}
+func NewSocketBasedIsolationDetector(virtShareDir string) PodIsolationDetector {
+	return &socketBasedIsolationDetector{virtShareDir: virtShareDir, controller: []string{"cpu", "cpuacct", "cpuset", "freezer", "memory", "net_cls", "perf_event"}}
 }
 
 func SocketFromNamespaceName(baseDir string, namespace string, name string) string {
-	return filepath.Clean(baseDir) + "/" + namespace + "/" + name + "/sock"
+	return filepath.Clean(baseDir) + "/sockets/" + namespace + "_" + name + "_sock"
 }
 
 func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolationDetector {
@@ -77,7 +77,7 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachine) (*Isolation
 	var controller []string
 
 	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
-	socket := SocketFromNamespaceName(s.socketDir, vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
+	socket := SocketFromNamespaceName(s.virtShareDir, vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
 	if pid, err = s.getPid(socket); err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Could not get owner Pid of socket %s", socket)
 		return nil, err

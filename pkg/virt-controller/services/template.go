@@ -41,7 +41,7 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage string
 	migratorImage string
-	socketBaseDir string
+	virtShareDir  string
 }
 
 func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.Pod, error) {
@@ -49,7 +49,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
-	socketDir := t.socketBaseDir + "/" + namespace + "/" + domain
 
 	initialDelaySeconds := 2
 	timeoutSeconds := 5
@@ -66,13 +65,13 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			"--qemu-timeout", "5m",
 			"--name", domain,
 			"--namespace", namespace,
-			"--socket-dir", t.socketBaseDir,
+			"--kubevirt-share-dir", t.virtShareDir,
 			"--readiness-file", "/tmp/healthy",
 		},
 		VolumeMounts: []kubev1.VolumeMount{
 			{
-				Name:      "sockets",
-				MountPath: socketDir,
+				Name:      "virt-share-dir",
+				MountPath: t.virtShareDir,
 			},
 		},
 		ReadinessProbe: &kubev1.Probe{
@@ -98,10 +97,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	}
 
 	volumes = append(volumes, kubev1.Volume{
-		Name: "sockets",
+		Name: "virt-share-dir",
 		VolumeSource: kubev1.VolumeSource{
 			HostPath: &kubev1.HostPathVolumeSource{
-				Path: socketDir,
+				Path: t.virtShareDir,
 			},
 		},
 	})
@@ -197,13 +196,13 @@ func (t *templateService) RenderMigrationJob(vm *v1.VirtualMachine, sourceNode *
 	return &job, nil
 }
 
-func NewTemplateService(launcherImage string, migratorImage string, socketDir string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, migratorImage string, virtShareDir string) (TemplateService, error) {
 	precond.MustNotBeEmpty(launcherImage)
 	precond.MustNotBeEmpty(migratorImage)
 	svc := templateService{
 		launcherImage: launcherImage,
 		migratorImage: migratorImage,
-		socketBaseDir: socketDir,
+		virtShareDir:  virtShareDir,
 	}
 	return &svc, nil
 }

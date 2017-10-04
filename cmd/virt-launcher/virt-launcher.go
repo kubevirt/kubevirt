@@ -24,6 +24,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -42,12 +43,18 @@ func markReady(readinessFile string) {
 	log.Printf("Marked as ready")
 }
 
-func createSocket(socketDir string, namespace string, name string) net.Listener {
-	socketPath := isolation.SocketFromNamespaceName(socketDir, namespace, name)
-	if err := os.RemoveAll(socketPath); err != nil {
+func createSocket(virtShareDir string, namespace string, name string) net.Listener {
+	sockFile := isolation.SocketFromNamespaceName(virtShareDir, namespace, name)
+
+	err := os.MkdirAll(filepath.Dir(sockFile), 0755)
+	if err != nil {
+		log.Fatal("Could not create directory for socket.", err)
+	}
+
+	if err := os.RemoveAll(sockFile); err != nil {
 		log.Fatal("Could not clean up old socket for cgroup detection", err)
 	}
-	socket, err := net.Listen("unix", isolation.SocketFromNamespaceName(socketDir, namespace, name))
+	socket, err := net.Listen("unix", sockFile)
 
 	if err != nil {
 		log.Fatal("Could not create socket for cgroup detection.", err)
@@ -62,14 +69,14 @@ func main() {
 	logging.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
 	debugMode := flag.Bool("debug", false, "Enable debug messages")
-	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to place a socket for cgroup detection")
+	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	name := flag.String("name", "", "Name of the VM")
 	namespace := flag.String("namespace", "", "Namespace of the VM")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	socket := createSocket(*socketDir, *namespace, *name)
+	socket := createSocket(*virtShareDir, *namespace, *name)
 	defer socket.Close()
 
 	mon := virtlauncher.NewProcessMonitor("qemu", *debugMode)
