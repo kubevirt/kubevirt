@@ -2,11 +2,11 @@
 VM expose a different, and partially overlapping, set of metrics with
 respect to containers. This document explain the differences and how
 those metrics are made available to the cluster, to be consumed using
-the standard kubernetes facilities.
+the standard Kubernetes facilities.
 
 ## libvirt metrics
 [libvirt](https://libvirt.org/) is the virtualization framework that
-kubevirt uses; in order to describe the VM metrics in kubevirt, the
+KubeVirt uses; in order to describe the VM metrics in KubeVirt, the
 first step is to inspect what libvirt provides, and how it collect the
 data.
 
@@ -89,11 +89,11 @@ From now on, the overlapping metrics  (aka 'system metrics') will be ignored,
 and we will focus on the 'hypervisor' and 'guest agent' metrics.
 
 ## collection of VM metrics
-A natural fit for the kubevirt specific metrics is the [custom metrics](
-https://github.com/kubernetes/kubernetes/blob/release-1.2/docs/proposals/custom-metrics.md).
+A natural fit for the KubeVirt specific metrics is the [custom metrics](
+https://github.com/Kubernetes/Kubernetes/blob/release-1.2/docs/proposals/custom-metrics.md).
 All the metrics are accessible through the libvirt API.
 
-The collection of the VM metrics will be done by a separate pod, implemented as kubernetes DaemonSet.
+The collection of the VM metrics will be done by a separate pod, implemented as Kubernetes DaemonSet.
 This is because the metrics are available from a centralized source, the libvirt daemon.
 To increase resilience, each node should expose all the metrics it knows about, avoiding
 a single point of failure per cluster. The resulting architecture is shown in the figure below.
@@ -145,7 +145,7 @@ exported dataset in the following manner
 
 - It always export all the metrics it knows about, even if the real data is not yet available.
   Such metrics report the special value [TODO: which one? does this
-  concept exist in kubernetes?] until the real data is available.
+  concept exist in Kubernetes?] until the real data is available.
   For example, the VM metric `VM.migration.dataTotal` will be always
   reported even before the first migration was attempted, if ever.
 
@@ -166,11 +166,11 @@ the durability of the data:
 ## Implementation notes
 
 To implement the VM metrics collection and reporting, we will initially
-adapt the [vAdvisor project](https://github.com/kubevirt/vAdvisor),
+adapt the [vAdvisor project](https://github.com/KubeVirt/vAdvisor),
 fixing any gaps the project have with the state described above.
 vAdvisor is implemented in python. Once vAdvisor is feature-complete, we
 will rewrite in golang. This rewrite is motivated by those factors:
-- projects in golang have a better integration with the kubernetes ecosystem
+- projects in golang have a better integration with the Kubernetes ecosystem
 - projects in golang requires a simpler and smaller container image
 - we know from experience with [related](http://www.collectd.org)
   [projects](http://www.ovirt.org) that collecting and reporting metrics
