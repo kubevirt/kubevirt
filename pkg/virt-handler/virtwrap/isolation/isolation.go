@@ -62,7 +62,16 @@ func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
 }
 
 func SocketFromNamespaceName(baseDir string, namespace string, name string) string {
-	return filepath.Clean(baseDir) + "/" + namespace + "/" + name + "/sock"
+	return filepath.Clean(baseDir) + "/" + namespace + "_" + name + ".sock"
+}
+
+func SplitSocketNamespaceNameFunc(fullPath string) (namespace string, name string, err error) {
+	socket := strings.TrimSuffix(filepath.Base(fullPath), ".sock")
+	namespaceName := strings.Split(socket, "_")
+	if len(namespaceName) != 2 {
+		return "", "", fmt.Errorf("Invalid socket path: %s", fullPath)
+	}
+	return namespaceName[0], namespaceName[1], nil
 }
 
 func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolationDetector {

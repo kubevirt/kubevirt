@@ -47,14 +47,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
-func NewVMController(lw cache.ListerWatcher,
-	domainManager virtwrap.DomainManager,
-	recorder record.EventRecorder,
-	restClient rest.RESTClient,
-	clientset kubecli.KubevirtClient,
-	host string,
+func NewVMController(lw cache.ListerWatcher, socketIntofrmer cache.SharedIndexInformer, domainManager virtwrap.DomainManager, recorder record.EventRecorder, restClient rest.RESTClient, clientset kubecli.KubevirtClient, host string,
 	configDiskClient configdisk.ConfigDiskClient) (cache.Store, workqueue.RateLimitingInterface, *controller.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+
+	// Tie the socket based informer into the VM controller
+	socketIntofrmer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(queue))
 
 	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host, configDiskClient)
 

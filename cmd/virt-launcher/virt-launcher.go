@@ -163,7 +163,14 @@ func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	socket, err := net.Listen("unix", isolation.SocketFromNamespaceName(*socketDir, *namespace, *name))
+	// In case of an abnormal shutdown, we have to re-create the socket
+	// This allows us to use inotify to react more interactively on the virt-handler side, when a pod is ready
+	socketPath := isolation.SocketFromNamespaceName(*socketDir, *namespace, *name)
+	err := os.Remove(socketPath)
+	if err != nil && !os.IsNotExist(err) {
+		log.Fatal("Could not remove left over socket from a previous run.", err)
+	}
+	socket, err := net.Listen("unix", socketPath)
 
 	if err != nil {
 		log.Fatal("Could not create socket for cgroup detection.", err)

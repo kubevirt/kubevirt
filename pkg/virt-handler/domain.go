@@ -37,6 +37,7 @@ import (
 TODO: Define the exact scope of this controller.
 For now it looks like we should use domain events to detect unexpected domain changes like crashes or vms going
 into pause mode because of resource shortage or cut off connections to storage.
+TODO: Use domain events as additional, secondary source in the VM controller
 */
 func NewDomainController(vmQueue workqueue.RateLimitingInterface, vmStore cache.Store, informer cache.SharedInformer, restClient rest.RESTClient, recorder record.EventRecorder) (cache.Store, *controller.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
