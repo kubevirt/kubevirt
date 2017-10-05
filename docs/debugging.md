@@ -47,7 +47,7 @@ logs with the `--previous` flag.
 Both, Kubernetes and KubeVirt are creating events, which can be viewed via
 
 ```bash
-cluster/kubectl.sh get events --watch
+cluster/kubectl.sh get events --all-namespaces --watch
 ```
 
 This way it is pretty easy to detect if a Pod or a VM got started.
