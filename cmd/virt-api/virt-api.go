@@ -28,6 +28,7 @@ import (
 	restfulspec "github.com/emicklei/go-restful-openapi"
 	swagger "github.com/emicklei/go-restful-swagger12"
 	kithttp "github.com/go-kit/kit/transport/http"
+	openapispec "github.com/go-openapi/spec"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -138,13 +139,32 @@ func (app *virtAPIApp) Run() {
 	}
 	swagger.InstallSwaggerService(config)
 	openapiConf := restfulspec.Config{
-		WebServices:    restful.RegisteredWebServices(),
+		WebServices:    []*restful.WebService{ws},
 		WebServicesURL: "http://localhost:8183",
 		APIPath:        "/openapi.json",
+		PostBuildSwaggerObjectHandler: addInfoToSwaggerObject,
 	}
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(openapiConf))
 
 	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
+}
+
+func addInfoToSwaggerObject(swo *openapispec.Swagger) {
+	swo.Info = &openapispec.Info{
+		InfoProps: openapispec.InfoProps{
+			Title:       "KubeVirt API, ",
+			Description: "This is KubeVirt API an add-on for Kubernetes.",
+			Contact: &openapispec.ContactInfo{
+				Name:  "kubevirt-dev",
+				Email: "kubevirt-dev@googlegroups.com",
+				URL:   "https://github.com/kubevirt/kubevirt",
+			},
+			License: &openapispec.License{
+				Name: "Apache 2.0",
+				URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+			},
+		},
+	}
 }
 
 func main() {

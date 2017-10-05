@@ -147,7 +147,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
-	ws.Route(addWatchGetListParams(
+	ws.Route(addWatchNamespacedGetListParams(
 		ws.GET("/watch"+ResourceBasePath(gvr)).
 			Operation("watchNamespaced"+objKind).
 			Produces(mime.MIME_JSON).
@@ -187,9 +187,13 @@ func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionReso
 }
 
 func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(NamespaceParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
+	return builder.Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
 		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
 		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("integer"))
+}
+
+func addWatchNamespacedGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return addWatchGetListParams(builder.Param(NamespaceParam(ws)), ws)
 }
 
 func addGetAllNamespacesListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
@@ -199,7 +203,7 @@ func addGetAllNamespacesListParams(builder *restful.RouteBuilder, ws *restful.We
 }
 
 func addDeleteListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(NameParam(ws)).Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws))
+	return builder.Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws))
 }
 
 func addGetParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
