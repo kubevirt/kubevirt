@@ -57,7 +57,7 @@ var _ = Describe("Domain", func() {
 	})
 
 	Context("A new domain appears on the host", func() {
-		It("should inform vm controller if no correspnding VM is in the cache", func() {
+		It("should inform vm controller if no corresponding VM is in the cache", func() {
 			dom := api.NewMinimalDomain("testvm")
 
 			vm := v1.NewMinimalVM("testvm")
@@ -85,7 +85,7 @@ var _ = Describe("Domain", func() {
 			controller.Dequeue(domainStore, domainQueue, dispatch)
 			Expect(vmQueue.Len()).To(Equal(1))
 		})
-		It("should not inform vm controller if a correspnding VM is in the cache", func() {
+		It("should not inform vm controller if a corresponding VM is in the cache", func() {
 			vmStore.Add(v1.NewMinimalVM("testvm"))
 			domain := api.NewMinimalDomain("testvm")
 			domainStore.Add(domain)
