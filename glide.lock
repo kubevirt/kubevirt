@@ -12,7 +12,7 @@ imports:
   subpackages:
   - log
 - name: github.com/emicklei/go-restful-openapi
-  version: efa082cf7dfa43fc8381ca3bfb9ef9a248c5d686
+  version: 7cb0644488653a4657f941eb34631edf7d5d21e3
 - name: github.com/emicklei/go-restful-swagger12
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
