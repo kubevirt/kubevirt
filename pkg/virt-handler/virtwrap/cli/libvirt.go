@@ -33,6 +33,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
 
+const ConnectionTimeout = 15 * time.Second
+const ConnectionInterval = 10 * time.Second
+
 // TODO: Should we handle libvirt connection errors transparent or panic?
 type Connection interface {
 	LookupDomainByName(name string) (VirDomain, error)
@@ -318,16 +321,13 @@ type VirDomain interface {
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
-	timeout := 15 * time.Second
-	interval := 10 * time.Second
-
 	logger := logging.DefaultLogger()
 	logger.Info().V(1).Msgf("Connecting to libvirt daemon: %s", uri)
 
 	var err error
 	var virConn *libvirt.Connect
 
-	err = utilwait.PollImmediate(interval, timeout, func() (done bool, err error) {
+	err = utilwait.PollImmediate(ConnectionInterval, ConnectionTimeout, func() (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
 		if err != nil {
 			return false, nil
