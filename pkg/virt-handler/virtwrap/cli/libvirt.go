@@ -22,6 +22,7 @@ package cli
 //go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -335,7 +336,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 		return true, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot connect to libvirt daemon: %v", err)
 	}
 	logger.Info().V(1).Msg("Connected to libvirt daemon")
 
