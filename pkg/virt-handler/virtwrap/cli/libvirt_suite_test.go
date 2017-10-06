@@ -34,7 +34,7 @@ var _ = Describe("Libvirt Suite", func() {
 			_, err := NewConnection("http://", "", "", 1*time.Microsecond)
 			msg := fmt.Sprintf("%v", err)
 			Expect(err).To(HaveOccurred())
-			Expect(msg).To(Equal("timed out waiting for the condition"))
+			Expect(msg).To(Equal("cannot connect to libvirt daemon: timed out waiting for the condition"))
 		})
 	})
 })
