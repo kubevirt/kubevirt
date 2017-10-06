@@ -26,5 +26,6 @@ RUN dnf -y install libvirt-client genisoimage && \
     dnf -y clean all
 
 COPY virt-handler /virt-handler
+COPY network-helper/network-helper /network-helper
 
 ENTRYPOINT [ "/virt-handler" ]

@@ -365,6 +365,7 @@ type FilterRef struct {
 type InterfaceSource struct {
 	Network string `xml:"network,attr,omitempty"`
 	Device  string `xml:"dev,attr,omitempty"`
+	Mode    string `xml:"mode,attr,omitempty"`
 	Bridge  string `xml:"bridge,attr,omitempty"`
 }
 

@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/networking"
 	"kubevirt.io/kubevirt/pkg/precond"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
@@ -137,14 +138,8 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 }
 
 func (t *templateService) RenderMigrationJob(vm *v1.VirtualMachine, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod, targetHostInfo *v1.MigrationHostInfo) (*kubev1.Pod, error) {
-	srcAddr := ""
-	dstAddr := ""
-	for _, addr := range sourceNode.Status.Addresses {
-		if (addr.Type == kubev1.NodeInternalIP) && (srcAddr == "") {
-			srcAddr = addr.Address
-			break
-		}
-	}
+
+	srcAddr := networking.GetNodeInternalIP(sourceNode)
 	if srcAddr == "" {
 		err := fmt.Errorf("migration source node is unreachable")
 		log.Log.Error("migration target node is unreachable")
@@ -152,12 +147,7 @@ func (t *templateService) RenderMigrationJob(vm *v1.VirtualMachine, sourceNode *
 	}
 	srcUri := fmt.Sprintf("qemu+tcp://%s/system", srcAddr)
 
-	for _, addr := range targetNode.Status.Addresses {
-		if (addr.Type == kubev1.NodeInternalIP) && (dstAddr == "") {
-			dstAddr = addr.Address
-			break
-		}
-	}
+	dstAddr := networking.GetNodeInternalIP(targetNode)
 	if dstAddr == "" {
 		err := fmt.Errorf("migration target node is unreachable")
 		log.Log.Error("migration target node is unreachable")

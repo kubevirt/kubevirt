@@ -35,6 +35,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"os/exec"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -43,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/networking"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
@@ -372,6 +375,51 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
+func MapNodeNetworkToLibvirt(vm *v1.VirtualMachine, clientSet kubecli.KubevirtClient) (*v1.VirtualMachine, error) {
+
+	var node *k8sv1.Node
+
+	for i, iface := range vm.Spec.Domain.Devices.Interfaces {
+		if iface.Type == "nodeNetwork" {
+			if node == nil {
+				var err error
+				node, err = clientSet.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+			}
+			nodeIP := networking.GetNodeInternalIP(node)
+			if nodeIP == "" {
+				return nil, fmt.Errorf("No Node IP detected.")
+			}
+			cmd := exec.Command("./network-helper", "--ip", nodeIP)
+			rawIfName, err := cmd.Output()
+			ifName := strings.TrimSpace(string(rawIfName))
+			if err != nil {
+				return nil, fmt.Errorf("Failed with %v, output: %v", err, ifName)
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("Could not detect interface for IP %v", nodeIP)
+			}
+
+			obj, err := model.Clone(&iface)
+			if err != nil {
+				return nil, err
+			}
+
+			newIf := obj.(*v1.Interface)
+			newIf.Type = "direct"
+			newIf.Source = v1.InterfaceSource{
+				Device: ifName,
+				Mode:   "bridge",
+			}
+			vm.Spec.Domain.Devices.Interfaces[i] = *newIf
+		}
+	}
+	return vm, nil
+}
+
 // Almost everything in the VM object maps exactly to its domain counterpart
 // One exception is persistent volume claims. This function looks up each PV
 // and inserts a corrected disk entry into the VM's device map.
@@ -581,10 +629,16 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, should
 		return nil
 	}
 
-	// Synchronize the VM state
+	// Map PVCs to Libvirt
 	vm, err = MapPersistentVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
 	if err != nil {
 		return err
+	}
+
+	// Map HostNetwork type to macvtap
+	vm, err = MapNodeNetworkToLibvirt(vm, d.clientset)
+	if err != nil {
+		return false, err
 	}
 
 	// Map Container Registry Disks to block devices Libvirt can consume
