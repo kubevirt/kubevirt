@@ -63,6 +63,7 @@ func NewController(
 	vmInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	watchdogInformer cache.SharedIndexInformer,
+	networkIntrospector networking.IntrospectorInterface,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -79,6 +80,7 @@ func NewController(
 		vmInformer:             vmInformer,
 		domainInformer:         domainInformer,
 		watchdogInformer:       watchdogInformer,
+		networkIntrospector:    networkIntrospector,
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -114,6 +116,7 @@ type VirtualMachineController struct {
 	vmInformer             cache.SharedIndexInformer
 	domainInformer         cache.SharedInformer
 	watchdogInformer       cache.SharedIndexInformer
+	networkIntrospector networking.IntrospectorInterface
 }
 
 func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
@@ -375,7 +378,7 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
-func MapNodeNetworkToLibvirt(vm *v1.VirtualMachine, clientSet kubecli.KubevirtClient) (*v1.VirtualMachine, error) {
+func (d *VMHandlerDispatch) mapNodeNetworkToLibvirt(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 
 	var node *k8sv1.Node
 
@@ -383,7 +386,7 @@ func MapNodeNetworkToLibvirt(vm *v1.VirtualMachine, clientSet kubecli.KubevirtCl
 		if iface.Type == "nodeNetwork" {
 			if node == nil {
 				var err error
-				node, err = clientSet.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
+				node, err = d.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
 				if err != nil {
 					return nil, err
 				}
@@ -392,15 +395,10 @@ func MapNodeNetworkToLibvirt(vm *v1.VirtualMachine, clientSet kubecli.KubevirtCl
 			if nodeIP == "" {
 				return nil, fmt.Errorf("No Node IP detected.")
 			}
-			cmd := exec.Command("./network-helper", "--ip", nodeIP)
-			rawIfName, err := cmd.Output()
-			ifName := strings.TrimSpace(string(rawIfName))
-			if err != nil {
-				return nil, fmt.Errorf("Failed with %v, output: %v", err, ifName)
-			}
+			link, err := d.networkIntrospector.GetLinkByIP(nodeIP, "1")
 
 			if err != nil {
-				return nil, fmt.Errorf("Could not detect interface for IP %v", nodeIP)
+				return nil, fmt.Errorf("Could not detect interface for IP %v: %v", nodeIP, err)
 			}
 
 			obj, err := model.Clone(&iface)
@@ -411,7 +409,7 @@ func MapNodeNetworkToLibvirt(vm *v1.VirtualMachine, clientSet kubecli.KubevirtCl
 			newIf := obj.(*v1.Interface)
 			newIf.Type = "direct"
 			newIf.Source = v1.InterfaceSource{
-				Device: ifName,
+				Device: link.Name,
 				Mode:   "bridge",
 			}
 			vm.Spec.Domain.Devices.Interfaces[i] = *newIf
@@ -636,7 +634,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, should
 	}
 
 	// Map HostNetwork type to macvtap
-	vm, err = MapNodeNetworkToLibvirt(vm, d.clientset)
+	vm, err = d.mapNodeNetworkToLibvirt(vm)
 	if err != nil {
 		return false, err
 	}

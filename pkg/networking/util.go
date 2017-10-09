@@ -4,10 +4,22 @@ import (
 	"net"
 	"strings"
 
+	"encoding/json"
+	"fmt"
+	"os/exec"
+
+	"github.com/vishvananda/netlink"
 	"k8s.io/api/core/v1"
 )
 
-func GetInterfaceFromIP(ip string) (iface *net.Interface, err error) {
+type Link struct {
+	Type string           `json:"type"`
+	IP   string           `json:"ip"`
+	Name string           `json:"name"`
+	MAC  net.HardwareAddr `json:"mac"`
+}
+
+func GetInterfaceFromIP(ip string) (iface netlink.Link, err error) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		return nil, err
@@ -15,11 +27,11 @@ func GetInterfaceFromIP(ip string) (iface *net.Interface, err error) {
 	for _, iface := range interfaces {
 		addrs, err := iface.Addrs()
 		if err != nil {
-			return &iface, err
+			return nil, err
 		}
 		for _, addr := range addrs {
 			if ip == strings.Split(addr.String(), "/")[0] {
-				return &iface, nil
+				return netlink.LinkByName(iface.Name)
 			}
 		}
 
@@ -34,4 +46,31 @@ func GetNodeInternalIP(node *v1.Node) (ip string) {
 		}
 	}
 	return ""
+}
+
+type IntrospectorInterface interface {
+	GetLinkByIP(ip string, pid string) (*Link, error)
+}
+
+type introspector struct {
+	toolDir string
+}
+
+func NewIntrospector(toolDir string) IntrospectorInterface {
+	return &introspector{strings.TrimSuffix(toolDir, "/")}
+}
+
+func (i *introspector) GetLinkByIP(ip string, pid string) (*Link, error) {
+	cmd := exec.Command(i.toolDir+"/network-helper", "--ip", ip, "--target", pid)
+	rawLink, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("Failed with %v, output: %v", err, string(rawLink))
+	}
+
+	link := &Link{}
+	err = json.Unmarshal(rawLink, link)
+	if err != nil {
+		return nil, fmt.Errorf("Could not unmarshal response from network-helper: %v", err)
+	}
+	return link, nil
 }

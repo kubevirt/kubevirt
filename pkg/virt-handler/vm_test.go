@@ -96,7 +96,7 @@ var _ = Describe("VM", func() {
 		configDiskClient := configdisk.NewConfigDiskClient(virtClient)
 		mockWatchdog = &MockWatchdog{shareDir}
 
-		controller = NewController(domainManager, recorder, virtClient, host, configDiskClient, shareDir, 10, vmInformer, domainInformer, watchdogInformer)
+		controller = NewController(domainManager, recorder, virtClient, host, configDiskClient, shareDir, 10, vmInformer, domainInformer, watchdogInformer, nil)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 

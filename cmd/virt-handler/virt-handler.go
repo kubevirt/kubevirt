@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/networking"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
@@ -65,9 +66,10 @@ type virtHandlerApp struct {
 	VirtShareDir            string
 	EphemeralDiskDir        string
 	WatchdogTimeoutDuration time.Duration
+	ToolsDir                string
 }
 
-func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration) *virtHandlerApp {
+func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration, toolsDir *string) *virtHandlerApp {
 	if *hostOverride == "" {
 		defaultHostName, err := os.Hostname()
 		if err != nil {
@@ -83,6 +85,7 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 		VirtShareDir:            *virtShareDir,
 		EphemeralDiskDir:        *ephemeralDiskDir,
 		WatchdogTimeoutDuration: *watchdogTimeoutDuration,
+		ToolsDir:                *toolsDir,
 	}
 }
 
@@ -139,6 +142,7 @@ func (app *virtHandlerApp) Run() {
 	configDiskClient := configdisk.NewConfigDiskClient(virtCli)
 
 	// Wire VM controller
+	networkIntrospector := networking.NewIntrospector(app.ToolsDir)
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
@@ -172,6 +176,7 @@ func (app *virtHandlerApp) Run() {
 		vmSharedInformer,
 		domainSharedInformer,
 		watchdogInformer,
+		networkIntrospector,
 	)
 
 	// Bootstrapping. From here on the startup order matters
@@ -202,10 +207,11 @@ func main() {
 	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
+	toolsDir := flag.String("tools-dir", "/tools", "Location for helper binaries")
 	watchdogTimeoutDuration := flag.Duration("watchdog-timeout", defaultWatchdogTimeout, "Watchdog file timeout.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir, watchdogTimeoutDuration)
+	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir, watchdogTimeoutDuration, toolsDir)
 	app.Run()
 }
