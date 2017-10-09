@@ -1,4 +1,4 @@
-package vm
+package vmreplicaset
 
 import (
 	"fmt"
@@ -20,11 +20,11 @@ func NewStrategy(typer runtime.ObjectTyper) kubevirtStrategy {
 }
 
 func GetAttrs(obj runtime.Object) (labels.Set, fields.Set, bool, error) {
-	vm, ok := obj.(*v1.VirtualMachine)
+	vmrs, ok := obj.(*v1.VirtualMachineReplicaSet)
 	if !ok {
-		return nil, nil, false, fmt.Errorf("given object is not a VirtualMachine.")
+		return nil, nil, false, fmt.Errorf("given object is not a VirtualMachineReplicaSet.")
 	}
-	return labels.Set(vm.ObjectMeta.Labels), vmToSelectableFields(vm), vm.ObjectMeta.Initializers != nil, nil
+	return labels.Set(vmrs.ObjectMeta.Labels), vmrsToSelectableFields(vmrs), vmrs.ObjectMeta.Initializers != nil, nil
 }
 
 // MatchVM is the filter used by the generic etcd backend to watch events
@@ -38,7 +38,7 @@ func MatchVM(label labels.Selector, field fields.Selector) storage.SelectionPred
 }
 
 // vmToSelectableFields returns a field set that represents the object.
-func vmToSelectableFields(obj *v1.VirtualMachine) fields.Set {
+func vmrsToSelectableFields(obj *v1.VirtualMachineReplicaSet) fields.Set {
 	return generic.ObjectMetaFieldsSet(&obj.ObjectMeta, true)
 }
 

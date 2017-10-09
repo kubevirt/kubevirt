@@ -14,7 +14,7 @@ func Install(groupFactoryRegistry announced.APIGroupFactoryRegistry, registry *r
 	if err := announced.NewGroupMetaFactory(
 		&announced.GroupMetaFactoryArgs{
 			GroupName:                  v1.GroupName,
-			RootScopedKinds:            sets.NewString("APIService"),
+			RootScopedKinds:            sets.NewString("VirtualMachine", "VirtualMachineList", "Migration", "MigrationList", "VirtualMachineReplicaSet", "VirtualMachineReplicaSetList"),
 			VersionPreferenceOrder:     []string{v1.SchemeGroupVersion.Version},
 			AddInternalObjectsToScheme: v1.AddToScheme,
 		},

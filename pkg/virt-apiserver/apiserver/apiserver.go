@@ -13,8 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-apiserver/registry/migration"
 	"kubevirt.io/kubevirt/pkg/virt-apiserver/registry/vm"
+	"kubevirt.io/kubevirt/pkg/virt-apiserver/registry/vmreplicaset"
 )
 
 var (
@@ -26,6 +28,7 @@ var (
 )
 
 func init() {
+	logging.DefaultLogger().Info().Msg("Registering KubeVirt known types")
 	Install(groupFactoryRegistry, registry, Scheme)
 
 	// Note: Adding these boilderplate items is marked as
@@ -43,16 +46,7 @@ func init() {
 	)
 
 	metav1.AddToGroupVersion(Scheme, v1.GroupVersion)
-	Scheme.AddKnownTypes(v1.GroupVersion,
-		&v1.VirtualMachine{},
-		&v1.VirtualMachineList{},
-		&metav1.ListOptions{},
-		&metav1.DeleteOptions{},
-		&v1.Spice{},
-		&v1.Migration{},
-		&v1.MigrationList{},
-		&metav1.GetOptions{},
-	)
+	v1.AddKnownTypes(Scheme)
 }
 
 type Config struct {
@@ -85,6 +79,12 @@ func (c completedConfig) New() (*VirtApiServer, error) {
 		return nil, err
 	}
 	storage["virtualmachines"] = vms
+
+	vmrs, err := vmreplicaset.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter)
+	if err != nil {
+		return nil, err
+	}
+	storage["virtualmachinereplicasets"] = vmrs
 
 	migrations, err := migration.NewREST(Scheme, c.GenericConfig.RESTOptionsGetter)
 	if err != nil {
