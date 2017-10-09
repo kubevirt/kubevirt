@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/url"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -19,6 +21,36 @@ import (
 
 //FIXME: is this defined already somewhere else?
 const defaultEtcdPathPrefix = "/registry/kubevirt.io"
+const etcdRetryLimit = 600
+const etcdRetryInterval = 1 * time.Second
+const connectionTimeout = 1 * time.Second
+
+type etcdConnection struct {
+	ServerList []string
+}
+
+type etcdHealthResponse struct {
+	health bool
+}
+
+func etcdReady(serverUri string) bool {
+	if connUrl, err := url.Parse(serverUri); err == nil {
+		if conn, err := net.DialTimeout("tcp", connUrl.Host, connectionTimeout); err == nil {
+			defer conn.Close()
+			return true
+		}
+	}
+	return false
+}
+
+func (e etcdConnection) checkEtcdServers() (done bool, err error) {
+	for _, serverUri := range e.ServerList {
+		if etcdReady(serverUri) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
 type ApiServerOptions struct {
 	RecommendedOptions *genericoptions.RecommendedOptions
@@ -26,9 +58,6 @@ type ApiServerOptions struct {
 
 	host string
 	port int
-	//caFile   string
-	//certFile string
-	//keyFile  string
 }
 
 func (o ApiServerOptions) Complete() error {
@@ -122,52 +151,22 @@ func NewVirtApiServerCommand(stopCh <-chan struct{}) *cobra.Command {
 func main() {
 	logging.InitializeLogging("virt-apiserver")
 
-	//FIXME: if the new code layout works, this can all be removed
-	/*	// parse command line options
-		//swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
-		host := flag.String("listen", "0.0.0.0", "Address to listen on")
-
-		port := flag.Int("port", 8183, "Port to listen on")
-		//etcdServer := flag.String("etcd-servers", "http://127.0.0.1:2379", "URL to etcd server")
-		//caFile := flag.String("client-ca-file", "/etc/kubernetes/pki/ca.crt", "Client CA certificate path")
-		//certFile := flag.String("tls-cert-file", "/etc/kubernetes/pki/apiserver.crt", "Client certificate path")
-		//keyFile := flag.String("tls-private-key-file", "/etc/kubernetes/pki/apiserver.key", "Client key path")
-
-		recommended := genericoptions.NewRecommendedOptions(defaultEtcdPathPrefix, apiserver.Scheme, apiserver.Codecs.LegacyCodec(v1.SchemeGroupVersion))
-		recommended.SecureServing = genericoptions.NewSecureServingOptions()
-		recommended.SecureServing.BindPort = *port
-		recommended.AddFlags(flag.CommandLine)
-
-		admission := genericoptions.NewAdmissionOptions()
-		admission.AddFlags(flag.CommandLine)
-
-		flag.Parse()
-
-		etcdServers, err := flag.CommandLine.GetStringSlice("etcd-servers")
-		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Unable to obtain etcd server list")
-		}
-		recommended.Etcd.StorageConfig.ServerList = etcdServers
-
-		// FIXME: not sure if this belongs here
-		apiserver.Init()
-
-		options := ApiServerOptions{
-			host: *host,
-			port: *port,
-			//caFile:             *caFile,
-			//certFile:           *certFile,
-			//keyFile:            *keyFile,
-			RecommendedOptions: recommended,
-			Admission:          admission,
-		}
-
-		if err := options.RunApiServer(wait.NeverStop); err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Unexpected server halt")
-		}
-	*/
 	cmd := NewVirtApiServerCommand(wait.NeverStop)
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
+
+	// FIXME: this is hardcoded from the KubeVirt default manifest.
+	// get rid of this.
+	etcdServers := []string{"http://127.0.0.1:2379"}
+	//etcdServers := strings.Split(etcdServerFlag.Value.String(), ",")
+	if err := wait.PollImmediate(etcdRetryInterval, etcdRetryLimit*etcdRetryInterval,
+		etcdConnection{ServerList: etcdServers}.checkEtcdServers); err != nil {
+		logging.DefaultLogger().Error().Reason(err).Msg("Cannot establish etcd connection")
+		panic("Cannot establish etcd connection")
+	}
+	logging.DefaultLogger().Info().Msg("Established connection with etcd")
+
+	logging.DefaultLogger().Info().Msg("Launching KubeVirt API Server")
+
 	if err := cmd.Execute(); err != nil {
 		logging.DefaultLogger().Error().Reason(err).Msg("Unexpected server halt")
 	}
