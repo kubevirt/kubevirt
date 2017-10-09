@@ -65,7 +65,7 @@ var (
 )
 
 // Adds the list of known types to api.Scheme.
-func addKnownTypes(scheme *runtime.Scheme) error {
+func AddKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
 		&VirtualMachine{},
 		&VirtualMachineList{},
@@ -82,7 +82,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 }
 
 func init() {
-	SchemeBuilder := runtime.NewSchemeBuilder(addKnownTypes)
+	SchemeBuilder := runtime.NewSchemeBuilder(AddKnownTypes)
 	if err := announced.NewGroupMetaFactory(
 		&announced.GroupMetaFactoryArgs{
 			GroupName:              GroupName,
