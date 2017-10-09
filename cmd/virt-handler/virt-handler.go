@@ -120,6 +120,7 @@ func (app *virtHandlerApp) Run() {
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
 		recorder,
 		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
+		app.VirtShareDir,
 	)
 	if err != nil {
 		panic(err)

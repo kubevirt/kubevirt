@@ -31,7 +31,7 @@ spec:
         volumeMounts:
         - name: libvirt-runtime
           mountPath: /var/run/libvirt
-        - name: sockets
+        - name: virt-share-dir
           mountPath: /var/run/kubevirt
         env:
           - name: NODE_NAME
@@ -42,6 +42,6 @@ spec:
       - name: libvirt-runtime
         hostPath:
           path: /var/run/libvirt
-      - name: sockets
+      - name: virt-share-dir
         hostPath:
           path: /var/run/kubevirt

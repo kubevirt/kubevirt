@@ -20,6 +20,8 @@
 package virtlauncher
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -36,6 +38,11 @@ var _ = Describe("VirtLauncher", func() {
 
 	dir := os.Getenv("PWD")
 	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
+	tmpDir, err := ioutil.TempDir("", "virt-launcher-unit-test")
+	if err != nil {
+		panic(err)
+	}
+	pidFile := tmpDir + "/pid-file"
 
 	processName := "fake-qemu-process"
 	processPath := dir + "/cmd/fake-qemu-process/" + processName
@@ -43,6 +50,13 @@ var _ = Describe("VirtLauncher", func() {
 	StartProcess := func() {
 		cmd = exec.Command(processPath)
 		err := cmd.Start()
+		Expect(err).ToNot(HaveOccurred())
+
+		currentPid := cmd.Process.Pid
+		Expect(currentPid).ToNot(Equal(0))
+
+		pidStr := fmt.Sprintf("%d", currentPid)
+		err = ioutil.WriteFile(pidFile, []byte(pidStr), 0644)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -81,8 +95,9 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
+		os.Remove(pidFile)
 		mon = &monitor{
-			exename:   processName,
+			pidFile:   pidFile,
 			debugMode: true,
 		}
 	})
@@ -141,9 +156,6 @@ var _ = Describe("VirtLauncher", func() {
 				}
 				Expect(exited).To(Equal(true))
 				Expect(mon.forwardedSignal).To(Equal(syscall.SIGQUIT))
-
-				pid, _ := pidOf(processName)
-				Expect(pid).To(Equal(0))
 			})
 		})
 	})

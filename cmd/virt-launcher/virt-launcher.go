@@ -79,7 +79,13 @@ func main() {
 	socket := createSocket(*virtShareDir, *namespace, *name)
 	defer socket.Close()
 
-	mon := virtlauncher.NewProcessMonitor("qemu", *debugMode)
+	err := virtlauncher.InitializeSharedDirectories(*virtShareDir)
+	if err != nil {
+		panic(err)
+	}
+
+	pidFile := virtlauncher.QemuPidfileFromNamespaceName(*virtShareDir, *namespace, *name)
+	mon := virtlauncher.NewProcessMonitor(pidFile, *debugMode)
 
 	markReady(*readinessFile)
 	mon.RunForever(*qemuTimeout)

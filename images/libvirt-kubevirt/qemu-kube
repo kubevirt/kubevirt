@@ -41,6 +41,7 @@ CMD="$QEMU $ARGS"
 log "cgroup path: $SLICE" >> $LOG
 log "cgroups: $CONTROLLERS" >> $LOG
 log "PID namespace: $PIDNS" >> $LOG
+log "PIDFILE: $PIDFILE" >> $LOG
 
 log "$CMD" >> $LOG
 
@@ -64,7 +65,9 @@ exec sudo -C 10000 bash -s << END
   trap "_term TERM" ERR
 
   cgclassify -g ${CONTROLLERS}:$SLICE --sticky \$\$
-  nsenter --pid=$PIDNS $CMD &
-
+  $CMD &
+  pid=\$!
+  echo "\$pid" > $PIDFILE
+  echo "LAUNCHED PID \$pid" >> $LOG
   wait
 END

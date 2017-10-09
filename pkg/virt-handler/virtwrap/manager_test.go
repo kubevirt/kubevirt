@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
@@ -48,6 +49,8 @@ var _ = Describe("Manager", func() {
 	testVmName := "testvm"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
+
+	virtShareDir := "/var/run/kubevirt"
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
 
@@ -65,6 +68,10 @@ var _ = Describe("Manager", func() {
 		var domainSpec api.DomainSpec
 		Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
 
+		namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+		domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+		pidFile := virtShareDir + "/qemu-pids/" + namespace + "_" + domain
+
 		domainSpec.Name = testDomainName
 		domainSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 		domainSpec.QEMUCmd = &api.Commandline{
@@ -72,6 +79,7 @@ var _ = Describe("Manager", func() {
 				{Name: "SLICE", Value: "dfd"},
 				{Name: "CONTROLLERS", Value: "a,b"},
 				{Name: "PIDNS", Value: "/proc/1234/ns/pid"},
+				{Name: "PIDFILE", Value: pidFile},
 			},
 		}
 		isolationResult := isolation.NewIsolationResult(1234, "dfd", []string{"a", "b"})
@@ -93,7 +101,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
+			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector, virtShareDir)
 			newspec, err := manager.SyncVM(vm)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
@@ -110,7 +118,7 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
+			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector, virtShareDir)
 			newspec, err := manager.SyncVM(vm)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
@@ -128,7 +136,7 @@ var _ = Describe("Manager", func() {
 				mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
+				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector, virtShareDir)
 				newspec, err := manager.SyncVM(vm)
 				Expect(newspec).ToNot(BeNil())
 				Expect(err).To(BeNil())
@@ -150,7 +158,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
+			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector, virtShareDir)
 			newspec, err := manager.SyncVM(vm)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
@@ -165,7 +173,7 @@ var _ = Describe("Manager", func() {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
-				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
+				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector, virtShareDir)
 				err := manager.KillVM(newVM(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
@@ -181,7 +189,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Destroy().Return(nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
-				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
+				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector, virtShareDir)
 				err := manager.KillVM(newVM(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 				Expect(<-recorder.Events).To(ContainSubstring(v1.Stopped.String()))

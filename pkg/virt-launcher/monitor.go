@@ -20,6 +20,7 @@
 package virtlauncher
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -30,12 +31,14 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 type monitor struct {
 	timeout         time.Duration
 	pid             int
-	exename         string
+	pidFile         string
 	start           time.Time
 	isDone          bool
 	forwardedSignal os.Signal
@@ -46,9 +49,17 @@ type ProcessMonitor interface {
 	RunForever(startTimeout time.Duration)
 }
 
-func NewProcessMonitor(execname string, debugMode bool) ProcessMonitor {
+func InitializeSharedDirectories(baseDir string) error {
+	return os.MkdirAll(baseDir+"/qemu-pids", 0755)
+}
+
+func QemuPidfileFromNamespaceName(baseDir string, namespace string, name string) string {
+	return filepath.Clean(baseDir) + "/qemu-pids/" + namespace + "_" + name
+}
+
+func NewProcessMonitor(pidFile string, debugMode bool) ProcessMonitor {
 	return &monitor{
-		exename:   execname,
+		pidFile:   pidFile,
 		debugMode: debugMode,
 	}
 }
@@ -60,23 +71,21 @@ func (mon *monitor) refresh() {
 	}
 
 	if mon.debugMode {
-		log.Printf("Refreshing executable %s pid %d", mon.exename, mon.pid)
+		log.Printf("Refreshing pidFIle %s pid %d", mon.pidFile, mon.pid)
 	}
 
 	// is the process there?
 	if mon.pid == 0 {
 		var err error
-		mon.pid, err = pidOf(mon.exename)
+		mon.pid, err = getPidFromFile(mon.pidFile)
 		if err == nil {
-			log.Printf("Found PID for %s: %d", mon.exename, mon.pid)
+			log.Printf("Found PID for %s: %d", mon.pidFile, mon.pid)
 		} else {
-			if mon.debugMode {
-				log.Printf("Missing PID for %s", mon.exename)
-			}
+			log.Printf("Still missing PID for %s, %v", mon.pidFile, err)
 			// if the proces is not there yet, is it too late?
 			elapsed := time.Since(mon.start)
 			if mon.timeout > 0 && elapsed >= mon.timeout {
-				log.Printf("%s not found after timeout", mon.exename)
+				log.Printf("%s not found after timeout", mon.pidFile)
 				mon.isDone = true
 			}
 		}
@@ -90,7 +99,7 @@ func (mon *monitor) refresh() {
 	// and open it only when needed, which is a tiny part of the
 	// virt-launcher lifetime.
 	if !pidExists(mon.pid) {
-		log.Printf("Process %s is gone!", mon.exename)
+		log.Printf("Process with pidfile %s and pid %d is gone!", mon.pidFile, mon.pid)
 		mon.pid = 0
 		mon.isDone = true
 		return
@@ -156,35 +165,32 @@ func readProcCmdline(pathname string) ([]string, error) {
 	return strings.Split(string(content), "\x00"), nil
 }
 
-func pidOf(exename string) (int, error) {
-	entries, err := filepath.Glob("/proc/*/cmdline")
+func getPidFromFile(pidFile string) (int, error) {
+	exists, err := diskutils.FileExists(pidFile)
+
 	if err != nil {
 		return 0, err
 	}
-	for _, entry := range entries {
-		argv, err := readProcCmdline(entry)
-		if err != nil {
-			return 0, err
-		}
 
-		// we need to support both
-		// - /usr/bin/qemu-system-$ARCH (fedora)
-		// - /usr/libexec/qemu-kvm (*EL, CentOS)
-		match, _ := filepath.Match(fmt.Sprintf("%s*", exename), filepath.Base(argv[0]))
-
-		if match {
-			//   <empty> /    proc     /    $PID   /   cmdline
-			// items[0] sep items[1] sep items[2] sep  items[3]
-			items := strings.Split(entry, string(os.PathSeparator))
-			pid, err := strconv.Atoi(items[2])
-			if err != nil {
-				return 0, err
-			}
-
-			return pid, nil
-		}
+	if exists == false {
+		return 0, fmt.Errorf("pid file at path %s not found", pidFile)
 	}
-	return 0, fmt.Errorf("Process %s not found in /proc", exename)
+
+	data, err := ioutil.ReadFile(pidFile)
+	if err != nil {
+		return 0, err
+	}
+
+	pid, err := strconv.Atoi(string(bytes.TrimSpace(data)))
+	if err != nil {
+		return 0, err
+	}
+
+	if !pidExists(pid) {
+		return 0, fmt.Errorf("stale pid detected at pidFile %s", pidFile)
+	}
+
+	return pid, nil
 }
 
 func pidExists(pid int) bool {
