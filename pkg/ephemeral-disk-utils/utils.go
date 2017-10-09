@@ -131,7 +131,15 @@ func FilesAreEqual(path1 string, path2 string) (bool, error) {
 func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachine, error) {
 	var keys []*v1.VirtualMachine
 
-	err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+	exists, err := FileExists(localPath)
+	if err != nil {
+		return nil, err
+	}
+	if exists == false {
+		return nil, nil
+	}
+
+	err = filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

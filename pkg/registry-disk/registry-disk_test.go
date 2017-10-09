@@ -202,6 +202,13 @@ var _ = Describe("RegistryDisk", func() {
 					}
 					Expect(exists).To(Equal(false))
 				}
+
+				// verify cleaning up a non-existent directory does not fail
+				err = SetLocalDirectory(tmpDir + "/made/this/path/up")
+				Expect(err).ToNot(HaveOccurred())
+				err = CleanupOrphanedEphemeralDisks(vmStore)
+				Expect(err).ToNot(HaveOccurred())
+
 			})
 
 			It("by verifying data cleanup", func() {
