@@ -185,6 +185,8 @@ import:
   - util/workqueue
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
+- package: github.com/mailru/easyjson
+  version: 2a92e673c9a6302dd05c3a691ae1f24aef46457d
 - package: github.com/emicklei/go-restful-openapi
 - package: github.com/go-openapi/spec
 - package: github.com/emicklei/go-restful-swagger12

@@ -1,5 +1,5 @@
-hash: 89bb7e5c0029b7970d34246cd248f5e31520a3cc462672ec6e7a1bb9c5d64ec0
-updated: 2017-10-05T15:22:32.152710297+03:00
+hash: b5dd69192737ed1e89a6ac07b50ebbf76f67f1330b84b7d3500e6f09d1c670cb
+updated: 2017-10-09T18:13:03.251486292+02:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: 6fcd5b427f532a5d13738b27415e00a49e36ceef
@@ -89,7 +89,7 @@ imports:
 - name: github.com/libvirt/libvirt-go
   version: 7b2a44de9fd207c2cbc28bdbad20c8279b767553
 - name: github.com/mailru/easyjson
-  version: d5b7844b561a7bc640052f1b935f7b800330d7e0
+  version: 2a92e673c9a6302dd05c3a691ae1f24aef46457d
   subpackages:
   - buffer
   - jlexer
@@ -213,7 +213,6 @@ imports:
   - certificates/v1beta1
   - core/v1
   - extensions/v1beta1
-  - imagepolicy/v1alpha1
   - networking/v1
   - policy/v1beta1
   - rbac/v1
