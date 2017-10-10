@@ -89,12 +89,22 @@ func CleanupOrphanedEphemeralDisks(indexer cache.Store) error {
 	}
 
 	for _, vm := range vms {
+		cleanup := false
 		key, err := cache.MetaNamespaceKeyFunc(vm)
 		if err != nil {
 			return err
 		}
-		_, exists, _ := indexer.GetByKey(key)
+		obj, exists, _ := indexer.GetByKey(key)
 		if exists == false {
+			cleanup = true
+		} else {
+			vm := obj.(*v1.VirtualMachine)
+			if vm.IsFinal() {
+				cleanup = true
+			}
+		}
+
+		if cleanup {
 			err := CleanupEphemeralDisks(vm)
 			if err != nil {
 				return err
