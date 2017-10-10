@@ -31,10 +31,10 @@ import (
 var _ = Describe("Libvirt Suite", func() {
 	Context("Upon attempt to connect to Libvirt", func() {
 		It("should time out while waiting for libvirt", func() {
-			err := waitForLibvirt("http://", "", "", 1*time.Microsecond)
+			_, err := NewConnection("http://", "", "", 1*time.Microsecond)
 			msg := fmt.Sprintf("%v", err)
 			Expect(err).To(HaveOccurred())
-			Expect(msg).To(Equal("timed out waiting for the condition"))
+			Expect(msg).To(Equal("cannot connect to libvirt daemon: timed out waiting for the condition"))
 		})
 	})
 })
