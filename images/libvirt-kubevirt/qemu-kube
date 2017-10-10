@@ -54,6 +54,7 @@ set -e
 exec sudo -C 10000 bash -s << END
 
   function _term() {
+    rm -f $PIDFILE
     pkill -P \$! --signal SIG\$1
   }
 
@@ -70,4 +71,8 @@ exec sudo -C 10000 bash -s << END
   echo "\$pid" > $PIDFILE
   echo "LAUNCHED PID \$pid" >> $LOG
   wait
+  res=\$?
+
+  rm -f $PIDFILE
+  exit \$res
 END

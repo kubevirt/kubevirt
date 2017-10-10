@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -52,17 +53,19 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 type virtHandlerApp struct {
-	Service          *service.Service
-	HostOverride     string
-	LibvirtUri       string
-	VirtShareDir     string
-	EphemeralDiskDir string
+	Service                 *service.Service
+	HostOverride            string
+	LibvirtUri              string
+	VirtShareDir            string
+	EphemeralDiskDir        string
+	WatchdogTimeoutDuration time.Duration
 }
 
-func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string) *virtHandlerApp {
+func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration) *virtHandlerApp {
 	if *hostOverride == "" {
 		defaultHostName, err := os.Hostname()
 		if err != nil {
@@ -72,11 +75,12 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 	}
 
 	return &virtHandlerApp{
-		Service:          service.NewService("virt-handler", host, port),
-		HostOverride:     *hostOverride,
-		LibvirtUri:       *libvirtUri,
-		VirtShareDir:     *virtShareDir,
-		EphemeralDiskDir: *ephemeralDiskDir,
+		Service:                 service.NewService("virt-handler", host, port),
+		HostOverride:            *hostOverride,
+		LibvirtUri:              *libvirtUri,
+		VirtShareDir:            *virtShareDir,
+		EphemeralDiskDir:        *ephemeralDiskDir,
+		WatchdogTimeoutDuration: *watchdogTimeoutDuration,
 	}
 }
 
@@ -135,7 +139,16 @@ func (app *virtHandlerApp) Run() {
 
 	// Wire VM controller
 	vmListWatcher := controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", k8sv1.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, app.HostOverride, configDiskClient)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(
+		vmListWatcher,
+		domainManager,
+		recorder,
+		*virtCli.RestClient(),
+		virtCli,
+		app.HostOverride,
+		configDiskClient,
+		app.VirtShareDir,
+		int(app.WatchdogTimeoutDuration.Seconds()))
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
@@ -147,6 +160,16 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		panic(err)
 	}
+
+	watchdogInformer := cache.NewSharedIndexInformer(
+		watchdog.NewWatchdogListWatchFromClient(
+			app.VirtShareDir,
+			int(app.WatchdogTimeoutDuration.Seconds())),
+		&virt_api.Domain{},
+		0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	watchdogInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(vmQueue))
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
@@ -176,6 +199,9 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	go watchdogInformer.Run(stop)
+	cache.WaitForCacheSync(stop, watchdogInformer.HasSynced)
+
 	go domainController.Run(3, stop)
 	go vmController.Run(3, stop)
 
@@ -193,6 +219,8 @@ func (app *virtHandlerApp) Run() {
 }
 
 func main() {
+	defaultExpires := 30 * time.Second
+
 	logging.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
@@ -201,9 +229,10 @@ func main() {
 	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
+	watchdogTimeoutDuration := flag.Duration("watchdog-timeout", defaultExpires, "Watchdog file timeout.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir)
+	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir, watchdogTimeoutDuration)
 	app.Run()
 }

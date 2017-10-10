@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 func markReady(readinessFile string) {
@@ -40,7 +41,7 @@ func markReady(readinessFile string) {
 		panic(err)
 	}
 	f.Close()
-	log.Printf("Marked as ready")
+	log.Printf("Marked as ready\n")
 }
 
 func createSocket(virtShareDir string, namespace string, name string) net.Listener {
@@ -65,7 +66,7 @@ func createSocket(virtShareDir string, namespace string, name string) net.Listen
 
 func main() {
 	startTimeout := 0 * time.Second
-	defaultInterval := 15 * time.Second
+	defaultInterval := 10 * time.Second
 
 	logging.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
@@ -86,12 +87,13 @@ func main() {
 		panic(err)
 	}
 
-	watchdogFile := virtlauncher.WatchdogFileFromNamespaceName(*virtShareDir, *namespace, *name)
-	f, err := os.Create(watchdogFile)
+	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir, *namespace, *name)
+	err = watchdog.WatchdogFileUpdate(watchdogFile)
 	if err != nil {
 		panic(err)
 	}
-	f.Close()
+
+	log.Printf("Watchdog file created at %s\n", watchdogFile)
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
@@ -103,11 +105,10 @@ func main() {
 			case <-stopChan:
 				return
 			case <-ticker:
-				f, err := os.Create(watchdogFile)
+				err := watchdog.WatchdogFileUpdate(watchdogFile)
 				if err != nil {
 					panic(err)
 				}
-				f.Close()
 			}
 		}
 	}()

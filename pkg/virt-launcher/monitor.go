@@ -33,6 +33,7 @@ import (
 	"time"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 type monitor struct {
@@ -55,11 +56,7 @@ func InitializeSharedDirectories(baseDir string) error {
 		return err
 	}
 
-	return os.MkdirAll(baseDir+"/watchdog-files", 0755)
-}
-
-func WatchdogFileFromNamespaceName(baseDir string, namespace string, name string) string {
-	return filepath.Clean(baseDir) + "/watchdog-files/" + namespace + "_" + name
+	return os.MkdirAll(watchdog.WatchdogFileDirectory(baseDir), 0755)
 }
 
 func QemuPidfileFromNamespaceName(baseDir string, namespace string, name string) string {

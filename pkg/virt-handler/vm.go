@@ -45,6 +45,7 @@ import (
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 func NewVMController(lw cache.ListerWatcher,
@@ -53,10 +54,19 @@ func NewVMController(lw cache.ListerWatcher,
 	restClient rest.RESTClient,
 	clientset kubecli.KubevirtClient,
 	host string,
-	configDiskClient configdisk.ConfigDiskClient) (cache.Store, workqueue.RateLimitingInterface, *controller.Controller) {
+	configDiskClient configdisk.ConfigDiskClient,
+	virtShareDir string,
+	watchdogTimeoutSeconds int) (cache.Store, workqueue.RateLimitingInterface, *controller.Controller) {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-	dispatch := NewVMHandlerDispatch(domainManager, recorder, &restClient, clientset, host, configDiskClient)
+	dispatch := NewVMHandlerDispatch(domainManager,
+		recorder,
+		&restClient,
+		clientset,
+		host,
+		configDiskClient,
+		virtShareDir,
+		watchdogTimeoutSeconds)
 
 	indexer, informer := controller.NewController(lw, queue, &v1.VirtualMachine{}, dispatch)
 	return indexer, queue, informer
@@ -67,24 +77,30 @@ func NewVMHandlerDispatch(domainManager virtwrap.DomainManager,
 	restClient *rest.RESTClient,
 	clientset kubecli.KubevirtClient,
 	host string,
-	configDiskClient configdisk.ConfigDiskClient) controller.ControllerDispatch {
+	configDiskClient configdisk.ConfigDiskClient,
+	virtShareDir string,
+	watchdogTimeoutSeconds int) controller.ControllerDispatch {
 	return &VMHandlerDispatch{
-		domainManager: domainManager,
-		recorder:      recorder,
-		restClient:    *restClient,
-		clientset:     clientset,
-		host:          host,
-		configDisk:    configDiskClient,
+		domainManager:          domainManager,
+		recorder:               recorder,
+		restClient:             *restClient,
+		clientset:              clientset,
+		host:                   host,
+		configDisk:             configDiskClient,
+		virtShareDir:           virtShareDir,
+		watchdogTimeoutSeconds: watchdogTimeoutSeconds,
 	}
 }
 
 type VMHandlerDispatch struct {
-	domainManager virtwrap.DomainManager
-	recorder      record.EventRecorder
-	restClient    rest.RESTClient
-	clientset     kubecli.KubevirtClient
-	host          string
-	configDisk    configdisk.ConfigDiskClient
+	domainManager          virtwrap.DomainManager
+	recorder               record.EventRecorder
+	restClient             rest.RESTClient
+	clientset              kubecli.KubevirtClient
+	host                   string
+	configDisk             configdisk.ConfigDiskClient
+	virtShareDir           string
+	watchdogTimeoutSeconds int
 }
 
 func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
@@ -194,6 +210,21 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 		// The VM is deleted on the cluster, continue with processing the deletion on the host.
 		shouldDeleteVm = true
 	}
+
+	watchdogExpired, _ := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
+	if watchdogExpired {
+		if vm.IsRunning() {
+			logging.DefaultLogger().V(2).Info().Object(vm).Msg("Detected expired watchdog file for running VM.")
+			shouldDeleteVm = true
+		} else if vm.IsFinal() {
+			err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
+			if err != nil {
+				queue.AddRateLimited(key)
+				return
+			}
+		}
+	}
+
 	logging.DefaultLogger().V(3).Info().Object(vm).Msg("Processing VM update.")
 
 	// Process the VM
@@ -397,10 +428,25 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteV
 			return false, err
 		}
 
+		err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
+		if err != nil {
+			return false, err
+		}
+
 		return false, d.configDisk.Undefine(vm)
 	} else if isWorthSyncing(vm) == false {
 		// nothing to do here.
 		return false, nil
+	}
+
+	hasWatchdog, err := watchdog.WatchdogFileExists(d.virtShareDir, vm)
+	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Error accessing virt-launcher watchdog file.")
+		return false, err
+	}
+	if hasWatchdog == false {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Could not detect virt-launcher watchdog file.")
+		return false, goerror.New(fmt.Sprintf("No watchdog file found for vm"))
 	}
 
 	isPending, err := d.configDisk.Define(vm)
