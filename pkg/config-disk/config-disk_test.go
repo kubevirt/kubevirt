@@ -108,6 +108,12 @@ var _ = Describe("ConfigDiskServer", func() {
 				err := vmStore.Add(v1.NewVMReferenceFromNameWithNS("fakens1", "fakedomain1"))
 				Expect(err).ToNot(HaveOccurred())
 
+				// verifies VM data in finalized state are removed
+				vm := v1.NewVMReferenceFromNameWithNS("fakens1", "fakedomain2")
+				vm.Status.Phase = v1.Succeeded
+				err = vmStore.Add(vm)
+				Expect(err).ToNot(HaveOccurred())
+
 				err = client.UndefineUnseen(vmStore)
 				Expect(err).ToNot(HaveOccurred())
 
