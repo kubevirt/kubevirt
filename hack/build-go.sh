@@ -40,7 +40,7 @@ if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (cd pkg; go ${target} -v ./...)
     elif [ "${target}" = "functest" ]; then
-        (cd tests; go test -master=http://${master_ip}:${master_port} ${FUNC_TEST_ARGS})
+        (cd tests; go test -master=http://${master_ip}:${master_port} -timeout 30m ${FUNC_TEST_ARGS})
         exit
     else
         (cd pkg; go $target ./...)
