@@ -65,6 +65,7 @@ func createSocket(virtShareDir string, namespace string, name string) net.Listen
 
 func main() {
 	startTimeout := 0 * time.Second
+	defaultInterval := 15 * time.Second
 
 	logging.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
@@ -72,6 +73,7 @@ func main() {
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	name := flag.String("name", "", "Name of the VM")
 	namespace := flag.String("namespace", "", "Namespace of the VM")
+	watchdogInterval := flag.Duration("watchdog-update-interval", defaultInterval, "Interval at which watchdog file should be updated")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -83,6 +85,32 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	watchdogFile := virtlauncher.WatchdogFileFromNamespaceName(*virtShareDir, *namespace, *name)
+	f, err := os.Create(watchdogFile)
+	if err != nil {
+		panic(err)
+	}
+	f.Close()
+
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	go func() {
+
+		ticker := time.NewTicker(*watchdogInterval).C
+		for {
+			select {
+			case <-stopChan:
+				return
+			case <-ticker:
+				f, err := os.Create(watchdogFile)
+				if err != nil {
+					panic(err)
+				}
+				f.Close()
+			}
+		}
+	}()
 
 	pidFile := virtlauncher.QemuPidfileFromNamespaceName(*virtShareDir, *namespace, *name)
 	mon := virtlauncher.NewProcessMonitor(pidFile, *debugMode)

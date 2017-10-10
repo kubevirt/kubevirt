@@ -50,7 +50,16 @@ type ProcessMonitor interface {
 }
 
 func InitializeSharedDirectories(baseDir string) error {
-	return os.MkdirAll(baseDir+"/qemu-pids", 0755)
+	err := os.MkdirAll(baseDir+"/qemu-pids", 0755)
+	if err != nil {
+		return err
+	}
+
+	return os.MkdirAll(baseDir+"/watchdog-files", 0755)
+}
+
+func WatchdogFileFromNamespaceName(baseDir string, namespace string, name string) string {
+	return filepath.Clean(baseDir) + "/watchdog-files/" + namespace + "_" + name
 }
 
 func QemuPidfileFromNamespaceName(baseDir string, namespace string, name string) string {
