@@ -423,8 +423,10 @@ func removeNamespaces() {
 	}
 
 	// Wait until the namespaces are terminated
+	fmt.Println("")
 	for _, namespace := range testNamespaces {
-		Eventually(func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 60*time.Second, 1*time.Second).
+		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
+		Eventually(func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 180*time.Second, 1*time.Second).
 			Should(BeTrue())
 	}
 }
