@@ -32,7 +32,7 @@ clean:
 	rm ./bin -rf
 
 distclean: clean
-	find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
+	test -d vendor && find vendor/ -maxdepth 1 -mindepth 1 -not -name vendor.json -exec rm {} -rf \;
 	rm -f manifest/*.yaml
 	rm -f .glide.*.hash
 	glide cc
