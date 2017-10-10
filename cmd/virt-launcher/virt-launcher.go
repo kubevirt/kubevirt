@@ -43,6 +43,10 @@ func markReady(readinessFile string) {
 }
 
 func createSocket(socketDir string, namespace string, name string) net.Listener {
+	socketPath := isolation.SocketFromNamespaceName(socketDir, namespace, name)
+	if err := os.RemoveAll(socketPath); err != nil {
+		log.Fatal("Could not clean up old socket for cgroup detection", err)
+	}
 	socket, err := net.Listen("unix", isolation.SocketFromNamespaceName(socketDir, namespace, name))
 
 	if err != nil {
