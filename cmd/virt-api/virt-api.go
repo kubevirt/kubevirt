@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/logging"
@@ -86,9 +87,11 @@ func (app *virtAPIApp) Run() {
 		log.Fatal(err)
 	}
 
+	kconfig := config.NewKubevirtConfig(virtCli.CoreV1().RESTClient())
+
 	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
 	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceEndpoint(virtCli.RestClient(), vmGVR)).Encoder(
+		Endpoint(rest.NewSpiceEndpoint(virtCli.RestClient(), kconfig, vmGVR)).Encoder(
 		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeINIResponse(http.StatusOK),
 			map[string]kithttp.EncodeResponseFunc{
 				mime.MIME_INI:  endpoints.NewEncodeINIResponse(http.StatusOK),

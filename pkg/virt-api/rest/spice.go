@@ -20,7 +20,6 @@
 package rest
 
 import (
-	"flag"
 	"fmt"
 
 	"github.com/go-kit/kit/endpoint"
@@ -29,18 +28,13 @@ import (
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 )
 
-var spiceProxy string
+func NewSpiceEndpoint(cli *rest.RESTClient, config *config.KubevirtConfig, gvr schema.GroupVersionResource) endpoint.Endpoint {
 
-func init() {
-	// TODO should be reloadable, use configmaps and update on every access? Watch a config file and reload?
-	flag.StringVar(&spiceProxy, "spice-proxy", "", "Spice proxy to use when spice access is requested")
-}
-
-func NewSpiceEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
 		metadata := payload.(*endpoints.Metadata)
 		obj, err := cli.Get().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do().Get()
@@ -49,7 +43,7 @@ func NewSpiceEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource) end
 		}
 
 		vm := obj.(*v1.VirtualMachine)
-		spice, err := spiceFromVM(vm)
+		spice, err := spiceFromVM(vm, config)
 		if err != nil {
 			return nil, err
 
@@ -59,7 +53,7 @@ func NewSpiceEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource) end
 	}
 }
 
-func spiceFromVM(vm *v1.VirtualMachine) (*v1.Spice, error) {
+func spiceFromVM(vm *v1.VirtualMachine, config *config.KubevirtConfig) (*v1.Spice, error) {
 
 	if vm.Status.Phase != v1.Running {
 		return nil, middleware.NewResourceNotFoundError("VM is not running")
@@ -74,9 +68,12 @@ func spiceFromVM(vm *v1.VirtualMachine) (*v1.Spice, error) {
 				Host: d.Host,
 				Port: d.Port,
 			}
-			if spiceProxy != "" {
-				spice.Info.Proxy = fmt.Sprintf("http://%s", spiceProxy)
+
+			if proxyIP, ok := config.Get("spice-proxy.ip"); ok {
+				proxyPort, _ := config.Get("spice-proxy.port")
+				spice.Info.Proxy = fmt.Sprintf("http://%s:%s", proxyIP, proxyPort)
 			}
+
 			return spice, nil
 		}
 	}
