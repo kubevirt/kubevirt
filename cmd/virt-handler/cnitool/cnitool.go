@@ -130,7 +130,6 @@ func usage() {
 	fmt.Println("\nCapabilities can be passed in via the CAP_ARGS environment variable.")
 }
 
-
 func handleErr(err error) {
 	if err != nil {
 		fmt.Println(err)

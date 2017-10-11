@@ -395,7 +395,7 @@ func (d *VMHandlerDispatch) mapNodeNetworkToLibvirt(vm *v1.VirtualMachine) (*v1.
 			if nodeIP == "" {
 				return nil, fmt.Errorf("No Node IP detected.")
 			}
-			link, err := d.networkIntrospector.GetLinkByIP(nodeIP, "1")
+			link, err := d.networkIntrospector.GetLinkByIP(nodeIP, 1)
 
 			if err != nil {
 				return nil, fmt.Errorf("Could not detect interface for IP %v: %v", nodeIP, err)

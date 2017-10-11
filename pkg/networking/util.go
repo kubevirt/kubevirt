@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os/exec"
 
+	"strconv"
+
 	"github.com/vishvananda/netlink"
 	"k8s.io/api/core/v1"
 )
@@ -49,7 +51,7 @@ func GetNodeInternalIP(node *v1.Node) (ip string) {
 }
 
 type IntrospectorInterface interface {
-	GetLinkByIP(ip string, pid string) (*Link, error)
+	GetLinkByIP(ip string, pid int) (*Link, error)
 }
 
 type introspector struct {
@@ -60,8 +62,8 @@ func NewIntrospector(toolDir string) IntrospectorInterface {
 	return &introspector{strings.TrimSuffix(toolDir, "/")}
 }
 
-func (i *introspector) GetLinkByIP(ip string, pid string) (*Link, error) {
-	cmd := exec.Command(i.toolDir+"/network-helper", "--ip", ip, "--target", pid)
+func (i *introspector) GetLinkByIP(ip string, pid int) (*Link, error) {
+	cmd := exec.Command(i.toolDir+"/network-helper", "--ip", ip, "--target", strconv.Itoa(pid))
 	rawLink, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("Failed with %v, output: %v", err, string(rawLink))

@@ -28,5 +28,6 @@ RUN dnf -y install libvirt-client genisoimage && \
 COPY virt-handler /virt-handler
 COPY network-helper/network-helper /tools/network-helper
 COPY cniwrapper/cniwrapper /tools/cniwrapper
+copy kubevirt.json /etc/cni/net.d/
 
 ENTRYPOINT [ "/virt-handler" ]

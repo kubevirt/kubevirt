@@ -139,6 +139,15 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	networkIntrospector := networking.NewIntrospector(app.ToolsDir)
+	// Create a macvlan device which is attached to the node network
+	cnitool := networking.NewCNITool(app.ToolsDir, app.ToolsDir+"/plugins", "/etc/cni/net.d")
+	res, err := cnitool.CNIAdd("kubevirt", "kubevirt", "kubevirt0", 1)
+	if err != nil {
+		cnitool.CNIDel("kubevirt", "kubevirt", "kubevirt0", 1)
+		panic(err)
+	}
+
 	configDiskClient := configdisk.NewConfigDiskClient(virtCli)
 
 	// Wire VM controller

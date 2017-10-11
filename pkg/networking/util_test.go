@@ -2,7 +2,6 @@ package networking
 
 import (
 	"os"
-	"strconv"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -56,7 +55,7 @@ var _ = Describe("Util", func() {
 	})
 
 	It("should return an error if network-helper does not exist", func() {
-		iface, err := NewIntrospector("/dfsdfsd").GetLinkByIP("127.0.0.1", strconv.Itoa(os.Getpid()))
+		iface, err := NewIntrospector("/dfsdfsd").GetLinkByIP("127.0.0.1", os.Getpid())
 		Expect(err).To(HaveOccurred())
 		Expect(iface).To(BeNil())
 	})
