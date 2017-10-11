@@ -33,6 +33,7 @@ import (
 	"time"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -70,6 +71,27 @@ func NewProcessMonitor(pidFile string, debugMode bool) ProcessMonitor {
 	}
 }
 
+func matchPidCgroupSlice(pid int) (bool, error) {
+	myPid := os.Getpid()
+
+	_, pidSlice, err := isolation.GetDefaultSlice(pid)
+	if err != nil {
+		return false, err
+	}
+
+	_, mySlice, err := isolation.GetDefaultSlice(myPid)
+	if err != nil {
+		return false, err
+	}
+
+	if pidSlice != mySlice {
+		log.Printf("cgroup slice does not match\n")
+		return false, err
+	}
+
+	return true, nil
+}
+
 func (mon *monitor) refresh() {
 	if mon.isDone {
 		log.Print("Called refresh after done!")
@@ -84,9 +106,7 @@ func (mon *monitor) refresh() {
 	if mon.pid == 0 {
 		var err error
 		mon.pid, err = getPidFromFile(mon.pidFile)
-		if err == nil {
-			log.Printf("Found PID for %s: %d", mon.pidFile, mon.pid)
-		} else {
+		if err != nil {
 			log.Printf("Still missing PID for %s, %v", mon.pidFile, err)
 			// if the proces is not there yet, is it too late?
 			elapsed := time.Since(mon.start)
@@ -94,8 +114,20 @@ func (mon *monitor) refresh() {
 				log.Printf("%s not found after timeout", mon.pidFile)
 				mon.isDone = true
 			}
+			return
 		}
-		return
+
+		cgroupsMatch, err := matchPidCgroupSlice(mon.pid)
+		if err != nil {
+			log.Printf("Error detecting cgroups for PID %d. %v", mon.pid, err)
+			mon.pid = 0
+			return
+		} else if cgroupsMatch == false {
+			log.Printf("Cgroups do not match for PID %d.", mon.pid)
+			mon.pid = 0
+			return
+		}
+		log.Printf("Found PID for %s: %d", mon.pidFile, mon.pid)
 	}
 
 	// is the process gone? mon.pid != 0 -> mon.pid == 0

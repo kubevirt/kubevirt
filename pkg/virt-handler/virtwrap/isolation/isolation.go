@@ -55,16 +55,22 @@ type socketBasedIsolationDetector struct {
 	controller   []string
 }
 
+var defaultControllers = []string{"cpu", "cpuacct", "cpuset", "freezer", "memory", "net_cls", "perf_event"}
+
 // NewSocketBasedIsolationDetector takes virtShareDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
 func NewSocketBasedIsolationDetector(virtShareDir string) PodIsolationDetector {
-	return &socketBasedIsolationDetector{virtShareDir: virtShareDir, controller: []string{"cpu", "cpuacct", "cpuset", "freezer", "memory", "net_cls", "perf_event"}}
+
+	iso := &socketBasedIsolationDetector{virtShareDir: virtShareDir}
+	iso.controller = append(iso.controller, defaultControllers...)
+	return iso
 }
 
 func SocketFromNamespaceName(baseDir string, namespace string, name string) string {
 	return filepath.Clean(baseDir) + "/sockets/" + namespace + "_" + name + "_sock"
 }
 
+// This function is only used by unit test suite
 func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolationDetector {
 	s.controller = controller
 	return s
@@ -85,7 +91,7 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachine) (*Isolation
 	}
 
 	// Look up the cgroup slice based on the whitelisted controller
-	if controller, slice, err = s.getSlice(pid); err != nil {
+	if controller, slice, err = getSlice(pid, s.controller); err != nil {
 		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Could not get cgroup slice for Pid %d", pid)
 		return nil, err
 	}
@@ -143,7 +149,11 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	return int(ucreds.Pid), nil
 }
 
-func (s *socketBasedIsolationDetector) getSlice(pid int) (controller []string, slice string, err error) {
+func GetDefaultSlice(pid int) ([]string, string, error) {
+	return getSlice(pid, defaultControllers)
+}
+
+func getSlice(pid int, supportedControllers []string) (controller []string, slice string, err error) {
 	cgroups, err := os.Open(fmt.Sprintf("/proc/%d/cgroup", pid))
 	if err != nil {
 		return
@@ -159,7 +169,7 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controller []string, s
 			return
 		}
 		// Skip not supported cgroup controller
-		if !sliceContains(s.controller, cgEntry[1]) {
+		if !sliceContains(supportedControllers, cgEntry[1]) {
 			continue
 		}
 
@@ -180,7 +190,7 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controller []string, s
 	}
 
 	if slice == "" {
-		err = fmt.Errorf("Could not detect slice of whitelisted controller: %v", s.controller)
+		err = fmt.Errorf("Could not detect slice of whitelisted controller: %v", supportedControllers)
 		return
 	}
 	return
