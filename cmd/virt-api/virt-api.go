@@ -26,7 +26,6 @@ import (
 
 	"github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
-	swagger "github.com/emicklei/go-restful-swagger12"
 	kithttp "github.com/go-kit/kit/transport/http"
 	openapispec "github.com/go-openapi/spec"
 	"github.com/spf13/pflag"
@@ -123,28 +122,14 @@ func (app *virtAPIApp) Run() {
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
 
-	config := swagger.Config{
-		WebServices:     restful.RegisteredWebServices(), // you control what services are visible
-		WebServicesUrl:  "http://localhost:8183",
-		ApiPath:         "/swaggerapi",
-		SwaggerPath:     "/swagger-ui/",
-		SwaggerFilePath: app.SwaggerUI,
-		Info: swagger.Info{
-			Title:       "KubeVirt API, ",
-			Description: "This is KubeVirt API an add-on for Kubernetes.",
-			Contact:     "kubevirt-dev@googlegroups.com",
-			License:     "Apache 2.0",
-			LicenseUrl:  "https://www.apache.org/licenses/LICENSE-2.0",
-		},
-	}
-	swagger.InstallSwaggerService(config)
 	openapiConf := restfulspec.Config{
-		WebServices:    []*restful.WebService{ws},
+		WebServices:    restful.RegisteredWebServices(),
 		WebServicesURL: "http://localhost:8183",
-		APIPath:        "/openapi.json",
+		APIPath:        "/swaggerapi",
 		PostBuildSwaggerObjectHandler: addInfoToSwaggerObject,
 	}
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(openapiConf))
+	http.Handle("/swagger-ui", http.StripPrefix("/swagger-ui", http.FileServer(http.Dir(app.SwaggerUI))))
 
 	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
 }

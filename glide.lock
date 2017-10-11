@@ -1,8 +1,8 @@
 hash: b5dd69192737ed1e89a6ac07b50ebbf76f67f1330b84b7d3500e6f09d1c670cb
-updated: 2017-10-09T18:13:03.251486292+02:00
+updated: 2017-10-16T15:49:47.265313161+02:00
 imports:
 - name: github.com/asaskevich/govalidator
-  version: 6fcd5b427f532a5d13738b27415e00a49e36ceef
+  version: ca5f9e638c83bac66bfac70ded5bded1503135a7
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
@@ -12,7 +12,7 @@ imports:
   subpackages:
   - log
 - name: github.com/emicklei/go-restful-openapi
-  version: 7cb0644488653a4657f941eb34631edf7d5d21e3
+  version: 0d037b269a5b53b582789e25dee0d0a0614119e5
 - name: github.com/emicklei/go-restful-swagger12
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
@@ -30,13 +30,13 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-openapi/jsonpointer
-  version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
+  version: 779f45308c19820f1a69e9a4cd965f496e0da10f
 - name: github.com/go-openapi/jsonreference
-  version: 13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272
+  version: 36d33bfe519efae5632669801b180bf1a245da3b
 - name: github.com/go-openapi/spec
   version: 48c2a7185575f9103a5a3863eff950bb776899d2
 - name: github.com/go-openapi/swag
-  version: 1d0bd113de87027671077d3c71eb3ac5d7dbba72
+  version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/gogo/protobuf
@@ -45,13 +45,13 @@ imports:
   - proto
   - sortkeys
 - name: github.com/golang/glog
-  version: 44145f04b68cf362d9c4df2182967c2275eaefed
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/golang/groupcache
   version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 2b473a1a899b0c9967501477ec03c71c32550cbe
+  version: 6e20fef50e74e443696bc32b693cf286b612d45b
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -63,7 +63,7 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/google/gofuzz
-  version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
+  version: 24818f796faf91cd76ec7bddd72458fbced7a6c1
 - name: github.com/googleapis/gnostic
   version: 0c5108395e2debce0d731cf0287ddf7242066aba
   subpackages:
@@ -71,7 +71,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gorilla/websocket
-  version: 4201258b820c74ac8e6922fc9e6b52f71fe46f8d
+  version: 71fa72d4842364bc5f74185f4161e0099ea3624a
 - name: github.com/hashicorp/golang-lru
   version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
   subpackages:
@@ -131,7 +131,7 @@ imports:
   - matchers/support/goraph/util
   - types
 - name: github.com/pborman/uuid
-  version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
+  version: e790cca94e6cc75c7064b1332e63811d4aae1a53
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
@@ -139,7 +139,7 @@ imports:
 - name: github.com/satori/go.uuid
   version: 5bf94b69c6b68ee1b541973bb8e1144db23a194b
 - name: github.com/spf13/pflag
-  version: 7aff26db30c1be810f9de5038ec5ef96ac41fd7c
+  version: a9789e855c7696159b7db0db7f440b449edf2b31
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
@@ -192,7 +192,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 20b96f641a5ea98f2f8619ff4f3e061cff4833bd
+  version: 5b3e00af70a9484542169a976dcab8d03e601a17
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/api
@@ -448,7 +448,7 @@ imports:
   - util/jsonpath
   - util/workqueue
 - name: k8s.io/kube-openapi
-  version: 80f07ef71bb4f781233c65aa8d0369e4ecafab87
+  version: abfc5fbe1cf87ee697db107fdfd24c32fe4397a8
   subpackages:
   - pkg/common
 testImports:
