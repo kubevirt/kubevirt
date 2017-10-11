@@ -18,9 +18,9 @@ spec:
             nocloud:
                 userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
       interfaces:
-      - source:
-          network: default
-        type: network
+      - type: nodeNetwork
+      consoles:
+      - type: pty
     memory:
       unit: MB
       value: 64

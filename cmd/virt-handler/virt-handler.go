@@ -38,6 +38,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	"encoding/json"
+	"io/ioutil"
+
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
@@ -140,11 +145,44 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	networkIntrospector := networking.NewIntrospector(app.ToolsDir)
+
 	// Create a macvlan device which is attached to the node network
+	node, err := virtCli.CoreV1().Nodes().Get(app.HostOverride, v12.GetOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	link, err := networkIntrospector.GetLinkByIP(networking.GetNodeInternalIP(node), 1)
+	if err != nil {
+		panic(err)
+	}
+	b, err := ioutil.ReadFile("/etc/cni/net.d/kubevirt.json")
+	if err != nil {
+		panic(err)
+	}
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(b, &raw)
+	if err != nil {
+		panic(err)
+	}
+
+	raw["master"] = link.Name
+
+	b, err = json.MarshalIndent(&raw, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	err = ioutil.WriteFile("/etc/cni/net.d/kubevirt.json", b, 0)
+	if err != nil {
+		panic(err)
+	}
+
 	cnitool := networking.NewCNITool(app.ToolsDir, app.ToolsDir+"/plugins", "/etc/cni/net.d")
+	cnitool.CNIDel("kubevirt", "kubevirt", "kubevirt0", 1)
 	res, err := cnitool.CNIAdd("kubevirt", "kubevirt", "kubevirt0", 1)
 	if err != nil {
-		cnitool.CNIDel("kubevirt", "kubevirt", "kubevirt0", 1)
 		panic(err)
 	}
 

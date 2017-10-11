@@ -5,6 +5,8 @@ vendor/*
 cmd/fake-qemu-process/fake-qemu*
 cmd/virt-handler/network-helper/network-helper*
 cmd/virt-handler/cnitool/cnitool*
+cmd/virt-handler/cni/main/ipamonly/ipamonly*
+cmd/virt-handler/cni/ipam/noroutes/noroutes*
 cmd/virt-manifest/virt-manifest*
 cmd/virt-controller/virt-controller*
 cmd/virt-launcher/virt-launcher*
