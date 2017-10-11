@@ -20,7 +20,7 @@ func main() {
 	pflag.Parse()
 
 	var link netlink.Link
-	err := ns.WithNetNSPath(fmt.Sprintf("/proc/%d/ns/net", *t), func(_ ns.NetNS) error {
+	err := ns.WithNetNSPath(networking.GetNSFromPID(*t), func(_ ns.NetNS) error {
 		var e error
 		link, e = networking.GetInterfaceFromIP(*ip)
 		return e

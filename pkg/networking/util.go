@@ -74,3 +74,7 @@ func (i *introspector) GetLinkByIP(ip string, pid string) (*Link, error) {
 	}
 	return link, nil
 }
+
+func GetNSFromPID(pid uint) string {
+	return fmt.Sprintf("/proc/%d/ns/net", pid)
+}
