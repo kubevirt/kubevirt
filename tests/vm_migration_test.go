@@ -122,7 +122,7 @@ var _ = Describe("VmMigration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				var m *v1.Migration = obj.(*v1.Migration)
 				return m.Status.Phase
-			}, TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.MigrationSucceeded))
+			}, 3*TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.MigrationSucceeded))
 
 			// Check Pod and VM affinity
 			labelSelector, err := labels.Parse(v1.DomainLabel + "=" + sourceVM.ObjectMeta.Name + "," + v1.MigrationLabel + "=" + migration.ObjectMeta.Name)
@@ -133,7 +133,7 @@ var _ = Describe("VmMigration", func() {
 			Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0]).To(BeEquivalentTo(sourceVM.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0]))
 
 			close(done)
-		}, 30)
+		}, 90)
 
 		Context("New Migration given", func() {
 			table.DescribeTable("Should migrate the VM", func(namespace string, migrateCount int) {
