@@ -91,6 +91,34 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/libvirt/default/testvm"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/libvirt/default/testvm"))
 			})
+
+			It("should add node affinity to pod", func() {
+				nodeAffinity := kubev1.NodeAffinity{}
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VMSpec{
+						Affinity: &v1.Affinity{NodeAffinity: &nodeAffinity},
+						Domain:   &v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+
+				Expect(err).To(BeNil())
+				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{NodeAffinity: &nodeAffinity}))
+			})
+
+			It("should not add empty node affinity to pod", func() {
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VMSpec{
+						Domain: &v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+
+				Expect(err).To(BeNil())
+				Expect(pod.Spec.Affinity).To(BeNil())
+			})
 		})
 		Context("migration", func() {
 			var (

@@ -89,6 +89,52 @@ var _ = Describe("VmMigration", func() {
 			close(done)
 		}, 30)
 
+		It("Should respect and preserve pre-set node affinity on the VM", func(done Done) {
+			// Prepare dummy affinity rule
+			sourceVM.Spec.Affinity = &v1.Affinity{
+				NodeAffinity: &k8sv1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+							{
+								MatchExpressions: []k8sv1.NodeSelectorRequirement{
+									{
+										Key:      "invalidtag",
+										Values:   []string{"nothing"},
+										Operator: k8sv1.NodeSelectorOpNotIn,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			vm, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(sourceVM).Do().Get()
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMStart(vm)
+
+			migration := tests.NewRandomMigrationForVm(sourceVM)
+			err = virtClient.RestClient().Post().Resource("migrations").Namespace(tests.NamespaceTestDefault).Body(migration).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() v1.MigrationPhase {
+				obj, err := virtClient.RestClient().Get().Resource("migrations").Namespace(tests.NamespaceTestDefault).Name(migration.ObjectMeta.Name).Do().Get()
+				Expect(err).ToNot(HaveOccurred())
+				var m *v1.Migration = obj.(*v1.Migration)
+				return m.Status.Phase
+			}, 3*TIMEOUT, POLLING_INTERVAL).Should(Equal(v1.MigrationSucceeded))
+
+			// Check Pod and VM affinity
+			labelSelector, err := labels.Parse(v1.DomainLabel + "=" + sourceVM.ObjectMeta.Name + "," + v1.MigrationLabel + "=" + migration.ObjectMeta.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(metav1.ListOptions{LabelSelector: labelSelector.String()})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0]).To(BeEquivalentTo(sourceVM.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0]))
+
+			close(done)
+		}, 90)
+
 		Context("New Migration given", func() {
 			table.DescribeTable("Should migrate the VM", func(namespace string, migrateCount int) {
 

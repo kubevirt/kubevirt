@@ -65,13 +65,61 @@ var _ = Describe("PodSelectors", func() {
 		It("should work", func() {
 			vm := NewMinimalVM("testvm")
 			vm.Status.NodeName = "test-node"
-			affinity := AntiAffinityFromVMNode(vm)
+			pod := &v1.Pod{}
+			affinity := UpdateAntiAffinityFromVMNode(pod, vm)
 			newSelector := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
 			Expect(newSelector).ToNot(BeNil())
 			Expect(len(newSelector.MatchExpressions)).To(Equal(1))
 			Expect(len(newSelector.MatchExpressions[0].Values)).To(Equal(1))
 			Expect(newSelector.MatchExpressions[0].Values[0]).To(Equal("test-node"))
+		})
 
+		It("should merge", func() {
+			vm := NewMinimalVM("testvm")
+			vm.Status.NodeName = "test-node"
+
+			existingTerm := v1.NodeSelectorTerm{}
+			secondExistingTerm := v1.NodeSelectorTerm{
+				MatchExpressions: []v1.NodeSelectorRequirement{
+					v1.NodeSelectorRequirement{},
+				},
+			}
+
+			pod := &v1.Pod{
+				Spec: v1.PodSpec{
+					Affinity: &v1.Affinity{
+						PodAffinity: &v1.PodAffinity{},
+						NodeAffinity: &v1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+								NodeSelectorTerms: []v1.NodeSelectorTerm{
+									existingTerm,
+									secondExistingTerm,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			affinity := UpdateAntiAffinityFromVMNode(pod, vm)
+
+			Expect(affinity.NodeAffinity).ToNot(BeNil())
+			Expect(affinity.PodAffinity).ToNot(BeNil())
+			Expect(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
+			Expect(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).ToNot(BeNil())
+			Expect(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(2))
+
+			selector := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
+			Expect(selector).ToNot(BeNil())
+			Expect(len(selector.MatchExpressions)).To(Equal(1))
+			Expect(len(selector.MatchExpressions[0].Values)).To(Equal(1))
+			Expect(selector.MatchExpressions[0].Values[0]).To(Equal("test-node"))
+
+			selector = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[1]
+			Expect(selector).ToNot(BeNil())
+			Expect(len(selector.MatchExpressions)).To(Equal(2))
+			Expect(len(selector.MatchExpressions[1].Values)).To(Equal(1))
+			Expect(selector.MatchExpressions[1].Values[0]).To(Equal("test-node"))
 		})
 	})
 })

@@ -180,6 +180,14 @@ type VMSpec struct {
 	Domain *DomainSpec `json:"domain,omitempty"`
 	// If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// If affinity is specifies, obey all the affinity rules
+	Affinity *Affinity `json:"affinity,omitempty"`
+}
+
+// Affinity groups all the affinity rules related to a VM
+type Affinity struct {
+	// Host affinity support
+	NodeAffinity *k8sv1.NodeAffinity `json:"nodeAffinity,omitempty"`
 }
 
 // VMStatus represents information about the status of a VM. Status may trail the actual
@@ -644,22 +652,49 @@ type MigrationHostInfo struct {
 	PidNS      string   `json:"pidns"`
 }
 
+// Given a VM, update all NodeSelectorTerms with anti-affinity for that VM's node.
+// This is useful for the case when a migration away from a node must occur.
+// This method returns the full Affinity structure updated the anti affinity terms
+func UpdateAntiAffinityFromVMNode(pod *k8sv1.Pod, vm *VirtualMachine) *k8sv1.Affinity {
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+
+	if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
+	}
+
+	selector := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	terms := selector.NodeSelectorTerms
+
+	if len(terms) == 0 {
+		selector.NodeSelectorTerms = append(terms, k8sv1.NodeSelectorTerm{})
+		terms = selector.NodeSelectorTerms
+	}
+
+	for idx, term := range terms {
+		if term.MatchExpressions == nil {
+			term.MatchExpressions = []k8sv1.NodeSelectorRequirement{}
+		}
+
+		term.MatchExpressions = append(term.MatchExpressions, PrepareVMNodeAntiAffinitySelectorRequirement(vm))
+		selector.NodeSelectorTerms[idx] = term
+	}
+
+	return pod.Spec.Affinity
+}
+
 // Given a VM, create a NodeSelectorTerm with anti-affinity for that VM's node.
 // This is useful for the case when a migration away from a node must occur.
-func AntiAffinityFromVMNode(vm *VirtualMachine) *k8sv1.Affinity {
-	selector := k8sv1.NodeSelectorTerm{
-		MatchExpressions: []k8sv1.NodeSelectorRequirement{
-			{
-				Key:      "kubernetes.io/hostname",
-				Operator: k8sv1.NodeSelectorOpNotIn,
-				Values:   []string{vm.Status.NodeName},
-			},
-		},
-	}
-	return &k8sv1.Affinity{
-		NodeAffinity: &k8sv1.NodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{NodeSelectorTerms: []k8sv1.NodeSelectorTerm{selector}},
-		},
+func PrepareVMNodeAntiAffinitySelectorRequirement(vm *VirtualMachine) k8sv1.NodeSelectorRequirement {
+	return k8sv1.NodeSelectorRequirement{
+		Key:      "kubernetes.io/hostname",
+		Operator: k8sv1.NodeSelectorOpNotIn,
+		Values:   []string{vm.Status.NodeName},
 	}
 }
 
