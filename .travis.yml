@@ -10,6 +10,9 @@ go:
 - 1.8.3
 - 1.8
 - 1.9
+- tip
+allow_failures:
+- go: tip
 
 before_install:
 - sudo add-apt-repository ppa:jacob/virtualisation -y
