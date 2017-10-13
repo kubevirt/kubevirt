@@ -133,12 +133,23 @@ func (c *configDiskClient) UndefineUnseen(indexer cache.Store) error {
 		namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 		domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
+		cleanup := false
+
 		key, err := cache.MetaNamespaceKeyFunc(vm)
 		if err != nil {
 			return err
 		}
-		_, exists, _ := indexer.GetByKey(key)
+
+		obj, exists, _ := indexer.GetByKey(key)
 		if exists == false {
+			cleanup = true
+		} else {
+			vm := obj.(*v1.VirtualMachine)
+			if vm.IsFinal() {
+				cleanup = true
+			}
+		}
+		if cleanup {
 			err := cloudinit.RemoveLocalData(domain, namespace)
 			if err != nil {
 				return err

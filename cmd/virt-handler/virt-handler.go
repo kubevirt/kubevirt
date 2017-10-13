@@ -170,6 +170,11 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	err = registrydisk.CleanupOrphanedEphemeralDisks(vmStore)
+	if err != nil {
+		panic(err)
+	}
+
 	go domainController.Run(3, stop)
 	go vmController.Run(3, stop)
 
