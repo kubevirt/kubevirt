@@ -55,7 +55,7 @@ exec sudo -C 10000 bash -s << END
 
   function _term() {
     rm -f $PIDFILE
-    pkill -P \$! --signal SIG\$1
+    kill -SIG\$1 \$pid
   }
 
   trap "_term TERM" TERM
