@@ -46,33 +46,14 @@ log "PIDFILE: $PIDFILE" >> $LOG
 log "$CMD" >> $LOG
 
 set -e
+sudo cgclassify -g ${CONTROLLERS}:$SLICE --sticky $$
 
-# Start qemu in the pid namespace of the container to receive signals on
-# container kills Don't close file descriptors smaller than 10000 to allow
-# passing tap device fds Start the qemu process in the cgroups of the docker
-# container to adhere to the resource limitations of the container.
-exec sudo -C 10000 bash -s << END
-
-  function _term() {
-    rm -f $PIDFILE
-    kill -SIG\$1 \$pid
-  }
-
-  trap "_term TERM" TERM
-  trap "_term INT" INT
-  trap "_term HUP" HUP
-  trap "_term QUIT" QUIT
-  trap "_term TERM" EXIT
-  trap "_term TERM" ERR
-
-  cgclassify -g ${CONTROLLERS}:$SLICE --sticky \$\$
-  $CMD &
-  pid=\$!
-  echo "\$pid" > $PIDFILE
-  echo "LAUNCHED PID \$pid" >> $LOG
-  wait
-  res=\$?
-
-  rm -f $PIDFILE
-  exit \$res
+pid=$$
+sudo bash -s << END
+  echo "$pid" > $PIDFILE
 END
+
+echo "Launching qemu process with pid $pid" >> $LOG
+
+exec $CMD
+
