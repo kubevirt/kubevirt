@@ -426,8 +426,9 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClien
 
 			ipAddrs, err := net.LookupIP(disk.Source.Host.Name)
 			if err != nil || ipAddrs == nil || len(ipAddrs) < 1 {
-				logger.Reason(err).Errorf("Unable to resolve host '%s'", disk.Source.Host.Name)
-				return vm, fmt.Errorf("Unable to resolve host '%s': %s", disk.Source.Host.Name, err)
+				msg := fmt.Sprintf("Unable to resolve host '%s'", disk.Source.Host.Name)
+				logger.Reason(err).Errorf(msg)
+				return vm, fmt.Errorf(msg+": %s", err)
 			}
 
 			newDisk.Source.Host.Name = ipAddrs[0].String()

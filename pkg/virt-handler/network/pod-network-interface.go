@@ -10,6 +10,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/network/cniproxy"
 	"kubevirt.io/kubevirt/pkg/virt-handler/network/utils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
@@ -106,6 +107,13 @@ func (vif *PodNetworkInterface) Plug(domainManager virtwrap.DomainManager) error
 		return nil
 	})
 
+	// Update DHCP
+	dhcpClient, err := virtdhcp.GetClient()
+	if err != nil {
+		return err
+	}
+	dhcpClient.AddIP(vif.Mac.String(), vif.IPAddr.IP.String(), 86400)
+
 	return nil
 }
 
@@ -131,6 +139,12 @@ func (vif *PodNetworkInterface) Unplug(domainManager virtwrap.DomainManager) err
 	if err != nil {
 		return err
 	}
+	// Update DHCP
+	dhcpClient, err := virtdhcp.GetClient()
+	if err != nil {
+		log.Log.Reason(err).Warning("failed to get dhcp client")
+	}
+	dhcpClient.RemoveIP(vif.Mac.String(), vif.IPAddr.IP.String())
 	return nil
 }
 
