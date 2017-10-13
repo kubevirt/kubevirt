@@ -6,6 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"encoding/json"
+	"io/ioutil"
+
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
@@ -59,4 +62,31 @@ func (i *cnitool) CNIDel(id string, netConf string, devName string, pid int) err
 	}
 
 	return cmd.Run()
+}
+
+func SetNetConfMaster(cniConfigDir, name, master, via string) error {
+	b, err := ioutil.ReadFile(cniConfigDir + "/" + name)
+	if err != nil {
+		return fmt.Errorf("error reading config file %s", name)
+	}
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(b, &raw)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling config file %s", name)
+	}
+
+	raw["master"] = master
+	raw["ipam"].(map[string]string)["via"] = via
+
+	b, err = json.MarshalIndent(&raw, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshalling config file %s", name)
+	}
+
+	err = ioutil.WriteFile(cniConfigDir+"/"+name, b, 0)
+	if err != nil {
+		return fmt.Errorf("error writing config %s to file", name)
+	}
+	return nil
 }

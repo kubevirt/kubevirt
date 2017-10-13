@@ -31,6 +31,6 @@ COPY cnitool/cnitool /tools/cnitool
 COPY cni/ipam/noroutes/noroutes /plugins/noroutes
 COPY cni/main/ipamonly/ipamonly /plugins/ipamonly
 copy kubevirt.json /etc/cni/net.d/
-copy ipamonly.json /etc/cni/net.d/
+copy nodenetwork.json /etc/cni/net.d/
 
 ENTRYPOINT [ "/virt-handler" ]

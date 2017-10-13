@@ -38,9 +38,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	"encoding/json"
-	"io/ioutil"
-
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -156,26 +153,11 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		panic(err)
 	}
-	b, err := ioutil.ReadFile("/etc/cni/net.d/kubevirt.json")
-	if err != nil {
+
+	if err := networking.SetNetConfMaster("/etc/cni/net.d", "kubevirt.json", link.Name, link.Name); err != nil {
 		panic(err)
 	}
-
-	var raw map[string]interface{}
-	err = json.Unmarshal(b, &raw)
-	if err != nil {
-		panic(err)
-	}
-
-	raw["master"] = link.Name
-
-	b, err = json.MarshalIndent(&raw, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-
-	err = ioutil.WriteFile("/etc/cni/net.d/kubevirt.json", b, 0)
-	if err != nil {
+	if err := networking.SetNetConfMaster("/etc/cni/net.d", "nodenetwork.json", "kubevirt0", link.Name); err != nil {
 		panic(err)
 	}
 
