@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/emicklei/go-restful"
 	k8sv1 "k8s.io/api/core/v1"
@@ -58,9 +57,7 @@ type VirtControllerApp struct {
 	migratorImage    string
 	socketDir        string
 	ephemeralDiskDir string
-
-	sync.Mutex
-	isLeader bool
+	readyChan        chan bool
 }
 
 func Execute() {
@@ -71,7 +68,7 @@ func Execute() {
 
 	app.DefineFlags()
 
-	app.isLeader = false
+	app.readyChan = make(chan bool, 1)
 
 	logging.InitializeLogging("virt-controller")
 
@@ -85,14 +82,18 @@ func Execute() {
 
 	readinessFunc := func(_ *restful.Request, response *restful.Response) {
 		res := map[string]interface{}{}
-		if !app.isLeader {
-			res["apiserver"] = map[string]interface{}{"leader": "false", "error": "current pod is not leader"}
-			response.WriteHeaderAndJson(http.StatusServiceUnavailable, res, restful.MIME_JSON)
-			return
-		}
 
-		res["apiserver"] = map[string]interface{}{"leader": "true"}
-		response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
+		select {
+		case _, opened := <-app.readyChan:
+			if !opened {
+				res["apiserver"] = map[string]interface{}{"leader": "true"}
+				response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
+				return
+			}
+		default:
+		}
+		res["apiserver"] = map[string]interface{}{"leader": "false", "error": "current pod is not leader"}
+		response.WriteHeaderAndJson(http.StatusServiceUnavailable, res, restful.MIME_JSON)
 		return
 	}
 	webService := rest.WebService
@@ -166,12 +167,10 @@ func (vca *VirtControllerApp) Run() {
 			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
-					vca.Lock()
-					vca.isLeader = true
-					vca.Unlock()
 					go vca.vmController.Run(3, stop)
 					go vca.migrationController.Run(3, stop)
 					go vca.rsController.Run(3, stop)
+					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
 					golog.Fatal("leaderelection lost")
