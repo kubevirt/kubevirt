@@ -101,11 +101,11 @@ func (mon *monitor) refresh() {
 	if mon.pid == 0 {
 		var err error
 
-		mon.pid, err = findPid(mon.commandPrefix)
+		mon.pid, err = findPidInMyCgroup(mon.commandPrefix)
 		if err != nil {
 
 			logging.DefaultLogger().Info().Msgf("Still missing PID for %s, %v", mon.commandPrefix, err)
-			// if the proces is not there yet, is it too late?
+			// check to see if we've timed out looking for the process
 			elapsed := time.Since(mon.start)
 			if mon.timeout > 0 && elapsed >= mon.timeout {
 				logging.DefaultLogger().Info().Msgf("%s not found after timeout", mon.commandPrefix)
@@ -114,20 +114,10 @@ func (mon *monitor) refresh() {
 			return
 		}
 
-		cgroupsMatch, err := matchPidCgroupSlice(mon.pid)
-		if err != nil {
-			logging.DefaultLogger().Reason(err).Error().Msgf("Error detecting cgroups for PID %d", mon.pid)
-			mon.pid = 0
-			return
-		} else if cgroupsMatch == false {
-			logging.DefaultLogger().Debug().Msgf("Cgroups do not match for PID %d.", mon.pid)
-			mon.pid = 0
-			return
-		}
 		logging.DefaultLogger().Info().Msgf("Found PID for %s: %d", mon.commandPrefix, mon.pid)
 	}
 
-	exists, err := pidExists(mon.pid)
+	exists, err := pidExistsInMyCgroup(mon.pid)
 	if err != nil {
 		logging.DefaultLogger().Reason(err).Error().Msgf("Error detecting pid (%d) status.", mon.pid)
 		return
@@ -196,19 +186,29 @@ func readProcCmdline(pathname string) ([]string, error) {
 	return strings.Split(string(content), "\x00"), nil
 }
 
-func pidExists(pid int) (bool, error) {
+func pidExistsInMyCgroup(pid int) (bool, error) {
 	path := fmt.Sprintf("/proc/%d/cmdline", pid)
 
-	return diskutils.FileExists(path)
-}
-
-func findPid(commandNamePrefix string) (int, error) {
-	entries, err := filepath.Glob("/proc/*/cmdline")
+	exists, err := diskutils.FileExists(path)
 	if err != nil {
-		return 0, err
+		return false, err
+	}
+	if exists == false {
+		return false, nil
 	}
 
-	mySlice, err := getMyCgroupSlice()
+	cgroupMatch, err := matchPidCgroupSlice(pid)
+	if err != nil {
+		return false, err
+	}
+	if cgroupMatch == false {
+		return false, nil
+	}
+	return true, nil
+}
+
+func findPidInMyCgroup(commandNamePrefix string) (int, error) {
+	entries, err := filepath.Glob("/proc/*/cmdline")
 	if err != nil {
 		return 0, err
 	}
@@ -233,10 +233,12 @@ func findPid(commandNamePrefix string) (int, error) {
 			return 0, err
 		}
 
-		_, pidSlice, err := isolation.GetDefaultSlice(pid)
+		cgroupsMatch, err := matchPidCgroupSlice(pid)
+		if err != nil {
+			return 0, err
+		}
 
-		// cgroup slices do not match
-		if pidSlice != mySlice {
+		if cgroupsMatch == false {
 			continue
 		}
 
