@@ -71,7 +71,6 @@ var _ = Describe("Manager", func() {
 			QEMUEnv: []api.Env{
 				{Name: "SLICE", Value: "dfd"},
 				{Name: "CONTROLLERS", Value: "a,b"},
-				{Name: "PIDNS", Value: "/proc/1234/ns/pid"},
 			},
 		}
 		isolationResult := isolation.NewIsolationResult(1234, "dfd", []string{"a", "b"})

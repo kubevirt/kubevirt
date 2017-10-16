@@ -187,7 +187,6 @@ func (t *templateService) RenderMigrationJob(vm *v1.VirtualMachine, sourceNode *
 						"--namespace", vm.ObjectMeta.Namespace,
 						"--slice", targetHostInfo.Slice,
 						"--controller", strings.Join(targetHostInfo.Controller, ","),
-						"--pidns", targetHostInfo.PidNS,
 					},
 				},
 			},

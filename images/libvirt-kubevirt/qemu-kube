@@ -40,7 +40,6 @@ CMD="$QEMU $ARGS"
 
 log "cgroup path: $SLICE" >> $LOG
 log "cgroups: $CONTROLLERS" >> $LOG
-log "PID namespace: $PIDNS" >> $LOG
 
 log "$CMD" >> $LOG
 
