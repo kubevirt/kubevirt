@@ -77,7 +77,7 @@ vagrant-sync-optional:
 	./cluster/vagrant/sync_build.sh 'build optional'
 
 vagrant-deploy: vagrant-sync-config vagrant-sync-build
-	export KUBECTL="cluster/kubectl.sh --core" && ./cluster/deploy.sh
+	export KUBECTL="cluster/kubectl.sh" && ./cluster/deploy.sh
 
 .release-functest:
 	make functest > .release-functest 2>&1

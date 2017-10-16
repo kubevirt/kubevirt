@@ -19,7 +19,7 @@
 
 set -ex
 
-kubectl() { cluster/kubectl.sh --core "$@"; }
+kubectl() { cluster/kubectl.sh "$@"; }
 
 
 # Install GO
