@@ -57,8 +57,8 @@ breakdown of the major VM metrics.
 | block device #x capacity           | core?                 | -         |
 | block device #x physical           | core?                 | -         |
 | block device #x threshold          | core?                 | -         |
-| guest state                        | monitoring/hypervisor | -         |
-| guest state reason                 | monitoring/hypervisor | -         |
+| guest state [1]                    | monitoring/hypervisor | -         |
+| guest state reason [1]             | monitoring/hypervisor | -         |
 | memory balloon current             | monitoring/hypervisor | -         |
 | memory balloon maximum             | monitoring/hypervisor | -         |
 | virtual CPU count                  | monitoring/hypervisor | -         |
@@ -87,11 +87,17 @@ breakdown of the major VM metrics.
 | guest IP address                   | monitoring/guest      | -         |
 
 
-**NOTE** the list of guest agent provided metrics is partial, because
+**NOTES**
+* [1] the value is one enumeration, so no direct translation is possible
+
+Please note that the list of guest agent provided metrics is partial, because
 a lot of different metrics can be collected for the guest. The presented
 entries are a subset of what the [QEMU Guest Agent](https://wiki.qemu.org/Features/GuestAgent)
 provides, which is used by virtualization managers like
 [oVirt](http://www.ovirt.org)
+
+**TO BE DECIDED** Nothing prevents us to report the core metrics in the monitoring
+pipeline. Do we want to do that?
 
 ## KubeVirt monitoring pipeline
 
@@ -135,6 +141,15 @@ Optionally, the KubeVirt node agent could do some simple data normalizations as 
   will be reported even after the migration is completed
 
 The normalization features will be controlled by node agent options (e.g. command line switches).
+
+### Metric naming rules
+Exposing the VM metrics to a prometheus server is pretty straightforward considering
+the [prometheus naming rules](https://prometheus.io/docs/practices/naming/).
+We will always one label to identify the VM who exposed the metric, for example
+```
+migration_memory_iteration{vm="$UUID"} 0
+vcpu_total_time{vm="$UUID",cpu="0"} 12345
+```
 
 ### Implementation
 
@@ -190,7 +205,8 @@ the Kubernetes documentation about setting a monitoring pipeline.
 
 **CONS**
 - Reporting of ephemeral metrics could need work and acceptance upstream
-- Collectd uses a custom way to report metrics that may mismatch with Prometheus
+- Collectd uses one [implicit and hardcoded mapping](https://github.com/collectd/collectd/blob/master/src/write_prometheus.c#L405)
+  for prometheus labels which is a poor fit for the KubeVirt use case.
 - long release cycle
 
 ## KubeVIRT API Adapters: VM metrics naming rules
