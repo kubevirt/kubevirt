@@ -16,17 +16,13 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM debian:sid
-# Enable once https://bugzilla.redhat.com/show_bug.cgi?id=1471920 is fixed
-#FROM fedora:26
+FROM fedora:26
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
 
-RUN apt-get update && apt-get install -y \
-  tgt bash curl bzip2 qemu-utils
-#RUN dnf -y install scsi-target-utils bzip2 qemu-img \
-#    && dnf -y clean all
+RUN dnf -y update && dnf -y install scsi-target-utils bzip2 qemu-img \
+    && dnf -y clean all
 
 RUN mkdir -p /volume
 
