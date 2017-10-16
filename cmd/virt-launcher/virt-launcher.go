@@ -113,8 +113,7 @@ func main() {
 		}
 	}()
 
-	pidFile := virtlauncher.QemuPidfileFromNamespaceName(*virtShareDir, *namespace, *name)
-	mon := virtlauncher.NewProcessMonitor(pidFile, *debugMode)
+	mon := virtlauncher.NewProcessMonitor("qemu", *debugMode)
 
 	markReady(*readinessFile)
 	mon.RunForever(*qemuTimeout)

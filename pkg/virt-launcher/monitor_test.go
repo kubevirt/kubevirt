@@ -20,8 +20,6 @@
 package virtlauncher
 
 import (
-	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -38,11 +36,6 @@ var _ = Describe("VirtLauncher", func() {
 
 	dir := os.Getenv("PWD")
 	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
-	tmpDir, err := ioutil.TempDir("", "virt-launcher-unit-test")
-	if err != nil {
-		panic(err)
-	}
-	pidFile := tmpDir + "/pid-file"
 
 	processName := "fake-qemu-process"
 	processPath := dir + "/cmd/fake-qemu-process/" + processName
@@ -54,10 +47,6 @@ var _ = Describe("VirtLauncher", func() {
 
 		currentPid := cmd.Process.Pid
 		Expect(currentPid).ToNot(Equal(0))
-
-		pidStr := fmt.Sprintf("%d", currentPid)
-		err = ioutil.WriteFile(pidFile, []byte(pidStr), 0644)
-		Expect(err).ToNot(HaveOccurred())
 	}
 
 	StopProcess := func() {
@@ -95,10 +84,9 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
-		os.Remove(pidFile)
 		mon = &monitor{
-			pidFile:   pidFile,
-			debugMode: true,
+			commandPrefix: "fake-qemu",
+			debugMode:     true,
 		}
 	})
 

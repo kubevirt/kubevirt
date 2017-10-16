@@ -20,7 +20,6 @@
 package virtlauncher
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -40,7 +39,7 @@ import (
 type monitor struct {
 	timeout         time.Duration
 	pid             int
-	pidFile         string
+	commandPrefix   string
 	start           time.Time
 	isDone          bool
 	forwardedSignal os.Signal
@@ -52,34 +51,35 @@ type ProcessMonitor interface {
 }
 
 func InitializeSharedDirectories(baseDir string) error {
-	err := os.MkdirAll(baseDir+"/qemu-pids", 0755)
-	if err != nil {
-		return err
-	}
-
 	return os.MkdirAll(watchdog.WatchdogFileDirectory(baseDir), 0755)
 }
 
-func QemuPidfileFromNamespaceName(baseDir string, namespace string, name string) string {
-	return filepath.Clean(baseDir) + "/qemu-pids/" + namespace + "_" + name
-}
-
-func NewProcessMonitor(pidFile string, debugMode bool) ProcessMonitor {
+func NewProcessMonitor(commandPrefix string, debugMode bool) ProcessMonitor {
 	return &monitor{
-		pidFile:   pidFile,
-		debugMode: debugMode,
+		commandPrefix: commandPrefix,
+		debugMode:     debugMode,
 	}
 }
 
-func matchPidCgroupSlice(pid int) (bool, error) {
+func getMyCgroupSlice() (string, error) {
 	myPid := os.Getpid()
+
+	_, mySlice, err := isolation.GetDefaultSlice(myPid)
+	if err != nil {
+		return "", err
+	}
+
+	return mySlice, nil
+}
+
+func matchPidCgroupSlice(pid int) (bool, error) {
 
 	_, pidSlice, err := isolation.GetDefaultSlice(pid)
 	if err != nil {
 		return false, err
 	}
 
-	_, mySlice, err := isolation.GetDefaultSlice(myPid)
+	mySlice, err := getMyCgroupSlice()
 	if err != nil {
 		return false, err
 	}
@@ -99,19 +99,20 @@ func (mon *monitor) refresh() {
 	}
 
 	if mon.debugMode {
-		log.Printf("Refreshing pidFIle %s pid %d", mon.pidFile, mon.pid)
+		log.Printf("Refreshing. CommandPrefix %s pid %d", mon.commandPrefix, mon.pid)
 	}
 
 	// is the process there?
 	if mon.pid == 0 {
 		var err error
-		mon.pid, err = getPidFromFile(mon.pidFile)
+
+		mon.pid, err = findPid(mon.commandPrefix)
 		if err != nil {
-			log.Printf("Still missing PID for %s, %v", mon.pidFile, err)
+			log.Printf("Still missing PID for %s, %v", mon.commandPrefix, err)
 			// if the proces is not there yet, is it too late?
 			elapsed := time.Since(mon.start)
 			if mon.timeout > 0 && elapsed >= mon.timeout {
-				log.Printf("%s not found after timeout", mon.pidFile)
+				log.Printf("%s not found after timeout", mon.commandPrefix)
 				mon.isDone = true
 			}
 			return
@@ -127,17 +128,16 @@ func (mon *monitor) refresh() {
 			mon.pid = 0
 			return
 		}
-		log.Printf("Found PID for %s: %d", mon.pidFile, mon.pid)
+		log.Printf("Found PID for %s: %d", mon.commandPrefix, mon.pid)
 	}
 
-	// is the process gone? mon.pid != 0 -> mon.pid == 0
-	// note libvirt deliver one event for this, but since we need
-	// to poll procfs anyway to detect incoming QEMUs after migrations,
-	// we choose to not use this. Bonus: we can close the connection
-	// and open it only when needed, which is a tiny part of the
-	// virt-launcher lifetime.
-	if !pidExists(mon.pid) {
-		log.Printf("Process with pidfile %s and pid %d is gone!", mon.pidFile, mon.pid)
+	exists, err := pidExists(mon.pid)
+	if err != nil {
+		log.Printf("Error detecting pid (%d) status. %v", mon.pid, err)
+		return
+	}
+	if exists == false {
+		log.Printf("Process %s and pid %d is gone!", mon.commandPrefix, mon.pid)
 		mon.pid = 0
 		mon.isDone = true
 		return
@@ -203,38 +203,53 @@ func readProcCmdline(pathname string) ([]string, error) {
 	return strings.Split(string(content), "\x00"), nil
 }
 
-func getPidFromFile(pidFile string) (int, error) {
-	exists, err := diskutils.FileExists(pidFile)
+func pidExists(pid int) (bool, error) {
+	path := fmt.Sprintf("/proc/%d/cmdline", pid)
 
-	if err != nil {
-		return 0, err
-	}
-
-	if exists == false {
-		return 0, fmt.Errorf("pid file at path %s not found", pidFile)
-	}
-
-	data, err := ioutil.ReadFile(pidFile)
-	if err != nil {
-		return 0, err
-	}
-
-	pid, err := strconv.Atoi(string(bytes.TrimSpace(data)))
-	if err != nil {
-		return 0, err
-	}
-
-	if !pidExists(pid) {
-		return 0, fmt.Errorf("stale pid detected at pidFile %s", pidFile)
-	}
-
-	return pid, nil
+	return diskutils.FileExists(path)
 }
 
-func pidExists(pid int) bool {
-	path := fmt.Sprintf("/proc/%d/cmdline", pid)
-	if _, err := os.Stat(path); err == nil {
-		return true
+func findPid(commandNamePrefix string) (int, error) {
+	entries, err := filepath.Glob("/proc/*/cmdline")
+	if err != nil {
+		return 0, err
 	}
-	return false
+
+	mySlice, err := getMyCgroupSlice()
+	if err != nil {
+		return 0, err
+	}
+
+	for _, entry := range entries {
+		argv, err := readProcCmdline(entry)
+		if err != nil {
+			return 0, err
+		}
+
+		match, _ := filepath.Match(fmt.Sprintf("%s*", commandNamePrefix), filepath.Base(argv[0]))
+		// command prefix does not match
+		if !match {
+			continue
+		}
+
+		//   <empty> /    proc     /    $PID   /   cmdline
+		// items[0] sep items[1] sep items[2] sep  items[3]
+		items := strings.Split(entry, string(os.PathSeparator))
+		pid, err := strconv.Atoi(items[2])
+		if err != nil {
+			return 0, err
+		}
+
+		_, pidSlice, err := isolation.GetDefaultSlice(pid)
+
+		// cgroup slices do not match
+		if pidSlice != mySlice {
+			continue
+		}
+
+		// everything matched, hooray!
+		return pid, nil
+	}
+
+	return 0, fmt.Errorf("Process %s not found in /proc", commandNamePrefix)
 }

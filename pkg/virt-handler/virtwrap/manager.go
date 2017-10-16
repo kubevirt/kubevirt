@@ -40,13 +40,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
-	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 )
 
 type DomainManager interface {
@@ -61,7 +59,6 @@ type LibvirtDomainManager struct {
 	recorder             record.EventRecorder
 	secretCache          map[string][]string
 	podIsolationDetector isolation.PodIsolationDetector
-	virtShareDir         string
 }
 
 func (l *LibvirtDomainManager) initiateSecretCache() error {
@@ -103,13 +100,12 @@ func (l *LibvirtDomainManager) initiateSecretCache() error {
 	return nil
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder, isolationDetector isolation.PodIsolationDetector, virtShareDir string) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder, isolationDetector isolation.PodIsolationDetector) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:              connection,
 		recorder:             recorder,
 		secretCache:          make(map[string][]string),
 		podIsolationDetector: isolationDetector,
-		virtShareDir:         virtShareDir,
 	}
 
 	err := manager.initiateSecretCache()
@@ -193,16 +189,12 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 		return nil, err
 	}
 
-	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-	name := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-
 	logging.DefaultLogger().Object(vm).Info().With("slice", res.Slice()).V(3).Msg("Detected cgroup slice.")
 	wantedSpec.QEMUCmd = &api.Commandline{
 		QEMUEnv: []api.Env{
 			{Name: "SLICE", Value: res.Slice()},
 			{Name: "CONTROLLERS", Value: strings.Join(res.Controller(), ",")},
 			{Name: "PIDNS", Value: res.PidNS()},
-			{Name: "PIDFILE", Value: virtlauncher.QemuPidfileFromNamespaceName(l.virtShareDir, namespace, name)},
 		},
 	}
 
