@@ -30,6 +30,16 @@ import (
 )
 
 var exampleXML = `<domain type="qemu">
+  <metadata>
+    <interfaces xmlns="http://kubevirt.io">
+       <interface>
+          <type>type1</type>
+       </interface>
+       <interface>
+          <type>type2</type>
+       </interface>
+    </interfaces>
+  </metadata>
   <name>testvm</name>
   <memory unit="KiB">8192</memory>
   <os>
@@ -63,30 +73,35 @@ var exampleXML = `<domain type="qemu">
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the xml above
-	var exampleDomain = NewMinimalDomainSpec("testvm")
-	exampleDomain.Devices.Disks = []Disk{
-		{Type: "network",
-			Device: "disk",
-			Driver: &DiskDriver{Name: "qemu",
-				Type: "raw"},
-			Source: DiskSource{Protocol: "iscsi",
-				Name: "iqn.2013-07.com.example:iscsi-nopool/2",
-				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
-			Target: DiskTarget{Device: "vda"},
-		},
-	}
-	exampleDomain.Devices.Video = []Video{
-		{Model: VideoModel{Type: "vga"}},
-		{Model: VideoModel{Type: "qxl"}},
-	}
-	exampleDomain.Devices.Serials = []Serial{
-		{Type: "pty", Target: &SerialTarget{Port: newUInt(123)}},
-	}
-	exampleDomain.Devices.Consoles = []Console{
-		{Type: "pty", Target: &ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
-	}
+	var exampleDomain *DomainSpec
 
-	Context("With schema", func() {
+	BeforeEach(func() {
+		exampleDomain = NewMinimalDomainSpec("testvm")
+		exampleDomain.Devices.Disks = []Disk{
+			{Type: "network",
+				Device: "disk",
+				Driver: &DiskDriver{Name: "qemu",
+					Type: "raw"},
+				Source: DiskSource{Protocol: "iscsi",
+					Name: "iqn.2013-07.com.example:iscsi-nopool/2",
+					Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
+				Target: DiskTarget{Device: "vda"},
+			},
+		}
+		exampleDomain.Devices.Video = []Video{
+			{Model: VideoModel{Type: "vga"}},
+			{Model: VideoModel{Type: "qxl"}},
+		}
+		exampleDomain.Devices.Serials = []Serial{
+			{Type: "pty", Target: &SerialTarget{Port: newUInt(123)}},
+		}
+		exampleDomain.Devices.Consoles = []Console{
+			{Type: "pty", Target: &ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
+		}
+
+	})
+
+	Context("Libvit XML conversion", func() {
 		It("Generate expected libvirt xml", func() {
 			domain := NewMinimalDomainSpec("testvm")
 			buf, err := xml.Marshal(domain)
@@ -101,19 +116,33 @@ var _ = Describe("Schema", func() {
 		})
 	})
 	Context("With example schema", func() {
+
+		BeforeEach(func() {
+			exampleDomain.Metadata = &Metadata{
+				Interfaces: InterfacesMetadata{
+					Interfaces: []InterfaceMetadata{
+						{Type: "type1"},
+						{Type: "type2"},
+					},
+				},
+			}
+		})
+
 		It("Unmarshal into struct", func() {
 			newDomain := DomainSpec{}
 			err := xml.Unmarshal([]byte(exampleXML), &newDomain)
 			newDomain.XMLName.Local = ""
 			Expect(err).To(BeNil())
-
-			Expect(newDomain).To(Equal(*exampleDomain))
 		})
-		It("Marshal into xml", func() {
+
+		It("should marshal into xml and back", func() {
 			buf, err := xml.MarshalIndent(*exampleDomain, "", "  ")
 			Expect(err).To(BeNil())
-
-			Expect(string(buf)).To(Equal(exampleXML))
+			newDomain := DomainSpec{}
+			err = xml.Unmarshal(buf, &newDomain)
+			newDomain.XMLName.Local = ""
+			Expect(err).To(BeNil())
+			Expect(newDomain).To(Equal(*exampleDomain))
 		})
 
 	})
