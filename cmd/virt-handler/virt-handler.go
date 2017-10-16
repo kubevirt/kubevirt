@@ -154,16 +154,27 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	if err := networking.SetNetConfMaster("/etc/cni/net.d", "kubevirt.json", link.Name, link.Name); err != nil {
+	// TODO move the whole  config writes into an extra pod, to make virt-handler node independent
+	if err := networking.SetNetConfMaster("/etc/cni/net.d", "kubevirt.json", link.Name, ""); err != nil {
 		panic(err)
 	}
 	if err := networking.SetNetConfMaster("/etc/cni/net.d", "nodenetwork.json", "kubevirt0", link.Name); err != nil {
 		panic(err)
 	}
 
+	// TODO also do the CNI calls from the extra Pod
 	cnitool := networking.NewCNITool(app.ToolsDir, app.ToolsDir+"/plugins", "/etc/cni/net.d")
-	cnitool.CNIDel("kubevirt", "kubevirt", "kubevirt0", 1)
-	res, err := cnitool.CNIAdd("kubevirt", "kubevirt", "kubevirt0", 1)
+	cnitool.CNIDel("kubevirt", "kubevirt", "kubevirt0", nil, 1)
+	res, err := cnitool.CNIAdd("kubevirt", "kubevirt", "kubevirt0", nil, 1)
+	if err != nil {
+		panic(err)
+	}
+
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
+		recorder,
+		isolation.NewSocketBasedIsolationDetector(app.SocketDir),
+		cnitool,
+	)
 	if err != nil {
 		panic(err)
 	}

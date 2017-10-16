@@ -378,46 +378,6 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
-func (d *VMHandlerDispatch) mapNodeNetworkToLibvirt(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-
-	var node *k8sv1.Node
-
-	for i, iface := range vm.Spec.Domain.Devices.Interfaces {
-		if iface.Type == "nodeNetwork" {
-			if node == nil {
-				var err error
-				node, err = d.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
-				if err != nil {
-					return nil, err
-				}
-			}
-			nodeIP := networking.GetNodeInternalIP(node)
-			if nodeIP == "" {
-				return nil, fmt.Errorf("No Node IP detected.")
-			}
-			link, err := d.networkIntrospector.GetLinkByIP(nodeIP, 1)
-
-			if err != nil {
-				return nil, fmt.Errorf("Could not detect interface for IP %v: %v", nodeIP, err)
-			}
-
-			obj, err := model.Clone(&iface)
-			if err != nil {
-				return nil, err
-			}
-
-			newIf := obj.(*v1.Interface)
-			newIf.Type = "direct"
-			newIf.Source = v1.InterfaceSource{
-				Device: link.Name,
-				Mode:   "bridge",
-			}
-			vm.Spec.Domain.Devices.Interfaces[i] = *newIf
-		}
-	}
-	return vm, nil
-}
-
 // Almost everything in the VM object maps exactly to its domain counterpart
 // One exception is persistent volume claims. This function looks up each PV
 // and inserts a corrected disk entry into the VM's device map.
@@ -631,12 +591,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, should
 	vm, err = MapPersistentVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
 	if err != nil {
 		return err
-	}
-
-	// Map HostNetwork type to macvtap
-	vm, err = d.mapNodeNetworkToLibvirt(vm)
-	if err != nil {
-		return false, err
 	}
 
 	// Map Container Registry Disks to block devices Libvirt can consume

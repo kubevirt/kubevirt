@@ -24,6 +24,10 @@ func init() {
 
 type NetConf struct {
 	types.NetConf
+	IPAM struct {
+		Type string `json:"type,omitempty"`
+		Via  string `json:"via,omitempoty"`
+	} `json:"ipam,omitempty"`
 	Master string `json:"master"`
 }
 
@@ -68,6 +72,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 			if err != nil {
 				return fmt.Errorf("error adding route for %v via %v: %v", result, master.Attrs().Name, err)
 			}
+			result.Interfaces = append(result.Interfaces, &current.Interface{Name: n.IPAM.Via})
+		} else if master.Type() == "bridge" {
+			result.Interfaces = append(result.Interfaces, &current.Interface{Name: n.Master})
 		}
 	}
 

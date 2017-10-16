@@ -13,8 +13,8 @@ import (
 )
 
 type CNIToolInterface interface {
-	CNIAdd(id string, netConf string, devName string, pid int) (*current.Result, error)
-	CNIDel(id string, netConf string, devName string, pid int) error
+	CNIAdd(id string, netConf string, devName string, mac *string, pid int) (*current.Result, error)
+	CNIDel(id string, netConf string, devName string, mac *string, pid int) error
 }
 
 type cnitool struct {
@@ -27,13 +27,21 @@ func NewCNITool(toolDir string, cniDir string, cniConfDir string) CNIToolInterfa
 	return &cnitool{strings.TrimSuffix(toolDir, "/"), cniDir, cniConfDir}
 }
 
-func (i *cnitool) CNIAdd(id string, netConf string, devName string, pid int) (*current.Result, error) {
-	cmd := exec.Command(i.toolDir+"/cnitool",
+func (i *cnitool) CNIAdd(id string, netConf string, devName string, mac *string, pid int) (*current.Result, error) {
+
+	args := []string{
 		"add", id, netConf, devName,
 		"--from-ns", strconv.Itoa(pid),
 		"--to-ns", strconv.Itoa(pid),
 		"--cni-path", i.cniDir,
-		"--cni-config-path", i.cniConfDir)
+		"--cni-config-path", i.cniConfDir,
+	}
+
+	if mac != nil {
+		args = append(args, "--args", fmt.Sprintf("mac=%s", *mac))
+	}
+
+	cmd := exec.Command(i.toolDir+"/cnitool", args...)
 
 	resp, err := cmd.Output()
 	if err != nil {
@@ -48,13 +56,20 @@ func (i *cnitool) CNIAdd(id string, netConf string, devName string, pid int) (*c
 	return current.NewResultFromResult(res)
 }
 
-func (i *cnitool) CNIDel(id string, netConf string, devName string, pid int) error {
-	cmd := exec.Command(i.toolDir+"/cnitool",
+func (i *cnitool) CNIDel(id string, netConf string, devName string, mac *string, pid int) error {
+
+	args := []string{
 		"del", id, netConf, devName,
 		"--from-ns", strconv.Itoa(pid),
 		"--to-ns", strconv.Itoa(pid),
 		"--cni-path", i.cniDir,
-		"--cni-config-path", i.cniConfDir)
+		"--cni-config-path", i.cniConfDir}
+
+	if mac != nil {
+		args = append(args, "--args", fmt.Sprintf("mac=%s", *mac))
+	}
+
+	cmd := exec.Command(i.toolDir+"/cnitool", args...)
 
 	resp, err := cmd.Output()
 	if err != nil {
@@ -77,7 +92,7 @@ func SetNetConfMaster(cniConfigDir, name, master, via string) error {
 	}
 
 	raw["master"] = master
-	raw["ipam"].(map[string]string)["via"] = via
+	raw["ipam"].(map[string]interface{})["via"] = via
 
 	b, err = json.MarshalIndent(&raw, "", "  ")
 	if err != nil {

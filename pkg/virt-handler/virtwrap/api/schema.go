@@ -218,11 +218,12 @@ type DomainSpec struct {
 }
 
 type Metadata struct {
-	Interfaces InterfacesMetadata `xml:"http://kubevirt.io interfaces,omitempty"`
+	Interfaces InterfacesMetadata `xml:"http://kubevirt.io interfaces"`
 }
 
 type InterfaceMetadata struct {
-	Type string `xml:"type"`
+	Type  string `xml:"type"`
+	Index int    `xml:"index"`
 }
 
 type InterfacesMetadata struct {

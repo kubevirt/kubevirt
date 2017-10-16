@@ -10,6 +10,8 @@ import (
 
 	"strconv"
 
+	"crypto/rand"
+
 	"github.com/vishvananda/netlink"
 	"k8s.io/api/core/v1"
 )
@@ -79,4 +81,15 @@ func (i *introspector) GetLinkByIP(ip string, pid int) (*Link, error) {
 
 func GetNSFromPID(pid uint) string {
 	return fmt.Sprintf("/proc/%d/ns/net", pid)
+}
+
+func RandomMac() (net.HardwareAddr, error) {
+	buf := make([]byte, 6)
+	_, err := rand.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	// Set the local bit
+	buf[0] |= 2
+	return buf, nil
 }

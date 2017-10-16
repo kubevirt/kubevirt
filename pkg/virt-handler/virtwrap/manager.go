@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/networking"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
@@ -59,6 +60,7 @@ type LibvirtDomainManager struct {
 	recorder             record.EventRecorder
 	secretCache          map[string][]string
 	podIsolationDetector isolation.PodIsolationDetector
+	cniTool              networking.CNIToolInterface
 }
 
 func (l *LibvirtDomainManager) initiateSecretCache() error {
@@ -100,12 +102,13 @@ func (l *LibvirtDomainManager) initiateSecretCache() error {
 	return nil
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder, isolationDetector isolation.PodIsolationDetector) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder, isolationDetector isolation.PodIsolationDetector, cniTool networking.CNIToolInterface) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:              connection,
 		recorder:             recorder,
 		secretCache:          make(map[string][]string),
 		podIsolationDetector: isolationDetector,
+		cniTool:              cniTool,
 	}
 
 	err := manager.initiateSecretCache()
@@ -201,6 +204,9 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	domName := cache.VMNamespaceKeyFunc(vm)
 	wantedSpec.Name = domName
 	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
+	// Set networking metadata. It is important to persist this before starting
+	// the VM the first time, to allow proper cleanup
+	createNetworkingMetadata(&wantedSpec)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	newDomain := false
 	if err != nil {
@@ -209,6 +215,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 			newDomain = true
 			dom, err = l.setDomainXML(vm, wantedSpec)
 			if err != nil {
+				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining domain failed.")
 				return nil, err
 			}
 			logger.Info("Domain defined.")
@@ -228,6 +235,8 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VM was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
+
+		// Persist networking metadata and qemu options
 		dom, err = l.setDomainXML(vm, wantedSpec)
 		if err != nil {
 			return nil, err
@@ -238,7 +247,19 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) {
-		err := dom.Create()
+		// If the VM is not running, prepare the network
+		err := l.CNIAdd(&wantedSpec)
+		if err != nil {
+			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Preparing networking failed.")
+			return nil, err
+		}
+
+		dom, err = l.setDomainXML(vm, wantedSpec)
+		if err != nil {
+			return nil, err
+		}
+
+		err = dom.Create()
 		if err != nil {
 			logger.Reason(err).Error("Starting the VM failed.")
 			return nil, err
@@ -258,20 +279,10 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 		// Nothing to do
 	}
 
-	xmlstr, err := dom.GetXMLDesc(0)
-	if err != nil {
-		return nil, err
-	}
-
-	var newSpec api.DomainSpec
-	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
-	if err != nil {
-		logger.Reason(err).Error("Parsing domain XML failed.")
-		return nil, err
-	}
+	newSpec, err := l.getDomainDesc(dom, 0)
 
 	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
-	return &newSpec, nil
+	return newSpec, nil
 }
 
 func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
@@ -333,6 +344,20 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Stopped.String(), "VM stopped")
 	}
 
+	spec, err := l.getDomainDesc(dom, 0)
+	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Fetching Domain XML failed.")
+		return err
+	}
+
+	// Clean up networks before we undefine the domain
+	err = l.CNIDel(spec)
+	if err != nil {
+		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Cleaning up networks failed.")
+		return err
+	}
+	logging.DefaultLogger().Object(vm).Info().Msg("Networks cleaned up.")
+
 	err = dom.Undefine()
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Undefining the domain state failed.")
@@ -356,4 +381,98 @@ func (l *LibvirtDomainManager) setDomainXML(vm *v1.VirtualMachine, wantedSpec ap
 		return nil, err
 	}
 	return dom, nil
+}
+
+// getDomainDesc takes a domain pointer and domain xml flags and returns an api.DomainSpec
+func (l *LibvirtDomainManager) getDomainDesc(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*api.DomainSpec, error) {
+
+	xmlstr, err := dom.GetXMLDesc(flags)
+	if err != nil {
+		return nil, err
+	}
+
+	var newSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &newSpec, nil
+}
+
+// createNetworkingMetadata adds networking metadata to the domain XML.
+func createNetworkingMetadata(domain *api.DomainSpec) error {
+
+	domain.Metadata = &api.Metadata{}
+
+	for i, iface := range domain.Devices.Interfaces {
+		if iface.Type == "nodeNetwork" {
+			ifmeta := api.InterfaceMetadata{
+				Type:  "nodeNetwork",
+				Index: i,
+			}
+			domain.Metadata.Interfaces.Interfaces = append(domain.Metadata.Interfaces.Interfaces, ifmeta)
+			// We cant configure the network yet, set something here so that libvirt let us persist the metatada
+			iface.Type = "ethernet"
+			domain.Devices.Interfaces[i] = iface
+		}
+	}
+	return nil
+}
+
+// CNIAdd takes a domain, looks for CNI networks and tries to do a CNI ADD
+func (l *LibvirtDomainManager) CNIAdd(domain *api.DomainSpec) error {
+	for _, ifmeta := range domain.Metadata.Interfaces.Interfaces {
+		// TODO somehow group network types which require CNI in the API,
+		// so that we don't have to hardcode the config names.
+		if ifmeta.Type == "nodeNetwork" {
+
+			iface := domain.Devices.Interfaces[ifmeta.Index]
+
+			obj, err := model.Clone(&iface)
+			if err != nil {
+				return err
+			}
+
+			newIf := obj.(*api.Interface)
+
+			if newIf.MAC == nil {
+				mac, err := networking.RandomMac()
+				if err != nil {
+					return fmt.Errorf("error generating random MAC address: %v", err)
+				}
+				newIf.MAC = &api.MAC{MAC: mac.String()}
+			}
+
+			result, err := l.cniTool.CNIAdd("id", "nodenetwork", "not important", &newIf.MAC.MAC, 1)
+			if err != nil {
+				return fmt.Errorf("error invoking CNI Add: %v", err)
+			}
+
+			// TODO return the device type , so that we don't have to hardcode "direct"
+			newIf.Type = "direct"
+			newIf.Source = api.InterfaceSource{
+				Device: result.Interfaces[0].Name,
+				Mode:   "bridge",
+			}
+			domain.Devices.Interfaces[ifmeta.Index] = *newIf
+		}
+	}
+	return nil
+}
+
+// CNIDel takes a domain, looks for CNI networks and tries to do a CNI DEL
+func (l *LibvirtDomainManager) CNIDel(domain *api.DomainSpec) error {
+	for _, ifmeta := range domain.Metadata.Interfaces.Interfaces {
+		if ifmeta.Type == "nodeNetwork" {
+
+			iface := domain.Devices.Interfaces[ifmeta.Index]
+
+			err := l.cniTool.CNIDel(fmt.Sprintf("%s_%d", domain.Name, ifmeta.Index), "nodenetwork", "not important", &iface.MAC.MAC, 1)
+			if err != nil {
+				return fmt.Errorf("error invoking CNI Del: %v", err)
+			}
+		}
+	}
+	return nil
 }
