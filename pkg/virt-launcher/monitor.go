@@ -148,7 +148,7 @@ func (mon *monitor) refresh() {
 
 func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.Signal) {
 	// random value, no real rationale
-	rate := 500 * time.Millisecond
+	rate := 1 * time.Second
 
 	if mon.debugMode {
 		timeoutRepr := fmt.Sprintf("%v", startTimeout)
