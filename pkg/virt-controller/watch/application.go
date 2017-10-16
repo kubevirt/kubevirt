@@ -80,24 +80,8 @@ func Execute() {
 
 	app.restClient = app.clientSet.RestClient()
 
-	readinessFunc := func(_ *restful.Request, response *restful.Response) {
-		res := map[string]interface{}{}
-
-		select {
-		case _, opened := <-app.readyChan:
-			if !opened {
-				res["apiserver"] = map[string]interface{}{"leader": "true"}
-				response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
-				return
-			}
-		default:
-		}
-		res["apiserver"] = map[string]interface{}{"leader": "false", "error": "current pod is not leader"}
-		response.WriteHeaderAndJson(http.StatusServiceUnavailable, res, restful.MIME_JSON)
-		return
-	}
 	webService := rest.WebService
-	webService.Route(webService.GET("/leader").To(readinessFunc).Doc("Leader endpoint"))
+	webService.Route(webService.GET("/leader").To(app.readinessProbe).Doc("Leader endpoint"))
 	restful.Add(webService)
 
 	// Bootstrapping. From here on the initialization order is important
@@ -210,6 +194,22 @@ func (vca *VirtControllerApp) initCommon() {
 func (vca *VirtControllerApp) initReplicaSet() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
 	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+}
+
+func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restful.Response) {
+	res := map[string]interface{}{}
+
+	select {
+	case _, opened := <-vca.readyChan:
+		if !opened {
+			res["apiserver"] = map[string]interface{}{"leader": "true"}
+			response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
+			return
+		}
+	default:
+	}
+	res["apiserver"] = map[string]interface{}{"leader": "false", "error": "current pod is not leader"}
+	response.WriteHeaderAndJson(http.StatusServiceUnavailable, res, restful.MIME_JSON)
 }
 
 func (vca *VirtControllerApp) DefineFlags() {

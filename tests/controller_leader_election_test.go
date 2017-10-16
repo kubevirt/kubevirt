@@ -22,13 +22,16 @@ package tests_test
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -48,14 +51,28 @@ var _ = Describe("LeaderElection", func() {
 
 	Context("Controller pod destroyed", func() {
 		It("should success to start VM", func() {
-			leaderPodName := getLeader()
-			Expect(virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Delete(leaderPodName, &metav1.DeleteOptions{})).To(BeNil())
+			newLeaderPod := getNewLeaderPod(virtClient)
+			Expect(newLeaderPod).NotTo(BeNil())
 
-			Eventually(getLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
+			// TODO: It can be race condition when newly deployed pod receive leadership, in this case we will need
+			// to reduce Deployment replica before destroy the pod and restore it after the test
+			Eventually(func() string {
+				leaderPodName := getLeader()
 
-			Eventually(func() k8sv1.ConditionStatus {
+				Expect(virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Delete(leaderPodName, &metav1.DeleteOptions{})).To(BeNil())
+
+				Eventually(getLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
+
 				leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(getLeader(), metav1.GetOptions{})
 				Expect(err).To(BeNil())
+
+				return leaderPod.Name
+			}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
+
+			Eventually(func() k8sv1.ConditionStatus {
+				leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(newLeaderPod.Name, metav1.GetOptions{})
+				Expect(err).To(BeNil())
+
 				for _, condition := range leaderPod.Status.Conditions {
 					if condition.Type == k8sv1.PodReady {
 						return condition.Status
@@ -70,7 +87,7 @@ var _ = Describe("LeaderElection", func() {
 			obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMStart(obj)
-		}, 70)
+		}, 150)
 	})
 })
 
@@ -87,4 +104,19 @@ func getLeader() string {
 		tests.PanicOnError(err)
 	}
 	return record.HolderIdentity
+}
+
+func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
+	labelSelector, err := labels.Parse(fmt.Sprint("app=virt-controller"))
+	tests.PanicOnError(err)
+	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
+	controllerPods, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).List(
+		metav1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})
+	leaderPodName := getLeader()
+	for _, pod := range controllerPods.Items {
+		if pod.Name != leaderPodName {
+			return &pod
+		}
+	}
+	return nil
 }
