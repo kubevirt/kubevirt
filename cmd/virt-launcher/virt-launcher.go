@@ -21,7 +21,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -41,7 +40,7 @@ func markReady(readinessFile string) {
 		panic(err)
 	}
 	f.Close()
-	log.Printf("Marked as ready\n")
+	logging.DefaultLogger().Info().Msgf("Marked as ready")
 }
 
 func createSocket(virtShareDir string, namespace string, name string) net.Listener {
@@ -49,16 +48,19 @@ func createSocket(virtShareDir string, namespace string, name string) net.Listen
 
 	err := os.MkdirAll(filepath.Dir(sockFile), 0755)
 	if err != nil {
-		log.Fatal("Could not create directory for socket.", err)
+		logging.DefaultLogger().Reason(err).Error().Msgf("Could not create directory for socket.")
+		panic(err)
 	}
 
 	if err := os.RemoveAll(sockFile); err != nil {
-		log.Fatal("Could not clean up old socket for cgroup detection", err)
+		logging.DefaultLogger().Reason(err).Error().Msgf("Could not clean up old socket for cgroup detection")
+		panic(err)
 	}
 	socket, err := net.Listen("unix", sockFile)
 
 	if err != nil {
-		log.Fatal("Could not create socket for cgroup detection.", err)
+		logging.DefaultLogger().Reason(err).Error().Msgf("Could not create socket for cgroup detection.")
+		panic(err)
 	}
 
 	return socket
@@ -93,7 +95,7 @@ func main() {
 		panic(err)
 	}
 
-	log.Printf("Watchdog file created at %s\n", watchdogFile)
+	logging.DefaultLogger().Info().Msgf("Watchdog file created at %s", watchdogFile)
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
