@@ -72,7 +72,6 @@ func main() {
 
 	logging.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
-	debugMode := flag.Bool("debug", false, "Enable debug messages")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	name := flag.String("name", "", "Name of the VM")
 	namespace := flag.String("namespace", "", "Namespace of the VM")
@@ -115,7 +114,7 @@ func main() {
 		}
 	}()
 
-	mon := virtlauncher.NewProcessMonitor("qemu", *debugMode)
+	mon := virtlauncher.NewProcessMonitor("qemu")
 
 	markReady(*readinessFile)
 	mon.RunForever(*qemuTimeout)

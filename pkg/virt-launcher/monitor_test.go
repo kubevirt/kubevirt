@@ -86,7 +86,6 @@ var _ = Describe("VirtLauncher", func() {
 	BeforeEach(func() {
 		mon = &monitor{
 			commandPrefix: "fake-qemu",
-			debugMode:     true,
 		}
 	})
 

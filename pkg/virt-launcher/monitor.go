@@ -43,7 +43,6 @@ type monitor struct {
 	start           time.Time
 	isDone          bool
 	forwardedSignal os.Signal
-	debugMode       bool
 }
 
 type ProcessMonitor interface {
@@ -54,10 +53,9 @@ func InitializeSharedDirectories(baseDir string) error {
 	return os.MkdirAll(watchdog.WatchdogFileDirectory(baseDir), 0755)
 }
 
-func NewProcessMonitor(commandPrefix string, debugMode bool) ProcessMonitor {
+func NewProcessMonitor(commandPrefix string) ProcessMonitor {
 	return &monitor{
 		commandPrefix: commandPrefix,
-		debugMode:     debugMode,
 	}
 }
 
