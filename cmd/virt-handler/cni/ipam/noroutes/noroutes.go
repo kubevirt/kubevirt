@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"net"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
@@ -51,6 +53,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 	for _, ipconfig := range res.IPs {
 		ipconfig.Gateway = nil
 	}
+	// Force only a route for the acquired IP
+	res.IPs[0].Address.Mask = net.IPv4Mask(255, 255, 255, 255)
 
 	return types.PrintResult(res, cniVersion)
 }
