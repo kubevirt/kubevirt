@@ -201,6 +201,15 @@ type VMStatus struct {
 	Phase VMPhase `json:"phase"`
 	// Graphics represent the details of available graphical consoles.
 	Graphics []VMGraphics `json:"graphics"`
+	// Interfaces represent the details of all configured interfaces.
+	Interfaces []InterfaceStatus `json:"interfaces,omitempty"`
+}
+
+type InterfaceStatus struct {
+	// MAC address assigned to the device. This can either be the MAC from the spec or an auto-generated one
+	MAC string `json:"mac,omitempty"`
+	// IP assigned to the device.
+	IP string `json:"ip,omitempty"`
 }
 
 type VMGraphics struct {

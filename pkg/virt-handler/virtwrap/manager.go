@@ -422,7 +422,7 @@ func createNetworkingMetadata(domain *api.DomainSpec) error {
 
 // CNIAdd takes a domain, looks for CNI networks and tries to do a CNI ADD
 func (l *LibvirtDomainManager) CNIAdd(domain *api.DomainSpec) error {
-	for _, ifmeta := range domain.Metadata.Interfaces.Interfaces {
+	for idx, ifmeta := range domain.Metadata.Interfaces.Interfaces {
 		// TODO somehow group network types which require CNI in the API,
 		// so that we don't have to hardcode the config names.
 		if ifmeta.Type == "nodeNetwork" {
@@ -455,6 +455,7 @@ func (l *LibvirtDomainManager) CNIAdd(domain *api.DomainSpec) error {
 				Mode:   "bridge",
 			}
 			newIf.MAC = &api.MAC{MAC: result.Interfaces[0].Mac}
+			domain.Metadata.Interfaces.Interfaces[idx].IP = result.IPs[0].Address.IP.String()
 			domain.Devices.Interfaces[ifmeta.Index] = *newIf
 		}
 	}

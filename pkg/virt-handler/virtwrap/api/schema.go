@@ -224,6 +224,7 @@ type Metadata struct {
 type InterfaceMetadata struct {
 	Type  string `xml:"type"`
 	Index int    `xml:"index"`
+	IP    string `xml:"ip,omitempty"`
 }
 
 type InterfacesMetadata struct {

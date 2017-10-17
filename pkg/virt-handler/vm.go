@@ -185,6 +185,21 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 			}
 			vm.Status.Graphics = append(vm.Status.Graphics, dst)
 		}
+			// Update interface states
+	vm.Status.Interfaces = []v1.InterfaceStatus{}
+
+	// First add MAC addresses if they exist
+	for _, iface := range domain.Spec.Devices.Interfaces {
+		status := v1.InterfaceStatus{}
+		if iface.MAC != nil {
+			status.MAC = iface.MAC.MAC
+		}
+		vm.Status.Interfaces = append(vm.Status.Interfaces, status)
+	}
+	// Second add IPs if they exist
+	for _, ifmeta := range domain.Spec.Metadata.Interfaces.Interfaces {
+		vm.Status.Interfaces[ifmeta.Index].IP = ifmeta.IP
+	}
 	}
 
 	d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")

@@ -37,6 +37,7 @@ var exampleXML = `<domain type="qemu">
        </interface>
        <interface>
           <type>type2</type>
+          <ip>192.168.300.3</ip>
        </interface>
     </interfaces>
   </metadata>
@@ -122,7 +123,7 @@ var _ = Describe("Schema", func() {
 				Interfaces: InterfacesMetadata{
 					Interfaces: []InterfaceMetadata{
 						{Type: "type1"},
-						{Type: "type2"},
+						{Type: "type2", IP: "192.168.300.3"},
 					},
 				},
 			}
@@ -133,6 +134,7 @@ var _ = Describe("Schema", func() {
 			err := xml.Unmarshal([]byte(exampleXML), &newDomain)
 			newDomain.XMLName.Local = ""
 			Expect(err).To(BeNil())
+			Expect(&newDomain).To(Equal(exampleDomain))
 		})
 
 		It("should marshal into xml and back", func() {
