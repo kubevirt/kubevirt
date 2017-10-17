@@ -78,27 +78,27 @@ func PlugNetworkDevices(vm *v1.VirtualMachine, domainManager virtwrap.DomainMana
 
 	//TODO:(vladikr) Currently we support only one interface per vm. Improve this once we'll start supporting more.
 	for idx, inter := range vmCopy.Spec.Domain.Devices.Interfaces {
-			vif, err := GetInterfaceType(inter.Type)
-			if err != nil {
-				continue
-			}
-			err = vif.Plug(domainManager)
-			if err != nil {
-				return nil, err
-			}
+		vif, err := GetInterfaceType(inter.Type)
+		if err != nil {
+			continue
+		}
+		err = vif.Plug(domainManager)
+		if err != nil {
+			return nil, err
+		}
 
-			// Add VIF to VM config
-			ifconf, err := vif.GetConfig()
-			if err != nil {
-				log.Log.Reason(err).Error("failed to get VIF config.")
-				return nil, err
-			}
-			vmCopy.Spec.Domain.Devices.Interfaces[idx] = *ifconf
-			ifaceMeta := vif.DecorateInterfaceMetadata()
-			if vmCopy.Spec.Domain.Metadata == nil {
-				vmCopy.Spec.Domain.Metadata = &v1.Metadata{}
-			}
-			vmCopy.Spec.Domain.Metadata.Interfaces.Devices = append(vmCopy.Spec.Domain.Metadata.Interfaces.Devices, *ifaceMeta)
+		// Add VIF to VM config
+		ifconf, err := vif.GetConfig()
+		if err != nil {
+			log.Log.Reason(err).Error("failed to get VIF config.")
+			return nil, err
+		}
+		vmCopy.Spec.Domain.Devices.Interfaces[idx] = *ifconf
+		ifaceMeta := vif.DecorateInterfaceMetadata()
+		if vmCopy.Spec.Domain.Metadata == nil {
+			vmCopy.Spec.Domain.Metadata = &v1.Metadata{}
+		}
+		vmCopy.Spec.Domain.Metadata.Interfaces.Devices = append(vmCopy.Spec.Domain.Metadata.Interfaces.Devices, *ifaceMeta)
 	}
 
 	return vmCopy, nil
