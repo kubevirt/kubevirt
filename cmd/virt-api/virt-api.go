@@ -25,8 +25,9 @@ import (
 	"net/http"
 
 	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful/swagger"
+	restfulspec "github.com/emicklei/go-restful-openapi"
 	kithttp "github.com/go-kit/kit/transport/http"
+	openapispec "github.com/go-openapi/spec"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -121,23 +122,34 @@ func (app *virtAPIApp) Run() {
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
 
-	config := swagger.Config{
-		WebServices:     restful.RegisteredWebServices(), // you control what services are visible
-		WebServicesUrl:  "http://localhost:8183",
-		ApiPath:         "/swaggerapi",
-		SwaggerPath:     "/swagger-ui/",
-		SwaggerFilePath: app.SwaggerUI,
-		Info: swagger.Info{
-			Title:       "KubeVirt API, ",
-			Description: "This is KubeVirt API an add-on for Kubernetes.",
-			Contact:     "kubevirt-dev@googlegroups.com",
-			License:     "Apache 2.0",
-			LicenseUrl:  "https://www.apache.org/licenses/LICENSE-2.0",
-		},
+	openapiConf := restfulspec.Config{
+		WebServices:    restful.RegisteredWebServices(),
+		WebServicesURL: "http://localhost:8183",
+		APIPath:        "/swaggerapi",
+		PostBuildSwaggerObjectHandler: addInfoToSwaggerObject,
 	}
-	swagger.InstallSwaggerService(config)
+	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(openapiConf))
+	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
 
 	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
+}
+
+func addInfoToSwaggerObject(swo *openapispec.Swagger) {
+	swo.Info = &openapispec.Info{
+		InfoProps: openapispec.InfoProps{
+			Title:       "KubeVirt API, ",
+			Description: "This is KubeVirt API an add-on for Kubernetes.",
+			Contact: &openapispec.ContactInfo{
+				Name:  "kubevirt-dev",
+				Email: "kubevirt-dev@googlegroups.com",
+				URL:   "https://github.com/kubevirt/kubevirt",
+			},
+			License: &openapispec.License{
+				Name: "Apache 2.0",
+				URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+			},
+		},
+	}
 }
 
 func main() {

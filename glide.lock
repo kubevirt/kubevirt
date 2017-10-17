@@ -1,17 +1,18 @@
-hash: 03562ad089d1614b5fa6f67af0163fe38eda2a9bd9b8794bb7460aaa7bd01d21
-updated: 2017-09-29T10:54:40.476113049-04:00
+hash: b5dd69192737ed1e89a6ac07b50ebbf76f67f1330b84b7d3500e6f09d1c670cb
+updated: 2017-10-16T15:49:47.265313161+02:00
 imports:
 - name: github.com/asaskevich/govalidator
-  version: 6fcd5b427f532a5d13738b27415e00a49e36ceef
+  version: ca5f9e638c83bac66bfac70ded5bded1503135a7
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
   - spew
 - name: github.com/emicklei/go-restful
-  version: 858e58f98abd32bc4d164a08e8d7ac169ae876e2
+  version: dc0f94ee75de39d6420e5446b0222490264bb90f
   subpackages:
   - log
-  - swagger
+- name: github.com/emicklei/go-restful-openapi
+  version: 0d037b269a5b53b582789e25dee0d0a0614119e5
 - name: github.com/emicklei/go-restful-swagger12
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
@@ -29,17 +30,17 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-openapi/jsonpointer
-  version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
+  version: 779f45308c19820f1a69e9a4cd965f496e0da10f
 - name: github.com/go-openapi/jsonreference
-  version: 13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272
+  version: 36d33bfe519efae5632669801b180bf1a245da3b
 - name: github.com/go-openapi/spec
   version: 48c2a7185575f9103a5a3863eff950bb776899d2
 - name: github.com/go-openapi/swag
-  version: 1d0bd113de87027671077d3c71eb3ac5d7dbba72
+  version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/gogo/protobuf
-  version: f7f1376d9d231a646d4e62fe1075623ced6db327
+  version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
   - proto
   - sortkeys
@@ -50,7 +51,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 2b473a1a899b0c9967501477ec03c71c32550cbe
+  version: 6e20fef50e74e443696bc32b693cf286b612d45b
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -70,7 +71,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gorilla/websocket
-  version: 4201258b820c74ac8e6922fc9e6b52f71fe46f8d
+  version: 71fa72d4842364bc5f74185f4161e0099ea3624a
 - name: github.com/hashicorp/golang-lru
   version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
   subpackages:
@@ -88,7 +89,7 @@ imports:
 - name: github.com/libvirt/libvirt-go
   version: 7b2a44de9fd207c2cbc28bdbad20c8279b767553
 - name: github.com/mailru/easyjson
-  version: d5b7844b561a7bc640052f1b935f7b800330d7e0
+  version: 2a92e673c9a6302dd05c3a691ae1f24aef46457d
   subpackages:
   - buffer
   - jlexer
@@ -138,7 +139,7 @@ imports:
 - name: github.com/satori/go.uuid
   version: 5bf94b69c6b68ee1b541973bb8e1144db23a194b
 - name: github.com/spf13/pflag
-  version: 7aff26db30c1be810f9de5038ec5ef96ac41fd7c
+  version: a9789e855c7696159b7db0db7f440b449edf2b31
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
@@ -191,7 +192,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 20b96f641a5ea98f2f8619ff4f3e061cff4833bd
+  version: 5b3e00af70a9484542169a976dcab8d03e601a17
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/api

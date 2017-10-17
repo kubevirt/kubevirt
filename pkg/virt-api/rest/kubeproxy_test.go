@@ -134,7 +134,7 @@ var _ = Describe("Kubeproxy", func() {
 		})
 		It("Get with invalid VM name should fail with 400", func() {
 			result := restClient.Get().Resource(vmResource).Namespace(k8sv1.NamespaceDefault).Name("UPerLetterIsInvalid").Do()
-			Expect(result).To(HaveStatusCode(http.StatusNotFound))
+			Expect(result).To(HaveStatusCode(http.StatusBadRequest))
 		})
 		table.DescribeTable("PUT should succeed", func(contentType string, accept string) {
 			apiserverMock.AppendHandlers(
