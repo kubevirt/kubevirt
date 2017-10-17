@@ -436,15 +436,14 @@ func (l *LibvirtDomainManager) CNIAdd(domain *api.DomainSpec) error {
 
 			newIf := obj.(*api.Interface)
 
-			if newIf.MAC == nil {
-				mac, err := networking.RandomMac()
-				if err != nil {
-					return fmt.Errorf("error generating random MAC address: %v", err)
-				}
-				newIf.MAC = &api.MAC{MAC: mac.String()}
+			// Allow overriding the mac address if one is specified.
+			// If not present, leave it to the plugin to select/generate an appropriate mac
+			mac := ""
+			if newIf.MAC != nil {
+				mac = newIf.MAC.MAC
 			}
 
-			result, err := l.cniTool.CNIAdd("id", "nodenetwork", "not important", &newIf.MAC.MAC, 1)
+			result, err := l.cniTool.CNIAdd(fmt.Sprintf("%s_%d", domain.Name, ifmeta.Index), "nodenetwork", "not important", &mac, 1)
 			if err != nil {
 				return fmt.Errorf("error invoking CNI Add: %v", err)
 			}
@@ -455,6 +454,7 @@ func (l *LibvirtDomainManager) CNIAdd(domain *api.DomainSpec) error {
 				Device: result.Interfaces[0].Name,
 				Mode:   "bridge",
 			}
+			newIf.MAC = &api.MAC{MAC: result.Interfaces[0].Mac}
 			domain.Devices.Interfaces[ifmeta.Index] = *newIf
 		}
 	}
@@ -468,7 +468,12 @@ func (l *LibvirtDomainManager) CNIDel(domain *api.DomainSpec) error {
 
 			iface := domain.Devices.Interfaces[ifmeta.Index]
 
-			err := l.cniTool.CNIDel(fmt.Sprintf("%s_%d", domain.Name, ifmeta.Index), "nodenetwork", "not important", &iface.MAC.MAC, 1)
+			mac := ""
+			if iface.MAC != nil {
+				mac = iface.MAC.MAC
+			}
+
+			err := l.cniTool.CNIDel(fmt.Sprintf("%s_%d", domain.Name, ifmeta.Index), "nodenetwork", "not important", &mac, 1)
 			if err != nil {
 				return fmt.Errorf("error invoking CNI Del: %v", err)
 			}

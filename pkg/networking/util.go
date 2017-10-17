@@ -89,7 +89,7 @@ func RandomMac() (net.HardwareAddr, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Set the local bit
-	buf[0] |= 2
+	// Set the local bit and don't generate multicast macs
+	buf[0] = (buf[0] | 2) & 0xfe
 	return buf, nil
 }

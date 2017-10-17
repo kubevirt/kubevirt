@@ -7,12 +7,16 @@ import (
 	"runtime"
 	"strings"
 
+	"os"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/vishvananda/netlink"
+
+	"kubevirt.io/kubevirt/pkg/networking"
 )
 
 func init() {
@@ -45,6 +49,34 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
+	a, err := parseArgs(args.Args)
+
+	// TODO First load from store. Check if we have a mac and IP already
+
+	var mac net.HardwareAddr
+	if rawMac, exists := a["mac"]; exists {
+		mac, err = net.ParseMAC(rawMac)
+		if err != nil {
+			return fmt.Errorf("error parsing supplied mac address: %v", err)
+		}
+	} else {
+		// Generate a mac
+		mac, err = networking.RandomMac()
+		if err != nil {
+			return fmt.Errorf("error generating mac address: %v", err)
+		}
+		// add mac to env
+		envArgs, _ := os.LookupEnv("CNI_ARGS")
+		if envArgs != "" && !strings.HasSuffix(envArgs, ";") {
+			envArgs = envArgs + ";"
+		}
+		envArgs = envArgs + fmt.Sprintf("mac=%s", mac.String())
+		err = os.Setenv("CNI_ARGS", envArgs)
+		if err != nil {
+			return fmt.Errorf("error adding mac %s to CNI_ARGS: %v", mac.String(), err)
+		}
+	}
+
 	// run the IPAM plugin and get back the config to apply
 	r, err := ipam.ExecAdd(n.IPAM.Type, args.StdinData)
 	if err != nil {
@@ -60,7 +92,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
-	// Add route over macvtap master interface
+	// Add route over macvtap master interface if it is macvlan
+	// TODO check if mac is different than the one from the store. If yes, make sure delete existing with the old IP from the store
 	if n.Master != "" {
 		master, err := netlink.LinkByName(n.Master)
 		if err != nil {
@@ -73,7 +106,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return fmt.Errorf("error adding route for %v via %v: %v", result, master.Attrs().Name, err)
 			}
 			result.Interfaces = append(result.Interfaces, &current.Interface{Name: n.IPAM.Via})
-		} else if master.Type() == "bridge" {
+		} else if master.Type() == "bridge" || master.Type() == "veth" {
 			result.Interfaces = append(result.Interfaces, &current.Interface{Name: n.Master})
 		}
 	}
@@ -91,6 +124,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
+	// TODO look up the IP from a local store
 	ip := net.ParseIP(a["ip"])
 
 	err = ipam.ExecDel(n.IPAM.Type, args.StdinData)

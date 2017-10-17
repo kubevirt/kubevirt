@@ -37,7 +37,7 @@ func (i *cnitool) CNIAdd(id string, netConf string, devName string, mac *string,
 		"--cni-config-path", i.cniConfDir,
 	}
 
-	if mac != nil {
+	if mac != nil && *mac != "" {
 		args = append(args, "--args", fmt.Sprintf("mac=%s", *mac))
 	}
 
@@ -65,7 +65,7 @@ func (i *cnitool) CNIDel(id string, netConf string, devName string, mac *string,
 		"--cni-path", i.cniDir,
 		"--cni-config-path", i.cniConfDir}
 
-	if mac != nil {
+	if mac != nil && *mac != "" {
 		args = append(args, "--args", fmt.Sprintf("mac=%s", *mac))
 	}
 
