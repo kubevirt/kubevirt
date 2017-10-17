@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -92,6 +93,19 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMStart(obj)
 
+			close(done)
+		}, 30)
+
+		It("Virt-launcher should attach to a started VM", func(done Done) {
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+			Expect(err).To(BeNil())
+			tests.WaitForSuccessfulVMStart(obj)
+
+			logs := func() string { return getVirtLauncherLogs(virtClient, vm) }
+			Eventually(logs,
+				11*time.Second,
+				500*time.Millisecond).
+				Should(ContainSubstring("Found PID for qemu"))
 			close(done)
 		}, 30)
 
@@ -298,6 +312,35 @@ func renderPkillAllJob(dockerTag string, processName string) *k8sv1.Pod {
 	}
 
 	return &job
+}
+
+func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) string {
+	namespace := vm.GetObjectMeta().GetNamespace()
+	domain := vm.GetObjectMeta().GetName()
+
+	labelSelector := fmt.Sprintf("kubevirt.io/domain in (%s)", domain)
+
+	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})
+	Expect(err).ToNot(HaveOccurred())
+
+	podName := ""
+	for _, pod := range pods.Items {
+		if pod.ObjectMeta.DeletionTimestamp == nil {
+			podName = pod.ObjectMeta.Name
+			break
+		}
+	}
+	Expect(podName).ToNot(BeEmpty())
+
+	var tailLines int64 = 100
+	logsRaw, err := virtCli.CoreV1().
+		Pods(namespace).
+		GetLogs(podName,
+			&k8sv1.PodLogOptions{TailLines: &tailLines}).
+		DoRaw()
+	Expect(err).To(BeNil())
+
+	return string(logsRaw)
 }
 
 func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node, dockerTag string) error {
