@@ -16,6 +16,8 @@ import (
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/vishvananda/netlink"
 
+	"syscall"
+
 	"kubevirt.io/kubevirt/pkg/networking"
 )
 
@@ -32,13 +34,18 @@ type NetConf struct {
 		Type string `json:"type,omitempty"`
 		Via  string `json:"via,omitempoty"`
 	} `json:"ipam,omitempty"`
-	Master string `json:"master"`
+	Master  string `json:"master"`
+	DataDir string `json:"dataDir"`
 }
 
 func loadConf(bytes []byte) (*NetConf, string, error) {
 	n := &NetConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
 		return nil, "", fmt.Errorf("failed to load netconf: %v", err)
+	}
+
+	if n.Master == "" {
+		return nil, "", fmt.Errorf(`"master" field is required. It specifies the host interface name to virtualize`)
 	}
 	return n, n.CNIVersion, nil
 }
@@ -49,21 +56,41 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
+	store, err := NewFileStore(n.DataDir, n.Name)
+	if err != nil {
+		return fmt.Errorf("error creating file based store: %v", err)
+	}
+
 	a, err := parseArgs(args.Args)
 
-	// TODO First load from store. Check if we have a mac and IP already
+	if err != nil {
+		return err
+	}
 
 	var mac net.HardwareAddr
-	if rawMac, exists := a["mac"]; exists {
+
+	entry, err := store.Load(args.ContainerID)
+	if err != nil {
+		return fmt.Errorf("error loading entry from store for id %s: %v", args.ContainerID, err)
+	}
+
+	if rawMac := a["mac"]; rawMac != "" {
 		mac, err = net.ParseMAC(rawMac)
 		if err != nil {
 			return fmt.Errorf("error parsing supplied mac address: %v", err)
 		}
 	} else {
-		// Generate a mac
-		mac, err = networking.RandomMac()
-		if err != nil {
-			return fmt.Errorf("error generating mac address: %v", err)
+		if entry != nil {
+			mac, err = net.ParseMAC(entry.MAC)
+			if err != nil {
+				return fmt.Errorf("error parsing mac from store for id %s: %v", args.ContainerID, err)
+			}
+		} else {
+			// Generate a mac
+			mac, err = networking.RandomMac()
+			if err != nil {
+				return fmt.Errorf("error generating mac address: %v", err)
+			}
 		}
 		// add mac to env
 		envArgs, _ := os.LookupEnv("CNI_ARGS")
@@ -88,26 +115,50 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
-
+	saved := false
 	// Add route over macvtap master interface if it is macvlan
-	// TODO check if mac is different than the one from the store. If yes, make sure delete existing with the old IP from the store
 	if n.Master != "" {
+
 		master, err := netlink.LinkByName(n.Master)
 		if err != nil {
 			return fmt.Errorf("error looking up master device %s: %v", n.Master, err)
 		}
 
 		if master.Type() == "macvlan" {
-			err := createRoute(master, result)
+			// First check if we have an IP change. If yes, make sure that we delete the old route
+			if entry != nil && !entry.IP.Equal(result.IPs[0].Address.IP) {
+				err := deleteRoute(master, entry.IP)
+				if err != nil {
+					return fmt.Errorf("error removing outdated route: %v", err)
+				}
+			}
+
+			// Now persist the result, to make sure that we can clean up the following route changes
+			err := store.Save(args.ContainerID, result.IPs[0].Address.IP, mac.String())
+			if err != nil {
+				return fmt.Errorf("error saving entry for id %s in store: %v", args.ContainerID, err)
+			}
+			saved = true
+
+			// Now create the new route
+			err = createRoute(master, result)
 			if err != nil {
 				return fmt.Errorf("error adding route for %v via %v: %v", result, master.Attrs().Name, err)
 			}
-			result.Interfaces = append(result.Interfaces, &current.Interface{Name: n.IPAM.Via})
-		} else if master.Type() == "bridge" || master.Type() == "veth" {
-			result.Interfaces = append(result.Interfaces, &current.Interface{Name: n.Master})
+			result.Interfaces = append(result.Interfaces, &current.Interface{Name: n.IPAM.Via, Mac: mac.String()})
+		} else {
+			result.Interfaces = append(result.Interfaces, &current.Interface{Name: n.Master, Mac: mac.String()})
+		}
+	}
+
+	// If we didn't save the new entry until now, now is the right time
+	// Whenever we don't have to modify routes we can just save here since we need no cleanup of old entries
+	if !saved {
+
+		// If no macvlan, we just need to store the entry to avoid mac flipping
+		err := store.Save(args.ContainerID, result.IPs[0].Address.IP, mac.String())
+		if err != nil {
+			return fmt.Errorf("error saving entry for id %s in store: %v", args.ContainerID, err)
 		}
 	}
 
@@ -119,13 +170,20 @@ func cmdDel(args *skel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
-	a, err := parseArgs(args.Args)
 
 	if err != nil {
 		return err
 	}
-	// TODO look up the IP from a local store
-	ip := net.ParseIP(a["ip"])
+
+	store, err := NewFileStore(n.DataDir, n.Name)
+	if err != nil {
+		return fmt.Errorf("error creating file based store: %v", err)
+	}
+
+	entry, err := store.Load(args.ContainerID)
+	if err != nil {
+		return fmt.Errorf("error loading entry from store for id %s: %v", args.ContainerID, err)
+	}
 
 	err = ipam.ExecDel(n.IPAM.Type, args.StdinData)
 	if err != nil {
@@ -137,12 +195,17 @@ func cmdDel(args *skel.CmdArgs) error {
 			return fmt.Errorf("error looking up master device %s: %v", n.Master, err)
 		}
 
-		if master.Type() == "macvlan" && ip != nil {
-			err = deleteRoute(master, ip)
+		if master.Type() == "macvlan" && entry != nil {
+			err = deleteRoute(master, entry.IP)
 			if err != nil {
-				return fmt.Errorf("error removing route for %v; %v ", ip, err)
+				return fmt.Errorf("error removing route for %v; %v ", entry.IP, err)
 			}
 		}
+	}
+
+	err = store.Delete(args.ContainerID)
+	if err != nil {
+		return fmt.Errorf("error deleting entry for ip %s from store: %v", args.ContainerID, err)
 	}
 
 	return nil
@@ -186,7 +249,11 @@ func createRoute(dev netlink.Link, result *current.Result) error {
 		Gw:  gw[0].IP,
 	}
 
-	return netlink.RouteReplace(route)
+	err = netlink.RouteReplace(route)
+	if err != nil && !os.IsExist(err) {
+		return fmt.Errorf("error creating route %v: %v", route, err)
+	}
+	return nil
 }
 
 func deleteRoute(dev netlink.Link, ip net.IP) error {
@@ -203,5 +270,24 @@ func deleteRoute(dev netlink.Link, ip net.IP) error {
 		Dst: dst,
 		Gw:  gw[0].IP,
 	}
-	return netlink.RouteDel(route)
+	err = netlink.RouteDel(route)
+	// In case that the route does not exist, I got an ESRCH returned
+	// TODO should that be added to os.IsNotExist?
+	if err != nil && !os.IsNotExist(err) && underlyingError(err) != syscall.ESRCH {
+		return fmt.Errorf("error deleting route %v: %v", route, err)
+	}
+	return nil
+}
+
+// underlyingError returns the underlying error for known os error types.
+func underlyingError(err error) error {
+	switch err := err.(type) {
+	case *os.PathError:
+		return err.Err
+	case *os.LinkError:
+		return err.Err
+	case *os.SyscallError:
+		return err.Err
+	}
+	return err
 }
