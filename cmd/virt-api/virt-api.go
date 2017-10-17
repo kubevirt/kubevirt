@@ -129,7 +129,7 @@ func (app *virtAPIApp) Run() {
 		PostBuildSwaggerObjectHandler: addInfoToSwaggerObject,
 	}
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(openapiConf))
-	http.Handle("/swagger-ui", http.StripPrefix("/swagger-ui", http.FileServer(http.Dir(app.SwaggerUI))))
+	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
 
 	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
 }
