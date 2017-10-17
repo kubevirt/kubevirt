@@ -27,13 +27,8 @@ spec:
       containers:
       - name: dhcp
         image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
-        command:
-          - "nsenter"
-          - "-t"
-          - "1"
-          - "-n"
-          - "/tools/plugins/dhcp"
-          - "daemon"  
+        command: ["/bin/sh", "-c"]
+        args: ["rm -rf /run/cni/dhcp.sock && nsenter -t 1 -n /tools/plugins/dhcp daemon"]
         securityContext:
           privileged: true
         volumeMounts:
