@@ -38,8 +38,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
@@ -69,9 +67,11 @@ type virtHandlerApp struct {
 	EphemeralDiskDir        string
 	WatchdogTimeoutDuration time.Duration
 	ToolsDir                string
+	CNIConfigDir     string
+	CNIDir           string
 }
 
-func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration, toolsDir *string) *virtHandlerApp {
+func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration, toolsDir *string, cniConfigDir *string, cniDir *string) *virtHandlerApp {
 	if *hostOverride == "" {
 		defaultHostName, err := os.Hostname()
 		if err != nil {
@@ -88,6 +88,8 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 		EphemeralDiskDir:        *ephemeralDiskDir,
 		WatchdogTimeoutDuration: *watchdogTimeoutDuration,
 		ToolsDir:                *toolsDir,
+		CNIConfigDir:     *cniConfigDir,
+		CNIDir:           *cniDir,
 	}
 }
 
@@ -128,10 +130,6 @@ func (app *virtHandlerApp) Run() {
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
-		recorder,
-		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
-	)
 	if err != nil {
 		panic(err)
 	}
@@ -141,38 +139,11 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	networkIntrospector := networking.NewIntrospector(app.ToolsDir)
-
-	// Create a macvlan device which is attached to the node network
-	node, err := virtCli.CoreV1().Nodes().Get(app.HostOverride, v12.GetOptions{})
-	if err != nil {
-		panic(err)
-	}
-
-	link, err := networkIntrospector.GetLinkByIP(networking.GetNodeInternalIP(node), 1)
-	if err != nil {
-		panic(err)
-	}
-
-	// TODO move the whole  config writes into an extra pod, to make virt-handler node independent
-	if err := networking.SetNetConfMaster("/etc/cni/net.d", "kubevirt.json", link.Name, ""); err != nil {
-		panic(err)
-	}
-	if err := networking.SetNetConfMaster("/etc/cni/net.d", "nodenetwork.json", "kubevirt0", link.Name); err != nil {
-		panic(err)
-	}
-
-	// TODO also do the CNI calls from the extra Pod
-	cnitool := networking.NewCNITool(app.ToolsDir, app.ToolsDir+"/plugins", "/etc/cni/net.d")
-	cnitool.CNIDel("kubevirt", "kubevirt", "kubevirt0", nil, 1)
-	res, err := cnitool.CNIAdd("kubevirt", "kubevirt", "kubevirt0", nil, 1)
-	if err != nil {
-		panic(err)
-	}
+	cnitool := networking.NewCNITool(app.ToolsDir, app.CNIDir, app.CNIConfigDir)
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
 		recorder,
-		isolation.NewSocketBasedIsolationDetector(app.SocketDir),
+		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
 		cnitool,
 	)
 	if err != nil {
@@ -248,10 +219,12 @@ func main() {
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
 	toolsDir := flag.String("tools-dir", "/tools", "Location for helper binaries")
+	cniConfigDir := flag.String("cni-config-dir", "/etc/cni/net.d", "Location for helper binaries")
+	cniDir := flag.String("cni-dir", "/tools/plugins", "Location for CNI plugin binaries")
 	watchdogTimeoutDuration := flag.Duration("watchdog-timeout", defaultWatchdogTimeout, "Watchdog file timeout.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir, watchdogTimeoutDuration, toolsDir)
+	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir, watchdogTimeoutDuration, toolsDir, cniConfigDir, cniDir)
 	app.Run()
 }

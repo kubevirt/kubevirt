@@ -76,7 +76,7 @@ func (i *cnitool) CNIDel(id string, netConf string, devName string, mac *string,
 		return fmt.Errorf("Failed with %v, output: %v", err, string(resp))
 	}
 
-	return cmd.Run()
+	return nil
 }
 
 func SetNetConfMaster(cniConfigDir, name, master, via string) error {

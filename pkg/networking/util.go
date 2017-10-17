@@ -12,6 +12,8 @@ import (
 
 	"crypto/rand"
 
+	"syscall"
+
 	"github.com/vishvananda/netlink"
 	"k8s.io/api/core/v1"
 )
@@ -54,6 +56,7 @@ func GetNodeInternalIP(node *v1.Node) (ip string) {
 
 type IntrospectorInterface interface {
 	GetLinkByIP(ip string, pid int) (*Link, error)
+	GetLinkByName(name string, pid int) (*Link, error)
 }
 
 type introspector struct {
@@ -67,6 +70,27 @@ func NewIntrospector(toolDir string) IntrospectorInterface {
 func (i *introspector) GetLinkByIP(ip string, pid int) (*Link, error) {
 	cmd := exec.Command(i.toolDir+"/network-helper", "--ip", ip, "--target", strconv.Itoa(pid))
 	rawLink, err := cmd.Output()
+	if IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Failed with %v, output: %v", err, string(rawLink))
+	}
+
+	link := &Link{}
+	err = json.Unmarshal(rawLink, link)
+	if err != nil {
+		return nil, fmt.Errorf("Could not unmarshal response from network-helper: %v", err)
+	}
+	return link, nil
+}
+
+func (i *introspector) GetLinkByName(name string, pid int) (*Link, error) {
+	cmd := exec.Command(i.toolDir+"/network-helper", "--name", name, "--target", strconv.Itoa(pid))
+	rawLink, err := cmd.Output()
+	if IsNotFound(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("Failed with %v, output: %v", err, string(rawLink))
 	}
@@ -92,4 +116,16 @@ func RandomMac() (net.HardwareAddr, error) {
 	// Set the local bit and don't generate multicast macs
 	buf[0] = (buf[0] | 2) & 0xfe
 	return buf, nil
+}
+
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if exiterr, ok := err.(*exec.ExitError); ok {
+		if 2 == exiterr.Sys().(syscall.WaitStatus).ExitStatus() {
+			return true
+		}
+	}
+	return false
 }

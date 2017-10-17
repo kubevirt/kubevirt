@@ -11,31 +11,62 @@ import (
 
 	"github.com/vishvananda/netlink"
 
+	"errors"
+
 	"kubevirt.io/kubevirt/pkg/networking"
 )
 
+var (
+	ErrLinkNotFound = errors.New("Link not found")
+)
+
 func main() {
-	ip := pflag.String("ip", "", "IP for which to detect the interface for.")
+	var ip string
+	pflag.StringVar(&ip, "ip", "", "IP for which to detect the interface for.")
+	name := pflag.String("name", "", "Name of the interface to detect.")
 	t := pflag.UintP("target", "t", 1, "Target PID for network namespace")
 	pflag.Parse()
 
 	var link netlink.Link
-	err := ns.WithNetNSPath(networking.GetNSFromPID(*t), func(_ ns.NetNS) error {
-		var e error
-		link, e = networking.GetInterfaceFromIP(*ip)
-		return e
-	})
-	handleErr(err)
+	if ip != "" {
+		err := ns.WithNetNSPath(networking.GetNSFromPID(*t), func(_ ns.NetNS) error {
+			var e error
+			link, e = networking.GetInterfaceFromIP(ip)
+			return e
+		})
+		handleErr(err)
+	} else if *name != "" {
+		err := ns.WithNetNSPath(networking.GetNSFromPID(*t), func(_ ns.NetNS) error {
+			var e error
+			link, e = netlink.LinkByName(*name)
+			return e
+		})
 
-	if link == nil {
-		handleErr(fmt.Errorf("No device with IP %v found\n", *ip))
+		if err != nil && err.Error() != "Link not found" {
+			handleErr(err)
+		}
+
+		if link != nil {
+			addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+			handleErr(err)
+			if len(addrs) > 0 {
+				ip = addrs[0].IP.To4().String()
+			}
+		}
 	}
 
-	l := networking.Link{Type: link.Type(), IP: *ip, Name: link.Attrs().Name, MAC: link.Attrs().HardwareAddr}
+	// Only return an interface if we found one. Otherwise return nothing
+	if link != nil {
+		l := networking.Link{Type: link.Type(), IP: ip, Name: link.Attrs().Name, MAC: link.Attrs().HardwareAddr}
 
-	data, err := json.MarshalIndent(l, "", "  ")
-	handleErr(err)
-	fmt.Printf("%s\n", string(data))
+		data, err := json.MarshalIndent(l, "", "  ")
+		handleErr(err)
+		fmt.Printf("%s\n", string(data))
+		os.Exit(0)
+	}
+	// No device found
+	fmt.Println("Link not found")
+	os.Exit(2)
 }
 
 func handleErr(err error) {

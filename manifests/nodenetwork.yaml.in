@@ -1,0 +1,73 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: virt-nodenetwork
+spec:
+  template:
+    metadata:
+      name: virt-nodenetwork
+      labels:
+        daemon: virt-nodenetwork
+    spec:
+      serviceAccountName: kubevirt-infra
+      hostPID: true
+      initContainers:
+      - name: containernetworking-cni-plugins
+        image: rmohr/cni-plugins
+        command: ['cp', '/plugins', '/tools', '-a']
+        volumeMounts:
+        - name: cni-plugins
+          mountPath: /tools/plugins
+      - name: kubevirt-cni-delivery
+        image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
+        command: ["/bin/sh", "-c"]
+        args: ["cp /plugins /tools -a && cp /etc/cni/net.d/* /cniconf/ -a"]
+        volumeMounts:
+        - name: cni-plugins
+          mountPath: /tools/plugins
+        volumeMounts:
+        - name: cni-conf
+          mountPath: /cniconf
+      containers:
+      - name: dhcp
+        image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
+        command: ["/bin/sh", "-c"]
+        args: ["rm -rf /run/cni/dhcp.sock && nsenter -t 1 -n /tools/plugins/dhcp daemon"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: cni-run
+          mountPath: /run/cni
+        - name: cni-plugins
+          mountPath: /tools/plugins
+      - name: simpleprovider
+        image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/tools/cni"
+          - "--hostname-override"
+          - "$(NODE_NAME)"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: cni-plugins
+          mountPath: /tools/plugins
+        - name: cni-run
+          mountPath: /run/cni
+        - name: cni-conf
+          mountPath: /etc/cni/net.d
+        env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+      volumes:
+      - name: cni-plugins
+        hostPath:
+          path: "/var/lib/kubevirt/cni/plugins"
+      - name: cni-run
+        hostPath:
+          path: "/var/lib/kubevirt/cni/run"
+      - name: cni-conf
+        hostPath:
+          path: "/var/lib/kubevirt/cni/conf"
