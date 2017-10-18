@@ -45,5 +45,5 @@ if [ -e  ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig ] &&
 elif [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ];then
     ${KUBEVIRT_PATH}cluster/vagrant/.kubectl -s http://${master_ip}:8184 "$@"
 else
-    echo "Did you already run '$SYNC_CONFIG' to deploy kubevirt?"
+    kubectl "$@"
 fi

@@ -61,6 +61,12 @@ publish: docker
 manifests: $(wildcard manifests/*.in)
 	./hack/build-manifests.sh
 
+load-manifests: manifests
+	for i in manifests/*.yaml ; \
+	do \
+	    ./cluster/kubectl.sh create -f $$i ; \
+	done
+
 check: check-bash vet
 	test -z "`./hack/build-go.sh fmt`"
 
