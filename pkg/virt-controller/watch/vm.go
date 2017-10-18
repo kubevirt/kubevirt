@@ -90,9 +90,15 @@ func (c *VMController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	if err := c.execute(key.(string)); err != nil {
+	isPending, err := c.execute(key.(string))
+
+	if err != nil {
 		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing VM %v", key)
 		c.queue.AddRateLimited(key)
+	} else if isPending {
+		logging.DefaultLogger().Info().V(4).Msgf("reenqueuing pending VM %v", key)
+		c.queue.AddAfter(key, 1*time.Second)
+		c.queue.Forget(key)
 	} else {
 		logging.DefaultLogger().Info().V(4).Msgf("processed VM %v", key)
 		c.queue.Forget(key)
@@ -100,13 +106,13 @@ func (c *VMController) Execute() bool {
 	return true
 }
 
-func (c *VMController) execute(key string) error {
+func (c *VMController) execute(key string) (bool, error) {
 
 	// Fetch the latest Vm state from cache
 	obj, exists, err := c.store.GetByKey(key)
 
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Retrieve the VM
@@ -114,7 +120,7 @@ func (c *VMController) execute(key string) error {
 	if !exists {
 		namespace, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
-			return err
+			return false, err
 		}
 		vm = kubev1.NewVMReferenceFromNameWithNS(namespace, name)
 	} else {
@@ -127,10 +133,10 @@ func (c *VMController) execute(key string) error {
 		err := c.vmService.DeleteVMPod(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
-			return err
+			return false, err
 		}
 		logger.Info().Msg("Deleting VM target Pod succeeded.")
-		return nil
+		return false, nil
 	}
 
 	switch vm.Status.Phase {
@@ -146,7 +152,7 @@ func (c *VMController) execute(key string) error {
 		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
 		if err != nil {
 			logger.Error().Reason(err).Msg("Fetching VM pods failed.")
-			return err
+			return false, err
 		}
 
 		// If there are already pods, delete them before continuing ...
@@ -154,8 +160,9 @@ func (c *VMController) execute(key string) error {
 			logger.Error().Msg("VM Pods do already exist, will clean up before continuing.")
 			if err := c.vmService.DeleteVMPod(&vmCopy); err != nil {
 				logger.Error().Reason(err).Msg("Deleting VM pods failed.")
-				return err
+				return false, err
 			}
+			return true, nil
 		}
 
 		// Defaulting and setting constants
@@ -182,7 +189,7 @@ func (c *VMController) execute(key string) error {
 		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
 			logger.Error().Reason(err).Msg("Defining a target pod for the VM failed.")
-			return err
+			return false, err
 		}
 
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
@@ -190,7 +197,7 @@ func (c *VMController) execute(key string) error {
 		vmCopy.Status.Phase = kubev1.Scheduling
 		if err := c.restClient.Put().Resource("virtualmachines").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(vmCopy.ObjectMeta.Namespace).Do().Error(); err != nil {
 			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
-			return err
+			return false, err
 		}
 		logger.Info().Msg("Handing over the VM to the scheduler succeeded.")
 	case kubev1.Scheduling:
@@ -204,7 +211,7 @@ func (c *VMController) execute(key string) error {
 		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
 		if err != nil {
 			logger.Error().Reason(err).Msg("Fetching VM pods failed.")
-			return err
+			return false, err
 		}
 
 		//TODO, we can improve the pod checks here, for now they are as good as before the refactoring
@@ -212,23 +219,23 @@ func (c *VMController) execute(key string) error {
 		// If not, something is wrong and the VM, stay stuck in the Scheduling phase
 		if len(pods.Items) == 0 {
 			logger.Info().V(3).Msg("No VM target pod in running state found.")
-			return nil
+			return false, nil
 		}
 
 		// Whatever is going on here, I don't know what to do, don't reprocess this
 		if len(pods.Items) > 1 {
 			logger.Error().V(3).Msg("More than one VM target pods found.")
-			return nil
+			return false, nil
 		}
 
 		// Pod is not yet running
 		if pods.Items[0].Status.Phase != k8sv1.PodRunning {
-			return nil
+			return false, nil
 		}
 
 		if verifyReadiness(&pods.Items[0]) == false {
 			logger.Info().V(2).Msg("Waiting on all virt-launcher containers to be marked ready")
-			return nil
+			return false, nil
 		}
 
 		// VM got scheduled
@@ -242,11 +249,11 @@ func (c *VMController) execute(key string) error {
 		vmCopy.Status.NodeName = pods.Items[0].Spec.NodeName
 		if _, err := c.vmService.PutVm(&vmCopy); err != nil {
 			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduled' failed.")
-			return err
+			return false, err
 		}
 		logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
 	}
-	return nil
+	return false, nil
 }
 
 func verifyReadiness(pod *k8sv1.Pod) bool {
