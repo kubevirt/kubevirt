@@ -130,4 +130,4 @@ kubectl version
 # Disable proxy configuration since it causes test issues
 export -n http_proxy
 # Run functional tests
-FUNC_TEST_ARGS="--ginkgo.noColor" make functest
+FUNC_TEST_ARGS="--ginkgo.noColor" make functest DOCKER_TAG=devel

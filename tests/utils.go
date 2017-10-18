@@ -44,6 +44,8 @@ import (
 	"github.com/google/goexpect"
 	"k8s.io/client-go/rest"
 
+	"os"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
@@ -762,6 +764,10 @@ func newString(x string) *string {
 	return &x
 }
 
+func NewBool(x bool) *bool {
+	return &x
+}
+
 func NewRandomReplicaSetFromVM(vm *v1.VirtualMachine, replicas int32) *v1.VirtualMachineReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineReplicaSet{
@@ -805,4 +811,44 @@ func NewConsoleExpecter(config *rest.Config, vm *v1.VirtualMachine, consoleName 
 		},
 		Check: func() bool { return true },
 	}, timeout, opts...)
+}
+
+func RenderJob(name string, dockerTag string, cmd []string, args []string) *k8sv1.Pod {
+	job := k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: name,
+			Labels: map[string]string{
+				v1.AppLabel: "test",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
+				{
+					Name:    name,
+					Image:   "kubevirt/vm-killer:" + dockerTag,
+					Command: cmd,
+					Args:    args,
+					SecurityContext: &k8sv1.SecurityContext{
+						Privileged: NewBool(true),
+						RunAsUser:  new(int64),
+					},
+				},
+			},
+			HostPID: true,
+			SecurityContext: &k8sv1.PodSecurityContext{
+				RunAsUser: new(int64),
+			},
+		},
+	}
+
+	return &job
+}
+
+func GetDockerTag() string {
+	dockerTag := os.Getenv("docker_tag")
+	if dockerTag == "" {
+		dockerTag = "devel"
+	}
+	return dockerTag
 }
