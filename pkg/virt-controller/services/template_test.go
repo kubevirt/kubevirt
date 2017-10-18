@@ -54,7 +54,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-----"))
 				Expect(pod.Spec.NodeSelector).To(BeEmpty())
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher",
-					"--qemu-timeout", "60s",
+					"--qemu-timeout", "5m",
 					"--name", "testvm",
 					"--namespace", "testns",
 					"--socket-dir", "/var/run/libvirt",
@@ -83,7 +83,7 @@ var _ = Describe("Template", func() {
 					"kubernetes.io/hostname": "master",
 				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/virt-launcher",
-					"--qemu-timeout", "60s",
+					"--qemu-timeout", "5m",
 					"--name", "testvm",
 					"--namespace", "default",
 					"--socket-dir", "/var/run/libvirt",

@@ -252,6 +252,13 @@ func (c *VMController) execute(key string) (bool, error) {
 			return false, err
 		}
 		logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
+	case kubev1.Failed, kubev1.Succeeded:
+		err := c.vmService.DeleteVMPod(vm)
+		if err != nil {
+			logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
+			return err
+		}
+		logger.Info().Msg("Deleted VM target Pod for VM in finalized state.")
 	}
 	return false, nil
 }

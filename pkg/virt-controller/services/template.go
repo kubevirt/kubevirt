@@ -63,7 +63,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		Image:           t.launcherImage,
 		ImagePullPolicy: kubev1.PullIfNotPresent,
 		Command: []string{"/virt-launcher",
-			"--qemu-timeout", "60s",
+			"--qemu-timeout", "5m",
 			"--name", domain,
 			"--namespace", namespace,
 			"--socket-dir", t.socketBaseDir,
