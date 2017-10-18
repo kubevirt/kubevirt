@@ -106,10 +106,17 @@ while [ -n "$(kubectl get pods --no-headers | grep -v Running)" ]; do
     sleep 10
 done
 
-# Make sure all containers are ready
-while [ -n "$(kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false)" ]; do
+# Make sure all containers except virt-controller are ready
+while [ -n "$(kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/')" ]; do
     echo "Waiting for KubeVirt containers to become ready ..."
-    kubectl get pods -ocustom-columns='name:metadata.name,ready:status.containerStatuses[*].ready' | grep false || true
+    kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/' || true
+    sleep 10
+done
+
+# Make sure that at least one virt-controller container is ready
+while [ "$(kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l)" -lt "1" ]; do
+    echo "Waiting for KubeVirt virt-controller container to become ready ..."
+    kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l
     sleep 10
 done
 

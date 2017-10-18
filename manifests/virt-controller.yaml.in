@@ -16,6 +16,7 @@ kind: Deployment
 metadata:
   name: virt-controller
 spec:
+  replicas: 2
   template:
     metadata:
       labels:
@@ -38,6 +39,19 @@ spec:
           - containerPort: 8182
             name: "virt-controller"
             protocol: "TCP"
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            port: 8182
+            path: /healthz
+          initialDelaySeconds: 15
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            port: 8182
+            path: /leader
+          initialDelaySeconds: 15
+          timeoutSeconds: 10
       securityContext:
         runAsNonRoot: true
       nodeSelector:
