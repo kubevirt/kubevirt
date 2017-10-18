@@ -256,7 +256,7 @@ func (c *VMController) execute(key string) (bool, error) {
 		err := c.vmService.DeleteVMPod(vm)
 		if err != nil {
 			logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
-			return err
+			return false, err
 		}
 		logger.Info().Msg("Deleted VM target Pod for VM in finalized state.")
 	}
