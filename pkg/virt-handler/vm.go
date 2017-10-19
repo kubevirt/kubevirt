@@ -415,7 +415,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteV
 	}
 
 	// Map Container Registry Disks to block devices Libvirt can consume
-	vm, err = registrydisk.MapRegistryDisks(vm)
+	vm, err = registrydisk.PopulateRegistryDisks(vm)
 	if err != nil {
 		return false, err
 	}

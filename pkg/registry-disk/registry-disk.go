@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jeevatkm/go-model"
 
@@ -34,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
-const registryDiskV1Alpha = "RegistryDisk:v1alpha"
+const RegistryDiskV1Alpha = "RegistryDisk:v1alpha"
 const filePrefix = "disk-image"
 
 var registryDiskOwner = "qemu"
@@ -62,21 +63,26 @@ func SetLocalDataOwner(user string) {
 }
 
 func getFilePath(basePath string) (string, string, error) {
-	rawPath := basePath + "/" + filePrefix + ".raw"
-	qcow2Path := basePath + "/" + filePrefix + ".qcow2"
 
-	exists, err := diskutils.FileExists(rawPath)
-	if err != nil {
-		return "", "", err
-	} else if exists {
-		return rawPath, "raw", nil
-	}
+	extensions := []string{"raw", "qcow2"}
 
-	exists, err = diskutils.FileExists(qcow2Path)
-	if err != nil {
-		return "", "", err
-	} else if exists {
-		return qcow2Path, "qcow2", nil
+	for _, extension := range extensions {
+		path := basePath + "/" + filePrefix + "." + extension
+		claimedPath := basePath + "/" + filePrefix + "." + extension + ".virt"
+
+		exists, err := diskutils.FileExists(path)
+		if err != nil {
+			return "", "", err
+		} else if exists {
+			return path, extension, nil
+		}
+
+		exists, err = diskutils.FileExists(claimedPath)
+		if err != nil {
+			return "", "", err
+		} else if exists {
+			return claimedPath, extension, nil
+		}
 	}
 
 	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", basePath))
@@ -123,15 +129,12 @@ func CleanupEphemeralDisks(vm *v1.VirtualMachine) error {
 	return err
 }
 
-// The virt-handler converts registry disks to their corresponding iscsi network
-// disks when the VM spec is being defined as a domain with libvirt.
-// The ports and host of the iscsi disks are already provided here by the controller.
-func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func PopulateRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
 
 	for diskCount, disk := range vmCopy.Spec.Domain.Devices.Disks {
-		if disk.Type == registryDiskV1Alpha {
+		if disk.Type == RegistryDiskV1Alpha {
 			volumeMountDir := generateVolumeMountDir(vm, diskCount)
 
 			diskPath, diskType, err := getFilePath(volumeMountDir)
@@ -140,11 +143,13 @@ func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 			}
 
 			// Rename file to release management of it from container process.
-			oldDiskPath := diskPath
-			diskPath = oldDiskPath + ".virt"
-			err = os.Rename(oldDiskPath, diskPath)
-			if err != nil {
-				return vm, err
+			if strings.HasSuffix(diskPath, ".virt") == false {
+				oldDiskPath := diskPath
+				diskPath = oldDiskPath + ".virt"
+				err = os.Rename(oldDiskPath, diskPath)
+				if err != nil {
+					return vm, err
+				}
 			}
 
 			err = diskutils.SetFileOwnership(registryDiskOwner, diskPath)
@@ -152,16 +157,12 @@ func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 				return vm, err
 			}
 
-			newDisk := v1.Disk{}
-			newDisk.Type = "file"
-			newDisk.Device = "disk"
-			newDisk.Driver = &v1.DiskDriver{
+			vmCopy.Spec.Domain.Devices.Disks[diskCount].Device = "disk"
+			vmCopy.Spec.Domain.Devices.Disks[diskCount].Driver = &v1.DiskDriver{
 				Type: diskType,
 				Name: "qemu",
 			}
-			newDisk.Source.File = diskPath
-			newDisk.Target = disk.Target
-			vmCopy.Spec.Domain.Devices.Disks[diskCount] = newDisk
+			vmCopy.Spec.Domain.Devices.Disks[diskCount].Source.File = diskPath
 		}
 	}
 
@@ -182,7 +183,7 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 
 	// Make VM Image Wrapper Containers
 	for diskCount, disk := range vm.Spec.Domain.Devices.Disks {
-		if disk.Type == registryDiskV1Alpha {
+		if disk.Type == RegistryDiskV1Alpha {
 
 			volumeMountDir := generateVolumeMountDir(vm, diskCount)
 			volumeName := fmt.Sprintf("disk%d-volume", diskCount)
