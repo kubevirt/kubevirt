@@ -67,7 +67,8 @@ func NewSocketBasedIsolationDetector(virtShareDir string) PodIsolationDetector {
 }
 
 func SocketFromNamespaceName(baseDir string, namespace string, name string) string {
-	return filepath.Clean(baseDir) + "/sockets/" + namespace + "_" + name + "_sock"
+	sockFile := namespace + "_" + name + "_sock"
+	return filepath.Join(baseDir, "sockets", sockFile)
 }
 
 // This function is only used by unit test suite

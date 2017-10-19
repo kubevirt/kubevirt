@@ -34,6 +34,9 @@ import (
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+const defaultStartTimeout = 3 * time.Minute
+const defaultWatchdogInterval = 10 * time.Second
+
 func markReady(readinessFile string) {
 	f, err := os.OpenFile(readinessFile, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
@@ -67,15 +70,12 @@ func createSocket(virtShareDir string, namespace string, name string) net.Listen
 }
 
 func main() {
-	startTimeout := 0 * time.Second
-	defaultInterval := 10 * time.Second
-
 	logging.InitializeLogging("virt-launcher")
-	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
+	qemuTimeout := flag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	name := flag.String("name", "", "Name of the VM")
 	namespace := flag.String("namespace", "", "Namespace of the VM")
-	watchdogInterval := flag.Duration("watchdog-update-interval", defaultInterval, "Interval at which watchdog file should be updated")
+	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()

@@ -56,6 +56,8 @@ import (
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+const defaultWatchdogTimeout = 30 * time.Second
+
 type virtHandlerApp struct {
 	Service                 *service.Service
 	HostOverride            string
@@ -218,8 +220,6 @@ func (app *virtHandlerApp) Run() {
 }
 
 func main() {
-	defaultExpires := 30 * time.Second
-
 	logging.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
@@ -228,7 +228,7 @@ func main() {
 	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
-	watchdogTimeoutDuration := flag.Duration("watchdog-timeout", defaultExpires, "Watchdog file timeout.")
+	watchdogTimeoutDuration := flag.Duration("watchdog-timeout", defaultWatchdogTimeout, "Watchdog file timeout.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 

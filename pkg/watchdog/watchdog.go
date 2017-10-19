@@ -51,11 +51,12 @@ func NewWatchdogListWatchFromClient(virtShareDir string, watchdogTimeout int) ca
 }
 
 func WatchdogFileDirectory(baseDir string) string {
-	return filepath.Clean(baseDir) + "/watchdog-files"
+	return filepath.Join(baseDir, "watchdog-files")
 }
 
 func WatchdogFileFromNamespaceName(baseDir string, namespace string, name string) string {
-	return filepath.Clean(baseDir) + "/watchdog-files/" + namespace + "_" + name
+	watchdogFile := namespace + "_" + name
+	return filepath.Join(baseDir, "watchdog-files", watchdogFile)
 }
 
 func WatchdogFileRemove(baseDir string, vm *v1.VirtualMachine) error {
@@ -84,6 +85,8 @@ func WatchdogFileExists(baseDir string, vm *v1.VirtualMachine) (bool, error) {
 	filePath := WatchdogFileFromNamespaceName(baseDir, namespace, domain)
 	exists, err := diskutils.FileExists(filePath)
 	if err != nil {
+		logging.DefaultLogger().Error().Reason(err).Msgf("Error encountered while attempting to verify if watchdog file at path %s exists.", filePath)
+
 		return false, err
 	}
 	return exists, nil
