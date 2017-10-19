@@ -34,23 +34,20 @@ clean:
 distclean: clean
 	rm -rf vendor/
 	rm -f manifest/*.yaml
-	rm -f .glide.*.hash
-	glide cc
+	rm -f .Gopkg.*.hash
 
 checksync:
-	test -f .glide.yaml.hash || ${HASH} glide.yaml > .glide.yaml.hash
-	if [ "`${HASH} glide.yaml`" != "`cat .glide.yaml.hash`" ]; then \
-		glide cc; \
-		glide update --strip-vendor; \
-		${HASH} glide.yaml > .glide.yaml.hash; \
-		${HASH} glide.lock > .glide.lock.hash; \
-	elif [ "`${HASH} glide.lock`" != "`cat .glide.lock.hash`" ]; then \
+	if [ ! -e .Gopkg.toml.hash ] || [ "`${HASH} Gopkg.toml`" != "`cat .Gopkg.toml.hash`" ]; then \
+		dep ensure; \
+		${HASH} Gopkg.toml > .Gopkg.toml.hash; \
+		${HASH} Gopkg.lock > .Gopkg.lock.hash; \
+	elif [ ! -e .Gopkg.lock.hash ] || [ "`${HASH} Gopkg.lock`" != "`cat .Gopkg.lock.hash`" ]; then \
 		make sync; \
 	fi
 
 sync:
-	glide install --strip-vendor
-	${HASH} glide.lock > .glide.lock.hash
+	dep ensure -vendor-only
+	${HASH} Gopkg.lock > .Gopkg.lock.hash;
 
 docker: build
 	./hack/build-docker.sh build ${WHAT}

@@ -70,14 +70,9 @@ to install a few build requirements:
     cd $GOPATH
     # Use goimports for package import ordering
     go get golang.org/x/tools/cmd/goimports
-    # Setup glide which is used to track dependencies
-    go get github.com/Masterminds/glide
+    # Setup dep which is used to track dependencies
+    go get -u github.com/golang/dep/cmd/dep
 ```
-
-**Note:** Make sure you're using the glide version from your $GOPATH. If you
-have a version installed via your system's package manager, it's likely older
-and might not be able to work with k8s.io/client-go.
-[Github Issue](https://github.com/Masterminds/glide/issues/615)
 
 ### Sources
 

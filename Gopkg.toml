@@ -1,0 +1,96 @@
+
+# Gopkg.toml example
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#  name = "github.com/x/y"
+#  version = "2.4.0"
+
+ignored = ["code.google.com/p/go-charset","github.com/go-kit/kit/examples","github.com/go-kit/kit/log/levels","github.com/go-kit/kit/metrics/influxdb","github.com/go-kit/kit/service","github.com/googleapis/gnostic/plugins","k8s.io/apimachinery/pkg/apis/meta/v1alpha1"]
+
+[[constraint]]
+  name = "github.com/asaskevich/govalidator"
+
+[[constraint]]
+  name = "github.com/emicklei/go-restful"
+
+[[constraint]]
+  name = "github.com/emicklei/go-restful-openapi"
+
+[[constraint]]
+  name = "github.com/evanphx/json-patch"
+
+[[constraint]]
+  name = "github.com/fsnotify/fsnotify"
+  version = "1.4.2"
+
+[[constraint]]
+  name = "github.com/ghodss/yaml"
+
+[[constraint]]
+  name = "github.com/go-kit/kit"
+
+[[constraint]]
+  name = "github.com/go-openapi/spec"
+
+[[constraint]]
+  name = "github.com/golang/glog"
+
+[[constraint]]
+  name = "github.com/golang/mock"
+
+[[constraint]]
+  name = "github.com/gorilla/websocket"
+
+[[constraint]]
+  name = "github.com/jeevatkm/go-model"
+
+[[constraint]]
+  name = "github.com/libvirt/libvirt-go"
+
+[[constraint]]
+  name = "github.com/onsi/ginkgo"
+
+[[constraint]]
+  name = "github.com/onsi/gomega"
+
+[[constraint]]
+  name = "github.com/satori/go.uuid"
+
+[[constraint]]
+  name = "github.com/spf13/pflag"
+
+[[constraint]]
+  name = "golang.org/x/crypto"
+
+[[constraint]]
+  name = "golang.org/x/net"
+
+[[constraint]]
+  name = "gopkg.in/ini.v1"
+
+[[constraint]]
+  name = "gopkg.in/yaml.v2"
+
+[[constraint]]
+  name = "k8s.io/api"
+
+[[constraint]]
+  name = "k8s.io/apimachinery"
+
+[[constraint]]
+  name = "k8s.io/client-go"
