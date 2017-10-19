@@ -94,6 +94,7 @@ echo ""
 
 # Delete traces from old deployments
 kubectl delete deployments --all
+kubectl delete ds --all
 kubectl delete pods --all
 
 # Deploy kubevirt
