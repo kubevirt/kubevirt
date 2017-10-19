@@ -268,11 +268,9 @@ func (md *MigrationController) execute(key string) error {
 			return nil
 		}
 
-		// FIXME, the final state updates must come from virt-handler
 		switch migrationPod.Status.Phase {
 		case k8sv1.PodFailed:
 			eventMsg := fmt.Sprintf("Failed migrating VM from %s to %s", vm.Status.NodeName, targetPod.Spec.NodeName)
-			vm.Status.Phase = kubev1.Running
 			vm.Status.MigrationNodeName = ""
 			if _, err = md.vmService.PutVm(vm); err != nil {
 				return err
@@ -283,7 +281,6 @@ func (md *MigrationController) execute(key string) error {
 			eventMsg := fmt.Sprintf("Finished migrating VM from %s to %s", vm.Status.NodeName, targetPod.Spec.NodeName)
 			vm.Status.NodeName = targetPod.Spec.NodeName
 			vm.Status.MigrationNodeName = ""
-			vm.Status.Phase = kubev1.Running
 			if vm.ObjectMeta.Labels == nil {
 				vm.ObjectMeta.Labels = map[string]string{}
 			}
