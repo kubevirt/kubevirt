@@ -31,8 +31,7 @@ import (
 	"reflect"
 
 	"github.com/jeevatkm/go-model"
-	"github.com/satori/go.uuid"
-
+	uuid "github.com/satori/go.uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apimachinery/announced"

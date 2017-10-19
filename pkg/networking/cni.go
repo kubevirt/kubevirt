@@ -1,13 +1,12 @@
 package networking
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"strconv"
 	"strings"
-
-	"encoding/json"
-	"io/ioutil"
 
 	"github.com/containernetworking/cni/pkg/types/current"
 )

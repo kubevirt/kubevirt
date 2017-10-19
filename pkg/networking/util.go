@@ -1,17 +1,13 @@
 package networking
 
 import (
-	"net"
-	"strings"
-
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os/exec"
-
 	"strconv"
-
-	"crypto/rand"
-
+	"strings"
 	"syscall"
 
 	"github.com/vishvananda/netlink"

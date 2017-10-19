@@ -846,7 +846,7 @@ func RenderJob(name string, dockerTag string, cmd []string, args []string) *k8sv
 }
 
 func GetDockerTag() string {
-	dockerTag := os.Getenv("docker_tag")
+	dockerTag := os.Getenv("docker_test_tag")
 	if dockerTag == "" {
 		dockerTag = "devel"
 	}

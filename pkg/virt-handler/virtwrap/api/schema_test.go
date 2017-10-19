@@ -119,7 +119,7 @@ var _ = Describe("Schema", func() {
 	Context("With example schema", func() {
 
 		BeforeEach(func() {
-			exampleDomain.Metadata = &Metadata{
+			exampleDomain.Metadata = Metadata{
 				Interfaces: InterfacesMetadata{
 					Interfaces: []InterfaceMetadata{
 						{Type: "type1"},

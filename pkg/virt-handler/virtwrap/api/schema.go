@@ -214,11 +214,11 @@ type DomainSpec struct {
 	Clock    *Clock       `xml:"clock,omitempty"`
 	Resource *Resource    `xml:"resource,omitempty"`
 	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
-	Metadata *Metadata    `xml:"metadata,omitempty"`
+	Metadata Metadata     `xml:"metadata,omitempty"`
 }
 
 type Metadata struct {
-	Interfaces InterfacesMetadata `xml:"http://kubevirt.io interfaces"`
+	Interfaces InterfacesMetadata `xml:"http://kubevirt.io interfaces,omitempty"`
 }
 
 type InterfaceMetadata struct {

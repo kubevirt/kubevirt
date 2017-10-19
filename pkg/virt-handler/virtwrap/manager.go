@@ -403,8 +403,6 @@ func (l *LibvirtDomainManager) getDomainDesc(dom cli.VirDomain, flags libvirt.Do
 // createNetworkingMetadata adds networking metadata to the domain XML.
 func createNetworkingMetadata(domain *api.DomainSpec) error {
 
-	domain.Metadata = &api.Metadata{}
-
 	for i, iface := range domain.Devices.Interfaces {
 		if iface.Type == "nodeNetwork" {
 			ifmeta := api.InterfaceMetadata{
