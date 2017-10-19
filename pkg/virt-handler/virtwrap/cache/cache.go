@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{

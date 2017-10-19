@@ -51,8 +51,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
-	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 

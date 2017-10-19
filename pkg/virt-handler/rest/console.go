@@ -31,8 +31,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 var upgrader = websocket.Upgrader{

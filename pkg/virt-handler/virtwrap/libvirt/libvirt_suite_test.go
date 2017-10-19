@@ -17,7 +17,7 @@
  *
  */
 
-package cli
+package libvirt
 
 import (
 	. "github.com/onsi/ginkgo"

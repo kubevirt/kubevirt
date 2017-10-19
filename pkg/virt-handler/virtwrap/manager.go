@@ -42,9 +42,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 type DomainManager interface {

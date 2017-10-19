@@ -36,7 +36,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 var _ = Describe("Console", func() {

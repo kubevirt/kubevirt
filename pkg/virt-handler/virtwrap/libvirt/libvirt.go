@@ -17,7 +17,7 @@
  *
  */
 
-package cli
+package libvirt
 
 //go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/libvirt/libvirt-go"
+	libvirt_go "github.com/libvirt/libvirt-go"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/log"
@@ -42,34 +42,34 @@ type Connection interface {
 	LookupDomainByName(name string) (VirDomain, error)
 	DomainDefineXML(xml string) (VirDomain, error)
 	Close() (int, error)
-	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
-	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
-	NewStream(flags libvirt.StreamFlags) (Stream, error)
-	LookupSecretByUsage(usageType libvirt.SecretUsageType, usageID string) (VirSecret, error)
+	DomainEventLifecycleRegister(callback libvirt_go.DomainEventLifecycleCallback) error
+	ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error)
+	NewStream(flags libvirt_go.StreamFlags) (Stream, error)
+	LookupSecretByUsage(usageType libvirt_go.SecretUsageType, usageID string) (VirSecret, error)
 	SecretDefineXML(xml string) (VirSecret, error)
 	ListSecrets() ([]string, error)
 	LookupSecretByUUIDString(uuid string) (VirSecret, error)
-	ListAllSecrets(flags libvirt.ConnectListAllSecretsFlags) ([]VirSecret, error)
+	ListAllSecrets(flags libvirt_go.ConnectListAllSecretsFlags) ([]VirSecret, error)
 }
 
 type Stream interface {
 	io.ReadWriteCloser
-	UnderlyingStream() *libvirt.Stream
+	UnderlyingStream() *libvirt_go.Stream
 }
 
 type VirStream struct {
-	*libvirt.Stream
+	*libvirt_go.Stream
 }
 
 type LibvirtConnection struct {
-	Connect       *libvirt.Connect
+	Connect       *libvirt_go.Connect
 	user          string
 	pass          string
 	uri           string
 	alive         bool
 	stop          chan struct{}
 	reconnectLock *sync.Mutex
-	callbacks     []libvirt.DomainEventLifecycleCallback
+	callbacks     []libvirt_go.DomainEventLifecycleCallback
 }
 
 func (s *VirStream) Write(p []byte) (n int, err error) {
@@ -93,11 +93,11 @@ func (s *VirStream) Close() (e error) {
 	return e
 }
 
-func (s *VirStream) UnderlyingStream() *libvirt.Stream {
+func (s *VirStream) UnderlyingStream() *libvirt_go.Stream {
 	return s.Stream
 }
 
-func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
+func (l *LibvirtConnection) NewStream(flags libvirt_go.StreamFlags) (Stream, error) {
 	if err := l.reconnectIfNecessary(); err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (l *LibvirtConnection) LookupSecretByUUIDString(uuid string) (secret VirSec
 	return
 }
 
-func (l *LibvirtConnection) LookupSecretByUsage(usageType libvirt.SecretUsageType, usageID string) (secret VirSecret, err error) {
+func (l *LibvirtConnection) LookupSecretByUsage(usageType libvirt_go.SecretUsageType, usageID string) (secret VirSecret, err error) {
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
@@ -145,7 +145,7 @@ func (l *LibvirtConnection) LookupSecretByUsage(usageType libvirt.SecretUsageTyp
 	return
 }
 
-func (l *LibvirtConnection) ListAllSecrets(flags libvirt.ConnectListAllSecretsFlags) ([]VirSecret, error) {
+func (l *LibvirtConnection) ListAllSecrets(flags libvirt_go.ConnectListAllSecretsFlags) ([]VirSecret, error) {
 	if err := l.reconnectIfNecessary(); err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (l *LibvirtConnection) SecretDefineXML(xml string) (secret VirSecret, err e
 	return
 }
 
-func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) (err error) {
+func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt_go.DomainEventLifecycleCallback) (err error) {
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
@@ -202,7 +202,7 @@ func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err erro
 	return
 }
 
-func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error) {
+func (l *LibvirtConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error) {
 	if err := l.reconnectIfNecessary(); err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 		}
 		l.alive = true
 		cbs := l.callbacks
-		l.callbacks = make([]libvirt.DomainEventLifecycleCallback, 0)
+		l.callbacks = make([]libvirt_go.DomainEventLifecycleCallback, 0)
 		for _, cb := range cbs {
 			// Notify the callback about the reconnect by sending a nil event.
 			// This way we give the callback a chance to emit an error to the watcher
@@ -280,20 +280,20 @@ func (l *LibvirtConnection) checkConnectionLost() {
 	l.reconnectLock.Lock()
 	defer l.reconnectLock.Unlock()
 
-	err := libvirt.GetLastError()
+	err := libvirt_go.GetLastError()
 	if errors.IsOk(err) {
 		return
 	}
 
 	switch err.Code {
 	case
-		libvirt.ERR_INTERNAL_ERROR,
-		libvirt.ERR_INVALID_CONN,
-		libvirt.ERR_AUTH_CANCELLED,
-		libvirt.ERR_NO_MEMORY,
-		libvirt.ERR_AUTH_FAILED,
-		libvirt.ERR_SYSTEM_ERROR,
-		libvirt.ERR_RPC:
+		libvirt_go.ERR_INTERNAL_ERROR,
+		libvirt_go.ERR_INVALID_CONN,
+		libvirt_go.ERR_AUTH_CANCELLED,
+		libvirt_go.ERR_NO_MEMORY,
+		libvirt_go.ERR_AUTH_FAILED,
+		libvirt_go.ERR_SYSTEM_ERROR,
+		libvirt_go.ERR_RPC:
 		l.alive = false
 		log.Log.With("code", err.Code).Reason(err).Error("Connection to libvirt lost.")
 	}
@@ -309,15 +309,15 @@ type VirSecret interface {
 }
 
 type VirDomain interface {
-	GetState() (libvirt.DomainState, int, error)
+	GetState() (libvirt_go.DomainState, int, error)
 	Create() error
 	Resume() error
 	Destroy() error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
-	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
+	GetXMLDesc(flags libvirt_go.DomainXMLFlags) (string, error)
 	Undefine() error
-	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
+	OpenConsole(devname string, stream *libvirt_go.Stream, flags libvirt_go.DomainConsoleFlags) error
 	Free() error
 }
 
@@ -326,7 +326,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 	logger.V(1).Infof("Connecting to libvirt daemon: %s", uri)
 
 	var err error
-	var virConn *libvirt.Connect
+	var virConn *libvirt_go.Connect
 
 	err = utilwait.PollImmediate(ConnectionInterval, ConnectionTimeout, func() (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
@@ -342,7 +342,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 
 	lvConn := &LibvirtConnection{
 		Connect: virConn, user: user, pass: pass, uri: uri, alive: true,
-		callbacks:     make([]libvirt.DomainEventLifecycleCallback, 0),
+		callbacks:     make([]libvirt_go.DomainEventLifecycleCallback, 0),
 		reconnectLock: &sync.Mutex{},
 	}
 	lvConn.installWatchdog(checkInterval)
@@ -351,41 +351,41 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 }
 
 // TODO: needs a functional test.
-func newConnection(uri string, user string, pass string) (*libvirt.Connect, error) {
-	callback := func(creds []*libvirt.ConnectCredential) {
+func newConnection(uri string, user string, pass string) (*libvirt_go.Connect, error) {
+	callback := func(creds []*libvirt_go.ConnectCredential) {
 		for _, cred := range creds {
-			if cred.Type == libvirt.CRED_AUTHNAME {
+			if cred.Type == libvirt_go.CRED_AUTHNAME {
 				cred.Result = user
 				cred.ResultLen = len(cred.Result)
-			} else if cred.Type == libvirt.CRED_PASSPHRASE {
+			} else if cred.Type == libvirt_go.CRED_PASSPHRASE {
 				cred.Result = pass
 				cred.ResultLen = len(cred.Result)
 			}
 		}
 	}
-	auth := &libvirt.ConnectAuth{
-		CredType: []libvirt.ConnectCredentialType{
-			libvirt.CRED_AUTHNAME, libvirt.CRED_PASSPHRASE,
+	auth := &libvirt_go.ConnectAuth{
+		CredType: []libvirt_go.ConnectCredentialType{
+			libvirt_go.CRED_AUTHNAME, libvirt_go.CRED_PASSPHRASE,
 		},
 		Callback: callback,
 	}
-	virConn, err := libvirt.NewConnectWithAuth(uri, auth, 0)
+	virConn, err := libvirt_go.NewConnectWithAuth(uri, auth, 0)
 
 	return virConn, err
 }
 
-func IsDown(domState libvirt.DomainState) bool {
+func IsDown(domState libvirt_go.DomainState) bool {
 	switch domState {
-	case libvirt.DOMAIN_NOSTATE, libvirt.DOMAIN_SHUTDOWN, libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_CRASHED:
+	case libvirt_go.DOMAIN_NOSTATE, libvirt_go.DOMAIN_SHUTDOWN, libvirt_go.DOMAIN_SHUTOFF, libvirt_go.DOMAIN_CRASHED:
 		return true
 
 	}
 	return false
 }
 
-func IsPaused(domState libvirt.DomainState) bool {
+func IsPaused(domState libvirt_go.DomainState) bool {
 	switch domState {
-	case libvirt.DOMAIN_PAUSED:
+	case libvirt_go.DOMAIN_PAUSED:
 		return true
 
 	}

@@ -30,7 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 	"kubevirt.io/kubevirt/pkg/virt-manifest/rest"
 )
 

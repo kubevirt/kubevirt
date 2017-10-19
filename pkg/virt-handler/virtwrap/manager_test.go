@@ -35,8 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 var _ = Describe("Manager", func() {
