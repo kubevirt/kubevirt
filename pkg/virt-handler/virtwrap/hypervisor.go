@@ -36,6 +36,18 @@ import (
 type Hypervisor interface {
 	Close() (int, error)
 	MonitorConnection(interval time.Duration)
+
+	// XXX: replace VirDomain by Guest interface when all
+	// implemented
+
+	// Find and retourn `Guest` from its name
+	LookupGuestByName(name string) (libvirt.VirDomain, error)
+	// Defining a domain spec/configuration
+	DefineGuestSpec(spec string) (libvirt.VirDomain, error)
+	// Returns list of Guests
+	ListAllGuests(actives bool, inactives bool) ([]libvirt.VirDomain, error)
+	// Register guests events callback life cycle
+	RegisterGuestEventLifecycle(callback interface{}) error
 }
 
 type Guest interface{}

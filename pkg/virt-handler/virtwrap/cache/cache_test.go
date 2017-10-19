@@ -51,14 +51,14 @@ var _ = Describe("Cache", func() {
 	Context("on syncing with libvirt", func() {
 		table.DescribeTable("should receive a VM through the initial listing of domains",
 			func(state libvirt.DomainState, kubevirtState api.LifeCycle) {
-				mockConn.EXPECT().DomainEventLifecycleRegister(gomock.Any()).Return(nil)
+				mockConn.EXPECT().RegisterGuestEventLifecycle(gomock.Any()).Return(nil)
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
 				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
 				x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
 				Expect(err).To(BeNil())
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
-				mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
+				mockConn.EXPECT().ListAllGuests(gomock.Eq(true), gomock.Eq(true)).Return([]cli.VirDomain{mockDomain}, nil)
 
 				informer, err := NewSharedInformer(mockConn)
 				Expect(err).To(BeNil())

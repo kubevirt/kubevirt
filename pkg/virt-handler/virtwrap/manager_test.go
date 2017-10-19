@@ -81,14 +81,14 @@ var _ = Describe("Manager", func() {
 	Context("on successful VM sync", func() {
 		It("should define and start a new VM", func() {
 			vm := newVM(testNamespace, testVmName)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			mockConn.EXPECT().LookupGuestByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
 			domainSpec := expectIsolationDetectionForVM(vm)
 
 			xml, err := xml.Marshal(domainSpec)
 			Expect(err).To(BeNil())
 			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
-			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockConn.EXPECT().DefineGuestSpec(string(xml)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
@@ -106,7 +106,7 @@ var _ = Describe("Manager", func() {
 			xml, err := xml.Marshal(domainSpec)
 
 			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockConn.EXPECT().LookupGuestByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
@@ -122,9 +122,9 @@ var _ = Describe("Manager", func() {
 				xml, err := xml.Marshal(domainSpec)
 
 				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
-				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+				mockConn.EXPECT().LookupGuestByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
-				mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+				mockConn.EXPECT().DefineGuestSpec(string(xml)).Return(mockDomain, nil)
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
@@ -145,7 +145,7 @@ var _ = Describe("Manager", func() {
 			xml, err := xml.Marshal(domainSpec)
 
 			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockConn.EXPECT().LookupGuestByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
@@ -161,7 +161,7 @@ var _ = Describe("Manager", func() {
 		table.DescribeTable("should try to undefine a VM in state",
 			func(state libvirt.DomainState) {
 				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
-				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+				mockConn.EXPECT().LookupGuestByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
@@ -176,7 +176,7 @@ var _ = Describe("Manager", func() {
 		table.DescribeTable("should try to destroy and undefine a VM in state",
 			func(state libvirt.DomainState) {
 				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
-				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+				mockConn.EXPECT().LookupGuestByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Destroy().Return(nil)
 				mockDomain.EXPECT().Undefine().Return(nil)

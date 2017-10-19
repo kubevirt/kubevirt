@@ -94,7 +94,7 @@ func MapVM(con cli.Connection, vm *v1.VirtualMachine) (*v1.VirtualMachine, error
 	}
 
 	logger.Object(vm).V(3).Info("Domain XML generated.")
-	dom, err := con.DomainDefineXML(string(xmlStr))
+	dom, err := con.DefineGuestSpec(string(xmlStr))
 	if err != nil {
 		logger.Object(vm).Reason(err).Error("Defining the VM failed.")
 		return nil, err

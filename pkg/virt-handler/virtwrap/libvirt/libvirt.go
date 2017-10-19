@@ -39,11 +39,7 @@ const ConnectionInterval = 10 * time.Second
 
 // TODO: Should we handle libvirt connection errors transparent or panic?
 type Connection interface {
-	LookupDomainByName(name string) (VirDomain, error)
-	DomainDefineXML(xml string) (VirDomain, error)
 	Close() (int, error)
-	DomainEventLifecycleRegister(callback libvirt_go.DomainEventLifecycleCallback) error
-	ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt_go.StreamFlags) (Stream, error)
 	LookupSecretByUsage(usageType libvirt_go.SecretUsageType, usageID string) (VirSecret, error)
 	SecretDefineXML(xml string) (VirSecret, error)
@@ -51,6 +47,13 @@ type Connection interface {
 	LookupSecretByUUIDString(uuid string) (VirSecret, error)
 	ListAllSecrets(flags libvirt_go.ConnectListAllSecretsFlags) ([]VirSecret, error)
 	MonitorConnection(checkInterval time.Duration)
+
+	// XXX: This interface is going to be removed to use
+	// virtwrap.Hypervisor
+	LookupGuestByName(name string) (VirDomain, error)
+	DefineGuestSpec(spec string) (VirDomain, error)
+	ListAllGuests(actives bool, inactives bool) ([]VirDomain, error)
+	RegisterGuestEventLifecycle(callback interface{}) error
 }
 
 type Stream interface {
@@ -173,18 +176,20 @@ func (l *LibvirtConnection) SecretDefineXML(xml string) (secret VirSecret, err e
 	return
 }
 
-func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt_go.DomainEventLifecycleCallback) (err error) {
+func (l *LibvirtConnection) RegisterGuestEventLifecycle(callback interface{}) (err error) {
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
 	defer l.checkConnectionLost()
 
-	l.callbacks = append(l.callbacks, callback)
-	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
+	lvcb := callback.(libvirt_go.DomainEventLifecycleCallback)
+	l.callbacks = append(l.callbacks, lvcb)
+	_, err = l.Connect.DomainEventLifecycleRegister(nil, lvcb)
 	return
 }
 
-func (l *LibvirtConnection) LookupDomainByName(name string) (dom VirDomain, err error) {
+func (l *LibvirtConnection) LookupGuestByName(name string) (dom VirDomain, err error) {
+	// XXX: Should return a Guest when implemented
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
@@ -193,7 +198,8 @@ func (l *LibvirtConnection) LookupDomainByName(name string) (dom VirDomain, err 
 	return l.Connect.LookupDomainByName(name)
 }
 
-func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err error) {
+func (l *LibvirtConnection) DefineGuestSpec(xml string) (dom VirDomain, err error) {
+	// XXX: Should return a Guest when implemented
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
@@ -203,11 +209,21 @@ func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err erro
 	return
 }
 
-func (l *LibvirtConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error) {
+func (l *LibvirtConnection) ListAllGuests(actives bool, inactives bool) ([]VirDomain, error) {
+	// XXX: Should return list of Guest when implemented
 	if err := l.reconnectIfNecessary(); err != nil {
 		return nil, err
 	}
 	defer l.checkConnectionLost()
+
+	// 0 means do not filter anythings.
+	var flags libvirt_go.ConnectListAllDomainsFlags = 0
+	if actives {
+		flags |= libvirt_go.CONNECT_LIST_DOMAINS_ACTIVE
+	}
+	if inactives {
+		flags |= libvirt_go.CONNECT_LIST_DOMAINS_INACTIVE
+	}
 
 	virDoms, err := l.Connect.ListAllDomains(flags)
 	if err != nil {

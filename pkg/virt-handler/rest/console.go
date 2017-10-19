@@ -54,7 +54,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	namespace := request.PathParameter("namespace")
 	vm := v1.NewVMReferenceFromNameWithNS(namespace, vmName)
 	logger := log.Log.Object(vm)
-	domain, err := t.connection.LookupDomainByName(cache.VMNamespaceKeyFunc(vm))
+	domain, err := t.connection.LookupGuestByName(cache.VMNamespaceKeyFunc(vm))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Reason(err).Error("Domain not found.")

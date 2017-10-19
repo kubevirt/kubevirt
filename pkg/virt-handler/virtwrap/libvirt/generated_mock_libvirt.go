@@ -31,28 +31,6 @@ func (_m *MockConnection) EXPECT() *_MockConnectionRecorder {
 	return _m.recorder
 }
 
-func (_m *MockConnection) LookupDomainByName(name string) (VirDomain, error) {
-	ret := _m.ctrl.Call(_m, "LookupDomainByName", name)
-	ret0, _ := ret[0].(VirDomain)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockConnectionRecorder) LookupDomainByName(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "LookupDomainByName", arg0)
-}
-
-func (_m *MockConnection) DomainDefineXML(xml string) (VirDomain, error) {
-	ret := _m.ctrl.Call(_m, "DomainDefineXML", xml)
-	ret0, _ := ret[0].(VirDomain)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockConnectionRecorder) DomainDefineXML(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainDefineXML", arg0)
-}
-
 func (_m *MockConnection) Close() (int, error) {
 	ret := _m.ctrl.Call(_m, "Close")
 	ret0, _ := ret[0].(int)
@@ -62,27 +40,6 @@ func (_m *MockConnection) Close() (int, error) {
 
 func (_mr *_MockConnectionRecorder) Close() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
-}
-
-func (_m *MockConnection) DomainEventLifecycleRegister(callback libvirt_go.DomainEventLifecycleCallback) error {
-	ret := _m.ctrl.Call(_m, "DomainEventLifecycleRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0)
-}
-
-func (_m *MockConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error) {
-	ret := _m.ctrl.Call(_m, "ListAllDomains", flags)
-	ret0, _ := ret[0].([]VirDomain)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockConnectionRecorder) ListAllDomains(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDomains", arg0)
 }
 
 func (_m *MockConnection) NewStream(flags libvirt_go.StreamFlags) (Stream, error) {
@@ -157,6 +114,49 @@ func (_m *MockConnection) MonitorConnection(checkInterval time.Duration) {
 
 func (_mr *_MockConnectionRecorder) MonitorConnection(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MonitorConnection", arg0)
+}
+
+func (_m *MockConnection) LookupGuestByName(name string) (VirDomain, error) {
+	ret := _m.ctrl.Call(_m, "LookupGuestByName", name)
+	ret0, _ := ret[0].(VirDomain)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) LookupGuestByName(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LookupGuestByName", arg0)
+}
+
+func (_m *MockConnection) DefineGuestSpec(spec string) (VirDomain, error) {
+	ret := _m.ctrl.Call(_m, "DefineGuestSpec", spec)
+	ret0, _ := ret[0].(VirDomain)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) DefineGuestSpec(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DefineGuestSpec", arg0)
+}
+
+func (_m *MockConnection) ListAllGuests(actives bool, inactives bool) ([]VirDomain, error) {
+	ret := _m.ctrl.Call(_m, "ListAllGuests", actives, inactives)
+	ret0, _ := ret[0].([]VirDomain)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) ListAllGuests(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllGuests", arg0, arg1)
+}
+
+func (_m *MockConnection) RegisterGuestEventLifecycle(callback interface{}) error {
+	ret := _m.ctrl.Call(_m, "RegisterGuestEventLifecycle", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) RegisterGuestEventLifecycle(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RegisterGuestEventLifecycle", arg0)
 }
 
 // Mock of Stream interface

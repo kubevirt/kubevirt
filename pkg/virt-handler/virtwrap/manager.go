@@ -201,7 +201,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	domName := cache.VMNamespaceKeyFunc(vm)
 	wantedSpec.Name = domName
 	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
-	dom, err := l.virConn.LookupDomainByName(domName)
+	dom, err := l.virConn.LookupGuestByName(domName)
 	newDomain := false
 	if err != nil {
 		// We need the domain but it does not exist, so create it
@@ -305,7 +305,7 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	domName := cache.VMNamespaceKeyFunc(vm)
-	dom, err := l.virConn.LookupDomainByName(domName)
+	dom, err := l.virConn.LookupGuestByName(domName)
 	if err != nil {
 		// If the VM does not exist, we are done
 		if domainerrors.IsNotFound(err) {
@@ -350,7 +350,7 @@ func (l *LibvirtDomainManager) setDomainXML(vm *v1.VirtualMachine, wantedSpec ap
 		return nil, err
 	}
 	log.Log.Object(vm).V(3).With("xml", xmlStr).Info("Domain XML generated.")
-	dom, err := l.virConn.DomainDefineXML(string(xmlStr))
+	dom, err := l.virConn.DefineGuestSpec(string(xmlStr))
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Defining the VM failed.")
 		return nil, err
