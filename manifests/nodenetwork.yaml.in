@@ -11,28 +11,28 @@ spec:
     spec:
       serviceAccountName: kubevirt-infra
       hostPID: true
+      hostNetwork: true
       initContainers:
       - name: containernetworking-cni-plugins
         image: rmohr/cni-plugins
-        command: ['cp', '/plugins', '/tools', '-a']
+        command: ['cp', '/plugins/.', '/tools/plugins/', '-a']
         volumeMounts:
         - name: cni-plugins
           mountPath: /tools/plugins
       - name: kubevirt-cni-delivery
         image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
         command: ["/bin/sh", "-c"]
-        args: ["cp /plugins /tools -a && cp /etc/cni/net.d/* /cniconf/ -a"]
+        args: ["cp /plugins/. /tools/plugins/ -a && cp /etc/cni/net.d/. /cniconf/ -a"]
         volumeMounts:
         - name: cni-plugins
           mountPath: /tools/plugins
-        volumeMounts:
         - name: cni-conf
           mountPath: /cniconf
       containers:
       - name: dhcp
         image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
         command: ["/bin/sh", "-c"]
-        args: ["rm -rf /run/cni/dhcp.sock && nsenter -t 1 -n /tools/plugins/dhcp daemon"]
+        args: ["rm -rf /run/cni/dhcp.sock && /tools/plugins/dhcp daemon"]
         securityContext:
           privileged: true
         volumeMounts:
