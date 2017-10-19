@@ -110,18 +110,28 @@ func (d *DirectoryListWatcher) startBackground() error {
 		defer d.wg.Done()
 		for {
 			var e watch.EventType
-			var fse fsnotify.Event
 			select {
 			case <-d.stopChan:
 				d.watcher.Close()
 				return
 			case event := <-d.watcher.Events:
-				fse = event
+				sendEvent := false
 				switch event.Op {
 				case fsnotify.Create:
 					e = watch.Added
+					sendEvent = true
 				case fsnotify.Remove:
 					e = watch.Deleted
+					sendEvent = true
+				}
+
+				if sendEvent {
+					namespace, name, err := splitFileNamespaceName(event.Name)
+					if err != nil {
+						logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
+						continue
+					}
+					d.eventChan <- watch.Event{Type: e, Object: api.NewMinimalDomainWithNS(namespace, name)}
 				}
 			case err := <-d.watcher.Errors:
 				d.eventChan <- watch.Event{
@@ -131,12 +141,6 @@ func (d *DirectoryListWatcher) startBackground() error {
 					},
 				}
 			}
-			namespace, name, err := splitFileNamespaceName(fse.Name)
-			if err != nil {
-				logging.DefaultLogger().Error().Reason(err).Msg("Invalid content detected, ignoring and continuing.")
-				continue
-			}
-			d.eventChan <- watch.Event{Type: e, Object: api.NewMinimalDomainWithNS(namespace, name)}
 		}
 	}()
 
