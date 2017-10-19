@@ -50,6 +50,7 @@ type Connection interface {
 	ListSecrets() ([]string, error)
 	LookupSecretByUUIDString(uuid string) (VirSecret, error)
 	ListAllSecrets(flags libvirt_go.ConnectListAllSecretsFlags) ([]VirSecret, error)
+	MonitorConnection(checkInterval time.Duration)
 }
 
 type Stream interface {
@@ -220,7 +221,7 @@ func (l *LibvirtConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomain
 }
 
 // Installs a watchdog which will check periodically if the libvirt connection is still alive.
-func (l *LibvirtConnection) installWatchdog(checkInterval time.Duration) {
+func (l *LibvirtConnection) MonitorConnection(checkInterval time.Duration) {
 	go func() {
 		for {
 			select {
@@ -321,7 +322,7 @@ type VirDomain interface {
 	Free() error
 }
 
-func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
+func NewConnection(uri string, user string, pass string) (Connection, error) {
 	logger := log.Log
 	logger.V(1).Infof("Connecting to libvirt daemon: %s", uri)
 
@@ -345,7 +346,6 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 		callbacks:     make([]libvirt_go.DomainEventLifecycleCallback, 0),
 		reconnectLock: &sync.Mutex{},
 	}
-	lvConn.installWatchdog(checkInterval)
 
 	return lvConn, nil
 }

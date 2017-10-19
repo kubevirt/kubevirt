@@ -4,6 +4,8 @@
 package libvirt
 
 import (
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	libvirt_go "github.com/libvirt/libvirt-go"
 )
@@ -147,6 +149,14 @@ func (_m *MockConnection) ListAllSecrets(flags libvirt_go.ConnectListAllSecretsF
 
 func (_mr *_MockConnectionRecorder) ListAllSecrets(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllSecrets", arg0)
+}
+
+func (_m *MockConnection) MonitorConnection(checkInterval time.Duration) {
+	_m.ctrl.Call(_m, "MonitorConnection", checkInterval)
+}
+
+func (_mr *_MockConnectionRecorder) MonitorConnection(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MonitorConnection", arg0)
 }
 
 // Mock of Stream interface

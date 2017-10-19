@@ -52,7 +52,6 @@ import (
 	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
-	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -107,11 +106,16 @@ func (app *virtHandlerApp) Run() {
 			}
 		}
 	}()
-	domainConn, err := virtcli.NewConnection(app.LibvirtUri, "", "", 10*time.Second)
+
+	// Initializing connection to hypervisor
+	hc, err := virtwrap.NewHypervisorConnection(app.LibvirtUri, "", "")
 	if err != nil {
 		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
 	}
-	defer domainConn.Close()
+	defer hc.Close()
+
+	// Monitoring connection
+	virtwrap.MonitorHypervisorConnection(hc, 10*time.Second)
 
 	// Create event recorder
 	virtCli, err := kubecli.GetKubevirtClient()
@@ -123,7 +127,7 @@ func (app *virtHandlerApp) Run() {
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
+	domainManager, err := virtwrap.NewLibvirtDomainManager(hc,
 		recorder,
 		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
 	)
@@ -152,7 +156,7 @@ func (app *virtHandlerApp) Run() {
 		int(app.WatchdogTimeoutDuration.Seconds()))
 
 	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
+	domainSharedInformer, err := virtcache.NewSharedInformer(hc)
 	if err != nil {
 		panic(err)
 	}
@@ -209,8 +213,9 @@ func (app *virtHandlerApp) Run() {
 	// TODO add a http handler which provides health check
 
 	// Add websocket route to access consoles remotely
-	console := rest.NewConsoleResource(domainConn)
+	console := rest.NewConsoleResource(hc)
 	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.VirtShareDir))
+
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/console").To(console.Console))
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
