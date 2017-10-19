@@ -426,7 +426,7 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteV
 	}
 
 	// Map whatever devices are being used for config-init
-	vm, err = cloudinit.MapCloudInitDisks(vm)
+	vm, err = cloudinit.PopulateCloudInitDisks(vm)
 	if err != nil {
 		return false, err
 	}
