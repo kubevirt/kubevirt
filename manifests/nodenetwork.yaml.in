@@ -56,6 +56,8 @@ spec:
           mountPath: /run/cni
         - name: cni-conf
           mountPath: /etc/cni/net.d
+        - name: cni-var
+          mountPath: /var/lib/cni/
         env:
           - name: NODE_NAME
             valueFrom:
@@ -71,3 +73,6 @@ spec:
       - name: cni-conf
         hostPath:
           path: "/var/lib/kubevirt/cni/conf"
+      - name: cni-var
+        hostPath:
+          path: "/var/lib/kubevirt/cni/var"

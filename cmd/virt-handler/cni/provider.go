@@ -18,6 +18,7 @@ func main() {
 	toolsDir := pflag.String("tools-dir", "/tools", "Location for helper binaries")
 	cniConfigDir := pflag.String("cni-config-dir", "/etc/cni/net.d", "Location for CNI configuration")
 	cniDir := pflag.String("cni-dir", "/tools/plugins", "Location for CNI plugin binaries")
+	cacheDir := pflag.String("cache-dir", "/var/lib/cni/networks", "Location where the CNI plugins store their state")
 	pflag.StringVar(&hostname, "hostname-override", "", "Kubernetes Pod to monitor for changes")
 
 	if hostname == "" {
@@ -63,8 +64,17 @@ func main() {
 
 	var doAdd bool
 	if iface == nil {
-		// No device means that we either deal with a node restart or the first deployment
-		// TODO delete all CNI caches
+		// No device means that we either deal with a node restart or the first deployment.
+		// Delete the CNI plugin cache. It is impossible that any VM can run at this point and
+		// we are not allowed to reuse anything
+		err := os.RemoveAll(*cacheDir)
+		if err != nil {
+			panic(err)
+		}
+		err = os.MkdirAll(*cacheDir, 0755)
+		if err != nil {
+			panic(err)
+		}
 		doAdd = true
 	}
 
