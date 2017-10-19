@@ -157,6 +157,41 @@ var _ = Describe("Manager", func() {
 			Expect(<-recorder.Events).To(ContainSubstring(v1.Resumed.String()))
 			Expect(recorder.Events).To(BeEmpty())
 		})
+		It("should map a registry disk to file based disk on domain", func() {
+			vm := newVM(testNamespace, testVmName)
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Type:   "RegistryDisk:v1alpha",
+				Device: "disk",
+				Source: v1.DiskSource{
+					Name: "someimage:v1.2.3.4",
+					File: "/some/path/disk.qcow2",
+				},
+				Target: v1.DiskTarget{
+					Device: "vda",
+				},
+				Driver: &v1.DiskDriver{
+					Type: "qcow2",
+					Name: "qemu",
+				},
+			})
+
+			domainSpec := expectIsolationDetectionForVM(vm)
+			xml, err := xml.Marshal(domainSpec)
+
+			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
+			mockDomain.EXPECT().Resume().Return(nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
+			newspec, err := manager.SyncVM(vm)
+			Expect(newspec).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(<-recorder.Events).To(ContainSubstring(v1.Resumed.String()))
+			Expect(recorder.Events).To(BeEmpty())
+
+		})
 	})
 	Context("on successful VM kill", func() {
 		table.DescribeTable("should try to undefine a VM in state",
