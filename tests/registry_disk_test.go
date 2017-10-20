@@ -28,6 +28,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -108,5 +110,15 @@ var _ = Describe("RegistryDisk", func() {
 
 			close(done)
 		}, 120) // Timeout is long because this test involves multiple parallel VM launches.
+
+		It("should not modify the VM spec on status update", func() {
+			vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).To(BeNil())
+			tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
+			startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
+			Expect(err).To(BeNil())
+			Expect(startedVM.Spec).To(Equal(vm.Spec))
+		})
 	})
 })
