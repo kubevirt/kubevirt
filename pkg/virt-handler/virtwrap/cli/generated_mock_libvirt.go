@@ -359,6 +359,16 @@ func (_mr *_MockVirDomainRecorder) Destroy() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Destroy")
 }
 
+func (_m *MockVirDomain) Shutdown() error {
+	ret := _m.ctrl.Call(_m, "Shutdown")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) Shutdown() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Shutdown")
+}
+
 func (_m *MockVirDomain) GetName() (string, error) {
 	ret := _m.ctrl.Call(_m, "GetName")
 	ret0, _ := ret[0].(string)

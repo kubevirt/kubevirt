@@ -46,8 +46,40 @@ import (
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
+
+type updateType int
+
+const (
+	// This means the informer update should not result in syncing the VM state
+	updateTypeIgnore updateType = iota
+	// This means the VM object has been deleted from the cluster
+	updateTypeDeletion
+	// This means the VM's corresponding virt-launcher watchdog has expired
+	updateTypeWatchdogExpire
+	// This means something has triggered graceful shutdown of the VM
+	updateTypeGracefulShutdown
+	// This is a normal update that occurs during the VM launch flow
+	updateTypeActive
+)
+
+func (p updateType) String() string {
+	switch p {
+	case updateTypeIgnore:
+		return "Ignore"
+	case updateTypeDeletion:
+		return "Deletion"
+	case updateTypeWatchdogExpire:
+		return "WatchdogExpire"
+	case updateTypeGracefulShutdown:
+		return "GracefulShutdown"
+	case updateTypeActive:
+		return "Active"
+	}
+	return "Unknown"
+}
 
 func NewController(
 	domainManager virtwrap.DomainManager,
@@ -60,22 +92,24 @@ func NewController(
 	vmInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	watchdogInformer cache.SharedIndexInformer,
+	gracefulShutdownInformer cache.SharedIndexInformer,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	c := &VirtualMachineController{
-		Queue:                  queue,
-		domainManager:          domainManager,
-		recorder:               recorder,
-		clientset:              clientset,
-		host:                   host,
-		configDisk:             configDiskClient,
-		virtShareDir:           virtShareDir,
-		watchdogTimeoutSeconds: watchdogTimeoutSeconds,
-		vmInformer:             vmInformer,
-		domainInformer:         domainInformer,
-		watchdogInformer:       watchdogInformer,
+		Queue:                    queue,
+		domainManager:            domainManager,
+		recorder:                 recorder,
+		clientset:                clientset,
+		host:                     host,
+		configDisk:               configDiskClient,
+		virtShareDir:             virtShareDir,
+		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
+		vmInformer:               vmInformer,
+		domainInformer:           domainInformer,
+		watchdogInformer:         watchdogInformer,
+		gracefulShutdownInformer: gracefulShutdownInformer,
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -96,21 +130,28 @@ func NewController(
 		UpdateFunc: c.updateFunc,
 	})
 
+	gracefulShutdownInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addFunc,
+		DeleteFunc: c.deleteFunc,
+		UpdateFunc: c.updateFunc,
+	})
+
 	return c
 }
 
 type VirtualMachineController struct {
-	domainManager          virtwrap.DomainManager
-	recorder               record.EventRecorder
-	clientset              kubecli.KubevirtClient
-	host                   string
-	configDisk             configdisk.ConfigDiskClient
-	virtShareDir           string
-	watchdogTimeoutSeconds int
-	Queue                  workqueue.RateLimitingInterface
-	vmInformer             cache.SharedIndexInformer
-	domainInformer         cache.SharedInformer
-	watchdogInformer       cache.SharedIndexInformer
+	domainManager            virtwrap.DomainManager
+	recorder                 record.EventRecorder
+	clientset                kubecli.KubevirtClient
+	host                     string
+	configDisk               configdisk.ConfigDiskClient
+	virtShareDir             string
+	watchdogTimeoutSeconds   int
+	Queue                    workqueue.RateLimitingInterface
+	vmInformer               cache.SharedIndexInformer
+	domainInformer           cache.SharedInformer
+	watchdogInformer         cache.SharedIndexInformer
+	gracefulShutdownInformer cache.SharedIndexInformer
 }
 
 func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
@@ -230,7 +271,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	go c.vmInformer.Run(stopCh)
 	go c.watchdogInformer.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.watchdogInformer.HasSynced)
+	go c.gracefulShutdownInformer.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.watchdogInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -301,7 +343,7 @@ func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.D
 
 func (d *VirtualMachineController) execute(key string) error {
 
-	shouldDeleteVm := false
+	processUpdateType := updateTypeIgnore
 
 	vm, exists, err := d.getVMFromCache(key)
 	if err != nil {
@@ -313,7 +355,18 @@ func (d *VirtualMachineController) execute(key string) error {
 		return err
 	}
 
-	// Check For Migration before processing vm not in our cache
+	// Determine if VM's watchdog has expired
+	watchdogExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
+	if err != nil {
+		return err
+	}
+
+	gracefulShutdown, err := virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vm)
+	if err != nil {
+		return err
+	}
+
+	// Determine how the VM should be processed.
 	if !exists {
 		// If we don't have the VM in the cache, it could be that it is currently migrating to us
 		isDestination, err := d.isMigrationDestination(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
@@ -327,32 +380,38 @@ func (d *VirtualMachineController) execute(key string) error {
 			return nil
 		}
 		// The VM is deleted on the cluster, continue with processing the deletion on the host.
-		shouldDeleteVm = true
+		processUpdateType = updateTypeDeletion
+	} else if vm.ObjectMeta.DeletionTimestamp != nil {
+		processUpdateType = updateTypeDeletion
+	} else if watchdogExpired && vm.IsRunning() {
+		processUpdateType = updateTypeWatchdogExpire
+	} else if gracefulShutdown && vm.IsRunning() {
+		processUpdateType = updateTypeGracefulShutdown
+	} else if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) && !vm.IsFinal() {
+		// Process a VM that is running, or about to be running
+		// only if the current phases are in sync
+		processUpdateType = updateTypeActive
 	}
 
-	watchdogExpired, _ := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
-	if watchdogExpired {
-		if vm.IsRunning() {
-			log.Log.V(2).Object(vm).Info("Detected expired watchdog file for running VM.")
-			shouldDeleteVm = true
-		} else if vm.IsFinal() {
-			err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
-			if err != nil {
-				return nil
-			}
-		}
-	}
-
-	log.Log.Object(vm).V(3).Info("Processing VM update.")
-
-	// Process the VM only if the current phases are in sync
 	var syncErr error
-	if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) || !exists {
-		syncErr = d.processVmUpdate(vm.DeepCopy(), shouldDeleteVm)
-		if syncErr != nil {
-			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
-			log.Log.Object(vm).Reason(syncErr).Error("Synchronizing the VM failed.")
-		}
+	if processUpdateType != updateTypeIgnore {
+		log.Log.Object(vm).V(3).Infof("Processing VM update of type %s", processUpdateType.String())
+	}
+
+	// Process the VM
+	switch processUpdateType {
+	case updateTypeDeletion:
+		syncErr = d.processVmDeletion(vm)
+	case updateTypeWatchdogExpire:
+		syncErr = d.processWatchdogExpire(vm)
+	case updateTypeGracefulShutdown:
+		syncErr = d.processGracefulShutdown(vm)
+	case updateTypeActive:
+		syncErr = d.processVmUpdate(vm)
+	}
+	if syncErr != nil {
+		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
+		log.Log.Object(vm).Reason(syncErr).Error("Synchronizing the VM failed.")
 	}
 
 	// Update the VM status, if the VM exists
@@ -529,44 +588,65 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (*v1.Vi
 	return vm, nil
 }
 
-func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteVM bool) error {
-
-	if shouldDeleteVM || vm.ObjectMeta.DeletionTimestamp != nil || vm.IsFinal() {
-		// Since the VM was not in the cache, we delete it
-		err := d.domainManager.KillVM(vm)
-		if err != nil {
-			return err
-		}
-
-		// remove any defined libvirt secrets associated with this vm
-		err = d.domainManager.RemoveVMSecrets(vm)
-		if err != nil {
-			return err
-		}
-
-		err = registrydisk.CleanupEphemeralDisks(vm)
-		if err != nil {
-			return err
-		}
-
-		err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
-		if err != nil {
-			return err
-		}
-
-		return d.configDisk.Undefine(vm)
-	} else if isWorthSyncing(vm) == false {
-		// nothing to do here.
-		return nil
+func (d *VirtualMachineController) processVmDeletion(vm *v1.VirtualMachine) error {
+	err := d.domainManager.KillVM(vm)
+	if err != nil {
+		return err
 	}
+
+	// remove any defined libvirt secrets associated with this vm
+	err = d.domainManager.RemoveVMSecrets(vm)
+	if err != nil {
+		return err
+	}
+
+	err = registrydisk.CleanupEphemeralDisks(vm)
+	if err != nil {
+		return err
+	}
+
+	err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
+	if err != nil {
+		return err
+	}
+
+	err = virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vm)
+	if err != nil {
+		return err
+	}
+
+	return d.configDisk.Undefine(vm)
+
+}
+
+func (d *VirtualMachineController) processWatchdogExpire(vm *v1.VirtualMachine) error {
+	if vm.IsRunning() {
+		log.Log.Object(vm).Info("Detected expired watchdog file for running VM.")
+		return d.processVmDeletion(vm)
+	}
+	return nil
+}
+
+func (d *VirtualMachineController) processGracefulShutdown(vm *v1.VirtualMachine) error {
+	if vm.IsRunning() {
+		log.Log.Object(vm).Info("Requesting shutdown due to graceful shutdown trigger")
+		err := d.domainManager.SignalShutdownVM(vm)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error {
 
 	hasWatchdog, err := watchdog.WatchdogFileExists(d.virtShareDir, vm)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).V(3).Error("Error accessing virt-launcher watchdog file.")
+		log.Log.Object(vm).Reason(err).Error("Error accessing virt-launcher watchdog file.")
 		return err
 	}
 	if hasWatchdog == false {
-		log.Log.Object(vm).Reason(err).V(3).Error("Could not detect virt-launcher watchdog file.")
+		log.Log.Object(vm).Reason(err).Error("Could not detect virt-launcher watchdog file.")
 		return goerror.New(fmt.Sprintf("No watchdog file found for vm"))
 	}
 
@@ -635,10 +715,6 @@ func (d *VirtualMachineController) isMigrationDestination(namespace string, vmNa
 
 	// VM object was not found.
 	return false, nil
-}
-
-func isWorthSyncing(vm *v1.VirtualMachine) bool {
-	return !vm.IsFinal()
 }
 
 func (d *VirtualMachineController) checkFailure(vm *v1.VirtualMachine, syncErr error, reason string) (changed bool) {

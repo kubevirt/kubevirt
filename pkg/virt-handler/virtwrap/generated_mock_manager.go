@@ -71,3 +71,13 @@ func (_m *MockDomainManager) KillVM(_param0 *v1.VirtualMachine) error {
 func (_mr *_MockDomainManagerRecorder) KillVM(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVM", arg0)
 }
+
+func (_m *MockDomainManager) SignalShutdownVM(_param0 *v1.VirtualMachine) error {
+	ret := _m.ctrl.Call(_m, "SignalShutdownVM", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) SignalShutdownVM(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SignalShutdownVM", arg0)
+}

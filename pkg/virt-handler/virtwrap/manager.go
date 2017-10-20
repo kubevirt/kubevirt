@@ -52,6 +52,7 @@ type DomainManager interface {
 	RemoveVMSecrets(*v1.VirtualMachine) error
 	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
+	SignalShutdownVM(*v1.VirtualMachine) error
 }
 
 type LibvirtDomainManager struct {
@@ -300,6 +301,39 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
 	}
 
 	delete(l.secretCache, domName)
+	return nil
+}
+
+func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
+	domName := cache.VMNamespaceKeyFunc(vm)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the VM does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return nil
+		} else {
+			log.Log.Object(vm).Reason(err).Error("Getting the domain failed during graceful shutdown.")
+			return err
+		}
+	}
+	defer dom.Free()
+
+	domState, _, err := dom.GetState()
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("Getting the domain state failed.")
+		return err
+	}
+
+	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
+		err = dom.Shutdown()
+		if err != nil {
+			log.Log.Object(vm).Reason(err).Error("Signalling graceful shutdown failed.")
+			return err
+		}
+		log.Log.Object(vm).Info("Signaled graceful shutdown")
+		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
+	}
+
 	return nil
 }
 

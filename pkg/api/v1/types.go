@@ -357,12 +357,13 @@ func (s MigrationEvent) String() string {
 type SyncEvent string
 
 const (
-	Created    SyncEvent = "Created"
-	Deleted    SyncEvent = "Deleted"
-	Started    SyncEvent = "Started"
-	Stopped    SyncEvent = "Stopped"
-	SyncFailed SyncEvent = "SyncFailed"
-	Resumed    SyncEvent = "Resumed"
+	Created      SyncEvent = "Created"
+	Deleted      SyncEvent = "Deleted"
+	Started      SyncEvent = "Started"
+	ShuttingDown SyncEvent = "ShuttingDown"
+	Stopped      SyncEvent = "Stopped"
+	SyncFailed   SyncEvent = "SyncFailed"
+	Resumed      SyncEvent = "Resumed"
 )
 
 func (s SyncEvent) String() string {

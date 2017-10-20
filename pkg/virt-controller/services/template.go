@@ -56,6 +56,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	successThreshold := 1
 	failureThreshold := 5
 
+	// TODO we will want to make this configurable on the
+	// vm spec at some point.
+	gracePeriodSeconds := int64(60)
+
 	// VM target container
 	container := kubev1.Container{
 		Name:            "compute",
@@ -117,11 +121,12 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			},
 		},
 		Spec: kubev1.PodSpec{
-			HostPID:       true,
-			RestartPolicy: kubev1.RestartPolicyNever,
-			Containers:    containers,
-			NodeSelector:  vm.Spec.NodeSelector,
-			Volumes:       volumes,
+			HostPID: true,
+			TerminationGracePeriodSeconds: &gracePeriodSeconds,
+			RestartPolicy:                 kubev1.RestartPolicyNever,
+			Containers:                    containers,
+			NodeSelector:                  vm.Spec.NodeSelector,
+			Volumes:                       volumes,
 		},
 	}
 

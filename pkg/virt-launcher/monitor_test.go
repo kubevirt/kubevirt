@@ -20,6 +20,7 @@
 package virtlauncher
 
 import (
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -34,11 +35,15 @@ var _ = Describe("VirtLauncher", func() {
 	var mon *monitor
 	var cmd *exec.Cmd
 
+	tmpDir, _ := ioutil.TempDir("", "monitortest")
+
 	dir := os.Getenv("PWD")
 	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
 
 	processName := "fake-qemu-process"
 	processPath := dir + "/cmd/fake-qemu-process/" + processName
+
+	processStarted := false
 
 	StartProcess := func() {
 		cmd = exec.Command(processPath)
@@ -47,10 +52,13 @@ var _ = Describe("VirtLauncher", func() {
 
 		currentPid := cmd.Process.Pid
 		Expect(currentPid).ToNot(Equal(0))
+
+		processStarted = true
 	}
 
 	StopProcess := func() {
 		cmd.Process.Kill()
+		processStarted = false
 	}
 
 	CleanupProcess := func() {
@@ -84,18 +92,28 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
+		InitializeSharedDirectories(tmpDir)
+		triggerFile := GracefulShutdownTriggerFromNamespaceName(tmpDir, "fakenamespace", "fakedomain")
 		mon = &monitor{
-			commandPrefix: "fake-qemu",
+			commandPrefix:               "fake-qemu",
+			gracefulShutdownTriggerFile: triggerFile,
 		}
 	})
 
+	AfterEach(func() {
+		os.RemoveAll(tmpDir)
+		if processStarted == true {
+			cmd.Process.Kill()
+		}
+		processStarted = false
+	})
 	Describe("VirtLauncher", func() {
 		Context("process monitor", func() {
 			It("verify pid detection works", func() {
 				StartProcess()
 				VerifyProcessStarted()
+				go func() { CleanupProcess() }()
 				StopProcess()
-				CleanupProcess()
 				VerifyProcessStopped()
 			})
 
@@ -118,13 +136,12 @@ var _ = Describe("VirtLauncher", func() {
 				Expect(exited).To(Equal(true))
 			})
 
-			It("verify signal forwarding works", func() {
+			It("verify graceful shutdown trigger works", func() {
 				signalChannel := make(chan os.Signal, 1)
 				done := make(chan string)
 
 				StartProcess()
 				VerifyProcessStarted()
-
 				go func() { CleanupProcess() }()
 
 				go func() {
@@ -132,17 +149,19 @@ var _ = Describe("VirtLauncher", func() {
 					done <- "exit"
 				}()
 
+				time.Sleep(time.Second)
+
+				exists, err := hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(Equal(false))
+
 				signalChannel <- syscall.SIGQUIT
 
-				noExitCheck := time.After(5 * time.Second)
-				exited := false
-				select {
-				case <-noExitCheck:
-				case <-done:
-					exited = true
-				}
-				Expect(exited).To(Equal(true))
-				Expect(mon.forwardedSignal).To(Equal(syscall.SIGQUIT))
+				time.Sleep(time.Second)
+
+				exists, err = hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(Equal(true))
 			})
 		})
 	})

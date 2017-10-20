@@ -114,7 +114,14 @@ func main() {
 		}
 	}()
 
-	mon := virtlauncher.NewProcessMonitor("qemu")
+	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir, *namespace, *name)
+	err = virtlauncher.GracefulShutdownTriggerClear(gracefulShutdownTriggerFile)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Error detected clearning graceful shutdown trigger file %s.", gracefulShutdownTriggerFile)
+		panic(err)
+	}
+
+	mon := virtlauncher.NewProcessMonitor("qemu", gracefulShutdownTriggerFile)
 
 	markReady(*readinessFile)
 	mon.RunForever(*qemuTimeout)

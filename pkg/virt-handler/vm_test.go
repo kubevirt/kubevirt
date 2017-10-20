@@ -60,6 +60,8 @@ var _ = Describe("VM", func() {
 	var domainInformer cache.SharedIndexInformer
 	var watchdogSource *framework.FakeControllerSource
 	var watchdogInformer cache.SharedIndexInformer
+	var gracefulShutdownSource *framework.FakeControllerSource
+	var gracefulShutdownInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
 
@@ -85,6 +87,7 @@ var _ = Describe("VM", func() {
 		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		watchdogInformer, watchdogSource = testutils.NewFakeInformerFor(&api.Domain{})
+		gracefulShutdownInformer, gracefulShutdownSource = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -96,7 +99,18 @@ var _ = Describe("VM", func() {
 		configDiskClient := configdisk.NewConfigDiskClient(virtClient)
 		mockWatchdog = &MockWatchdog{shareDir}
 
-		controller = NewController(domainManager, recorder, virtClient, host, configDiskClient, shareDir, 10, vmInformer, domainInformer, watchdogInformer)
+		controller = NewController(domainManager,
+			recorder,
+			virtClient,
+			host,
+			configDiskClient,
+			shareDir,
+			10,
+			vmInformer,
+			domainInformer,
+			watchdogInformer,
+			gracefulShutdownInformer)
+
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 
@@ -106,7 +120,8 @@ var _ = Describe("VM", func() {
 		go vmInformer.Run(stop)
 		go domainInformer.Run(stop)
 		go watchdogInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, domainInformer.HasSynced, watchdogInformer.HasSynced)).To(BeTrue())
+		go gracefulShutdownInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, domainInformer.HasSynced, watchdogInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 	})
 
 	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
