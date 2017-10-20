@@ -39,6 +39,8 @@ spec:
             mountPath: /var/run/libvirt
           - name: docker-sock
             mountPath: /var/run/docker.sock
+          - name: virt-share-dir
+            mountPath: /var/run/kubevirt
         command: ["/libvirtd.sh"]
       - name: virtlogd
         image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
@@ -63,3 +65,6 @@ spec:
       - name: docker-sock
         hostPath:
           path: /var/run/docker.sock
+      - name: virt-share-dir
+        hostPath:
+          path: /var/run/kubevirt

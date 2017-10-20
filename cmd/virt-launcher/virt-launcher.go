@@ -21,9 +21,9 @@ package main
 
 import (
 	"flag"
-	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -31,7 +31,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/logging"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
+
+const defaultStartTimeout = 3 * time.Minute
+const defaultWatchdogInterval = 10 * time.Second
 
 func markReady(readinessFile string) {
 	f, err := os.OpenFile(readinessFile, os.O_RDONLY|os.O_CREATE, 0666)
@@ -39,40 +43,78 @@ func markReady(readinessFile string) {
 		panic(err)
 	}
 	f.Close()
-	log.Printf("Marked as ready")
+	logging.DefaultLogger().Info().Msgf("Marked as ready")
 }
 
-func createSocket(socketDir string, namespace string, name string) net.Listener {
-	socketPath := isolation.SocketFromNamespaceName(socketDir, namespace, name)
-	if err := os.RemoveAll(socketPath); err != nil {
-		log.Fatal("Could not clean up old socket for cgroup detection", err)
+func createSocket(virtShareDir string, namespace string, name string) net.Listener {
+	sockFile := isolation.SocketFromNamespaceName(virtShareDir, namespace, name)
+
+	err := os.MkdirAll(filepath.Dir(sockFile), 0755)
+	if err != nil {
+		logging.DefaultLogger().Reason(err).Error().Msgf("Could not create directory for socket.")
+		panic(err)
 	}
-	socket, err := net.Listen("unix", isolation.SocketFromNamespaceName(socketDir, namespace, name))
+
+	if err := os.RemoveAll(sockFile); err != nil {
+		logging.DefaultLogger().Reason(err).Error().Msgf("Could not clean up old socket for cgroup detection")
+		panic(err)
+	}
+	socket, err := net.Listen("unix", sockFile)
 
 	if err != nil {
-		log.Fatal("Could not create socket for cgroup detection.", err)
+		logging.DefaultLogger().Reason(err).Error().Msgf("Could not create socket for cgroup detection.")
+		panic(err)
 	}
 
 	return socket
 }
 
 func main() {
-	startTimeout := 0 * time.Second
-
 	logging.InitializeLogging("virt-launcher")
-	qemuTimeout := flag.Duration("qemu-timeout", startTimeout, "Amount of time to wait for qemu")
-	debugMode := flag.Bool("debug", false, "Enable debug messages")
-	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to place a socket for cgroup detection")
+	qemuTimeout := flag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
+	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	name := flag.String("name", "", "Name of the VM")
 	namespace := flag.String("namespace", "", "Namespace of the VM")
+	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	socket := createSocket(*socketDir, *namespace, *name)
+	socket := createSocket(*virtShareDir, *namespace, *name)
 	defer socket.Close()
 
-	mon := virtlauncher.NewProcessMonitor("qemu", *debugMode)
+	err := virtlauncher.InitializeSharedDirectories(*virtShareDir)
+	if err != nil {
+		panic(err)
+	}
+
+	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir, *namespace, *name)
+	err = watchdog.WatchdogFileUpdate(watchdogFile)
+	if err != nil {
+		panic(err)
+	}
+
+	logging.DefaultLogger().Info().Msgf("Watchdog file created at %s", watchdogFile)
+
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	go func() {
+
+		ticker := time.NewTicker(*watchdogInterval).C
+		for {
+			select {
+			case <-stopChan:
+				return
+			case <-ticker:
+				err := watchdog.WatchdogFileUpdate(watchdogFile)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+	}()
+
+	mon := virtlauncher.NewProcessMonitor("qemu")
 
 	markReady(*readinessFile)
 	mon.RunForever(*qemuTimeout)

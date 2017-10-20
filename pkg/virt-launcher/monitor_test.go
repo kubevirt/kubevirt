@@ -44,6 +44,9 @@ var _ = Describe("VirtLauncher", func() {
 		cmd = exec.Command(processPath)
 		err := cmd.Start()
 		Expect(err).ToNot(HaveOccurred())
+
+		currentPid := cmd.Process.Pid
+		Expect(currentPid).ToNot(Equal(0))
 	}
 
 	StopProcess := func() {
@@ -82,8 +85,7 @@ var _ = Describe("VirtLauncher", func() {
 
 	BeforeEach(func() {
 		mon = &monitor{
-			exename:   processName,
-			debugMode: true,
+			commandPrefix: "fake-qemu",
 		}
 	})
 
@@ -141,9 +143,6 @@ var _ = Describe("VirtLauncher", func() {
 				}
 				Expect(exited).To(Equal(true))
 				Expect(mon.forwardedSignal).To(Equal(syscall.SIGQUIT))
-
-				pid, _ := pidOf(processName)
-				Expect(pid).To(Equal(0))
 			})
 		})
 	})

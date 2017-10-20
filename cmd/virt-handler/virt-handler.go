@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -52,17 +53,21 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+const defaultWatchdogTimeout = 30 * time.Second
+
 type virtHandlerApp struct {
-	Service          *service.Service
-	HostOverride     string
-	LibvirtUri       string
-	SocketDir        string
-	EphemeralDiskDir string
+	Service                 *service.Service
+	HostOverride            string
+	LibvirtUri              string
+	VirtShareDir            string
+	EphemeralDiskDir        string
+	WatchdogTimeoutDuration time.Duration
 }
 
-func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, socketDir *string, ephemeralDiskDir *string) *virtHandlerApp {
+func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration) *virtHandlerApp {
 	if *hostOverride == "" {
 		defaultHostName, err := os.Hostname()
 		if err != nil {
@@ -72,11 +77,12 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 	}
 
 	return &virtHandlerApp{
-		Service:          service.NewService("virt-handler", host, port),
-		HostOverride:     *hostOverride,
-		LibvirtUri:       *libvirtUri,
-		SocketDir:        *socketDir,
-		EphemeralDiskDir: *ephemeralDiskDir,
+		Service:                 service.NewService("virt-handler", host, port),
+		HostOverride:            *hostOverride,
+		LibvirtUri:              *libvirtUri,
+		VirtShareDir:            *virtShareDir,
+		EphemeralDiskDir:        *ephemeralDiskDir,
+		WatchdogTimeoutDuration: *watchdogTimeoutDuration,
 	}
 }
 
@@ -119,7 +125,7 @@ func (app *virtHandlerApp) Run() {
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
 		recorder,
-		isolation.NewSocketBasedIsolationDetector(app.SocketDir),
+		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
 	)
 	if err != nil {
 		panic(err)
@@ -134,7 +140,16 @@ func (app *virtHandlerApp) Run() {
 
 	// Wire VM controller
 	vmListWatcher := controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", k8sv1.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(vmListWatcher, domainManager, recorder, *virtCli.RestClient(), virtCli, app.HostOverride, configDiskClient)
+	vmStore, vmQueue, vmController := virthandler.NewVMController(
+		vmListWatcher,
+		domainManager,
+		recorder,
+		*virtCli.RestClient(),
+		virtCli,
+		app.HostOverride,
+		configDiskClient,
+		app.VirtShareDir,
+		int(app.WatchdogTimeoutDuration.Seconds()))
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
@@ -146,6 +161,16 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		panic(err)
 	}
+
+	watchdogInformer := cache.NewSharedIndexInformer(
+		watchdog.NewWatchdogListWatchFromClient(
+			app.VirtShareDir,
+			int(app.WatchdogTimeoutDuration.Seconds())),
+		&virt_api.Domain{},
+		0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	watchdogInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(vmQueue))
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
@@ -175,6 +200,9 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	go watchdogInformer.Run(stop)
+	cache.WaitForCacheSync(stop, watchdogInformer.HasSynced)
+
 	go domainController.Run(3, stop)
 	go vmController.Run(3, stop)
 
@@ -182,7 +210,7 @@ func (app *virtHandlerApp) Run() {
 
 	// Add websocket route to access consoles remotely
 	console := rest.NewConsoleResource(domainConn)
-	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.SocketDir))
+	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.VirtShareDir))
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/console").To(console.Console))
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
@@ -198,11 +226,12 @@ func main() {
 	host := flag.String("listen", "0.0.0.0", "Address where to listen on")
 	port := flag.Int("port", 8185, "Port to listen on")
 	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
-	socketDir := flag.String("socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
+	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
+	watchdogTimeoutDuration := flag.Duration("watchdog-timeout", defaultWatchdogTimeout, "Watchdog file timeout.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, socketDir, ephemeralDiskDir)
+	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir, watchdogTimeoutDuration)
 	app.Run()
 }

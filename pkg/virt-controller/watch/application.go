@@ -55,7 +55,7 @@ type VirtControllerApp struct {
 	port             int
 	launcherImage    string
 	migratorImage    string
-	socketDir        string
+	virtShareDir     string
 	ephemeralDiskDir string
 	readyChan        chan bool
 }
@@ -182,7 +182,7 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.migratorImage, vca.socketDir)
+	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.migratorImage, vca.virtShareDir)
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func (vca *VirtControllerApp) DefineFlags() {
 	flag.IntVar(&vca.port, "port", 8182, "Port to listen on")
 	flag.StringVar(&vca.launcherImage, "launcher-image", "virt-launcher", "Shim container for containerized VMs")
 	flag.StringVar(&vca.migratorImage, "migrator-image", "virt-handler", "Container which orchestrates a VM migration")
-	flag.StringVar(&vca.socketDir, "socket-dir", "/var/run/kubevirt", "Directory where to look for sockets for cgroup detection")
+	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base direcetory for ephemeral disk data")
 	leaderelectionconfig.BindFlags(&vca.LeaderElection)
 	flag.Parse()

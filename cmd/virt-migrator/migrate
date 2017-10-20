@@ -30,10 +30,6 @@ case $key in
     CONTROLLER="$2"
     shift
     ;;
-    --pidns)
-    PIDNS="$2"
-    shift
-    ;;
     *)
     VM=$1
     ;;
@@ -41,8 +37,8 @@ esac
 shift
 done
 
-if [ -z $NODE_IP ] || [ -z $DEST ] || [ -z $SOURCE ] || [ -z $VM ] || [ -z $NAMESPACE ] || [ -z $CONTROLLER ] || [ -z $SLICE ] || [ -z $PIDNS ]; then
-echo "Usage: migrate DOMAIN --source SOURCE --dest DESTINATION --node-ip NODE_IP --namespace NAMESPACE --controller CONTROLLER --slice SLICE --pidns PIDNS"
+if [ -z $NODE_IP ] || [ -z $DEST ] || [ -z $SOURCE ] || [ -z $VM ] || [ -z $NAMESPACE ] || [ -z $CONTROLLER ] || [ -z $SLICE ]; then
+echo "Usage: migrate DOMAIN --source SOURCE --dest DESTINATION --node-ip NODE_IP --namespace NAMESPACE --controller CONTROLLER --slice SLICE"
 exit 1
 fi 
 DOMAIN=${NAMESPACE}_${VM}
@@ -57,9 +53,6 @@ xmlstarlet ed --inplace -u  "/domain/devices/graphics[@type='spice']/listen/@add
 # cgroups
 xmlstarlet ed --inplace -u  "/domain/qemu:commandline/qemu:env[@name='SLICE']/@value" -v $SLICE $DOMAIN.xml
 xmlstarlet ed --inplace -u  "/domain/qemu:commandline/qemu:env[@name='CONTROLLERS']/@value" -v $CONTROLLER $DOMAIN.xml
-
-#namespaces
-xmlstarlet ed --inplace -u  "/domain/qemu:commandline/qemu:env[@name='PIDNS']/@value" -v $PIDNS $DOMAIN.xml
 
 # Migrate
 virsh -c $SOURCE migrate --xml $DOMAIN.xml $DOMAIN $DEST tcp://$NODE_IP

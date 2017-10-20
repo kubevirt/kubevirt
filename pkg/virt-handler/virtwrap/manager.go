@@ -194,7 +194,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 		QEMUEnv: []api.Env{
 			{Name: "SLICE", Value: res.Slice()},
 			{Name: "CONTROLLERS", Value: strings.Join(res.Controller(), ",")},
-			{Name: "PIDNS", Value: res.PidNS()},
 		},
 	}
 

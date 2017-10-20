@@ -35,7 +35,7 @@ import (
 var _ = Describe("Template", func() {
 
 	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
-	svc, err := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler", "/var/run/libvirt")
+	svc, err := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler", "/var/run/kubevirt")
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
@@ -57,7 +57,7 @@ var _ = Describe("Template", func() {
 					"--qemu-timeout", "5m",
 					"--name", "testvm",
 					"--namespace", "testns",
-					"--socket-dir", "/var/run/libvirt",
+					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy"}))
 			})
 		})
@@ -86,10 +86,10 @@ var _ = Describe("Template", func() {
 					"--qemu-timeout", "5m",
 					"--name", "testvm",
 					"--namespace", "default",
-					"--socket-dir", "/var/run/libvirt",
+					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy"}))
-				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/libvirt/default/testvm"))
-				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/libvirt/default/testvm"))
+				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/kubevirt"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/kubevirt"))
 			})
 
 			It("should add node affinity to pod", func() {
@@ -187,7 +187,7 @@ var _ = Describe("Template", func() {
 							"/migrate", "testvm", "--source", "qemu+tcp://127.0.0.2/system",
 							"--dest", "qemu+tcp://127.0.0.3/system",
 							"--node-ip", "127.0.0.3", "--namespace", "default",
-							"--slice", "slice", "--controller", "cpu,memory", "--pidns", "pidns",
+							"--slice", "slice", "--controller", "cpu,memory",
 						}
 						Expect(job.Spec.Containers[0].Command).To(Equal(refCommand))
 					})
