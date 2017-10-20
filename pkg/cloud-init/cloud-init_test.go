@@ -126,7 +126,7 @@ var _ = Describe("CloudInit", func() {
 			It("Verify no cloudinit data is a domain xml no-op", func() {
 				vm := v1.NewMinimalVM("fake-vm-nocloud")
 
-				vm, err := MapCloudInitDisks(vm)
+				vm, err := PopulateCloudInitDisks(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(vm.Spec.Domain.Devices.Disks)).To(Equal(0))
 			})
@@ -151,7 +151,7 @@ var _ = Describe("CloudInit", func() {
 				newDisk.CloudInit = spec
 
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
-				vm, err := MapCloudInitDisks(vm)
+				vm, err := PopulateCloudInitDisks(vm)
 				Expect(err).ToNot(HaveOccurred())
 				disk := vm.Spec.Domain.Devices.Disks[0]
 

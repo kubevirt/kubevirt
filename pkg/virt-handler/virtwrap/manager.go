@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/logging"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
@@ -172,6 +173,28 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 	return nil
 }
 
+func mapRegistryDisks(domain *api.DomainSpec) {
+	for diskCount, disk := range domain.Devices.Disks {
+		if disk.Type != registrydisk.RegistryDiskV1Alpha {
+			continue
+		}
+		newDisk := api.Disk{
+			Type:   "file",
+			Device: "disk",
+		}
+		newDisk.Source.File = disk.Source.File
+		newDisk.Target.Bus = disk.Target.Bus
+		newDisk.Target.Device = disk.Target.Device
+
+		newDisk.Driver = &api.DiskDriver{
+			Type: disk.Driver.Type,
+			Name: "qemu",
+		}
+
+		domain.Devices.Disks[diskCount] = newDisk
+	}
+}
+
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, error) {
 	var wantedSpec api.DomainSpec
 	wantedSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
@@ -200,6 +223,8 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	domName := cache.VMNamespaceKeyFunc(vm)
 	wantedSpec.Name = domName
 	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
+	mapRegistryDisks(&wantedSpec)
+
 	dom, err := l.virConn.LookupDomainByName(domName)
 	newDomain := false
 	if err != nil {

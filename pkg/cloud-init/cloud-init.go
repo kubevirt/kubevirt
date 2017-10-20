@@ -126,7 +126,7 @@ func GetDomainBasePath(domain string, namespace string) string {
 // This is called right before a VM is defined with libvirt.
 // If the cloud-init type requires altering the domain, this
 // is the place to do that.
-func MapCloudInitDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func PopulateCloudInitDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
@@ -149,16 +149,12 @@ func MapCloudInitDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 
 		for idx, disk := range vmCopy.Spec.Domain.Devices.Disks {
 			if disk.Type == "file" && disk.CloudInit != nil {
-				newDisk := v1.Disk{}
-				newDisk.Type = "file"
-				newDisk.Device = "disk"
-				newDisk.Driver = &v1.DiskDriver{
+				vmCopy.Spec.Domain.Devices.Disks[idx].Device = "disk"
+				vmCopy.Spec.Domain.Devices.Disks[idx].Driver = &v1.DiskDriver{
 					Type: "raw",
 					Name: "qemu",
 				}
-				newDisk.Source.File = filePath
-				newDisk.Target = disk.Target
-				vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
+				vmCopy.Spec.Domain.Devices.Disks[idx].Source.File = filePath
 			}
 		}
 		return vmCopy, nil
