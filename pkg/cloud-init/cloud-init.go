@@ -135,11 +135,6 @@ func MapCloudInitDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 		return vm, nil
 	}
 
-	err := ValidateArgs(spec)
-	if err != nil {
-		return vm, err
-	}
-
 	dataSource := getDataSource(spec)
 	switch dataSource {
 	case dataSourceNoCloud:
