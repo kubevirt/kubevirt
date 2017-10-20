@@ -126,30 +126,31 @@ func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VirtualMachine) (string, err
 	return addrStr, nil
 }
 
-func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VirtualMachine, cfg *api.DomainSpec) error {
-	obj, err := scheme.Scheme.Copy(vm)
+func (d *VMHandlerDispatch) updateVMStatus(cachedVM *v1.VirtualMachine, mappedVM *v1.VirtualMachine, newDomainSpec *api.DomainSpec) error {
+
+	obj, err := scheme.Scheme.Copy(cachedVM)
 	if err != nil {
 		return err
 	}
-	vm = obj.(*v1.VirtualMachine)
+	cachedVM = obj.(*v1.VirtualMachine)
 
 	// XXX When we start supporting hotplug, this needs to be altered.
 	// Check if the VM is already marked as running. If yes, don't update the VM.
 	// Otherwise we end up in endless controller requeues.
-	if vm.Status.Phase == v1.Running {
+	if cachedVM.Status.Phase == v1.Running {
 		return nil
 	}
 
-	vm.Status.Phase = v1.Running
+	cachedVM.Status.Phase = v1.Running
 
-	vm.Status.Graphics = []v1.VMGraphics{}
+	cachedVM.Status.Graphics = []v1.VMGraphics{}
 
-	podIP, err := d.getVMNodeAddress(vm)
+	podIP, err := d.getVMNodeAddress(cachedVM)
 	if err != nil {
 		return err
 	}
 
-	for _, src := range cfg.Devices.Graphics {
+	for _, src := range newDomainSpec.Devices.Graphics {
 		if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
 			continue
 		}
@@ -158,11 +159,11 @@ func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VirtualMachine, cfg *api.Domai
 			Host: podIP,
 			Port: src.Port,
 		}
-		vm.Status.Graphics = append(vm.Status.Graphics, dst)
+		cachedVM.Status.Graphics = append(cachedVM.Status.Graphics, dst)
 	}
 
-	return d.restClient.Put().Resource("virtualmachines").Body(vm).
-		Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
+	return d.restClient.Put().Resource("virtualmachines").Body(cachedVM).
+		Name(cachedVM.ObjectMeta.Name).Namespace(cachedVM.ObjectMeta.Namespace).Do().Error()
 
 }
 
@@ -408,77 +409,83 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VirtualMachine) (*v1.VirtualMa
 	return vm, nil
 }
 
-func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteVm bool) (bool, error) {
+func (d *VMHandlerDispatch) processVmUpdate(cachedVM *v1.VirtualMachine, shouldDeleteVm bool) (bool, error) {
+
+	obj, err := scheme.Scheme.Copy(cachedVM)
+	if err != nil {
+		return false, err
+	}
+	mappedVM := obj.(*v1.VirtualMachine)
 
 	if shouldDeleteVm {
 		// Since the VM was not in the cache, we delete it
-		err := d.domainManager.KillVM(vm)
+		err := d.domainManager.KillVM(mappedVM)
 		if err != nil {
 			return false, err
 		}
 
 		// remove any defined libvirt secrets associated with this vm
-		err = d.domainManager.RemoveVMSecrets(vm)
+		err = d.domainManager.RemoveVMSecrets(mappedVM)
 		if err != nil {
 			return false, err
 		}
 
-		err = registrydisk.CleanupEphemeralDisks(vm)
+		err = registrydisk.CleanupEphemeralDisks(mappedVM)
 		if err != nil {
 			return false, err
 		}
 
-		err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
+		err = watchdog.WatchdogFileRemove(d.virtShareDir, mappedVM)
 		if err != nil {
 			return false, err
 		}
 
-		return false, d.configDisk.Undefine(vm)
-	} else if isWorthSyncing(vm) == false {
+		return false, d.configDisk.Undefine(mappedVM)
+	} else if isWorthSyncing(mappedVM) == false {
 		// nothing to do here.
 		return false, nil
 	}
 
-	hasWatchdog, err := watchdog.WatchdogFileExists(d.virtShareDir, vm)
+	hasWatchdog, err := watchdog.WatchdogFileExists(d.virtShareDir, mappedVM)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).V(3).Error("Error accessing virt-launcher watchdog file.")
+		log.Log.Object(mappedVM).Reason(err).V(3).Error("Error accessing virt-launcher watchdog file.")
 		return false, err
 	}
 	if hasWatchdog == false {
-		log.Log.Object(vm).Reason(err).V(3).Error("Could not detect virt-launcher watchdog file.")
+		log.Log.Object(mappedVM).Reason(err).V(3).Error("Could not detect virt-launcher watchdog file.")
 		return false, goerror.New(fmt.Sprintf("No watchdog file found for vm"))
 	}
 
-	isPending, err := d.configDisk.Define(vm)
+	isPending, err := d.configDisk.Define(mappedVM)
 	if err != nil || isPending == true {
 		return isPending, err
 	}
 
 	// Synchronize the VM state
-	vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
+	mappedVM, err = MapPersistentVolumes(mappedVM, d.clientset.CoreV1().RESTClient(), mappedVM.ObjectMeta.Namespace)
 	if err != nil {
 		return false, err
 	}
 
 	// Map Container Registry Disks to block devices Libvirt can consume
-	vm, err = registrydisk.MapRegistryDisks(vm)
+	mappedVM, err = registrydisk.MapRegistryDisks(mappedVM)
 	if err != nil {
 		return false, err
 	}
 
-	vm, err = d.injectDiskAuth(vm)
+	mappedVM, err = d.injectDiskAuth(mappedVM)
 	if err != nil {
 		return false, err
 	}
 
 	// Map whatever devices are being used for config-init
-	vm, err = cloudinit.MapCloudInitDisks(vm)
+	mappedVM, err = cloudinit.MapCloudInitDisks(mappedVM)
 	if err != nil {
 		return false, err
 	}
 
 	// TODO MigrationNodeName should be a pointer
-	if vm.Status.MigrationNodeName != "" {
+	if mappedVM.Status.MigrationNodeName != "" {
 		// Only sync if the VM is not marked as migrating.
 		// Everything except shutting down the VM is not
 		// permitted when it is migrating.
@@ -487,12 +494,12 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteV
 
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
-	newCfg, err := d.domainManager.SyncVM(vm)
+	newCfg, err := d.domainManager.SyncVM(mappedVM)
 	if err != nil {
 		return false, err
 	}
 
-	return false, d.updateVMStatus(vm, newCfg)
+	return false, d.updateVMStatus(cachedVM, mappedVM, newCfg)
 }
 
 func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName string) (bool, error) {
