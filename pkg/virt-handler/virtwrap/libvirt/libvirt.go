@@ -22,6 +22,7 @@ package libvirt
 //go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"encoding/xml"
 	"fmt"
 	"io"
 	"sync"
@@ -30,7 +31,9 @@ import (
 	libvirt_go "github.com/libvirt/libvirt-go"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 )
 
@@ -51,7 +54,7 @@ type Connection interface {
 	// XXX: This interface is going to be removed to use
 	// virtwrap.Hypervisor
 	LookupGuestByName(name string) (VirDomain, error)
-	DefineGuestSpec(spec string) (VirDomain, error)
+	DefineGuestSpec(vm *v1.VirtualMachine, spec api.DomainSpec) (VirDomain, error)
 	ListAllGuests(actives bool, inactives bool) ([]VirDomain, error)
 	RegisterGuestEventLifecycle(callback interface{}) error
 }
@@ -198,15 +201,42 @@ func (l *LibvirtConnection) LookupGuestByName(name string) (dom VirDomain, err e
 	return l.Connect.LookupDomainByName(name)
 }
 
-func (l *LibvirtConnection) DefineGuestSpec(xml string) (dom VirDomain, err error) {
+// Defines in hypervisor the spec of the virtual machine.
+//
+// Based on request `spec`, defining domain XML in libvirtd
+func (l *LibvirtConnection) DefineGuestSpec(vm *v1.VirtualMachine, spec api.DomainSpec) (dom VirDomain, err error) {
 	// XXX: Should return a Guest when implemented
+
+	// XXX: We should not reconnect automatically, the connection
+	// should never be lost, if that us happening, a bug has to be
+	// repported to be investigated.
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
 	defer l.checkConnectionLost()
 
-	dom, err = l.Connect.DomainDefineXML(xml)
-	return
+	// At this layer we never want to log something else that for
+	// debugging pupose. We are expected caller to log any error
+	// or importante information.
+	logger := log.Log.Object(vm)
+
+	// Generate libvirt based domain XML
+	xmlStr, err := xml.Marshal(&spec)
+	if err != nil {
+		logger.Debug("Marshal returned error when generating domain XML from spec")
+		return nil, err
+	}
+	logger.V(3).With("xml", xmlStr).Debug("Domain XML generated from spec without error")
+
+	// Defining domain XML in libvirtd
+	dom, err = l.Connect.DomainDefineXML(string(xmlStr))
+	if err != nil {
+		logger.Debug("libvirt returned error when defining domain")
+		return nil, err
+	}
+	logger.Debug("Domain well defined in libvird")
+
+	return dom, nil
 }
 
 func (l *LibvirtConnection) ListAllGuests(actives bool, inactives bool) ([]VirDomain, error) {

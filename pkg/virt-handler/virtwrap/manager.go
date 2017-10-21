@@ -207,7 +207,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
-			dom, err = l.setDomainXML(vm, wantedSpec)
+			dom, err = DefineGuest(l.virConn, vm, wantedSpec)
 			if err != nil {
 				return nil, err
 			}
@@ -228,7 +228,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VM was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
-		dom, err = l.setDomainXML(vm, wantedSpec)
+		dom, err = DefineGuest(l.virConn, vm, wantedSpec)
 		if err != nil {
 			return nil, err
 		}
@@ -341,19 +341,4 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	log.Log.Object(vm).Info("Domain undefined.")
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
-}
-
-func (l *LibvirtDomainManager) setDomainXML(vm *v1.VirtualMachine, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
-	xmlStr, err := xml.Marshal(&wantedSpec)
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Generating the domain XML failed.")
-		return nil, err
-	}
-	log.Log.Object(vm).V(3).With("xml", xmlStr).Info("Domain XML generated.")
-	dom, err := l.virConn.DefineGuestSpec(string(xmlStr))
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Defining the VM failed.")
-		return nil, err
-	}
-	return dom, nil
 }

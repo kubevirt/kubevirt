@@ -8,6 +8,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	libvirt_go "github.com/libvirt/libvirt-go"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
 // Mock of Connection interface
@@ -127,15 +130,15 @@ func (_mr *_MockConnectionRecorder) LookupGuestByName(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LookupGuestByName", arg0)
 }
 
-func (_m *MockConnection) DefineGuestSpec(spec string) (VirDomain, error) {
-	ret := _m.ctrl.Call(_m, "DefineGuestSpec", spec)
+func (_m *MockConnection) DefineGuestSpec(vm *v1.VirtualMachine, spec api.DomainSpec) (VirDomain, error) {
+	ret := _m.ctrl.Call(_m, "DefineGuestSpec", vm, spec)
 	ret0, _ := ret[0].(VirDomain)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockConnectionRecorder) DefineGuestSpec(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DefineGuestSpec", arg0)
+func (_mr *_MockConnectionRecorder) DefineGuestSpec(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DefineGuestSpec", arg0, arg1)
 }
 
 func (_m *MockConnection) ListAllGuests(actives bool, inactives bool) ([]VirDomain, error) {

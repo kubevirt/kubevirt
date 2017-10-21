@@ -24,6 +24,8 @@ import (
 	// Currenlty only libvirt is supported and there is not desire
 	// so-far to support anything else, but let's have a clear
 	// design.
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
@@ -43,7 +45,7 @@ type Hypervisor interface {
 	// Find and retourn `Guest` from its name
 	LookupGuestByName(name string) (libvirt.VirDomain, error)
 	// Defining a domain spec/configuration
-	DefineGuestSpec(spec string) (libvirt.VirDomain, error)
+	DefineGuestSpec(vm *v1.VirtualMachine, spec interface{}) (libvirt.VirDomain, error)
 	// Returns list of Guests
 	ListAllGuests(actives bool, inactives bool) ([]libvirt.VirDomain, error)
 	// Register guests events callback life cycle
@@ -74,4 +76,16 @@ func MonitorHypervisorConnection(h libvirt.Connection, interval time.Duration) {
 	// Currently only libvirt is supported, no need to add
 	// complexity.
 	h.MonitorConnection(interval)
+}
+
+// Define Guest in hypervisor.
+//
+// Based on `spec` request, definning `Guest` in hypervisor.
+func DefineGuest(h libvirt.Connection, vm *v1.VirtualMachine, spec interface{}) (libvirt.VirDomain, error) {
+	// XXX: h should type ot Hypervisor interface, should return a
+	// Guest
+
+	// Currently only libvirt is supported, no need to add
+	// complexity.
+	return h.DefineGuestSpec(vm, spec.(api.DomainSpec))
 }
