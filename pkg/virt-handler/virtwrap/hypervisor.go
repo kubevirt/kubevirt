@@ -26,6 +26,7 @@ import (
 	// design.
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	isol "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
@@ -46,6 +47,7 @@ type Hypervisor interface {
 	LookupGuestByName(name string) (libvirt.VirDomain, error)
 	// Defining a domain spec/configuration
 	DefineGuestSpec(vm *v1.VirtualMachine, spec interface{}) (libvirt.VirDomain, error)
+	UpdateGuestSpec(vm *v1.VirtualMachine, isolation *isol.IsolationResult) (*api.DomainSpec, error)
 	// Returns list of Guests
 	ListAllGuests(actives bool, inactives bool) ([]libvirt.VirDomain, error)
 	// Register guests events callback life cycle
@@ -88,4 +90,11 @@ func DefineGuest(h libvirt.Connection, vm *v1.VirtualMachine, spec interface{}) 
 	// Currently only libvirt is supported, no need to add
 	// complexity.
 	return h.DefineGuestSpec(vm, spec.(api.DomainSpec))
+}
+
+// Update Guest spec in hypervisor.
+//
+// Acording to the `isolation`, keep the guest spec updated.
+func UpdateGuest(h libvirt.Connection, vm *v1.VirtualMachine, isolation *isol.IsolationResult) (*api.DomainSpec, error) {
+	return h.UpdateGuestSpec(vm, isolation)
 }

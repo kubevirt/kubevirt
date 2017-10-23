@@ -30,13 +30,9 @@ import (
 	goerrors "errors"
 	"fmt"
 
-	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
-
-	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -50,8 +46,12 @@ import (
 type DomainManager interface {
 	SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error
 	RemoveVMSecrets(*v1.VirtualMachine) error
-	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
+
+	// XXX: Temporary methods, efforts are currently don to remove
+	// manager.go, methods used during the transition.
+	GetVirConn() cli.Connection
+	GetPodIsolationDetector() isolation.PodIsolationDetector
 }
 
 type LibvirtDomainManager struct {
@@ -59,6 +59,14 @@ type LibvirtDomainManager struct {
 	recorder             record.EventRecorder
 	secretCache          map[string][]string
 	podIsolationDetector isolation.PodIsolationDetector
+}
+
+func (l *LibvirtDomainManager) GetVirConn() cli.Connection {
+	return l.virConn
+}
+
+func (l *LibvirtDomainManager) GetPodIsolationDetector() isolation.PodIsolationDetector {
+	return l.podIsolationDetector
 }
 
 func (l *LibvirtDomainManager) initiateSecretCache() error {
@@ -170,108 +178,6 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 		return goerrors.New(fmt.Sprintf("unsupported disk auth usage type %s", usageType))
 	}
 	return nil
-}
-
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, error) {
-	var wantedSpec api.DomainSpec
-	wantedSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-	wantedSpec.Type = "qemu"
-	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
-	logger := log.Log.Object(vm)
-
-	if len(mappingErrs) > 0 {
-		logger.Error("model copy failed.")
-		return nil, errors.NewAggregate(mappingErrs)
-	}
-
-	res, err := l.podIsolationDetector.Detect(vm)
-	if err != nil {
-		logger.V(3).Reason(err).Error("Could not detect virt-launcher cgroups.")
-		return nil, err
-	}
-
-	logger.With("slice", res.Slice()).V(3).Info("Detected cgroup slice.")
-	wantedSpec.QEMUCmd = &api.Commandline{
-		QEMUEnv: []api.Env{
-			{Name: "SLICE", Value: res.Slice()},
-			{Name: "CONTROLLERS", Value: strings.Join(res.Controller(), ",")},
-		},
-	}
-
-	domName := cache.VMNamespaceKeyFunc(vm)
-	wantedSpec.Name = domName
-	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
-	dom, err := l.virConn.LookupGuestByName(domName)
-	newDomain := false
-	if err != nil {
-		// We need the domain but it does not exist, so create it
-		if domainerrors.IsNotFound(err) {
-			newDomain = true
-			dom, err = DefineGuest(l.virConn, vm, wantedSpec)
-			if err != nil {
-				return nil, err
-			}
-			logger.Info("Domain defined.")
-			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined.")
-		} else {
-			logger.Reason(err).Error("Getting the domain failed.")
-			return nil, err
-		}
-	}
-	defer dom.Free()
-	domState, _, err := dom.GetState()
-	if err != nil {
-		logger.Reason(err).Error("Getting the domain state failed.")
-		return nil, err
-	}
-
-	// To make sure, that we set the right qemu wrapper arguments,
-	// we update the domain XML whenever a VM was already defined but not running
-	if !newDomain && cli.IsDown(domState) {
-		dom, err = DefineGuest(l.virConn, vm, wantedSpec)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// TODO Suspend, Pause, ..., for now we only support reaching the running state
-	// TODO for migration and error detection we also need the state change reason
-	// TODO blocked state
-	if cli.IsDown(domState) {
-		err := dom.Create()
-		if err != nil {
-			logger.Reason(err).Error("Starting the VM failed.")
-			return nil, err
-		}
-		logger.Info("Domain started.")
-		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started.")
-	} else if cli.IsPaused(domState) {
-		// TODO: if state change reason indicates a system error, we could try something smarter
-		err := dom.Resume()
-		if err != nil {
-			logger.Reason(err).Error("Resuming the VM failed.")
-			return nil, err
-		}
-		logger.Info("Domain resumed.")
-		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
-	} else {
-		// Nothing to do
-	}
-
-	xmlstr, err := dom.GetXMLDesc(0)
-	if err != nil {
-		return nil, err
-	}
-
-	var newSpec api.DomainSpec
-	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
-	if err != nil {
-		logger.Reason(err).Error("Parsing domain XML failed.")
-		return nil, err
-	}
-
-	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
-	return &newSpec, nil
 }
 
 func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {

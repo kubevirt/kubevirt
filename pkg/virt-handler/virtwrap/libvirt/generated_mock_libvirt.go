@@ -11,6 +11,7 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	isolation "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 )
 
 // Mock of Connection interface
@@ -139,6 +140,17 @@ func (_m *MockConnection) DefineGuestSpec(vm *v1.VirtualMachine, spec api.Domain
 
 func (_mr *_MockConnectionRecorder) DefineGuestSpec(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DefineGuestSpec", arg0, arg1)
+}
+
+func (_m *MockConnection) UpdateGuestSpec(vm *v1.VirtualMachine, isolation *isolation.IsolationResult) (*api.DomainSpec, error) {
+	ret := _m.ctrl.Call(_m, "UpdateGuestSpec", vm, isolation)
+	ret0, _ := ret[0].(*api.DomainSpec)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) UpdateGuestSpec(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateGuestSpec", arg0, arg1)
 }
 
 func (_m *MockConnection) ListAllGuests(actives bool, inactives bool) ([]VirDomain, error) {

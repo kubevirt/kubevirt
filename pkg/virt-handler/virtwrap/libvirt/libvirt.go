@@ -25,16 +25,20 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
+	model "github.com/jeevatkm/go-model"
 	libvirt_go "github.com/libvirt/libvirt-go"
+	k8s_errors "k8s.io/apimachinery/pkg/util/errors"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
+	isol "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 )
 
 const ConnectionTimeout = 15 * time.Second
@@ -55,6 +59,7 @@ type Connection interface {
 	// virtwrap.Hypervisor
 	LookupGuestByName(name string) (VirDomain, error)
 	DefineGuestSpec(vm *v1.VirtualMachine, spec api.DomainSpec) (VirDomain, error)
+	UpdateGuestSpec(vm *v1.VirtualMachine, isolation *isol.IsolationResult) (*api.DomainSpec, error)
 	ListAllGuests(actives bool, inactives bool) ([]VirDomain, error)
 	RegisterGuestEventLifecycle(callback interface{}) error
 }
@@ -237,6 +242,109 @@ func (l *LibvirtConnection) DefineGuestSpec(vm *v1.VirtualMachine, spec api.Doma
 	logger.Debug("Domain well defined in libvird")
 
 	return dom, nil
+}
+
+func (l *LibvirtConnection) UpdateGuestSpec(vm *v1.VirtualMachine, isolation *isol.IsolationResult) (*api.DomainSpec, error) {
+	var wantedSpec api.DomainSpec
+	wantedSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
+	wantedSpec.Type = "qemu"
+	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
+	logger := log.Log.Object(vm)
+
+	if len(mappingErrs) > 0 {
+		logger.Error("model copy failed.")
+		return nil, k8s_errors.NewAggregate(mappingErrs)
+	}
+
+	wantedSpec.QEMUCmd = &api.Commandline{
+		QEMUEnv: []api.Env{
+			{Name: "SLICE", Value: isolation.Slice()},
+			{Name: "CONTROLLERS", Value: strings.Join(isolation.Controller(), ",")},
+		},
+	}
+
+	// XXX: A helper should be defined
+	domName := fmt.Sprintf("%s_%s",
+		vm.GetObjectMeta().GetNamespace(),
+		vm.GetObjectMeta().GetName())
+
+	wantedSpec.Name = domName
+	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
+	dom, err := l.LookupGuestByName(domName)
+	newDomain := false
+	if err != nil {
+		// We need the domain but it does not exist, so create it
+		if errors.IsNotFound(err) {
+			newDomain = true
+			dom, err = l.DefineGuestSpec(vm, wantedSpec)
+			if err != nil {
+				return nil, err
+			}
+			logger.Info("Domain defined.")
+			// XXX: We have to move this in the callback
+			// which handles libvirt events, see: VIR_DOMAIN_EVENT_DEFINED_*
+			//l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined.")
+		} else {
+			logger.Reason(err).Error("Getting the domain failed.")
+			return nil, err
+		}
+	}
+	defer dom.Free()
+	domState, _, err := dom.GetState()
+	if err != nil {
+		logger.Reason(err).Error("Getting the domain state failed.")
+		return nil, err
+	}
+
+	// To make sure, that we set the right qemu wrapper arguments,
+	// we update the domain XML whenever a VM was already defined but not running
+	if !newDomain && IsDown(domState) {
+		dom, err = l.DefineGuestSpec(vm, wantedSpec)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// TODO Suspend, Pause, ..., for now we only support reaching the running state
+	// TODO for migration and error detection we also need the state change reason
+	// TODO blocked state
+	if IsDown(domState) {
+		err := dom.Create()
+		if err != nil {
+			logger.Reason(err).Error("Starting the VM failed.")
+			return nil, err
+		}
+		logger.Info("Domain started.")
+		//l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started.")
+	} else if IsPaused(domState) {
+		// TODO: if state change reason indicates a system error, we could try something smarter
+		err := dom.Resume()
+		if err != nil {
+			logger.Reason(err).Error("Resuming the VM failed.")
+			return nil, err
+		}
+		logger.Info("Domain resumed.")
+		// XXX: We have to move this in the callback
+		// which handles libvirt events, see: VIR_DOMAIN_EVENT_RESUMED_*
+		//l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
+	} else {
+		// Nothing to do
+	}
+
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return nil, err
+	}
+
+	var newSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	if err != nil {
+		logger.Reason(err).Error("Parsing domain XML failed.")
+		return nil, err
+	}
+
+	// TODO: check if VM Spec and Domain Spec are equal or if we have to sync
+	return &newSpec, nil
 }
 
 func (l *LibvirtConnection) ListAllGuests(actives bool, inactives bool) ([]VirDomain, error) {
