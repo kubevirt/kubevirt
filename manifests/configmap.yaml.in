@@ -4,5 +4,4 @@ metadata:
   name: kubevirt-config
   namespace: default
 data:
-  spice-proxy.ip: "{{ master_ip }}"
-  spice-proxy.port: "3128"
+  spice-proxy: "{{ master_ip }}:3218"

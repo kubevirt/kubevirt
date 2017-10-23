@@ -69,9 +69,8 @@ func spiceFromVM(vm *v1.VirtualMachine, config *config.KubevirtConfig) (*v1.Spic
 				Port: d.Port,
 			}
 
-			if proxyIP, ok := config.Get("spice-proxy.ip"); ok {
-				proxyPort, _ := config.Get("spice-proxy.port")
-				spice.Info.Proxy = fmt.Sprintf("http://%s:%s", proxyIP, proxyPort)
+			if proxy, ok := config.Get("spice-proxy"); ok {
+				spice.Info.Proxy = fmt.Sprintf("http://%s", proxy)
 			}
 
 			return spice, nil
