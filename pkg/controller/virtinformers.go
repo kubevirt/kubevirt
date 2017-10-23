@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 type newSharedInformer func() cache.SharedIndexInformer
@@ -83,10 +83,10 @@ func (f *kubeInformerFactory) Start(stopCh <-chan struct{}) {
 	for name, informer := range f.informers {
 		if f.startedInformers[name] {
 			// skip informers that have already started.
-			logging.DefaultLogger().Info().Msgf("SKIPPING informer %s", name)
+			log.Log.Infof("SKIPPING informer %s", name)
 			continue
 		}
-		logging.DefaultLogger().Info().Msgf("STARTING informer %s", name)
+		log.Log.Infof("STARTING informer %s", name)
 		go informer.Run(stopCh)
 		f.startedInformers[name] = true
 	}

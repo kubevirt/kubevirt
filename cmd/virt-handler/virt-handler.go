@@ -43,7 +43,7 @@ import (
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
@@ -87,8 +87,8 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 }
 
 func (app *virtHandlerApp) Run() {
-	log := logging.DefaultLogger()
-	log.Info().V(1).Log("hostname", app.HostOverride)
+	logger := log.Log
+	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
 
 	err := cloudinit.SetLocalDirectory(app.EphemeralDiskDir + "/cloud-init-data")
 	if err != nil {
@@ -103,7 +103,7 @@ func (app *virtHandlerApp) Run() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
 				// Report the error somehow or break the loop.
-				log.Error().Reason(res).Msg("Listening to libvirt events failed.")
+				logger.Reason(res).Error("Listening to libvirt events failed.")
 			}
 		}
 	}()
@@ -220,7 +220,7 @@ func (app *virtHandlerApp) Run() {
 }
 
 func main() {
-	logging.InitializeLogging("virt-handler")
+	log.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
 	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
 	host := flag.String("listen", "0.0.0.0", "Address where to listen on")

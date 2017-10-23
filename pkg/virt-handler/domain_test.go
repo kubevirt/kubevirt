@@ -31,7 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
@@ -44,7 +44,7 @@ var _ = Describe("Domain", func() {
 	var dispatch controller.ControllerDispatch
 	var restClient rest.RESTClient
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		vmStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
@@ -57,7 +57,7 @@ var _ = Describe("Domain", func() {
 	})
 
 	Context("A new domain appears on the host", func() {
-		It("should inform vm controller if no correspnding VM is in the cache", func() {
+		It("should inform vm controller if no corresponding VM is in the cache", func() {
 			dom := api.NewMinimalDomain("testvm")
 
 			vm := v1.NewMinimalVM("testvm")
@@ -85,7 +85,7 @@ var _ = Describe("Domain", func() {
 			controller.Dequeue(domainStore, domainQueue, dispatch)
 			Expect(vmQueue.Len()).To(Equal(1))
 		})
-		It("should not inform vm controller if a correspnding VM is in the cache", func() {
+		It("should not inform vm controller if a corresponding VM is in the cache", func() {
 			vmStore.Add(v1.NewMinimalVM("testvm"))
 			domain := api.NewMinimalDomain("testvm")
 			domainStore.Add(domain)

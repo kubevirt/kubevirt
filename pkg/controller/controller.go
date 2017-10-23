@@ -35,7 +35,7 @@ import (
 	"fmt"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 const (
@@ -71,7 +71,7 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 
 func HandlePanic() {
 	if r := recover(); r != nil {
-		logging.DefaultLogger().Critical().Log("stacktrace", debug.Stack(), "msg", r)
+		log.Log.Level(log.CRITICAL).Log("stacktrace", debug.Stack(), "msg", r)
 	}
 }
 
@@ -161,14 +161,14 @@ func Dequeue(s cache.Store, w workqueue.RateLimitingInterface, dispatch Controll
 func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
 	defer HandlePanic()
 	defer c.queue.ShutDown()
-	logging.DefaultLogger().Info().Msg("Starting controller.")
+	log.Log.Info("Starting controller.")
 
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
-	logging.DefaultLogger().Info().Msg("Stopping controller.")
+	log.Log.Info("Stopping controller.")
 }
 
 func (c *Controller) StartInformer(stopCh chan struct{}) {

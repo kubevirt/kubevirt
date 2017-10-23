@@ -35,7 +35,7 @@ import (
 	"syscall"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 // PodIsolationDetector helps detecting cgroups, namespaces and PIDs of Pods from outside of them.
@@ -86,14 +86,14 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachine) (*Isolation
 	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
 	socket := SocketFromNamespaceName(s.virtShareDir, vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
 	if pid, err = s.getPid(socket); err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Could not get owner Pid of socket %s", socket)
+		log.Log.Object(vm).V(3).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
 		return nil, err
 
 	}
 
 	// Look up the cgroup slice based on the whitelisted controller
 	if controller, slice, err = getSlice(pid, s.controller); err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).V(3).Msgf("Could not get cgroup slice for Pid %d", pid)
+		log.Log.Object(vm).V(3).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
 		return nil, err
 	}
 

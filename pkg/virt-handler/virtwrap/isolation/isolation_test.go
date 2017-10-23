@@ -10,12 +10,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 var _ = Describe("Isolation", func() {
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	Context("With an existing socket", func() {
 

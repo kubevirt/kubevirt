@@ -44,7 +44,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	rest2 "kubevirt.io/kubevirt/pkg/rest"
 	. "kubevirt.io/kubevirt/pkg/testutils"
 	. "kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -74,7 +74,7 @@ var _ = Describe("Kubeproxy", func() {
 	expectedMigration.TypeMeta.Kind = ""
 	expectedMigration.TypeMeta.APIVersion = ""
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeSuite(func() {
 		apiserverMock = ghttp.NewServer()

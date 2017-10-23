@@ -27,13 +27,13 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	"kubevirt.io/kubevirt/pkg/logging"
+	klog "kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 var _ = Describe("Middleware", func() {
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	klog.Log.SetIOWriter(GinkgoWriter)
 
 	Describe("Call", func() {
 		Context("with precond.PreconditionError panic", func() {

@@ -28,7 +28,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
@@ -43,7 +43,7 @@ func markReady(readinessFile string) {
 		panic(err)
 	}
 	f.Close()
-	logging.DefaultLogger().Info().Msgf("Marked as ready")
+	log.Log.Info("Marked as ready")
 }
 
 func createSocket(virtShareDir string, namespace string, name string) net.Listener {
@@ -51,18 +51,18 @@ func createSocket(virtShareDir string, namespace string, name string) net.Listen
 
 	err := os.MkdirAll(filepath.Dir(sockFile), 0755)
 	if err != nil {
-		logging.DefaultLogger().Reason(err).Error().Msgf("Could not create directory for socket.")
+		log.Log.Reason(err).Error("Could not create directory for socket.")
 		panic(err)
 	}
 
 	if err := os.RemoveAll(sockFile); err != nil {
-		logging.DefaultLogger().Reason(err).Error().Msgf("Could not clean up old socket for cgroup detection")
+		log.Log.Reason(err).Error("Could not clean up old socket for cgroup detection")
 		panic(err)
 	}
 	socket, err := net.Listen("unix", sockFile)
 
 	if err != nil {
-		logging.DefaultLogger().Reason(err).Error().Msgf("Could not create socket for cgroup detection.")
+		log.Log.Reason(err).Error("Could not create socket for cgroup detection.")
 		panic(err)
 	}
 
@@ -70,7 +70,7 @@ func createSocket(virtShareDir string, namespace string, name string) net.Listen
 }
 
 func main() {
-	logging.InitializeLogging("virt-launcher")
+	log.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	name := flag.String("name", "", "Name of the VM")
@@ -94,7 +94,7 @@ func main() {
 		panic(err)
 	}
 
-	logging.DefaultLogger().Info().Msgf("Watchdog file created at %s", watchdogFile)
+	log.Log.Infof("Watchdog file created at %s", watchdogFile)
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)

@@ -31,7 +31,7 @@ import (
 
 	corev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -81,10 +81,10 @@ func (v *vmService) StartVMPod(vm *corev1.VirtualMachine) error {
 
 // synchronously put updated VM object to API server.
 func (v *vmService) PutVm(vm *corev1.VirtualMachine) (*corev1.VirtualMachine, error) {
-	logger := logging.DefaultLogger().Object(vm)
+	logger := log.Log.Object(vm)
 	obj, err := v.RestClient.Put().Resource("virtualmachines").Body(vm).Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Get()
 	if err != nil {
-		logger.Error().Reason(err).Msg("Setting the VM state failed.")
+		logger.Reason(err).Error("Setting the VM state failed.")
 		return nil, err
 	}
 	return obj.(*corev1.VirtualMachine), nil

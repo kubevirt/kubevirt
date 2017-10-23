@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
@@ -49,7 +49,7 @@ var _ = Describe("Manager", func() {
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())

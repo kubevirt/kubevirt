@@ -36,7 +36,7 @@ import (
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -67,7 +67,7 @@ type MigrationController struct {
 func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.queue.ShutDown()
-	logging.DefaultLogger().Info().Msg("Starting controller.")
+	log.Log.Info("Starting controller.")
 
 	cache.WaitForCacheSync(stopCh, c.migrationInformer.HasSynced, c.podInformer.HasSynced)
 
@@ -77,7 +77,7 @@ func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	<-stopCh
-	logging.DefaultLogger().Info().Msg("Stopping controller.")
+	log.Log.Info("Stopping controller.")
 }
 
 func (c *MigrationController) runWorker() {
@@ -92,10 +92,10 @@ func (md *MigrationController) Execute() bool {
 	}
 	defer md.queue.Done(key)
 	if err := md.execute(key.(string)); err != nil {
-		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing migration %v", key)
+		log.Log.Reason(err).Infof("reenqueuing migration %v", key)
 		md.queue.AddRateLimited(key)
 	} else {
-		logging.DefaultLogger().Info().V(4).Msgf("processed migration %v", key)
+		log.Log.V(4).Infof("processed migration %v", key)
 		md.queue.Forget(key)
 	}
 	return true
@@ -109,13 +109,13 @@ func (md *MigrationController) execute(key string) error {
 			return nil
 		}
 
-		logger := logging.DefaultLogger().Object(migration)
+		logger := log.Log.Object(migration)
 
 		migration.Status.Phase = phase
 		// TODO indicate why it was set to failed
 		err := md.vmService.UpdateMigration(migration)
 		if err != nil {
-			logger.Error().Reason(err).Msgf("updating migration state failed: %v ", err)
+			logger.Reason(err).Errorf("updating migration state failed: %v ", err)
 			return err
 		}
 		return nil
@@ -133,52 +133,52 @@ func (md *MigrationController) execute(key string) error {
 		return nil
 	}
 
-	logger := logging.DefaultLogger().Object(obj.(*kubev1.Migration))
+	logger := log.Log.Object(obj.(*kubev1.Migration))
 	// Copy migration for future modifications
 	if obj, err = scheme.Scheme.Copy(obj.(runtime.Object)); err != nil {
-		logger.Error().Reason(err).Msg("could not copy migration object")
+		logger.Reason(err).Error("could not copy migration object")
 		return err
 	}
 	migration := obj.(*kubev1.Migration)
 
 	vm, exists, err := md.vmService.FetchVM(migration.GetObjectMeta().GetNamespace(), migration.Spec.Selector.Name)
 	if err != nil {
-		logger.Error().Reason(err).Msgf("fetching the vm %s failed", migration.Spec.Selector.Name)
+		logger.Reason(err).Errorf("fetching the vm %s failed", migration.Spec.Selector.Name)
 		return err
 	}
 
 	if !exists {
-		logger.Info().Msgf("VM with name %s does not exist, marking migration as failed", migration.Spec.Selector.Name)
+		logger.Infof("VM with name %s does not exist, marking migration as failed", migration.Spec.Selector.Name)
 		return setMigrationFailed(migration)
 	}
 
 	switch migration.Status.Phase {
 	case kubev1.MigrationUnknown:
 		if vm.Status.Phase != kubev1.Running {
-			logger.Error().Msgf("VM with name %s is in state %s, no migration possible. Marking migration as failed", vm.GetObjectMeta().GetName(), vm.Status.Phase)
+			logger.Errorf("VM with name %s is in state %s, no migration possible. Marking migration as failed", vm.GetObjectMeta().GetName(), vm.Status.Phase)
 			return setMigrationFailed(migration)
 		}
 
 		if err := mergeConstraints(migration, vm); err != nil {
-			logger.Error().Reason(err).Msg("merging Migration and VM placement constraints failed.")
+			logger.Reason(err).Errorf("merging Migration and VM placement constraints failed.")
 			return err
 		}
 		podList, err := md.vmService.GetRunningVMPods(vm)
 		if err != nil {
-			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
+			logger.Reason(err).Error("could not fetch a list of running VM target pods")
 			return err
 		}
 
 		//FIXME when we have more than one worker, we need a lock on the VM
 		numOfPods, targetPod, err := investigateTargetPodSituation(migration, podList, md.store)
 		if err != nil {
-			logger.Error().Reason(err).Msg("could not investigate pods")
+			logger.Reason(err).Error("could not investigate pods")
 			return err
 		}
 
 		if targetPod == nil {
 			if numOfPods >= 1 {
-				logger.Error().Msg("another migration seems to be in progress, marking Migration as failed")
+				logger.Error("another migration seems to be in progress, marking Migration as failed")
 				// Another migration is currently going on
 				if err = setMigrationFailed(migration); err != nil {
 					return err
@@ -189,44 +189,44 @@ func (md *MigrationController) execute(key string) error {
 				// TODO, this detection is not optimal, it can lead to strange situations
 				err := md.vmService.CreateMigrationTargetPod(migration, vm)
 				if err != nil {
-					logger.Error().Reason(err).Msg("creating a migration target pod failed")
+					logger.Reason(err).Error("creating a migration target pod failed")
 					return err
 				}
 			}
 		} else {
 			if targetPod.Status.Phase == k8sv1.PodFailed {
-				logger.Error().Msg("migration target pod is in failed state")
+				logger.Error("migration target pod is in failed state")
 				return setMigrationFailed(migration)
 			}
 			// Unlikely to hit this case, but prevents erroring out
 			// if we re-enter this loop
-			logger.Info().Msgf("migration appears to be set up, but was not set to %s", kubev1.MigrationRunning)
+			logger.Infof("migration appears to be set up, but was not set to %s", kubev1.MigrationRunning)
 		}
 		return setMigrationPhase(migration, kubev1.MigrationRunning)
 	case kubev1.MigrationRunning:
 		podList, err := md.vmService.GetRunningVMPods(vm)
 		if err != nil {
-			logger.Error().Reason(err).Msg("could not fetch a list of running VM target pods")
+			logger.Reason(err).Error("could not fetch a list of running VM target pods")
 			return err
 		}
 		_, targetPod, err := investigateTargetPodSituation(migration, podList, md.store)
 		if err != nil {
-			logger.Error().Reason(err).Msg("could not investigate pods")
+			logger.Reason(err).Error("could not investigate pods")
 			return err
 		}
 		if targetPod == nil {
-			logger.Error().Msg("migration target pod does not exist or is in an end state")
+			logger.Error("migration target pod does not exist or is in an end state")
 			return setMigrationFailed(migration)
 		}
 		switch targetPod.Status.Phase {
 		case k8sv1.PodRunning:
 			break
 		case k8sv1.PodSucceeded, k8sv1.PodFailed:
-			logger.Error().Msgf("migration target pod is in end state %s", targetPod.Status.Phase)
+			logger.Errorf("migration target pod is in end state %s", targetPod.Status.Phase)
 			return setMigrationFailed(migration)
 		default:
 			//Not requeuing, just not far enough along to proceed
-			logger.Info().V(3).Msg("target Pod not running yet")
+			logger.V(3).Info("target Pod not running yet")
 			return nil
 		}
 
@@ -234,7 +234,7 @@ func (md *MigrationController) execute(key string) error {
 			vm.Status.Phase = kubev1.Migrating
 			vm.Status.MigrationNodeName = targetPod.Spec.NodeName
 			if _, err = md.vmService.PutVm(vm); err != nil {
-				logger.Error().Reason(err).Msgf("failed to update VM to state %s", kubev1.Migrating)
+				logger.Reason(err).Errorf("failed to update VM to state %s", kubev1.Migrating)
 				return err
 			}
 			eventMsg := fmt.Sprintf("Started migrating VM from %s to %s", vm.Status.NodeName, targetPod.Spec.NodeName)
@@ -245,24 +245,24 @@ func (md *MigrationController) execute(key string) error {
 		migrationPod, exists, err := md.vmService.GetMigrationJob(migration)
 
 		if err != nil {
-			logger.Error().Reason(err).Msg("Checking for an existing migration job failed.")
+			logger.Reason(err).Error("Checking for an existing migration job failed.")
 			return err
 		}
 
 		if !exists {
 			sourceNode, err := md.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
 			if err != nil {
-				logger.Error().Reason(err).Msgf("fetching source node %s failed", vm.Status.NodeName)
+				logger.Reason(err).Errorf("fetching source node %s failed", vm.Status.NodeName)
 				return err
 			}
 			targetNode, err := md.clientset.CoreV1().Nodes().Get(vm.Status.MigrationNodeName, metav1.GetOptions{})
 			if err != nil {
-				logger.Error().Reason(err).Msgf("fetching target node %s failed", vm.Status.MigrationNodeName)
+				logger.Reason(err).Errorf("fetching target node %s failed", vm.Status.MigrationNodeName)
 				return err
 			}
 
 			if err := md.vmService.StartMigration(migration, vm, sourceNode, targetNode, targetPod); err != nil {
-				logger.Error().Reason(err).Msg("Starting the migration job failed.")
+				logger.Reason(err).Error("Starting the migration job failed.")
 				return err
 			}
 			return nil
@@ -290,7 +290,7 @@ func (md *MigrationController) execute(key string) error {
 			vm.ObjectMeta.Labels[kubev1.NodeNameLabel] = vm.Status.NodeName
 
 			if _, err = md.vmService.PutVm(vm); err != nil {
-				logger.Error().Reason(err).Msg("updating the VM failed.")
+				logger.Reason(err).Error("updating the VM failed.")
 				return err
 			}
 			md.recorder.Event(vm, k8sv1.EventTypeNormal, kubev1.SucceededVirtualMachineMigration.String(), eventMsg)

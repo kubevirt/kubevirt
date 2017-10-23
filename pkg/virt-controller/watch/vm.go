@@ -34,7 +34,7 @@ import (
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -65,7 +65,7 @@ type VMController struct {
 func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.queue.ShutDown()
-	logging.DefaultLogger().Info().Msg("Starting controller.")
+	log.Log.Info("Starting controller.")
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.podInformer.HasSynced)
@@ -76,7 +76,7 @@ func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	<-stopCh
-	logging.DefaultLogger().Info().Msg("Stopping controller.")
+	log.Log.Info("Stopping controller.")
 }
 
 func (c *VMController) runWorker() {
@@ -93,14 +93,14 @@ func (c *VMController) Execute() bool {
 	isPending, err := c.execute(key.(string))
 
 	if err != nil {
-		logging.DefaultLogger().Info().Reason(err).Msgf("reenqueuing VM %v", key)
+		log.Log.Reason(err).Infof("reenqueuing VM %v", key)
 		c.queue.AddRateLimited(key)
 	} else if isPending {
-		logging.DefaultLogger().Info().V(4).Msgf("reenqueuing pending VM %v", key)
+		log.Log.V(4).Infof("reenqueuing pending VM %v", key)
 		c.queue.AddAfter(key, 1*time.Second)
 		c.queue.Forget(key)
 	} else {
-		logging.DefaultLogger().Info().V(4).Msgf("processed VM %v", key)
+		log.Log.V(4).Infof("processed VM %v", key)
 		c.queue.Forget(key)
 	}
 	return true
@@ -126,16 +126,16 @@ func (c *VMController) execute(key string) (bool, error) {
 	} else {
 		vm = obj.(*kubev1.VirtualMachine)
 	}
-	logger := logging.DefaultLogger().Object(vm)
+	logger := log.Log.Object(vm)
 
 	if !exists {
 		// Delete VM Pods
 		err := c.vmService.DeleteVMPod(vm)
 		if err != nil {
-			logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
+			logger.Reason(err).Error("Deleting VM target Pod failed.")
 			return false, err
 		}
-		logger.Info().Msg("Deleting VM target Pod succeeded.")
+		logger.Info("Deleting VM target Pod succeeded.")
 		return false, nil
 	}
 
@@ -146,20 +146,20 @@ func (c *VMController) execute(key string) (bool, error) {
 		// Deep copy the object, so that we can safely manipulate it
 		vmCopy := kubev1.VirtualMachine{}
 		model.Copy(&vmCopy, vm)
-		logger = logging.DefaultLogger().Object(&vmCopy)
+		logger = log.Log.Object(&vmCopy)
 
 		// Check if there are already outdated VM Pods
 		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
 		if err != nil {
-			logger.Error().Reason(err).Msg("Fetching VM pods failed.")
+			logger.Reason(err).Error("Fetching VM pods failed.")
 			return false, err
 		}
 
 		// If there are already pods, delete them before continuing ...
 		if len(pods.Items) > 0 {
-			logger.Error().Msg("VM Pods do already exist, will clean up before continuing.")
+			logger.Error("VM Pods do already exist, will clean up before continuing.")
 			if err := c.vmService.DeleteVMPod(&vmCopy); err != nil {
-				logger.Error().Reason(err).Msg("Deleting VM pods failed.")
+				logger.Reason(err).Error("Deleting VM pods failed.")
 				return false, err
 			}
 			return true, nil
@@ -188,7 +188,7 @@ func (c *VMController) execute(key string) (bool, error) {
 
 		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
-			logger.Error().Reason(err).Msg("Defining a target pod for the VM failed.")
+			logger.Reason(err).Error("Defining a target pod for the VM failed.")
 			return false, err
 		}
 
@@ -196,21 +196,21 @@ func (c *VMController) execute(key string) (bool, error) {
 		// kubernetes, virt-handler can take over.
 		vmCopy.Status.Phase = kubev1.Scheduling
 		if err := c.restClient.Put().Resource("virtualmachines").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(vmCopy.ObjectMeta.Namespace).Do().Error(); err != nil {
-			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduling' failed.")
+			logger.Reason(err).Error("Updating the VM state to 'Scheduling' failed.")
 			return false, err
 		}
-		logger.Info().Msg("Handing over the VM to the scheduler succeeded.")
+		logger.Info("Handing over the VM to the scheduler succeeded.")
 	case kubev1.Scheduling:
 		// Target Pod for the VM was already created, check if it is  running and update the VM to Scheduled
 
 		// Deep copy the object, so that we can safely manipulate it
 		vmCopy := kubev1.VirtualMachine{}
 		model.Copy(&vmCopy, vm)
-		logger = logging.DefaultLogger().Object(&vmCopy)
+		logger = log.Log.Object(&vmCopy)
 
 		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
 		if err != nil {
-			logger.Error().Reason(err).Msg("Fetching VM pods failed.")
+			logger.Reason(err).Error("Fetching VM pods failed.")
 			return false, err
 		}
 
@@ -218,13 +218,13 @@ func (c *VMController) execute(key string) (bool, error) {
 		// So far, no running Pod found, we will sooner or later get a started event.
 		// If not, something is wrong and the VM, stay stuck in the Scheduling phase
 		if len(pods.Items) == 0 {
-			logger.Info().V(3).Msg("No VM target pod in running state found.")
+			logger.V(3).Info("No VM target pod in running state found.")
 			return false, nil
 		}
 
 		// Whatever is going on here, I don't know what to do, don't reprocess this
 		if len(pods.Items) > 1 {
-			logger.Error().V(3).Msg("More than one VM target pods found.")
+			logger.V(3).Error("More than one VM target pods found.")
 			return false, nil
 		}
 
@@ -234,7 +234,7 @@ func (c *VMController) execute(key string) (bool, error) {
 		}
 
 		if verifyReadiness(&pods.Items[0]) == false {
-			logger.Info().V(2).Msg("Waiting on all virt-launcher containers to be marked ready")
+			logger.V(2).Info("Waiting on all virt-launcher containers to be marked ready")
 			return false, nil
 		}
 
@@ -248,17 +248,17 @@ func (c *VMController) execute(key string) (bool, error) {
 		vmCopy.ObjectMeta.Labels[kubev1.NodeNameLabel] = pods.Items[0].Spec.NodeName
 		vmCopy.Status.NodeName = pods.Items[0].Spec.NodeName
 		if _, err := c.vmService.PutVm(&vmCopy); err != nil {
-			logger.Error().Reason(err).Msg("Updating the VM state to 'Scheduled' failed.")
+			logger.Reason(err).Error("Updating the VM state to 'Scheduled' failed.")
 			return false, err
 		}
-		logger.Info().Msgf("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
+		logger.Infof("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
 	case kubev1.Failed, kubev1.Succeeded:
 		err := c.vmService.DeleteVMPod(vm)
 		if err != nil {
-			logger.Error().Reason(err).Msg("Deleting VM target Pod failed.")
+			logger.Reason(err).Error("Deleting VM target Pod failed.")
 			return false, err
 		}
-		logger.Info().Msg("Deleted VM target Pod for VM in finalized state.")
+		logger.Info("Deleted VM target Pod for VM in finalized state.")
 	}
 	return false, nil
 }

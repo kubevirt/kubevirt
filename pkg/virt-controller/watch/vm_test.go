@@ -37,7 +37,7 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -45,7 +45,7 @@ var _ = Describe("VM watcher", func() {
 	var server *ghttp.Server
 	//var vmService services.VMService
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	var app VirtControllerApp = VirtControllerApp{}
 	app.launcherImage = "kubevirt/virt-launcher"

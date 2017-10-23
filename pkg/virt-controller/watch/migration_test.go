@@ -38,7 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -60,7 +60,7 @@ var _ = Describe("Migration", func() {
 		destNode       kubev1.Node
 	)
 
-	logging.DefaultLogger().SetIOWriter(GinkgoWriter)
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	destinationNodeName := "mynode"
 	sourceNodeName := "sourcenode"

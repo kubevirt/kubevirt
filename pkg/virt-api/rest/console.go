@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 var upgrader = websocket.Upgrader{
@@ -58,20 +58,20 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 
 	vm, err := t.virtClient.VM(namespace).Get(vmName, k8sv1meta.GetOptions{})
 	if errors.IsNotFound(err) {
-		logging.DefaultLogger().Info().V(3).Msgf("VM '%s' does not exist", vmName)
+		log.Log.V(3).Infof("VM '%s' does not exist", vmName)
 		response.WriteError(http.StatusNotFound, fmt.Errorf("VM does not exist"))
 		return
 	}
 	if err != nil {
-		logging.DefaultLogger().Error().Reason(err).Msgf("Error fetching VM '%s'", vmName)
+		log.Log.Reason(err).Errorf("Error fetching VM '%s'", vmName)
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
-	log := logging.DefaultLogger().Object(vm)
+	logger := log.Log.Object(vm)
 
 	if !vm.IsRunning() {
-		log.Info().V(3).Reason(err).Msg("VM is not running")
+		logger.V(3).Reason(err).Info("VM is not running")
 		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
 		return
 	}
@@ -80,7 +80,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	uri, err := virtHandlerCon.ConsoleURI(vm)
 	if err != nil {
 		msg := fmt.Sprintf("Looking up the connection details for virt-handler on node %s failed", vm.Status.NodeName)
-		log.Error().Reason(err).Msg(msg)
+		logger.Reason(err).Error(msg)
 		response.WriteError(http.StatusInternalServerError, fmt.Errorf(msg))
 		return
 	}
@@ -99,12 +99,10 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 			buf := new(bytes.Buffer)
 			buf.ReadFrom(resp.Body)
 			err := fmt.Errorf("%s", buf.String())
-			log.Error().Reason(err).
-				With("statusCode", resp.StatusCode).
-				Msgf("Failed to connect to virt-handler")
+			logger.With("statusCode", resp.StatusCode).Reason(err).Error("Failed to connect to virt-handler")
 			response.WriteError(resp.StatusCode, err)
 		} else {
-			log.Error().Reason(err).Msgf("Failed to connect to virt-handler")
+			logger.Reason(err).Error("Failed to connect to virt-handler")
 			response.WriteError(http.StatusInternalServerError, err)
 		}
 		return
@@ -113,7 +111,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
-		log.Error().Reason(err).Msgf("Failed to upgrade client websocket connection")
+		logger.Reason(err).Error("Failed to upgrade client websocket connection")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -133,7 +131,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 
 	err = <-errorChan
 	if err != nil {
-		log.Error().Reason(err).Msgf("Proxied Web Socket connection failed")
+		logger.Reason(err).Error("Proxied Web Socket connection failed")
 	}
 	response.WriteHeader(http.StatusOK)
 }

@@ -20,7 +20,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -70,7 +70,7 @@ func Execute() {
 
 	app.readyChan = make(chan bool, 1)
 
-	logging.InitializeLogging("virt-controller")
+	log.InitializeLogging("virt-controller")
 
 	app.clientSet, err = kubecli.GetKubevirtClient()
 
@@ -112,13 +112,13 @@ func Execute() {
 	app.Run()
 }
 func (vca *VirtControllerApp) Run() {
-	logger := logging.DefaultLogger()
+	logger := log.Log
 	stop := make(chan struct{})
 	defer close(stop)
 	vca.informerFactory.Start(stop)
 	go func() {
 		httpLogger := logger.With("service", "http")
-		httpLogger.Info().Log("action", "listening", "interface", vca.host, "port", vca.port)
+		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.host, "port", vca.port)
 		if err := http.ListenAndServe(vca.host+":"+strconv.Itoa(vca.port), nil); err != nil {
 			golog.Fatal(err)
 		}

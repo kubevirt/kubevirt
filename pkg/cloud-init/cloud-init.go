@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -68,7 +68,7 @@ func defaultIsoFunc(isoOutFile string, inFiles []string) error {
 
 	err := cmd.Start()
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("genisoimage cmd failed to start while generating iso file %s", isoOutFile))
+		log.Log.V(2).Reason(err).Errorf("genisoimage cmd failed to start while generating iso file %s", isoOutFile)
 		return err
 	}
 
@@ -80,11 +80,11 @@ func defaultIsoFunc(isoOutFile string, inFiles []string) error {
 	for {
 		select {
 		case <-timeout:
-			logging.DefaultLogger().V(2).Error().Msg(fmt.Sprintf("Timed out generating cloud-init iso at path %s", isoOutFile))
+			log.Log.V(2).Errorf("Timed out generating cloud-init iso at path %s", isoOutFile)
 			cmd.Process.Kill()
 		case err := <-done:
 			if err != nil {
-				logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("genisoimage returned non-zero exit code while generating iso file %s", isoOutFile))
+				log.Log.V(2).Reason(err).Errorf("genisoimage returned non-zero exit code while generating iso file %s", isoOutFile)
 				return err
 			}
 			return nil
@@ -280,7 +280,7 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 	domainBasePath := GetDomainBasePath(domain, namespace)
 	err = os.MkdirAll(domainBasePath, 0755)
 	if err != nil {
-		logging.DefaultLogger().V(2).Error().Reason(err).Msg(fmt.Sprintf("unable to create cloud-init base path %s", domainBasePath))
+		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
 		return err
 	}
 
@@ -343,12 +343,12 @@ func GenerateLocalData(domain string, namespace string, spec *v1.CloudInitSpec) 
 			err = os.Rename(isoStaging, iso)
 			if err != nil {
 				// This error is not something we need to block iso creation for.
-				logging.DefaultLogger().Error().Reason(err).Msg(fmt.Sprintf("Cloud-init failed to rename file %s to %s", isoStaging, iso))
+				log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
 				return err
 			}
 		}
 
-		logging.DefaultLogger().V(2).Info().Msg(fmt.Sprintf("generated nocloud iso file %s", iso))
+		log.Log.V(2).Infof("generated nocloud iso file %s", iso)
 	}
 	return nil
 }

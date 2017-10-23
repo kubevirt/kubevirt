@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/logging"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
@@ -73,7 +73,7 @@ var CrashedReasonTranslationMap = map[libvirt.DomainCrashedReason]api.StateChang
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func newListWatchFromClient(c cli.Connection, events ...int) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
-		logging.DefaultLogger().Info().V(3).Msg("Synchronizing domains")
+		log.Log.V(3).Info("Synchronizing domains")
 		doms, err := c.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
 		if err != nil {
 			return nil, err
@@ -128,12 +128,12 @@ func newDomainWatcher(c cli.Connection, events ...int) (watch.Interface, error) 
 			watcher.C <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: "Libvirt reconnected"}}
 			return
 		}
-		logging.DefaultLogger().Info().V(3).Msgf("Libvirt event %d with reason %d received", event.Event, event.Detail)
+		log.Log.V(3).Infof("Libvirt event %d with reason %d received", event.Event, event.Detail)
 		callback(d, event, watcher.C)
 	}
 	err := c.DomainEventLifecycleRegister(callback)
 	if err != nil {
-		logging.DefaultLogger().Info().V(2).Msg("Lifecycle event callback registered.")
+		log.Log.V(2).Info("Lifecycle event callback registered.")
 	}
 	return watcher, err
 }
@@ -195,11 +195,11 @@ func NewSharedInformer(c cli.Connection) (cache.SharedInformer, error) {
 func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan watch.Event) {
 	domain, err := NewDomain(d)
 	if err != nil {
-		logging.DefaultLogger().Error().Reason(err).Msg("Could not create the Domain.")
+		log.Log.Reason(err).Error("Could not create the Domain.")
 		watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 		return
 	}
-	logging.DefaultLogger().Info().Msgf("event received: %v:%v", event.Event, event.Detail)
+	log.Log.Infof("event received: %v:%v", event.Event, event.Detail)
 	// TODO In case of other events, it might not be enough to just send state and domainxml, maybe we have to embed the event and the details too
 	//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
 	switch event.Event {
@@ -214,7 +214,7 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 			if err != nil {
 
 				if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
-					logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
+					log.Log.Reason(err).Error("Could not fetch the Domain specification.")
 					watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 					return
 				}
@@ -226,7 +226,7 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 		if err != nil {
 
 			if err.(libvirt.Error).Code != libvirt.ERR_NO_DOMAIN {
-				logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
+				log.Log.Reason(err).Error("Could not fetch the Domain state.")
 				watcher <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 				return
 			}
@@ -237,13 +237,13 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 	default:
 		spec, err := NewDomainSpec(d)
 		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain specification.")
+			log.Log.Reason(err).Error("Could not fetch the Domain specification.")
 			return
 		}
 		domain.Spec = *spec
 		status, reason, err := d.GetState()
 		if err != nil {
-			logging.DefaultLogger().Error().Reason(err).Msg("Could not fetch the Domain state.")
+			log.Log.Reason(err).Error("Could not fetch the Domain state.")
 			return
 		}
 		domain.SetState(convState(status), convReason(status, reason))
