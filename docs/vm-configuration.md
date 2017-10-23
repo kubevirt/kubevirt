@@ -266,3 +266,312 @@ the generation of multiple libvirt XML documents, the domain XML and associated
 documents for secrets, network filters and node devices. So there is not a strict
 1-1 mapping between the k8s API resource representation and the libvirt low
 level representation.
+
+Proposed VM Definition
+----------------------
+
+The following definition adheres to main points described above. It provides
+
+1. high level description usable by end users or management applications and
+2. low level details required to construct and launch a VM.
+
+The features section is used to generate the domain section, the other way
+around is out of scope for this proposal. Each feature must represent one or
+more fields (or lack of them) in the domain section.
+
+The design and contents of each feature section should be logically split and
+discussed in separate proposal. This is just an example without the sections
+discussed. Splitting the features enables us to create modular VM Spec
+generation flows that are easily tunable by experts in their domains of
+expertise.
+
+The following VM XML:
+
+```xml
+<domain type="kvm">
+    <name>VM</name>
+    <uuid>e13190c5-feed-dead-beef-3e77d7835241</uuid>
+    <memory>4194304</memory>
+    <currentMemory>4194304</currentMemory>
+    <iothreads>1</iothreads>
+    <maxMemory slots="16">16777216</maxMemory>
+    <vcpu current="4">16</vcpu>
+    <sysinfo type="smbios">
+        <system>
+            <entry name="manufacturer">KubeVirt</entry>
+            <entry name="product">KubeVirt Node</entry>
+            <entry name="serial">11111111-FEED-DEAD-BEEF-111111111111</entry>
+            <entry name="uuid">11111111-FEED-DEAD-BEEF-111111111111</entry>
+        </system>
+    </sysinfo>
+    <clock adjustment="3600" offset="variable">
+        <timer name="hypervclock" present="yes"/>
+        <timer name="rtc" tickpolicy="catchup"/>
+        <timer name="pit" tickpolicy="delay"/>
+        <timer name="hpet" present="no"/>
+    </clock>
+    <features>
+        <acpi/>
+        <hyperv>
+            <relaxed state="on"/>
+            <vapic state="on"/>
+            <spinlocks retries="8191" state="on"/>
+        </hyperv>
+    </features>
+    <cpu match="exact">
+        <model>Westmere</model>
+        <topology cores="1" sockets="16" threads="1"/>
+        <numa>
+            <cell cpus="0,1,2,3" memory="4194304"/>
+        </numa>
+    </cpu>
+    <devices>
+        <input bus="ps2" type="mouse"/>
+        <channel type="unix">
+            <target name="org.qemu.guest_agent.0" type="virtio"/>
+            <source mode="bind" path="/var/lib/libvirt/qemu/channels/11111111-feed-dead-beef-111111111111.org.qemu.guest_agent.0"/>
+        </channel>
+        <controller type="ide">
+            <address bus="0x00" domain="0x0000" function="0x1" slot="0x01" type="pci"/>
+        </controller>
+        <memballoon model="virtio">
+            <address bus="0x00" domain="0x0000" function="0x0" slot="0x07" type="pci"/>
+        </memballoon>
+        <rng model="virtio">
+            <backend model="random">/dev/urandom</backend>
+        </rng>
+        <controller index="0" model="piix3-uhci" type="usb">
+            <address bus="0x00" domain="0x0000" function="0x2" slot="0x01" type="pci"/>
+        </controller>
+        <controller index="0" model="virtio-scsi" type="scsi"/>
+        <controller index="0" ports="16" type="virtio-serial">
+            <address bus="0x00" domain="0x0000" function="0x0" slot="0x05" type="pci"/>
+        </controller>
+        <video>
+            <model heads="1" ram="65536" type="qxl" vgamem="16384" vram="8192"/>
+        </video>
+        <channel type="spicevmc">
+            <target name="com.redhat.spice.0" type="virtio"/>
+        </channel>
+        <disk device="cdrom" snapshot="no" type="file">
+            <address bus="1" controller="0" target="0" type="drive" unit="0"/>
+            <source file="/mnt/cdrom" startupPolicy="optional"/>
+            <target bus="ide" dev="hdc"/>
+            <readonly/>
+        </disk>
+        <disk device="disk" snapshot="no" type="file">
+            <address bus="0" controller="0" target="0" type="drive" unit="0"/>
+            <source file="/mntpoint/11111111-1111-1111-1111-111111111111/images/22222222-2222-2222-2222-222222222222/22222222-2222-2222-2222-222222222222"/>
+            <target bus="scsi" dev="sda"/>
+            <serial>11111111-1111-1111-1111-111111111111</serial>
+            <boot order="1"/>
+            <driver cache="none" error_policy="stop" io="threads" name="qemu" type="raw"/>
+        </disk>
+        <interface type="bridge">
+            <address bus="0x00" domain="0x0000" function="0x0" slot="0x03" type="pci"/>
+            <mac address="00:aa:bb:cc:dd:ee"/>
+            <model type="virtio"/>
+            <source bridge="mgmtnet"/>
+            <filterref filter="no-mac-spoofing"/>
+        </interface>
+        <graphics autoport="yes" passwd="*****" passwdValidTo="1970-01-01T00:00:01" port="-1" tlsPort="-1" type="spice">
+            <listen network="mgmtnet" type="network"/>
+        </graphics>
+    </devices>
+    <os>
+        <type arch="x86_64" machine="pc-i440fx-rhel7.3.0">hvm</type>
+        <smbios mode="sysinfo"/>
+    </os>
+</domain>
+```
+
+roughly translates to the following yaml (not everything is implemented,
+therefore few placeholders are used):
+
+```yaml
+apiVersion: kubevirt.io/v1alpha1
+kind: VM
+metadata:
+  name: VM
+spec:
+  domain:
+    memory:
+      size: 4096
+      current: 4096
+    maxmemory:
+      size: 16777216
+      slots: 16
+    iothreads: 1
+    vcpu:
+      count: 16
+      current: 4
+    sysinfo:
+      manufacturer: KubeVirt
+      product: KubeVirt Node
+      serial: 11111111-FEED-DEAD-BEEF-111111111111
+      uuid: 11111111-FEED-DEAD-BEEF-111111111111
+    clock:
+      - timer: hypervclock
+        present: true
+      - timer: rtc
+        tickPolicy: catchup
+      - timer: pit
+        tickPolicy: delay
+      - timer: hpet
+        present: false
+    features:
+      - feature: acpi
+      - feature: hyperv
+        relaxed: true
+        vapic: true
+        spinlocks:
+          retries: 8191
+          state: true
+    cpu:
+      match: exact
+      model: Westmere
+      topology:
+        cores: 1
+        sockets: 16
+        threads: 1
+      numa:
+        - cell:
+          cpus: [1, 2, 3, 4]
+          memory: 4194304
+    devices:
+     channels:
+       - type: unix
+         source:
+           mode: bind
+           path: /var/lib/libvirt/qemu/channels/11111111-feed-dead-beef-111111111111.org.qemu.guest_agent.0
+         target:
+           name: org.qemu.guest_agent.0
+           type: virtio
+       - type: spicevmc
+         target:
+           name: com.redhat.spice.0
+           type: virtio
+     memballoon:
+       model: virtio
+     rng:
+       backend: random
+       path: /dev/urandom
+     controllers:
+       - type: scsi
+         model: virtio-scsi
+      video:
+      - type: qxl
+        ram: 65536
+        vgamem: 16384
+        vram: 8192
+      disks:
+      - device: cdrom
+        snapshot: false
+        type: file
+        source:
+          startupPolicy: optional
+        target:
+          bus: ide
+          dev: hdc
+        readonly: true
+      - device: disk 
+        snapshot: false
+        type: file
+        source:
+          file: /mntpoint/11111111-1111-1111-1111-111111111111/images/22222222-2222-2222-2222-222222222222/22222222-2222-2222-2222-222222222222
+        target:
+          bus: scsi
+          dev: sda
+        bootOrder: 1
+        driver:
+          cache: none
+          name: qemu
+          type: raw
+          io: threads
+      interfaces:
+      - source:
+          bridge: mgmtnet
+        type: bridge
+        model: virtio
+        mac:
+          address: 00:aa:bb:cc:dd:ee
+        filterRef:
+          filter: no-mac-spoofing
+      graphics:
+      - listen:
+          network: mgmnet
+          type: network
+        port: -1
+        type: spice
+        tlsPort: -1
+        passwd: *****
+        passwdValidTo: 1970-01-01T00:00:01
+    os:
+      type:
+        os: hvm
+        arch: x86_64
+        machine: pc-i440fx-rhel7.3.0
+      smbios:
+        mode: sysinfo
+```
+
+This VM Specification requires users (where users include management
+applications) to know and re-implement part of libvirt and OS level logic.
+Instead of asking users to do so, we could simplify the spec generation by
+adding a layer of high level abstraction.
+
+This is an example of features section describing the VM Specification above:
+
+```yaml
+apiVersion: kubevirt.io/v1alpha1
+kind: VM
+metadata:
+  name: VM
+spec:
+  features:
+    memory: 4096 # other memory attributes can be deducted
+    cpu:
+      topology:
+        cores: 1
+        sockets: 16
+        threads: 1
+    numa: match-host # will be handled at virt-handler level
+    graphics: true # graphics, video and spice channel (or VNC settings for different architecture) sections with reasonable defaults
+    system:
+      type: windows # adds guest agent channel
+      version: 10 # generates timers and features sections
+      arch: x86_64 # enough for os section
+    storage:
+      - type: cdrom
+      - type: disk # duplicates some of the data in spec but eliminates the need for low level details
+        interface: virtio-scsi # also generates virtio-scsi controller
+        source: my-disk
+        bootOrder: 1
+    network:
+      - source: mgmtnet
+        mac: 00:aa:bb:cc:dd:ee
+    rng: true
+  domain:
+    <spec section of the yaml snippet above>
+```
+
+The features section is part of a VM Definition, therefore it is also suitable
+for inclusion in VMConfig. Accessing domain part of the spec is considered
+advanced feature for power users (e.g. hooking mechanisms).
+
+Feature section within VMConfig:
+
+```yaml
+kind: VirtualMachineConfig
+spec:
+  template:
+    metadata:
+    spec:
+      features:
+         ...
+      domain: # optional?
+         ...
+```
+
+Defaulting, expansion, admission controllers etc. are intentionally left out of
+the proposal for the time being as they are being actively discussed.
