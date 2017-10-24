@@ -6,7 +6,6 @@ import (
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types"
-	"github.com/golang/glog"
 
 	"strings"
 
@@ -21,23 +20,28 @@ const (
 	LibvirtSocket = "/var/run/libvirt/libvirt-sock"
 )
 
+type pidFunc func(string) (int, error)
+type confFileFunc func(string, []string) ([]string, error)
+type confFromFileFunc func(filename string) (*libcni.NetworkConfig, error)
+type getConfFunc func() (*libcni.NetworkConfig, error)
+
 type CNIProxy struct {
 	cniConfig   *libcni.CNIConfig
 	netConfig   *libcni.NetworkConfig
 	runtimeConf *libcni.RuntimeConf
 }
 
-func getCNINetworkConfig() (*libcni.NetworkConfig, error) {
-	files, err := libcni.ConfFiles(CNINetDir, []string{".conf"})
+func _getCNINetworkConfig(getF confFileFunc, loadF confFromFileFunc) (*libcni.NetworkConfig, error) {
+	files, err := getF(CNINetDir, []string{".conf"})
 	if err != nil {
 		return nil, err
 	}
 
 	sort.Strings(files)
 	for _, confFile := range files {
-		conf, err := libcni.ConfFromFile(confFile)
+		conf, err := loadF(confFile)
 		if err != nil {
-			glog.Warningf("Error loading CNI config file %s: %v", confFile, err)
+			log.Log.Reason(err).Warningf("Error loading CNI config file %s: %v", confFile, err)
 			continue
 		}
 		return conf, nil
@@ -45,9 +49,12 @@ func getCNINetworkConfig() (*libcni.NetworkConfig, error) {
 	return nil, fmt.Errorf("No valid networks found in %s", CNINetDir)
 }
 
-func GetProxy(runtime *libcni.RuntimeConf) (*CNIProxy, error) {
+func getCNINetworkConfig() (*libcni.NetworkConfig, error) {
+	return _getCNINetworkConfig(libcni.ConfFiles, libcni.ConfFromFile)
+}
 
-	conf, err := getCNINetworkConfig()
+func _getProxy(getConf getConfFunc, runtime *libcni.RuntimeConf) (*CNIProxy, error) {
+	conf, err := getConf()
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +64,12 @@ func GetProxy(runtime *libcni.RuntimeConf) (*CNIProxy, error) {
 	return cniProxy, nil
 }
 
-// TODO(vladikr): re-arrange this..
-func GetLibvirtNS() (*utils.NSResult, error) {
-	pid, err := utils.GetPid(LibvirtSocket)
+func GetProxy(runtime *libcni.RuntimeConf) (*CNIProxy, error) {
+	return _getProxy(getCNINetworkConfig, runtime)
+}
+
+func _getLibvirtNS(f pidFunc) (*utils.NSResult, error) {
+	pid, err := f(LibvirtSocket)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Cannot find libvirt socket in %s", LibvirtSocket)
 		return nil, err
@@ -69,18 +79,29 @@ func GetLibvirtNS() (*utils.NSResult, error) {
 	return NS, nil
 }
 
-func BuildRuntimeConfig(ifname string) (*libcni.RuntimeConf, error) {
-	libvNS, err := GetLibvirtNS()
+func GetLibvirtNS() (*utils.NSResult, error) {
+	return _getLibvirtNS(utils.GetPid)
+}
+
+func _buildRuntimeConfig(f pidFunc, ifname string) (*libcni.RuntimeConf, error) {
+	libvNS, err := _getLibvirtNS(f)
 	if err != nil {
 		return nil, err
 	}
 	log.Log.Reason(err).Errorf("Got namespace path from libvirt pid: %s", libvNS.Net)
 	randId := strings.Split(ifname, "-")
+	if len(randId) != 2 {
+		return nil, fmt.Errorf("invalid interface name: %s", ifname)
+	}
 	return &libcni.RuntimeConf{
 		ContainerID: randId[1],
 		NetNS:       libvNS.Net,
 		IfName:      ifname,
 	}, nil
+}
+
+func BuildRuntimeConfig(ifname string) (*libcni.RuntimeConf, error) {
+	return _buildRuntimeConfig(utils.GetPid, ifname)
 }
 
 func (proxy *CNIProxy) AddToNetwork() (types.Result, error) {
@@ -96,7 +117,7 @@ func (proxy *CNIProxy) AddToNetwork() (types.Result, error) {
 func (proxy *CNIProxy) DeleteFromNetwork() error {
 	err := proxy.cniConfig.DelNetwork(proxy.netConfig, proxy.runtimeConf)
 	if err != nil {
-		glog.Errorf("Error deleting an interface: %v", err)
+		log.Log.Reason(err).Errorf("Error deleting an interface: %v", err)
 		return err
 	}
 	return nil
