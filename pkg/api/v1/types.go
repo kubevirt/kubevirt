@@ -266,25 +266,26 @@ func (vl *VirtualMachineList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type VMConditionType string
+type VirtualMachinConditionType string
 
 // These are valid conditions of VMs.
 const (
-	// PodCreated means that the VM request was translated into a Pod which can be scheduled and started by
-	// Kubernetes.
-	PodCreated VMConditionType = "PodCreated"
 	// VMReady means the pod is able to service requests and should be added to the
 	// load balancing pools of all matching services.
-	VMReady VMConditionType = "Ready"
+	VirtualMachineReady VirtualMachinConditionType = "Ready"
+
+	// If there happens any error while trying to synchronize the VM with the Domain,
+	// this is reported as false.
+	VirtualMachineSynchronized VirtualMachinConditionType = "Synchronized"
 )
 
 type VMCondition struct {
-	Type               VMConditionType       `json:"type"`
-	Status             k8sv1.ConditionStatus `json:"status"`
-	LastProbeTime      metav1.Time           `json:"lastProbeTime,omitempty"`
-	LastTransitionTime metav1.Time           `json:"lastTransitionTime,omitempty"`
-	Reason             string                `json:"reason,omitempty"`
-	Message            string                `json:"message,omitempty"`
+	Type               VirtualMachinConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus      `json:"status"`
+	LastProbeTime      metav1.Time                `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time                `json:"lastTransitionTime,omitempty"`
+	Reason             string                     `json:"reason,omitempty"`
+	Message            string                     `json:"message,omitempty"`
 }
 
 // VMPhase is a label for the condition of a VM at the current time.

@@ -131,11 +131,6 @@ func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VirtualMachine, isPending bool
 	var err error
 	oldPhase := vm.Status.Phase
 
-	// TODO, update a VM condition, right now, do nothing
-	if syncError != nil {
-		return nil
-	}
-
 	// Don't update the VM if it is already in a final state
 	if vm.IsFinal() {
 		return nil
@@ -143,11 +138,6 @@ func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VirtualMachine, isPending bool
 
 	// While the VM is migrating, don't do anything, the Migration Controller is in charge
 	if vm.Status.MigrationNodeName != "" {
-		return nil
-	}
-
-	// Failed/Succeeded is currently handled somewhere else, do nothing if the spec is not there
-	if newDomainSpec == nil {
 		return nil
 	}
 
@@ -164,29 +154,33 @@ func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VirtualMachine, isPending bool
 
 	// Update devices if device status changed
 	// TODO needs caching, better position or init fetch
-	nodeIP, err := d.getVMNodeAddress(vm)
-	if err != nil {
-		return err
-	}
+	deviceChanged := false
+	if newDomainSpec != nil {
+		nodeIP, err := d.getVMNodeAddress(vm)
+		if err != nil {
+			return err
+		}
 
-	oldGraphics := vm.Status.Graphics
-	vm.Status.Graphics = []v1.VMGraphics{}
-	for _, src := range newDomainSpec.Devices.Graphics {
-		if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
-			continue
+		oldGraphics := vm.Status.Graphics
+		vm.Status.Graphics = []v1.VMGraphics{}
+		for _, src := range newDomainSpec.Devices.Graphics {
+			if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
+				continue
+			}
+			dst := v1.VMGraphics{
+				Type: src.Type,
+				Host: nodeIP,
+				Port: src.Port,
+			}
+			vm.Status.Graphics = append(vm.Status.Graphics, dst)
 		}
-		dst := v1.VMGraphics{
-			Type: src.Type,
-			Host: nodeIP,
-			Port: src.Port,
-		}
-		vm.Status.Graphics = append(vm.Status.Graphics, dst)
+		deviceChanged = reflect.DeepEqual(vm.Status.Graphics, oldGraphics)
 	}
 
 	phaseChanged := oldPhase != vm.Status.Phase
-	deviceChanged := reflect.DeepEqual(vm.Status.Graphics, oldGraphics)
+	errorChanged := d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")
 
-	if deviceChanged || phaseChanged {
+	if deviceChanged || phaseChanged || errorChanged {
 		_, err = d.clientset.VM(vm.ObjectMeta.Namespace).Update(vm)
 	}
 	return err
@@ -553,4 +547,41 @@ func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName stri
 
 func isWorthSyncing(vm *v1.VirtualMachine) bool {
 	return !vm.IsFinal()
+}
+
+func (d *VMHandlerDispatch) checkFailure(vm *v1.VirtualMachine, syncErr error, reason string) (changed bool) {
+	if syncErr != nil && !d.hasCondition(vm, v1.VirtualMachineSynchronized) {
+		vm.Status.Conditions = append(vm.Status.Conditions, v1.VMCondition{
+			Type:               v1.VirtualMachineSynchronized,
+			Reason:             reason,
+			Message:            syncErr.Error(),
+			LastTransitionTime: metav1.Now(),
+			Status:             k8sv1.ConditionFalse,
+		})
+		return true
+	} else if syncErr == nil && d.hasCondition(vm, v1.VirtualMachineSynchronized) {
+		d.removeCondition(vm, v1.VirtualMachineSynchronized)
+		return true
+	}
+	return false
+}
+
+func (d *VMHandlerDispatch) hasCondition(vm *v1.VirtualMachine, cond v1.VirtualMachinConditionType) bool {
+	for _, c := range vm.Status.Conditions {
+		if c.Type == cond {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *VMHandlerDispatch) removeCondition(vm *v1.VirtualMachine, cond v1.VirtualMachinConditionType) {
+	var conds []v1.VMCondition
+	for _, c := range vm.Status.Conditions {
+		if c.Type == cond {
+			continue
+		}
+		conds = append(conds, c)
+	}
+	vm.Status.Conditions = conds
 }
