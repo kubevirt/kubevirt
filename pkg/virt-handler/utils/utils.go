@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 type NSResult struct {
@@ -25,12 +25,12 @@ type NSResult struct {
 func GetLibvirtPidFromFile(file string) (int, error) {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
-		glog.Errorf("Cannot open libvirt pid file: %s", err)
+		log.Log.Reason(err).Errorf("Cannot open libvirt pid file: %s", err)
 		return -1, err
 	}
 	lines := strings.Split(string(content), "\n")
 	pid, _ := strconv.Atoi(lines[0])
-	glog.Errorf("Got libvirt pid file: %d", pid)
+	log.Log.Debugf("Got libvirt pid file: %d", pid)
 	return pid, nil
 
 }
@@ -43,7 +43,6 @@ func GetPid(socket string) (int, error) {
 	defer sock.Close()
 
 	ufile, err := sock.(*net.UnixConn).File()
-	glog.Errorf("Got FD: %d", int(ufile.Fd()))
 	if err != nil {
 		return -1, err
 	}
@@ -64,8 +63,8 @@ func GetNSFromPid(pid int) *NSResult {
 		Cgroup: getNSPath(pid, "cgroup"),
 		Uts:    getNSPath(pid, "uts"),
 	}
-
 }
+
 func getNSPath(pid int, ns string) string {
 	return fmt.Sprintf("/proc/%d/ns/%s", pid, ns)
 }
