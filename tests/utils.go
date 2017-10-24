@@ -56,6 +56,8 @@ const (
 	WarningEvent EventType = "Warning"
 )
 
+const defaultTestGracePeriod int64 = 1
+
 const (
 	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
 	NamespaceTestDefault string = "kubevirt-test-default"
@@ -502,7 +504,11 @@ func NewRandomVM() *v1.VirtualMachine {
 }
 
 func NewRandomVMWithNS(namespace string) *v1.VirtualMachine {
-	return v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
+	vm := v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
+
+	t := defaultTestGracePeriod
+	vm.Spec.TerminationGracePeriodSeconds = &t
+	return vm
 }
 
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
