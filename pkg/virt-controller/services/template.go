@@ -56,9 +56,16 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	successThreshold := 1
 	failureThreshold := 5
 
-	// TODO we will want to make this configurable on the
-	// vm spec at some point.
-	gracePeriodSeconds := int64(60)
+	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
+	if vm.Spec.TerminationGracePeriodSeconds != nil {
+		gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+	}
+
+	// Pad the virt-launcher grace period.
+	// Ideally we want virt-handler to handle tearing down
+	// the vm without virt-launcher's termination forcing
+	// the vm down.
+	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 
 	// VM target container
 	container := kubev1.Container{

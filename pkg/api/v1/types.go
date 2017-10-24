@@ -49,7 +49,7 @@ import (
 // GroupName is the group name use in this package
 const GroupName = "kubevirt.io"
 
-const DefaultGracePeriodSeconds = 60
+const DefaultGracePeriodSeconds int64 = 30
 
 // GroupVersion is group version used to register these objects
 var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
