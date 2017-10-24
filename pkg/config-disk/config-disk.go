@@ -72,6 +72,7 @@ func (c *configDiskClient) Define(vm *v1.VirtualMachine) (bool, error) {
 
 	jobKey := createKey(vm)
 
+	// FIXME support re-creating the disks if the VM is down and the data changed
 	v, ok := c.jobs[jobKey]
 	if ok == false {
 		v = make(chan string, 1)

@@ -23,6 +23,7 @@ import (
 	goerror "errors"
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 	"time"
 
@@ -30,7 +31,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -126,44 +126,70 @@ func (d *VMHandlerDispatch) getVMNodeAddress(vm *v1.VirtualMachine) (string, err
 	return addrStr, nil
 }
 
-func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VirtualMachine, cfg *api.DomainSpec) error {
-	obj, err := scheme.Scheme.Copy(vm)
-	if err != nil {
-		return err
-	}
-	vm = obj.(*v1.VirtualMachine)
+func (d *VMHandlerDispatch) updateVMStatus(vm *v1.VirtualMachine, isPending bool, newDomainSpec *api.DomainSpec, syncError error) error {
 
-	// XXX When we start supporting hotplug, this needs to be altered.
-	// Check if the VM is already marked as running. If yes, don't update the VM.
-	// Otherwise we end up in endless controller requeues.
-	if vm.Status.Phase == v1.Running {
+	var err error
+	oldPhase := vm.Status.Phase
+
+	// TODO, update a VM condition, right now, do nothing
+	if syncError != nil {
 		return nil
 	}
 
-	vm.Status.Phase = v1.Running
+	// Don't update the VM if it is already in a final state
+	if vm.IsFinal() {
+		return nil
+	}
+
+	// While the VM is migrating, don't do anything, the Migration Controller is in charge
+	if vm.Status.MigrationNodeName != "" {
+		return nil
+	}
+
+	// Failed/Succeeded is currently handled somewhere else, do nothing if the spec is not there
+	if newDomainSpec == nil {
+		return nil
+	}
+
+	// TODO update to Failed if VM e.g. crashes
+	// TODO update based on api.Domain succeeded/failed here, instead of the extra controller
+	if isPending {
+		// FIXME Make Scheduled a condition and allow using Pening here
+		vm.Status.Phase = v1.Scheduled
+	} else {
+		vm.Status.Phase = v1.Running
+	}
 
 	vm.Status.Graphics = []v1.VMGraphics{}
 
-	podIP, err := d.getVMNodeAddress(vm)
+	// Update devices if device status changed
+	// TODO needs caching, better position or init fetch
+	nodeIP, err := d.getVMNodeAddress(vm)
 	if err != nil {
 		return err
 	}
 
-	for _, src := range cfg.Devices.Graphics {
+	oldGraphics := vm.Status.Graphics
+	vm.Status.Graphics = []v1.VMGraphics{}
+	for _, src := range newDomainSpec.Devices.Graphics {
 		if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
 			continue
 		}
 		dst := v1.VMGraphics{
 			Type: src.Type,
-			Host: podIP,
+			Host: nodeIP,
 			Port: src.Port,
 		}
 		vm.Status.Graphics = append(vm.Status.Graphics, dst)
 	}
 
-	return d.restClient.Put().Resource("virtualmachines").Body(vm).
-		Name(vm.ObjectMeta.Name).Namespace(vm.ObjectMeta.Namespace).Do().Error()
+	phaseChanged := oldPhase != vm.Status.Phase
+	deviceChanged := reflect.DeepEqual(vm.Status.Graphics, oldGraphics)
 
+	if deviceChanged || phaseChanged {
+		_, err = d.clientset.VM(vm.ObjectMeta.Namespace).Update(vm)
+	}
+	return err
 }
 
 func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimitingInterface, key interface{}) {
@@ -228,11 +254,23 @@ func (d *VMHandlerDispatch) Execute(store cache.Store, queue workqueue.RateLimit
 	log.Log.Object(vm).V(3).Info("Processing VM update.")
 
 	// Process the VM
-	isPending, err := d.processVmUpdate(vm, shouldDeleteVm)
-	if err != nil {
-		// Something went wrong, reenqueue the item with a delay
-		log.Log.Object(vm).Reason(err).Error("Synchronizing the VM failed.")
-		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), err.Error())
+	newConfig, isPending, syncErr := d.processVmUpdate(vm.DeepCopy(), shouldDeleteVm)
+	if syncErr != nil {
+		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
+		log.Log.Object(vm).Reason(syncErr).Error("Synchronizing the VM failed.")
+	}
+
+	// Update the VM status, if the VM exists
+	if exists {
+		err = d.updateVMStatus(vm.DeepCopy(), isPending, newConfig, syncErr)
+		if err != nil {
+			log.Log.Object(vm).Reason(err).Error("Updating the VM status failed.")
+			queue.AddRateLimited(key)
+			return
+		}
+	}
+
+	if syncErr != nil {
 		queue.AddRateLimited(key)
 		return
 	} else if isPending {
@@ -408,73 +446,73 @@ func (d *VMHandlerDispatch) injectDiskAuth(vm *v1.VirtualMachine) (*v1.VirtualMa
 	return vm, nil
 }
 
-func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteVm bool) (bool, error) {
+func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteVM bool) (*api.DomainSpec, bool, error) {
 
-	if shouldDeleteVm {
+	if shouldDeleteVM || vm.ObjectMeta.DeletionTimestamp != nil {
 		// Since the VM was not in the cache, we delete it
 		err := d.domainManager.KillVM(vm)
 		if err != nil {
-			return false, err
+			return nil, false, err
 		}
 
 		// remove any defined libvirt secrets associated with this vm
 		err = d.domainManager.RemoveVMSecrets(vm)
 		if err != nil {
-			return false, err
+			return nil, false, err
 		}
 
 		err = registrydisk.CleanupEphemeralDisks(vm)
 		if err != nil {
-			return false, err
+			return nil, false, err
 		}
 
 		err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
 		if err != nil {
-			return false, err
+			return nil, false, err
 		}
 
-		return false, d.configDisk.Undefine(vm)
+		return nil, false, d.configDisk.Undefine(vm)
 	} else if isWorthSyncing(vm) == false {
 		// nothing to do here.
-		return false, nil
+		return nil, false, nil
 	}
 
 	hasWatchdog, err := watchdog.WatchdogFileExists(d.virtShareDir, vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).V(3).Error("Error accessing virt-launcher watchdog file.")
-		return false, err
+		return nil, false, err
 	}
 	if hasWatchdog == false {
 		log.Log.Object(vm).Reason(err).V(3).Error("Could not detect virt-launcher watchdog file.")
-		return false, goerror.New(fmt.Sprintf("No watchdog file found for vm"))
+		return nil, false, goerror.New(fmt.Sprintf("No watchdog file found for vm"))
 	}
 
 	isPending, err := d.configDisk.Define(vm)
 	if err != nil || isPending == true {
-		return isPending, err
+		return nil, isPending, err
 	}
 
 	// Synchronize the VM state
 	vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 
 	// Map Container Registry Disks to block devices Libvirt can consume
 	vm, err = registrydisk.MapRegistryDisks(vm)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 
 	vm, err = d.injectDiskAuth(vm)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 
 	// Map whatever devices are being used for config-init
 	vm, err = cloudinit.MapCloudInitDisks(vm)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 
 	// TODO MigrationNodeName should be a pointer
@@ -482,17 +520,13 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteV
 		// Only sync if the VM is not marked as migrating.
 		// Everything except shutting down the VM is not
 		// permitted when it is migrating.
-		return false, nil
+		return nil, false, nil
 	}
 
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
 	newCfg, err := d.domainManager.SyncVM(vm)
-	if err != nil {
-		return false, err
-	}
-
-	return false, d.updateVMStatus(vm, newCfg)
+	return newCfg, false, err
 }
 
 func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName string) (bool, error) {
@@ -518,5 +552,5 @@ func (d *VMHandlerDispatch) isMigrationDestination(namespace string, vmName stri
 }
 
 func isWorthSyncing(vm *v1.VirtualMachine) bool {
-	return vm.Status.Phase != v1.Succeeded && vm.Status.Phase != v1.Failed
+	return !vm.IsFinal()
 }

@@ -2,7 +2,6 @@ package watch
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,7 +130,7 @@ var _ = Describe("Replicaset", func() {
 				},
 			}
 
-			expectedRS := clone(rs)
+			expectedRS := rs.DeepCopy()
 			expectedRS.Status.Replicas = 0
 			expectedRS.Status.ReadyReplicas = 0
 			expectedRS.Status.Conditions = nil
@@ -157,7 +156,7 @@ var _ = Describe("Replicaset", func() {
 
 			// This will trigger a status update, since there are no replicas present
 			rs.Status.Replicas = 1
-			expectedRS := clone(rs)
+			expectedRS := rs.DeepCopy()
 			expectedRS.Status.Replicas = 0
 			expectedRS.Status.ReadyReplicas = 0
 
@@ -251,7 +250,7 @@ var _ = Describe("Replicaset", func() {
 
 			rs.Status.Replicas = 0
 
-			expectedRS := clone(rs)
+			expectedRS := rs.DeepCopy()
 			expectedRS.Status.Replicas = 1
 
 			addReplicaSet(rs)
@@ -279,7 +278,7 @@ var _ = Describe("Replicaset", func() {
 			rs, vm := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
 
-			rsCopy := clone(rs)
+			rsCopy := rs.DeepCopy()
 			rsCopy.Status.Replicas = 0
 
 			addReplicaSet(rs)
@@ -308,7 +307,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 0
 
-			expectedRS := clone(rs)
+			expectedRS := rs.DeepCopy()
 			expectedRS.Status.Replicas = 1
 			expectedRS.Status.ReadyReplicas = 1
 
@@ -332,7 +331,7 @@ var _ = Describe("Replicaset", func() {
 			rs, vm := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
 
-			rsCopy := clone(rs)
+			rsCopy := rs.DeepCopy()
 			// The count stays at zero, since we just experienced the delete when we create the new VM
 			rsCopy.Status.Replicas = 0
 
@@ -387,7 +386,7 @@ var _ = Describe("Replicaset", func() {
 
 		It("should add a fail condition if scaling down fails", func() {
 			rs, vm := DefaultReplicaSet(0)
-			vm1 := cloneVM(vm)
+			vm1 := vm.DeepCopy()
 			vm1.ObjectMeta.Name = "test1"
 
 			addReplicaSet(rs)
@@ -482,18 +481,6 @@ var _ = Describe("Replicaset", func() {
 		})
 	})
 })
-
-func clone(rs *v1.VirtualMachineReplicaSet) *v1.VirtualMachineReplicaSet {
-	c, err := model.Clone(rs)
-	Expect(err).ToNot(HaveOccurred())
-	return c.(*v1.VirtualMachineReplicaSet)
-}
-
-func cloneVM(rs *v1.VirtualMachine) *v1.VirtualMachine {
-	c, err := model.Clone(rs)
-	Expect(err).ToNot(HaveOccurred())
-	return c.(*v1.VirtualMachine)
-}
 
 func ReplicaSetFromVM(name string, vm *v1.VirtualMachine, replicas int32) *v1.VirtualMachineReplicaSet {
 	rs := &v1.VirtualMachineReplicaSet{

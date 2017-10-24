@@ -115,11 +115,10 @@ type VirtualMachine struct {
 }
 
 func (in *VirtualMachine) DeepCopyInto(out *VirtualMachine) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*VirtualMachine)
 	return
 }
 
@@ -148,11 +147,10 @@ type VirtualMachineList struct {
 }
 
 func (in *VirtualMachineList) DeepCopyInto(out *VirtualMachineList) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*VirtualMachineList)
 	return
 }
 
@@ -409,11 +407,10 @@ type Spice struct {
 }
 
 func (in *Spice) DeepCopyInto(out *Spice) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*Spice)
 	return
 }
 
@@ -495,11 +492,10 @@ type Migration struct {
 }
 
 func (in *Migration) DeepCopyInto(out *Migration) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*Migration)
 	return
 }
 
@@ -598,11 +594,10 @@ type MigrationList struct {
 }
 
 func (in *MigrationList) DeepCopyInto(out *MigrationList) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*MigrationList)
 	return
 }
 
@@ -819,11 +814,10 @@ func (vl *VirtualMachineReplicaSetList) GetListMeta() meta.List {
 }
 
 func (in *VirtualMachineReplicaSet) DeepCopyInto(out *VirtualMachineReplicaSet) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*VirtualMachineReplicaSet)
 	return
 }
 
@@ -845,11 +839,10 @@ func (in *VirtualMachineReplicaSet) DeepCopyObject() runtime.Object {
 }
 
 func (in *VirtualMachineReplicaSetList) DeepCopyInto(out *VirtualMachineReplicaSetList) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*VirtualMachineReplicaSetList)
 	return
 }
 

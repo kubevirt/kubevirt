@@ -148,5 +148,15 @@ var _ = Describe("Storage", func() {
 			RunVMAndExpectLaunch(vm, true)
 			close(done)
 		}, 30)
+
+		It("should not modify the VM spec on status update", func() {
+			vm := tests.NewRandomVMWithPVC("disk-auth-alpine")
+			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).To(BeNil())
+			tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
+			startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
+			Expect(err).To(BeNil())
+			Expect(startedVM.Spec).To(Equal(vm.Spec))
+		})
 	})
 })

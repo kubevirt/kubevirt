@@ -135,11 +135,10 @@ type Domain struct {
 }
 
 func (in *Domain) DeepCopyInto(out *Domain) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*Domain)
 	return
 }
 
@@ -172,11 +171,10 @@ type DomainList struct {
 }
 
 func (in *DomainList) DeepCopyInto(out *DomainList) {
-	v, err := model.Clone(in)
+	err := model.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	out = v.(*DomainList)
 	return
 }
 
