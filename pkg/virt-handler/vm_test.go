@@ -195,12 +195,48 @@ var _ = Describe("VM", func() {
 
 			vmFeeder.Delete(vm)
 
-			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm")).Do(func(vm *v1.VirtualMachine) {
 				close(done)
 			})
+			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			controller.Execute()
 
+		}, 3)
+
+		// TODO make this pass
+		It("should immediately kill domain with grace period of 0", func(done Done) {
+			vm := v1.NewMinimalVM("testvm")
+			//vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
+
+			domainManager.EXPECT().KillVM(vm).Do(func(vm *v1.VirtualMachine) {
+				close(done)
+			})
+			domainManager.EXPECT().RemoveVMSecrets(vm).Return(nil)
+
+			var gracePeriod int64
+			gracePeriod = 0
+			vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
+			vm.Status.Phase = v1.Running
+
+			vmFeeder.Add(vm)
+
+			err := os.MkdirAll(virtlauncher.GracefulShutdownTriggerDir(shareDir), 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.MkdirAll(watchdog.WatchdogFileDirectory(shareDir), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(shareDir, "default", "testvm")
+
+			err = virtlauncher.GracefulShutdownTriggerInitiate(triggerFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "testvm")
+			err = watchdog.WatchdogFileUpdate(watchdogFile)
+
+			vmInterface.EXPECT().Update(gomock.Any())
+			Expect(err).NotTo(HaveOccurred())
+
+			controller.Execute()
 		}, 3)
 
 		It("should leave the Domain alone if the VM is migrating to its host", func() {

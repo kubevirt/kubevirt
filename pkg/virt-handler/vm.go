@@ -233,7 +233,7 @@ func (d *VirtualMachineController) hasGracePeriodExpired(vm *v1.VirtualMachine) 
 	now := time.Now().UTC().Unix()
 	diff := now - info.GracePeriodStartTimeUnix
 
-	if diff > info.GracePeriodSeconds {
+	if diff >= info.GracePeriodSeconds {
 		return true, 0, nil
 	}
 
@@ -950,9 +950,9 @@ func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) v1.VMPhase {
 
 	if domain == nil {
-		if !vm.IsRunning() {
+		if !vm.IsRunning() && !vm.IsFinal() {
 			return v1.Scheduled
-		} else {
+		} else if !vm.IsFinal() {
 			// That is unexpected. We should not be able to delete a VM before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
 			return v1.Failed
