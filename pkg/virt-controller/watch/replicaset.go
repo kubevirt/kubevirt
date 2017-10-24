@@ -34,8 +34,6 @@ import (
 
 	k8score "k8s.io/api/core/v1"
 
-	"github.com/jeevatkm/go-model"
-
 	"k8s.io/api/apps/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -202,15 +200,7 @@ func (c *VMReplicaSet) execute(key string) error {
 		logger.Reason(err).Error("Scaling the replicaset failed.")
 	}
 
-	clone, err := model.Clone(rs)
-
-	if err != nil {
-		logger.Reason(err).Error("Cloning the replicaset failed.")
-		return nil
-	}
-	rsCopy := clone.(*virtv1.VirtualMachineReplicaSet)
-
-	err = c.updateStatus(rsCopy, vms, scaleErr)
+	err = c.updateStatus(rs.DeepCopy(), vms, scaleErr)
 	if err != nil {
 		logger.Reason(err).Error("Updating the replicaset status failed.")
 	}
