@@ -22,6 +22,7 @@ package virthandler
 import (
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -44,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -70,6 +72,7 @@ var _ = Describe("VM", func() {
 
 	var recorder record.EventRecorder
 
+	var err error
 	var shareDir string
 	var stop chan struct{}
 
@@ -77,7 +80,7 @@ var _ = Describe("VM", func() {
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
-		shareDir, err := ioutil.TempDir("", "kubevirt-share")
+		shareDir, err = ioutil.TempDir("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
 		host := "master"
@@ -124,6 +127,12 @@ var _ = Describe("VM", func() {
 		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, domainInformer.HasSynced, watchdogInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 	})
 
+	AfterEach(func() {
+		close(stop)
+		ctrl.Finish()
+		os.RemoveAll(shareDir)
+	})
+
 	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
 
 		It("should delete non-running Domains if no cluster wide equivalent exists", func() {
@@ -148,6 +157,51 @@ var _ = Describe("VM", func() {
 
 			controller.Execute()
 		})
+
+		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func(done Done) {
+			vm := v1.NewMinimalVM("testvm")
+
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
+			domainManager.EXPECT().SignalShutdownVM(vm).Return(nil)
+
+			var gracePeriod int64
+
+			gracePeriod = 1
+			vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
+			vm.Status.Phase = v1.Running
+
+			vmFeeder.Add(vm)
+
+			err := os.MkdirAll(virtlauncher.GracefulShutdownTriggerDir(shareDir), 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.MkdirAll(watchdog.WatchdogFileDirectory(shareDir), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(shareDir, "default", "testvm")
+
+			err = virtlauncher.GracefulShutdownTriggerInitiate(triggerFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "testvm")
+			err = watchdog.WatchdogFileUpdate(watchdogFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			vmInterface.EXPECT().Update(gomock.Any())
+
+			// first Execute should signal graceful shutdown
+			controller.Execute()
+
+			time.Sleep(2 * time.Second)
+
+			vmFeeder.Delete(vm)
+
+			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
+			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm")).Do(func(vm *v1.VirtualMachine) {
+				close(done)
+			})
+			controller.Execute()
+
+		}, 3)
 
 		It("should leave the Domain alone if the VM is migrating to its host", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -262,13 +316,6 @@ var _ = Describe("VM", func() {
 			table.Entry("failed", v1.Failed),
 		)
 	})
-
-	AfterEach(func() {
-		close(stop)
-		ctrl.Finish()
-		os.RemoveAll(shareDir)
-	})
-
 })
 
 var _ = Describe("PVC", func() {

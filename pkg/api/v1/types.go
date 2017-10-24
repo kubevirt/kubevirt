@@ -49,6 +49,8 @@ import (
 // GroupName is the group name use in this package
 const GroupName = "kubevirt.io"
 
+const DefaultGracePeriodSeconds = 60
+
 // GroupVersion is group version used to register these objects
 var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
@@ -180,6 +182,8 @@ type VMSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// If affinity is specifies, obey all the affinity rules
 	Affinity *Affinity `json:"affinity,omitempty"`
+	// Grace period observed after signalling a VM to stop after which the VM is force terminated.
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 }
 
 // Affinity groups all the affinity rules related to a VM
