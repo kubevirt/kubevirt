@@ -330,7 +330,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 			log.Log.Object(vm).Reason(err).Error("Signalling graceful shutdown failed.")
 			return err
 		}
-		log.Log.Object(vm).Info("Signaled graceful shutdown")
+		log.Log.Object(vm).Infof("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())
 		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
 	}
 

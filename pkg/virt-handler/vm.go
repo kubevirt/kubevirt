@@ -748,7 +748,7 @@ func (d *VirtualMachineController) processVmDeletion(vm *v1.VirtualMachine) erro
 		return nil
 	}
 
-	log.Log.Object(vm).Info("grace period expired, killing deleted VM.")
+	log.Log.Object(vm).Infof("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())
 
 	// Since the VM was not in the cache, we delete it
 	err = d.domainManager.KillVM(vm)
@@ -807,7 +807,7 @@ func (d *VirtualMachineController) processGracefulShutdown(vm *v1.VirtualMachine
 	}
 
 	if expired {
-		log.Log.Object(vm).Info("grace period expired, killing VM.")
+		log.Log.Object(vm).Infof("grace period expired, killing VM %s", vm.GetObjectMeta().GetName())
 		return d.processVmDeletion(vm)
 	}
 

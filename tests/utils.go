@@ -56,7 +56,7 @@ const (
 	WarningEvent EventType = "Warning"
 )
 
-const defaultTestGracePeriod int64 = 1
+const defaultTestGracePeriod int64 = 0
 
 const (
 	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.

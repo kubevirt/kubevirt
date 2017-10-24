@@ -105,6 +105,49 @@ var _ = Describe("Vmlifecycle", func() {
 			close(done)
 		}, 30)
 
+		It("if grace period greater than 0, graceful shutdown should be attempted on delete", func(done Done) {
+
+			virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(primaryNodeName).Pod()
+			Expect(err).ToNot(HaveOccurred())
+
+			handlerName := virtHandlerPod.GetObjectMeta().GetName()
+			handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
+			seconds := int64(120)
+			logsQuery := virtClient.CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
+
+			var gracePeriod int64
+			gracePeriod = int64(5)
+			// Give the VM a custom grace period
+			vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
+			// Make sure we schedule the VM to master
+			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": primaryNodeName}
+
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+			Expect(err).To(BeNil())
+			tests.WaitForSuccessfulVMStart(obj)
+
+			// Delete the VM and wait for the confirmation of the delete
+			_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
+			Expect(err).To(BeNil())
+			tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+
+			// Check if the graceful shutdown was logged
+			Eventually(func() string {
+				data, err := logsQuery.DoRaw()
+				Expect(err).ToNot(HaveOccurred())
+				return string(data)
+			}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())))
+
+			// Verify VM is killed after grace period expires
+			Eventually(func() string {
+				data, err := logsQuery.DoRaw()
+				Expect(err).ToNot(HaveOccurred())
+				return string(data)
+			}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())))
+
+			close(done)
+		}, 45)
+
 		Context("New VM which can't be started", func() {
 
 			It("Should retry starting the VM", func(done Done) {
