@@ -11,6 +11,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+const tapPrefix = "keth-"
+
 func GetMacDetails(iface string) (net.HardwareAddr, error) {
 	currentMac, err := lmf.GetCurrentMac(iface)
 	if err != nil {
@@ -64,7 +66,7 @@ func GetInterfaceByIP(ip string) (*net.Interface, error) {
 }
 
 func GenerateRandomTapName() (string, error) {
-	prefix := "keth-"
+	prefix := tapPrefix
 	name := make([]byte, 5)
 	_, err := rand.Reader.Read(name)
 	if err != nil {
