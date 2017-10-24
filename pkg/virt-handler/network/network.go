@@ -104,7 +104,7 @@ func PlugNetworkDevices(vm *v1.VirtualMachine, domainManager virtwrap.DomainMana
 	return vmCopy, nil
 }
 
-func GetContainerInteface(iface string) (*cniproxy.CNIProxy, error) {
+func GetContainerInterface(iface string) (*cniproxy.CNIProxy, error) {
 	runtime, err := cniproxy.BuildRuntimeConfig(iface)
 	if err != nil {
 		return nil, err

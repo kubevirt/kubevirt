@@ -41,7 +41,7 @@ func (vif *PodNetworkInterface) Plug(domainManager virtwrap.DomainManager) error
 
 	// Create network interface
 	err = netns.Do(func(_ ns.NetNS) error {
-		vif.cniProxy, err = GetContainerInteface(iface)
+		vif.cniProxy, err = GetContainerInterface(iface)
 		if err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (vif *PodNetworkInterface) Unplug(domainManager virtwrap.DomainManager) err
 
 	// Remove network interface
 	err = netns.Do(func(_ ns.NetNS) error {
-		vif.cniProxy, err = GetContainerInteface(vif.Name)
+		vif.cniProxy, err = GetContainerInterface(vif.Name)
 		if err != nil {
 			return err
 		}
