@@ -83,13 +83,13 @@ var _ = Describe("RegistryDisk", func() {
 			for i := 0; i < num; i++ {
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
-				tests.WaitForSuccessfulVMStartWithTimeout(obj, 60)
+				tests.WaitForSuccessfulVMStartWithTimeout(obj, 120)
 				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
 			}
 			close(done)
-		}, 180)
+		}, 200)
 
 		It("should launch multiple VMs using ephemeral registry disks", func(done Done) {
 			num := 5
