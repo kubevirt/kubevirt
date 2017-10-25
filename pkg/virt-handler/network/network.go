@@ -40,6 +40,8 @@ type VirtualInterface interface {
 	DecorateInterfaceMetadata() *v1.MetadataDevice
 }
 
+type interfaceFunc func(string) (VirtualInterface, error)
+
 func GetInterfaceType(objName string) (VirtualInterface, error) {
 	switch objName {
 	//TODO:(vladikr) We can extend this to other types
@@ -50,35 +52,38 @@ func GetInterfaceType(objName string) (VirtualInterface, error) {
 	}
 }
 
-func UnPlugNetworkDevices(vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) error {
-	if vm.Spec.Domain.Metadata != nil {
+func _unPlugNetworkDevices(interfaceCallback interfaceFunc, vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) error {
+	if (vm != nil) && (vm.Spec.Domain != nil) && vm.Spec.Domain.Metadata != nil {
 		for _, inter := range vm.Spec.Domain.Metadata.Interfaces.Devices {
 			log.Log.Debugf("unplugging interface: %s, type: %s, from VM: %s", inter.Device, inter.Type, vm.ObjectMeta.Name)
-			vif, err := GetInterfaceType(inter.Type)
+			vif, err := interfaceCallback(inter.Type)
 			if err != nil {
 				continue
 			}
-			vif.SetInterfaceAttributes(inter.Mac, inter.IP, inter.Device)
+			err = vif.SetInterfaceAttributes(inter.Mac, inter.IP, inter.Device)
 			if err != nil {
-				return err
+				log.Log.Reason(err).Warningf("failed to set interface attributes on: ", inter.Device, "for VM: ", vm.ObjectMeta.Name)
 			}
 			err = vif.Unplug(domainManager)
 			if err != nil {
 				log.Log.Reason(err).Warningf("failed to unplug: ", inter.Device, "for VM: ", vm.ObjectMeta.Name)
 			}
-
 		}
 	}
 	return nil
 }
 
-func PlugNetworkDevices(vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) (*v1.VirtualMachine, error) {
+func UnPlugNetworkDevices(vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) error {
+	return _unPlugNetworkDevices(GetInterfaceType, vm, domainManager)
+}
+
+func _plugNetworkDevices(interfaceCallback interfaceFunc, vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) (*v1.VirtualMachine, error) {
 	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
 
 	//TODO:(vladikr) Currently we support only one interface per vm. Improve this once we'll start supporting more.
 	for idx, inter := range vmCopy.Spec.Domain.Devices.Interfaces {
-		vif, err := GetInterfaceType(inter.Type)
+		vif, err := interfaceCallback(inter.Type)
 		if err != nil {
 			continue
 		}
@@ -102,6 +107,9 @@ func PlugNetworkDevices(vm *v1.VirtualMachine, domainManager virtwrap.DomainMana
 	}
 
 	return vmCopy, nil
+}
+func PlugNetworkDevices(vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) (*v1.VirtualMachine, error) {
+	return _plugNetworkDevices(GetInterfaceType, vm, domainManager)
 }
 
 func GetContainerInterface(iface string) (*cniproxy.CNIProxy, error) {
