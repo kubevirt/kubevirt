@@ -158,9 +158,7 @@ func (c *VMController) execute(key string) error {
 				logger.Reason(err).Error("Deleting VM pods failed.")
 				return err
 			}
-
-			log.Log.V(4).Infof("reenqueuing VM key %s because still waiting on previous pod to terminate", key)
-			c.queue.AddAfter(key, 3*time.Second)
+			// the pod informer will reenqueue the key as a result of it being deleted.
 			return nil
 		}
 
@@ -221,22 +219,11 @@ func (c *VMController) execute(key string) error {
 			return nil
 		}
 
+		// If this occurs, the podinformer should reenqueue the key
+		// if one of these pods terminates. This will let virt-controller continue
+		// processing the VM.
 		if len(pods.Items) > 1 {
 			logger.V(3).Error("More than one VM target pods found.")
-
-			wasDeleted := false
-			for _, pod := range pods.Items {
-				if pod.GetObjectMeta().GetDeletionTimestamp() != nil {
-					wasDeleted = true
-					break
-				}
-			}
-
-			if wasDeleted {
-				log.Log.V(4).Infof("reenqueuing VM key %s because still waiting on pod deletion cleanup", key)
-				c.queue.AddAfter(key, 3*time.Second)
-			}
-
 			return nil
 		}
 
@@ -293,10 +280,12 @@ func vmLabelHandler(vmQueue workqueue.RateLimitingInterface) func(obj interface{
 		domainLabel, hasDomainLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.DomainLabel]
 		_, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
 
-		if phase != k8sv1.PodRunning {
-			// Filter out non running pods from Queue
-			return
-		} else if hasMigrationLabel {
+		deleted := false
+		if obj.(*k8sv1.Pod).GetObjectMeta().GetDeletionTimestamp() != nil {
+			deleted = true
+		}
+
+		if hasMigrationLabel {
 			// Filter out migration target pods
 			return
 		} else if hasDomainLabel == false || hasAppLabel == false {
@@ -304,6 +293,9 @@ func vmLabelHandler(vmQueue workqueue.RateLimitingInterface) func(obj interface{
 			return
 		} else if appLabel != "virt-launcher" {
 			// ensure we're looking just for virt-launcher pods
+			return
+		} else if phase != k8sv1.PodRunning && deleted == false {
+			// Filter out non running pods from Queue that aren't deleted
 			return
 		}
 		vmQueue.Add(namespace + "/" + domainLabel)
