@@ -163,6 +163,8 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{},
 	)
 
+	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
+
 	watchdogInformer := cache.NewSharedIndexInformer(
 		watchdog.NewWatchdogListWatchFromClient(
 			app.VirtShareDir,
