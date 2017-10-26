@@ -138,8 +138,6 @@ func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (stri
 
 func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain *api.Domain, syncError error) (err error) {
 
-	oldStatus := vm.DeepCopy().Status
-
 	// Don't update the VM if it is already in a final state
 	if vm.IsFinal() {
 		return nil
@@ -149,6 +147,8 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	if vm.Status.MigrationNodeName != "" {
 		return nil
 	}
+
+	oldStatus := vm.DeepCopy().Status
 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
@@ -368,7 +368,7 @@ func (d *VirtualMachineController) execute(key string) error {
 // Almost everything in the VM object maps exactly to its domain counterpart
 // One exception is persistent volume claims. This function looks up each PV
 // and inserts a corrected disk entry into the VM's device map.
-func MapPersistentVolumes(vm *v1.VirtualMachine, restClient cache.Getter, namespace string) (*v1.VirtualMachine, error) {
+func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
 	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
 	logger := log.Log.Object(vm)
@@ -378,28 +378,25 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, restClient cache.Getter, namesp
 			logger.V(3).Infof("Mapping PersistentVolumeClaim: %s", disk.Source.Name)
 
 			// Look up existing persistent volume
-			obj, err := restClient.Get().Namespace(namespace).Resource("persistentvolumeclaims").Name(disk.Source.Name).Do().Get()
+			pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(disk.Source.Name, metav1.GetOptions{})
 
 			if err != nil {
 				logger.Reason(err).Error("unable to look up persistent volume claim")
 				return vm, fmt.Errorf("unable to look up persistent volume claim: %v", err)
 			}
 
-			pvc := obj.(*k8sv1.PersistentVolumeClaim)
 			if pvc.Status.Phase != k8sv1.ClaimBound {
 				logger.Error("attempted use of unbound persistent volume")
 				return vm, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
 			}
 
 			// Look up the PersistentVolume this PVC is bound to
-			// Note: This call is not namespaced!
-			obj, err = restClient.Get().Resource("persistentvolumes").Name(pvc.Spec.VolumeName).Do().Get()
+			pv, err := clientset.CoreV1().PersistentVolumes().Get(pvc.Spec.VolumeName, metav1.GetOptions{})
 
 			if err != nil {
 				logger.Reason(err).Error("unable to access persistent volume record")
 				return vm, fmt.Errorf("unable to access persistent volume record: %v", err)
 			}
-			pv := obj.(*k8sv1.PersistentVolume)
 
 			logger.Infof("Mapping PVC %s", pv.Name)
 			newDisk, err := mapPVToDisk(&disk, pv)
@@ -578,7 +575,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, should
 	}
 
 	// Synchronize the VM state
-	vm, err = MapPersistentVolumes(vm, d.clientset.CoreV1().RESTClient(), vm.ObjectMeta.Namespace)
+	vm, err = MapPersistentVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
 	if err != nil {
 		return err
 	}
@@ -664,7 +661,7 @@ func (d *VirtualMachineController) hasCondition(vm *v1.VirtualMachine, cond v1.V
 }
 
 func (d *VirtualMachineController) removeCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
-	var conds []v1.VMCondition
+	conds := []v1.VMCondition{}
 	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
 			continue

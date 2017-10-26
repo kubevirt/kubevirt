@@ -29,6 +29,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 
+	"strings"
+
+	"github.com/onsi/gomega"
+	"k8s.io/client-go/tools/record"
+
 	rest2 "kubevirt.io/kubevirt/pkg/rest"
 )
 
@@ -176,4 +181,36 @@ func (matcher *haveStatusCodeMatcher) FailureMessage(actual interface{}) (messag
 
 func (matcher *haveStatusCodeMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return fmt.Sprintf("Expected status code \n\t%#v\nnot to be\n\t%#v", matcher.statusCode, matcher.expected)
+}
+
+func ExpectEvent(recorder *record.FakeRecorder, reason string) {
+	gomega.Expect(recorder.Events).To(gomega.Receive(gomega.ContainSubstring(reason)))
+}
+
+// ExpectEvents checks for given reasons in arbitrary order
+func ExpectEvents(recorder *record.FakeRecorder, reasons ...string) {
+	l := len(reasons)
+	for x := 0; x < l; x++ {
+		select {
+
+		case e := <-recorder.Events:
+			filtered := []string{}
+			found := false
+			for _, reason := range reasons {
+
+				if strings.Contains(e, reason) && !found {
+					found = true
+					continue
+				}
+				filtered = append(filtered, reason)
+			}
+
+			gomega.Expect(found).To(gomega.BeTrue(), "Expected to match event reason '%s' with one of %v", e, reasons)
+			reasons = filtered
+
+		default:
+			// There should be something, trigger an error
+			gomega.Expect(recorder.Events).To(gomega.Receive())
+		}
+	}
 }

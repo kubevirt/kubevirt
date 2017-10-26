@@ -21,26 +21,21 @@ package virthandler
 
 import (
 	"io/ioutil"
-	"net/http"
 	"os"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
+
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config-disk"
@@ -49,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 var _ = Describe("VM", func() {
@@ -65,6 +61,7 @@ var _ = Describe("VM", func() {
 	var watchdogSource *framework.FakeControllerSource
 	var watchdogInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
+	var mockWatchdog *MockWatchdog
 
 	var vmFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
@@ -97,8 +94,9 @@ var _ = Describe("VM", func() {
 		virtClient.EXPECT().VM(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 
 		configDiskClient := configdisk.NewConfigDiskClient(virtClient)
+		mockWatchdog = &MockWatchdog{shareDir}
 
-		controller = NewController(domainManager, recorder, virtClient, host, configDiskClient, shareDir, 1, vmInformer, domainInformer, watchdogInformer)
+		controller = NewController(domainManager, recorder, virtClient, host, configDiskClient, shareDir, 10, vmInformer, domainInformer, watchdogInformer)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 
@@ -140,6 +138,60 @@ var _ = Describe("VM", func() {
 			Expect(mockQueue.NumRequeues("a/b/c/d/e")).To(Equal(1))
 		})
 
+		It("should create the Domain if it sees the first time on a new VM", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Graphics = []v1.VMGraphics{}
+
+			updatedVM := vm.DeepCopy()
+			updatedVM.Status.Phase = v1.Scheduled
+
+			mockWatchdog.CreateFile(vm)
+			domain := api.NewMinimalDomain("testvm")
+			vmFeeder.Add(vm)
+
+			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, nil)
+			vmInterface.EXPECT().Update(updatedVM)
+
+			controller.Execute()
+		})
+
+		It("should detect a missing watchdog file and report the error on the VM", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+
+			vmFeeder.Add(vm)
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
+				Expect(vm.Status.Conditions).To(HaveLen(1))
+			})
+			controller.Execute()
+		})
+
+		It("should remove an error condition if a synchronization run succeeds", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Conditions = []v1.VMCondition{
+				{
+					Type:   v1.VirtualMachineSynchronized,
+					Status: k8sv1.ConditionFalse,
+				},
+			}
+
+			updatedVM := vm.DeepCopy()
+			updatedVM.Status.Phase = v1.Scheduled
+			updatedVM.Status.Conditions = []v1.VMCondition{}
+
+			mockWatchdog.CreateFile(vm)
+			domain := api.NewMinimalDomain("testvm")
+			vmFeeder.Add(vm)
+
+			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, nil)
+			vmInterface.EXPECT().Update(updatedVM)
+
+			controller.Execute()
+		})
+
 		table.DescribeTable("should leave the VM alone if it is in the final phase", func(phase v1.VMPhase) {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = phase
@@ -159,128 +211,127 @@ var _ = Describe("VM", func() {
 		os.RemoveAll(shareDir)
 	})
 
-	var _ = Describe("PVC", func() {
-		RegisterFailHandler(Fail)
+})
 
-		log.Log.SetIOWriter(GinkgoWriter)
+var _ = Describe("PVC", func() {
+	RegisterFailHandler(Fail)
 
-		var (
-			expectedPVC k8sv1.PersistentVolumeClaim
-			expectedPV  k8sv1.PersistentVolume
-			server      *ghttp.Server
-		)
+	log.Log.SetIOWriter(GinkgoWriter)
+	var ctrl *gomock.Controller
+	var virtClient *kubecli.MockKubevirtClient
 
-		BeforeEach(func() {
-			expectedPVC = k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1",
+	var (
+		expectedPVC k8sv1.PersistentVolumeClaim
+		expectedPV  k8sv1.PersistentVolume
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		expectedPVC = k8sv1.PersistentVolumeClaim{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-claim",
+				Namespace: metav1.NamespaceDefault,
+			},
+			Spec: k8sv1.PersistentVolumeClaimSpec{
+				VolumeName: "disk-01",
+			},
+			Status: k8sv1.PersistentVolumeClaimStatus{
+				Phase: k8sv1.ClaimBound,
+			},
+		}
+
+		source := k8sv1.ISCSIVolumeSource{
+			IQN:          "iqn.2009-02.com.test:for.all",
+			Lun:          1,
+			TargetPortal: "127.0.0.1:6543",
+		}
+
+		expectedPV = k8sv1.PersistentVolume{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "PersistentVolume",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "disk-01",
+			},
+			Spec: k8sv1.PersistentVolumeSpec{
+				PersistentVolumeSource: k8sv1.PersistentVolumeSource{
+					ISCSI: &source,
 				},
-				Spec: k8sv1.PersistentVolumeClaimSpec{
-					VolumeName: "disk-01",
+			},
+		}
+		fakeClient := fake.NewSimpleClientset(&expectedPVC, &expectedPV).CoreV1()
+		virtClient.EXPECT().CoreV1().Return(fakeClient).AnyTimes()
+	})
+
+	AfterEach(func() {
+		ctrl.Finish()
+	})
+
+	Context("Map Source Disks", func() {
+		It("looks up and applies PVC", func() {
+			vm := v1.VirtualMachine{}
+
+			disk := v1.Disk{
+				Type: "PersistentVolumeClaim",
+				Source: v1.DiskSource{
+					Name: "test-claim",
 				},
-				Status: k8sv1.PersistentVolumeClaimStatus{
-					Phase: k8sv1.ClaimBound,
+				Target: v1.DiskTarget{
+					Device: "vda",
 				},
 			}
+			disk.Type = "PersistentVolumeClaim"
 
-			source := k8sv1.ISCSIVolumeSource{
-				IQN:          "iqn.2009-02.com.test:for.all",
-				Lun:          1,
-				TargetPortal: "127.0.0.1:6543",
-			}
+			domain := v1.DomainSpec{}
+			domain.Devices.Disks = []v1.Disk{disk}
+			vm.Spec.Domain = &domain
 
-			expectedPV = k8sv1.PersistentVolume{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolume",
-					APIVersion: "v1",
-				},
-				Spec: k8sv1.PersistentVolumeSpec{
-					PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-						ISCSI: &source,
-					},
-				},
-			}
+			vmCopy, err := MapPersistentVolumes(&vm, virtClient, k8sv1.NamespaceDefault)
+			Expect(err).NotTo(HaveOccurred())
 
-			server = ghttp.NewServer()
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/persistentvolumeclaims/test-claim"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPVC),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/persistentvolumes/disk-01"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedPV),
-				),
-			)
+			Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
+			newDisk := vmCopy.Spec.Domain.Devices.Disks[0]
+			Expect(newDisk.Type).To(Equal("network"))
+			Expect(newDisk.Driver.Type).To(Equal("raw"))
+			Expect(newDisk.Driver.Name).To(Equal("qemu"))
+			Expect(newDisk.Device).To(Equal("disk"))
+			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
+			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
 		})
-
-		AfterEach(func() {
-			server.Close()
-		})
-
-		Context("Map Source Disks", func() {
-			It("looks up and applies PVC", func() {
-				vm := v1.VirtualMachine{}
-
-				disk := v1.Disk{
-					Type: "PersistentVolumeClaim",
-					Source: v1.DiskSource{
-						Name: "test-claim",
-					},
-					Target: v1.DiskTarget{
-						Device: "vda",
-					},
-				}
-				disk.Type = "PersistentVolumeClaim"
-
-				domain := v1.DomainSpec{}
-				domain.Devices.Disks = []v1.Disk{disk}
-				vm.Spec.Domain = &domain
-
-				restClient := getRestClient(server.URL())
-				vmCopy, err := MapPersistentVolumes(&vm, restClient, k8sv1.NamespaceDefault)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
-				newDisk := vmCopy.Spec.Domain.Devices.Disks[0]
-				Expect(newDisk.Type).To(Equal("network"))
-				Expect(newDisk.Driver.Type).To(Equal("raw"))
-				Expect(newDisk.Driver.Name).To(Equal("qemu"))
-				Expect(newDisk.Device).To(Equal("disk"))
-				Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
-				Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
-			})
-			It("should fail on unsupported PV disk types", func() {
-				expectedPV.Spec.ISCSI = nil
-				expectedPV.Spec.CephFS = &k8sv1.CephFSPersistentVolumeSource{}
-				disk := v1.Disk{
-					Type: "PersistentVolumeClaim",
-					Source: v1.DiskSource{
-						Name: "test-claim",
-					},
-					Target: v1.DiskTarget{
-						Device: "vda",
-					},
-				}
-				disk.Type = "PersistentVolumeClaim"
-				_, err := mapPVToDisk(&disk, &expectedPV)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("unsupported"))
-			})
+		It("should fail on unsupported PV disk types", func() {
+			expectedPV.Spec.ISCSI = nil
+			expectedPV.Spec.CephFS = &k8sv1.CephFSPersistentVolumeSource{}
+			disk := v1.Disk{
+				Type: "PersistentVolumeClaim",
+				Source: v1.DiskSource{
+					Name: "test-claim",
+				},
+				Target: v1.DiskTarget{
+					Device: "vda",
+				},
+			}
+			disk.Type = "PersistentVolumeClaim"
+			_, err := mapPVToDisk(&disk, &expectedPV)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unsupported"))
 		})
 	})
 })
 
-func getRestClient(url string) *rest.RESTClient {
-	gv := schema.GroupVersion{Group: "", Version: "v1"}
-	restConfig, err := clientcmd.BuildConfigFromFlags(url, "")
+type MockWatchdog struct {
+	baseDir string
+}
+
+func (m *MockWatchdog) CreateFile(vm *v1.VirtualMachine) {
+	Expect(os.MkdirAll(watchdog.WatchdogFileDirectory(m.baseDir), os.ModePerm)).To(Succeed())
+	err := watchdog.WatchdogFileUpdate(
+		watchdog.WatchdogFileFromNamespaceName(m.baseDir, vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),
+	)
 	Expect(err).NotTo(HaveOccurred())
-	restConfig.GroupVersion = &gv
-	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	restConfig.APIPath = "/api"
-	restConfig.ContentType = runtime.ContentTypeJSON
-	restClient, err := rest.RESTClientFor(restConfig)
-	Expect(err).NotTo(HaveOccurred())
-	return restClient
 }
