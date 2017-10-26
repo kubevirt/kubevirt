@@ -90,15 +90,11 @@ func (c *VMController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	isPending, err := c.execute(key.(string))
+	err := c.execute(key.(string))
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VM %v", key)
 		c.queue.AddRateLimited(key)
-	} else if isPending {
-		log.Log.V(4).Infof("reenqueuing pending VM %v", key)
-		c.queue.AddAfter(key, 1*time.Second)
-		c.queue.Forget(key)
 	} else {
 		log.Log.V(4).Infof("processed VM %v", key)
 		c.queue.Forget(key)
@@ -106,13 +102,13 @@ func (c *VMController) Execute() bool {
 	return true
 }
 
-func (c *VMController) execute(key string) (bool, error) {
+func (c *VMController) execute(key string) error {
 
 	// Fetch the latest Vm state from cache
 	obj, exists, err := c.store.GetByKey(key)
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// Retrieve the VM
@@ -120,7 +116,7 @@ func (c *VMController) execute(key string) (bool, error) {
 	if !exists {
 		namespace, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
-			return false, err
+			return err
 		}
 		vm = kubev1.NewVMReferenceFromNameWithNS(namespace, name)
 	} else {
@@ -133,10 +129,10 @@ func (c *VMController) execute(key string) (bool, error) {
 		err := c.vmService.DeleteVMPod(vm)
 		if err != nil {
 			logger.Reason(err).Error("Deleting VM target Pod failed.")
-			return false, err
+			return err
 		}
 		logger.Info("Deleting VM target Pod succeeded.")
-		return false, nil
+		return nil
 	}
 
 	switch vm.Status.Phase {
@@ -152,7 +148,7 @@ func (c *VMController) execute(key string) (bool, error) {
 		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
 		if err != nil {
 			logger.Reason(err).Error("Fetching VM pods failed.")
-			return false, err
+			return err
 		}
 
 		// If there are already pods, delete them before continuing ...
@@ -160,9 +156,10 @@ func (c *VMController) execute(key string) (bool, error) {
 			logger.Error("VM Pods do already exist, will clean up before continuing.")
 			if err := c.vmService.DeleteVMPod(&vmCopy); err != nil {
 				logger.Reason(err).Error("Deleting VM pods failed.")
-				return false, err
+				return err
 			}
-			return true, nil
+			// the pod informer will reenqueue the key as a result of it being deleted.
+			return nil
 		}
 
 		// Defaulting and setting constants
@@ -189,7 +186,7 @@ func (c *VMController) execute(key string) (bool, error) {
 		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
 			logger.Reason(err).Error("Defining a target pod for the VM failed.")
-			return false, err
+			return err
 		}
 
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
@@ -197,7 +194,7 @@ func (c *VMController) execute(key string) (bool, error) {
 		vmCopy.Status.Phase = kubev1.Scheduling
 		if err := c.restClient.Put().Resource("virtualmachines").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(vmCopy.ObjectMeta.Namespace).Do().Error(); err != nil {
 			logger.Reason(err).Error("Updating the VM state to 'Scheduling' failed.")
-			return false, err
+			return err
 		}
 		logger.Info("Handing over the VM to the scheduler succeeded.")
 	case kubev1.Scheduling:
@@ -211,7 +208,7 @@ func (c *VMController) execute(key string) (bool, error) {
 		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
 		if err != nil {
 			logger.Reason(err).Error("Fetching VM pods failed.")
-			return false, err
+			return err
 		}
 
 		//TODO, we can improve the pod checks here, for now they are as good as before the refactoring
@@ -219,23 +216,25 @@ func (c *VMController) execute(key string) (bool, error) {
 		// If not, something is wrong and the VM, stay stuck in the Scheduling phase
 		if len(pods.Items) == 0 {
 			logger.V(3).Info("No VM target pod in running state found.")
-			return false, nil
+			return nil
 		}
 
-		// Whatever is going on here, I don't know what to do, don't reprocess this
+		// If this occurs, the podinformer should reenqueue the key
+		// if one of these pods terminates. This will let virt-controller continue
+		// processing the VM.
 		if len(pods.Items) > 1 {
 			logger.V(3).Error("More than one VM target pods found.")
-			return false, nil
+			return nil
 		}
 
 		// Pod is not yet running
 		if pods.Items[0].Status.Phase != k8sv1.PodRunning {
-			return false, nil
+			return nil
 		}
 
 		if verifyReadiness(&pods.Items[0]) == false {
 			logger.V(2).Info("Waiting on all virt-launcher containers to be marked ready")
-			return false, nil
+			return nil
 		}
 
 		// VM got scheduled
@@ -249,18 +248,18 @@ func (c *VMController) execute(key string) (bool, error) {
 		vmCopy.Status.NodeName = pods.Items[0].Spec.NodeName
 		if _, err := c.vmService.PutVm(&vmCopy); err != nil {
 			logger.Reason(err).Error("Updating the VM state to 'Scheduled' failed.")
-			return false, err
+			return err
 		}
 		logger.Infof("VM successfully scheduled to %s.", vmCopy.Status.NodeName)
 	case kubev1.Failed, kubev1.Succeeded:
 		err := c.vmService.DeleteVMPod(vm)
 		if err != nil {
 			logger.Reason(err).Error("Deleting VM target Pod failed.")
-			return false, err
+			return err
 		}
 		logger.Info("Deleted VM target Pod for VM in finalized state.")
 	}
-	return false, nil
+	return nil
 }
 
 func verifyReadiness(pod *k8sv1.Pod) bool {
@@ -281,10 +280,12 @@ func vmLabelHandler(vmQueue workqueue.RateLimitingInterface) func(obj interface{
 		domainLabel, hasDomainLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.DomainLabel]
 		_, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
 
-		if phase != k8sv1.PodRunning {
-			// Filter out non running pods from Queue
-			return
-		} else if hasMigrationLabel {
+		deleted := false
+		if obj.(*k8sv1.Pod).GetObjectMeta().GetDeletionTimestamp() != nil {
+			deleted = true
+		}
+
+		if hasMigrationLabel {
 			// Filter out migration target pods
 			return
 		} else if hasDomainLabel == false || hasAppLabel == false {
@@ -292,6 +293,9 @@ func vmLabelHandler(vmQueue workqueue.RateLimitingInterface) func(obj interface{
 			return
 		} else if appLabel != "virt-launcher" {
 			// ensure we're looking just for virt-launcher pods
+			return
+		} else if phase != k8sv1.PodRunning && deleted == false {
+			// Filter out non running pods from Queue that aren't deleted
 			return
 		}
 		vmQueue.Add(namespace + "/" + domainLabel)
