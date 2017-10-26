@@ -20,7 +20,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("Replicaset", func() {
@@ -38,7 +38,6 @@ var _ = Describe("Replicaset", func() {
 	Context("One valid ReplicaSet controller given", func() {
 
 		var ctrl *gomock.Controller
-		var virtClient *kubecli.MockKubevirtClient
 		var vmInterface *kubecli.MockVMInterface
 		var rsInterface *kubecli.MockReplicaSetInterface
 		var vmSource *framework.FakeControllerSource
@@ -48,7 +47,8 @@ var _ = Describe("Replicaset", func() {
 		var stop chan struct{}
 		var controller *VMReplicaSet
 		var recorder *record.FakeRecorder
-		var mockQueue *testing.MockWorkQueue
+		var mockQueue *testutils.MockWorkQueue
+		var vmFeeder *testutils.VirtualMachineFeeder
 
 		syncCaches := func(stop chan struct{}) {
 			go vmInformer.Run(stop)
@@ -59,20 +59,19 @@ var _ = Describe("Replicaset", func() {
 		BeforeEach(func() {
 			stop = make(chan struct{})
 			ctrl = gomock.NewController(GinkgoT())
-			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 			vmInterface = kubecli.NewMockVMInterface(ctrl)
 			rsInterface = kubecli.NewMockReplicaSetInterface(ctrl)
 
-			vmSource = framework.NewFakeControllerSource()
-			rsSource = framework.NewFakeControllerSource()
-			vmInformer = cache.NewSharedIndexInformer(vmSource, &v1.VirtualMachine{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			rsInformer = cache.NewSharedIndexInformer(rsSource, &v1.VirtualMachineReplicaSet{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+			rsInformer, rsSource = testutils.NewFakeInformerFor(&v1.VirtualMachineReplicaSet{})
 			recorder = record.NewFakeRecorder(100)
 
 			controller = NewVMReplicaSet(vmInformer, rsInformer, recorder, virtClient, uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockQueue = testing.NewMockWorkQueue(controller.Queue)
+			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
+			vmFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmSource)
 
 			// Set up mock client
 			virtClient.EXPECT().VM(v12.NamespaceDefault).Return(vmInterface).AnyTimes()
@@ -83,24 +82,6 @@ var _ = Describe("Replicaset", func() {
 			syncCaches(stop)
 			mockQueue.ExpectAdds(1)
 			rsSource.Add(rs)
-			mockQueue.Wait()
-		}
-
-		add := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Add(vm)
-			mockQueue.Wait()
-		}
-
-		modify := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Modify(vm)
-			mockQueue.Wait()
-		}
-
-		delete := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Delete(vm)
 			mockQueue.Wait()
 		}
 
@@ -207,7 +188,7 @@ var _ = Describe("Replicaset", func() {
 			for x := 0; x < 15; x++ {
 				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
 				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-				add(vm)
+				vmFeeder.Add(vm)
 			}
 
 			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
@@ -254,7 +235,7 @@ var _ = Describe("Replicaset", func() {
 			expectedRS.Status.Replicas = 1
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any())
 			rsInterface.EXPECT().Update(expectedRS)
@@ -269,7 +250,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			controller.Execute()
 		})
@@ -282,7 +263,7 @@ var _ = Describe("Replicaset", func() {
 			rsCopy.Status.Replicas = 0
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			rsInterface.EXPECT().Update(rsCopy).Times(1)
 
@@ -291,7 +272,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Move one VM to a final state
 			vm.Status.Phase = v1.Succeeded
-			modify(vm)
+			vmFeeder.Modify(vm)
 
 			// Expect the re-crate of the VM
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
@@ -312,7 +293,7 @@ var _ = Describe("Replicaset", func() {
 			expectedRS.Status.ReadyReplicas = 1
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			rsInterface.EXPECT().Update(expectedRS).Times(1)
 
@@ -321,7 +302,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Move one VM to a final state
 			vm.Status.Phase = v1.Running
-			modify(vm)
+			vmFeeder.Modify(vm)
 
 			// Run the controller again
 			controller.Execute()
@@ -336,13 +317,13 @@ var _ = Describe("Replicaset", func() {
 			rsCopy.Status.Replicas = 0
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			// First make sure that we don't have to do anything
 			controller.Execute()
 
 			// Delete one VM
-			delete(vm)
+			vmFeeder.Delete(vm)
 
 			// Expect the update from 1 to zero replicas
 			rsInterface.EXPECT().Update(rsCopy).Times(1)
@@ -360,7 +341,7 @@ var _ = Describe("Replicaset", func() {
 			rs, vm := DefaultReplicaSet(3)
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			// Let first one succeed
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
@@ -390,8 +371,8 @@ var _ = Describe("Replicaset", func() {
 			vm1.ObjectMeta.Name = "test1"
 
 			addReplicaSet(rs)
-			add(vm)
-			add(vm1)
+			vmFeeder.Add(vm)
+			vmFeeder.Add(vm1)
 
 			// Let first one succeed
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any()).Return(nil)
@@ -426,7 +407,7 @@ var _ = Describe("Replicaset", func() {
 			}
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			// Let first one succeed
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
@@ -458,7 +439,7 @@ var _ = Describe("Replicaset", func() {
 			}
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			vmInterface.EXPECT().Create(gomock.Any()).Times(2).Return(vm, nil)
 

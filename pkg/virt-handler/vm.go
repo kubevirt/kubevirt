@@ -63,11 +63,8 @@ func NewController(
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(queue))
-	domainInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(queue))
-	watchdogInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(queue))
 
-	return &VirtualMachineController{
+	c := &VirtualMachineController{
 		Queue:                  queue,
 		domainManager:          domainManager,
 		recorder:               recorder,
@@ -80,6 +77,26 @@ func NewController(
 		domainInformer:         domainInformer,
 		watchdogInformer:       watchdogInformer,
 	}
+
+	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addFunc,
+		DeleteFunc: c.deleteFunc,
+		UpdateFunc: c.updateFunc,
+	})
+
+	domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addFunc,
+		DeleteFunc: c.deleteFunc,
+		UpdateFunc: c.updateFunc,
+	})
+
+	watchdogInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addFunc,
+		DeleteFunc: c.deleteFunc,
+		UpdateFunc: c.updateFunc,
+	})
+
+	return c
 }
 
 type VirtualMachineController struct {
@@ -212,7 +229,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	go c.vmInformer.Run(stopCh)
 	go c.watchdogInformer.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.watchdogInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.watchdogInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -684,5 +701,23 @@ func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 		case api.Running, api.Paused, api.Blocked, api.PMSuspended:
 			vm.Status.Phase = v1.Running
 		}
+	}
+}
+func (d *VirtualMachineController) addFunc(obj interface{}) {
+	key, err := controller.KeyFunc(obj)
+	if err == nil {
+		d.Queue.Add(key)
+	}
+}
+func (d *VirtualMachineController) deleteFunc(obj interface{}) {
+	key, err := controller.KeyFunc(obj)
+	if err == nil {
+		d.Queue.Add(key)
+	}
+}
+func (d *VirtualMachineController) updateFunc(old, new interface{}) {
+	key, err := controller.KeyFunc(new)
+	if err == nil {
+		d.Queue.Add(key)
 	}
 }
