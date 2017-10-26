@@ -138,6 +138,8 @@ func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (stri
 
 func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain *api.Domain, syncError error) (err error) {
 
+	oldStatus := vm.DeepCopy().Status
+
 	// Don't update the VM if it is already in a final state
 	if vm.IsFinal() {
 		return nil
@@ -149,21 +151,18 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	}
 
 	// Calculate the new VM state based on what libvirt reported
-	oldPhase := vm.Status.Phase
 	d.setVmPhaseForStatusReason(domain, vm)
 
 	vm.Status.Graphics = []v1.VMGraphics{}
 
 	// Update devices if device status changed
 	// TODO needs caching, better position or init fetch
-	deviceChanged := false
 	if domain != nil {
 		nodeIP, err := d.getVMNodeAddress(vm)
 		if err != nil {
 			return err
 		}
 
-		oldGraphics := vm.Status.Graphics
 		vm.Status.Graphics = []v1.VMGraphics{}
 		for _, src := range domain.Spec.Devices.Graphics {
 			if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
@@ -176,20 +175,18 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 			}
 			vm.Status.Graphics = append(vm.Status.Graphics, dst)
 		}
-		deviceChanged = deviceChanged || !reflect.DeepEqual(vm.Status.Graphics, oldGraphics)
 	}
 
-	phaseChanged := oldPhase != vm.Status.Phase
-	errorChanged := d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")
+	d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")
 
-	if deviceChanged || phaseChanged || errorChanged {
+	if !reflect.DeepEqual(oldStatus, vm.Status) {
 		_, err = d.clientset.VM(vm.ObjectMeta.Namespace).Update(vm)
 		if err != nil {
 			return err
 		}
 	}
 
-	if phaseChanged {
+	if oldStatus.Phase != vm.Status.Phase {
 		switch vm.Status.Phase {
 		case v1.Succeeded:
 			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Stopped.String(), "The VM was shut down.")
@@ -657,7 +654,7 @@ func (d *VirtualMachineController) checkFailure(vm *v1.VirtualMachine, syncErr e
 	return false
 }
 
-func (d *VirtualMachineController) hasCondition(vm *v1.VirtualMachine, cond v1.VirtualMachinConditionType) bool {
+func (d *VirtualMachineController) hasCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) bool {
 	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
 			return true
@@ -666,7 +663,7 @@ func (d *VirtualMachineController) hasCondition(vm *v1.VirtualMachine, cond v1.V
 	return false
 }
 
-func (d *VirtualMachineController) removeCondition(vm *v1.VirtualMachine, cond v1.VirtualMachinConditionType) {
+func (d *VirtualMachineController) removeCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
 	var conds []v1.VMCondition
 	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
