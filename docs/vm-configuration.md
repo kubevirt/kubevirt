@@ -1,4 +1,4 @@
-Virtual Machine Configuration
+﻿Virtual Machine Configuration
 =============================
 
 The configuration of virtual machines is one of the core tasks to accomplish
@@ -266,3 +266,227 @@ the generation of multiple libvirt XML documents, the domain XML and associated
 documents for secrets, network filters and node devices. So there is not a strict
 1-1 mapping between the k8s API resource representation and the libvirt low
 level representation.
+
+Mapping rules for mapping libvirt XML to the KubeVirt API
+---------------------------------------------------------
+
+In order to support libvirt features, we tend to expose the libvirt API as much
+as possible in a 1:1 fashion. However, there are some differences which need to
+be taken into account:
+
+ 1. Our API is json/yaml and not xml.
+ 2. Host specifics are not exposed on the API.
+ 3. We want to make use of the golang xml/yaml/json mappers as much as possible.
+ 4. Ordering of devices can be important (e.g. for pci address assignment).
+ 5. KubeVirt also delivers specialized device types (mostly for network and
+    storage), which need to be fit into the existing structure.
+
+**Note**: Point **4** is still under debate.
+
+## General mapping rules
+
+### All devices need to live directly under *devices*
+
+In order to allow arbitrary ordering of devices, they all need directly live
+under `devices`.
+
+This is OK:
+
+```yaml
+devices:
+  lun:
+    my: data
+  video:
+    qxl:
+      my: data
+  lun:
+    my: data1
+  video:
+    qxl:
+      my: data1
+```
+
+This is **not** OK:
+
+```yaml
+devices:
+  disks:
+    lun:
+      my: data
+    lun:
+      my: data1
+  videos:
+    qxl:
+      my: data
+    qxl:
+      my: data1
+```
+
+### Add clear extension points where KubeVirt provides specializations
+
+Disks and network interfaces are good examples where KubeVirt provides
+specializations. See the mapping decisions for them below to get an impression
+on how clear extension points can be added. In general allowing to choose
+between different optional source or target structs is the preferred mechanism,
+to cleanly separate between KubeVirt extensions and libvirt source or target
+types.
+
+For device types where no KubeVirt specific extensions are expected, creating
+sub-structs is not required. Even differentiating based on `type` fields is OK
+there. Examples are `smartcard`, `input` and `controller`.
+
+### Use optional structs to represent different sources or targets
+
+By having an inlinded wrapper-struct, containing optional structs corresponding
+to different types, we get a reasonable usable API and can maintain explicit
+mapping withing the code.
+
+Given a `Disk` which can have different `DiskSource`s
+
+```golang
+type Disk struct {
+    Name string `json:"name"`
+    DiskSource `json:"diskSource,inline"`
+}
+
+type DiskSource struct {
+   ISCSI *ISCSIDiskSource `json"iscsi,omitempty"`
+   NoCloud *NoCloudDiskSource `json"noCloud,omitempty"`
+}
+```
+
+it will map to
+
+```yaml
+disk:
+  name: mydisk
+  diskSource:
+    iscsi:
+      blub: bla
+disk:
+  name: mydisk
+  diskSource:
+    noCloud:
+      blub: bla
+```
+
+## Mapping decisions for specific device types
+
+### Disks
+
+`disk`, `lun`, `floppy` and `cdrom` aret top level entries in the `devices`
+array. Based on them, the `*.target` section can therefore be specialized based
+on the top level struct. Further, the `*.source` section can be specialized and
+can contain structs for traditional sources like `iscsi` or KubeVirt specific
+structs like `noCloud`:
+
+```yaml
+devices:
+- disk:
+    target:
+      readOnly: true
+    source:
+      noCloud:
+        secretRef:
+          name: mysecret
+- cdrom:
+    target:
+      readOnly: true
+      tray: "open"
+    source:
+      image:
+        name:"mydisk:latest"
+- floppy:
+    target:
+      readOnly: true
+      tray: "open"
+    source:
+      image:
+        name:"mydisk:latest"
+- lun:
+    target:
+      readOnly: false
+    source:
+      iscsi:
+        targetPortal: 10.0.2.15:3260
+        portals: ['10.0.2.16:3260', '10.0.2.17:3260']
+        iqn: iqn.2001-04.com.example:storage.kube.sys1.xyz
+        lun: 0
+```
+
+### Network
+
+Every network interface is wrapped into a `interface` struct. The `model`
+attribute and all other guest specific attributes are part of this `interface`
+struct. A wrapping `interface.source` struct can contain different source
+structs. They can be traditional interface sources like `bridge`, `direct` or
+`hostedev`, or KubeVirt specializations like `hostNetwork` or `podNetwork`:
+
+```yaml
+devices:
+  interface:
+    source:
+      bridge:
+        dev: mybridge
+    model: virtio
+  interface:
+    source:
+      podNetwork: {}
+    model: virtio
+```
+
+### Video
+
+Mapping of the three important video devices `qxl`, `vga` and `virtio` is
+planned at the moment. They are wrapped by a `video` struct:
+
+```yaml
+devices:
+  video:
+    qxl:
+      blub: bla
+  video:
+    vga:
+      blub: bla
+  video:
+    virtio:
+      blub: bla
+```
+
+### Spice and VNC
+
+Spice and VNC need specific devices on the VirtualMachine, but are not devices
+themselves. They tell libvirt/qemu to start servers to allow attaching to the
+VirtualMachine, but have no influence on the VirtualMachine itself. Therefore
+they are moved out of the devices section:
+
+```yaml
+spec:
+  spice:
+    blub: ba
+  vnc:
+    blub: ba
+  devices:
+    video:
+      qxl:
+        blub: bla
+```
+
+They will contain almost no fields, since it is expected that the KubeVirt
+infrastructure will handle almost all connection aspects.
+
+### Controller
+
+Controller setup is complex and since it does not seem very likely that
+KubeVirt will ever have to provide specializations in that area. Therefore
+working with a generic blob-like struct should be sufficient:
+
+```yaml
+devices:
+- controller:
+    type: ide
+    blub: bla
+- controller:
+    type: sata
+    blub: bla
+```
