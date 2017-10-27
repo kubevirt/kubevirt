@@ -347,7 +347,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// Process the VM only if the current phases are in sync
 	var syncErr error
-	if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) {
+	if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) || !exists {
 		syncErr = d.processVmUpdate(vm.DeepCopy(), shouldDeleteVm)
 		if syncErr != nil {
 			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())

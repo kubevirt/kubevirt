@@ -111,8 +111,20 @@ var _ = Describe("VM", func() {
 
 	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
 
-		It("should kill the Domain if no cluster wide equivalent exists", func() {
+		It("should delete non-running Domains if no cluster wide equivalent exists", func() {
 			domain := api.NewMinimalDomain("testvm")
+			domainFeeder.Add(domain)
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
+
+			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
+			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
+
+			controller.Execute()
+		})
+
+		It("should delete running Domains if no cluster wide equivalent exists", func() {
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 
