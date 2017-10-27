@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/endpoints"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 	"kubevirt.io/kubevirt/pkg/virt-manifest"
 )
 

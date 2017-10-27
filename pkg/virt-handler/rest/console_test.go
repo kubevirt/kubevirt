@@ -36,7 +36,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 var _ = Describe("Console", func() {
@@ -95,14 +95,14 @@ var _ = Describe("Console", func() {
 	})
 
 	It("should return 404 if VM does not exist", func() {
-		mockConn.EXPECT().LookupDomainByName("default_testvm").Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+		mockConn.EXPECT().LookupGuestByName("default_testvm").Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 		r, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(r.StatusCode).To(Equal(http.StatusNotFound))
 	})
 
 	It("should return 500 if domain can't be looked up", func() {
-		mockConn.EXPECT().LookupDomainByName("default_testvm").Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+		mockConn.EXPECT().LookupGuestByName("default_testvm").Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
 		r, err := get("testvm")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
@@ -115,14 +115,14 @@ var _ = Describe("Console", func() {
 		})
 
 		It("should return 500 if uid of domain can't be looked up", func() {
-			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
+			mockConn.EXPECT().LookupGuestByName("default_testvm").Return(mockDomain, nil)
 			mockDomain.EXPECT().GetUUIDString().Return("", libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
 			r, err := get("testvm")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
 		})
 		It("should return 500 if creating a stream fails", func() {
-			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
+			mockConn.EXPECT().LookupGuestByName("default_testvm").Return(mockDomain, nil)
 			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
 			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
 			r, err := get("testvm")
@@ -130,7 +130,7 @@ var _ = Describe("Console", func() {
 			Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
 		})
 		It("should return 500 if opening a console connection fails", func() {
-			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
+			mockConn.EXPECT().LookupGuestByName("default_testvm").Return(mockDomain, nil)
 			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
 			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
 			stream := &libvirt.Stream{}
@@ -142,7 +142,7 @@ var _ = Describe("Console", func() {
 			Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
 		})
 		It("should return 400 if ws upgrade does not work", func() {
-			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
+			mockConn.EXPECT().LookupGuestByName("default_testvm").Return(mockDomain, nil)
 			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
 			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
 			stream := &libvirt.Stream{}
@@ -162,7 +162,7 @@ var _ = Describe("Console", func() {
 			outBuf.WriteString("hello client!")
 			stream := &fakeStream{in: inBuf, out: outBuf, s: &libvirt.Stream{}}
 
-			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
+			mockConn.EXPECT().LookupGuestByName("default_testvm").Return(mockDomain, nil)
 			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
 			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(stream, nil)
 			mockDomain.EXPECT().OpenConsole("console0", stream.s, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(nil)

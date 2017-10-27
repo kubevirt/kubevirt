@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{
@@ -74,7 +74,7 @@ var CrashedReasonTranslationMap = map[libvirt.DomainCrashedReason]api.StateChang
 func newListWatchFromClient(c cli.Connection, events ...int) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		log.Log.V(3).Info("Synchronizing domains")
-		doms, err := c.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+		doms, err := c.ListAllGuests(true, true)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +131,7 @@ func newDomainWatcher(c cli.Connection, events ...int) (watch.Interface, error) 
 		log.Log.V(3).Infof("Libvirt event %d with reason %d received", event.Event, event.Detail)
 		callback(d, event, watcher.C)
 	}
-	err := c.DomainEventLifecycleRegister(callback)
+	err := c.RegisterGuestEventLifecycle(callback)
 	if err != nil {
 		log.Log.V(2).Info("Lifecycle event callback registered.")
 	}

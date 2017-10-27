@@ -30,7 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-manifest/rest"
 )
 
@@ -52,16 +52,20 @@ func (app *virtManifestApp) Run() {
 
 	logger.Info("Connecting to libvirt")
 
-	domainConn, err := cli.NewConnection(app.LibvirtUri, "", "", 60*time.Second)
+	// Initializing connection to hypervisor
+	hc, err := virtwrap.NewHypervisorConnection(app.LibvirtUri, "", "")
 	if err != nil {
 		logger.Reason(err).Error("cannot connect to libvirt")
 		panic(fmt.Sprintf("failed to connect to libvirt: %v", err))
 	}
-	defer domainConn.Close()
+	defer hc.Close()
 
 	logger.Info("Connected to libvirt")
 
-	ws, err := rest.ManifestService(domainConn)
+	// Monitoring connection
+	virtwrap.MonitorHypervisorConnection(hc, 10*time.Second)
+
+	ws, err := rest.ManifestService(hc)
 	if err != nil {
 		logger.Reason(err).Error("Unable to create REST server.")
 	}

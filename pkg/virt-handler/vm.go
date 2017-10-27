@@ -485,9 +485,20 @@ func (d *VMHandlerDispatch) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteV
 		return false, nil
 	}
 
-	// TODO check if found VM has the same UID like the domain,
-	// if not, delete the Domain first
-	newCfg, err := d.domainManager.SyncVM(vm)
+	// Check for cgroups
+	isolation, err := d.domainManager.GetPodIsolationDetector().Detect(vm)
+	if err != nil {
+		log.Log.Object(vm).V(3).Reason(err).Error(
+			"Could not detect virt-launcher cgroups.")
+		return false, err
+	}
+	log.Log.Object(vm).With("slice", isolation.Slice()).V(3).Info(
+		"Detected cgroup slice.")
+
+	// TODO check if found VM has the same UID like the domain, if
+	// not, delete the Domain first
+	newCfg, err := virtwrap.UpdateGuest(
+		d.domainManager.GetVirConn(), vm, isolation)
 	if err != nil {
 		return false, err
 	}

@@ -28,8 +28,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
+	cli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 const (
@@ -87,14 +88,7 @@ func MapVM(con cli.Connection, vm *v1.VirtualMachine) (*v1.VirtualMachine, error
 
 	wantedSpec.Name = vmCopy.GetObjectMeta().GetName()
 	wantedSpec.UUID = string(vmCopy.GetObjectMeta().GetUID())
-	xmlStr, err := xml.Marshal(&wantedSpec)
-	if err != nil {
-		logger.Object(vm).Reason(err).Error("Generating the domain XML failed.")
-		return nil, err
-	}
-
-	logger.Object(vm).V(3).Info("Domain XML generated.")
-	dom, err := con.DomainDefineXML(string(xmlStr))
+	dom, err := virtwrap.DefineGuest(con, vm, wantedSpec)
 	if err != nil {
 		logger.Object(vm).Reason(err).Error("Defining the VM failed.")
 		return nil, err

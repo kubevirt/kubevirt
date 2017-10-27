@@ -7,7 +7,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	isolation "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	libvirt "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/libvirt"
 )
 
 // Mock of DomainManager interface
@@ -51,17 +52,6 @@ func (_mr *_MockDomainManagerRecorder) RemoveVMSecrets(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVMSecrets", arg0)
 }
 
-func (_m *MockDomainManager) SyncVM(_param0 *v1.VirtualMachine) (*api.DomainSpec, error) {
-	ret := _m.ctrl.Call(_m, "SyncVM", _param0)
-	ret0, _ := ret[0].(*api.DomainSpec)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockDomainManagerRecorder) SyncVM(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVM", arg0)
-}
-
 func (_m *MockDomainManager) KillVM(_param0 *v1.VirtualMachine) error {
 	ret := _m.ctrl.Call(_m, "KillVM", _param0)
 	ret0, _ := ret[0].(error)
@@ -70,4 +60,24 @@ func (_m *MockDomainManager) KillVM(_param0 *v1.VirtualMachine) error {
 
 func (_mr *_MockDomainManagerRecorder) KillVM(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVM", arg0)
+}
+
+func (_m *MockDomainManager) GetVirConn() libvirt.Connection {
+	ret := _m.ctrl.Call(_m, "GetVirConn")
+	ret0, _ := ret[0].(libvirt.Connection)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) GetVirConn() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetVirConn")
+}
+
+func (_m *MockDomainManager) GetPodIsolationDetector() isolation.PodIsolationDetector {
+	ret := _m.ctrl.Call(_m, "GetPodIsolationDetector")
+	ret0, _ := ret[0].(isolation.PodIsolationDetector)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) GetPodIsolationDetector() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetPodIsolationDetector")
 }
