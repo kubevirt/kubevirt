@@ -25,10 +25,11 @@ import (
 
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"fmt"
 	"io/ioutil"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 func IsDNSMasqPidRunning(pid int) bool {

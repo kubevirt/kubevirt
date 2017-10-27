@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	DNSmasqExec   = "/usr/sbin/dnsmasq"
-	DHCPLeaseFile = "/tmp/dhcp.leases"
-	DHCPPidFile   = "/tmp/dhcp.pid"
-	DHCPHostsFile = "/tmp/dhcp.hosts"
+	DNSmasqExec = "/usr/sbin/dnsmasq"
+	DHCPPidFile = "/tmp/dhcp.pid"
 )
+
+var DHCPLeaseFile = "/var/run/kubevirt/dhcp.leases"
+var DHCPHostsFile = "/var/run/kubevirt/dhcp.hosts"
 
 type hostsDetails struct {
 	Mac   string
@@ -78,14 +79,10 @@ type OSOps interface {
 	checkProcessExist(pid int) (bool, *os.Process)
 	killProcessIfExist(pid int) error
 	RecreateHostsFile() (*os.File, error)
-	executeCommand(string, []string) *exec.Cmd
 	readFromFile(file string) ([]byte, error)
-	IsDNSMasqPidRunning(pid int) bool
 }
 
-type OSHandler struct {
-	dnsmasq *DNSmasqInstance
-}
+type OSHandler struct{}
 
 var OS OSOps
 
@@ -101,22 +98,28 @@ func (o *OSHandler) IsFileExist(path string) (bool, error) {
 	return exists, err
 }
 
-func (o *OSHandler) getPidFromFile(file string) (int, error) {
+func (o *OSHandler) readFromFile(file string) ([]byte, error) {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to open dnsmasq pid file: %s", file)
+		log.Log.Reason(err).Errorf("failed to open file: %s", file)
+		return nil, err
+	}
+	return content, nil
+}
+
+func (o *OSHandler) getPidFromFile(file string) (int, error) {
+	content, err := OS.readFromFile(file)
+	if err != nil {
 		return -1, err
 	}
 	lines := strings.Split(string(content), "\n")
 	pid, _ := strconv.Atoi(lines[0])
-	log.Log.Debugf("found dnsmasq pid: %s", pid)
 	return pid, nil
 }
 
 func (o *OSHandler) killProcessIfExist(pid int) error {
 	procExist, proc := OS.checkProcessExist(pid)
 	if procExist {
-		log.Log.Debugf("killing process %d", proc.Pid)
 		killErr := proc.Kill()
 		if killErr != nil {
 			log.Log.Warningf("failed to kill process %d", proc.Pid)
@@ -150,27 +153,6 @@ func (o *OSHandler) RecreateHostsFile() (*os.File, error) {
 	return f, nil
 }
 
-func (o *OSHandler) IsDNSMasqPidRunning(pid int) bool {
-	path := fmt.Sprintf("/proc/%d/cmdline", pid)
-	fileExist, err := OS.IsFileExist(path)
-	if err != nil {
-		panic(err)
-	}
-
-	if fileExist {
-		content, err := ioutil.ReadFile(path)
-		if err != nil {
-			return false
-		}
-		return strings.Contains(string(content), "dnsmasq")
-	}
-	return false
-}
-
-func (o *OSHandler) executeCommand(path string, startArgs []string) *exec.Cmd {
-	return exec.Command(path, startArgs...)
-}
-
 func (dnsmasq *DNSmasqInstance) formatDhcpRange() string {
 	return fmt.Sprintf("--dhcp-range=%s,%s", net.IP(dnsmasq.ipRange[0]).String(), net.IP(dnsmasq.ipRange[1]).String())
 }
@@ -188,15 +170,9 @@ func (dnsmasq *DNSmasqInstance) stop() error {
 	if dnsmasq.monitor.IsRunning() {
 		dnsmasq.monitor.Stop()
 	} else {
-		fileExist, err := OS.IsFileExist(DHCPPidFile)
-		if err != nil {
-			return err
-		}
-		if fileExist {
-			pid, err1 := OS.getPidFromFile(DHCPPidFile)
-			if err1 == nil {
-				OS.killProcessIfExist(pid)
-			}
+		pid, err1 := OS.getPidFromFile(DHCPPidFile)
+		if err1 == nil {
+			OS.killProcessIfExist(pid)
 		}
 	}
 	return nil
@@ -219,7 +195,6 @@ func (dnsmasq *DNSmasqInstance) Restart() error {
 	if len(dnsmasq.hosts) != 0 {
 		return dnsmasq.Start()
 	}
-
 	return nil
 }
 
@@ -231,6 +206,17 @@ func (dnsmasq *DNSmasqInstance) AddHost(mac string, ipaddr string, lease int) er
 
 func (dnsmasq *DNSmasqInstance) RemoveHost(ipaddr string) error {
 	delete(dnsmasq.hosts, ipaddr)
+	return dnsmasq.Restart()
+}
+
+func (dnsmasq *DNSmasqInstance) SetKnownHosts(hostsList *[]AddArgs) error {
+	//Empty the known hosts store
+	dnsmasq.hosts = make(map[string]hostsDetails)
+
+	//Set the provided known hosts
+	for _, host := range *hostsList {
+		dnsmasq.hosts[host.IP] = hostsDetails{Mac: host.Mac, Lease: host.Lease}
+	}
 	return dnsmasq.Restart()
 }
 
@@ -277,17 +263,14 @@ func (dnsmasq *DNSmasqInstance) updateRange() {
 }
 
 func (dnsmasq *DNSmasqInstance) loadHostsFile() error {
-	fileExist, err := OS.IsFileExist(DHCPPidFile)
-	if err != nil {
-		return err
-	}
-	if !fileExist {
-		return nil
-	}
 	content, err := OS.readFromFile(DHCPHostsFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
+
 	lines := strings.Split(string(content), "\n")
 	for _, line := range lines {
 		data := strings.Split(line, ",")

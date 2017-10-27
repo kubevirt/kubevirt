@@ -60,6 +60,19 @@ func (s *DHCP) RemoveIP(args *RemoveArgs, reply *DhcpReply) error {
 	return nil
 }
 
+func (s *DHCP) SetIPs(args *[]AddArgs, reply *DhcpReply) error {
+	reply.Success = true
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	err := s.dnsmasq.SetKnownHosts(args)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to set known hosts")
+		reply.Success = false
+		reply.Message = err.Error()
+	}
+	return nil
+}
+
 func createSocket(socketPath string) (net.Listener, error) {
 
 	os.RemoveAll(socketPath)
@@ -77,10 +90,12 @@ func Run(socket string) error {
 	var mutex = &sync.Mutex{}
 
 	rpcServer := rpc.NewServer()
+	dnsmasq := NewDNSmasq()
 	server := &DHCP{name: "virt-dhcp",
-		dnsmasq: NewDNSmasq(),
+		dnsmasq: dnsmasq,
 		mutex:   mutex}
 	rpcServer.Register(server)
+	dnsmasq.loadHostsFile()
 	sock, err := createSocket(DhcpSocket)
 	if err != nil {
 		return err

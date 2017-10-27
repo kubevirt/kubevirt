@@ -2,6 +2,7 @@ package virtdhcp
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -57,7 +58,16 @@ func (o *MockOSHandler) killProcessIfExist(pid int) error {
 
 var _ = Describe("DHCP", func() {
 
+	var tempDir string
+
 	BeforeEach(func() {
+		tempDir, err := ioutil.TempDir("", "dhcptest")
+		Expect(err).NotTo(HaveOccurred())
+		DHCPLeaseFile = fmt.Sprintf("%s/dhcp.leases", tempDir)
+		DHCPHostsFile = fmt.Sprintf("%s/dhcp.hosts", tempDir)
+		cmdArgsPrefix = fmt.Sprintf("-k -d --strict-order --bind-dynamic --no-resolv --dhcp-no-override --dhcp-authoritative "+
+			"--except-interface=lo --dhcp-hostsfile=%s --dhcp-leasefile=%s --pid-file=/tmp/dhcp.pid",
+			DHCPHostsFile, DHCPLeaseFile)
 		testdnsmasq = NewDNSmasq()
 		OS = &MockOSHandler{}
 		testdnsmasq.monitor = FakeMonitor()
@@ -125,6 +135,18 @@ var _ = Describe("DHCP", func() {
 
 			Expect(len(testdnsmasq.hosts)).To(Equal(0))
 			Expect(cmdArgs).To(Equal([]string{}))
+		})
+		It("should set known hosts", func() {
+			hostsList := []AddArgs{{Mac: "12:d4:4f:99:7d:3f", IP: "10.32.0.15", Lease: 86400},
+				{Mac: "af:21:ac:bd:c3:ba", IP: "10.32.0.12", Lease: 86400}}
+			err := testdnsmasq.SetKnownHosts(&hostsList)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(testdnsmasq.hosts)).To(Equal(2))
+		})
+
+		AfterEach(func() {
+			os.RemoveAll(tempDir)
 		})
 	})
 })

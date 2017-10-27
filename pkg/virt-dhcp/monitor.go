@@ -19,18 +19,18 @@ type MonitorRuntime struct {
 }
 
 type MonitorCmd struct {
-	Stop    chan bool
+	Stop           chan bool
 	processStopped chan bool
-	ProcCmd *exec.Cmd
-	cmdArgs []string
-	cmdPath string
-	retries int
+	ProcCmd        *exec.Cmd
+	cmdArgs        []string
+	cmdPath        string
+	retries        int
 }
 
 func NewMonitor() Monitor {
 	mon := MonitorRuntime{
-		stopChan:  make(chan bool),
-		pid:       0,
+		stopChan: make(chan bool),
+		pid:      0,
 	}
 	return &mon
 }
@@ -50,7 +50,7 @@ func (runtime *MonitorRuntime) IsRunning() bool {
 }
 
 func (mon *MonitorCmd) restart(pid *int) {
-	defer func () {mon.processStopped <- true}()
+	defer func() { mon.processStopped <- true }()
 	mon.ProcCmd = exec.Command(mon.cmdPath, mon.cmdArgs...)
 	err := mon.ProcCmd.Start()
 	mon.retries += 1

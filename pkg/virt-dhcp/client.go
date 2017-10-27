@@ -44,3 +44,14 @@ func (dhcp *VirtDHCPClient) RemoveIP(mac string, ip string) error {
 	}
 	return nil
 }
+
+func (dhcp *VirtDHCPClient) SetIPs(hosts *[]AddArgs, reply *DhcpReply) error {
+	addReply := &DhcpReply{}
+
+	dhcp.client.Call("DHCP.SetIPs", hosts, addReply)
+	if addReply.Success != true {
+		msg := fmt.Sprintf("failed to set known hosts to dhcp: %s", addReply.Message)
+		return fmt.Errorf(msg)
+	}
+	return nil
+}

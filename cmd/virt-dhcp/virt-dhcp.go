@@ -20,9 +20,10 @@
 package main
 
 import (
+	"flag"
+
 	"kubevirt.io/kubevirt/pkg/log"
 	dhcp "kubevirt.io/kubevirt/pkg/virt-dhcp"
-	"flag"
 )
 
 const defaultDhcpSocket = "/var/run/kubevirt/virt_dhcp_sock"
