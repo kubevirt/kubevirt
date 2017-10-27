@@ -141,17 +141,47 @@ var _ = Describe("VM", func() {
 		It("should create the Domain if it sees the first time on a new VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Phase = v1.Scheduled
 			vm.Status.Graphics = []v1.VMGraphics{}
-
-			updatedVM := vm.DeepCopy()
-			updatedVM.Status.Phase = v1.Scheduled
 
 			mockWatchdog.CreateFile(vm)
 			domain := api.NewMinimalDomain("testvm")
 			vmFeeder.Add(vm)
 
 			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, nil)
+
+			controller.Execute()
+		})
+
+		It("should update from Scheduled to Running, if it sees a running Domain", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Phase = v1.Scheduled
+			vm.Status.Graphics = []v1.VMGraphics{}
+
+			updatedVM := vm.DeepCopy()
+			updatedVM.Status.Phase = v1.Running
+
+			mockWatchdog.CreateFile(vm)
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Running
+			vmFeeder.Add(vm)
+			domainFeeder.Add(domain)
+
 			vmInterface.EXPECT().Update(updatedVM)
+
+			node := &k8sv1.Node{
+				Status: k8sv1.NodeStatus{
+					Addresses: []k8sv1.NodeAddress{
+						{
+							Type:    k8sv1.NodeInternalIP,
+							Address: "127.0.0.1",
+						},
+					},
+				},
+			}
+			fakeClient := fake.NewSimpleClientset(node).CoreV1()
+			virtClient.EXPECT().CoreV1().Return(fakeClient).AnyTimes()
 
 			controller.Execute()
 		})
@@ -159,6 +189,7 @@ var _ = Describe("VM", func() {
 		It("should detect a missing watchdog file and report the error on the VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Phase = v1.Scheduled
 
 			vmFeeder.Add(vm)
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
@@ -171,6 +202,7 @@ var _ = Describe("VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Phase = v1.Scheduled
 			vm.Status.Conditions = []v1.VMCondition{
 				{
 					Type:   v1.VirtualMachineSynchronized,
@@ -179,7 +211,6 @@ var _ = Describe("VM", func() {
 			}
 
 			updatedVM := vm.DeepCopy()
-			updatedVM.Status.Phase = v1.Scheduled
 			updatedVM.Status.Conditions = []v1.VMCondition{}
 
 			mockWatchdog.CreateFile(vm)

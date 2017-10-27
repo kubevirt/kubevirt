@@ -149,6 +149,10 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	}
 
 	oldStatus := vm.DeepCopy().Status
+	// Make sure that we always deal with an empty instance for later equality checks
+	if oldStatus.Graphics == nil {
+		oldStatus.Graphics = []v1.VMGraphics{}
+	}
 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
@@ -341,11 +345,14 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	log.Log.Object(vm).V(3).Info("Processing VM update.")
 
-	// Process the VM
-	syncErr := d.processVmUpdate(vm.DeepCopy(), shouldDeleteVm)
-	if syncErr != nil {
-		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
-		log.Log.Object(vm).Reason(syncErr).Error("Synchronizing the VM failed.")
+	// Process the VM only if the current phases are in sync
+	var syncErr error
+	if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) {
+		syncErr = d.processVmUpdate(vm.DeepCopy(), shouldDeleteVm)
+		if syncErr != nil {
+			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
+			log.Log.Object(vm).Reason(syncErr).Error("Synchronizing the VM failed.")
+		}
 	}
 
 	// Update the VM status, if the VM exists
@@ -524,7 +531,7 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (*v1.Vi
 
 func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteVM bool) error {
 
-	if shouldDeleteVM || vm.ObjectMeta.DeletionTimestamp != nil {
+	if shouldDeleteVM || vm.ObjectMeta.DeletionTimestamp != nil || vm.IsFinal() {
 		// Since the VM was not in the cache, we delete it
 		err := d.domainManager.KillVM(vm)
 		if err != nil {
@@ -672,31 +679,34 @@ func (d *VirtualMachineController) removeCondition(vm *v1.VirtualMachine, cond v
 }
 
 func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) {
+	vm.Status.Phase = d.calculateVmPhaseForStatusReason(domain, vm)
+}
+func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) v1.VMPhase {
 
 	if domain == nil {
-		if !vm.IsRunning() || vm.IsFinal() {
-			vm.Status.Phase = v1.Scheduled
-			return
+		if !vm.IsRunning() {
+			return v1.Scheduled
 		} else {
 			// That is unexpected. We should not be able to delete a VM before we stop it.
-			// However, if someone directly interacts with libvirt it might be possible
-			vm.Status.Phase = v1.Failed
-			return
+			// However, if someone directly interacts with libvirt it is possible
+			return v1.Failed
 		}
 	} else {
 		switch domain.Status.Status {
 		case api.Shutoff, api.Crashed:
 			switch domain.Status.Reason {
 			case api.ReasonCrashed, api.ReasonPanicked:
-				vm.Status.Phase = v1.Failed
+				return v1.Failed
 			case api.ReasonShutdown, api.ReasonDestroyed, api.ReasonSaved, api.ReasonFromSnapshot:
-				vm.Status.Phase = v1.Succeeded
+				return v1.Succeeded
 			}
 		case api.Running, api.Paused, api.Blocked, api.PMSuspended:
-			vm.Status.Phase = v1.Running
+			return v1.Running
 		}
 	}
+	return vm.Status.Phase
 }
+
 func (d *VirtualMachineController) addFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
