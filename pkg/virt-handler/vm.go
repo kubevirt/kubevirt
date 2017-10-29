@@ -85,9 +85,9 @@ func NewController(
 	})
 
 	domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addFunc,
-		DeleteFunc: c.deleteFunc,
-		UpdateFunc: c.updateFunc,
+		AddFunc:    c.addDomainFunc,
+		DeleteFunc: c.deleteDomainFunc,
+		UpdateFunc: c.updateDomainFunc,
 	})
 
 	watchdogInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -720,6 +720,34 @@ func (d *VirtualMachineController) deleteFunc(obj interface{}) {
 	}
 }
 func (d *VirtualMachineController) updateFunc(old, new interface{}) {
+	key, err := controller.KeyFunc(new)
+	if err == nil {
+		d.Queue.Add(key)
+	}
+}
+
+func (d *VirtualMachineController) addDomainFunc(obj interface{}) {
+	domain := obj.(*api.Domain)
+	log.Log.Object(domain).Infof("Domain is in state %s reason %s", domain.Status.Status, domain.Status.Reason)
+	key, err := controller.KeyFunc(obj)
+	if err == nil {
+		d.Queue.Add(key)
+	}
+}
+func (d *VirtualMachineController) deleteDomainFunc(obj interface{}) {
+	domain := obj.(*api.Domain)
+	log.Log.Object(domain).Info("Domain deleted")
+	key, err := controller.KeyFunc(obj)
+	if err == nil {
+		d.Queue.Add(key)
+	}
+}
+func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
+	newDomain := new.(*api.Domain)
+	oldDomain := old.(*api.Domain)
+	if oldDomain.Status.Status != newDomain.Status.Status || oldDomain.Status.Reason != newDomain.Status.Reason {
+		log.Log.Object(newDomain).Infof("Domain is in state %s reason %s", newDomain.Status.Status, newDomain.Status.Reason)
+	}
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)
