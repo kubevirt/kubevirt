@@ -3,6 +3,7 @@ kind: VirtualMachine
 metadata:
   name: testvm
 spec:
+  terminationGracePeriodSeconds: 0
   domain:
     devices:
       graphics:
