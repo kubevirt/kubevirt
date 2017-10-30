@@ -29,6 +29,8 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"strings"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -62,21 +64,17 @@ func SetLocalDataOwner(user string) {
 }
 
 func getFilePath(basePath string) (string, string, error) {
-	rawPath := basePath + "/" + filePrefix + ".raw"
-	qcow2Path := basePath + "/" + filePrefix + ".qcow2"
 
-	exists, err := diskutils.FileExists(rawPath)
-	if err != nil {
-		return "", "", err
-	} else if exists {
-		return rawPath, "raw", nil
-	}
+	suffixes := map[string]string{".raw": "raw", ".qcow2": "qcow2", ".raw.virt": "raw", ".qcow2.virt": "qcow2"}
 
-	exists, err = diskutils.FileExists(qcow2Path)
-	if err != nil {
-		return "", "", err
-	} else if exists {
-		return qcow2Path, "qcow2", nil
+	for k, v := range suffixes {
+		path := basePath + "/" + filePrefix + k
+		exists, err := diskutils.FileExists(path)
+		if err != nil {
+			return "", "", err
+		} else if exists {
+			return path, v, nil
+		}
 	}
 
 	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", basePath))
@@ -140,11 +138,13 @@ func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 			}
 
 			// Rename file to release management of it from container process.
-			oldDiskPath := diskPath
-			diskPath = oldDiskPath + ".virt"
-			err = os.Rename(oldDiskPath, diskPath)
-			if err != nil {
-				return vm, err
+			if !strings.HasSuffix(diskPath, ".virt") {
+				oldDiskPath := diskPath
+				diskPath = oldDiskPath + ".virt"
+				err = os.Rename(oldDiskPath, diskPath)
+				if err != nil {
+					return vm, err
+				}
 			}
 
 			err = diskutils.SetFileOwnership(registryDiskOwner, diskPath)

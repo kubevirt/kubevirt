@@ -139,28 +139,19 @@ func (app *virtHandlerApp) Run() {
 	configDiskClient := configdisk.NewConfigDiskClient(virtCli)
 
 	// Wire VM controller
-	vmListWatcher := controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", k8sv1.NamespaceAll, fields.Everything(), l)
-	vmStore, vmQueue, vmController := virthandler.NewVMController(
-		vmListWatcher,
-		domainManager,
-		recorder,
-		*virtCli.RestClient(),
-		virtCli,
-		app.HostOverride,
-		configDiskClient,
-		app.VirtShareDir,
-		int(app.WatchdogTimeoutDuration.Seconds()))
 
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
 	if err != nil {
 		panic(err)
 	}
-	domainStore, domainController := virthandler.NewDomainController(vmQueue, vmStore, domainSharedInformer, *virtCli.RestClient(), recorder)
 
-	if err != nil {
-		panic(err)
-	}
+	vmSharedInformer := cache.NewSharedIndexInformer(
+		controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", k8sv1.NamespaceAll, fields.Everything(), l),
+		&v1.VirtualMachine{},
+		0,
+		cache.Indexers{},
+	)
 
 	watchdogInformer := cache.NewSharedIndexInformer(
 		watchdog.NewWatchdogListWatchFromClient(
@@ -170,40 +161,23 @@ func (app *virtHandlerApp) Run() {
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-	watchdogInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(vmQueue))
+	vmController := virthandler.NewController(
+		domainManager,
+		recorder,
+		virtCli,
+		app.HostOverride,
+		configDiskClient,
+		app.VirtShareDir,
+		int(app.WatchdogTimeoutDuration.Seconds()),
+		vmSharedInformer,
+		domainSharedInformer,
+		watchdogInformer,
+	)
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
 
-	// Start domain controller and wait for Domain cache sync
-	domainController.StartInformer(stop)
-	domainController.WaitForSync(stop)
-
-	// Poplulate the VM store with known Domains on the host, to get deletes since the last run
-	for _, domain := range domainStore.List() {
-		d := domain.(*virt_api.Domain)
-		vmStore.Add(v1.NewVMReferenceFromNameWithNS(d.ObjectMeta.Namespace, d.ObjectMeta.Name))
-	}
-
-	// Watch for VM changes
-	vmController.StartInformer(stop)
-	vmController.WaitForSync(stop)
-
-	err = configDiskClient.UndefineUnseen(vmStore)
-	if err != nil {
-		panic(err)
-	}
-
-	err = registrydisk.CleanupOrphanedEphemeralDisks(vmStore)
-	if err != nil {
-		panic(err)
-	}
-
-	go watchdogInformer.Run(stop)
-	cache.WaitForCacheSync(stop, watchdogInformer.HasSynced)
-
-	go domainController.Run(3, stop)
 	go vmController.Run(3, stop)
 
 	// TODO add a http handler which provides health check

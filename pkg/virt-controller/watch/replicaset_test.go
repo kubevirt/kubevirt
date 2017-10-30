@@ -1,27 +1,21 @@
 package watch
 
 import (
+	"fmt"
+
 	"github.com/golang/mock/gomock"
-	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	v13 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
-
-	"fmt"
-
-	v13 "k8s.io/api/core/v1"
-
 	"k8s.io/client-go/tools/record"
-
-	"github.com/onsi/ginkgo/extensions/table"
-
-	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("Replicaset", func() {
@@ -39,7 +33,6 @@ var _ = Describe("Replicaset", func() {
 	Context("One valid ReplicaSet controller given", func() {
 
 		var ctrl *gomock.Controller
-		var virtClient *kubecli.MockKubevirtClient
 		var vmInterface *kubecli.MockVMInterface
 		var rsInterface *kubecli.MockReplicaSetInterface
 		var vmSource *framework.FakeControllerSource
@@ -49,7 +42,8 @@ var _ = Describe("Replicaset", func() {
 		var stop chan struct{}
 		var controller *VMReplicaSet
 		var recorder *record.FakeRecorder
-		var mockQueue *testing.MockWorkQueue
+		var mockQueue *testutils.MockWorkQueue
+		var vmFeeder *testutils.VirtualMachineFeeder
 
 		syncCaches := func(stop chan struct{}) {
 			go vmInformer.Run(stop)
@@ -60,20 +54,19 @@ var _ = Describe("Replicaset", func() {
 		BeforeEach(func() {
 			stop = make(chan struct{})
 			ctrl = gomock.NewController(GinkgoT())
-			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 			vmInterface = kubecli.NewMockVMInterface(ctrl)
 			rsInterface = kubecli.NewMockReplicaSetInterface(ctrl)
 
-			vmSource = framework.NewFakeControllerSource()
-			rsSource = framework.NewFakeControllerSource()
-			vmInformer = cache.NewSharedIndexInformer(vmSource, &v1.VirtualMachine{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			rsInformer = cache.NewSharedIndexInformer(rsSource, &v1.VirtualMachineReplicaSet{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+			rsInformer, rsSource = testutils.NewFakeInformerFor(&v1.VirtualMachineReplicaSet{})
 			recorder = record.NewFakeRecorder(100)
 
 			controller = NewVMReplicaSet(vmInformer, rsInformer, recorder, virtClient, uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockQueue = testing.NewMockWorkQueue(controller.Queue)
+			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
+			vmFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmSource)
 
 			// Set up mock client
 			virtClient.EXPECT().VM(v12.NamespaceDefault).Return(vmInterface).AnyTimes()
@@ -84,24 +77,6 @@ var _ = Describe("Replicaset", func() {
 			syncCaches(stop)
 			mockQueue.ExpectAdds(1)
 			rsSource.Add(rs)
-			mockQueue.Wait()
-		}
-
-		add := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Add(vm)
-			mockQueue.Wait()
-		}
-
-		modify := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Modify(vm)
-			mockQueue.Wait()
-		}
-
-		delete := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Delete(vm)
 			mockQueue.Wait()
 		}
 
@@ -116,9 +91,9 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should create missing VMs when it gets unpaused", func() {
@@ -131,7 +106,7 @@ var _ = Describe("Replicaset", func() {
 				},
 			}
 
-			expectedRS := clone(rs)
+			expectedRS := rs.DeepCopy()
 			expectedRS.Status.Replicas = 0
 			expectedRS.Status.ReadyReplicas = 0
 			expectedRS.Status.Conditions = nil
@@ -145,10 +120,10 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, SuccessfulResumedReplicaSetReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulResumedReplicaSetReason)
 		})
 
 		It("should not create missing VMs when it is paused and add paused condition", func() {
@@ -157,7 +132,7 @@ var _ = Describe("Replicaset", func() {
 
 			// This will trigger a status update, since there are no replicas present
 			rs.Status.Replicas = 1
-			expectedRS := clone(rs)
+			expectedRS := rs.DeepCopy()
 			expectedRS.Status.Replicas = 0
 			expectedRS.Status.ReadyReplicas = 0
 
@@ -175,7 +150,7 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvent(recorder, SuccessfulPausedReplicaSetReason)
+			testutils.ExpectEvent(recorder, SuccessfulPausedReplicaSetReason)
 		})
 
 		It("should create missing VMs in batches of a maximum of 10 VMs at once", func() {
@@ -193,7 +168,7 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			for x := 0; x < 10; x++ {
-				expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			}
 
 			// TODO test for missing 5
@@ -208,7 +183,7 @@ var _ = Describe("Replicaset", func() {
 			for x := 0; x < 15; x++ {
 				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
 				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-				add(vm)
+				vmFeeder.Add(vm)
 			}
 
 			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
@@ -220,7 +195,7 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			for x := 0; x < 10; x++ {
-				expectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			}
 
 			// TODO test for missing 5
@@ -241,9 +216,9 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should delete a VM and increase the replica count", func() {
@@ -251,18 +226,18 @@ var _ = Describe("Replicaset", func() {
 
 			rs.Status.Replicas = 0
 
-			expectedRS := clone(rs)
+			expectedRS := rs.DeepCopy()
 			expectedRS.Status.Replicas = 1
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any())
 			rsInterface.EXPECT().Update(expectedRS)
 
 			controller.Execute()
 
-			expectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
 		It("should detect that it has nothing to do", func() {
@@ -270,7 +245,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			controller.Execute()
 		})
@@ -279,11 +254,11 @@ var _ = Describe("Replicaset", func() {
 			rs, vm := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
 
-			rsCopy := clone(rs)
+			rsCopy := rs.DeepCopy()
 			rsCopy.Status.Replicas = 0
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			rsInterface.EXPECT().Update(rsCopy).Times(1)
 
@@ -292,7 +267,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Move one VM to a final state
 			vm.Status.Phase = v1.Succeeded
-			modify(vm)
+			vmFeeder.Modify(vm)
 
 			// Expect the re-crate of the VM
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
@@ -300,7 +275,7 @@ var _ = Describe("Replicaset", func() {
 			// Run the controller again
 			controller.Execute()
 
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should be woken by a ready VM and update the readyReplicas counter", func() {
@@ -308,12 +283,12 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 0
 
-			expectedRS := clone(rs)
+			expectedRS := rs.DeepCopy()
 			expectedRS.Status.Replicas = 1
 			expectedRS.Status.ReadyReplicas = 1
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			rsInterface.EXPECT().Update(expectedRS).Times(1)
 
@@ -322,7 +297,7 @@ var _ = Describe("Replicaset", func() {
 
 			// Move one VM to a final state
 			vm.Status.Phase = v1.Running
-			modify(vm)
+			vmFeeder.Modify(vm)
 
 			// Run the controller again
 			controller.Execute()
@@ -332,18 +307,18 @@ var _ = Describe("Replicaset", func() {
 			rs, vm := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
 
-			rsCopy := clone(rs)
+			rsCopy := rs.DeepCopy()
 			// The count stays at zero, since we just experienced the delete when we create the new VM
 			rsCopy.Status.Replicas = 0
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			// First make sure that we don't have to do anything
 			controller.Execute()
 
 			// Delete one VM
-			delete(vm)
+			vmFeeder.Delete(vm)
 
 			// Expect the update from 1 to zero replicas
 			rsInterface.EXPECT().Update(rsCopy).Times(1)
@@ -354,14 +329,14 @@ var _ = Describe("Replicaset", func() {
 			// Run the controller again
 			controller.Execute()
 
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should add a fail condition if scaling up fails", func() {
 			rs, vm := DefaultReplicaSet(3)
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			// Let first one succeed
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
@@ -382,17 +357,17 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
+			testutils.ExpectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
 		})
 
 		It("should add a fail condition if scaling down fails", func() {
 			rs, vm := DefaultReplicaSet(0)
-			vm1 := cloneVM(vm)
+			vm1 := vm.DeepCopy()
 			vm1.ObjectMeta.Name = "test1"
 
 			addReplicaSet(rs)
-			add(vm)
-			add(vm1)
+			vmFeeder.Add(vm)
+			vmFeeder.Add(vm1)
 
 			// Let first one succeed
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any()).Return(nil)
@@ -413,7 +388,7 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvents(recorder, SuccessfulDeleteVirtualMachineReason, FailedDeleteVirtualMachineReason)
+			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, FailedDeleteVirtualMachineReason)
 		})
 
 		It("should update the replica count but keep the failed state", func() {
@@ -427,7 +402,7 @@ var _ = Describe("Replicaset", func() {
 			}
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			// Let first one succeed
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
@@ -446,7 +421,7 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			expectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
+			testutils.ExpectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
 		})
 		It("should update the replica count and remove the failed condition", func() {
 			rs, vm := DefaultReplicaSet(3)
@@ -459,7 +434,7 @@ var _ = Describe("Replicaset", func() {
 			}
 
 			addReplicaSet(rs)
-			add(vm)
+			vmFeeder.Add(vm)
 
 			vmInterface.EXPECT().Create(gomock.Any()).Times(2).Return(vm, nil)
 
@@ -471,8 +446,8 @@ var _ = Describe("Replicaset", func() {
 			})
 
 			controller.Execute()
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			expectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		AfterEach(func() {
@@ -482,18 +457,6 @@ var _ = Describe("Replicaset", func() {
 		})
 	})
 })
-
-func clone(rs *v1.VirtualMachineReplicaSet) *v1.VirtualMachineReplicaSet {
-	c, err := model.Clone(rs)
-	Expect(err).ToNot(HaveOccurred())
-	return c.(*v1.VirtualMachineReplicaSet)
-}
-
-func cloneVM(rs *v1.VirtualMachine) *v1.VirtualMachine {
-	c, err := model.Clone(rs)
-	Expect(err).ToNot(HaveOccurred())
-	return c.(*v1.VirtualMachine)
-}
 
 func ReplicaSetFromVM(name string, vm *v1.VirtualMachine, replicas int32) *v1.VirtualMachineReplicaSet {
 	rs := &v1.VirtualMachineReplicaSet{
@@ -520,36 +483,4 @@ func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineReplicaSet, *v1.Virtua
 	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 	rs := ReplicaSetFromVM("rs", vm, replicas)
 	return rs, vm
-}
-
-func expectEvent(recorder *record.FakeRecorder, reason string) {
-	Expect(recorder.Events).To(Receive(ContainSubstring(reason)))
-}
-
-// expectEvents checks for given reasons in arbitrary order
-func expectEvents(recorder *record.FakeRecorder, reasons ...string) {
-	l := len(reasons)
-	for x := 0; x < l; x++ {
-		select {
-
-		case e := <-recorder.Events:
-			filtered := []string{}
-			found := false
-			for _, reason := range reasons {
-
-				if strings.Contains(e, reason) && !found {
-					found = true
-					continue
-				}
-				filtered = append(filtered, reason)
-			}
-
-			Expect(found).To(BeTrue(), "Expected to match event reason '%s' with one of %v", e, reasons)
-			reasons = filtered
-
-		default:
-			// There should be something, trigger an error
-			Expect(recorder.Events).To(Receive())
-		}
-	}
 }
