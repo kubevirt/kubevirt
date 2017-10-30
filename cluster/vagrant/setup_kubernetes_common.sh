@@ -64,6 +64,9 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
 EOF
 yum install -y docker
 
+# Log to json files instead of journald
+sed -i 's/--log-driver=journald //g' /etc/sysconfig/docker
+
 # Use hard coded versions until https://github.com/kubernetes/kubeadm/issues/212 is resolved.
 # Currently older versions of kubeadm are no longer available in the rpm repos.
 # See https://github.com/kubernetes/kubeadm/issues/220 for context.
