@@ -434,6 +434,14 @@ func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.D
 }
 
 func (d *VirtualMachineController) execute(key string) error {
+
+	// set to true when domain needs to be shutdown and removed from libvirt.
+	shouldShutdownAndDelete := false
+	// optimization. set to true when processing already deleted domain.
+	shouldCleanUp := false
+	// set to true when VM is active or about to become active.
+	shouldUpdate := false
+
 	vm, vmExists, err := d.getVMFromCache(key)
 	if err != nil {
 		return err
@@ -448,17 +456,21 @@ func (d *VirtualMachineController) execute(key string) error {
 	watchdogExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
 	if err != nil {
 		return err
+	} else if watchdogExpired && vm.IsRunning() {
+		log.Log.Object(vm).V(3).Info("Shutting down due to expired watchdog.")
+		shouldShutdownAndDelete = true
 	}
 
 	// Determine if gracefulShutdown has been triggered by virt-launcher
 	gracefulShutdown, err := virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vm)
 	if err != nil {
 		return err
+	} else if gracefulShutdown && vm.IsRunning() {
+		log.Log.Object(vm).V(3).Info("Shutting down due to graceful shutdown signal.")
+		shouldShutdownAndDelete = true
 	}
 
 	// Determine removal of VM from cache should result in deletion.
-	shouldCleanUp := false
-	shouldDelete := false
 	if !vmExists {
 		// If we don't have the VM in the cache, it could be that it is currently migrating to us
 		isDestination, err := d.isMigrationDestination(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
@@ -470,38 +482,57 @@ func (d *VirtualMachineController) execute(key string) error {
 			return nil
 		}
 
-		if !vmExists && !domainExists {
+		if domainExists {
+			// The VM is deleted on the cluster,
+			// then continue with processing the deletion on the host.
+			log.Log.Object(vm).V(3).Info("Shutting down domain for deleted VM object.")
+			shouldShutdownAndDelete = true
+		} else {
 			// If neither the domain nor the vm object exist locally,
 			// then ensure any remaining local ephemeral data is cleaned up.
 			shouldCleanUp = true
+		}
+	}
+
+	// Determine if VM is being deleted.
+	if vmExists && vm.ObjectMeta.DeletionTimestamp != nil {
+		if vm.IsRunning() || domainExists {
+			log.Log.Object(vm).V(3).Info("Shutting down domain for VM with deletion timestamp.")
+			shouldShutdownAndDelete = true
 		} else {
-			// The VM is deleted on the cluster,
-			// then continue with processing the deletion on the host.
-			shouldDelete = true
+			shouldCleanUp = true
+		}
+	}
+
+	// Determine if domain needs to be deleted as a result of VM
+	// shutting down naturally (guest internal invoked shutdown)
+	if domainExists && vmExists && vm.IsFinal() {
+		log.Log.Object(vm).V(3).Info("Removing domain and ephemeral data for finalized vm.")
+		shouldShutdownAndDelete = true
+	}
+
+	// Determine if an active (or about to be active) VM should be updated.
+	if vmExists && !vm.IsFinal() {
+		// requiring the phase of the domain and VM to be in sync is an
+		// optimization that prevents unnecessary re-processing VMs during the start flow.
+		if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) {
+			shouldUpdate = true
 		}
 	}
 
 	var syncErr error
 
-	// Process the VM.
-	if shouldDelete {
-		log.Log.Object(vm).V(3).Info("Processing deletion because cluster object does not exist.")
-		syncErr = d.processVmShutdown(vm)
-	} else if vm.ObjectMeta.DeletionTimestamp != nil {
-		log.Log.Object(vm).V(3).Info("Processing deletion because vm cluster object is being deleted.")
-		syncErr = d.processVmShutdown(vm)
-	} else if watchdogExpired && vm.IsRunning() {
-		log.Log.Object(vm).V(3).Info("Processing deletion because watchdog expired.")
-		syncErr = d.processVmShutdown(vm)
-	} else if gracefulShutdown && vm.IsRunning() {
-		log.Log.Object(vm).V(3).Info("Processing deletion because graceful shutdown is triggered.")
+	// Process the VM update in this order.
+	// * Shutdown and Deletion due to VM deletion, process stopping, graceful shutdown trigger, expired watchdog, etc...
+	// * Cleanup of already shutdown and Deleted VMs
+	// * Update due to spec change and initial start flow.
+	if shouldShutdownAndDelete {
+		log.Log.Object(vm).V(3).Info("Processing shutdown.")
 		syncErr = d.processVmShutdown(vm)
 	} else if shouldCleanUp {
-		log.Log.Object(vm).V(3).Info("Processing ephemeral data cleanup because domain and cluster object do not exist.")
+		log.Log.Object(vm).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
 		syncErr = d.processVmCleanup(vm)
-	} else if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) && !vm.IsFinal() {
-		// Process a VM that is running, or about to be running
-		// only if the current phases are in sync
+	} else if shouldUpdate {
 		log.Log.Object(vm).V(3).Info("Processing vm update")
 		syncErr = d.processVmUpdate(vm)
 	} else {
