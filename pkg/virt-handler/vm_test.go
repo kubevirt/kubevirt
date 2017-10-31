@@ -167,6 +167,33 @@ var _ = Describe("VM", func() {
 			controller.Execute()
 		})
 
+		It("should perform cleanup of local ephemeral data if domain and vm are deleted", func() {
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
+			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
+			mockQueue.Add("default/testvm")
+			controller.Execute()
+		})
+
+		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
+			vm := v1.NewMinimalVM("testvm")
+			gracePeriod := int64(1)
+			vm.Status.Phase = v1.Running
+			vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
+
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Running
+
+			initGracePeriodHelper(1, vm)
+			mockWatchdog.CreateFile(vm)
+			mockGracefulShutdown.TriggerShutdown(vm)
+
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
+			domainManager.EXPECT().SignalShutdownVM(v1.NewVMReferenceFromName("testvm"))
+			domainFeeder.Add(domain)
+
+			controller.Execute()
+		}, 3)
+
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
 			vm := v1.NewMinimalVM("testvm")
 			domain := api.NewMinimalDomain("testvm")
@@ -174,7 +201,6 @@ var _ = Describe("VM", func() {
 
 			initGracePeriodHelper(1, vm)
 			mockWatchdog.CreateFile(vm)
-			//mockGracefulShutdown.TriggerShutdown(vm)
 
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 			domainManager.EXPECT().SignalShutdownVM(v1.NewVMReferenceFromName("testvm"))

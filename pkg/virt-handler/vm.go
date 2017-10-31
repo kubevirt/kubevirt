@@ -419,27 +419,27 @@ func (d *VirtualMachineController) getVMFromCache(key string) (vm *v1.VirtualMac
 	return vm, exists, nil
 }
 
-func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, err error) {
+func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, err error) {
 
 	obj, exists, err := d.domainInformer.GetStore().GetByKey(key)
 
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if exists {
 		domain = obj.(*api.Domain)
 	}
-	return domain, nil
+	return domain, exists, nil
 }
 
 func (d *VirtualMachineController) execute(key string) error {
-	vm, exists, err := d.getVMFromCache(key)
+	vm, vmExists, err := d.getVMFromCache(key)
 	if err != nil {
 		return err
 	}
 
-	domain, err := d.getDomainFromCache(key)
+	domain, domainExists, err := d.getDomainFromCache(key)
 	if err != nil {
 		return err
 	}
@@ -457,8 +457,9 @@ func (d *VirtualMachineController) execute(key string) error {
 	}
 
 	// Determine removal of VM from cache should result in deletion.
+	shouldCleanUp := false
 	shouldDelete := false
-	if !exists {
+	if !vmExists {
 		// If we don't have the VM in the cache, it could be that it is currently migrating to us
 		isDestination, err := d.isMigrationDestination(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 		if err != nil {
@@ -469,8 +470,15 @@ func (d *VirtualMachineController) execute(key string) error {
 			return nil
 		}
 
-		// The VM is deleted on the cluster, continue with processing the deletion on the host.
-		shouldDelete = true
+		if !vmExists && !domainExists {
+			// If neither the domain nor the vm object exist locally,
+			// then ensure any remaining local ephemeral data is cleaned up.
+			shouldCleanUp = true
+		} else {
+			// The VM is deleted on the cluster,
+			// then continue with processing the deletion on the host.
+			shouldDelete = true
+		}
 	}
 
 	var syncErr error
@@ -478,16 +486,19 @@ func (d *VirtualMachineController) execute(key string) error {
 	// Process the VM.
 	if shouldDelete {
 		log.Log.Object(vm).V(3).Info("Processing deletion because cluster object does not exist.")
-		syncErr = d.processVmDeletion(vm)
+		syncErr = d.processVmShutdown(vm)
 	} else if vm.ObjectMeta.DeletionTimestamp != nil {
 		log.Log.Object(vm).V(3).Info("Processing deletion because vm cluster object is being deleted.")
-		syncErr = d.processVmDeletion(vm)
+		syncErr = d.processVmShutdown(vm)
 	} else if watchdogExpired && vm.IsRunning() {
 		log.Log.Object(vm).V(3).Info("Processing deletion because watchdog expired.")
-		syncErr = d.processVmDeletion(vm)
+		syncErr = d.processVmShutdown(vm)
 	} else if gracefulShutdown && vm.IsRunning() {
 		log.Log.Object(vm).V(3).Info("Processing deletion because graceful shutdown is triggered.")
-		syncErr = d.processVmDeletion(vm)
+		syncErr = d.processVmShutdown(vm)
+	} else if shouldCleanUp {
+		log.Log.Object(vm).V(3).Info("Processing ephemeral data cleanup because domain and cluster object do not exist.")
+		syncErr = d.processVmCleanup(vm)
 	} else if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) && !vm.IsFinal() {
 		// Process a VM that is running, or about to be running
 		// only if the current phases are in sync
@@ -503,7 +514,7 @@ func (d *VirtualMachineController) execute(key string) error {
 	}
 
 	// Update the VM status, if the VM exists
-	if exists {
+	if vmExists {
 		err = d.updateVMStatus(vm.DeepCopy(), domain, syncErr)
 		if err != nil {
 			log.Log.Object(vm).Reason(err).Error("Updating the VM status failed.")
@@ -676,38 +687,8 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (*v1.Vi
 	return vm, nil
 }
 
-func (d *VirtualMachineController) processVmDeletion(vm *v1.VirtualMachine) error {
-
-	err := d.signalGracePeriodStarted(vm)
-	if err != nil {
-		return err
-	}
-
-	expired, timeLeft, err := d.hasGracePeriodExpired(vm)
-	if err != nil {
-		return err
-	}
-
-	if expired == false {
-		err = d.domainManager.SignalShutdownVM(vm)
-		if err != nil {
-			return err
-		}
-		// pending graceful shutdown.
-		d.Queue.AddAfter(controller.VirtualMachineKey(vm), time.Duration(timeLeft)*time.Second)
-		return nil
-	}
-
-	log.Log.Object(vm).Infof("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())
-
-	// Since the VM was not in the cache, we delete it
-	err = d.domainManager.KillVM(vm)
-	if err != nil {
-		return err
-	}
-
-	// remove any defined libvirt secrets associated with this vm
-	err = d.domainManager.RemoveVMSecrets(vm)
+func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
+	err := d.domainManager.RemoveVMSecrets(vm)
 	if err != nil {
 		return err
 	}
@@ -733,6 +714,39 @@ func (d *VirtualMachineController) processVmDeletion(vm *v1.VirtualMachine) erro
 	}
 
 	return d.configDisk.Undefine(vm)
+}
+
+func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachine) error {
+
+	err := d.signalGracePeriodStarted(vm)
+	if err != nil {
+		return err
+	}
+
+	expired, timeLeft, err := d.hasGracePeriodExpired(vm)
+	if err != nil {
+		return err
+	}
+
+	if expired == false {
+		err = d.domainManager.SignalShutdownVM(vm)
+		if err != nil {
+			return err
+		}
+		// pending graceful shutdown.
+		d.Queue.AddAfter(controller.VirtualMachineKey(vm), time.Duration(timeLeft)*time.Second)
+		return nil
+	}
+
+	log.Log.Object(vm).Infof("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())
+
+	err = d.domainManager.KillVM(vm)
+	if err != nil {
+		return err
+	}
+
+	return d.processVmCleanup(vm)
+
 }
 
 func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error {
