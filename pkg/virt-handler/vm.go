@@ -56,37 +56,6 @@ import (
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-type updateType int
-
-const (
-	// This means the informer update should not result in syncing the VM state
-	updateTypeIgnore updateType = iota
-	// This means the VM object has been deleted from the cluster
-	updateTypeDeletion
-	// This means the VM's corresponding virt-launcher watchdog has expired
-	updateTypeWatchdogExpire
-	// This means something has triggered graceful shutdown of the VM
-	updateTypeGracefulShutdown
-	// This is a normal update that occurs during the VM launch flow
-	updateTypeActive
-)
-
-func (p updateType) String() string {
-	switch p {
-	case updateTypeIgnore:
-		return "Ignore"
-	case updateTypeDeletion:
-		return "Deletion"
-	case updateTypeWatchdogExpire:
-		return "WatchdogExpire"
-	case updateTypeGracefulShutdown:
-		return "GracefulShutdown"
-	case updateTypeActive:
-		return "Active"
-	}
-	return "Unknown"
-}
-
 func NewController(
 	domainManager virtwrap.DomainManager,
 	recorder record.EventRecorder,
@@ -186,26 +155,12 @@ func (d *VirtualMachineController) initializeGracePeriodInfo(vm *v1.VirtualMachi
 	return d.setGracePeriodInfo(vm, info)
 }
 
-func (d *VirtualMachineController) signalGracePeriodStarted(vm *v1.VirtualMachine, ignoreNonExistant bool) error {
-	now := time.Now().UTC().Unix()
-
+func (d *VirtualMachineController) signalGracePeriodStarted(vm *v1.VirtualMachine) error {
 	info, err := d.getGracePeriodInfo(vm)
 	if err != nil {
 		return err
 	} else if info == nil {
-		if ignoreNonExistant == false {
-			gracePeriodSeconds := int64(v1.DefaultGracePeriodSeconds)
-			if vm.Spec.TerminationGracePeriodSeconds != nil {
-				gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
-			}
-			info := &gracePeriodInfo{
-				GracePeriodSeconds:       gracePeriodSeconds,
-				GracePeriodStartTimeUnix: now,
-			}
-			return d.setGracePeriodInfo(vm, info)
-		} else {
-			return nil
-		}
+		return nil
 	}
 
 	// only update start time if it was not previously set
@@ -479,9 +434,6 @@ func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.D
 }
 
 func (d *VirtualMachineController) execute(key string) error {
-
-	processUpdateType := updateTypeIgnore
-
 	vm, exists, err := d.getVMFromCache(key)
 	if err != nil {
 		return err
@@ -498,55 +450,53 @@ func (d *VirtualMachineController) execute(key string) error {
 		return err
 	}
 
+	// Determine if gracefulShutdown has been triggered by virt-launcher
 	gracefulShutdown, err := virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vm)
 	if err != nil {
 		return err
 	}
 
-	// Determine how the VM should be processed.
+	// Determine removal of VM from cache should result in deletion.
+	shouldDelete := false
 	if !exists {
 		// If we don't have the VM in the cache, it could be that it is currently migrating to us
 		isDestination, err := d.isMigrationDestination(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 		if err != nil {
 			// unable to determine migration status, we'll try again later.
 			return err
-		}
-
-		if isDestination {
+		} else if isDestination {
 			// OK, this VM is migrating to us, don't interrupt it.
 			return nil
 		}
 
 		// The VM is deleted on the cluster, continue with processing the deletion on the host.
-		processUpdateType = updateTypeDeletion
-	} else if vm.ObjectMeta.DeletionTimestamp != nil {
-		processUpdateType = updateTypeDeletion
-	} else if watchdogExpired && vm.IsRunning() {
-		processUpdateType = updateTypeWatchdogExpire
-	} else if gracefulShutdown && vm.IsRunning() {
-		processUpdateType = updateTypeGracefulShutdown
-	} else if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) && !vm.IsFinal() {
-		// Process a VM that is running, or about to be running
-		// only if the current phases are in sync
-		processUpdateType = updateTypeActive
+		shouldDelete = true
 	}
 
 	var syncErr error
-	if processUpdateType != updateTypeIgnore {
-		log.Log.Object(vm).V(3).Infof("Processing VM update of type %s", processUpdateType.String())
+
+	// Process the VM.
+	if shouldDelete {
+		log.Log.Object(vm).V(3).Info("Processing deletion because cluster object does not exist.")
+		syncErr = d.processVmDeletion(vm)
+	} else if vm.ObjectMeta.DeletionTimestamp != nil {
+		log.Log.Object(vm).V(3).Info("Processing deletion because vm cluster object is being deleted.")
+		syncErr = d.processVmDeletion(vm)
+	} else if watchdogExpired && vm.IsRunning() {
+		log.Log.Object(vm).V(3).Info("Processing deletion because watchdog expired.")
+		syncErr = d.processVmDeletion(vm)
+	} else if gracefulShutdown && vm.IsRunning() {
+		log.Log.Object(vm).V(3).Info("Processing deletion because graceful shutdown is triggered.")
+		syncErr = d.processVmDeletion(vm)
+	} else if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) && !vm.IsFinal() {
+		// Process a VM that is running, or about to be running
+		// only if the current phases are in sync
+		log.Log.Object(vm).V(3).Info("Processing vm update")
+		syncErr = d.processVmUpdate(vm)
+	} else {
+		log.Log.Object(vm).V(3).Info("No update processing required")
 	}
 
-	// Process the VM
-	switch processUpdateType {
-	case updateTypeDeletion:
-		syncErr = d.processVmDeletion(vm)
-	case updateTypeWatchdogExpire:
-		syncErr = d.processWatchdogExpire(vm)
-	case updateTypeGracefulShutdown:
-		syncErr = d.processGracefulShutdown(vm)
-	case updateTypeActive:
-		syncErr = d.processVmUpdate(vm)
-	}
 	if syncErr != nil {
 		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 		log.Log.Object(vm).Reason(syncErr).Error("Synchronizing the VM failed.")
@@ -728,7 +678,7 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (*v1.Vi
 
 func (d *VirtualMachineController) processVmDeletion(vm *v1.VirtualMachine) error {
 
-	err := d.signalGracePeriodStarted(vm, true)
+	err := d.signalGracePeriodStarted(vm)
 	if err != nil {
 		return err
 	}
@@ -783,43 +733,6 @@ func (d *VirtualMachineController) processVmDeletion(vm *v1.VirtualMachine) erro
 	}
 
 	return d.configDisk.Undefine(vm)
-}
-
-func (d *VirtualMachineController) processWatchdogExpire(vm *v1.VirtualMachine) error {
-	if vm.IsRunning() {
-		log.Log.Object(vm).Info("Detected expired watchdog file for running VM.")
-		return d.processVmDeletion(vm)
-	}
-	return nil
-}
-
-func (d *VirtualMachineController) processGracefulShutdown(vm *v1.VirtualMachine) error {
-	log.Log.Object(vm).Info("Requesting shutdown due to graceful shutdown trigger")
-
-	err := d.signalGracePeriodStarted(vm, false)
-	if err != nil {
-		return err
-	}
-
-	expired, timeLeft, err := d.hasGracePeriodExpired(vm)
-	if err != nil {
-		return err
-	}
-
-	if expired {
-		log.Log.Object(vm).Infof("grace period expired, killing VM %s", vm.GetObjectMeta().GetName())
-		return d.processVmDeletion(vm)
-	}
-
-	err = d.domainManager.SignalShutdownVM(vm)
-	if err != nil {
-		return err
-	}
-
-	// pending graceful shutdown.
-	d.Queue.AddAfter(controller.VirtualMachineKey(vm), time.Duration(timeLeft)*time.Second)
-
-	return nil
 }
 
 func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error {
