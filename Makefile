@@ -27,6 +27,11 @@ test: build
 functest:
 	./hack/build-go.sh functest ${WHAT}
 
+generate-openapi-spec: build
+	./cmd/virt-api/virt-api \
+		--kubeconfig cluster/vagrant/.kubeconfig \
+		--dump-api-spec --dump-api-spec-path api/openapi-spec/swagger.json
+
 clean:
 	./hack/build-go.sh clean ${WHAT}
 	rm ./bin -rf
