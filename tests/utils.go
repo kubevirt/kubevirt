@@ -695,13 +695,27 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
-	Eventually(func() v1.VMPhase {
+	Eventually(func() bool {
 		obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 		Expect(err).ToNot(HaveOccurred())
 		fetchedVM := obj.(*v1.VirtualMachine)
 		nodeName = fetchedVM.Status.NodeName
-		return fetchedVM.Status.Phase
-	}, time.Duration(seconds)*time.Second).Should(Equal(v1.Running))
+
+		graphicDeviceCount := 0
+		for _, src := range fetchedVM.Spec.Domain.Devices.Graphics {
+			if src.Type == "spice" || src.Type == "vnc" {
+				graphicDeviceCount++
+			}
+		}
+
+		// wait on both phase and graphics
+		if len(fetchedVM.Status.Graphics) == graphicDeviceCount &&
+			fetchedVM.Status.Phase == v1.Running {
+			return true
+		}
+		return false
+	}, time.Duration(seconds)*time.Second).Should(Equal(true))
+
 	return
 }
 
