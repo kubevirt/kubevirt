@@ -3,6 +3,7 @@ metadata:
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 spec:
+  terminationGracePeriodSeconds: 0
   domain:
     devices:
       graphics:
