@@ -87,8 +87,9 @@ metadata:
   name: tcp-services
   namespace: kube-system
 data:
-  8184: "default/haproxy-service:8184"
   3128: "default/spice-proxy:3128"
+  8182: "default/virt-controller-service:8182"
+  8184: "default/haproxy-service:8184"
 EOY
 }
 
