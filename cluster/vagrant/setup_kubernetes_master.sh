@@ -52,30 +52,21 @@ fi
 
 # Create an ingress-nginx setup
 # See: https://github.com/kubernetes/ingress-nginx/tree/master/deploy
-false && {
-  curl_combine() { for $URL in $@; do curl -L $URL ; echo --- ; done }
-  
-  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/default-backend.yaml \
-      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
-      | kubectl apply -f -
-  
-  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/configmap.yaml \
-      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
-      | kubectl apply -f -
-  
-  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/tcp-services-configmap.yaml \
-      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
-      | kubectl apply -f -
-  
-  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/udp-services-configmap.yaml \
+{
+  curl_yaml_combine() { for URL in $@; do curl -L $URL ; echo --- ; done }
+
+  # Do the basic deployment
+  curl_yaml_combine \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/default-backend.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/configmap.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/tcp-services-configmap.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/udp-services-configmap.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/rbac.yaml \
       | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
       | kubectl apply -f -
 
-  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/rbac.yaml \
-      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
-      | kubectl apply -f -
-
-  ( curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/with-rbac.yaml && \
+  # Pin the controller to the master
+  ( curl -L https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/with-rbac.yaml && \
     echo -e "      nodeSelector:\n        kubernetes.io/hostname: master" \
   ) \
       | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
