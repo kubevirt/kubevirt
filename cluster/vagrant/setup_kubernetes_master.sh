@@ -89,6 +89,7 @@ metadata:
 data:
   3128: "default/spice-proxy:3128"
   8182: "default/virt-controller-service:8182"
+  8183: "default/virt-api-service:8183"
   8184: "default/haproxy-service:8184"
 EOY
 }
