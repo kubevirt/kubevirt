@@ -7,8 +7,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
+	"kubevirt.io/kubevirt/tests"
 )
 
 type MockNetworkInterface struct {
@@ -19,9 +20,9 @@ type MockNetworkInterface struct {
 	DecorateInterfaceMetadata() *v1.MetadataDevice*/
 
 	failSetInterfaceAttributes bool
-	failPlug bool
-	failUnplug bool
-	failGetConfig bool
+	failPlug                   bool
+	failUnplug                 bool
+	failGetConfig              bool
 }
 
 func (vif MockNetworkInterface) SetInterfaceAttributes(mac string, ip string, device string) error {
@@ -59,8 +60,8 @@ func (vif MockNetworkInterface) DecorateInterfaceMetadata() *v1.MetadataDevice {
 func makeMockInterface(failSetInterfaceAttributes bool, failPlug bool, failUnplug bool, failGetConfig bool) interfaceFunc {
 	getMockInterface := func(objName string) (VirtualInterface, error) {
 		res := MockNetworkInterface{failSetInterfaceAttributes: failSetInterfaceAttributes,
-			failPlug:failPlug,
-			failUnplug: failUnplug,
+			failPlug:      failPlug,
+			failUnplug:    failUnplug,
 			failGetConfig: failGetConfig,
 		}
 		return res, nil
@@ -71,7 +72,7 @@ func makeMockInterface(failSetInterfaceAttributes bool, failPlug bool, failUnplu
 var _ = Describe("Virt Handler Network", func() {
 	Context("Meta tests", func() {
 		It("should create an interface that doesn't fail", func() {
-			getInterface := makeMockInterface(false, false, false,false)
+			getInterface := makeMockInterface(false, false, false, false)
 			iface, _ := getInterface("")
 			err := iface.SetInterfaceAttributes("", "", "")
 			Expect(err).ToNot(HaveOccurred())
@@ -106,6 +107,7 @@ var _ = Describe("Virt Handler Network", func() {
 	Context("Unplug tests", func() {
 		var vm v1.VirtualMachine
 		var domainManager virtwrap.LibvirtDomainManager
+		var logs tests.CapturedLogger
 
 		BeforeEach(func() {
 			domainManager = virtwrap.LibvirtDomainManager{}
@@ -114,6 +116,12 @@ var _ = Describe("Virt Handler Network", func() {
 			vm.Spec.Domain = &v1.DomainSpec{}
 			vm.Spec.Domain.Metadata = &v1.Metadata{}
 			vm.Spec.Domain.Metadata.Interfaces.Devices = []v1.MetadataDevice{v1.MetadataDevice{}}
+
+			logs = tests.EnableCapturedLogging()
+		})
+
+		AfterEach(func() {
+			tests.ResetLogging()
 		})
 
 		It("Should not panic when called with incomplete metadata", func() {
@@ -126,6 +134,8 @@ var _ = Describe("Virt Handler Network", func() {
 			vm.Spec.Domain = &v1.DomainSpec{}
 			err = _unPlugNetworkDevices(getInterface, &vm, &domainManager)
 			Expect(err).ToNot(HaveOccurred())
+			logOutput := logs.GetLogs()
+			Expect(len(logOutput)).To(Equal(0))
 		})
 
 		It("Should work if no underlying errors occured", func() {
@@ -133,6 +143,9 @@ var _ = Describe("Virt Handler Network", func() {
 
 			err := _unPlugNetworkDevices(getInterface, &vm, &domainManager)
 			Expect(err).ToNot(HaveOccurred())
+			logOutput := logs.GetLogs()
+			Expect(len(logOutput)).ToNot(Equal(0))
+			Expect(logs.ContainsMsg("unplugging interface:.*")).To(BeTrue())
 		})
 
 		It("Should return an error if SetInterfaceAttributes fails", func() {
@@ -140,6 +153,9 @@ var _ = Describe("Virt Handler Network", func() {
 
 			err := _unPlugNetworkDevices(getInterface, &vm, &domainManager)
 			Expect(err).ToNot(HaveOccurred())
+			logOutput := logs.GetLogs()
+			Expect(len(logOutput)).ToNot(Equal(0))
+			Expect(logs.ContainsMsg("failed to set interface attributes.*")).To(BeTrue())
 		})
 
 		It("Should not return an error if Unplug fails", func() {
@@ -147,6 +163,9 @@ var _ = Describe("Virt Handler Network", func() {
 
 			err := _unPlugNetworkDevices(getInterface, &vm, &domainManager)
 			Expect(err).ToNot(HaveOccurred())
+			logOutput := logs.GetLogs()
+			Expect(len(logOutput)).ToNot(Equal(0))
+			Expect(logs.ContainsMsg("failed to unplug.*")).To(BeTrue())
 		})
 	})
 
@@ -163,7 +182,7 @@ var _ = Describe("Virt Handler Network", func() {
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{}}
 		})
 
-		It("Should not error", func(){
+		It("Should not error", func() {
 			getInterface := makeMockInterface(false, false, false, false)
 
 			vmCopy, err := _plugNetworkDevices(getInterface, &vm, &domainManager)
@@ -171,7 +190,7 @@ var _ = Describe("Virt Handler Network", func() {
 			Expect(vmCopy.Spec.Domain.Metadata).ToNot(BeNil())
 		})
 
-		It("Should fail if Plug() fails", func(){
+		It("Should fail if Plug() fails", func() {
 			getInterface := makeMockInterface(false, true, false, false)
 
 			vmCopy, err := _plugNetworkDevices(getInterface, &vm, &domainManager)
@@ -180,7 +199,7 @@ var _ = Describe("Virt Handler Network", func() {
 			Expect(err.Error()).To(Equal("simulated Plug failure"))
 		})
 
-		It("Should fail if GetConfig() fails", func(){
+		It("Should fail if GetConfig() fails", func() {
 			getInterface := makeMockInterface(false, false, false, true)
 
 			vmCopy, err := _plugNetworkDevices(getInterface, &vm, &domainManager)
@@ -190,7 +209,6 @@ var _ = Describe("Virt Handler Network", func() {
 		})
 	})
 })
-
 
 func TestNetwork(t *testing.T) {
 	RegisterFailHandler(Fail)
