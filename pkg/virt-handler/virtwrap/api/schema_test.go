@@ -58,6 +58,7 @@ var exampleXML = `<domain type="qemu">
     <console type="pty">
       <target type="serial" port="123"></target>
     </console>
+    <watchdog model="i6300esb" action="poweroff"></watchdog>
   </devices>
 </domain>`
 
@@ -84,6 +85,10 @@ var _ = Describe("Schema", func() {
 	}
 	exampleDomain.Devices.Consoles = []Console{
 		{Type: "pty", Target: &ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
+	}
+	exampleDomain.Devices.Watchdog = &Watchdog{
+		Model:  "i6300esb",
+		Action: "poweroff",
 	}
 
 	Context("With schema", func() {
@@ -112,7 +117,6 @@ var _ = Describe("Schema", func() {
 		It("Marshal into xml", func() {
 			buf, err := xml.MarshalIndent(*exampleDomain, "", "  ")
 			Expect(err).To(BeNil())
-
 			Expect(string(buf)).To(Equal(exampleXML))
 		})
 
@@ -139,6 +143,10 @@ var _ = Describe("Schema", func() {
 		}
 		v1DomainSpec.Devices.Consoles = []v1.Console{
 			{Type: "pty", Target: &v1.ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
+		}
+		v1DomainSpec.Devices.Watchdog = &v1.Watchdog{
+			Model:  "i6300esb",
+			Action: "poweroff",
 		}
 
 		It("converts to libvirt.DomainSpec", func() {

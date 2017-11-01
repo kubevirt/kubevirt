@@ -81,6 +81,7 @@ func init() {
 	mapper.AddConversion(&Listen{}, &v1.Listen{})
 	mapper.AddPtrConversion((**DiskAuth)(nil), (**v1.DiskAuth)(nil))
 	mapper.AddPtrConversion((**DiskSecret)(nil), (**v1.DiskSecret)(nil))
+	mapper.AddPtrConversion((**Watchdog)(nil), (**v1.Watchdog)(nil))
 
 	model.AddConversion(&Video{}, &v1.Video{}, func(in reflect.Value) (reflect.Value, error) {
 		out := v1.Video{}
@@ -244,6 +245,7 @@ type Devices struct {
 	Disks      []Disk      `xml:"disk"`
 	Serials    []Serial    `xml:"serial"`
 	Consoles   []Console   `xml:"console"`
+	Watchdog   *Watchdog   `xml:"watchdog,omitempty"`
 }
 
 // BEGIN Disk -----------------------------
@@ -523,6 +525,11 @@ type Ballooning struct {
 }
 
 type RandomGenerator struct {
+}
+
+type Watchdog struct {
+	Model  string `xml:"model,attr"`
+	Action string `xml:"action,attr"`
 }
 
 // TODO ballooning, rng, cpu ...

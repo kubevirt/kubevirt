@@ -67,6 +67,7 @@ type Devices struct {
 	Disks      []Disk      `json:"disks,omitempty"`
 	Serials    []Serial    `json:"serials,omitempty"`
 	Consoles   []Console   `json:"consoles,omitempty"`
+	Watchdog   *Watchdog   `json:"watchdog,omitempty"`
 }
 
 // BEGIN Disk -----------------------------
@@ -340,6 +341,11 @@ type Ballooning struct {
 }
 
 type RandomGenerator struct {
+}
+
+type Watchdog struct {
+	Model  string `json:"model"`
+	Action string `json:"action"`
 }
 
 // TODO ballooning, rng, cpu ...

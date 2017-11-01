@@ -201,3 +201,7 @@ func (Ballooning) SwaggerDoc() map[string]string {
 func (RandomGenerator) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
+
+func (Watchdog) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
