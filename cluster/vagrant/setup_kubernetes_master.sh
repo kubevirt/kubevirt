@@ -91,6 +91,7 @@ data:
   8182: "default/virt-controller-service:8182"
   8183: "default/virt-api-service:8183"
   8184: "default/haproxy-service:8184"
+  8186: "default/virt-manifest-service:8186"
 EOY
 }
 
