@@ -81,46 +81,11 @@ false && {
       | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
       | kubectl apply -f -
 
-  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml \
-      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
-      | kubectl apply -f -
-
   pushd /vagrant
   source hack/config.sh
   popd
-  kubectl apply -f - <<EOY
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: tcp-services
-  namespace: kube-system
-data:
-  3128: "default/spice-proxy:3128"
-  8182: "default/virt-controller-service:8182"
-  8183: "default/virt-api-service:8183"
-  8184: "default/haproxy-service:8184"
-  8186: "default/virt-manifest-service:8186"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ingress-nginx
-  namespace: kube-system
-spec:
-  externalIPs:
-  - ${master_ip}
-  ports:
-  - name: spice-proxy
-    port: 3128
-    targetPort: 3128
-    protocol: TCP
-  - name: haproxy
-    port: 8184
-    targetPort: 8184
-    protocol: TCP
-  selector:
-    app: ingress-nginx
-EOY
+  sed "s/{{ master_ip }}/${master_ip}/g" /vagrant/cluster/vagrant/ingress.yaml.in \
+      | kubectl apply -f -
 }
 
 # Allow scheduling pods on master

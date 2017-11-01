@@ -1,0 +1,42 @@
+#
+# This is two staged:
+# 1. Tell nginx where which ports should be redirected to
+# 2. Open the relevant ports using a service
+
+# This configmap needs to know all ports which ngninx should redirect
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcp-services
+  namespace: kube-system
+data:
+  3128: "default/spice-proxy:3128"
+  8182: "default/virt-controller-service:8182"
+  8183: "default/virt-api-service:8183"
+  8184: "default/haproxy-service:8184"
+  8186: "default/virt-manifest-service:8186"
+---
+# This service needs to open all ports which should be publicly accessible
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx
+  namespace: kube-system
+spec:
+  externalIPs:
+  - {{ master_ip }}
+  ports:
+  - name: spice-proxy
+    port: 3128
+    targetPort: 3128
+    protocol: TCP
+  - name: haproxy
+    port: 8184
+    targetPort: 8184
+    protocol: TCP
+  - name: virt-manifest
+    port: 8186
+    targetPort: 8186
+    protocol: TCP
+  selector:
+    app: ingress-nginx
