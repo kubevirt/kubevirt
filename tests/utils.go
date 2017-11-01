@@ -646,6 +646,32 @@ func NewRandomMigrationForVm(vm *v1.VirtualMachine) *v1.Migration {
 	return v1.NewMinimalMigrationWithNS(ns, vm.ObjectMeta.Name+"migrate"+rand.String(5), vm.ObjectMeta.Name)
 }
 
+func NewRandomVMWithWatchdog() *v1.VirtualMachine {
+	vm := NewRandomVMWithDirectLun(2, false)
+	vm.Spec.Domain.Devices.Serials = []v1.Serial{
+		{
+			Type: "pty",
+			Target: &v1.SerialTarget{
+				Port: newUInt(0),
+			},
+		},
+	}
+	vm.Spec.Domain.Devices.Consoles = []v1.Console{
+		{
+			Type: "pty",
+			Target: &v1.ConsoleTarget{
+				Type: newString("serial"),
+				Port: newUInt(0),
+			},
+		},
+	}
+	vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+		Model:  "i6300esb",
+		Action: "poweroff",
+	}
+
+	return vm
+}
 func NewRandomVMWithSerialConsole() *v1.VirtualMachine {
 	vm := NewRandomVMWithPVC("disk-cirros")
 	vm.Spec.Domain.Devices.Serials = []v1.Serial{
