@@ -50,6 +50,47 @@ else
   kubectl create -f kube-$NETWORK_PROVIDER.yaml
 fi
 
+# Create an ingress-nginx setup
+# See: https://github.com/kubernetes/ingress-nginx/tree/master/deploy
+{
+  
+  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/default-backend.yaml \
+      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
+      | kubectl apply -f -
+  
+  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/configmap.yaml \
+      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
+      | kubectl apply -f -
+  
+  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/tcp-services-configmap.yaml \
+      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
+      | kubectl apply -f -
+  
+  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/udp-services-configmap.yaml \
+      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
+      | kubectl apply -f -
+
+  ( curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/without-rbac.yaml && \
+    echo -e "      nodeSelector:\n        kubernetes.io/hostname: master" \
+  ) \
+      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
+      | kubectl apply -f -
+
+  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml \
+      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
+      | kubectl apply -f -
+
+kubectl apply -f - <<EOY
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcp-services
+  namespace: kube-system
+data:
+  8184: "default/haproxy-service:8184"
+EOY
+}
+
 # Allow scheduling pods on master
 # Ignore retval because it might not be dedicated already
 kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule- || :
