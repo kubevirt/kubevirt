@@ -88,6 +88,7 @@ metadata:
   namespace: kube-system
 data:
   8184: "default/haproxy-service:8184"
+  3128: "default/spice-proxy:3128"
 EOY
 }
 
