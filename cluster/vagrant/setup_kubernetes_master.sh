@@ -52,7 +52,8 @@ fi
 
 # Create an ingress-nginx setup
 # See: https://github.com/kubernetes/ingress-nginx/tree/master/deploy
-{
+false && {
+  curl_combine() { for $URL in $@; do curl -L $URL ; echo --- ; done }
   
   curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/default-backend.yaml \
       | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
@@ -70,7 +71,11 @@ fi
       | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
       | kubectl apply -f -
 
-  ( curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/without-rbac.yaml && \
+  curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/rbac.yaml \
+      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
+      | kubectl apply -f -
+
+  ( curl https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/with-rbac.yaml && \
     echo -e "      nodeSelector:\n        kubernetes.io/hostname: master" \
   ) \
       | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
@@ -80,7 +85,10 @@ fi
       | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
       | kubectl apply -f -
 
-kubectl apply -f - <<EOY
+  pushd /vagrant
+  source hack/config.sh
+  popd
+  kubectl apply -f - <<EOY
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -92,6 +100,26 @@ data:
   8183: "default/virt-api-service:8183"
   8184: "default/haproxy-service:8184"
   8186: "default/virt-manifest-service:8186"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx
+  namespace: kube-system
+spec:
+  externalIPs:
+  - ${master_ip}
+  ports:
+  - name: spice-proxy
+    port: 3128
+    targetPort: 3128
+    protocol: TCP
+  - name: haproxy
+    port: 8184
+    targetPort: 8184
+    protocol: TCP
+  selector:
+    app: ingress-nginx
 EOY
 }
 
