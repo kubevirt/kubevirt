@@ -20,7 +20,9 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -55,7 +57,7 @@ func newVirtAPIApp(host *string, port *int, swaggerUI *string) *virtAPIApp {
 	}
 }
 
-func (app *virtAPIApp) Run() {
+func (app *virtAPIApp) Compose() {
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "migrations"}
@@ -121,17 +123,20 @@ func (app *virtAPIApp) Run() {
 
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
+}
 
-	openapiConf := restfulspec.Config{
+func (app *virtAPIApp) ConfigureOpenAPIService() {
+	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(createOpenAPIConfig()))
+	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
+}
+
+func createOpenAPIConfig() restfulspec.Config {
+	return restfulspec.Config{
 		WebServices:    restful.RegisteredWebServices(),
 		WebServicesURL: "http://localhost:8183",
 		APIPath:        "/swaggerapi",
 		PostBuildSwaggerObjectHandler: addInfoToSwaggerObject,
 	}
-	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(openapiConf))
-	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
-
-	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
 }
 
 func addInfoToSwaggerObject(swo *openapispec.Swagger) {
@@ -152,14 +157,38 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 	}
 }
 
+func (app *virtAPIApp) Run() {
+	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
+}
+
+func dumpOpenApiSpec(dumppath *string) {
+	openapispec := restfulspec.BuildSwagger(createOpenAPIConfig())
+	data, err := json.MarshalIndent(openapispec, " ", " ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = ioutil.WriteFile(*dumppath, data, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
 	klog.InitializeLogging("virt-api")
 	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
 	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
 	port := flag.Int("port", 8183, "Port to listen on")
+	dumpapispec := flag.Bool("dump-api-spec", false, "Dump OpenApi spec, and exit immediately.")
+	dumpapispecpath := flag.String("dump-api-spec-path", "openapi.json", "Path to OpenApi dump.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
 	app := newVirtAPIApp(host, port, swaggerui)
-	app.Run()
+	app.Compose()
+	if *dumpapispec == true {
+		dumpOpenApiSpec(dumpapispecpath)
+	} else {
+		app.ConfigureOpenAPIService()
+		app.Run()
+	}
 }

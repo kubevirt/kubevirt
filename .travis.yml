@@ -42,6 +42,9 @@ script:
 - if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then $HOME/gopath/bin/goveralls
   -service=travis-ci -package=./pkg/... -ignore=$(find -name generated_mock*.go -printf
   "%P\n" | paste -d, -s) ; else make test; fi
+- make generate-openapi-spec
+- if git diff --name-only | grep 'swagger.json' ; then echo "The OpenAPI Specification
+  was changed. Please run `make generate-openapi-spec` and commit it." ; false ; fi
 
 cache:
   directories:
