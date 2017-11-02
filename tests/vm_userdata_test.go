@@ -22,11 +22,9 @@ package tests_test
 import (
 	"flag"
 	"fmt"
-	"net/url"
-	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -45,17 +43,8 @@ var _ = Describe("CloudInit UserData", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
-
-	Dial := func(vm string, console string) *websocket.Conn {
-		wsUrl, err := url.Parse(flag.Lookup("master").Value.String())
-		Expect(err).ToNot(HaveOccurred())
-		wsUrl.Scheme = "ws"
-		wsUrl.Path = "/apis/kubevirt.io/v1alpha1/namespaces/" + tests.NamespaceTestDefault + "/virtualmachines/" + vm + "/console"
-		wsUrl.RawQuery = "console=" + console
-		c, _, err := websocket.DefaultDialer.Dial(wsUrl.String(), nil)
-		Expect(err).ToNot(HaveOccurred())
-		return c
-	}
+	virtConfig, err := kubecli.GetKubevirtClientConfig()
+	tests.PanicOnError(err)
 
 	LaunchVM := func(vm *v1.VirtualMachine) runtime.Object {
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
@@ -68,21 +57,13 @@ var _ = Describe("CloudInit UserData", func() {
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 		tests.WaitForSuccessfulVMStart(obj)
 
-		ws := Dial(vm.ObjectMeta.GetName(), "serial0")
-		defer ws.Close()
-		next := ""
-		Eventually(func() string {
-			for {
-				if index := strings.Index(next, "\n"); index != -1 {
-					line := next[0:index]
-					next = next[index+1:]
-					return line
-				}
-				_, data, err := ws.ReadMessage()
-				Expect(err).ToNot(HaveOccurred())
-				next = next + string(data)
-			}
-		}, 60*time.Second).Should(ContainSubstring(magicStr))
+		expecter, _, err := tests.NewConsoleExpecter(virtConfig, vm, "serial0", 10*time.Second)
+		defer expecter.Close()
+		Expect(err).ToNot(HaveOccurred())
+
+		expecter.ExpectBatch([]expect.Batcher{
+			&expect.BExp{R: magicStr},
+		}, 60*time.Second)
 	}
 
 	BeforeEach(func() {
