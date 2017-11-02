@@ -18,7 +18,7 @@ Kubernetes.
 
 At its core, KubeVirt extends [Kubernetes][k8s] by adding
 additional virtualization resource types (especially the `VM` type) through
-[Kubernetes's third party resource concept][tpr].
+[Kubernetes's Custom Resource Definitions API][crd].
 By using this mechanism, the Kubernetes API can be used to manage these `VM`
 resources alongside all other resources Kubernetes provides.
 
@@ -118,7 +118,7 @@ KubeVirt is distributed under the
 
 [//]: # (Reference links)
    [k8s]: https://kubernetes.io
-   [tpr]: http://kubernetes.io/docs/user-guide/thirdpartyresources/
+   [crd]: https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/
    [ovirt]: https://www.ovirt.org
    [cockpit]: https://cockpit-project.org/
    [libvirt]: https://www.libvirt.org
