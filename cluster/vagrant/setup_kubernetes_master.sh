@@ -75,7 +75,7 @@ fi
   pushd /vagrant
   source hack/config.sh
   popd
-  sed "s/{{ master_ip }}/${master_ip}/g" /vagrant/cluster/vagrant/ingress.yaml.in \
+  sed "s/{{ master_ip }}/${master_ip}/g" /vagrant/manifests/ingress.yaml.in \
       | kubectl apply -f -
 }
 
