@@ -62,13 +62,7 @@ fi
     https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/tcp-services-configmap.yaml \
     https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/udp-services-configmap.yaml \
     https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/rbac.yaml \
-      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
-      | kubectl apply -f -
-
-  # Pin the controller to the master
-  ( curl -L https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/with-rbac.yaml && \
-    echo -e "      nodeSelector:\n        kubernetes.io/hostname: master" \
-  ) \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/with-rbac.yaml \
       | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
       | kubectl apply -f -
 
