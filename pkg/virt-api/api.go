@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful-openapi"
 	kithttp "github.com/go-kit/kit/transport/http"
 	openapispec "github.com/go-openapi/spec"
 	"golang.org/x/net/context"

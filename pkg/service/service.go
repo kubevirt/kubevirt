@@ -20,12 +20,18 @@
 package service
 
 import (
+	goflag "flag"
 	"fmt"
 	"strconv"
+
+	flag "github.com/spf13/pflag"
 )
 
 type Service interface {
 	Run()
+	// TODO(mpolednik): uncomment initOptions when all services implement it.
+	// AddFlags()
+
 }
 
 type ServiceListen struct {
@@ -34,6 +40,7 @@ type ServiceListen struct {
 	Port int
 }
 
+// TODO(mpolednik): remove this when all affected services use new flag handling.
 func NewServiceListen(name string, host *string, port *int) *ServiceListen {
 	return &ServiceListen{
 		Name: name,
@@ -44,4 +51,13 @@ func NewServiceListen(name string, host *string, port *int) *ServiceListen {
 
 func (service *ServiceListen) Address() string {
 	return fmt.Sprintf("%s:%s", service.Host, strconv.Itoa(service.Port))
+}
+
+func (service *ServiceListen) InitFlags() {
+	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
+}
+
+func (service *ServiceListen) AddCommonFlags() {
+	flag.StringVar(&service.Host, "listen", service.Host, "Address where to listen on")
+	flag.IntVar(&service.Port, "port", service.Port, "Port to listen on")
 }
