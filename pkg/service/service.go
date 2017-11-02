@@ -29,24 +29,13 @@ import (
 
 type Service interface {
 	Run()
-	// TODO(mpolednik): uncomment initOptions when all services implement it.
-	// AddFlags()
-
+	AddFlags()
 }
 
 type ServiceListen struct {
 	Name string
 	Host string
 	Port int
-}
-
-// TODO(mpolednik): remove this when all affected services use new flag handling.
-func NewServiceListen(name string, host *string, port *int) *ServiceListen {
-	return &ServiceListen{
-		Name: name,
-		Host: *host,
-		Port: *port,
-	}
 }
 
 func (service *ServiceListen) Address() string {
