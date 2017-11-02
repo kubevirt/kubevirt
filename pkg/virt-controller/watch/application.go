@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -59,6 +60,8 @@ type VirtControllerApp struct {
 	ephemeralDiskDir string
 	readyChan        chan bool
 }
+
+var _ service.Service = &VirtControllerApp{}
 
 func Execute() {
 	var err error

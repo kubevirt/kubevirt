@@ -59,13 +59,15 @@ import (
 const defaultWatchdogTimeout = 30 * time.Second
 
 type virtHandlerApp struct {
-	Service                 *service.Service
+	Service                 *service.ServiceListen
 	HostOverride            string
 	LibvirtUri              string
 	VirtShareDir            string
 	EphemeralDiskDir        string
 	WatchdogTimeoutDuration time.Duration
 }
+
+var _ service.Service = &virtHandlerApp{}
 
 func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration) *virtHandlerApp {
 	if *hostOverride == "" {
@@ -77,7 +79,7 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 	}
 
 	return &virtHandlerApp{
-		Service:                 service.NewService("virt-handler", *host, *port),
+		Service:                 service.NewServiceListen("virt-handler", host, port),
 		HostOverride:            *hostOverride,
 		LibvirtUri:              *libvirtUri,
 		VirtShareDir:            *virtShareDir,

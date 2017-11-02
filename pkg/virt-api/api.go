@@ -22,16 +22,18 @@ import (
 )
 
 type virtAPIApp struct {
-	Service   *service.Service
+	Service   *service.ServiceListen
 	SwaggerUI string
 }
 
 func NewVirtAPIApp(host string, port int, swaggerUI string) *virtAPIApp {
 	return &virtAPIApp{
-		Service:   service.NewService("virt-api", host, port),
+		Service:   service.NewServiceListen("virt-api", host, port),
 		SwaggerUI: swaggerUI,
 	}
 }
+
+var _ service.Service = &virtAPIApp{}
 
 func (app *virtAPIApp) Compose() {
 	ctx := context.Background()

@@ -35,16 +35,18 @@ import (
 )
 
 type virtManifestApp struct {
-	Service    *service.Service
+	Service    *service.ServiceListen
 	LibvirtUri string
 }
 
 func newVirtManifestApp(host *string, port *int, libvirtUri *string) *virtManifestApp {
 	return &virtManifestApp{
-		Service:    service.NewService("virt-manifest", *host, *port),
+		Service:    service.NewServiceListen("virt-manifest", host, port),
 		LibvirtUri: *libvirtUri,
 	}
 }
+
+var _ service.Service = &virtManifestApp{}
 
 func (app *virtManifestApp) Run() {
 	logger := log.Log

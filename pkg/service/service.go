@@ -24,20 +24,24 @@ import (
 	"strconv"
 )
 
-type Service struct {
+type Service interface {
+	Run()
+}
+
+type ServiceListen struct {
 	Name string
 	Host string
 	Port string
 }
 
-func NewService(name string, host string, port int) *Service {
-	return &Service{
+func NewServiceListen(name string, host *string, port *int) *ServiceListen {
+	return &ServiceListen{
 		Name: name,
 		Host: host,
 		Port: strconv.Itoa(port),
 	}
 }
 
-func (service *Service) Address() string {
+func (service *ServiceListen) Address() string {
 	return fmt.Sprintf("%s:%s", service.Host, service.Port)
 }
