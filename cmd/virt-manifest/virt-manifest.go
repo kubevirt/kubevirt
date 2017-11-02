@@ -20,13 +20,12 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/emicklei/go-restful"
-	"github.com/spf13/pflag"
+	flag "github.com/spf13/pflag"
 
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -34,16 +33,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-manifest/rest"
 )
 
-type virtManifestApp struct {
-	Service    *service.ServiceListen
-	LibvirtUri string
-}
+const (
+	// Default port that virt-manifest listens on.
+	defaultPort = 8186
 
-func newVirtManifestApp(host *string, port *int, libvirtUri *string) *virtManifestApp {
-	return &virtManifestApp{
-		Service:    service.NewServiceListen("virt-manifest", host, port),
-		LibvirtUri: *libvirtUri,
-	}
+	// Default address that virt-manifest listens on.
+	defaultHost = "0.0.0.0"
+)
+
+type virtManifestApp struct {
+	service.ServiceListen
+	LibvirtUri string
 }
 
 var _ service.Service = &virtManifestApp{}
@@ -69,7 +69,7 @@ func (app *virtManifestApp) Run() {
 	}
 
 	restful.DefaultContainer.Add(ws)
-	server := &http.Server{Addr: app.Service.Address(), Handler: restful.DefaultContainer}
+	server := &http.Server{Addr: app.Address(), Handler: restful.DefaultContainer}
 	logger.Info("Listening for client connections")
 
 	if err := server.ListenAndServe(); err != nil {
@@ -77,14 +77,23 @@ func (app *virtManifestApp) Run() {
 	}
 }
 
+func (app *virtManifestApp) AddFlags() {
+	app.InitFlags()
+
+	app.Host = defaultHost
+	app.Port = defaultPort
+
+	app.AddCommonFlags()
+
+	flag.StringVar(&app.LibvirtUri, "libvirt-uri", "qemu:///system",
+		"Libvirt connection string")
+
+	flag.Parse()
+}
+
 func main() {
 	log.InitializeLogging("virt-manifest")
-	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
-	port := flag.Int("port", 8186, "Port to listen on")
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
-	app := newVirtManifestApp(listen, port, libvirtUri)
+	app := virtManifestApp{}
+	app.AddFlags()
 	app.Run()
 }
