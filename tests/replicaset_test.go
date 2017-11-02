@@ -105,7 +105,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 				rs, err := virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(rs.Status.ReadyReplicas)
-			}, 60*time.Second, 1*time.Second).Should(Equal(2))
+			}, 120*time.Second, 1*time.Second).Should(Equal(2))
 		})
 
 		It("should not scale when paused and scale when resume", func() {
