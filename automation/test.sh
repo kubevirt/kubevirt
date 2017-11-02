@@ -124,7 +124,14 @@ while [ "$(kubectl get pods -o'custom-columns=status:status.containerStatuses[*]
     sleep 10
 done
 
-kubectl get pods
+# Wait until all pods are running
+while [ -n "$(kubectl get pods --no-headers --all-namespaces | grep -v Running)" ]; do
+    echo "Waiting for pods in all namespaces to enter the Running state ..."
+    kubectl get pods --no-headers --all-namespaces | >&2 grep -v Running || true
+    sleep 5
+done
+
+kubectl get pods --all-namespaces
 kubectl version
 
 # Disable proxy configuration since it causes test issues
