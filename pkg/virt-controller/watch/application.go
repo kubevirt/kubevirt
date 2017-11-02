@@ -1,13 +1,12 @@
 package watch
 
 import (
-	"flag"
 	golog "log"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/emicklei/go-restful"
+	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -28,7 +27,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
+const (
+	// Default port that virt-manifest listens on.
+	defaultPort = 8182
+
+	// Default address that virt-manifest listens on.
+	defaultHost = "0.0.0.0"
+)
+
 type VirtControllerApp struct {
+	service.ServiceListen
+
 	clientSet       kubecli.KubevirtClient
 	templateService services.TemplateService
 	restClient      *clientrest.RESTClient
@@ -52,8 +61,6 @@ type VirtControllerApp struct {
 
 	LeaderElection leaderelectionconfig.Configuration
 
-	host             string
-	port             int
 	launcherImage    string
 	migratorImage    string
 	virtShareDir     string
@@ -69,7 +76,7 @@ func Execute() {
 
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
-	app.DefineFlags()
+	app.AddFlags()
 
 	app.readyChan = make(chan bool, 1)
 
@@ -121,8 +128,8 @@ func (vca *VirtControllerApp) Run() {
 	vca.informerFactory.Start(stop)
 	go func() {
 		httpLogger := logger.With("service", "http")
-		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.host, "port", vca.port)
-		if err := http.ListenAndServe(vca.host+":"+strconv.Itoa(vca.port), nil); err != nil {
+		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.Host, "port", vca.Port)
+		if err := http.ListenAndServe(vca.Address(), nil); err != nil {
 			golog.Fatal(err)
 		}
 	}()
@@ -215,13 +222,27 @@ func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restf
 	response.WriteHeaderAndJson(http.StatusServiceUnavailable, res, restful.MIME_JSON)
 }
 
-func (vca *VirtControllerApp) DefineFlags() {
-	flag.StringVar(&vca.host, "listen", "0.0.0.0", "Address and port where to listen on")
-	flag.IntVar(&vca.port, "port", 8182, "Port to listen on")
-	flag.StringVar(&vca.launcherImage, "launcher-image", "virt-launcher", "Shim container for containerized VMs")
-	flag.StringVar(&vca.migratorImage, "migrator-image", "virt-handler", "Container which orchestrates a VM migration")
-	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
-	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base direcetory for ephemeral disk data")
+func (vca *VirtControllerApp) AddFlags() {
+	vca.InitFlags()
+
 	leaderelectionconfig.BindFlags(&vca.LeaderElection)
+
+	vca.Host = defaultHost
+	vca.Port = defaultPort
+
+	vca.AddCommonFlags()
+
+	flag.StringVar(&vca.launcherImage, "launcher-image", "virt-launcher",
+		"Shim container for containerized VMs")
+
+	flag.StringVar(&vca.migratorImage, "migrator-image", "virt-handler",
+		"Container which orchestrates a VM migration")
+
+	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", "/var/run/kubevirt",
+		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk",
+		"Base directory for ephemeral disk data")
+
 	flag.Parse()
 }
