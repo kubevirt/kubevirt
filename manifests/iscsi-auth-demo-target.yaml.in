@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: iscsi-auth-demo-secret
-type: "kubernetes.io/iscsi-chap"  
+type: "kubernetes.io/iscsi-chap"
 data:
   node.session.auth.username: ZGVtb3VzZXI=
   node.session.auth.password: ZGVtb3Bhc3N3b3Jk
@@ -50,5 +50,3 @@ spec:
         - name: host
           hostPath:
             path: /
-      nodeSelector:
-        kubernetes.io/hostname: {{ primary_node_name }}

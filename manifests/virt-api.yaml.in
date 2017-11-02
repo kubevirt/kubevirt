@@ -38,5 +38,3 @@ spec:
             protocol: "TCP"
       securityContext:
         runAsNonRoot: true
-      nodeSelector:
-        kubernetes.io/hostname: {{ primary_node_name }}

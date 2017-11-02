@@ -64,5 +64,3 @@ spec:
       volumes:
       - name: libvirt-runtime
         emptyDir: {}
-      nodeSelector:
-        kubernetes.io/hostname: {{ primary_node_name }}
