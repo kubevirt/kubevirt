@@ -31,17 +31,17 @@ type Service interface {
 type ServiceListen struct {
 	Name string
 	Host string
-	Port string
+	Port int
 }
 
 func NewServiceListen(name string, host *string, port *int) *ServiceListen {
 	return &ServiceListen{
 		Name: name,
-		Host: host,
-		Port: strconv.Itoa(port),
+		Host: *host,
+		Port: *port,
 	}
 }
 
 func (service *ServiceListen) Address() string {
-	return fmt.Sprintf("%s:%s", service.Host, service.Port)
+	return fmt.Sprintf("%s:%s", service.Host, strconv.Itoa(service.Port))
 }
