@@ -30,6 +30,8 @@ import (
 	"os/signal"
 	"time"
 
+	"sync"
+
 	"github.com/gorilla/websocket"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
@@ -79,23 +81,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 		return 1
 	}
 
-	// Create a round tripper with all necessary kubernetes security details
-	wrappedRoundTripper, err := roundTripperFromConfig(config)
-	if err != nil {
-		log.Println(err)
-		return 1
-	}
-
-	// Create the basic console request
-	req, err := requestFromConfig(config, vm, namespace, device)
-	if err != nil {
-		log.Println(err)
-		return 1
-	}
-
-	// Do the call and process the websocket connection with the callback
-	_, err = wrappedRoundTripper.RoundTrip(req)
-
+	err = ConnectToConsole(config, namespace, vm, device, TerminalWebsocketCallback)
 	if err != nil {
 		log.Println(err)
 		return 1
@@ -103,82 +89,140 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	return 0
 }
 
-func WebsocketCallback(ws *websocket.Conn, resp *http.Response, err error) error {
+func ConnectToConsole(config *rest.Config, namespace string, name string, console string, callback RoundTripCallback) error {
+
+	// Create a round tripper with all necessary kubernetes security details
+	wrappedRoundTripper, err := RoundTripperFromConfig(config, callback)
+	if err != nil {
+		return err
+	}
+
+	// Create the basic console request
+	req, err := RequestFromConfig(config, name, namespace, console)
+	if err != nil {
+		return err
+	}
+
+	// Do the call and process the websocket connection with the callback
+	_, err = wrappedRoundTripper.RoundTrip(req)
 
 	if err != nil {
-		if resp != nil && resp.StatusCode != http.StatusOK {
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(resp.Body)
-			return fmt.Errorf("Can't connect to console (%d): %s\n", resp.StatusCode, buf.String())
-		}
-		return fmt.Errorf("Can't connect to console: %s\n", err.Error())
-	}
-
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
-	writeStop := make(chan struct{})
-	readStop := make(chan struct{})
-
-	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return fmt.Errorf("Make raw terminal failed: %s", err)
-	}
-	defer terminal.Restore(int(os.Stdin.Fd()), state)
-	fmt.Fprint(os.Stderr, "Escape sequence is ^]")
-
-	go func() {
-		defer close(readStop)
-		for {
-			_, message, err := ws.ReadMessage()
-			if err != nil {
-				os.Stdout.Write(message)
-				return
-			}
-			os.Stdout.Write(message)
-		}
-	}()
-
-	buf := make([]byte, 1024, 1024)
-	go func() {
-		defer close(writeStop)
-		for {
-			n, err := os.Stdin.Read(buf)
-			if err != nil && err != io.EOF {
-				log.Println(err)
-				return
-			}
-
-			if buf[0] == 29 {
-				return
-			}
-
-			err = ws.WriteMessage(websocket.TextMessage, buf[0:n])
-			if err != nil && err != io.EOF {
-				log.Println(err)
-				return
-			}
-		}
-	}()
-
-	select {
-	case <-interrupt:
-	case <-readStop:
-	case <-writeStop:
-	}
-
-	err = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-	if err != nil {
-		return fmt.Errorf("Error on close announcement: %s", err.Error())
-	}
-	select {
-	case <-readStop:
-	case <-time.After(time.Second):
+		return err
 	}
 	return nil
 }
 
-func requestFromConfig(config *rest.Config, vm string, namespace string, device string) (*http.Request, error) {
+func NewWebsocketCallback(in io.ReadCloser, out io.WriteCloser, stopChan chan struct{}) RoundTripCallback {
+
+	return func(ws *websocket.Conn, resp *http.Response, err error) error {
+
+		if err != nil {
+			if resp != nil && resp.StatusCode != http.StatusOK {
+				buf := new(bytes.Buffer)
+				buf.ReadFrom(resp.Body)
+				return fmt.Errorf("Can't connect to console (%d): %s\n", resp.StatusCode, buf.String())
+			}
+			return fmt.Errorf("Can't connect to console: %s\n", err.Error())
+		}
+
+		writeStop := make(chan struct{})
+		readStop := make(chan struct{})
+
+		go func() {
+			defer close(readStop)
+			for {
+				_, message, err := ws.ReadMessage()
+				if err != nil {
+					out.Write(message)
+					return
+				}
+				_, err = out.Write(message)
+				if err == io.EOF {
+					return
+				}
+			}
+		}()
+
+		buf := make([]byte, 1024, 1024)
+
+		// Synchronize writes for final close announcements
+		var writeMux sync.Mutex
+		writeProtected := func(messageType int, data []byte) error {
+			writeMux.Lock()
+			defer writeMux.Unlock()
+			return ws.WriteMessage(websocket.TextMessage, data)
+		}
+
+		go func() {
+			defer close(writeStop)
+			for {
+				n, err := in.Read(buf)
+				if err != nil && err != io.EOF {
+					log.Println(err)
+					return
+				}
+
+				// TODO move this to the TerminalWebsocketCallback
+				if buf[0] == 29 {
+					return
+				}
+
+				// If there is nothing more to write and we have reached EOF, return
+				if n == 0 && err == io.EOF {
+					return
+				}
+
+				err = writeProtected(websocket.TextMessage, buf[0:n])
+				if err != nil && err != io.EOF {
+					log.Println(err)
+					return
+				}
+			}
+		}()
+
+		select {
+		case <-stopChan:
+		case <-readStop:
+		case <-writeStop:
+		}
+
+		err = writeProtected(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		if err != nil {
+			return fmt.Errorf("Error on close announcement: %s", err.Error())
+		}
+		select {
+		case <-readStop:
+		case <-time.After(time.Second):
+		}
+		return nil
+	}
+}
+
+func TerminalWebsocketCallback(ws *websocket.Conn, resp *http.Response, connErr error) error {
+
+	stopChan := make(chan struct{}, 1)
+
+	go func() {
+		interrupt := make(chan os.Signal, 1)
+		signal.Notify(interrupt, os.Interrupt)
+		<-interrupt
+		close(stopChan)
+	}()
+
+	// If there is no obvious connection error, set up the terminal
+	if connErr == nil {
+		state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			return fmt.Errorf("Make raw terminal failed: %s", err)
+		}
+		defer terminal.Restore(int(os.Stdin.Fd()), state)
+		fmt.Fprint(os.Stderr, "Escape sequence is ^]")
+	}
+
+	return NewWebsocketCallback(os.Stdin, os.Stdout, stopChan)(ws, resp, connErr)
+}
+
+func RequestFromConfig(config *rest.Config, vm string, namespace string, device string) (*http.Request, error) {
 
 	u, err := url.Parse(config.Host)
 	if err != nil {
@@ -206,7 +250,7 @@ func requestFromConfig(config *rest.Config, vm string, namespace string, device 
 	return req, nil
 }
 
-func roundTripperFromConfig(config *rest.Config) (http.RoundTripper, error) {
+func RoundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (http.RoundTripper, error) {
 
 	// Configure TLS
 	tlsConfig, err := rest.TLSConfigFor(config)
@@ -222,7 +266,7 @@ func roundTripperFromConfig(config *rest.Config) (http.RoundTripper, error) {
 
 	// Create a roundtripper which will pass in the final underlying websocket connection to a callback
 	rt := &WebsocketRoundTripper{
-		Do:     WebsocketCallback,
+		Do:     callback,
 		Dialer: dialer,
 	}
 

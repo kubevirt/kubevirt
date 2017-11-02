@@ -69,3 +69,11 @@ func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClien
 func GetKubevirtClient() (KubevirtClient, error) {
 	return GetKubevirtClientFromFlags(master, kubeconfig)
 }
+
+func GetKubevirtClientConfig() (*rest.Config, error) {
+	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}

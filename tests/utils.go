@@ -39,8 +39,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"io"
+
+	"github.com/google/goexpect"
+	"k8s.io/client-go/rest"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl/console"
 )
 
 type EventType string
@@ -775,4 +781,28 @@ func NewRandomReplicaSetFromVM(vm *v1.VirtualMachine, replicas int32) *v1.Virtua
 		},
 	}
 	return rs
+}
+
+func NewConsoleExpecter(config *rest.Config, vm *v1.VirtualMachine, consoleName string, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
+	vmReader, vmWriter := io.Pipe()
+	expecterReader, expecterWriter := io.Pipe()
+	resCh := make(chan error)
+	stopChan := make(chan struct{})
+	go func() {
+		err := console.ConnectToConsole(config, vm.ObjectMeta.Namespace, vm.ObjectMeta.Name, consoleName, console.NewWebsocketCallback(vmReader, expecterWriter, stopChan))
+		resCh <- err
+	}()
+
+	return expect.SpawnGeneric(&expect.GenOptions{
+		In:  vmWriter,
+		Out: expecterReader,
+		Wait: func() error {
+			return <-resCh
+		},
+		Close: func() error {
+			close(stopChan)
+			return nil
+		},
+		Check: func() bool { return true },
+	}, timeout, opts...)
 }
