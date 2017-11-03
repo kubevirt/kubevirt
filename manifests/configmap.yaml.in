@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubevirt-config
+  namespace: default
+data:
+  spice-proxy: "{{ master_ip }}:3218"
