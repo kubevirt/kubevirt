@@ -94,3 +94,12 @@ ignored = ["code.google.com/p/go-charset","github.com/go-kit/kit/examples","gith
 
 [[constraint]]
   name = "k8s.io/client-go"
+
+[[constraint]]
+  name = "github.com/google/goexpect"
+
+[[constraint]]
+  name = "github.com/google/goterm"
+
+[[constraint]]
+  name = "github.com/google/grpc"
