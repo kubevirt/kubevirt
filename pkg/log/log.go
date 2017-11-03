@@ -188,10 +188,12 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 
 	name := obj.GetObjectMeta().GetName()
+	namespace := obj.GetObjectMeta().GetNamespace()
 	uid := obj.GetObjectMeta().GetUID()
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
 	logParams := make([]interface{}, 0)
+	logParams = append(logParams, "namespace", namespace)
 	logParams = append(logParams, "name", name)
 	logParams = append(logParams, "kind", kind)
 	logParams = append(logParams, "uid", uid)

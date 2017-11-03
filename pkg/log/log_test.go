@@ -306,9 +306,10 @@ func TestObject(t *testing.T) {
 	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
 	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
 	assert(t, logEntry[7].(string) == "test", "Component was not logged")
-	assert(t, logEntry[8].(string) == "name", "Logged line did not contain object name")
-	assert(t, logEntry[10].(string) == "kind", "Logged line did not contain object kind")
-	assert(t, logEntry[12].(string) == "uid", "Logged line did not contain UUID")
+	assert(t, logEntry[8].(string) == "namespace", "Logged line did not contain object namespace")
+	assert(t, logEntry[10].(string) == "name", "Logged line did not contain object name")
+	assert(t, logEntry[12].(string) == "kind", "Logged line did not contain object kind")
+	assert(t, logEntry[14].(string) == "uid", "Logged line did not contain UUID")
 	tearDown()
 }
 

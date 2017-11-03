@@ -84,7 +84,7 @@ var _ = Describe("Cache", func() {
 			table.Entry("unknown", libvirt.DOMAIN_NOSTATE, api.NoState),
 			table.Entry("running", libvirt.DOMAIN_RUNNING, api.Running),
 		)
-		table.DescribeTable("should receive non delete evens of type",
+		table.DescribeTable("should receive non-delete events of type",
 			func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
@@ -112,6 +112,7 @@ var _ = Describe("Cache", func() {
 		)
 		It("should receive a delete event when a VM is undefined",
 			func() {
+				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetName().Return("test", nil)
 				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
