@@ -30,6 +30,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -48,6 +49,51 @@ var _ = Describe("Vmlifecycle", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 	var vm *v1.VirtualMachine
+
+	getVmNode := func() string {
+		obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+		Expect(err).ToNot(HaveOccurred())
+		return obj.(*v1.VirtualMachine).Status.NodeName
+	}
+
+	checkSpiceConnection := func() {
+		raw, err := virtClient.RestClient().Get().Resource("virtualmachines").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
+		Expect(err).To(BeNil())
+		spiceINI, err := ini.Load(raw)
+		Expect(err).NotTo(HaveOccurred())
+		spice := v1.SpiceInfo{}
+		Expect(spiceINI.Section("virt-viewer").MapTo(&spice)).To(Succeed())
+
+		proxy := strings.TrimPrefix(spice.Proxy, "http://")
+		host := fmt.Sprintf("%s:%d", spice.Host, spice.Port)
+
+		// Let's see if we can connect to the spice port through the proxy
+		conn, err := net.Dial("tcp", proxy)
+		Expect(err).To(BeNil())
+		conn.Write([]byte("CONNECT " + host + " HTTP/1.1\r\n"))
+		conn.Write([]byte("Host: " + host + "\r\n"))
+		conn.Write([]byte("\r\n"))
+		line, err := bufio.NewReader(conn).ReadString('\n')
+		Expect(err).To(BeNil())
+		Expect(strings.TrimSpace(line)).To(Equal("HTTP/1.1 200 Connection established"))
+
+		// Let's send a spice handshake
+		conn.Write(newSpiceHandshake())
+
+		// Let's parse the response
+		var i int32
+		x := make([]byte, 4, 4)
+		io.ReadFull(conn, x)
+		Expect(string(x)).To(Equal("REDQ")) // spice magic
+		binary.Read(conn, binary.LittleEndian, &i)
+		Expect(i).To(Equal(int32(2)), "Major version does not match.")
+		binary.Read(conn, binary.LittleEndian, &i)
+		Expect(i).To(Equal(int32(2)), "Minor version does not match.")
+		binary.Read(conn, binary.LittleEndian, &i)
+		Expect(i).To(BeNumerically(">", 4), "Message not long enough.")
+		binary.Read(conn, binary.LittleEndian, &i)
+		Expect(i).To(Equal(int32(0)), "Message status is not OK.") // 0 is equal to OK
+	}
 
 	BeforeEach(func() {
 		vm = tests.NewRandomVMWithSpice()
@@ -111,42 +157,7 @@ var _ = Describe("Vmlifecycle", func() {
 			// Block until the VM is running
 			tests.WaitForSuccessfulVMStart(obj)
 
-			raw, err := virtClient.RestClient().Get().Resource("virtualmachines").SetHeader("Accept", rest.MIME_INI).SubResource("spice").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Raw()
-			Expect(err).To(BeNil())
-			spiceINI, err := ini.Load(raw)
-			Expect(err).NotTo(HaveOccurred())
-			spice := v1.SpiceInfo{}
-			Expect(spiceINI.Section("virt-viewer").MapTo(&spice)).To(Succeed())
-
-			proxy := strings.TrimPrefix(spice.Proxy, "http://")
-			host := fmt.Sprintf("%s:%d", spice.Host, spice.Port)
-
-			// Let's see if we can connect to the spice port through the proxy
-			conn, err := net.Dial("tcp", proxy)
-			Expect(err).To(BeNil())
-			conn.Write([]byte("CONNECT " + host + " HTTP/1.1\r\n"))
-			conn.Write([]byte("Host: " + host + "\r\n"))
-			conn.Write([]byte("\r\n"))
-			line, err := bufio.NewReader(conn).ReadString('\n')
-			Expect(err).To(BeNil())
-			Expect(strings.TrimSpace(line)).To(Equal("HTTP/1.1 200 Connection established"))
-
-			// Let's send a spice handshake
-			conn.Write(newSpiceHandshake())
-
-			// Let's parse the response
-			var i int32
-			x := make([]byte, 4, 4)
-			io.ReadFull(conn, x)
-			Expect(string(x)).To(Equal("REDQ")) // spice magic
-			binary.Read(conn, binary.LittleEndian, &i)
-			Expect(i).To(Equal(int32(2)), "Major version does not match.")
-			binary.Read(conn, binary.LittleEndian, &i)
-			Expect(i).To(Equal(int32(2)), "Minor version does not match.")
-			binary.Read(conn, binary.LittleEndian, &i)
-			Expect(i).To(BeNumerically(">", 4), "Message not long enough.")
-			binary.Read(conn, binary.LittleEndian, &i)
-			Expect(i).To(Equal(int32(0)), "Message status is not OK.") // 0 is equal to OK
+			checkSpiceConnection()
 
 			close(done)
 		}, 30)
@@ -181,6 +192,40 @@ var _ = Describe("Vmlifecycle", func() {
 		}, 30)
 	})
 
+	Context("Migrate VM with spice connection", func() {
+
+		BeforeEach(func() {
+			if len(tests.GetReadyNodes()) < 2 {
+				Skip("To test migrations, at least two nodes need to be active")
+			}
+			// Create the VM
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
+			obj, err := result.Get()
+			Expect(err).To(BeNil())
+
+			// Block until the VM is running
+			tests.WaitForSuccessfulVMStart(obj)
+		})
+
+		It("should allow accessing the spice device on the VM", func() {
+			sourceNode := getVmNode()
+
+			migration := tests.NewRandomMigrationForVm(vm)
+			err = virtClient.RestClient().Post().Resource("migrations").Namespace(tests.NamespaceTestDefault).Body(migration).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(getVmNode, 30*time.Second, time.Second).ShouldNot(Equal(sourceNode))
+
+			Eventually(func() v1.VMPhase {
+				obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
+				Expect(err).ToNot(HaveOccurred())
+				fetchedVM := obj.(*v1.VirtualMachine)
+				return fetchedVM.Status.Phase
+			}, 10*time.Second, time.Second).Should(Equal(v1.Running))
+
+			checkSpiceConnection()
+		})
+	})
 })
 
 func newSpiceHandshake() []byte {
