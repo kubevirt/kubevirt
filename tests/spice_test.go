@@ -207,7 +207,7 @@ var _ = Describe("Vmlifecycle", func() {
 			tests.WaitForSuccessfulVMStart(obj)
 		})
 
-		It("should allow accessing the spice device on the VM", func(done Done) {
+		It("should allow accessing the spice device on the VM", func() {
 			sourceNode := getVmNode()
 
 			migration := tests.NewRandomMigrationForVm(vm)
@@ -224,8 +224,7 @@ var _ = Describe("Vmlifecycle", func() {
 			}, 10*time.Second, time.Second).Should(Equal(v1.Running))
 
 			checkSpiceConnection()
-			close(done)
-		}, 30)
+		})
 	})
 })
 
