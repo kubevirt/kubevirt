@@ -60,6 +60,12 @@ var exampleXML = `<domain type="qemu">
     </console>
     <watchdog model="i6300esb" action="poweroff"></watchdog>
   </devices>
+  <metadata>
+    <graceperiod xmlns="http://kubevirt.io">
+      <period>0</period>
+      <start>0</start>
+    </graceperiod>
+  </metadata>
 </domain>`
 
 var _ = Describe("Schema", func() {

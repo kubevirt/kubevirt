@@ -215,6 +215,16 @@ type DomainSpec struct {
 	Clock    *Clock       `xml:"clock,omitempty"`
 	Resource *Resource    `xml:"resource,omitempty"`
 	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
+	Metadata Metadata     `xml:"metadata,omitempty"`
+}
+
+type Metadata struct {
+	GracePeriod GracePeriodMetadata `xml:"http://kubevirt.io graceperiod,omitempty"`
+}
+
+type GracePeriodMetadata struct {
+	Seconds       int64 `xml:"period"`
+	StartTimeUnix int64 `xml:"start"`
 }
 
 type Commandline struct {

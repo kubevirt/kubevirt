@@ -29,6 +29,7 @@ import (
 	"encoding/xml"
 	goerrors "errors"
 	"fmt"
+	"time"
 
 	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
@@ -199,6 +200,10 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 		},
 	}
 
+	if vm.Spec.TerminationGracePeriodSeconds != nil {
+		wantedSpec.Metadata.GracePeriod.Seconds = *vm.Spec.TerminationGracePeriodSeconds
+	}
+
 	domName := cache.VMNamespaceKeyFunc(vm)
 	wantedSpec.Name = domName
 	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
@@ -304,6 +309,22 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
 	return nil
 }
 
+func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
+
+	xmlStr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return nil, err
+	}
+
+	var spec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlStr), &spec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &spec, nil
+}
+
 func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 	domName := cache.VMNamespaceKeyFunc(vm)
 	dom, err := l.virConn.LookupDomainByName(domName)
@@ -325,13 +346,29 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
-		err = dom.Shutdown()
+		domSpec, err := l.getDomainSpec(dom)
 		if err != nil {
-			log.Log.Object(vm).Reason(err).Error("Signalling graceful shutdown failed.")
+			log.Log.Object(vm).Reason(err).Error("Unable to retrieve domain xml")
 			return err
 		}
-		log.Log.Object(vm).Infof("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())
-		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
+
+		if domSpec.Metadata.GracePeriod.StartTimeUnix == 0 {
+			err = dom.Shutdown()
+			if err != nil {
+				log.Log.Object(vm).Reason(err).Error("Signalling graceful shutdown failed.")
+				return err
+			}
+			log.Log.Object(vm).Infof("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())
+
+			domSpec.Metadata.GracePeriod.StartTimeUnix = time.Now().UTC().Unix()
+			_, err = l.setDomainXML(vm, *domSpec)
+			if err != nil {
+				log.Log.Object(vm).Reason(err).Error("Unable to update grace period start time on domain xml")
+				return err
+			}
+
+			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
+		}
 	}
 
 	return nil

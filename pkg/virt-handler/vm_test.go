@@ -136,10 +136,9 @@ var _ = Describe("VM", func() {
 		os.RemoveAll(shareDir)
 	})
 
-	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachine) {
+	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachine, dom *api.Domain) {
 		vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
-		err := controller.initializeGracePeriodInfo(vm)
-		Expect(err).NotTo(HaveOccurred())
+		dom.Spec.Metadata.GracePeriod.Seconds = gracePeriod
 	}
 
 	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
@@ -176,14 +175,12 @@ var _ = Describe("VM", func() {
 
 		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
 			vm := v1.NewMinimalVM("testvm")
-			gracePeriod := int64(1)
 			vm.Status.Phase = v1.Running
-			vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
 
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
 
-			initGracePeriodHelper(1, vm)
+			initGracePeriodHelper(1, vm, domain)
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
 
@@ -199,7 +196,7 @@ var _ = Describe("VM", func() {
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
 
-			initGracePeriodHelper(1, vm)
+			initGracePeriodHelper(1, vm, domain)
 			mockWatchdog.CreateFile(vm)
 
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
@@ -214,18 +211,16 @@ var _ = Describe("VM", func() {
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
 
-			initGracePeriodHelper(1, vm)
+			initGracePeriodHelper(1, vm, domain)
+			domain.Spec.Metadata.GracePeriod.StartTimeUnix = time.Now().UTC().Unix() - 3
+
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
-			err := controller.signalGracePeriodStarted(vm)
-			Expect(err).NotTo(HaveOccurred())
 
 			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			domainFeeder.Add(domain)
-
-			time.Sleep(2 * time.Second)
 
 			controller.Execute()
 		}, 3)
@@ -235,7 +230,7 @@ var _ = Describe("VM", func() {
 			domain.Status.Status = api.Running
 			vm := v1.NewMinimalVM("testvm")
 
-			initGracePeriodHelper(0, vm)
+			initGracePeriodHelper(0, vm, domain)
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
 

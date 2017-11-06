@@ -20,13 +20,9 @@
 package virthandler
 
 import (
-	"encoding/json"
 	goerror "errors"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -45,10 +41,8 @@ import (
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
@@ -129,121 +123,34 @@ type VirtualMachineController struct {
 	gracefulShutdownInformer cache.SharedIndexInformer
 }
 
-type gracePeriodInfo struct {
-	GracePeriodSeconds       int64 `json:"GracePeriodSeconds"`
-	GracePeriodStartTimeUnix int64 `json:"GracePeriodStartTimeUnix"`
-}
+func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (bool, int, error) {
 
-func (d *VirtualMachineController) gracePeriodInfoFilePath(vm *v1.VirtualMachine) string {
-	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-
-	info := namespace + "_" + domain
-	return filepath.Join(d.virtShareDir, "grace-period-info", info)
-}
-
-func (d *VirtualMachineController) initializeGracePeriodInfo(vm *v1.VirtualMachine) error {
-	gracePeriodSeconds := int64(v1.DefaultGracePeriodSeconds)
-	if vm.Spec.TerminationGracePeriodSeconds != nil {
-		gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
-	}
-
-	info := &gracePeriodInfo{
-		GracePeriodSeconds:       gracePeriodSeconds,
-		GracePeriodStartTimeUnix: 0,
-	}
-	return d.setGracePeriodInfo(vm, info)
-}
-
-func (d *VirtualMachineController) signalGracePeriodStarted(vm *v1.VirtualMachine) error {
-	info, err := d.getGracePeriodInfo(vm)
-	if err != nil {
-		return err
-	} else if info == nil {
-		return nil
-	}
-
-	// only update start time if it was not previously set
-	if info.GracePeriodStartTimeUnix == 0 {
-		info.GracePeriodStartTimeUnix = time.Now().UTC().Unix()
-		return d.setGracePeriodInfo(vm, info)
-	}
-
-	return nil
-}
-
-func (d *VirtualMachineController) hasGracePeriodExpired(vm *v1.VirtualMachine) (bool, int, error) {
-	info, err := d.getGracePeriodInfo(vm)
-
-	if err != nil {
-		return false, 0, err
-	} else if info == nil {
+	if dom == nil {
 		return true, 0, nil
 	}
 
-	if info.GracePeriodStartTimeUnix == 0 {
+	startTime := dom.Spec.Metadata.GracePeriod.StartTimeUnix
+	gracePeriod := dom.Spec.Metadata.GracePeriod.Seconds
+
+	if gracePeriod == 0 {
+		return true, 0, nil
+	} else if startTime == 0 {
 		return false, -1, nil
 	}
 
 	now := time.Now().UTC().Unix()
-	diff := now - info.GracePeriodStartTimeUnix
+	diff := now - startTime
 
-	if diff >= info.GracePeriodSeconds {
+	if diff >= gracePeriod {
 		return true, 0, nil
 	}
 
-	timeLeft := info.GracePeriodSeconds - diff
+	timeLeft := gracePeriod - diff
 	if timeLeft < 1 {
 		timeLeft = 1
 	}
 
 	return false, int(timeLeft), nil
-}
-
-func (d *VirtualMachineController) setGracePeriodInfo(vm *v1.VirtualMachine, info *gracePeriodInfo) error {
-	path := d.gracePeriodInfoFilePath(vm)
-
-	err := os.MkdirAll(filepath.Dir(path), 0755)
-	if err != nil {
-		return err
-	}
-
-	buf, err := json.MarshalIndent(info, "", "  ")
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(path, buf, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (d *VirtualMachineController) getGracePeriodInfo(vm *v1.VirtualMachine) (*gracePeriodInfo, error) {
-	path := d.gracePeriodInfoFilePath(vm)
-	exists, err := diskutils.FileExists(path)
-	if err != nil {
-		return nil, err
-	} else if !exists {
-		return nil, nil
-	}
-
-	buf, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	info := gracePeriodInfo{}
-	err = json.Unmarshal(buf, &info)
-	if err != nil {
-		return nil, err
-	}
-	return &info, nil
-}
-
-func (d *VirtualMachineController) deleteGracePeriodInfo(vm *v1.VirtualMachine) error {
-	path := d.gracePeriodInfoFilePath(vm)
-	return diskutils.RemoveFile(path)
 }
 
 func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
@@ -528,13 +435,13 @@ func (d *VirtualMachineController) execute(key string) error {
 	// * Update due to spec change and initial start flow.
 	if shouldShutdownAndDelete {
 		log.Log.Object(vm).V(3).Info("Processing shutdown.")
-		syncErr = d.processVmShutdown(vm)
+		syncErr = d.processVmShutdown(vm, domain)
 	} else if shouldCleanUp {
 		log.Log.Object(vm).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
-		syncErr = d.processVmCleanup(vm)
+		syncErr = d.processVmCleanup(vm, domain)
 	} else if shouldUpdate {
 		log.Log.Object(vm).V(3).Info("Processing vm update")
-		syncErr = d.processVmUpdate(vm)
+		syncErr = d.processVmUpdate(vm, domain)
 	} else {
 		log.Log.Object(vm).V(3).Info("No update processing required")
 	}
@@ -739,22 +646,12 @@ func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error
 		return err
 	}
 
-	err = d.deleteGracePeriodInfo(vm)
-	if err != nil {
-		return err
-	}
-
 	return d.configDisk.Undefine(vm)
 }
 
-func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachine) error {
+func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachine, domain *api.Domain) error {
 
-	err := d.signalGracePeriodStarted(vm)
-	if err != nil {
-		return err
-	}
-
-	expired, timeLeft, err := d.hasGracePeriodExpired(vm)
+	expired, timeLeft, err := d.hasGracePeriodExpired(domain)
 	if err != nil {
 		return err
 	}
@@ -832,12 +729,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 		// Everything except shutting down the VM is not
 		// permitted when it is migrating.
 		return nil
-	}
-
-	// store grace period info locally in case VM object is deleted before shutting down
-	err = d.initializeGracePeriodInfo(vm)
-	if err != nil {
-		return err
 	}
 
 	// TODO check if found VM has the same UID like the domain,
