@@ -62,17 +62,18 @@ var _ = Describe("Health Monitoring", func() {
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
 
-			expecter.ExpectBatch([]expect.Batcher{
+			_, err = expecter.ExpectBatch([]expect.Batcher{
 				&expect.BExp{R: "Welcome to Alpine"},
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "login"},
 				&expect.BSnd{S: "root\n"},
 				&expect.BExp{R: "#"},
-				&expect.BSnd{S: "watchdog -t 5000ms -T 10000ms /dev/watchdog && sleep 10 && killall -9 watchdog\n"},
+				&expect.BSnd{S: "watchdog -t 2000ms -T 4000ms /dev/watchdog && sleep 5 && killall -9 watchdog\n"},
 				&expect.BExp{R: "#"},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: "0"},
-			}, 60*time.Second)
+			}, 150*time.Second)
+			Expect(err).ToNot(HaveOccurred())
 
 			namespace := vm.ObjectMeta.Namespace
 			name := vm.ObjectMeta.Name
@@ -82,9 +83,9 @@ var _ = Describe("Health Monitoring", func() {
 				err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(namespace).Name(name).Do().Into(vm)
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Phase
-			}, 60*time.Second).Should(Equal(v1.Failed))
+			}, 40*time.Second).Should(Equal(v1.Failed))
 
 			close(done)
-		}, 130)
+		}, 200)
 	})
 })
