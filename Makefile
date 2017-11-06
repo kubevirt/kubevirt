@@ -45,15 +45,15 @@ distclean: clean
 
 checksync:
 	if [ ! -e .Gopkg.toml.hash ] || [ "`${HASH} Gopkg.toml`" != "`cat .Gopkg.toml.hash`" ]; then \
-		dep ensure; \
-		${HASH} Gopkg.toml > .Gopkg.toml.hash; \
+		dep ensure && \
+		${HASH} Gopkg.toml > .Gopkg.toml.hash && \
 		${HASH} Gopkg.lock > .Gopkg.lock.hash; \
 	elif [ ! -e .Gopkg.lock.hash ] || [ "`${HASH} Gopkg.lock`" != "`cat .Gopkg.lock.hash`" ]; then \
 		make sync; \
 	fi
 
 sync:
-	dep ensure -vendor-only
+	dep ensure -vendor-only && \
 	${HASH} Gopkg.lock > .Gopkg.lock.hash;
 
 docker: build
