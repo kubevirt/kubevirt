@@ -20,24 +20,40 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"io/ioutil"
+	"log"
 
+	"github.com/emicklei/go-restful-openapi"
 	"github.com/spf13/pflag"
 
 	klog "kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-api"
 )
 
+func dumpOpenApiSpec(dumppath *string) {
+	openapispec := restfulspec.BuildSwagger(virt_api.CreateOpenAPIConfig())
+	data, err := json.MarshalIndent(openapispec, " ", " ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = ioutil.WriteFile(*dumppath, data, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
-	klog.InitializeLogging("virt-api")
-	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
-	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
-	port := flag.Int("port", 8183, "Port to listen on")
+	klog.InitializeLogging("openapispec")
+	dumpapispecpath := flag.String("dump-api-spec-path", "openapi.json", "Path to OpenApi dump.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	// client-go requires a config or a master to be set in order to configure a client
+	pflag.Set("master", "http://127.0.0.1:4321")
 	pflag.Parse()
 
-	app := virt_api.NewVirtAPIApp(*host, *port, *swaggerui)
+	// arguments for NewVirtAPIApp have no influence on the generated spec
+	app := virt_api.NewVirtAPIApp("0.0.0.0", 1234, "/swagger")
 	app.Compose()
-	app.ConfigureOpenAPIService()
-	app.Run()
+	dumpOpenApiSpec(dumpapispecpath)
 }

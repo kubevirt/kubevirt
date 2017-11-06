@@ -4,11 +4,13 @@ HASH := md5sum
 
 all: build manifests
 
-generate:
+generate: sync
 	find pkg/ -name "*generated*.go" -exec rm {} -f \;
 	./hack/build-go.sh generate ${WHAT}
 	goimports -w -local kubevirt.io cmd/ pkg/ tests/
 	./hack/bootstrap-ginkgo.sh
+	(cd tools/openapispec/ && go build)
+	tools/openapispec/openapispec --dump-api-spec-path api/openapi-spec/swagger.json
 
 build: checksync fmt vet compile
 
@@ -27,16 +29,10 @@ test: build
 functest:
 	./hack/build-go.sh functest ${WHAT}
 
-generate-openapi-spec: build
-	echo -e "apiVersion: v1\nclusters:\n- cluster:\n    server: https://127.0.0.1:6443\nkind: Config\n" > .test.kubeconfig
-	./cmd/virt-api/virt-api \
-		--kubeconfig .test.kubeconfig \
-		--dump-api-spec --dump-api-spec-path api/openapi-spec/swagger.json
-	rm -f .test.kubeconfig
-
 clean:
 	./hack/build-go.sh clean ${WHAT}
 	rm ./bin -rf
+	rm tools/openapispec/openapispec -rf
 
 distclean: clean
 	rm -rf vendor/
