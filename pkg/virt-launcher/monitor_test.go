@@ -96,6 +96,7 @@ var _ = Describe("VirtLauncher", func() {
 		triggerFile := GracefulShutdownTriggerFromNamespaceName(tmpDir, "fakenamespace", "fakedomain")
 		mon = &monitor{
 			commandPrefix:               "fake-qemu",
+			gracePeriod:                 30,
 			gracefulShutdownTriggerFile: triggerFile,
 		}
 	})
@@ -162,6 +163,32 @@ var _ = Describe("VirtLauncher", func() {
 				exists, err = hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(Equal(true))
+			})
+
+			It("verify grace period works", func() {
+				signalChannel := make(chan os.Signal, 1)
+				done := make(chan string)
+
+				StartProcess()
+				VerifyProcessStarted()
+				go func() { CleanupProcess() }()
+				go func() {
+					mon.gracePeriod = 1
+					mon.monitorLoop(1*time.Second, signalChannel)
+					done <- "exit"
+				}()
+
+				signalChannel <- syscall.SIGTERM
+				noExitCheck := time.After(5 * time.Second)
+				exited := false
+
+				select {
+				case <-noExitCheck:
+				case <-done:
+					exited = true
+				}
+
+				Expect(exited).To(Equal(true))
 			})
 		})
 	})

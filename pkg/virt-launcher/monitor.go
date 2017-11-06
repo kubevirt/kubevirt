@@ -44,6 +44,8 @@ type monitor struct {
 	commandPrefix               string
 	start                       time.Time
 	isDone                      bool
+	gracePeriod                 int
+	gracePeriodStartTime        int64
 	gracefulShutdownTriggerFile string
 }
 
@@ -117,9 +119,10 @@ func InitializeSharedDirectories(baseDir string) error {
 	return nil
 }
 
-func NewProcessMonitor(commandPrefix string, gracefulShutdownTriggerFile string) ProcessMonitor {
+func NewProcessMonitor(commandPrefix string, gracefulShutdownTriggerFile string, gracePeriod int) ProcessMonitor {
 	return &monitor{
 		commandPrefix:               commandPrefix,
+		gracePeriod:                 gracePeriod,
 		gracefulShutdownTriggerFile: gracefulShutdownTriggerFile,
 	}
 }
@@ -194,6 +197,14 @@ func (mon *monitor) refresh() {
 		return
 	}
 
+	if mon.gracePeriodStartTime != 0 {
+		now := time.Now().UTC().Unix()
+		if (now - mon.gracePeriodStartTime) > int64(mon.gracePeriod) {
+			log.Log.Infof("Grace Period expired, sending sig term.")
+			syscall.Kill(mon.pid, syscall.SIGTERM)
+		}
+	}
+
 	return
 }
 
@@ -219,12 +230,19 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 			mon.refresh()
 		case s := <-signalChan:
 			log.Log.Infof("Received signal %d.", s)
-			if mon.pid != 0 {
-				err := GracefulShutdownTriggerInitiate(mon.gracefulShutdownTriggerFile)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Error detected attempting to initalize graceful shutdown using trigger file %s.", mon.gracefulShutdownTriggerFile)
-				}
+			if mon.pid == 0 {
+				continue
 			}
+
+			if mon.gracePeriodStartTime != 0 {
+				continue
+			}
+
+			err := GracefulShutdownTriggerInitiate(mon.gracefulShutdownTriggerFile)
+			if err != nil {
+				log.Log.Reason(err).Errorf("Error detected attempting to initalize graceful shutdown using trigger file %s.", mon.gracefulShutdownTriggerFile)
+			}
+			mon.gracePeriodStartTime = time.Now().UTC().Unix()
 		}
 	}
 

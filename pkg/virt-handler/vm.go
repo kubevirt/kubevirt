@@ -438,10 +438,10 @@ func (d *VirtualMachineController) execute(key string) error {
 		syncErr = d.processVmShutdown(vm, domain)
 	} else if shouldCleanUp {
 		log.Log.Object(vm).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
-		syncErr = d.processVmCleanup(vm, domain)
+		syncErr = d.processVmCleanup(vm)
 	} else if shouldUpdate {
 		log.Log.Object(vm).V(3).Info("Processing vm update")
-		syncErr = d.processVmUpdate(vm, domain)
+		syncErr = d.processVmUpdate(vm)
 	} else {
 		log.Log.Object(vm).V(3).Info("No update processing required")
 	}

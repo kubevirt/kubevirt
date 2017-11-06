@@ -30,7 +30,7 @@ import (
 func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
-		syscall.SIGQUIT,
+		syscall.SIGTERM,
 	)
 
 	fmt.Printf("Started fake qemu process\n")
@@ -39,7 +39,7 @@ func main() {
 	select {
 	case <-timeout:
 	case <-c:
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	fmt.Printf("Exit fake qemu process\n")
