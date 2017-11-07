@@ -78,7 +78,10 @@ func (app *virtAPIApp) Compose() {
 		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
 		Operation("spice").
-		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format."))
+		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format.").
+		Returns(http.StatusOK, "remote-viewer configuration file" /*os.File{}*/, nil))
+	// TODO: That os.File doesn't work as I expect.
+	// I need end up with response_type="file", but I am getting response_type="os.File"
 
 	ws.Route(ws.GET(rest.ResourcePath(vmGVR) + rest.SubResourcePath("console")).
 		To(rest.NewConsoleResource(virtCli, virtCli.CoreV1()).Console).
@@ -86,10 +89,18 @@ func (app *virtAPIApp) Compose() {
 		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
 		Operation("console").
 		Doc("Open a websocket connection to a serial console on the specified VM."))
+	// TODO: Add 'Returns', but I don't know what return type to put there.
 
 	restful.Add(ws)
 
-	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFunc).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON).Doc("Health endpoint"))
+	ws.Route(ws.GET("/healthz").
+		To(healthz.KubeConnectionHealthzFunc).
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON).
+		Operation("checkHealth").
+		Doc("Health endpoint").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusInternalServerError, "Unhealthy", nil))
 	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmGVR)
 	if err != nil {
 		log.Fatal(err)
