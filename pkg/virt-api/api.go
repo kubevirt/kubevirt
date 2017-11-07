@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-openapi"
 	kithttp "github.com/go-kit/kit/transport/http"
 	openapispec "github.com/go-openapi/spec"
 	flag "github.com/spf13/pflag"
@@ -161,6 +162,4 @@ func (app *VirtAPIApp) AddFlags() {
 
 	flag.StringVar(&app.SwaggerUI, "swagger-ui", "third_party/swagger-ui",
 		"swagger-ui location")
-
-	flag.Parse()
 }

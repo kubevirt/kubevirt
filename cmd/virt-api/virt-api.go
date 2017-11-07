@@ -21,6 +21,7 @@ package main
 
 import (
 	klog "kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-api"
 )
 
@@ -28,7 +29,7 @@ func main() {
 	klog.InitializeLogging("virt-api")
 
 	app := virt_api.VirtAPIApp{}
-	app.AddFlags()
+	service.Setup(&app)
 	app.Compose()
 	app.ConfigureOpenAPIService()
 	app.Run()

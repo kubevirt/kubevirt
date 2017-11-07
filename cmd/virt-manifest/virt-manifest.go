@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
-	flag "github.com/spf13/pflag"
 
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -89,13 +88,11 @@ func (app *virtManifestApp) AddFlags() {
 
 	app.AddCommonFlags()
 	app.AddLibvirtFlags()
-
-	flag.Parse()
 }
 
 func main() {
 	log.InitializeLogging("virt-manifest")
 	app := virtManifestApp{}
-	app.AddFlags()
+	service.Setup(&app)
 	app.Run()
 }

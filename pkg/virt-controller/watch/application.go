@@ -84,7 +84,7 @@ func Execute() {
 
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
-	app.AddFlags()
+	service.Setup(&app)
 
 	app.readyChan = make(chan bool, 1)
 
@@ -251,6 +251,4 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
-
-	flag.Parse()
 }

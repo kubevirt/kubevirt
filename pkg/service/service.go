@@ -56,6 +56,11 @@ func (service *ServiceListen) AddCommonFlags() {
 }
 
 func (service *ServiceLibvirt) AddLibvirtFlags() {
-	flag.StringVar(&service.Uri, "libvirt-uri", service.Uri, "Libvirt connection string")
+	flag.StringVar(&service.LibvirtUri, "libvirt-uri", service.LibvirtUri, "Libvirt connection string")
 
+}
+
+func Setup(service Service) {
+	service.AddFlags()
+	flag.Parse()
 }

@@ -86,6 +86,15 @@ type virtHandlerApp struct {
 var _ service.Service = &virtHandlerApp{}
 
 func (app *virtHandlerApp) Run() {
+	// HostOverride should default to os.Hostname(), to make sure we handle errors ensure it here.
+	if app.HostOverride == "" {
+		defaultHostName, err := os.Hostname()
+		if err != nil {
+			panic(err)
+		}
+		app.HostOverride = defaultHostName
+	}
+
 	logger := log.Log
 	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
 
@@ -213,23 +222,12 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
-
-	flag.Parse()
-
-	// HostOverride should default to os.Hostname(), to make sure we handle errors ensure it here.
-	if app.HostOverride == "" {
-		defaultHostName, err := os.Hostname()
-		if err != nil {
-			panic(err)
-		}
-		app.HostOverride = defaultHostName
-	}
 }
 
 func main() {
 	log.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
 	app := &virtHandlerApp{}
-	app.AddFlags()
+	service.Setup(app)
 	app.Run()
 }
