@@ -30,11 +30,11 @@ type Service struct {
 	Port string
 }
 
-func NewService(name string, host *string, port *int) *Service {
+func NewService(name string, host string, port int) *Service {
 	return &Service{
 		Name: name,
-		Host: *host,
-		Port: strconv.Itoa(*port),
+		Host: host,
+		Port: strconv.Itoa(port),
 	}
 }
 

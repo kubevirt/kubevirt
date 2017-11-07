@@ -41,7 +41,7 @@ type virtManifestApp struct {
 
 func newVirtManifestApp(host *string, port *int, libvirtUri *string) *virtManifestApp {
 	return &virtManifestApp{
-		Service:    service.NewService("virt-manifest", host, port),
+		Service:    service.NewService("virt-manifest", *host, *port),
 		LibvirtUri: *libvirtUri,
 	}
 }

@@ -77,7 +77,7 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 	}
 
 	return &virtHandlerApp{
-		Service:                 service.NewService("virt-handler", host, port),
+		Service:                 service.NewService("virt-handler", *host, *port),
 		HostOverride:            *hostOverride,
 		LibvirtUri:              *libvirtUri,
 		VirtShareDir:            *virtShareDir,

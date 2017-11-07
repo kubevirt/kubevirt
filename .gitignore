@@ -9,6 +9,7 @@ cmd/virt-launcher/virt-launcher*
 cmd/virt-handler/virt-handler*
 cmd/virt-api/virt-api*
 cmd/virtctl/virtctl*
+tools/openapispec/openapispec
 manifests/*.yaml
 **/bin
 bin/*
