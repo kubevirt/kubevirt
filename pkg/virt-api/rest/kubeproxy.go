@@ -60,7 +60,9 @@ func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restfu
 		ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).
 			To(endpoints.MakeGoRestfulWrapper(autodiscover)).
 			Operation("getAPIResources").
-			Doc("Get KubeVirt API Resources"),
+			Doc("Get KubeVirt API Resources").
+			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
+			Returns(http.StatusNotFound, "Not Found", nil),
 	)
 	return ws, nil
 }
@@ -92,7 +94,9 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("createNamespaced"+objKind).
 			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample).
-			Doc("Create a "+objKind+" object."), ws,
+			Doc("Create a "+objKind+" object.").
+			Returns(http.StatusCreated, "Created", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	ws.Route(addPutParams(
@@ -101,7 +105,9 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("replaceNamespaced"+objKind).
 			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).
-			Doc("Update a "+objKind+" object."), ws,
+			Doc("Update a "+objKind+" object.").
+			Returns(http.StatusOK, "Replaced", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	ws.Route(addDeleteParams(
@@ -109,8 +115,10 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("deleteNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(metav1.Status{}).
-			Doc("Delete a "+objKind+" object."), ws,
+			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(objExample).
+			Doc("Delete a "+objKind+" object.").
+			Returns(http.StatusOK, "Deleted", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	ws.Route(addGetParams(
@@ -118,7 +126,9 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("readNamespaced"+objKind).
 			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).
-			Doc("Get a "+objKind+" object."), ws,
+			Doc("Get a "+objKind+" object.").
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	ws.Route(addGetAllNamespacesListParams(
@@ -126,15 +136,19 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("list"+objKind+"ForAllNamespaces").
 			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).
-			Doc("Get a list of all "+objKind+" objects."), ws,
+			Doc("Get a list of all "+objKind+" objects.").
+			Returns(http.StatusOK, "OK", listExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	ws.Route(
 		ws.PATCH(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON_PATCH).
-			Operation("updateNamespaced" + objKind).
+			Operation("updateNamespaced"+objKind).
 			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample).
-			Doc("Patch a " + objKind + " object."),
+			Doc("Patch a "+objKind+" object.").
+			Returns(http.StatusOK, "Patched", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil),
 	)
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
@@ -143,7 +157,9 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON).
 			Operation("watch"+objKind+"ListForAllNamespaces").
 			To(NotImplementedYet).Writes(listExample).
-			Doc("Watch a "+objKind+"List object."), ws,
+			Doc("Watch a "+objKind+"List object.").
+			Returns(http.StatusOK, "OK", listExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
@@ -152,7 +168,9 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Operation("watchNamespaced"+objKind).
 			Produces(mime.MIME_JSON).
 			To(NotImplementedYet).Writes(objExample).
-			Doc("Watch a "+objKind+" object."), ws,
+			Doc("Watch a "+objKind+" object.").
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	ws.Route(addGetNamespacedListParams(
@@ -161,7 +179,9 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Operation("listNamespaced"+objKind+"List").
 			Writes(listExample).
 			To(endpoints.MakeGoRestfulWrapper(getList)).
-			Doc("Get a list of "+objKind+" objects."), ws,
+			Doc("Get a list of "+objKind+" objects.").
+			Returns(http.StatusOK, "OK", listExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	ws.Route(addDeleteListParams(
@@ -169,7 +189,9 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Operation("deletecollectionNamespaced"+objKind).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample).
-			Doc("Delete a collection of "+objKind+" objects."), ws,
+			Doc("Delete a collection of "+objKind+" objects.").
+			Returns(http.StatusOK, "Deleted", listExample).
+			Returns(http.StatusNotFound, "Not Found", nil), ws,
 	))
 
 	return ws, nil
@@ -182,7 +204,13 @@ func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionReso
 	}
 	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(virtClient.RestClient())).Build(ctx)
 	ws := new(restful.WebService)
-	ws.Route(ws.GET(GroupBasePath(gvr.GroupVersion())).Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).To(endpoints.MakeGoRestfulWrapper(autodiscover)))
+	ws.Route(ws.GET(GroupBasePath(gvr.GroupVersion())).
+		Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).
+		To(endpoints.MakeGoRestfulWrapper(autodiscover)).
+		Doc("Get a KubeVirt API group").
+		Operation("getAPIGroup").
+		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
+		Returns(http.StatusNotFound, "Not Found", nil))
 	return ws, nil
 }
 

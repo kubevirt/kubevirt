@@ -16,13 +16,27 @@
   "paths": {
    "/apis/kubevirt.io": {
     "get": {
+     "description": "Get a KubeVirt API group",
      "produces": [
       "application/json"
      ],
-     "operationId": "func1",
+     "summary": "Get a KubeVirt API group",
+     "operationId": "getAPIGroup",
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIGroup"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIGroup"
+       }
       }
      }
     }
@@ -37,7 +51,19 @@
      "operationId": "getAPIResources",
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIResourceList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIResourceList"
+       }
       }
      }
     }
@@ -52,9 +78,15 @@
       "application/json"
      ],
      "summary": "Health endpoint",
-     "operationId": "KubeConnectionHealthzFunc",
+     "operationId": "checkHealth",
      "responses": {
       "200": {
+       "description": "OK"
+      },
+      "500": {
+       "description": "Unhealthy"
+      },
+      "default": {
        "description": "OK"
       }
      }
@@ -97,7 +129,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.MigrationList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.MigrationList"
+       }
       }
      }
     }
@@ -135,7 +179,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.MigrationList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.MigrationList"
+       }
       }
      }
     },
@@ -170,8 +226,14 @@
       }
      ],
      "responses": {
-      "200": {
-       "description": "OK"
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
+      },
+      "404": {
+       "description": "Not Found"
       }
      }
     },
@@ -199,7 +261,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.MigrationList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.MigrationList"
+       }
       }
      }
     }
@@ -245,7 +319,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
       }
      }
     },
@@ -289,7 +375,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Replaced",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Replaced",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
       }
      }
     },
@@ -325,7 +423,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
       }
      }
     },
@@ -338,7 +448,19 @@
      "operationId": "updateNamespacedMigration",
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Patched",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Patched",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
       }
      }
     }
@@ -376,7 +498,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+       }
       }
      }
     },
@@ -411,8 +545,14 @@
       }
      ],
      "responses": {
-      "200": {
-       "description": "OK"
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
+      },
+      "404": {
+       "description": "Not Found"
       }
      }
     },
@@ -440,7 +580,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+       }
       }
      }
     }
@@ -486,7 +638,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
       }
      }
     },
@@ -530,7 +694,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Replaced",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Replaced",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
       }
      }
     },
@@ -566,7 +742,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
       }
      }
     },
@@ -579,7 +767,19 @@
      "operationId": "updateNamespacedVirtualMachineReplicaSet",
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Patched",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Patched",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
       }
      }
     }
@@ -617,7 +817,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineList"
+       }
       }
      }
     },
@@ -652,8 +864,14 @@
       }
      ],
      "responses": {
-      "200": {
-       "description": "OK"
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
+      },
+      "404": {
+       "description": "Not Found"
       }
      }
     },
@@ -681,7 +899,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineList"
+       }
       }
      }
     }
@@ -727,7 +957,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
       }
      }
     },
@@ -771,7 +1013,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Replaced",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Replaced",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
       }
      }
     },
@@ -807,7 +1061,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Deleted",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
       }
      }
     },
@@ -820,7 +1086,19 @@
      "operationId": "updateNamespacedVirtualMachine",
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "Patched",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "Patched",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
       }
      }
     }
@@ -891,7 +1169,10 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "remote-viewer configuration file"
+      },
+      "default": {
+       "description": "remote-viewer configuration file"
       }
      }
     }
@@ -933,7 +1214,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+       }
       }
      }
     }
@@ -975,7 +1268,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineList"
+       }
       }
      }
     }
@@ -1016,7 +1321,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.MigrationList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.MigrationList"
+       }
       }
      }
     }
@@ -1065,7 +1382,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Migration"
+       }
       }
      }
     }
@@ -1114,7 +1443,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+       }
       }
      }
     }
@@ -1163,7 +1504,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
       }
      }
     }
@@ -1204,7 +1557,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+       }
       }
      }
     }
@@ -1245,7 +1610,19 @@
      ],
      "responses": {
       "200": {
-       "description": "OK"
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineList"
+       }
       }
      }
     }
