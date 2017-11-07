@@ -128,7 +128,7 @@ func (vca *VirtControllerApp) Run() {
 	vca.informerFactory.Start(stop)
 	go func() {
 		httpLogger := logger.With("service", "http")
-		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.Host, "port", vca.Port)
+		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
 		if err := http.ListenAndServe(vca.Address(), nil); err != nil {
 			golog.Fatal(err)
 		}
@@ -227,7 +227,7 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	leaderelectionconfig.BindFlags(&vca.LeaderElection)
 
-	vca.Host = defaultHost
+	vca.BindAddress = defaultHost
 	vca.Port = defaultPort
 
 	vca.AddCommonFlags()

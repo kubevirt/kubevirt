@@ -154,7 +154,7 @@ func (app *VirtAPIApp) Run() {
 func (app *VirtAPIApp) AddFlags() {
 	app.InitFlags()
 
-	app.Host = defaultHost
+	app.BindAddress = defaultHost
 	app.Port = defaultPort
 
 	app.AddCommonFlags()

@@ -33,13 +33,13 @@ type Service interface {
 }
 
 type ServiceListen struct {
-	Name string
-	Host string
-	Port int
+	Name        string
+	BindAddress string
+	Port        int
 }
 
 func (service *ServiceListen) Address() string {
-	return fmt.Sprintf("%s:%s", service.Host, strconv.Itoa(service.Port))
+	return fmt.Sprintf("%s:%s", service.BindAddress, strconv.Itoa(service.Port))
 }
 
 func (service *ServiceListen) InitFlags() {
@@ -47,6 +47,6 @@ func (service *ServiceListen) InitFlags() {
 }
 
 func (service *ServiceListen) AddCommonFlags() {
-	flag.StringVar(&service.Host, "listen", service.Host, "Address where to listen on")
+	flag.StringVar(&service.BindAddress, "listen", service.BindAddress, "Address where to listen on")
 	flag.IntVar(&service.Port, "port", service.Port, "Port to listen on")
 }

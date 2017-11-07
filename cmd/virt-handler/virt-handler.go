@@ -186,7 +186,7 @@ func (app *virtHandlerApp) Run() {
 func (app *virtHandlerApp) AddFlags() {
 	app.InitFlags()
 
-	app.Host = defaultHost
+	app.BindAddress = defaultHost
 	app.Port = defaultPort
 
 	app.AddCommonFlags()
