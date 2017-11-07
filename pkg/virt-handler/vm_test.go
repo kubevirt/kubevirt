@@ -170,12 +170,14 @@ var _ = Describe("VM", func() {
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Interfaces = []v1.InterfaceStatus{}
 
 			updatedVM := vm.DeepCopy()
 			updatedVM.Status.Phase = v1.Running
 
 			mockWatchdog.CreateFile(vm)
 			domain := api.NewMinimalDomain("testvm")
+			domain.Spec.Devices.Interfaces = []api.Interface{}
 			domain.Status.Status = api.Running
 			vmFeeder.Add(vm)
 			domainFeeder.Add(domain)

@@ -67,8 +67,8 @@ type virtHandlerApp struct {
 	EphemeralDiskDir        string
 	WatchdogTimeoutDuration time.Duration
 	ToolsDir                string
-	CNIConfigDir     string
-	CNIDir           string
+	CNIConfigDir            string
+	CNIDir                  string
 }
 
 func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration, toolsDir *string, cniConfigDir *string, cniDir *string) *virtHandlerApp {
@@ -88,8 +88,8 @@ func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri
 		EphemeralDiskDir:        *ephemeralDiskDir,
 		WatchdogTimeoutDuration: *watchdogTimeoutDuration,
 		ToolsDir:                *toolsDir,
-		CNIConfigDir:     *cniConfigDir,
-		CNIDir:           *cniDir,
+		CNIConfigDir:            *cniConfigDir,
+		CNIDir:                  *cniDir,
 	}
 }
 

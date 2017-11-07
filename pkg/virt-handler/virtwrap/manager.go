@@ -215,7 +215,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 			newDomain = true
 			dom, err = l.setDomainXML(vm, wantedSpec)
 			if err != nil {
-				logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Defining domain failed.")
+				log.Log.Object(vm).Reason(err).Error("Defining domain failed.")
 				return nil, err
 			}
 			logger.Info("Domain defined.")
@@ -250,7 +250,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 		// If the VM is not running, prepare the network
 		err := l.CNIAdd(&wantedSpec)
 		if err != nil {
-			logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Preparing networking failed.")
+			log.Log.Object(vm).Reason(err).Error("Preparing networking failed.")
 			return nil, err
 		}
 
@@ -346,17 +346,17 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 
 	spec, err := l.getDomainDesc(dom, 0)
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Fetching Domain XML failed.")
+		log.Log.Object(vm).Reason(err).Error("Fetching Domain XML failed.")
 		return err
 	}
 
 	// Clean up networks before we undefine the domain
 	err = l.CNIDel(spec)
 	if err != nil {
-		logging.DefaultLogger().Object(vm).Error().Reason(err).Msg("Cleaning up networks failed.")
+		log.Log.Object(vm).Reason(err).Error("Cleaning up networks failed.")
 		return err
 	}
-	logging.DefaultLogger().Object(vm).Info().Msg("Networks cleaned up.")
+	log.Log.Object(vm).Info("Networks cleaned up.")
 
 	err = dom.Undefine()
 	if err != nil {

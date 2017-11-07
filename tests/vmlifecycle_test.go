@@ -206,7 +206,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				time.Sleep(10 * time.Second)
-				err = pkillAllLaunchers(virtClient, nodeName, dockerTag)
+				err = pkillAllLaunchers(virtClient, nodeName)
 				Expect(err).To(BeNil())
 
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
@@ -285,7 +285,7 @@ func renderPkillAllJob(processName string) *k8sv1.Pod {
 		}, nil)
 }
 
-func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node, dockerTag string) error {
+func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) error {
 	job := renderPkillAllJob("virt-launcher")
 	job.Spec.NodeName = node
 	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)

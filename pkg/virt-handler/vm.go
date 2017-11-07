@@ -35,8 +35,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"os/exec"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -116,7 +114,7 @@ type VirtualMachineController struct {
 	vmInformer             cache.SharedIndexInformer
 	domainInformer         cache.SharedInformer
 	watchdogInformer       cache.SharedIndexInformer
-	networkIntrospector networking.IntrospectorInterface
+	networkIntrospector    networking.IntrospectorInterface
 }
 
 func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
@@ -158,6 +156,7 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	// Make sure that we always deal with an empty instance for later equality checks
 	if oldStatus.Graphics == nil {
 		oldStatus.Graphics = []v1.VMGraphics{}
+		oldStatus.Interfaces = []v1.InterfaceStatus{}
 	}
 
 	// Calculate the new VM state based on what libvirt reported
@@ -185,21 +184,21 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 			}
 			vm.Status.Graphics = append(vm.Status.Graphics, dst)
 		}
-			// Update interface states
-	vm.Status.Interfaces = []v1.InterfaceStatus{}
+		// Update interface states
+		vm.Status.Interfaces = []v1.InterfaceStatus{}
 
-	// First add MAC addresses if they exist
-	for _, iface := range domain.Spec.Devices.Interfaces {
-		status := v1.InterfaceStatus{}
-		if iface.MAC != nil {
-			status.MAC = iface.MAC.MAC
+		// First add MAC addresses if they exist
+		for _, iface := range domain.Spec.Devices.Interfaces {
+			status := v1.InterfaceStatus{}
+			if iface.MAC != nil {
+				status.MAC = iface.MAC.MAC
+			}
+			vm.Status.Interfaces = append(vm.Status.Interfaces, status)
 		}
-		vm.Status.Interfaces = append(vm.Status.Interfaces, status)
-	}
-	// Second add IPs if they exist
-	for _, ifmeta := range domain.Spec.Metadata.Interfaces.Interfaces {
-		vm.Status.Interfaces[ifmeta.Index].IP = ifmeta.IP
-	}
+		// Second add IPs if they exist
+		for _, ifmeta := range domain.Spec.Metadata.Interfaces.Interfaces {
+			vm.Status.Interfaces[ifmeta.Index].IP = ifmeta.IP
+		}
 	}
 
 	d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")
