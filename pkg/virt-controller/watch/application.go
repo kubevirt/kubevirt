@@ -33,6 +33,14 @@ const (
 
 	// Default address that virt-manifest listens on.
 	defaultHost = "0.0.0.0"
+
+	launcherImage = "virt-launcher"
+
+	migratorImage = "virt-handler"
+
+	virtShareDir = "/var/run/kubevirt"
+
+	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
 )
 
 type VirtControllerApp struct {
@@ -232,16 +240,16 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	vca.AddCommonFlags()
 
-	flag.StringVar(&vca.launcherImage, "launcher-image", "virt-launcher",
+	flag.StringVar(&vca.launcherImage, "launcher-image", launcherImage,
 		"Shim container for containerized VMs")
 
-	flag.StringVar(&vca.migratorImage, "migrator-image", "virt-handler",
+	flag.StringVar(&vca.migratorImage, "migrator-image", migratorImage,
 		"Container which orchestrates a VM migration")
 
-	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", "/var/run/kubevirt",
+	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
 
-	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk",
+	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
 
 	flag.Parse()
