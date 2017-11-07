@@ -39,6 +39,8 @@ const (
 
 	// Default address that virt-manifest listens on.
 	defaultHost = "0.0.0.0"
+
+	libvirtUri = "qemu:///system"
 )
 
 type virtManifestApp struct {
@@ -85,7 +87,7 @@ func (app *virtManifestApp) AddFlags() {
 
 	app.AddCommonFlags()
 
-	flag.StringVar(&app.LibvirtUri, "libvirt-uri", "qemu:///system",
+	flag.StringVar(&app.LibvirtUri, "libvirt-uri", libvirtUri,
 		"Libvirt connection string")
 
 	flag.Parse()
