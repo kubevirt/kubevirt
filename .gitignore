@@ -22,3 +22,6 @@ hack/config-local.sh
 tags
 .Gopkg.*
 .GeneratedDockerfile
+.gradle
+*.adoc
+html5
