@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -59,8 +61,8 @@ var _ = Describe("Health Monitoring", func() {
 			launchVM(vm)
 
 			expecter, _, err := tests.NewConsoleExpecter(virtConfig, vm, "serial0", 10*time.Second)
-			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
 
 			_, err = expecter.ExpectBatch([]expect.Batcher{
 				&expect.BExp{R: "Welcome to Alpine"},
@@ -79,10 +81,10 @@ var _ = Describe("Health Monitoring", func() {
 			name := vm.ObjectMeta.Name
 
 			Eventually(func() v1.VMPhase {
-				vm := &v1.VirtualMachine{}
-				err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(namespace).Name(name).Do().Into(vm)
+				startedVM, err := virtClient.VM(namespace).Get(name, metav1.GetOptions{})
+
 				Expect(err).ToNot(HaveOccurred())
-				return vm.Status.Phase
+				return startedVM.Status.Phase
 			}, 40*time.Second).Should(Equal(v1.Failed))
 
 			close(done)
