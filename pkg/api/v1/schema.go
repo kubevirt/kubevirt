@@ -343,8 +343,11 @@ type Ballooning struct {
 type RandomGenerator struct {
 }
 
+// Hardware watchdog device
 type Watchdog struct {
-	Model  string `json:"model"`
+	// Defines what watchdog model to use, typically 'i6300esb'
+	Model string `json:"model"`
+	// The action to take. poweroff, reset, shutdown, pause, dump.
 	Action string `json:"action"`
 }
 

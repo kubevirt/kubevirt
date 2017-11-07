@@ -203,5 +203,9 @@ func (RandomGenerator) SwaggerDoc() map[string]string {
 }
 
 func (Watchdog) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"":       "Hardware watchdog device",
+		"model":  "Defines what watchdog model to use, typically 'i6300esb'",
+		"action": "The action to take. poweroff, reset, shutdown, pause, dump.",
+	}
 }
