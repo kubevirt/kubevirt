@@ -70,7 +70,7 @@ func newReplicationController(replicas int) *v1.ReplicationController {
 		ObjectMeta: metav1.ObjectMeta{
 			UID:             uuid.NewUUID(),
 			Name:            "foobar",
-			Namespace:       metav1.NamespaceDefault,
+			Namespace:       metav1.NamespaceSystem,
 			ResourceVersion: "18",
 		},
 		Spec: v1.ReplicationControllerSpec{

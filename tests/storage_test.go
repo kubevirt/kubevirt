@@ -46,7 +46,7 @@ var _ = Describe("Storage", func() {
 	})
 
 	getTargetLogs := func(tailLines int64) string {
-		pods, err := virtClient.CoreV1().Pods(k8sv1.NamespaceDefault).List(metav1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
+		pods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: "app in (iscsi-demo-target)"})
 		Expect(err).ToNot(HaveOccurred())
 
 		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
@@ -60,7 +60,7 @@ var _ = Describe("Storage", func() {
 		Expect(podName).ToNot(BeEmpty())
 
 		logsRaw, err := virtClient.CoreV1().
-			Pods("default").
+			Pods(metav1.NamespaceSystem).
 			GetLogs(podName,
 				&k8sv1.PodLogOptions{TailLines: &tailLines}).
 			DoRaw()
@@ -99,7 +99,7 @@ var _ = Describe("Storage", func() {
 	Context("Given a fresh iSCSI target", func() {
 
 		It("should be available and ready", func() {
-			logs := getTargetLogs(70)
+			logs := getTargetLogs(75)
 			Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
 			Expect(logs).To(ContainSubstring("Driver: iscsi"))
 			Expect(logs).To(ContainSubstring("State: ready"))

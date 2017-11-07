@@ -113,34 +113,27 @@ done
 cluster/sync.sh
 
 # Wait until kubevirt pods are running
-while [ -n "$(kubectl get pods --no-headers | grep -v Running)" ]; do
+while [ -n "$(kubectl get pods -n kube-system --no-headers | grep -v Running)" ]; do
     echo "Waiting for kubevirt pods to enter the Running state ..."
-    kubectl get pods --no-headers | >&2 grep -v Running || true
+    kubectl get pods -n kube-system --no-headers | >&2 grep -v Running || true
     sleep 10
 done
 
 # Make sure all containers except virt-controller are ready
-while [ -n "$(kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/')" ]; do
+while [ -n "$(kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/')" ]; do
     echo "Waiting for KubeVirt containers to become ready ..."
-    kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/' || true
+    kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/' || true
     sleep 10
 done
 
 # Make sure that at least one virt-controller container is ready
-while [ "$(kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l)" -lt "1" ]; do
+while [ "$(kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l)" -lt "1" ]; do
     echo "Waiting for KubeVirt virt-controller container to become ready ..."
-    kubectl get pods -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l
+    kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l
     sleep 10
 done
 
-# Wait until all pods are running
-while [ -n "$(kubectl get pods --no-headers --all-namespaces | grep -v Running)" ]; do
-    echo "Waiting for pods in all namespaces to enter the Running state ..."
-    kubectl get pods --no-headers --all-namespaces | >&2 grep -v Running || true
-    sleep 5
-done
-
-kubectl get pods --all-namespaces
+kubectl get pods -n kube-system
 kubectl version
 
 # Disable proxy configuration since it causes test issues
