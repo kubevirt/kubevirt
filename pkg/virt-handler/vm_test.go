@@ -96,7 +96,7 @@ var _ = Describe("VM", func() {
 		configDiskClient := configdisk.NewConfigDiskClient(virtClient)
 		mockWatchdog = &MockWatchdog{shareDir}
 
-		controller = NewController(domainManager, recorder, virtClient, host, configDiskClient, shareDir, 10, vmInformer, domainInformer, watchdogInformer)
+		controller = NewController(domainManager, recorder, virtClient, host, configDiskClient, shareDir, 10, vmInformer, domainInformer, watchdogInformer, nil)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 
@@ -170,12 +170,14 @@ var _ = Describe("VM", func() {
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Interfaces = []v1.InterfaceStatus{}
 
 			updatedVM := vm.DeepCopy()
 			updatedVM.Status.Phase = v1.Running
 
 			mockWatchdog.CreateFile(vm)
 			domain := api.NewMinimalDomain("testvm")
+			domain.Spec.Devices.Interfaces = []api.Interface{}
 			domain.Status.Status = api.Running
 			vmFeeder.Add(vm)
 			domainFeeder.Add(domain)

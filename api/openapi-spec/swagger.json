@@ -2307,7 +2307,22 @@
      "device": {
       "type": "string"
      },
+     "mode": {
+      "type": "string"
+     },
      "network": {
+      "type": "string"
+     }
+    }
+   },
+   "v1.InterfaceStatus": {
+    "properties": {
+     "ip": {
+      "description": "IP assigned to the device.",
+      "type": "string"
+     },
+     "mac": {
+      "description": "MAC address assigned to the device. This can either be the MAC from the spec or an auto-generated one",
       "type": "string"
      }
     }
@@ -3085,6 +3100,13 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VMGraphics"
+      }
+     },
+     "interfaces": {
+      "description": "Interfaces represent the details of all configured interfaces.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.InterfaceStatus"
       }
      },
      "migrationNodeName": {

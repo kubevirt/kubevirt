@@ -189,6 +189,7 @@ type FilterRef struct {
 type InterfaceSource struct {
 	Network string `json:"network,omitempty"`
 	Device  string `json:"device,omitempty"`
+	Mode    string `json:"mode,omitempty"`
 	Bridge  string `json:"bridge,omitempty"`
 }
 

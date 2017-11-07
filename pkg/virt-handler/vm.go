@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/networking"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
@@ -60,6 +61,7 @@ func NewController(
 	vmInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	watchdogInformer cache.SharedIndexInformer,
+	networkIntrospector networking.IntrospectorInterface,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -76,6 +78,7 @@ func NewController(
 		vmInformer:             vmInformer,
 		domainInformer:         domainInformer,
 		watchdogInformer:       watchdogInformer,
+		networkIntrospector:    networkIntrospector,
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -111,6 +114,7 @@ type VirtualMachineController struct {
 	vmInformer             cache.SharedIndexInformer
 	domainInformer         cache.SharedInformer
 	watchdogInformer       cache.SharedIndexInformer
+	networkIntrospector    networking.IntrospectorInterface
 }
 
 func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
@@ -152,6 +156,7 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	// Make sure that we always deal with an empty instance for later equality checks
 	if oldStatus.Graphics == nil {
 		oldStatus.Graphics = []v1.VMGraphics{}
+		oldStatus.Interfaces = []v1.InterfaceStatus{}
 	}
 
 	// Calculate the new VM state based on what libvirt reported
@@ -178,6 +183,21 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 				Port: src.Port,
 			}
 			vm.Status.Graphics = append(vm.Status.Graphics, dst)
+		}
+		// Update interface states
+		vm.Status.Interfaces = []v1.InterfaceStatus{}
+
+		// First add MAC addresses if they exist
+		for _, iface := range domain.Spec.Devices.Interfaces {
+			status := v1.InterfaceStatus{}
+			if iface.MAC != nil {
+				status.MAC = iface.MAC.MAC
+			}
+			vm.Status.Interfaces = append(vm.Status.Interfaces, status)
+		}
+		// Second add IPs if they exist
+		for _, ifmeta := range domain.Spec.Metadata.Interfaces.Interfaces {
+			vm.Status.Interfaces[ifmeta.Index].IP = ifmeta.IP
 		}
 	}
 
@@ -581,7 +601,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, should
 		return nil
 	}
 
-	// Synchronize the VM state
+	// Map PVCs to Libvirt
 	vm, err = MapPersistentVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
 	if err != nil {
 		return err

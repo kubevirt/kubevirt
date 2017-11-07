@@ -1,0 +1,8 @@
+{
+  "cniVersion": "0.3.1",
+  "name": "nodenetwork",
+  "type": "ipamonly",
+  "ipam": {
+    "type": "dhcp"
+  }
+}

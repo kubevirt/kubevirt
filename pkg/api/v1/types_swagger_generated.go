@@ -40,6 +40,14 @@ func (VMStatus) SwaggerDoc() map[string]string {
 		"conditions":        "Conditions are specific points in VM's pod runtime.",
 		"phase":             "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
 		"graphics":          "Graphics represent the details of available graphical consoles.",
+		"interfaces":        "Interfaces represent the details of all configured interfaces.",
+	}
+}
+
+func (InterfaceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"mac": "MAC address assigned to the device. This can either be the MAC from the spec or an auto-generated one",
+		"ip":  "IP assigned to the device.",
 	}
 }
 

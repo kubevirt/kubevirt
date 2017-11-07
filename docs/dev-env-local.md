@@ -67,6 +67,7 @@ cat > hack/config-local.sh <<EOF
   primary_nic=ens3
   primary_node_name=kubdev
   docker_tag=latest
+  docker_teset_tag=latest
 make manifests docker
 ```
 

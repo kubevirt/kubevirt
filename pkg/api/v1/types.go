@@ -31,8 +31,7 @@ import (
 	"reflect"
 
 	"github.com/jeevatkm/go-model"
-	"github.com/satori/go.uuid"
-
+	uuid "github.com/satori/go.uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apimachinery/announced"
@@ -201,6 +200,15 @@ type VMStatus struct {
 	Phase VMPhase `json:"phase"`
 	// Graphics represent the details of available graphical consoles.
 	Graphics []VMGraphics `json:"graphics"`
+	// Interfaces represent the details of all configured interfaces.
+	Interfaces []InterfaceStatus `json:"interfaces,omitempty"`
+}
+
+type InterfaceStatus struct {
+	// MAC address assigned to the device. This can either be the MAC from the spec or an auto-generated one
+	MAC string `json:"mac,omitempty"`
+	// IP assigned to the device.
+	IP string `json:"ip,omitempty"`
 }
 
 type VMGraphics struct {

@@ -214,6 +214,21 @@ type DomainSpec struct {
 	Clock    *Clock       `xml:"clock,omitempty"`
 	Resource *Resource    `xml:"resource,omitempty"`
 	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
+	Metadata Metadata     `xml:"metadata,omitempty"`
+}
+
+type Metadata struct {
+	Interfaces InterfacesMetadata `xml:"http://kubevirt.io interfaces,omitempty"`
+}
+
+type InterfaceMetadata struct {
+	Type  string `xml:"type"`
+	Index int    `xml:"index"`
+	IP    string `xml:"ip,omitempty"`
+}
+
+type InterfacesMetadata struct {
+	Interfaces []InterfaceMetadata `xml:"interface,omitempty"`
 }
 
 type Commandline struct {
@@ -365,6 +380,7 @@ type FilterRef struct {
 type InterfaceSource struct {
 	Network string `xml:"network,attr,omitempty"`
 	Device  string `xml:"dev,attr,omitempty"`
+	Mode    string `xml:"mode,attr,omitempty"`
 	Bridge  string `xml:"bridge,attr,omitempty"`
 }
 

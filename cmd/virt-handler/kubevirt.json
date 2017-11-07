@@ -1,0 +1,9 @@
+{
+  "cniVersion": "0.3.1",
+  "name": "kubevirt",
+  "type": "macvlan",
+  "realipam": "dhcp",
+  "ipam": {
+    "type": "noroutes"
+  }
+}
