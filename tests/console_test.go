@@ -55,10 +55,10 @@ var _ = Describe("Console", func() {
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
 
-			expecter.ExpectBatch([]expect.Batcher{
+			_, err = expecter.ExpectBatch([]expect.Batcher{
 				&expect.BExp{R: "checking http://169.254.169.254/2009-04-04/instance-id"},
 			}, 60*time.Second)
-
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

@@ -61,9 +61,10 @@ var _ = Describe("CloudInit UserData", func() {
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
-		expecter.ExpectBatch([]expect.Batcher{
+		_, err = expecter.ExpectBatch([]expect.Batcher{
 			&expect.BExp{R: magicStr},
 		}, 60*time.Second)
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	BeforeEach(func() {
