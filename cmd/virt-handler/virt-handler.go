@@ -63,6 +63,15 @@ const (
 
 	// Default address that virt-handler listens on.
 	defaultHost = "0.0.0.0"
+
+	// The URI connection string supplied to libvirt. By default, we connect to system-mode daemon of QEMU.
+	libvirtUri = "qemu:///system"
+
+	hostOverride = ""
+
+	virtShareDir = "/var/run/kubevirt"
+
+	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
 )
 
 type virtHandlerApp struct {
@@ -191,16 +200,16 @@ func (app *virtHandlerApp) AddFlags() {
 
 	app.AddCommonFlags()
 
-	flag.StringVar(&app.LibvirtUri, "libvirt-uri", "qemu:///system",
+	flag.StringVar(&app.LibvirtUri, "libvirt-uri", libvirtUri,
 		"Libvirt connection string")
 
-	flag.StringVar(&app.HostOverride, "hostname-override", "",
-		"Kubernetes pod to monitor for changes")
+	flag.StringVar(&app.HostOverride, "hostname-override", hostOverride,
+		"Name under which the node is registered in kubernetes, where this virt-handler instance is running on")
 
-	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", "/var/run/kubevirt",
+	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
 
-	flag.StringVar(&app.EphemeralDiskDir, "ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk",
+	flag.StringVar(&app.EphemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
