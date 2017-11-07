@@ -1,0 +1,31 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        jcenter()
+    }
+
+    dependencies {
+        classpath "io.github.swagger2markup:swagger2markup:1.3.1"
+        classpath "org.asciidoctor:asciidoctor-gradle-plugin:1.5.6"
+    }
+}
+
+apply plugin: 'org.asciidoctor.convert'
+
+task gendocs << {
+  io.github.swagger2markup.Swagger2MarkupConverter
+    .from(java.nio.file.Paths.get("./api/openapi-spec/swagger.json"))
+    .build()
+    .toFolder(java.nio.file.Paths.get("./hack/gen-swagger-doc"));
+}
+
+asciidoctor {
+  sourceDir = file('./')
+  sources {
+    // paths.adoc is being renamed to operations.adoc by gen-swagger-docs.sh.
+    // Keeping it here in case somebody run: gradle gendocs asciidoctor
+    include 'definitions.adoc', 'overview.adoc', 'paths.adoc',  'security.adoc', 'operations.adoc'
+  }
+  outputDir = file('./')
+  attributes 'toc' : 'right'
+}
