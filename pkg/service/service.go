@@ -38,6 +38,10 @@ type ServiceListen struct {
 	Port        int
 }
 
+type ServiceLibvirt struct {
+	LibvirtUri string
+}
+
 func (service *ServiceListen) Address() string {
 	return fmt.Sprintf("%s:%s", service.BindAddress, strconv.Itoa(service.Port))
 }
@@ -49,4 +53,9 @@ func (service *ServiceListen) InitFlags() {
 func (service *ServiceListen) AddCommonFlags() {
 	flag.StringVar(&service.BindAddress, "listen", service.BindAddress, "Address where to listen on")
 	flag.IntVar(&service.Port, "port", service.Port, "Port to listen on")
+}
+
+func (service *ServiceLibvirt) AddLibvirtFlags() {
+	flag.StringVar(&service.Uri, "libvirt-uri", service.Uri, "Libvirt connection string")
+
 }

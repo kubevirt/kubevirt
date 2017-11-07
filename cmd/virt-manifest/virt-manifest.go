@@ -45,6 +45,7 @@ const (
 
 type virtManifestApp struct {
 	service.ServiceListen
+	service.ServiceLibvirt
 	LibvirtUri string
 }
 
@@ -84,11 +85,10 @@ func (app *virtManifestApp) AddFlags() {
 
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
+	app.LibvirtUri = libvirtUri
 
 	app.AddCommonFlags()
-
-	flag.StringVar(&app.LibvirtUri, "libvirt-uri", libvirtUri,
-		"Libvirt connection string")
+	app.AddLibvirtFlags()
 
 	flag.Parse()
 }

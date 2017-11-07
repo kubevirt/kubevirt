@@ -76,8 +76,8 @@ const (
 
 type virtHandlerApp struct {
 	service.ServiceListen
+	service.ServiceLibvirt
 	HostOverride            string
-	LibvirtUri              string
 	VirtShareDir            string
 	EphemeralDiskDir        string
 	WatchdogTimeoutDuration time.Duration
@@ -197,11 +197,10 @@ func (app *virtHandlerApp) AddFlags() {
 
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
+	app.LibvirtUri = libvirtUri
 
 	app.AddCommonFlags()
-
-	flag.StringVar(&app.LibvirtUri, "libvirt-uri", libvirtUri,
-		"Libvirt connection string")
+	app.AddLibvirtFlags()
 
 	flag.StringVar(&app.HostOverride, "hostname-override", hostOverride,
 		"Name under which the node is registered in kubernetes, where this virt-handler instance is running on")
