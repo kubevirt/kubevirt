@@ -10,6 +10,8 @@ cmd/virt-handler/virt-handler*
 cmd/virt-api/virt-api*
 cmd/virtctl/virtctl*
 tools/openapispec/openapispec
+cmd/fake-dnsmasq-process/fake-dnsmasq-process*
+cmd/virt-dhcp/virt-dhcp*
 manifests/*.yaml
 **/bin
 bin/*
