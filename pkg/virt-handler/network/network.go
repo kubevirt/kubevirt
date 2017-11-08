@@ -24,6 +24,8 @@ import (
 
 	"github.com/jeevatkm/go-model"
 
+	kube_errors "k8s.io/apimachinery/pkg/util/errors"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/network/cniproxy"
@@ -53,6 +55,8 @@ func GetInterfaceType(objName string) (VirtualInterface, error) {
 }
 
 func _unPlugNetworkDevices(interfaceCallback interfaceFunc, vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) error {
+	errList := []error{}
+	log.Log.Infof("this is a test")
 	if (vm != nil) && (vm.Spec.Domain != nil) && vm.Spec.Domain.Metadata != nil {
 		for _, inter := range vm.Spec.Domain.Metadata.Interfaces.Devices {
 			log.Log.Debugf("unplugging interface: %s, type: %s, from VM: %s", inter.Device, inter.Type, vm.ObjectMeta.Name)
@@ -63,18 +67,25 @@ func _unPlugNetworkDevices(interfaceCallback interfaceFunc, vm *v1.VirtualMachin
 			err = vif.SetInterfaceAttributes(inter.Mac, inter.IP, inter.Device)
 			if err != nil {
 				log.Log.Reason(err).Warningf("failed to set interface attributes on: ", inter.Device, "for VM: ", vm.ObjectMeta.Name)
+				errList = append(errList, err)
 			}
 			err = vif.Unplug(domainManager)
 			if err != nil {
 				log.Log.Reason(err).Warningf("failed to unplug: ", inter.Device, "for VM: ", vm.ObjectMeta.Name)
+				errList = append(errList, err)
 			}
 		}
+	}
+	if len(errList) != 0 {
+		return kube_errors.NewAggregate(errList)
 	}
 	return nil
 }
 
 func UnPlugNetworkDevices(vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) error {
-	return _unPlugNetworkDevices(GetInterfaceType, vm, domainManager)
+	// suppress errors from _unPlugNetworkDevices
+	_unPlugNetworkDevices(GetInterfaceType, vm, domainManager)
+	return nil
 }
 
 func _plugNetworkDevices(interfaceCallback interfaceFunc, vm *v1.VirtualMachine, domainManager virtwrap.DomainManager) (*v1.VirtualMachine, error) {

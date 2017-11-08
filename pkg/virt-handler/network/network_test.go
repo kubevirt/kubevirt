@@ -9,7 +9,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	"kubevirt.io/kubevirt/tests"
 )
 
 type MockNetworkInterface struct {
@@ -107,7 +106,6 @@ var _ = Describe("Virt Handler Network", func() {
 	Context("Unplug tests", func() {
 		var vm v1.VirtualMachine
 		var domainManager virtwrap.LibvirtDomainManager
-		var logs tests.CapturedLogger
 
 		BeforeEach(func() {
 			domainManager = virtwrap.LibvirtDomainManager{}
@@ -116,12 +114,6 @@ var _ = Describe("Virt Handler Network", func() {
 			vm.Spec.Domain = &v1.DomainSpec{}
 			vm.Spec.Domain.Metadata = &v1.Metadata{}
 			vm.Spec.Domain.Metadata.Interfaces.Devices = []v1.MetadataDevice{v1.MetadataDevice{}}
-
-			logs = tests.EnableCapturedLogging()
-		})
-
-		AfterEach(func() {
-			tests.ResetLogging()
 		})
 
 		It("Should not panic when called with incomplete metadata", func() {
@@ -133,9 +125,6 @@ var _ = Describe("Virt Handler Network", func() {
 			// try again with a domain (but don't stock metadata)
 			vm.Spec.Domain = &v1.DomainSpec{}
 			err = _unPlugNetworkDevices(getInterface, &vm, &domainManager)
-			Expect(err).ToNot(HaveOccurred())
-			logOutput := logs.GetLogs()
-			Expect(len(logOutput)).To(Equal(0))
 		})
 
 		It("Should work if no underlying errors occured", func() {
@@ -143,29 +132,22 @@ var _ = Describe("Virt Handler Network", func() {
 
 			err := _unPlugNetworkDevices(getInterface, &vm, &domainManager)
 			Expect(err).ToNot(HaveOccurred())
-			logOutput := logs.GetLogs()
-			Expect(len(logOutput)).ToNot(Equal(0))
-			Expect(logs.ContainsMsg("unplugging interface:.*")).To(BeTrue())
 		})
 
 		It("Should return an error if SetInterfaceAttributes fails", func() {
 			getInterface := makeMockInterface(true, false, false, false)
 
 			err := _unPlugNetworkDevices(getInterface, &vm, &domainManager)
-			Expect(err).ToNot(HaveOccurred())
-			logOutput := logs.GetLogs()
-			Expect(len(logOutput)).ToNot(Equal(0))
-			Expect(logs.ContainsMsg("failed to set interface attributes.*")).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("simulated SetInterfaceAttributes failure"))
 		})
 
 		It("Should not return an error if Unplug fails", func() {
 			getInterface := makeMockInterface(false, false, true, false)
 
 			err := _unPlugNetworkDevices(getInterface, &vm, &domainManager)
-			Expect(err).ToNot(HaveOccurred())
-			logOutput := logs.GetLogs()
-			Expect(len(logOutput)).ToNot(Equal(0))
-			Expect(logs.ContainsMsg("failed to unplug.*")).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("simulated Unplug failure"))
 		})
 	})
 
