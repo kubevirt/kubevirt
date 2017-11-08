@@ -85,7 +85,7 @@ var _ = Describe("RegistryDisk", func() {
 			for i := 0; i < num; i++ {
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
-				tests.WaitForSuccessfulVMStartWithTimeout(obj, 120)
+				tests.WaitForSuccessfulVMStartWithTimeout(obj, 180)
 				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)

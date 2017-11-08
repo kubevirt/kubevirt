@@ -50,6 +50,29 @@ else
   kubectl create -f kube-$NETWORK_PROVIDER.yaml
 fi
 
+# Create an ingress-nginx setup
+# See: https://github.com/kubernetes/ingress-nginx/tree/master/deploy
+{
+  curl_yaml_combine() { for URL in $@; do curl -L $URL ; echo --- ; done }
+
+  # Do the basic deployment
+  curl_yaml_combine \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/default-backend.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/configmap.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/tcp-services-configmap.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/udp-services-configmap.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/rbac.yaml \
+    https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/with-rbac.yaml \
+      | sed "s#namespace: ingress-nginx#namespace: kube-system#" \
+      | kubectl apply -f -
+
+  pushd /vagrant
+  source hack/config.sh
+  popd
+  sed "s/{{ master_ip }}/${master_ip}/g" /vagrant/manifests/ingress.yaml.in \
+      | kubectl apply -f -
+}
+
 # Allow scheduling pods on master
 # Ignore retval because it might not be dedicated already
 kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule- || :
