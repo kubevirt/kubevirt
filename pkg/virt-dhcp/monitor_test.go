@@ -34,7 +34,7 @@ import (
 
 func IsDNSMasqPidRunning(pid int) bool {
 	path := fmt.Sprintf("/proc/%d/cmdline", pid)
-	fileExist, err := OS.IsFileExist(path)
+	fileExist, err := OS.isFileExist(path)
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +62,7 @@ var _ = Describe("Virt-DHCP Monitor test", func() {
 	processArgs := []string{"-k", "-d", "--strict-order", "--bind-dynamic"}
 
 	StartProcess := func() {
-		go RunMonitor(processPath, processArgs, monStop, &pid)
+		go runMonitor(processPath, processArgs, monStop, &pid)
 		time.Sleep(1 * time.Second)
 	}
 
