@@ -16,19 +16,17 @@ var cmdArgs []string
 var cmdArgsPrefix string
 
 type MockMonitor struct {
-	MonitorRuntime
 }
 
 func (mon MockMonitor) Start(cmd string, args []string) {
 	cmdArgs = args
 }
 
+func (mon MockMonitor) Stop() {
+}
+
 func FakeMonitor() Monitor {
-	mon := MockMonitor{}
-	mon.isRunning = false
-	mon.stopChan = make(chan bool)
-	mon.pid = 0
-	return &mon
+	return &MockMonitor{}
 }
 
 type MockOSHandler struct {
