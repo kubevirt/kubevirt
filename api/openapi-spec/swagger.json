@@ -3197,6 +3197,11 @@
      "nodeSelector": {
       "description": "If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.",
       "type": "object"
+     },
+     "terminationGracePeriodSeconds": {
+      "description": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },
