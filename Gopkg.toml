@@ -103,3 +103,6 @@ ignored = ["code.google.com/p/go-charset","github.com/go-kit/kit/examples","gith
 
 [[constraint]]
   name = "github.com/google/grpc"
+
+[[constraint]]
+  name = "github.com/containernetworking/cni"
