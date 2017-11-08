@@ -1,53 +1,88 @@
 #!/bin/bash
 
+# gen-swagger-docs.sh $API_VERSION $OUTPUT_FORMAT
+# API_VERSION=v1
+# OUTPUT_FORMAT=html|markdown
+
 set -o errexit
 set -o nounset
 set -o pipefail
 
 VERSION="${1:-v1}"
+OUTPUT_FORMAT="${2:-html}"
+if [ "$OUTPUT_FORMAT" = "html" ] ;
+then
+    SUFFIX="adoc"
+    HEADER="="
+    LINK1_TEMPLATE="\* \<\<\${VERSION}.\$m\>\>"
+    LINK_DEFINITIONS="* link:./definitions.html[Types Definition]"
+    LINK_OPERATIONS="* link:./operations.html[Operations]"
+    GRADLE_EXTRA_PARAMS=""
+elif [ "$OUTPUT_FORMAT" = "markdown" ] ;
+then
+    SUFFIX="md"
+    HEADER="#"
+    LINK1_TEMPLATE="\* [\${VERSION}.\$m]\(definitions.md#\${VERSION}-\${m,,}\)"
+    LINK_DEFINITIONS="* [Types Definition](definitions.md)"
+    LINK_OPERATIONS="* [Operations](operations.md)"
+    GRADLE_EXTRA_PARAMS="-PmarkupLanguage=MARKDOWN"
+else
+    echo "Unknown OUTPUT_FORMAT=${OUTPUT_FORMAT}"
+    exit 1
+fi
 WORKDIR="hack/gen-swagger-doc"
 GRADLE_BUILD_FILE="$WORKDIR/build.gradle"
 
+
 # Generate *.adoc files from swagger.json
-gradle -b $GRADLE_BUILD_FILE gendocs --info
+gradle -b $GRADLE_BUILD_FILE $GRADLE_EXTRA_PARAMS convertSwagger2markup --info
 
 #insert a TOC for top level API objects
-buf="== Top Level API Objects\n\n"
+buf="${HEADER}${HEADER} Top Level API Objects\n\n"
 top_level_models=$(grep '&[A-Za-z]*{},' pkg/api/${VERSION}/types.go | sed 's/.*&//;s/{},//')
 
-# check if the top level models exist in the definitions.adoc. If they exist,
+# check if the top level models exist in the definitions.$SUFFIX. If they exist,
 # their name will be <version>.<model_name>
 for m in $top_level_models
 do
-  if grep -xq "=== ${VERSION}.$m" "$WORKDIR/definitions.adoc"
+  if grep -xq "${HEADER}${HEADER}${HEADER} ${VERSION}.$m" "$WORKDIR/definitions.${SUFFIX}"
   then
-    buf+="* <<${VERSION}.$m>>\n"
+    buf+="$(eval echo $LINK1_TEMPLATE)\n"
   fi
 done
-sed -i "1i $buf" "$WORKDIR/definitions.adoc"
-
-# fix the links in .adoc, replace <<x,y>> with link:definitions.html#_x[y], and lowercase the _x part
-sed -i -e 's|<<\(.*\),\(.*\)>>|link:#\L\1\E[\2]|g' "$WORKDIR/definitions.adoc"
-sed -i -e 's|<<\(.*\),\(.*\)>>|link:./definitions.html#\L\1\E[\2]|g' "$WORKDIR/paths.adoc"
+sed -i "1i $buf" "$WORKDIR/definitions.${SUFFIX}"
 
 # change the title of paths.adoc from "paths" to "operations"
-sed -i 's|== Paths|== Operations|g' "$WORKDIR/paths.adoc"
-mv -f "$WORKDIR/paths.adoc" "$WORKDIR/operations.adoc"
+sed -i "s|${HEADER}${HEADER} Paths|${HEADER}${HEADER} Operations|g" "$WORKDIR/paths.${SUFFIX}"
+mv -f "$WORKDIR/paths.${SUFFIX}" "$WORKDIR/operations.${SUFFIX}"
 
 # $$ has special meaning in asciidoc, we need to escape it
-sed -i 's|\$\$|+++$$+++|g' "$WORKDIR/definitions.adoc"
+# TODO !!!
+#sed -i 's|\$\$|+++$$+++|g' "$WORKDIR/definitions.adoc"
 
 # Add links to definitons & operations under overview
-cat >> "$WORKDIR/overview.adoc" << __END__
-== KubeVirt API Reference
-[%hardbreaks]
-* link:./definitions.html[Types Definition]
-* link:./operations.html[Operations]
+cat >> "$WORKDIR/overview.${SUFFIX}" << __END__
+${HEADER}${HEADER} KubeVirt API Reference
 
+${LINK_DEFINITIONS}
+${LINK_OPERATIONS}
 __END__
 
 
-# Generate *.html files from *.adoc
-gradle -b $GRADLE_BUILD_FILE asciidoctor --info
+if [ "$OUTPUT_FORMAT" = "html" ] ;
+then
+  # Generate *.html files from *.adoc
+  gradle -b $GRADLE_BUILD_FILE asciidoctor --info
+elif [ "$OUTPUT_FORMAT" = "markdown" ] ;
+then
+    # Generate TOC for definitions & operations as README.md
+    cd "$WORKDIR"
+    echo "# KubeVirt API Reference" > README.md
+    curl \
+        https://raw.githubusercontent.com/ekalinin/github-markdown-toc/master/gh-md-toc | \
+        bash -s "definitions.md" "operations.md" | \
+        sed 's/^      //' >> "README.md"
+    cd -
+fi
 
 echo "SUCCESS"
