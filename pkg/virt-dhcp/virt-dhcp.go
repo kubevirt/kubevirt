@@ -91,6 +91,7 @@ func Run(socket string) error {
 
 	rpcServer := rpc.NewServer()
 	dnsmasq := NewDNSmasq()
+	dnsmasq.killPreexistingProcess()
 	server := &DHCP{name: "virt-dhcp",
 		dnsmasq: dnsmasq,
 		mutex:   mutex}

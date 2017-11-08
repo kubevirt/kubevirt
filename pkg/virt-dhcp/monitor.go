@@ -2,6 +2,8 @@ package virtdhcp
 
 import (
 	"os/exec"
+	"sync"
+	"time"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -9,85 +11,93 @@ import (
 type Monitor interface {
 	Start(cmd string, args []string)
 	Stop()
-	IsRunning() bool
 }
 
 type MonitorRuntime struct {
 	isRunning bool
 	stopChan  chan bool
 	pid       int
-}
-
-type MonitorCmd struct {
-	Stop           chan bool
-	processStopped chan bool
-	ProcCmd        *exec.Cmd
-	cmdArgs        []string
-	cmdPath        string
-	retries        int
+	wg        sync.WaitGroup
+	lock      sync.Mutex
 }
 
 func NewMonitor() Monitor {
-	mon := MonitorRuntime{
+	mon := &MonitorRuntime{
 		stopChan: make(chan bool),
 		pid:      0,
 	}
-	return &mon
+	return mon
 }
 
 func (runtime *MonitorRuntime) Start(cmd string, args []string) {
-	go RunMonitor(cmd, args, runtime.stopChan, &runtime.pid)
+	runtime.lock.Lock()
+	defer runtime.lock.Unlock()
+
+	if runtime.isRunning == true {
+		return
+	}
+
+	runtime.wg.Add(1)
+	go func() {
+		defer runtime.wg.Done()
+		runMonitor(cmd, args, runtime.stopChan, &runtime.pid)
+	}()
 	runtime.isRunning = true
 }
 
 func (runtime *MonitorRuntime) Stop() {
-	runtime.stopChan <- true
-	runtime.isRunning = false
-}
+	runtime.lock.Lock()
+	defer runtime.lock.Unlock()
 
-func (runtime *MonitorRuntime) IsRunning() bool {
-	return runtime.isRunning
-}
-
-func (mon *MonitorCmd) restart(pid *int) {
-	defer func() { mon.processStopped <- true }()
-	mon.ProcCmd = exec.Command(mon.cmdPath, mon.cmdArgs...)
-	err := mon.ProcCmd.Start()
-	mon.retries += 1
-	if err != nil {
-		log.Log.Reason(err).Error("failed to start dnsmasq")
+	if runtime.isRunning == false {
 		return
 	}
 
-	*pid = mon.ProcCmd.Process.Pid
-	mon.ProcCmd.Wait()
+	runtime.stopChan <- true
+	runtime.isRunning = false
+
+	runtime.wg.Wait()
 }
 
-func RunMonitor(cmd string, args []string, stopChan chan bool, pid *int) error {
-
-	mon := &MonitorCmd{}
-	mon.processStopped = make(chan bool)
-	mon.Stop = stopChan
-	mon.cmdPath = cmd
-	mon.cmdArgs = args
-	mon.retries = 0
+func runMonitor(cmd string, args []string, stopChan chan bool, pid *int) {
+	retries := 0
 	done := false
-	go mon.restart(pid)
+	processStopped := make(chan bool)
 
 	for !done {
-		select {
-		case <-mon.processStopped:
-			if !done {
-				go mon.restart(pid)
-			}
-		case <-mon.Stop:
-			mon.ProcCmd.Process.Kill()
-			done = true
-
-		}
-		if mon.retries >= 3 {
+		if retries >= 3 {
 			panic("failed to start dnsmasq after 3 attempts")
 		}
+
+		// start process
+		procCmd := exec.Command(cmd, args...)
+		err := procCmd.Start()
+		if err != nil {
+			retries += 1
+			log.Log.Reason(err).Error("failed to start dnsmasq")
+			continue
+		}
+
+		*pid = procCmd.Process.Pid
+
+		// wait for process to exit.
+		go func() {
+			procCmd.Wait()
+			processStopped <- true
+		}()
+
+		// react to process exiting early or stop request.
+		select {
+		case <-processStopped:
+			retries += 1
+			log.Log.Reason(err).Error("dnsmasq exited early")
+			// add a second between unexpected restarts
+			time.Sleep(time.Second)
+		case <-stopChan:
+			procCmd.Process.Kill()
+			// we expect the process to stop now, so wait for it.
+			<-processStopped
+			done = true
+		}
 	}
-	return nil
 }

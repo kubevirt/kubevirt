@@ -74,11 +74,11 @@ func (b sortByteArrays) Swap(i, j int) {
 }
 
 type OSOps interface {
-	IsFileExist(path string) (bool, error)
+	isFileExist(path string) (bool, error)
 	getPidFromFile(file string) (int, error)
 	checkProcessExist(pid int) (bool, *os.Process)
 	killProcessIfExist(pid int) error
-	RecreateHostsFile() (*os.File, error)
+	recreateHostsFile() (*os.File, error)
 	readFromFile(file string) ([]byte, error)
 }
 
@@ -86,7 +86,7 @@ type OSHandler struct{}
 
 var OS OSOps
 
-func (o *OSHandler) IsFileExist(path string) (bool, error) {
+func (o *OSHandler) isFileExist(path string) (bool, error) {
 	_, err := os.Stat(path)
 	exists := false
 
@@ -135,10 +135,24 @@ func (o *OSHandler) checkProcessExist(pid int) (bool, *os.Process) {
 		return false, nil
 	}
 	procErr := proc.Signal(syscall.Signal(0))
-	return procErr == nil, proc
+	if procErr != nil {
+		return false, nil
+	}
+
+	path := fmt.Sprintf("/proc/%d/cmdline", pid)
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return false, nil
+	}
+
+	if strings.Contains(string(content), "dnsmasq") == false {
+		return false, nil
+	}
+
+	return true, proc
 }
 
-func (o *OSHandler) RecreateHostsFile() (*os.File, error) {
+func (o *OSHandler) recreateHostsFile() (*os.File, error) {
 	// Remove the config file
 	ferr := os.RemoveAll(DHCPHostsFile)
 	if ferr != nil {
@@ -157,43 +171,34 @@ func (dnsmasq *DNSmasqInstance) formatDhcpRange() string {
 	return fmt.Sprintf("--dhcp-range=%s,%s", net.IP(dnsmasq.ipRange[0]).String(), net.IP(dnsmasq.ipRange[1]).String())
 }
 
-func (dnsmasq *DNSmasqInstance) Start() error {
-	log.Log.Info("starting Dnsmasq")
-	dhcpRange := dnsmasq.formatDhcpRange()
-	startArgs := append(dnsmasq.args, dhcpRange)
-	dnsmasq.monitor.Start(DNSmasqExec, startArgs)
-	return nil
-}
-
-func (dnsmasq *DNSmasqInstance) stop() error {
-	log.Log.Info("Stopping Dnsmasq")
-	if dnsmasq.monitor.IsRunning() {
-		dnsmasq.monitor.Stop()
-	} else {
-		pid, err1 := OS.getPidFromFile(DHCPPidFile)
-		if err1 == nil {
-			OS.killProcessIfExist(pid)
-		}
+func (dnsmasq *DNSmasqInstance) killPreexistingProcess() {
+	pid, err := OS.getPidFromFile(DHCPPidFile)
+	if err != nil {
+		return
 	}
-	return nil
+	OS.killProcessIfExist(pid)
 }
 
 func (dnsmasq *DNSmasqInstance) Restart() error {
 	log.Log.Debug("restarting Dnsmasq")
 
-	err := dnsmasq.stop()
-	if err != nil {
-		log.Log.Reason(err).Error("failed to stop Dnsmasq")
-		return err
-	}
+	// a call to stop is a no-op if dnsmasq was not already running
+	log.Log.Info("Stopping Dnsmasq if it was already running.")
+	dnsmasq.monitor.Stop()
 
+	// reqbuild the config file
 	dnsmasq.updateRange()
-	err = dnsmasq.handleDHCPHostsFile()
+	err := dnsmasq.handleDHCPHostsFile()
 	if err != nil {
 		return nil
 	}
+
+	// start dnsmasq if there are host entries.
 	if len(dnsmasq.hosts) != 0 {
-		return dnsmasq.Start()
+		log.Log.Info("Starting Dnsmasq")
+		dhcpRange := dnsmasq.formatDhcpRange()
+		startArgs := append(dnsmasq.args, dhcpRange)
+		dnsmasq.monitor.Start(DNSmasqExec, startArgs)
 	}
 	return nil
 }
@@ -235,7 +240,7 @@ func (dnsmasq *DNSmasqInstance) writeDHCPHostsFile(file *os.File, dhcpHosts []st
 }
 
 func (dnsmasq *DNSmasqInstance) handleDHCPHostsFile() error {
-	f, err := OS.RecreateHostsFile()
+	f, err := OS.recreateHostsFile()
 	if err != nil {
 		return err
 	}
