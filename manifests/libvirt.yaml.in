@@ -47,6 +47,18 @@ spec:
           - name: libvirt-runtime
             mountPath: /var/run/libvirt
         command: ["/usr/sbin/virtlogd", "-f", "/etc/libvirt/virtlogd.conf"]
+      - name: virt-dhcp
+        image: {{ docker_prefix }}/virt-dhcp:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        volumeMounts:
+          - name: libvirt-runtime
+            mountPath: /var/run/libvirt
+          - name: virt-share-dir
+            mountPath: /var/run/kubevirt
+        command: ["/virt-dhcp"]
       volumes:
       - name: libvirt-data
         hostPath:

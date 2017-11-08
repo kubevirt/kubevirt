@@ -1,5 +1,5 @@
-binaries="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api cmd/virtctl cmd/virt-manifest cmd/fake-qemu-process"
-docker_images="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api cmd/virt-manifest images/haproxy images/iscsi-demo-target-tgtd images/vm-killer images/libvirt-kubevirt images/spice-proxy cmd/virt-migrator cmd/registry-disk-v1alpha images/cirros-registry-disk-demo"
+binaries="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api cmd/virtctl cmd/virt-manifest cmd/fake-qemu-process cmd/virt-dhcp cmd/fake-dnsmasq-process"
+docker_images="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api cmd/virt-manifest images/haproxy images/iscsi-demo-target-tgtd images/vm-killer images/libvirt-kubevirt images/spice-proxy cmd/virt-migrator cmd/registry-disk-v1alpha images/cirros-registry-disk-demo cmd/virt-dhcp"
 optional_docker_images="cmd/registry-disk-v1alpha images/fedora-atomic-registry-disk-demo"
 docker_prefix=kubevirt
 docker_tag=${DOCKER_TAG:-latest}
