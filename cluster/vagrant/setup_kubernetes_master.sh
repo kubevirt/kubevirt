@@ -50,6 +50,32 @@ else
   kubectl create -f kube-$NETWORK_PROVIDER.yaml
 fi
 
+{
+  pushd /vagrant
+  source hack/config.sh
+  popd
+
+  # Pretty much equivalent to `kubectl expose service ...`
+  for SVC in spice-proxy:3128 virt-controller:8182 virt-api:8182 haproxy:8184 virt-manifest:8186;
+  do
+    IFS=: read NAME PORT <<<$SVC
+    kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-$NAME
+spec:
+  externalIPs:
+  - "$master_ip"
+  ports:
+    - port: $PORT
+      targetPort: $PORT
+  selector:
+    app: $NAME
+EOF
+  done
+}
+
 # Allow scheduling pods on master
 # Ignore retval because it might not be dedicated already
 kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule- || :

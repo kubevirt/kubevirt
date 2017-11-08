@@ -6,8 +6,6 @@ spec:
   ports:
     - port: 3128
       targetPort: spice-proxy
-  externalIPs:
-    - "{{ master_ip }}"
   selector:
     app: spice-proxy
 ---
