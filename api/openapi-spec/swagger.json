@@ -1994,6 +1994,9 @@
       "items": {
        "$ref": "#/definitions/v1.Video"
       }
+     },
+     "watchdog": {
+      "$ref": "#/definitions/v1.Watchdog"
      }
     }
    },
@@ -3239,6 +3242,23 @@
      },
      "metadata": {
       "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1.Watchdog": {
+    "description": "Hardware watchdog device",
+    "required": [
+     "model",
+     "action"
+    ],
+    "properties": {
+     "action": {
+      "description": "The action to take. poweroff, reset, shutdown, pause, dump.",
+      "type": "string"
+     },
+     "model": {
+      "description": "Defines what watchdog model to use, typically 'i6300esb'",
+      "type": "string"
      }
     }
    }
