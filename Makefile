@@ -95,10 +95,25 @@ vagrant-sync-optional:
 vagrant-deploy: vagrant-sync-config vagrant-sync-build
 	export KUBECTL="cluster/kubectl.sh --core" && ./cluster/deploy.sh
 
-.release-functest:
+functest-release: kubevirt.yaml
+	make vagrant-deploy DOCKER_TAG=$(TAG) DEPLOY_MANIFEST=$$PWD/kubevirt.yaml
 	make functest > .release-functest 2>&1
 
-release-announce: .release-functest
+kubevirt.yaml: TAG=$(shell git describe)
+kubevirt.yaml: PREFIX=kubevirt
+kubevirt.yaml:
+	echo "## added-for-release" >> hack/config-local.sh
+	echo "docker_prefix=$(PREFIX)" >> hack/config-local.sh
+	echo "docker_tag=$(TAG)" >> hack/config-local.sh
+	make manifests
+	echo "# Created on $(shell date) at $(shell git describe --always)" > $@
+	echo "# For tag '$(TAG)'" >> $@
+	for M in manifests/*.yaml; do cat $$M ; echo "---" ; done >> $@
+	# Check if all templates got replaced
+	grep {{ $@ && echo "ERROR: A template was not filled!" || :
+	sed -i "/^\#\# /,+2 d" hack/config-local.sh
+
+release-announce: functest-release
 	./hack/release-announce.sh $(RELREF) $(PREREF)
 
-.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest release-announce
+.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest release-announce kubevirt.yaml
