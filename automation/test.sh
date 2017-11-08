@@ -96,9 +96,18 @@ echo ""
 echo ""
 
 # Delete traces from old deployments
-kubectl delete deployments --all
-kubectl delete ds --all
-kubectl delete pods --all
+namespaces=(default kube-system)
+for i in ${namespaces[@]}; do
+    kubectl -n ${i} delete deployment -l 'app'
+    kubectl -n ${i} delete services -l '!k8s-app'
+    kubectl -n ${i} delete pv --all
+    kubectl -n ${i} delete pvc --all
+    kubectl -n ${i} delete ds -l 'daemon'
+    kubectl -n ${i} delete crd --all
+    kubectl -n ${i} delete serviceaccounts -l 'name in (kubevirt, kubevirt-admin)'
+    kubectl -n ${i} delete clusterrolebinding -l 'name=kubevirt'
+    kubectl -n ${i} delete pods -l 'app'
+done
 
 # Deploy kubevirt
 cluster/sync.sh
