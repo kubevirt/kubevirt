@@ -45,7 +45,7 @@ var _ = Describe("VmMigration", func() {
 
 	var sourceVM *v1.VirtualMachine
 
-	var TIMEOUT float64 = 10.0
+	var TIMEOUT float64 = 60.0
 	var POLLING_INTERVAL float64 = 0.1
 
 	BeforeEach(func() {

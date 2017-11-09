@@ -1,13 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: virt-manifest-service
+  name: virt-manifest
 spec:
   ports:
     - port: 8186
       targetPort: virt-manifest
-  externalIPs:
-    - "{{ master_ip }}"
   selector:
     app: virt-manifest
 ---
@@ -64,5 +62,3 @@ spec:
       volumes:
       - name: libvirt-runtime
         emptyDir: {}
-      nodeSelector:
-        kubernetes.io/hostname: {{ primary_node_name }}

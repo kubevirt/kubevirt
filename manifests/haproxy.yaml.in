@@ -1,13 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: haproxy-service
+  name: haproxy
 spec:
   ports:
     - port: 8184
       targetPort: haproxy
-  externalIPs :
-    - "{{ master_ip }}"
   selector:
     app: haproxy
 ---
@@ -44,5 +42,3 @@ spec:
           periodSeconds: 20
       securityContext:
         runAsNonRoot: true
-      nodeSelector:
-        kubernetes.io/hostname: {{ primary_node_name }}

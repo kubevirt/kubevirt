@@ -6,8 +6,6 @@ spec:
   ports:
     - port: 3128
       targetPort: spice-proxy
-  externalIPs:
-    - "{{ master_ip }}"
   selector:
     app: spice-proxy
 ---
@@ -31,5 +29,3 @@ spec:
               protocol: "TCP"
       securityContext:
         runAsNonRoot: true
-      nodeSelector:
-        kubernetes.io/hostname: {{ primary_node_name }}

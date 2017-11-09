@@ -752,7 +752,7 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 }
 
 func WaitForSuccessfulVMStart(vm runtime.Object) string {
-	return WaitForSuccessfulVMStartWithTimeout(vm, 5)
+	return WaitForSuccessfulVMStartWithTimeout(vm, 30)
 }
 
 func GetReadyNodes() []k8sv1.Node {

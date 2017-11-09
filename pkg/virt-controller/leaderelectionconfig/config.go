@@ -32,7 +32,7 @@ const (
 	DefaultRenewDeadline = 10 * time.Second
 	DefaultRetryPeriod   = 2 * time.Second
 	DefaultNamespace     = "default"
-	DefaultEndpointName  = "virt-controller-service"
+	DefaultEndpointName  = "virt-controller"
 )
 
 func DefaultLeaderElectionConfiguration() Configuration {
