@@ -1,4 +1,4 @@
-# Storing VM Disks in the Container Registery
+# Storing VM Disks in the Container Registry
 
 ## Motivation
 
@@ -41,7 +41,7 @@ Users want to attach a non-bootable disk to a VM preloaded with data. This data
 could consist of anything. It could be configuration data, rpms, or anything
 else a user might want to distribute with their VMs.
 
-## Implementation 
+## Implementation
 
 ### High Level Design
 
@@ -61,7 +61,7 @@ device consumable by libvirt.
 
 Example:
 ```
-cat << END > Dockerfile 
+cat << END > Dockerfile
 FROM kubevirt.io:disk
 ADD fedora25.qcow2 /disk
 END
@@ -103,5 +103,4 @@ a local file.
 The **v1** part of the RegistryDisk disk type represents the standard
 used during the virt-handler disk conversion process. As we gain more
 experience with this feature, we may want to adopt a new standard for how VM
-images are wrapped by a container while maintaining backwards compatibility. 
-
+images are wrapped by a container while maintaining backwards compatibility.
