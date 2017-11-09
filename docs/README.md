@@ -21,7 +21,7 @@ therefore required. For best results, use this path:
 
 ### Project Components
 
- * virt-api: This component provides a HTTP RESTfull entrypoint to manage
+ * virt-api: This component provides a HTTP RESTful entrypoint to manage
    the virtual machines within the cluster.
  * virt-controller: This component manages the state of each VM within the
    Kubernetes cluster.

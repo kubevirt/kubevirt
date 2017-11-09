@@ -25,7 +25,7 @@ KubeVirt consists of a set of services:
 
 The following flow illustrates the communication flow between several
 (not all) components present in KubeVirt.
-In general the commnuication pattern can be considered to be a
+In general the communication pattern can be considered to be a
 choreography, where all components act by themselves to realize the state
 provided by the `VM` objects.
 
@@ -61,12 +61,12 @@ DELETE /virtualmachines -> validate     |         |                       |
 there are _temporary workarounds_ in place to avoid bugs and address some
 other stuff.
 
-1. A client posts a new VM definition to the K8s API Server
+1. A client posts a new VM definition to the K8s API Server.
 2. The K8s API Server validates the input and creates a `VM` 3rd party
    resource (TPR) object.
 3. The `virt-controller` observes the creation of the new `VM` object
    and creates a corrsponding pod.
-4. Kubernetes is scheduling the pod on a host
+4. Kubernetes is scheduling the pod on a host.
 5. The `virt-controller` observes that a pod for the `VM` got started and
    updates the `nodeName` field in the`VM` object.
    Now that the `nodeName` is set, the responsibility transitions to the
@@ -76,7 +76,7 @@ other stuff.
 6. The `virt-handler` is using the _VM Specification_ and creates a
    corresponding domain using the local `libvirtd` instance.
 7. A client deletes the `VM` object through the `virt-api-server`.
-8. The `virt-handler` observes the deletion and turns off the domain. 
+8. The `virt-handler` observes the deletion and turns off the domain.
 
 ## `virt-api-server`
 
@@ -179,21 +179,21 @@ Investigations are still in progress.
 
 ###  Storage Controller
 
-Such a controller will not be part of KubeVirt itself. 
+Such a controller will not be part of KubeVirt itself.
 
 However KubeVirt might define a Storage TPR along side with a flow description which will allow such a controller seamless integration into KubeVirt.
 
-## Networking 
+## Networking
 
 We will try to leverage as much of Kubernetes networking plugin mechanisms (e.g. CNI).
 However, `virt-handler` may provide a plugin mechanism to allow network setup on a host, if the KubeVirt requirements do not fit into the Kubernetes storage scenarios.
 
-Since host side preparation of network interfaces may not be enought, a cluster-wide [Network Controller](###network-controller) can be used to prepare the newtork.
+Since host side preparation of network interfaces may not be enough, a cluster-wide [Network Controller](###network-controller) can be used to prepare the network.
 
 Investigations are still in progress.
 
 ## Network Controller
 
-Such a controller will not be part of KubeVirt itself. 
+Such a controller will not be part of KubeVirt itself.
 
 However KubeVirt might define a Networking TPR along side with a flow description which will allow such a controller seamless integration into KubeVirt.

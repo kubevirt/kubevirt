@@ -49,7 +49,7 @@ to provide the new functionality:
 1. Additional types - so called 3rd party resources - are added to the
    Kubernetes API
 2. Additional controllers for cluster wide logic associated with this new types
-3- Additional daemons for node specific logic associated with new types
+3. Additional daemons for node specific logic associated with new types
 
 Once all three steps have been completed, you are able to
 
@@ -89,4 +89,3 @@ communicate with Kubernetes and where the additional types are stored:
 KubeVirt is deployed on top of a Kubernetes cluster.
 This means that you can continue to run your Kubernetes-native workloads next
 to the VMs managed through KubeVirt.
-

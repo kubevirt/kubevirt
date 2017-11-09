@@ -3,9 +3,9 @@
 This document exists to to give the KubeVirt community a common language to
 work with when describing features and making design proposals. Some of the
 terms in this document do not actually exist in the current design yet, but
-are instead concepts the KubeVirt team is in the process of formulizing. As new
+are instead concepts the KubeVirt team is in the process of formalizing. As new
 concepts are introduced into the community, this document should be updated to
-reflect the continued evolvement of our common language. 
+reflect the continued evolution of our common language. 
 
 Terms for Items the KubeVirt community are still discussing are marked with the
 (WIP) tag.
@@ -98,7 +98,7 @@ A VirtualMachineConfig is a concept that allows users to post a representation
 of a VM into the cluster in a way that is de-coupled from start/stopping the VM.
 
 A user can post a VirtualMachineConfig and later choose to start a VM using that
-config.  This lets the config remain persistent between VM starts/stops. 
+config.  This lets the config remain persistent between VM starts/stops.
 
 ## VirtualMachineGroup aka VMG (WIP)
 
@@ -110,7 +110,7 @@ instances to match the desired number of cloned instances defined by the VMG.
 ## KubeVirt Cluster Node
 
 The underlying hardware KubeVirt is scheduling VMs on top of. Any node KubeVirt
-is capable of starting a VM on is considered a cluster node. 
+is capable of starting a VM on is considered a cluster node.
 
 ## KubeVirt Runtime
 
@@ -133,7 +133,7 @@ Method of storing and distributing VM disks with KubeVirt using the container
 registry.
 
 ## Domain
-Libvirt domain. `virt-handler` can derive a Domain XML out of a [VM Spec](#vm-specification-aka-vm-spec). 
+Libvirt domain. `virt-handler` can derive a Domain XML out of a [VM Spec](#vm-specification-aka-vm-spec).
 This is the host centric view of the cluster wide [VM Spec](#vm-specification-aka-vm-spec).
 
 ## Domain XML
@@ -141,7 +141,7 @@ This is the host centric view of the cluster wide [VM Spec](#vm-specification-ak
 Configuration used to define a domain in Libvirt.  The VM spec is transformed
 into domain xml during VM creation on a cluster node. The Domain xml is used to
 communicate with Libvirt the information pertaining to how the VM should be
-launched. 
+launched.
 
 ## Third Party Resource aka TPR
 Kubernetes has an extensible API which allows extending its REST-API.
@@ -179,5 +179,3 @@ and other normal requests will not show the object until it is ready. So the
 fact that this works asynchronous is hidden from the user.
 
 https://kubernetes.io/docs/admin/extensible-admission-controllers/#what-are-initializers
-
-
