@@ -56,9 +56,6 @@ sed -i "1i $buf" "$WORKDIR/definitions.${SUFFIX}"
 sed -i "s|${HEADER}${HEADER} Paths|${HEADER}${HEADER} Operations|g" "$WORKDIR/paths.${SUFFIX}"
 mv -f "$WORKDIR/paths.${SUFFIX}" "$WORKDIR/operations.${SUFFIX}"
 
-# $$ has special meaning in asciidoc, we need to escape it
-# TODO !!!
-#sed -i 's|\$\$|+++$$+++|g' "$WORKDIR/definitions.adoc"
 
 # Add links to definitons & operations under overview
 cat >> "$WORKDIR/overview.${SUFFIX}" << __END__
@@ -71,8 +68,14 @@ __END__
 
 if [ "$OUTPUT_FORMAT" = "html" ] ;
 then
+  # $$ has special meaning in asciidoc, we need to escape it
+  sed -i 's|\$\$|+++$$+++|g' "$WORKDIR/definitions.adoc"
+  sed -i '1 i\:last-update-label!:' "$WORKDIR/"*.adoc
+
   # Generate *.html files from *.adoc
   gradle -b $GRADLE_BUILD_FILE asciidoctor --info
+  rm -rf "$WORKDIR/html5/content" && mkdir "$WORKDIR/html5/content" && mv -f "$WORKDIR/html5/"*.html "$WORKDIR/html5/content"
+  mv -f "$WORKDIR/html5/content/overview.html" "$WORKDIR/html5/content/index.html"
 elif [ "$OUTPUT_FORMAT" = "markdown" ] ;
 then
     # Generate TOC for definitions & operations as README.md
