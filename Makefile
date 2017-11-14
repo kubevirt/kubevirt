@@ -11,6 +11,11 @@ generate: sync
 	./hack/bootstrap-ginkgo.sh
 	(cd tools/openapispec/ && go build)
 	tools/openapispec/openapispec --dump-api-spec-path api/openapi-spec/swagger.json
+	docker run -u `stat -c "%u" hack/gen-swagger-doc/` --rm \
+		-v ${PWD}:/home/gradle/kubevirt:rw,z \
+		-w /home/gradle/kubevirt \
+		gradle \
+		bash hack/gen-swagger-doc/gen-swagger-docs.sh v1 html
 
 build: checksync fmt vet compile
 
