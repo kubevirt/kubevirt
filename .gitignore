@@ -2,6 +2,7 @@ vendor/*
 !vendor/vendor.json
 .idea
 *.iml
+cmd/fake-dnsmasq-process/fake-dnsmasq*
 cmd/fake-qemu-process/fake-qemu*
 cmd/virt-manifest/virt-manifest*
 cmd/virt-controller/virt-controller*
@@ -9,6 +10,7 @@ cmd/virt-launcher/virt-launcher*
 cmd/virt-handler/virt-handler*
 cmd/virt-api/virt-api*
 cmd/virtctl/virtctl*
+cmd/virt-dhcp/virt-dhcp*
 tools/openapispec/openapispec
 manifests/*.yaml
 **/bin
