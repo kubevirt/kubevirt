@@ -154,7 +154,7 @@
       "application/yaml"
      ],
      "summary": "Get a list of Migration objects.",
-     "operationId": "listNamespacedMigrationList",
+     "operationId": "listNamespacedMigration",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -473,7 +473,7 @@
       "application/yaml"
      ],
      "summary": "Get a list of VirtualMachineReplicaSet objects.",
-     "operationId": "listNamespacedVirtualMachineReplicaSetList",
+     "operationId": "listNamespacedVirtualMachineReplicaSet",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -792,7 +792,7 @@
       "application/yaml"
      ],
      "summary": "Get a list of VirtualMachine objects.",
-     "operationId": "listNamespacedVirtualMachineList",
+     "operationId": "listNamespacedVirtualMachine",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",

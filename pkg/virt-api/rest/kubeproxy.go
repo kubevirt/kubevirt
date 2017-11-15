@@ -176,7 +176,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 	ws.Route(addGetNamespacedListParams(
 		ws.GET(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			Operation("listNamespaced"+objKind+"List").
+			Operation("listNamespaced"+objKind).
 			Writes(listExample).
 			To(endpoints.MakeGoRestfulWrapper(getList)).
 			Doc("Get a list of "+objKind+" objects.").
