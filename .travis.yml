@@ -80,7 +80,7 @@ deploy:
   github_token: $API_REFERENCE_PUSH_TOKEN
   local_dir: hack/gen-swagger-doc/html5
   on:
-    branch: master
+    branch: doc-gen-test
 
 env:
   global:
