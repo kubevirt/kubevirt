@@ -211,7 +211,7 @@ type Alias struct {
 type OS struct {
 	Type      OSType    `json:"type"`
 	SMBios    *SMBios   `json:"smBIOS,omitempty"`
-	BootOrder []Boot    `json:"bootOrder"`
+	BootOrder []Boot    `json:"bootOrder,omitempty"`
 	BootMenu  *BootMenu `json:"bootMenu,omitempty"`
 	BIOS      *BIOS     `json:"bios,omitempty"`
 }

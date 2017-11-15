@@ -2585,8 +2585,7 @@
    },
    "v1.OS": {
     "required": [
-     "type",
-     "bootOrder"
+     "type"
     ],
     "properties": {
      "bios": {
