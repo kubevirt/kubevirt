@@ -99,7 +99,7 @@ echo ""
 namespaces=(default kube-system)
 for i in ${namespaces[@]}; do
     kubectl -n ${i} delete deployment -l 'app'
-    kubectl -n ${i} delete services -l '!k8s-app'
+    kubectl -n ${i} delete services -l '!k8s-app,!provider'
     kubectl -n ${i} delete pv --all
     kubectl -n ${i} delete pvc --all
     kubectl -n ${i} delete ds -l 'daemon'
