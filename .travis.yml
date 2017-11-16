@@ -78,7 +78,7 @@ deploy:
   skip_cleanup: true
   script: hack/gen-swagger-doc/deploy.sh
   on:
-    branch: master
+    branch: doc-gen-test
     go: 1.8.3
 
 env:
