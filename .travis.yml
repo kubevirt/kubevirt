@@ -44,6 +44,7 @@ script:
 - if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then $HOME/gopath/bin/goveralls
   -service=travis-ci -package=./pkg/... -ignore=$(find -name generated_mock*.go -printf
   "%P\n" | paste -d, -s) ; else make test; fi
+- make apidocs
 
 cache:
   directories:
@@ -73,14 +74,12 @@ deploy:
   on:
     tags: true
     repo: kubevirt/kubevirt
-- provider: pages
+- provider: script
   skip_cleanup: true
-  repo: kubevirt-incubator/api-reference
-  target_branch: master
-  github_token: $API_REFERENCE_PUSH_TOKEN
-  local_dir: hack/gen-swagger-doc/html5
+  script: hack/gen-swagger-doc/deploy.sh
   on:
-    branch: doc-gen-test
+    branch: master
+    go: 1.8.3
 
 env:
   global:
