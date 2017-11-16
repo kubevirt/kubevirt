@@ -75,7 +75,7 @@ deploy:
     repo: kubevirt/kubevirt
 - provider: pages
   skip_cleanup: true
-  repo: https://github.com/kubevirt-incubator/api-reference.git
+  repo: kubevirt-incubator/api-reference
   target_branch: master
   github_token: $API_REFERENCE_PUSH_TOKEN
   local_dir: hack/gen-swagger-doc/html5

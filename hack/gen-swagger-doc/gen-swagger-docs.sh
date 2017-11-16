@@ -73,7 +73,7 @@ then
 
   # Generate *.html files from *.adoc
   gradle -b $GRADLE_BUILD_FILE asciidoctor --info
-  rm -rf "$WORKDIR/html5/content" && mkdir "$WORKDIR/html5/content" && cp "$WORKDIR/html5/"*.html "$WORKDIR/html5/content"
+  rm -rf "$WORKDIR/html5/content" && mkdir "$WORKDIR/html5/content" && mv -f "$WORKDIR/html5/"*.html "$WORKDIR/html5/content"
   mv -f "$WORKDIR/html5/content/overview.html" "$WORKDIR/html5/content/index.html"
 elif [ "$OUTPUT_FORMAT" = "markdown" ] ;
 then
