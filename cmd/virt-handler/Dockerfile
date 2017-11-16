@@ -20,7 +20,7 @@ FROM fedora:26
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-RUN dnf -y install libvirt-client genisoimage && \
+RUN dnf -y install libvirt-client genisoimage iptables && \
     groupadd --gid 107 qemu && \
     useradd --uid 107 --gid 107 qemu && \
     dnf -y clean all

@@ -19,6 +19,18 @@
   revision = "ca5f9e638c83bac66bfac70ded5bded1503135a7"
 
 [[projects]]
+  name = "github.com/containernetworking/cni"
+  packages = ["libcni","pkg/invoke","pkg/types","pkg/types/020","pkg/types/current","pkg/version"]
+  revision = "a7885cb6f8ab03fba07852ded351e4f5e7a112bf"
+  version = "v0.6.0"
+
+[[projects]]
+  name = "github.com/containernetworking/plugins"
+  packages = ["pkg/ns"]
+  revision = "7480240de9749f9a0a5c8614b17f1f03e0c06ab9"
+  version = "v0.6.0"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "782f4967f2dc4564575ca782fe2d04090b5faca8"
@@ -230,9 +242,27 @@
   revision = "1f33b80956cde38911d1f23d764deb8d77a649ce"
 
 [[projects]]
+  name = "github.com/subgraph/libmacouflage"
+  packages = ["."]
+  revision = "973191b8743358463d8f3abc9c6dc585f2c1e7fc"
+  version = "v0.0.1"
+
+[[projects]]
   name = "github.com/ugorji/go"
   packages = ["codec"]
   revision = "ded73eae5db7e7a0ef6f55aace87a2873c5d2b74"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/vishvananda/netlink"
+  packages = [".","nl"]
+  revision = "f7e518d6f016bc193fc496aafbdf4ae267dd47ef"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/vishvananda/netns"
+  packages = ["."]
+  revision = "86bef332bfc3b59b7624a600bd53009ce91a9829"
 
 [[projects]]
   name = "golang.org/x/crypto"
@@ -301,6 +331,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d281956d5fcf022451397f839df338984fde7242f15929910e60c5ba10ac3eaa"
+  inputs-digest = "2e3fcb1a790cdd5071ccbe09fa885a30e56257b99c5ce87d38d6bd1c6d04d02e"
   solver-name = "gps-cdcl"
   solver-version = 1

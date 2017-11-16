@@ -44,12 +44,13 @@ type CloudInitSpec struct {
 }
 
 type DomainSpec struct {
-	Memory  Memory   `json:"memory"`
-	Type    string   `json:"type"`
-	OS      OS       `json:"os"`
-	SysInfo *SysInfo `json:"sysInfo,omitempty"`
-	Devices Devices  `json:"devices"`
-	Clock   *Clock   `json:"clock,omitempty"`
+	Memory   Memory    `json:"memory"`
+	Type     string    `json:"type"`
+	OS       OS        `json:"os"`
+	SysInfo  *SysInfo  `json:"sysInfo,omitempty"`
+	Devices  Devices   `json:"devices"`
+	Clock    *Clock    `json:"clock,omitempty"`
+	Metadata *Metadata `json:"metadata,omitempty"`
 }
 
 type Memory struct {
@@ -155,17 +156,18 @@ type ConsoleTarget struct {
 // BEGIN Inteface -----------------------------
 
 type Interface struct {
-	Address   *Address         `json:"address,omitempty"`
-	Type      string           `json:"type"`
-	Source    InterfaceSource  `json:"source"`
-	Target    *InterfaceTarget `json:"target,omitempty"`
-	Model     *Model           `json:"model,omitempty"`
-	MAC       *MAC             `json:"mac,omitempty"`
-	BandWidth *BandWidth       `json:"bandwidth,omitempty"`
-	BootOrder *BootOrder       `json:"boot,omitempty"`
-	LinkState *LinkState       `json:"link,omitempty"`
-	FilterRef *FilterRef       `json:"filterRef,omitempty"`
-	Alias     *Alias           `json:"alias,omitempty"`
+	Address             *Address         `json:"address,omitempty"`
+	Type                string           `json:"type"`
+	TrustGuestRxFilters string           `json:"trustGuestRxFilters,omitempty"`
+	Source              InterfaceSource  `json:"source"`
+	Target              *InterfaceTarget `json:"target,omitempty"`
+	Model               *Model           `json:"model,omitempty"`
+	MAC                 *MAC             `json:"mac,omitempty"`
+	BandWidth           *BandWidth       `json:"bandwidth,omitempty"`
+	BootOrder           *BootOrder       `json:"boot,omitempty"`
+	LinkState           *LinkState       `json:"link,omitempty"`
+	FilterRef           *FilterRef       `json:"filterRef,omitempty"`
+	Alias               *Alias           `json:"alias,omitempty"`
 }
 
 type LinkState struct {
@@ -189,8 +191,9 @@ type FilterRef struct {
 
 type InterfaceSource struct {
 	Network string `json:"network,omitempty"`
-	Device  string `json:"device,omitempty"`
+	Device  string `json:"dev,omitempty"`
 	Bridge  string `json:"bridge,omitempty"`
+	Mode    string `json:"mode,omitempty"`
 }
 
 type Model struct {
@@ -349,6 +352,21 @@ type Watchdog struct {
 	Model string `json:"model"`
 	// The action to take. poweroff, reset, shutdown, pause, dump.
 	Action string `json:"action"`
+}
+
+type Metadata struct {
+	Interfaces MetadataInterfaces `json:"interfaces,omitempty"`
+}
+
+type MetadataInterfaces struct {
+	Devices []MetadataDevice `json:"interface,omitempty"`
+}
+
+type MetadataDevice struct {
+	Type   string `json:" type,omitempty"`
+	Device string `json:" devname,omitempty"`
+	Mac    string `json:"mac,omitempty"`
+	IP     string `json:"ip,omitempty"`
 }
 
 // TODO ballooning, rng, cpu ...

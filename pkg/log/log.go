@@ -94,6 +94,14 @@ func MakeLogger(logger log.Logger) *FilteredLogger {
 	}
 }
 
+func SetComponentLogger(component string, logger *FilteredLogger) {
+	loggers[component] = logger
+}
+
+func SetDefaultLogger(logger *FilteredLogger) {
+	SetComponentLogger(defaultComponent, logger)
+}
+
 type NullLogger struct{}
 
 func (n NullLogger) Log(params ...interface{}) error { return nil }

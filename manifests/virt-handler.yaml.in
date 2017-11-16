@@ -33,6 +33,10 @@ spec:
           mountPath: /var/run/libvirt
         - name: virt-share-dir
           mountPath: /var/run/kubevirt
+        - name: cni-net-dir
+          mountPath: /etc/cni/net.d
+        - name: cni-bin-dir
+          mountPath: /opt/cni/bin
         env:
           - name: NODE_NAME
             valueFrom:
@@ -45,3 +49,9 @@ spec:
       - name: virt-share-dir
         hostPath:
           path: /var/run/kubevirt
+      - name: cni-net-dir
+        hostPath:
+            path: /etc/cni/net.d
+      - name: cni-bin-dir
+        hostPath:
+            path: /opt/cni/bin

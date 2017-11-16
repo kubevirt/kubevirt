@@ -209,3 +209,15 @@ func (Watchdog) SwaggerDoc() map[string]string {
 		"action": "The action to take. poweroff, reset, shutdown, pause, dump.",
 	}
 }
+
+func (Metadata) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (MetadataInterfaces) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (MetadataDevice) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}

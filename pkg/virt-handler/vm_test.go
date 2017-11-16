@@ -118,6 +118,7 @@ var _ = Describe("VM", func() {
 
 			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
+			domainManager.EXPECT().UpdateVmDomainConfig(v1.NewVMReferenceFromName("testvm")).Return(false)
 
 			controller.Execute()
 		})
@@ -130,6 +131,7 @@ var _ = Describe("VM", func() {
 
 			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
+			domainManager.EXPECT().UpdateVmDomainConfig(v1.NewVMReferenceFromName("testvm")).Return(false)
 
 			controller.Execute()
 		})
