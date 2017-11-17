@@ -348,11 +348,11 @@ func newPV(os string, lun int32, withAuth bool) *k8sv1.PersistentVolume {
 	PanicOnError(err)
 
 	name := fmt.Sprintf("iscsi-disk-%s-for-tests", os)
-	target := "iscsi-demo-target.default.svc.cluster.local"
+	target := "iscsi-demo-target.kube-system.svc.cluster.local"
 	label := os
 	if withAuth {
 		name = fmt.Sprintf("iscsi-auth-disk-%s-for-tests", os)
-		target = "iscsi-auth-demo-target.default.svc.cluster.local"
+		target = "iscsi-auth-demo-target.kube-system.svc.cluster.local"
 		label = fmt.Sprintf("%s-auth", os)
 	}
 
@@ -602,7 +602,7 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 		},
 		Source: v1.DiskSource{
 			Host: &v1.DiskSourceHost{
-				Name: "iscsi-demo-target.default",
+				Name: "iscsi-demo-target.kube-system",
 				Port: "3260",
 			},
 			Protocol: "iscsi",
@@ -618,7 +618,7 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 				Usage: "iscsi-demo-secret",
 			},
 		}
-		vm.Spec.Domain.Devices.Disks[0].Source.Host.Name = "iscsi-auth-demo-target.default"
+		vm.Spec.Domain.Devices.Disks[0].Source.Host.Name = "iscsi-auth-demo-target.kube-system"
 	}
 	return vm
 }

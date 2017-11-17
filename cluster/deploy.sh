@@ -34,6 +34,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: external-$NAME
+  namespace: kube-system
 spec:
   externalIPs:
   - "$master_ip"

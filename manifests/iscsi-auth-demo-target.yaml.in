@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: iscsi-auth-demo-secret
+  namespace: kube-system
 type: "kubernetes.io/iscsi-chap"  
 data:
   node.session.auth.username: ZGVtb3VzZXI=
@@ -11,6 +12,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: iscsi-auth-demo-target
+  namespace: kube-system
 spec:
   ports:
     - name: iscsi
@@ -23,6 +25,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: iscsi-auth-demo-target-tgtd
+  namespace: kube-system
 spec:
   template:
     metadata:
