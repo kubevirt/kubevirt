@@ -7,6 +7,24 @@ ignore:
 - github.com/go-kit/kit/service
 - k8s.io/apimachinery/pkg/apis/meta/v1alpha1
 - code.google.com/p/go-charset
+- k8s.io/client-go/kubernetes/typed/autoscaling/v2alpha1
+- k8s.io/client-go/informers/autoscaling/v2alpha1
+- k8s.io/client-go/listers/autoscaling/v2alpha1
+- k8s.io/api/autoscaling/v2alpha1
+- k8s.io/client-go/kubernetes/typed/autoscaling/v2alpha1/fake
+- github.com/coreos/etcd/etcdserver/api/etcdhttp
+- github.com/coreos/etcd/clientv3/namespace
+- github.com/coreos/etcd/etcdserver/api/v3client
+- github.com/coreos/etcd/etcdserver/api/v3election
+- github.com/coreos/etcd/etcdserver/api/v3election/v3electionpb
+- github.com/coreos/etcd/etcdserver/api/v3lock
+- github.com/coreos/etcd/etcdserver/api/v3lock/v3lockpb
+- github.com/coreos/etcd/proxy/grpcproxy/adapter
+- github.com/gogo/protobuf/test/typedeclimport/subpkg
+- github.com/gogo/protobuf/test/issue312
+- github.com/spf13/cobra/doc
+- k8s.io/kube-openapi/pkg/util/proto
+- k8s.io/kube-openapi/pkg/util/proto/testing
 import:
 - package: github.com/go-kit/kit
   version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
@@ -19,7 +37,7 @@ import:
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: db8228460e2de17f5d3a9a453f61dde0ba86545a
+  version: v5.0.1
   subpackages:
   - discovery
   - discovery/fake

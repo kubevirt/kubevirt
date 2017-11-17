@@ -15,10 +15,10 @@ import (
 	v11 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	v1beta11 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	v12 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
-	v2alpha1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2alpha1"
+	v2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
 	v13 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	v1beta12 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
-	v2alpha10 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
+	v2alpha1 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
 	v1beta13 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	v14 "k8s.io/client-go/kubernetes/typed/core/v1"
 	v1beta14 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
@@ -237,14 +237,14 @@ func (_mr *_MockKubevirtClientRecorder) Autoscaling() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Autoscaling")
 }
 
-func (_m *MockKubevirtClient) AutoscalingV2alpha1() v2alpha1.AutoscalingV2alpha1Interface {
-	ret := _m.ctrl.Call(_m, "AutoscalingV2alpha1")
-	ret0, _ := ret[0].(v2alpha1.AutoscalingV2alpha1Interface)
+func (_m *MockKubevirtClient) AutoscalingV2beta1() v2beta1.AutoscalingV2beta1Interface {
+	ret := _m.ctrl.Call(_m, "AutoscalingV2beta1")
+	ret0, _ := ret[0].(v2beta1.AutoscalingV2beta1Interface)
 	return ret0
 }
 
-func (_mr *_MockKubevirtClientRecorder) AutoscalingV2alpha1() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AutoscalingV2alpha1")
+func (_mr *_MockKubevirtClientRecorder) AutoscalingV2beta1() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AutoscalingV2beta1")
 }
 
 func (_m *MockKubevirtClient) BatchV1() v13.BatchV1Interface {
@@ -277,9 +277,9 @@ func (_mr *_MockKubevirtClientRecorder) BatchV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "BatchV1beta1")
 }
 
-func (_m *MockKubevirtClient) BatchV2alpha1() v2alpha10.BatchV2alpha1Interface {
+func (_m *MockKubevirtClient) BatchV2alpha1() v2alpha1.BatchV2alpha1Interface {
 	ret := _m.ctrl.Call(_m, "BatchV2alpha1")
-	ret0, _ := ret[0].(v2alpha10.BatchV2alpha1Interface)
+	ret0, _ := ret[0].(v2alpha1.BatchV2alpha1Interface)
 	return ret0
 }
 

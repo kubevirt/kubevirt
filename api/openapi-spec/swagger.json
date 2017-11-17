@@ -1687,6 +1687,10 @@
        "type": "string"
       }
      },
+     "group": {
+      "description": "group is the preferred group of the resource.  Empty implies the group of the containing resource list. For subresources, this may have a different value, for example: Scale\".",
+      "type": "string"
+     },
      "kind": {
       "description": "kind is the kind for the resource (e.g. 'Foo' is the kind for a resource 'foo')",
       "type": "string"
@@ -1716,6 +1720,10 @@
       "items": {
        "type": "string"
       }
+     },
+     "version": {
+      "description": "version is the preferred version of the resource.  Empty implies the version of the containing resource list For subresources, this may have a different value, for example: v1 (while inside a v1beta1 version of the core resource's group)\".",
+      "type": "string"
      }
     }
    },
@@ -2353,7 +2361,7 @@
       "type": "string"
      },
      "operator": {
-      "description": "operator represents a key's relationship to a set of values. Valid operators ard In, NotIn, Exists and DoesNotExist.",
+      "description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
       "type": "string"
      },
      "values": {
@@ -2378,12 +2386,16 @@
    "v1.ListMeta": {
     "description": "ListMeta describes metadata that synthetic resources must have, including lists and various status objects. A resource may have only one of {ObjectMeta, ListMeta}.",
     "properties": {
+     "continue": {
+      "description": "continue may be set if the user set a limit on the number of items returned, and indicates that the server has more data available. The value is opaque and may be used to issue another request to the endpoint that served this list to retrieve the next set of available objects. Continuing a list may not be possible if the server configuration has changed or more than a few minutes have passed. The resourceVersion field returned when using this continue value will be identical to the value in the first response.",
+      "type": "string"
+     },
      "resourceVersion": {
       "description": "String that identifies the server's internal version of this object that can be used by clients to determine when objects have changed. Value must be treated as opaque by clients and passed unmodified back to the server. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#concurrency-control-and-consistency",
       "type": "string"
      },
      "selfLink": {
-      "description": "SelfLink is a URL representing this object. Populated by the system. Read-only.",
+      "description": "selfLink is a URL representing this object. Populated by the system. Read-only.",
       "type": "string"
      }
     }
