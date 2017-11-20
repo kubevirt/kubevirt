@@ -19,7 +19,7 @@
             "snapshot": "external",
             "source": {
               "host": {
-                "name": "iscsi-demo-target",
+                "name": "iscsi-demo-target.kube-system",
                 "port": "3260"
               },
               "name": "iqn.2017-01.io.kubevirt:sn.42/2",
