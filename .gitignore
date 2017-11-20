@@ -24,3 +24,7 @@ hack/config-local.sh
 tags
 .Gopkg.*
 .GeneratedDockerfile
+.gradle
+hack/gen-swagger-doc/*.adoc
+hack/gen-swagger-doc/*.md
+hack/gen-swagger-doc/html5
