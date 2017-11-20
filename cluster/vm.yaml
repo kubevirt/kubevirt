@@ -23,7 +23,7 @@ spec:
           cache: none
         source:
           host:
-            name: iscsi-demo-target.default
+            name: iscsi-demo-target.kube-system
             port: "3260"
           protocol: iscsi
           name: iqn.2017-01.io.kubevirt:sn.42/2
