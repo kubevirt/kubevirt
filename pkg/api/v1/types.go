@@ -739,7 +739,7 @@ type VMReplicaSetStatus struct {
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty" protobuf:"varint,4,opt,name=readyReplicas"`
 
-	Conditions []VMReplicaSetCondition `json:"conditions"`
+	Conditions []VMReplicaSetCondition `json:"conditions,omitempty"`
 }
 
 type VMReplicaSetCondition struct {

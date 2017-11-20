@@ -3018,9 +3018,6 @@
     }
    },
    "v1.VMReplicaSetStatus": {
-    "required": [
-     "conditions"
-    ],
     "properties": {
      "conditions": {
       "type": "array",
