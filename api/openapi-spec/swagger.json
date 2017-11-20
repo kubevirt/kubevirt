@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
    "description": "This is KubeVirt API an add-on for Kubernetes.",
-   "title": "KubeVirt API, ",
+   "title": "KubeVirt API",
    "contact": {
     "name": "kubevirt-dev",
     "url": "https://github.com/kubevirt/kubevirt",

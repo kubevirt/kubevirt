@@ -129,7 +129,7 @@ func CreateOpenAPIConfig() restfulspec.Config {
 func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 	swo.Info = &openapispec.Info{
 		InfoProps: openapispec.InfoProps{
-			Title:       "KubeVirt API, ",
+			Title:       "KubeVirt API",
 			Description: "This is KubeVirt API an add-on for Kubernetes.",
 			Contact: &openapispec.ContactInfo{
 				Name:  "kubevirt-dev",
