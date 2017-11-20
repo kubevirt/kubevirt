@@ -1,0 +1,56 @@
+package: kubevirt.io/kubevirt
+ignore:
+- github.com/go-kit/kit/examples
+- github.com/googleapis/gnostic/plugins
+- github.com/go-kit/kit/log/levels
+- github.com/go-kit/kit/metrics/influxdb
+- github.com/go-kit/kit/service
+- code.google.com/p/go-charset
+- k8s.io/client-go/kubernetes/typed/autoscaling/v2alpha1
+- k8s.io/client-go/informers/autoscaling/v2alpha1
+- k8s.io/client-go/listers/autoscaling/v2alpha1
+- k8s.io/api/autoscaling/v2alpha1
+- k8s.io/kube-openapi/pkg/util/proto
+- github.com/coreos/etcd
+- github.com/gogo/protobuf/test/typedeclimport/subpkg
+- github.com/gogo/protobuf/test/issue312
+- github.com/spf13/cobra/doc
+import:
+- package: github.com/go-kit/kit
+  version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
+  subpackages:
+  - log
+- package: github.com/emicklei/go-restful
+  version: dc0f94ee75de39d6420e5446b0222490264bb90f
+  subpackages:
+  - log
+- package: github.com/evanphx/json-patch
+  version: ba18e35c5c1b36ef6334cad706eb681153d2d379
+- package: k8s.io/client-go
+  version: v5.0.1
+- package: github.com/fsnotify/fsnotify
+  version: ^1.4.2
+- package: github.com/mailru/easyjson
+  version: 2a92e673c9a6302dd05c3a691ae1f24aef46457d
+- package: github.com/emicklei/go-restful-openapi
+- package: github.com/go-openapi/spec
+- package: github.com/emicklei/go-restful-swagger12
+testImport:
+- package: github.com/elazarl/goproxy
+  version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
+- package: github.com/facebookgo/structtag
+- package: github.com/smartystreets/goconvey
+  subpackages:
+  - convey
+- package: github.com/stretchr/testify
+  version: e3a8ff8ce36581f87a15341206f205b1da467059
+  subpackages:
+  - assert
+- package: golang.org/x/sync
+  subpackages:
+  - errgroup
+- package: gopkg.in/check.v1
+  version: 64131543e7896d5bcc6bd5a76287eb75ea96c673
+- package: github.com/google/goexpect
+- package: github.com/google/goterm
+- package: google.golang.org/grpc

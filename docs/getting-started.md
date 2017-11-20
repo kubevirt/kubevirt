@@ -70,8 +70,8 @@ to install a few build requirements:
     cd $GOPATH
     # Use goimports for package import ordering
     go get golang.org/x/tools/cmd/goimports
-    # Setup dep which is used to track dependencies
-    go get -u github.com/golang/dep/cmd/dep
+    # Setup glide which is used to track dependencies
+    go get github.com/Masterminds/glide
 ```
 
 ### Sources
