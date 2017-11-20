@@ -76,7 +76,7 @@ deploy:
     repo: kubevirt/kubevirt
 - provider: script
   skip_cleanup: true
-  script: hack/gen-swagger-doc/deploy.sh
+  script: bash hack/gen-swagger-doc/deploy.sh
   on:
     branch: doc-gen-test
     go: 1.8.3
