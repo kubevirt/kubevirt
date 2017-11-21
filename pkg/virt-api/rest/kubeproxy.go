@@ -175,7 +175,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 
 	ws.Route(addGetNamespacedListParams(
 		ws.GET(ResourceBasePath(gvr)).
-			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
 			Operation("listNamespaced"+objKind).
 			Writes(listExample).
 			To(endpoints.MakeGoRestfulWrapper(getList)).
@@ -241,7 +241,8 @@ func addGetParams(builder *restful.RouteBuilder, ws *restful.WebService) *restfu
 func addGetNamespacedListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
 	return builder.Param(NamespaceParam(ws)).
 		Param(ws.QueryParameter("export", "Should this value be exported. Export strips fields that a user can not specify.").DataType("boolean")).
-		Param(ws.QueryParameter("exact", "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'").DataType("boolean"))
+		Param(ws.QueryParameter("exact", "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'").DataType("boolean")).
+		Param(ws.QueryParameter("watch", "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.").DataType("boolean"))
 }
 
 func addPostParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {

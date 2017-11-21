@@ -151,7 +151,8 @@
      "description": "Get a list of Migration objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of Migration objects.",
      "operationId": "listNamespacedMigration",
@@ -174,6 +175,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -314,6 +321,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -470,7 +483,8 @@
      "description": "Get a list of VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of VirtualMachineReplicaSet objects.",
      "operationId": "listNamespacedVirtualMachineReplicaSet",
@@ -493,6 +507,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -633,6 +653,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -789,7 +815,8 @@
      "description": "Get a list of VirtualMachine objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of VirtualMachine objects.",
      "operationId": "listNamespacedVirtualMachine",
@@ -812,6 +839,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -952,6 +985,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
