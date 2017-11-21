@@ -200,7 +200,7 @@ type VMStatus struct {
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
 	Phase VMPhase `json:"phase"`
 	// Graphics represent the details of available graphical consoles.
-	Graphics []VMGraphics `json:"graphics,omitempty"`
+	Graphics []VMGraphics `json:"graphics" optional:"true"`
 }
 
 type VMGraphics struct {
@@ -739,7 +739,7 @@ type VMReplicaSetStatus struct {
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty" protobuf:"varint,4,opt,name=readyReplicas"`
 
-	Conditions []VMReplicaSetCondition `json:"conditions,omitempty"`
+	Conditions []VMReplicaSetCondition `json:"conditions" optional:"true"`
 }
 
 type VMReplicaSetCondition struct {
