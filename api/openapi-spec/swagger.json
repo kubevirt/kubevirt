@@ -3068,8 +3068,7 @@
    "v1.VMStatus": {
     "description": "VMStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
     "required": [
-     "phase",
-     "graphics"
+     "phase"
     ],
     "properties": {
      "conditions": {
