@@ -198,7 +198,7 @@ type VMStatus struct {
 	// Conditions are specific points in VM's pod runtime.
 	Conditions []VMCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
-	Phase VMPhase `json:"phase"`
+	Phase VMPhase `json:"phase,omitempty"`
 	// Graphics represent the details of available graphical consoles.
 	Graphics []VMGraphics `json:"graphics" optional:"true"`
 }

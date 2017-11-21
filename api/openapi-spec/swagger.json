@@ -3067,9 +3067,6 @@
    },
    "v1.VMStatus": {
     "description": "VMStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
-    "required": [
-     "phase"
-    ],
     "properties": {
      "conditions": {
       "description": "Conditions are specific points in VM's pod runtime.",
