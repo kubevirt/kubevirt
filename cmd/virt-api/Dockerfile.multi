@@ -1,0 +1,49 @@
+#
+# This file is part of the KubeVirt project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Copyright 2017 Red Hat, Inc.
+#
+
+# builder
+FROM golang:1.8-alpine3.6 as builder
+
+RUN apk --update add \
+    gcc=6.3.0-r4 \
+    libvirt-client=3.3.0-r1  \
+    libvirt-dev=3.3.0-r1 \
+    musl-dev=1.1.16-r14
+
+RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
+    mkdir -p /usr/src/build/pkg && \ 
+    mkdir -p /usr/src/build/bin
+
+ENV GOPATH=/usr/src/build
+
+WORKDIR /usr/src/build/src
+COPY vendor .
+COPY . kubevirt.io/kubevirt/
+
+WORKDIR kubevirt.io/kubevirt/cmd/virt-api
+RUN go build virt-api.go
+
+# # production
+FROM alpine:3.6
+
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
+
+WORKDIR /usr/local/bin
+COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-api/virt-api .
+
+ENTRYPOINT [ "./virt-controller" ]
