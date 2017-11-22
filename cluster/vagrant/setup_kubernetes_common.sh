@@ -22,6 +22,7 @@ sed -i "s/^SELINUX=.*/SELINUX=permissive/" /etc/selinux/config
 
 # Disable swap
 swapoff -a
+sed -i '/ swap / s/^/#/' /etc/fstab
 
 systemctl stop firewalld NetworkManager || :
 systemctl disable firewalld NetworkManager || :
