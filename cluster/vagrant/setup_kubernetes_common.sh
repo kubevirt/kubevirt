@@ -20,6 +20,9 @@
 setenforce 0
 sed -i "s/^SELINUX=.*/SELINUX=permissive/" /etc/selinux/config
 
+# Disable swap
+swapoff -a
+
 systemctl stop firewalld NetworkManager || :
 systemctl disable firewalld NetworkManager || :
 # Make sure the firewall is never enabled again
@@ -79,7 +82,7 @@ yum install -y \
 # Latest docker on CentOS uses systemd for cgroup management
 cat << EOT >>/etc/systemd/system/kubelet.service.d/09-kubeadm.conf
 [Service]
-Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --fail-swap-on=false --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice"
+Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice"
 EOT
 systemctl daemon-reload
 
