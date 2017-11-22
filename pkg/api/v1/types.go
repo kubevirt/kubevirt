@@ -111,7 +111,7 @@ type VirtualMachine struct {
 	// VM Spec contains the VM specification.
 	Spec VMSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
-	Status VMStatus `json:"status"`
+	Status VMStatus `json:"status,omitempty"`
 }
 
 func (in *VirtualMachine) DeepCopyInto(out *VirtualMachine) {
