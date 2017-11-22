@@ -99,7 +99,7 @@ _op_docker() {
 
   # build docker images used by the kubevirt
   for arg in $docker_images; do
-    (cd $arg; docker build -t ${docker_prefix}/$(basename $arg):${docker_tag} -f Dockerfile .)
+    (cd $arg; docker build -t ${docker_prefix}/$(basename $arg):${docker_tag} -f Dockerfile.multi .)
   done
 
   ok
