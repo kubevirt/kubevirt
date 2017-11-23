@@ -1890,9 +1890,7 @@
    "v1.CloudInitDataSourceNoCloud": {
     "description": "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "required": [
-     "userDataSecretRef",
-     "userDataBase64",
-     "metaDataBase64"
+     "userDataBase64"
     ],
     "properties": {
      "metaDataBase64": {
@@ -2002,9 +2000,7 @@
    },
    "v1.Disk": {
     "required": [
-     "device",
      "type",
-     "source",
      "target"
     ],
     "properties": {
@@ -3184,9 +3180,6 @@
    },
    "v1.VirtualMachineReplicaSet": {
     "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
-    "required": [
-     "status"
-    ],
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",

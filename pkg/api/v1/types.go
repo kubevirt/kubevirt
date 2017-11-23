@@ -701,7 +701,7 @@ type VirtualMachineReplicaSet struct {
 	// VM Spec contains the VM specification.
 	Spec VMReplicaSetSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
-	Status VMReplicaSetStatus `json:"status"`
+	Status VMReplicaSetStatus `json:"status,omitempty"`
 }
 
 // VMList is a list of VMs
