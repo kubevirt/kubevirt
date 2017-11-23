@@ -1,5 +1,6 @@
 yum
 git
+mercurial
 https://releases.hashicorp.com/vagrant/1.9.7/vagrant_1.9.7_x86_64.rpm
 libvirt
 libvirt-devel
