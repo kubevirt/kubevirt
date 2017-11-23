@@ -28,11 +28,11 @@ package v1
 // http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 type CloudInitDataSourceNoCloud struct {
 	// Reference to a k8s secret that contains NoCloud userdata
-	UserDataSecretRef string `json:"userDataSecretRef"`
+	UserDataSecretRef string `json:"userDataSecretRef,omitempty"`
 	// The NoCloud cloud-init userdata as a base64 encoded string
 	UserDataBase64 string `json:"userDataBase64"`
 	// The NoCloud cloud-init metadata as a base64 encoded string
-	MetaDataBase64 string `json:"metaDataBase64"`
+	MetaDataBase64 string `json:"metaDataBase64,omitempty"`
 }
 
 // Only one of the fields in the CloudInitSpec can be set
@@ -73,10 +73,10 @@ type Devices struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
-	Device    string         `json:"device"`
+	Device    string         `json:"device,omitempty"`
 	Snapshot  string         `json:"snapshot,omitempty"`
 	Type      string         `json:"type"`
-	Source    DiskSource     `json:"source"`
+	Source    DiskSource     `json:"source,omitempty"`
 	Target    DiskTarget     `json:"target"`
 	Serial    string         `json:"serial,omitempty"`
 	Driver    *DiskDriver    `json:"driver,omitempty"`

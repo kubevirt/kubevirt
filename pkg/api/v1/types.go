@@ -111,7 +111,7 @@ type VirtualMachine struct {
 	// VM Spec contains the VM specification.
 	Spec VMSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
-	Status VMStatus `json:"status"`
+	Status VMStatus `json:"status,omitempty"`
 }
 
 func (in *VirtualMachine) DeepCopyInto(out *VirtualMachine) {
@@ -198,9 +198,9 @@ type VMStatus struct {
 	// Conditions are specific points in VM's pod runtime.
 	Conditions []VMCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
-	Phase VMPhase `json:"phase"`
+	Phase VMPhase `json:"phase,omitempty"`
 	// Graphics represent the details of available graphical consoles.
-	Graphics []VMGraphics `json:"graphics"`
+	Graphics []VMGraphics `json:"graphics" optional:"true"`
 }
 
 type VMGraphics struct {
@@ -701,7 +701,7 @@ type VirtualMachineReplicaSet struct {
 	// VM Spec contains the VM specification.
 	Spec VMReplicaSetSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
-	Status VMReplicaSetStatus `json:"status"`
+	Status VMReplicaSetStatus `json:"status,omitempty"`
 }
 
 // VMList is a list of VMs
@@ -739,7 +739,7 @@ type VMReplicaSetStatus struct {
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty" protobuf:"varint,4,opt,name=readyReplicas"`
 
-	Conditions []VMReplicaSetCondition `json:"conditions"`
+	Conditions []VMReplicaSetCondition `json:"conditions" optional:"true"`
 }
 
 type VMReplicaSetCondition struct {

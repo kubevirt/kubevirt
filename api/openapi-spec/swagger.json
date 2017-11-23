@@ -1898,9 +1898,7 @@
    "v1.CloudInitDataSourceNoCloud": {
     "description": "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "required": [
-     "userDataSecretRef",
-     "userDataBase64",
-     "metaDataBase64"
+     "userDataBase64"
     ],
     "properties": {
      "metaDataBase64": {
@@ -2010,9 +2008,7 @@
    },
    "v1.Disk": {
     "required": [
-     "device",
      "type",
-     "source",
      "target"
     ],
     "properties": {
@@ -3030,9 +3026,6 @@
     }
    },
    "v1.VMReplicaSetStatus": {
-    "required": [
-     "conditions"
-    ],
     "properties": {
      "conditions": {
       "type": "array",
@@ -3082,10 +3075,6 @@
    },
    "v1.VMStatus": {
     "description": "VMStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
-    "required": [
-     "phase",
-     "graphics"
-    ],
     "properties": {
      "conditions": {
       "description": "Conditions are specific points in VM's pod runtime.",
@@ -3154,9 +3143,6 @@
    },
    "v1.VirtualMachine": {
     "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
-    "required": [
-     "status"
-    ],
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -3206,9 +3192,6 @@
    },
    "v1.VirtualMachineReplicaSet": {
     "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
-    "required": [
-     "status"
-    ],
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
