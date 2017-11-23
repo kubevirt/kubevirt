@@ -102,7 +102,7 @@ stays close to the expected replica count.
 
 The implementation of the VirtualMachineReplicaSet is a reimplementation of the
 ReplicaSet for Pods in Kubernetes. It does not wrap around a Kubernetes
-ReplicaSet. 
+ReplicaSet.
 
 
 There two *hard* reasons why one was chose over the other:
@@ -130,7 +130,7 @@ There are several *soft* reasons why one was chosen over the other:
  3. The actual business-logic of scaling the VirtualMachines is very easy to
     understand and simple to implement. We get almost all the necessary
     infrastructure code from k8s libraries. The infrastructure code has a
-    similar similar complexity (entity listeners, creating/deleting resources,
+    similar complexity (entity listeners, creating/deleting resources,
     ... ) for both implementations.  For different types of controllers this
     argument may not apply (e.g.  DaemonSet equivalent for VirtualMachines).
  4. Because of the simplicity of the business-logic, the equal complexity
