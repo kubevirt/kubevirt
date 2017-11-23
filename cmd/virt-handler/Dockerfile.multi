@@ -21,8 +21,8 @@ FROM golang:1.8-alpine3.6 as builder
 
 RUN apk --update add \
     gcc=6.3.0-r4 \
-    libvirt-client=3.3.0-r1  \
-    libvirt-dev=3.3.0-r1 \
+    libvirt-client=3.3.0-r2  \
+    libvirt-dev=3.3.0-r2 \
     musl-dev=1.1.16-r14
 
 RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
@@ -44,7 +44,7 @@ FROM alpine:3.6
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 RUN apk --update add \
-    libvirt-client=3.3.0-r1
+    libvirt-client=3.3.0-r2
 
 WORKDIR /usr/local/bin
 COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-handler/virt-handler .
