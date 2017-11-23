@@ -44,8 +44,9 @@ done
 
 set -e
 
-if [ "$NETWORK_PROVIDER" == "weave" ]; then 
-  kubectl apply -f https://github.com/weaveworks/weave/releases/download/v1.9.4/weave-daemonset-k8s-1.6.yaml
+if [ "$NETWORK_PROVIDER" == "weave" ]; then
+  kubever=$(kubectl version | base64 | tr -d '\n')
+  kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$kubever"
 else
   kubectl create -f kube-$NETWORK_PROVIDER.yaml
 fi
