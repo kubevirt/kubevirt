@@ -123,7 +123,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 
 	ws.Route(addGetParams(
 		ws.GET(ResourcePath(gvr)).
-			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
 			Operation("readNamespaced"+objKind).
 			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).
 			Doc("Get a "+objKind+" object.").
@@ -133,7 +133,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 
 	ws.Route(addGetAllNamespacesListParams(
 		ws.GET(gvr.Resource).
-			Produces(mime.MIME_JSON, mime.MIME_YAML).
+			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
 			Operation("list"+objKind+"ForAllNamespaces").
 			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).
 			Doc("Get a list of all "+objKind+" objects.").
@@ -227,7 +227,8 @@ func addWatchNamespacedGetListParams(builder *restful.RouteBuilder, ws *restful.
 func addGetAllNamespacesListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
 	return builder.Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
 		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
-		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("integer"))
+		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("integer")).
+		Param(ws.QueryParameter("watch", "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.").DataType("boolean"))
 }
 
 func addDeleteListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
