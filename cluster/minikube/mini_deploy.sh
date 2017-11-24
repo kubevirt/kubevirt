@@ -17,7 +17,7 @@
 # Copyright 2017 Red Hat, Inc.
 
 # get the config used widely in the kubevirt 
-docker_images="cmd/virt-controller" # cmd/virt-launcher cmd/virt-handler cmd/virt-api cmd/virt-manifest" # images/haproxy images/iscsi-demo-target-tgtd images/vm-killer images/libvirt-kubevirt images/spice-proxy cmd/virt-migrator cmd/registry-disk-v1alpha images/cirros-registry-disk-demo cmd/virt-dhcp"
+docker_images="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api cmd/virt-manifest" # images/haproxy images/iscsi-demo-target-tgtd images/vm-killer images/libvirt-kubevirt images/spice-proxy cmd/virt-migrator cmd/registry-disk-v1alpha images/cirros-registry-disk-demo cmd/virt-dhcp"
 docker_prefix=kubevirt
 docker_tag=devel
 
@@ -99,7 +99,7 @@ _op_docker() {
 
   # build docker images used by the kubevirt
   for arg in $docker_images; do
-    (cd $arg; docker build -t ${docker_prefix}/$(basename $arg):${docker_tag} -f Dockerfile.multi .)
+    (docker build --force-rm -t ${docker_prefix}/$(basename $arg):${docker_tag} -f $arg/Dockerfile.multi .)
   done
 
   ok
