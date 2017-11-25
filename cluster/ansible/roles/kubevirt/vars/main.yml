@@ -1,0 +1,9 @@
+---
+
+kubevirt_services:
+  - { service_name: "spice-proxy", service_port: 3128 }
+  - { service_name: "virt-api", service_port: 8182 }
+  - { service_name: "haproxy", service_port: 8184 }
+  - { service_name: "virt-manifest", service_port: 8186 }
+
+

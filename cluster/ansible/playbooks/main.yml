@@ -1,0 +1,6 @@
+---
+- name: Deploy KubeVirt
+  gather_facts: True
+  hosts: master
+  roles:
+    - { role: kubevirt, master_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4'].address }}" }
