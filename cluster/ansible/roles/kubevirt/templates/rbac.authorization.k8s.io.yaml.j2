@@ -1,0 +1,90 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    name: kubevirt
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+      - update  
+      - create  
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+      - persistentvolumeclaims  
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachines
+      - migrations  
+      - virtualmachinereplicasets  
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+      - update  
+      - create  
+      - deletecollection
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    name: kubevirt
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevirt-admin
+  namespace: kube-system
+  labels:
+    name: kubevirt-admin
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    name: kubevirt
+roleRef:
+  kind: ClusterRole
+  name: kubevirt-infra
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-infra
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-infra-cluster-admin
+  namespace: kube-system
+  labels:
+    name: kubevirt
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-infra
+    namespace: kube-system

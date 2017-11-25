@@ -1,0 +1,14 @@
+[master]
+kube-master1.example.com
+
+[master:vars]
+ansible_ssh_username=root
+#ansible_password=
+
+# Expose the KubeVirt services externally so they are accessible from the kubernetes
+# master.
+
+expose_externally=True
+
+# Remove all the kubevirt files that were created when ansible was run
+cleanup_kubevirt_files=True

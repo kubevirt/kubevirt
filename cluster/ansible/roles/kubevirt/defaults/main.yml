@@ -1,0 +1,7 @@
+---
+
+docker_tag: latest
+docker_prefix: kubevirt
+primary_nic: eth0
+
+

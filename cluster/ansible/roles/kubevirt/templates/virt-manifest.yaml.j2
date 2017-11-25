@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: virt-manifest
+  namespace: kube-system
+spec:
+  ports:
+    - port: 8186
+      targetPort: virt-manifest
+  selector:
+    app: virt-manifest
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: virt-manifest
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      labels:
+        app: virt-manifest
+    spec:
+      containers:
+      - name: virt-manifest
+        image: {{ docker_prefix }}/virt-manifest:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 8186
+            name: "virt-manifest"
+            protocol: "TCP"
+        volumeMounts:
+          - name: libvirt-runtime
+            mountPath: /var/run/libvirt
+        command:
+          - "/virt-manifest"
+          - "--port"
+          - "8186"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/status
+            port: 8186
+          initialDelaySeconds: 10
+          periodSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /api/v1/status
+            port: 8186
+          initialDelaySeconds: 10
+          periodSeconds: 3
+      - name: manifest-libvirtd
+        image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+        - name: LIBVIRTD_DEFAULT_NETWORK_DEVICE
+          value: {{ primary_nic }}
+        volumeMounts:
+          - name: libvirt-runtime
+            mountPath: /var/run/libvirt
+        command: ["/libvirtd-limited.sh"]
+      volumes:
+      - name: libvirt-runtime
+        emptyDir: {}

@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: virt-controller
+  namespace: kube-system
+spec:
+  ports:
+    - port: 8182
+      targetPort: virt-controller
+  selector:
+    app: virt-controller
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: virt-controller
+  namespace: kube-system
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: virt-controller
+    spec:
+      serviceAccountName: kubevirt-infra
+      containers:
+      - name: virt-controller
+        image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
+        imagePullPolicy: IfNotPresent
+        command:
+            - "/virt-controller"
+            - "--launcher-image"
+            - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
+            - "--migrator-image"
+            - "{{ docker_prefix }}/virt-migrator:{{ docker_tag }}"
+            - "--port"
+            - "8182"
+        ports:
+          - containerPort: 8182
+            name: "virt-controller"
+            protocol: "TCP"
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            port: 8182
+            path: /healthz
+          initialDelaySeconds: 15
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            port: 8182
+            path: /leader
+          initialDelaySeconds: 15
+          timeoutSeconds: 10
+      securityContext:
+        runAsNonRoot: true

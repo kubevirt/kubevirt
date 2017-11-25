@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-{{ service_name }}
+  namespace: kube-system
+spec:
+  externalIPs:
+  - {{ master_ip }}
+  ports:
+  - port: {{ service_port }}
+    targetPort: {{ service_port }}
+  selector:
+    app: {{ service_name }}

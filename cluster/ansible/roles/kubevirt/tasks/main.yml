@@ -1,0 +1,82 @@
+---
+
+- name: Create temporary director for kubevirt files
+  file:
+    path: /tmp/kubevirt/
+    state: directory
+
+- name: Template Authorization
+  template:
+    src: rbac.authorization.k8s.io.yaml.j2
+    dest: /tmp/kubevirt/rbac.authorization.k8s.io.yaml
+  register: output_file
+
+- command: "kubectl apply -f {{ output_file.dest | default(output_file.path) }}"
+  when: output_file | changed
+
+- name: Template KubeVirt Dependant Services
+  template:
+    src: "{{ item }}.j2"
+    dest: "/tmp/kubevirt/{{ item }}"
+  register: output_file
+  with_items:
+    - haproxy.yaml
+    - squid.yaml
+    - libvirt.yaml
+
+- command: "kubectl apply -f {{ item.dest | default(item.path) }}"
+  when: item | changed
+  with_items: "{{ output_file.results }}"
+
+- name: Template Custom Resource Defintions
+  template:
+    src: "{{ item }}.j2"
+    dest: "/tmp/kubevirt/{{ item }}"
+  register: output_file
+  with_items:
+    - migration-resource.yaml
+    - replicase-resource.yaml
+    - vm-resource.yaml
+
+- command: "kubectl apply -f {{ item.dest | default(item.path) }}"
+  when: item | changed
+  with_items: "{{ output_file.results }}"
+
+- name: Template kubeVirt Deployments
+  template:
+    src: "{{ item }}.j2"
+    dest: "/tmp/kubevirt/{{ item }}"
+  register: output_file
+  with_items:
+    - virt-api.yaml
+    - virt-controller.yaml
+    - virt-handler.yaml
+    - virt-manifest.yaml
+
+- command: "kubectl apply -f {{ item.dest | default(item.path) }}"
+  ignore_errors: True
+  when: item | changed
+  with_items: "{{ output_file.results }}"
+
+- name: Expose KubeVirt Services
+  template:
+    src: "external-services.yaml.j2"
+    dest: "/tmp/kubevirt/external-{{ item.service_name }}.yaml"
+  register: output_file
+  vars:
+    service_name: "{{ item.service_name }}"
+    service_port: "{{ item.service_port }}"
+  with_items: "{{ kubevirt_services }}"
+  when: expose_externally
+
+- command: "kubectl apply -f {{ item.dest | default(item.path) }}"
+  ignore_errors: True
+  when: (item | changed) and expose_externally
+  with_items: "{{ output_file.results }}"
+
+- name: Clean up kubevirt files
+  file:
+    path: /tmp/kubevirt/
+    state: absent
+  when: cleanup_kubevirt_files
+
