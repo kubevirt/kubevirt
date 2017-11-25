@@ -16,21 +16,12 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM haproxy:1.6-alpine
+FROM fedora:26
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
+RUN dnf -y install dnsmasq
 
-RUN sed -i "s|/run|/haproxy/run|g" /docker-entrypoint.sh
-RUN cp /docker-entrypoint.sh /docker-entrypoint-orig.sh
+COPY virt-dhcp /virt-dhcp
 
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-
-RUN addgroup -S haproxy && adduser -S -D -h /haproxy -s /bin/false -G haproxy -g haproxy haproxy
-
-RUN mkdir /haproxy/run  && \
-    chgrp -R 0 /haproxy/run && \
-    chmod -R g=u /haproxy/run
-
-USER 1001
+ENTRYPOINT [ "/virt-dhcp" ]
