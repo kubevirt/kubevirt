@@ -65,9 +65,6 @@ https://github.com/kubernetes/minikube for details."
 deploy_kubevirt() {
   par "Deploying manifests - this can take several minutes!"
   {
-    # set the docker environment to minicube internal one
-    eval $(minikube docker-env)
-
     # build the docker so it can be deployed on the minikube
     _op_docker
 
@@ -98,6 +95,8 @@ undeploy_kubevirt() {
 _op_docker() {
   parn "Building the docker images"
 
+  eval $(minikube docker-env)
+
   # build docker images used by the kubevirt
   for arg in $docker_cmd_images; do
     (docker build --force-rm -t ${docker_prefix}/$(basename $arg):${docker_tag} -f $arg/Dockerfile.multi .)
@@ -109,10 +108,10 @@ _op_docker() {
   ok
 }
 
-_op_manifests() {
-  local OP=$1
+_build_manifests() {
+  parn "Building manifests"
 
-  pushd manifests
+  pushd manifests/kubevirt
     # Fill in templates
     local MASTER_IP=$(minikube ip)
     local DOCKER_PREFIX=kubevirt
@@ -129,12 +128,17 @@ _op_manifests() {
     done
   popd
 
-  # Deploying
+  ok
+}
+
+_op_manifests() {
+  local OP=$1
+
   for M in manifests/*.yaml; do
     silent kubectl $OP -f $M
   done
 
-  [[ "$OP" != "delete" ]] && kubectl $OP -f cluster/vm.json
+  #[[ "$OP" != "delete" ]] && kubectl $OP -f cluster/vm.json
 }
 
 main() {
@@ -147,16 +151,13 @@ Usage: $0 [deploy|undeploy]
   undeploy - Remove the previously deployed KubeVirt deployment
 EOF
 ;;
-    undeploy)
+    build_docker)
       check_kubectl; check_for_minikube
-      undeploy_kubevirt ;;
-    deploy)
-      check_kubectl; check_for_minikube
-      deploy_kubevirt ;;
-    build)
-      check_kubectl; check_for_minikube
-      eval $(minikube docker-env)
       _op_docker
+      ;;
+    build_manifests)
+      check_kubectl; check_for_minikube
+      _build_manifests
       ;;
     *)
       check_kubectl; check_for_minikube
