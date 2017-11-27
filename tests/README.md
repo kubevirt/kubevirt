@@ -1,10 +1,10 @@
-= Integration tests =
+# Integration tests
 
 Integration tests require a running Kubevirt cluster.  Once you have a running
 Kubevirt cluster, you can use the `-master` and the `-kubeconfig` flags to
 point the tests to the cluster.
 
-== Run them on Vagrant ==
+## Run them on Vagrant
 
 The vagrant environment has an unprotected haproxy in front of the apiserver,
 so only `-master` needs to be set to run the tests.

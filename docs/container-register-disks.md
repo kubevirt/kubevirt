@@ -13,7 +13,7 @@ the kubernetes overlay network like pods.
 
 To continue down the path of allowing users to introduce VM workloads into
 an existing kubernetes cluster with as little friction as possible, the next
-hurdle for us to overcome is tieing VM disk distribution into the same
+hurdle for us to overcome is tying VM disk distribution into the same
 mechanism used by pods. To do this, KubeVirt must have a way of storing and
 accessing VM disks using a container registry.
 
