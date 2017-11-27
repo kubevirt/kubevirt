@@ -36,6 +36,8 @@ import (
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/types"
 
+	"io"
+
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"
 )
@@ -249,6 +251,32 @@ func NewYamlDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeReques
 			return nil, err
 		}
 		return obj, nil
+	}
+}
+
+func NewJsonDeleteDecodeRequestFunc(payloadTypePtr interface{}) gokithttp.DecodeRequestFunc {
+	jsonDecodeRequestFunc := NewMimeTypeAwareDecodeRequestFunc(
+		NewJsonDecodeRequestFunc(payloadTypePtr),
+		map[string]gokithttp.DecodeRequestFunc{
+			rest.MIME_JSON: NewJsonDecodeRequestFunc(payloadTypePtr),
+			rest.MIME_YAML: NewYamlDecodeRequestFunc(payloadTypePtr),
+		},
+	)
+	return func(ctx context.Context, r *http.Request) (interface{}, error) {
+		metadata, err := NameNamespaceDecodeRequestFunc(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+		var payload interface{}
+
+		if r.Body != nil {
+			payload, err = jsonDecodeRequestFunc(ctx, r)
+			// payload is optional, so continue if we get EOF
+			if err != nil && err != io.EOF {
+				return nil, err
+			}
+		}
+		return &PutObject{Metadata: *metadata.(*Metadata), Payload: payload}, nil
 	}
 }
 

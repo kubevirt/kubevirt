@@ -108,6 +108,53 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 			}, 120*time.Second, 1*time.Second).Should(Equal(2))
 		})
 
+		It("should remove replicas once the VM is marked for deletion", func() {
+			newRS := newReplicaSet()
+			// Create a replicaset with two replicas
+			doScale(newRS.ObjectMeta.Name, 2)
+			// Delete it
+			Expect(virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Delete(newRS.ObjectMeta.Name, &v12.DeleteOptions{})).To(Succeed())
+			// Wait until VMs are gone
+			Eventually(func() int {
+				vms, err := virtClient.VM(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return len(vms.Items)
+			}, 60*time.Second, 1*time.Second).Should(BeZero())
+		})
+
+		It("should remove owner references on the VM if it is orphan deleted", func() {
+			newRS := newReplicaSet()
+			// Create a replicaset with two replicas
+			doScale(newRS.ObjectMeta.Name, 2)
+
+			// Check for owner reference
+			vms, err := virtClient.VM(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+			Expect(vms.Items).To(HaveLen(2))
+			for _, vm := range vms.Items {
+				Expect(vm.OwnerReferences).ToNot(BeEmpty())
+			}
+
+			// Delete it
+			orphanPolicy := v12.DeletePropagationOrphan
+			Expect(virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).
+				Delete(newRS.ObjectMeta.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
+			// Wait until the replica set is deleted
+			Eventually(func() bool {
+				_, err := virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true
+				}
+				return false
+			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
+			vms, err = virtClient.VM(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+			Expect(vms.Items).To(HaveLen(2))
+			for _, vm := range vms.Items {
+				Expect(vm.OwnerReferences).To(BeEmpty())
+			}
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should not scale when paused and scale when resume", func() {
 			rs := newReplicaSet()
 			// pause controller

@@ -27,6 +27,8 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/rest"
 )
@@ -93,7 +95,7 @@ func (h *handlerBuilder) Get() HandlerBuilder {
 }
 
 func (h *handlerBuilder) Delete() HandlerBuilder {
-	h.decoder = NameNamespaceDecodeRequestFunc
+	h.decoder = NewJsonDeleteDecodeRequestFunc(&v1.DeleteOptions{})
 	h.encoder = NewMimeTypeAwareEncoder(NewEncodeJsonResponse(http.StatusOK),
 		map[string]kithttp.EncodeResponseFunc{
 			rest.MIME_JSON: NewEncodeJsonResponse(http.StatusOK),

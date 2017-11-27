@@ -115,10 +115,10 @@ func VirtualMachineKey(vm *v1.VirtualMachine) string {
 	return fmt.Sprintf("%v/%v", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
 }
 
-func VirtualMachineKeys(vms []v1.VirtualMachine) []string {
+func VirtualMachineKeys(vms []*v1.VirtualMachine) []string {
 	keys := []string{}
 	for _, vm := range vms {
-		keys = append(keys, VirtualMachineKey(&vm))
+		keys = append(keys, VirtualMachineKey(vm))
 	}
 	return keys
 }

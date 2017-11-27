@@ -41,8 +41,8 @@ func newValidDeleteRequest() *http.Request {
 }
 
 func testDeleteEndpoint(_ context.Context, request interface{}) (interface{}, error) {
-	Expect(request.(*Metadata).Name).To(Equal("test"))
-	return payload{Name: request.(*Metadata).Name, Metadata: *request.(*Metadata)}, nil
+	Expect(request.(*PutObject).Metadata.Name).To(Equal("test"))
+	return payload{Name: request.(*PutObject).Metadata.Name, Metadata: request.(*PutObject).Metadata}, nil
 }
 
 var _ = Describe("Delete", func() {
