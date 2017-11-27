@@ -52,5 +52,5 @@ spec:
               path: /leader
             initialDelaySeconds: 15
             timeoutSeconds: 10
-        securityContext:
-          runAsNonRoot: true
+          securityContext:
+            runAsNonRoot: true
