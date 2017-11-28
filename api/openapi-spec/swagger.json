@@ -97,7 +97,8 @@
      "description": "Get a list of all Migration objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of all Migration objects.",
      "operationId": "listMigrationForAllNamespaces",
@@ -125,6 +126,12 @@
        "description": "TimeoutSeconds for the list/watch call.",
        "name": "timeoutSeconds",
        "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
       }
      ],
      "responses": {
@@ -151,7 +158,8 @@
      "description": "Get a list of Migration objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of Migration objects.",
      "operationId": "listNamespacedMigration",
@@ -174,6 +182,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -283,7 +297,8 @@
      "description": "Get a Migration object.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a Migration object.",
      "operationId": "readNamespacedMigration",
@@ -314,6 +329,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -470,7 +491,8 @@
      "description": "Get a list of VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of VirtualMachineReplicaSet objects.",
      "operationId": "listNamespacedVirtualMachineReplicaSet",
@@ -493,6 +515,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -602,7 +630,8 @@
      "description": "Get a VirtualMachineReplicaSet object.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a VirtualMachineReplicaSet object.",
      "operationId": "readNamespacedVirtualMachineReplicaSet",
@@ -633,6 +662,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -789,7 +824,8 @@
      "description": "Get a list of VirtualMachine objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of VirtualMachine objects.",
      "operationId": "listNamespacedVirtualMachine",
@@ -812,6 +848,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -921,7 +963,8 @@
      "description": "Get a VirtualMachine object.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a VirtualMachine object.",
      "operationId": "readNamespacedVirtualMachine",
@@ -952,6 +995,12 @@
        "type": "boolean",
        "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'",
        "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
@@ -1182,7 +1231,8 @@
      "description": "Get a list of all VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of all VirtualMachineReplicaSet objects.",
      "operationId": "listVirtualMachineReplicaSetForAllNamespaces",
@@ -1210,6 +1260,12 @@
        "description": "TimeoutSeconds for the list/watch call.",
        "name": "timeoutSeconds",
        "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
       }
      ],
      "responses": {
@@ -1236,7 +1292,8 @@
      "description": "Get a list of all VirtualMachine objects.",
      "produces": [
       "application/json",
-      "application/yaml"
+      "application/yaml",
+      "application/json;stream=watch"
      ],
      "summary": "Get a list of all VirtualMachine objects.",
      "operationId": "listVirtualMachineForAllNamespaces",
@@ -1263,6 +1320,12 @@
        "type": "integer",
        "description": "TimeoutSeconds for the list/watch call.",
        "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
        "in": "query"
       }
      ],
