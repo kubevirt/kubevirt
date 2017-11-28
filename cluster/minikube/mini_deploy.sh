@@ -30,7 +30,6 @@ green() { echo -e "\e[32m$@\e[0m" ; }
 die() { red "ERR: $@" >&2 ; exit 2 ; }
 silent() { "$@" > /dev/null 2>&1 ; }
 has_bin() { silent which $1 ; }
-title() { bold "$@" ; }
 par() { echo -e "- $@" ; }
 parn() { echo -en "- $@ ... " ; }
 ok() { green "${@:-OK}" ; }
@@ -62,36 +61,6 @@ https://github.com/kubernetes/minikube for details."
   ok
 }
 
-deploy_kubevirt() {
-  par "Deploying manifests - this can take several minutes!"
-  {
-    # build the docker so it can be deployed on the minikube
-    _op_docker
-
-    # deploy the manifests to the minikube
-    _op_manifests apply
-
-    par "Waiting for the cluster to be ready ..."
-    kubectl get pods -w | while read LINE 
-    do
-      echo -n "  Cluster changed, checking if KubeVirt is ready ... "
-      if ! kubectl get pods | grep -qs ContainerCreating; then
-        ok "KubeVirt is now ready on you local minicube"
-        kill $(pidof -- kubectl get pods -w)
-        break
-      fi
-      echo "Not yet."
-    done
-  }
-}
-
-undeploy_kubevirt() {
-  parn "Removing KubeVirt from minikube"
-  _op_manifests delete
-  eval $(minikube docker-env --unset)
-  ok
-}
-
 _op_docker() {
   parn "Building the docker images"
 
@@ -115,7 +84,7 @@ _build_manifests() {
     # Fill in templates
     local MASTER_IP=$(minikube ip)
     local DOCKER_PREFIX=kubevirt
-    local DOCKER_TAG=${DOCKER_TAG}
+    local DOCKER_TAG=${docker_tag}
     local PRIMARY_NIC=eth0
     for TPL in *.yaml.in; do
        sed -e "s/{{ master_ip }}/$MASTER_IP/g" \
@@ -134,7 +103,12 @@ _build_manifests() {
 _op_manifests() {
   local OP=$1
 
-  for M in manifests/*.yaml; do
+  # deploy rbac autentication
+  silent kubectl $OP -f manifest/kubevirt/rbac.authorization.k8s.io.yaml
+
+  # deploy the rest
+  # and ignores the error from rbac authentication for duplicity
+  for M in manifests/kubevirt/*.yaml; do
     silent kubectl $OP -f $M
   done
 
@@ -159,8 +133,17 @@ EOF
       check_kubectl; check_for_minikube
       _build_manifests
       ;;
+    deploy_manifests)
+      check_kubectl; check_for_minikube
+      _op_manifests apply
+      ;;
+    undeploy_manifests)
+      check_kubectl; check_for_minikube
+      _op_manifests delete
+      ;;
     *)
       check_kubectl; check_for_minikube
+      
       ;;
 esac
 }
