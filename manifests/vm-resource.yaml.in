@@ -11,5 +11,5 @@ spec:
     singular: virtualmachine
     kind: VirtualMachine
     shortNames:
-    - vm
-    - vms
+      - vm
+      - vms

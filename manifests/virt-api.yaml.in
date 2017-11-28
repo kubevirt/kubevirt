@@ -23,18 +23,18 @@ spec:
     spec:
       serviceAccountName: kubevirt-infra
       containers:
-      - name: virt-api
-        image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
-        imagePullPolicy: IfNotPresent
-        command:
-            - "/virt-api"
-            - "--port"
-            - "8183"
-            - "--spice-proxy"
-            - "{{ master_ip }}:3128"
-        ports:
-          - containerPort: 8183
-            name: "virt-api"
-            protocol: "TCP"
+        - name: virt-api
+          image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
+          imagePullPolicy: IfNotPresent
+          command:
+              - "/virt-api"
+              - "--port"
+              - "8183"
+              - "--spice-proxy"
+              - "{{ master_ip }}:3128"
+          ports:
+            - containerPort: 8183
+              name: "virt-api"
+              protocol: "TCP"
       securityContext:
         runAsNonRoot: true

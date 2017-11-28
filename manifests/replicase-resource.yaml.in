@@ -11,5 +11,5 @@ spec:
     plural: virtualmachinereplicasets
     singular: virtualmachinereplicaset
     shortNames:
-    - vmrs
-    - vmrss
+      - vmrs
+      - vmrss
