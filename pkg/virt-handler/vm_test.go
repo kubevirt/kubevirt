@@ -37,6 +37,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"fmt"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -231,6 +233,29 @@ var _ = Describe("VM", func() {
 
 			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, nil)
 			vmInterface.EXPECT().Update(updatedVM)
+
+			controller.Execute()
+		})
+
+		It("should re-synchronize if a synchronization condition is present on the vm", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Phase = v1.Scheduled
+			vm.Status.Conditions = []v1.VMCondition{
+				{
+					Type:   v1.VirtualMachineSynchronized,
+					Status: k8sv1.ConditionFalse,
+				},
+			}
+
+			mockWatchdog.CreateFile(vm)
+			domain := api.NewMinimalDomain("testvm")
+			vmFeeder.Add(vm)
+
+			// SyncVM should be called and it will fail
+			// Since the VM status will now be equal, no vm update is expected
+			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, fmt.Errorf("sync failed again"))
 
 			controller.Execute()
 		})
