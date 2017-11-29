@@ -2,6 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: disk-custom
+  namespace: kubevirt-demo
   labels:
     kubevirt.io: ""
 spec:
@@ -20,6 +21,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: disk-alpine
+  namespace: kubevirt-demo
   labels:
     kubevirt.io: ""
 spec:
@@ -38,6 +40,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: disk-cirros
+  namespace: kubevirt-demo
   labels:
     kubevirt.io: ""
 spec:
@@ -55,6 +58,7 @@ apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: iscsi-disk-custom
+  namespace: kubevirt-demo
   labels:
     kubevirt.io: ""
     os: "none"
@@ -66,12 +70,13 @@ spec:
   iscsi:
     iqn: iqn.2017-01.io.kubevirt:sn.42
     lun: 1
-    targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
+    targetPortal: iscsi-demo-target.kubevirt-demo.svc.cluster.local
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: iscsi-disk-alpine
+  namespace: kubevirt-demo
   labels:
     kubevirt.io: ""
     os: "alpine"
@@ -83,12 +88,13 @@ spec:
   iscsi:
     iqn: iqn.2017-01.io.kubevirt:sn.42
     lun: 2
-    targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
+    targetPortal: iscsi-demo-target.kubevirt-demo.svc.cluster.local
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: iscsi-disk-cirros
+  namespace: kubevirt-demo
   labels:
     kubevirt.io: ""
     os: "cirros"
@@ -100,13 +106,13 @@ spec:
   iscsi:
     iqn: iqn.2017-01.io.kubevirt:sn.42
     lun: 3
-    targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
+    targetPortal: iscsi-demo-target.kubevirt-demo.svc.cluster.local
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: iscsi-demo-target
-  namespace: kube-system
+  namespace: kubevirt-demo
   labels:
     kubevirt.io: ""
 spec:
@@ -121,7 +127,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: iscsi-demo-target-tgtd
-  namespace: kube-system
+  namespace: kubevirt-demo
   labels:
     kubevirt.io: "iscsi-demo-target"
 spec:
@@ -132,7 +138,6 @@ spec:
         kubevirt.io: iscsi-demo-target
       name: iscsi-demo-target-tgtd
     spec:
-      serviceAccountName: kubevirt-infra
       containers:
         - name: target
           image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}

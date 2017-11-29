@@ -1,5 +1,6 @@
 metadata:
   name: testvm-ephemeral
+  namespace: kubevirt-demo
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 spec:

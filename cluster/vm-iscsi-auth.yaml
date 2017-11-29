@@ -2,6 +2,7 @@ apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 metadata:
   name: testvm
+  namespace: kubevirt-demo
 spec:
   terminationGracePeriodSeconds: 0
   domain:
@@ -28,7 +29,7 @@ spec:
           cache: none
         source:
           host:
-            name: iscsi-auth-demo-target.kube-system
+            name: iscsi-auth-demo-target.kubevirt-demo
             port: "3260"
           protocol: iscsi
           name: iqn.2017-01.io.kubevirt:sn.42/2

@@ -63,6 +63,8 @@ const (
 	NamespaceTestDefault string = "kubevirt-test-default"
 	// NamespaceTestAlternative is used to test controller-namespace independency.
 	NamespaceTestAlternative string = "kubevirt-test-alternative"
+	// NamespaceKubevirtDemo is used to hold all demo entities of KubeVirt project
+	NamespaceKubevirtDemo string = "kubevirt-demo"
 )
 
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
@@ -350,11 +352,11 @@ func newPV(os string, lun int32, withAuth bool) *k8sv1.PersistentVolume {
 	PanicOnError(err)
 
 	name := fmt.Sprintf("iscsi-disk-%s-for-tests", os)
-	target := "iscsi-demo-target.kube-system.svc.cluster.local"
+	target := fmt.Sprintf("iscsi-demo-target.%s.svc.cluster.local", NamespaceKubevirtDemo)
 	label := os
 	if withAuth {
 		name = fmt.Sprintf("iscsi-auth-disk-%s-for-tests", os)
-		target = "iscsi-auth-demo-target.kube-system.svc.cluster.local"
+		target = fmt.Sprintf("iscsi-auth-demo-target.%s.svc.cluster.local", NamespaceKubevirtDemo)
 		label = fmt.Sprintf("%s-auth", os)
 	}
 
@@ -608,7 +610,7 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 		},
 		Source: v1.DiskSource{
 			Host: &v1.DiskSourceHost{
-				Name: "iscsi-demo-target.kube-system",
+				Name: fmt.Sprintf("iscsi-demo-target.%s", NamespaceKubevirtDemo),
 				Port: "3260",
 			},
 			Protocol: "iscsi",
@@ -624,7 +626,8 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 				Usage: "iscsi-demo-secret",
 			},
 		}
-		vm.Spec.Domain.Devices.Disks[0].Source.Host.Name = "iscsi-auth-demo-target.kube-system"
+		vm.Spec.Domain.Devices.Disks[0].Source.Host.Name = fmt.Sprintf(
+			"iscsi-auth-demo-target.%s", NamespaceKubevirtDemo)
 	}
 	return vm
 }

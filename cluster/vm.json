@@ -1,6 +1,7 @@
 {
   "metadata": {
-    "name": "testvm"
+    "name": "testvm",
+    "namespace": "kubevirt-demo"
   },
   "apiVersion": "kubevirt.io/v1alpha1",
   "kind": "VirtualMachine",
@@ -19,7 +20,7 @@
             "snapshot": "external",
             "source": {
               "host": {
-                "name": "iscsi-demo-target.kube-system",
+                "name": "iscsi-demo-target.kubevirt-demo",
                 "port": "3260"
               },
               "name": "iqn.2017-01.io.kubevirt:sn.42/2",
