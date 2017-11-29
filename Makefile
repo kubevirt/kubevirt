@@ -1,6 +1,11 @@
 export GO15VENDOREXPERIMENT := 1
 
-HASH := md5sum
+UNAME := $(shell uname)
+ifeq ($(UNAME), Darwin)
+    HASH := md5
+else
+    HASH := md5sum
+endif
 
 all: build manifests
 
