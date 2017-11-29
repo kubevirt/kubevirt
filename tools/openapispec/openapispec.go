@@ -53,7 +53,7 @@ func main() {
 	pflag.Parse()
 
 	// arguments for NewVirtAPIApp have no influence on the generated spec
-	app := virt_api.NewVirtAPIApp("0.0.0.0", 1234, "/swagger")
+	app := virt_api.VirtAPIApp{}
 	app.Compose()
 	dumpOpenApiSpec(dumpapispecpath)
 }

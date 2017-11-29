@@ -20,24 +20,47 @@
 package service
 
 import (
+	goflag "flag"
 	"fmt"
 	"strconv"
+
+	flag "github.com/spf13/pflag"
 )
 
-type Service struct {
-	Name string
-	Host string
-	Port string
+type Service interface {
+	Run()
+	AddFlags()
 }
 
-func NewService(name string, host string, port int) *Service {
-	return &Service{
-		Name: name,
-		Host: host,
-		Port: strconv.Itoa(port),
-	}
+type ServiceListen struct {
+	Name        string
+	BindAddress string
+	Port        int
 }
 
-func (service *Service) Address() string {
-	return fmt.Sprintf("%s:%s", service.Host, service.Port)
+type ServiceLibvirt struct {
+	LibvirtUri string
+}
+
+func (service *ServiceListen) Address() string {
+	return fmt.Sprintf("%s:%s", service.BindAddress, strconv.Itoa(service.Port))
+}
+
+func (service *ServiceListen) InitFlags() {
+	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
+}
+
+func (service *ServiceListen) AddCommonFlags() {
+	flag.StringVar(&service.BindAddress, "listen", service.BindAddress, "Address where to listen on")
+	flag.IntVar(&service.Port, "port", service.Port, "Port to listen on")
+}
+
+func (service *ServiceLibvirt) AddLibvirtFlags() {
+	flag.StringVar(&service.LibvirtUri, "libvirt-uri", service.LibvirtUri, "Libvirt connection string")
+
+}
+
+func Setup(service Service) {
+	service.AddFlags()
+	flag.Parse()
 }

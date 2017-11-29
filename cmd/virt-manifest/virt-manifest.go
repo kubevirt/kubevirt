@@ -20,13 +20,11 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/emicklei/go-restful"
-	"github.com/spf13/pflag"
 
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -34,17 +32,23 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-manifest/rest"
 )
 
+const (
+	// Default port that virt-manifest listens on.
+	defaultPort = 8186
+
+	// Default address that virt-manifest listens on.
+	defaultHost = "0.0.0.0"
+
+	libvirtUri = "qemu:///system"
+)
+
 type virtManifestApp struct {
-	Service    *service.Service
+	service.ServiceListen
+	service.ServiceLibvirt
 	LibvirtUri string
 }
 
-func newVirtManifestApp(host *string, port *int, libvirtUri *string) *virtManifestApp {
-	return &virtManifestApp{
-		Service:    service.NewService("virt-manifest", *host, *port),
-		LibvirtUri: *libvirtUri,
-	}
-}
+var _ service.Service = &virtManifestApp{}
 
 func (app *virtManifestApp) Run() {
 	logger := log.Log
@@ -67,7 +71,7 @@ func (app *virtManifestApp) Run() {
 	}
 
 	restful.DefaultContainer.Add(ws)
-	server := &http.Server{Addr: app.Service.Address(), Handler: restful.DefaultContainer}
+	server := &http.Server{Addr: app.Address(), Handler: restful.DefaultContainer}
 	logger.Info("Listening for client connections")
 
 	if err := server.ListenAndServe(); err != nil {
@@ -75,14 +79,20 @@ func (app *virtManifestApp) Run() {
 	}
 }
 
+func (app *virtManifestApp) AddFlags() {
+	app.InitFlags()
+
+	app.BindAddress = defaultHost
+	app.Port = defaultPort
+	app.LibvirtUri = libvirtUri
+
+	app.AddCommonFlags()
+	app.AddLibvirtFlags()
+}
+
 func main() {
 	log.InitializeLogging("virt-manifest")
-	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	listen := flag.String("listen", "0.0.0.0", "Address where to listen on")
-	port := flag.Int("port", 8186, "Port to listen on")
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
-	app := newVirtManifestApp(listen, port, libvirtUri)
+	app := virtManifestApp{}
+	service.Setup(&app)
 	app.Run()
 }

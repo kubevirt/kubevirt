@@ -8,6 +8,7 @@ import (
 	"github.com/emicklei/go-restful-openapi"
 	kithttp "github.com/go-kit/kit/transport/http"
 	openapispec "github.com/go-openapi/spec"
+	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -21,19 +22,22 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
-type virtAPIApp struct {
-	Service   *service.Service
+const (
+	// Default port that virt-api listens on.
+	defaultPort = 8183
+
+	// Default address that virt-api listens on.
+	defaultHost = "0.0.0.0"
+)
+
+type VirtAPIApp struct {
+	service.ServiceListen
 	SwaggerUI string
 }
 
-func NewVirtAPIApp(host string, port int, swaggerUI string) *virtAPIApp {
-	return &virtAPIApp{
-		Service:   service.NewService("virt-api", host, port),
-		SwaggerUI: swaggerUI,
-	}
-}
+var _ service.Service = &VirtAPIApp{}
 
-func (app *virtAPIApp) Compose() {
+func (app *VirtAPIApp) Compose() {
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "migrations"}
@@ -112,7 +116,7 @@ func (app *virtAPIApp) Compose() {
 	restful.Filter(restful.OPTIONSFilter())
 }
 
-func (app *virtAPIApp) ConfigureOpenAPIService() {
+func (app *VirtAPIApp) ConfigureOpenAPIService() {
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(CreateOpenAPIConfig()))
 	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
 }
@@ -144,6 +148,18 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 	}
 }
 
-func (app *virtAPIApp) Run() {
-	log.Fatal(http.ListenAndServe(app.Service.Address(), nil))
+func (app *VirtAPIApp) Run() {
+	log.Fatal(http.ListenAndServe(app.Address(), nil))
+}
+
+func (app *VirtAPIApp) AddFlags() {
+	app.InitFlags()
+
+	app.BindAddress = defaultHost
+	app.Port = defaultPort
+
+	app.AddCommonFlags()
+
+	flag.StringVar(&app.SwaggerUI, "swagger-ui", "third_party/swagger-ui",
+		"swagger-ui location")
 }

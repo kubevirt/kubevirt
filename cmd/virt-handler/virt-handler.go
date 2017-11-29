@@ -20,7 +20,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -29,7 +28,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/libvirt/libvirt-go"
-	"github.com/spf13/pflag"
+	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -56,37 +55,46 @@ import (
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-const defaultWatchdogTimeout = 30 * time.Second
+const (
+	defaultWatchdogTimeout = 30 * time.Second
+
+	// Default port that virt-handler listens on.
+	defaultPort = 8185
+
+	// Default address that virt-handler listens on.
+	defaultHost = "0.0.0.0"
+
+	// The URI connection string supplied to libvirt. By default, we connect to system-mode daemon of QEMU.
+	libvirtUri = "qemu:///system"
+
+	hostOverride = ""
+
+	virtShareDir = "/var/run/kubevirt"
+
+	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
+)
 
 type virtHandlerApp struct {
-	Service                 *service.Service
+	service.ServiceListen
+	service.ServiceLibvirt
 	HostOverride            string
-	LibvirtUri              string
 	VirtShareDir            string
 	EphemeralDiskDir        string
 	WatchdogTimeoutDuration time.Duration
 }
 
-func newVirtHandlerApp(host *string, port *int, hostOverride *string, libvirtUri *string, virtShareDir *string, ephemeralDiskDir *string, watchdogTimeoutDuration *time.Duration) *virtHandlerApp {
-	if *hostOverride == "" {
+var _ service.Service = &virtHandlerApp{}
+
+func (app *virtHandlerApp) Run() {
+	// HostOverride should default to os.Hostname(), to make sure we handle errors ensure it here.
+	if app.HostOverride == "" {
 		defaultHostName, err := os.Hostname()
 		if err != nil {
 			panic(err)
 		}
-		*hostOverride = defaultHostName
+		app.HostOverride = defaultHostName
 	}
 
-	return &virtHandlerApp{
-		Service:                 service.NewService("virt-handler", *host, *port),
-		HostOverride:            *hostOverride,
-		LibvirtUri:              *libvirtUri,
-		VirtShareDir:            *virtShareDir,
-		EphemeralDiskDir:        *ephemeralDiskDir,
-		WatchdogTimeoutDuration: *watchdogTimeoutDuration,
-	}
-}
-
-func (app *virtHandlerApp) Run() {
 	logger := log.Log
 	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
 
@@ -189,23 +197,37 @@ func (app *virtHandlerApp) Run() {
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/console").To(console.Console))
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
 	restful.DefaultContainer.Add(ws)
-	server := &http.Server{Addr: app.Service.Address(), Handler: restful.DefaultContainer}
+	server := &http.Server{Addr: app.Address(), Handler: restful.DefaultContainer}
 	server.ListenAndServe()
+}
+
+func (app *virtHandlerApp) AddFlags() {
+	app.InitFlags()
+
+	app.BindAddress = defaultHost
+	app.Port = defaultPort
+	app.LibvirtUri = libvirtUri
+
+	app.AddCommonFlags()
+	app.AddLibvirtFlags()
+
+	flag.StringVar(&app.HostOverride, "hostname-override", hostOverride,
+		"Name under which the node is registered in kubernetes, where this virt-handler instance is running on")
+
+	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
+		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&app.EphemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
+		"Base directory for ephemeral disk data")
+
+	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
+		"Watchdog file timeout")
 }
 
 func main() {
 	log.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
-	libvirtUri := flag.String("libvirt-uri", "qemu:///system", "Libvirt connection string.")
-	host := flag.String("listen", "0.0.0.0", "Address where to listen on")
-	port := flag.Int("port", 8185, "Port to listen on")
-	hostOverride := flag.String("hostname-override", "", "Kubernetes Pod to monitor for changes")
-	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
-	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
-	watchdogTimeoutDuration := flag.Duration("watchdog-timeout", defaultWatchdogTimeout, "Watchdog file timeout.")
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
-	app := newVirtHandlerApp(host, port, hostOverride, libvirtUri, virtShareDir, ephemeralDiskDir, watchdogTimeoutDuration)
+	app := &virtHandlerApp{}
+	service.Setup(app)
 	app.Run()
 }

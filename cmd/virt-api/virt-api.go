@@ -20,23 +20,16 @@
 package main
 
 import (
-	"flag"
-
-	"github.com/spf13/pflag"
-
 	klog "kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-api"
 )
 
 func main() {
 	klog.InitializeLogging("virt-api")
-	swaggerui := flag.String("swagger-ui", "third_party/swagger-ui", "swagger-ui location")
-	host := flag.String("listen", "0.0.0.0", "Address and port where to listen on")
-	port := flag.Int("port", 8183, "Port to listen on")
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
 
-	app := virt_api.NewVirtAPIApp(*host, *port, *swaggerui)
+	app := virt_api.VirtAPIApp{}
+	service.Setup(&app)
 	app.Compose()
 	app.ConfigureOpenAPIService()
 	app.Run()
