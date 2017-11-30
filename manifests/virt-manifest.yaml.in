@@ -32,8 +32,7 @@ spec:
           volumeMounts:
             - name: libvirt-runtime
               mountPath: /var/run/libvirt
-          command:
-            - "/virt-manifest"
+          args:
             - "--port"
             - "8186"
           livenessProbe:
