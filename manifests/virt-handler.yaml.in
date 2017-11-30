@@ -19,8 +19,7 @@ spec:
               hostPort: 8185
           image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
           imagePullPolicy: IfNotPresent
-          command:
-            - "/virt-handler"
+          args:
             - "-v"
             - "3"
             - "--libvirt-uri"
