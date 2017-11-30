@@ -27,8 +27,7 @@ spec:
         - name: virt-controller
           image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
           imagePullPolicy: IfNotPresent
-          command:
-              - "/virt-controller"
+          args:
               - "--launcher-image"
               - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
               - "--migrator-image"

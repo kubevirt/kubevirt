@@ -59,7 +59,6 @@ spec:
               mountPath: /var/run/libvirt
             - name: virt-share-dir
               mountPath: /var/run/kubevirt
-          command: ["/virt-dhcp"]
       volumes:
         - name: libvirt-data
           hostPath:
