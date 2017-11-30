@@ -43,7 +43,11 @@ FROM alpine:3.6
 
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
-WORKDIR /usr/local/bin
+# Create non-root user
+RUN adduser -h /home/virt-controller -D virt-controller
+WORKDIR /home/virt-controller
+USER virt-controller
+
 COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-controller/virt-controller .
 
 ENTRYPOINT [ "./virt-controller" ]

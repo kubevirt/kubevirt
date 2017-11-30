@@ -30,19 +30,19 @@ RUN dnf install -y \
   docker && dnf -y clean all && \
   test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
-COPY qemu-kube /usr/local/bin/qemu-system-x86_64
+COPY images/libvirt-kubevirt/qemu-kube /usr/local/bin/qemu-system-x86_64
 RUN chmod a+x /usr/local/bin/qemu-system-x86_64
 ENV PATH /usr/local/bin:/bin:/sbin
 
-COPY kubevirt-sudo /etc/sudoers.d/kubevirt
+COPY images/libvirt-kubevirt/kubevirt-sudo /etc/sudoers.d/kubevirt
 RUN chmod 0640 /etc/sudoers.d/kubevirt
 
-COPY libvirtd-limited.sh /libvirtd-limited.sh
+COPY images/libvirt-kubevirt/libvirtd-limited.sh /libvirtd-limited.sh
 RUN chmod a+x /libvirtd-limited.sh
 
 # libvirtd.sh in this image differs from upstream
 RUN rm -f /libvirtd.sh
-COPY libvirtd.sh /libvirtd.sh
+COPY images/libvirt-kubevirt/libvirtd.sh /libvirtd.sh
 RUN chmod a+x /libvirtd.sh
 
 CMD ["/libvirtd.sh"]

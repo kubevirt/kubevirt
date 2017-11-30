@@ -16,12 +16,37 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+# builder
+FROM golang:1.8-alpine3.6 as builder
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+RUN apk --update add \
+    gcc=6.3.0-r4 \
+    libvirt-client=3.3.0-r2  \
+    libvirt-dev=3.3.0-r2 \
+    musl-dev=1.1.16-r14
 
-RUN dnf -y install dnsmasq
+RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
+    mkdir -p /usr/src/build/pkg && \ 
+    mkdir -p /usr/src/build/bin
 
-COPY virt-dhcp /virt-dhcp
+ENV GOPATH=/usr/src/build
 
-ENTRYPOINT [ "/virt-dhcp" ]
+WORKDIR /usr/src/build/src
+COPY vendor .
+COPY . kubevirt.io/kubevirt/
+
+WORKDIR kubevirt.io/kubevirt/cmd/virt-dhcp
+RUN go build virt-dhcp.go
+
+# production
+FROM alpine:3.6
+
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
+
+RUN apk --update add \
+    dnsmasq=2.76-r5
+
+WORKDIR /usr/local/bin
+COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-dhcp/virt-dhcp . 
+
+ENTRYPOINT [ "./virt-dhcp" ]
