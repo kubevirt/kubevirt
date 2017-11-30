@@ -26,8 +26,7 @@ spec:
         - name: virt-api
           image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
           imagePullPolicy: IfNotPresent
-          command:
-              - "/virt-api"
+          args:
               - "--port"
               - "8183"
               - "--spice-proxy"
