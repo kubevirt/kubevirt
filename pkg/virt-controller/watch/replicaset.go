@@ -213,6 +213,7 @@ func (c *VMReplicaSet) execute(key string) error {
 	}
 
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMs. Don't update the status
+	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
 	if rs.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(rs, v1.FinalizerOrphanDependents) {
 		return c.orphan(cm, rs, vms)
 	}
