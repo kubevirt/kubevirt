@@ -115,7 +115,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("deleteNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(delete)).Writes(objExample).
+			To(endpoints.MakeGoRestfulWrapper(delete)).Reads(metav1.DeleteOptions{}).
 			Doc("Delete a "+objKind+" object.").
 			Returns(http.StatusOK, "Deleted", objExample).
 			Returns(http.StatusNotFound, "Not Found", nil), ws,
@@ -276,8 +276,12 @@ func fieldSelectorParam(ws *restful.WebService) *restful.Parameter {
 
 func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
 	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		metadata := payload.(*endpoints.Metadata)
-		result := cli.Delete().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do()
+		p := payload.(*endpoints.PutObject)
+		del := p.Payload
+		if p.Payload == nil {
+			del = &metav1.DeleteOptions{}
+		}
+		result := cli.Delete().Namespace(p.Metadata.Namespace).Resource(gvr.Resource).Name(p.Metadata.Name).Body(del).Do()
 		return response(result)
 	}
 }

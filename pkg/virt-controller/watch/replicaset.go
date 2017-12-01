@@ -34,8 +34,9 @@ import (
 
 	k8score "k8s.io/api/core/v1"
 
-	"k8s.io/api/apps/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"fmt"
+
+	"reflect"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -109,7 +110,7 @@ func (c *VMReplicaSet) Run(threadiness int, stopCh chan struct{}) {
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting VirtualMachineReplicaSet controller.")
 
-	// Wait for cache sync before we start the pod controller
+	// Wait for cache sync before we start the controller
 	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmRSInformer.HasSynced)
 
 	// Start the actual work
@@ -184,16 +185,37 @@ func (c *VMReplicaSet) execute(key string) error {
 		return err
 	}
 
-	// make sure we only consider active VMs
 	vms = c.filterActiveVMs(vms)
 
-	// make sure the selector of the controller matches and the VMs match
-	vms = c.filterMatchingVMs(selector, vms)
+	// If any adoptions are attempted, we should first recheck for deletion with
+	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
+	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
+		fresh, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Get(rs.ObjectMeta.Name, v1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		if fresh.ObjectMeta.UID != rs.ObjectMeta.UID {
+			return nil, fmt.Errorf("original ReplicaSet %v/%v is gone: got uid %v, wanted %v", rs.Namespace, rs.Name, fresh.UID, rs.UID)
+		}
+		return fresh, nil
+	})
+	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, rs, selector, virtv1.VMReplicaSetGroupVersionKind, canAdoptFunc)
+	vms, err = cm.ClaimVirtualMachines(vms)
+	if err != nil {
+		return err
+	}
+
+	var scaleErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
-	var scaleErr error
-	if needsSync && !rs.Spec.Paused {
+	if needsSync && !rs.Spec.Paused && rs.ObjectMeta.DeletionTimestamp == nil {
 		scaleErr = c.scale(rs, vms)
+	}
+
+	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMs. Don't update the status
+	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
+	if rs.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(rs, v1.FinalizerOrphanDependents) {
+		return c.orphan(cm, rs, vms)
 	}
 
 	if scaleErr != nil {
@@ -208,7 +230,34 @@ func (c *VMReplicaSet) execute(key string) error {
 	return err
 }
 
-func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine) error {
+// orphan removes the owner reference of all VMs which are owned by the controller instance.
+// Workaround for https://github.com/kubernetes/kubernetes/issues/56348 to make no-cascading deletes possible
+// We don't have to remove the finalizer. This part of the gc is not affected by the mentioned bug
+func (c *VMReplicaSet) orphan(cm *controller.VirtualMachineControllerRefManager, rs *virtv1.VirtualMachineReplicaSet, vms []*virtv1.VirtualMachine) error {
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(vms))
+	wg.Add(len(vms))
+
+	for _, vm := range vms {
+		go func(vm *virtv1.VirtualMachine) {
+			defer wg.Done()
+			err := cm.ReleaseVirtualMachine(vm)
+			if err != nil {
+				errChan <- err
+			}
+		}(vm)
+	}
+	wg.Wait()
+	select {
+	case err := <-errChan:
+		return err
+	default:
+	}
+	return nil
+}
+
+func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []*virtv1.VirtualMachine) error {
 
 	diff := c.calcDiff(rs, vms)
 	rsKey, err := controller.KeyFunc(rs)
@@ -238,8 +287,7 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 		for i := 0; i < diff; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				deleteCandidate := &vms[idx]
-				// TODO graceful delete
+				deleteCandidate := vms[idx]
 				err := c.clientset.VM(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
 				// Don't log an error if it is already deleted
 				if err != nil {
@@ -267,6 +315,7 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 				vm.Spec = rs.Spec.Template.Spec
 				// TODO check if vm labels exist, and when make sure that they match. For now just override them
 				vm.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
+				vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{OwnerRef(rs)}
 				vm, err := c.clientset.VM(rs.ObjectMeta.Namespace).Create(vm)
 				if err != nil {
 					c.expectations.CreationObserved(rsKey)
@@ -290,33 +339,23 @@ func (c *VMReplicaSet) scale(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.V
 }
 
 // filterActiveVMs takes a list of VMs and returns all VMs which are not in a final state
-// Note that vms which have a deletion timestamp set, are still treated as active.
-// This is a difference to Pod ReplicaSets
-func (c *VMReplicaSet) filterActiveVMs(vms []virtv1.VirtualMachine) []virtv1.VirtualMachine {
+func (c *VMReplicaSet) filterActiveVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 	return filter(vms, func(vm *virtv1.VirtualMachine) bool {
 		return !vm.IsFinal()
 	})
 }
 
 // filterReadyVMs takes a list of VMs and returns all VMs which are in ready state.
-func (c *VMReplicaSet) filterReadyVMs(vms []virtv1.VirtualMachine) []virtv1.VirtualMachine {
+func (c *VMReplicaSet) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 	return filter(vms, func(vm *virtv1.VirtualMachine) bool {
 		return vm.IsReady()
 	})
 }
 
-// filterMatchingVMs takes a selector and a list of VMs. If the VM labels match the selector it is added to the filtered collection.
-// Returns the list of all VMs which match the selector
-func (c *VMReplicaSet) filterMatchingVMs(selector labels.Selector, vms []virtv1.VirtualMachine) []virtv1.VirtualMachine {
-	return filter(vms, func(vm *virtv1.VirtualMachine) bool {
-		return selector.Matches(labels.Set(vm.ObjectMeta.Labels))
-	})
-}
-
-func filter(vms []virtv1.VirtualMachine, f func(vm *virtv1.VirtualMachine) bool) []virtv1.VirtualMachine {
-	filtered := []virtv1.VirtualMachine{}
+func filter(vms []*virtv1.VirtualMachine, f func(vm *virtv1.VirtualMachine) bool) []*virtv1.VirtualMachine {
+	filtered := []*virtv1.VirtualMachine{}
 	for _, vm := range vms {
-		if f(&vm) {
+		if f(vm) {
 			filtered = append(filtered, vm)
 		}
 	}
@@ -324,39 +363,39 @@ func filter(vms []virtv1.VirtualMachine, f func(vm *virtv1.VirtualMachine) bool)
 }
 
 // listVMsFromNamespace takes a namespace and returns all VMs from the VM cache which run in this namespace
-func (c *VMReplicaSet) listVMsFromNamespace(namespace string) ([]virtv1.VirtualMachine, error) {
+func (c *VMReplicaSet) listVMsFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
 	objs, err := c.vmInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
-	vms := []virtv1.VirtualMachine{}
+	vms := []*virtv1.VirtualMachine{}
 	for _, obj := range objs {
-		vms = append(vms, *obj.(*virtv1.VirtualMachine))
+		vms = append(vms, obj.(*virtv1.VirtualMachine))
 	}
 	return vms, nil
 }
 
 // listControllerFromNamespace takes a namespace and returns all VMReplicaSets from the ReplicaSet cache which run in this namespace
-func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]virtv1.VirtualMachineReplicaSet, error) {
+func (c *VMReplicaSet) listControllerFromNamespace(namespace string) ([]*virtv1.VirtualMachineReplicaSet, error) {
 	objs, err := c.vmRSInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
-	replicaSets := []virtv1.VirtualMachineReplicaSet{}
+	replicaSets := []*virtv1.VirtualMachineReplicaSet{}
 	for _, obj := range objs {
 		rs := obj.(*virtv1.VirtualMachineReplicaSet)
-		replicaSets = append(replicaSets, *rs)
+		replicaSets = append(replicaSets, rs)
 	}
 	return replicaSets, nil
 }
 
 // getMatchingController returns the first VMReplicaSet which matches the labels of the VM from the listener cache.
 // If there are no matching controllers, a NotFound error is returned.
-func (c *VMReplicaSet) getMatchingController(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineReplicaSet, error) {
+func (c *VMReplicaSet) getMatchingControllers(vm *virtv1.VirtualMachine) (rss []*virtv1.VirtualMachineReplicaSet) {
 	logger := log.Log
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	// TODO check owner reference, if we have an existing controller which owns this one
@@ -364,57 +403,160 @@ func (c *VMReplicaSet) getMatchingController(vm *virtv1.VirtualMachine) (*virtv1
 	for _, rs := range controllers {
 		selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
 		if err != nil {
-			logger.Object(&rs).Reason(err).Error("Failed to parse label selector from replicaset.")
+			logger.Object(rs).Reason(err).Error("Failed to parse label selector from replicaset.")
 			continue
 		}
 
 		if selector.Matches(labels.Set(vm.ObjectMeta.Labels)) {
-			// The first matching rs will be returned
-			return &rs, nil
+			rss = append(rss, rs)
 		}
 
 	}
-	return nil, errors.NewNotFound(v1beta1.Resource("virtualmachinereplicaset"), "")
+	return rss
 }
 
-// addVirtualMachine searches for a matching VMReplicaSet, updates it's expectations and wakes it up
+// When a vm is created, enqueue the replica set that manages it and update its expectations.
 func (c *VMReplicaSet) addVirtualMachine(obj interface{}) {
-
-	rsKey := c.getMatchingControllerKey(obj.(*virtv1.VirtualMachine))
-	if rsKey == "" {
-		return
-	}
-
-	// In case the controller is waiting for a creation, tell it that we observed one
-	c.expectations.CreationObserved(rsKey)
-	c.Queue.Add(rsKey)
-	return
-}
-
-// deleteVirtualMachine searches for a matching VMReplicaSet, updates it's expectations and wakes it up
-func (c *VMReplicaSet) deleteVirtualMachine(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 
-	rsKey := c.getMatchingControllerKey(vm)
-	if rsKey == "" {
+	if vm.DeletionTimestamp != nil {
+		// on a restart of the controller manager, it's possible a new vm shows up in a state that
+		// is already pending deletion. Prevent the vm from being a creation observation.
+		c.deleteVirtualMachine(vm)
 		return
 	}
 
-	// In case the controller is waiting for a deletion, tell it that we observed one
-	c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(vm))
-	c.Queue.Add(rsKey)
-	return
+	// If it has a ControllerRef, that's all that matters.
+	if controllerRef := controller.GetControllerOf(vm); controllerRef != nil {
+		rs := c.resolveControllerRef(vm.Namespace, controllerRef)
+		if rs == nil {
+			return
+		}
+		rsKey, err := controller.KeyFunc(rs)
+		if err != nil {
+			return
+		}
+		log.Log.V(4).Object(vm).Infof("VirtualMachine created")
+		c.expectations.CreationObserved(rsKey)
+		c.enqueueReplicaSet(rs)
+		return
+	}
+
+	// Otherwise, it's an orphan. Get a list of all matching ReplicaSets and sync
+	// them to see if anyone wants to adopt it.
+	// DO NOT observe creation because no controller should be waiting for an
+	// orphan.
+	rss := c.getMatchingControllers(vm)
+	if len(rss) == 0 {
+		return
+	}
+	log.Log.V(4).Object(vm).Infof("Orphan VirtualMachine created")
+	for _, rs := range rss {
+		c.enqueueReplicaSet(rs)
+	}
 }
 
-// deleteVirtualMachine searchs for a matching VMReplicaSet and wakes it up
-func (c *VMReplicaSet) updateVirtualMachine(old, curr interface{}) {
-	rsKey := c.getMatchingControllerKey(curr.(*virtv1.VirtualMachine))
-	if rsKey == "" {
+// When a vm is updated, figure out what replica set/s manage it and wake them
+// up. If the labels of the vm have changed we need to awaken both the old
+// and new replica set. old and cur must be *v1.VirtualMachine types.
+func (c *VMReplicaSet) updateVirtualMachine(old, cur interface{}) {
+	curVM := cur.(*virtv1.VirtualMachine)
+	oldVM := old.(*virtv1.VirtualMachine)
+	if curVM.ResourceVersion == oldVM.ResourceVersion {
+		// Periodic resync will send update events for all known vms.
+		// Two different versions of the same vm will always have different RVs.
 		return
 	}
 
-	c.Queue.Add(rsKey)
-	return
+	labelChanged := !reflect.DeepEqual(curVM.Labels, oldVM.Labels)
+	if curVM.DeletionTimestamp != nil {
+		// when a vm is deleted gracefully it's deletion timestamp is first modified to reflect a grace period,
+		// and after such time has passed, the virt-handler actually deletes it from the store. We receive an update
+		// for modification of the deletion timestamp and expect an rs to create more replicas asap, not wait
+		// until the virt-handler actually deletes the vm. This is different from the Phase of a vm changing, because
+		// an rs never initiates a phase change, and so is never asleep waiting for the same.
+		c.deleteVirtualMachine(curVM)
+		if labelChanged {
+			// we don't need to check the oldVM.DeletionTimestamp because DeletionTimestamp cannot be unset.
+			c.deleteVirtualMachine(oldVM)
+		}
+		return
+	}
+
+	curControllerRef := controller.GetControllerOf(curVM)
+	oldControllerRef := controller.GetControllerOf(oldVM)
+	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	if controllerRefChanged && oldControllerRef != nil {
+		// The ControllerRef was changed. Sync the old controller, if any.
+		if rs := c.resolveControllerRef(oldVM.Namespace, oldControllerRef); rs != nil {
+			c.enqueueReplicaSet(rs)
+		}
+	}
+
+	// If it has a ControllerRef, that's all that matters.
+	if curControllerRef != nil {
+		rs := c.resolveControllerRef(curVM.Namespace, curControllerRef)
+		if rs == nil {
+			return
+		}
+		log.Log.V(4).Object(curVM).Infof("VirtualMachine updated")
+		c.enqueueReplicaSet(rs)
+		// TODO: MinReadySeconds in the VM will generate an Available condition to be added in
+		// Update once we support the available conect on the rs
+		return
+	}
+
+	// Otherwise, it's an orphan. If anything changed, sync matching controllers
+	// to see if anyone wants to adopt it now.
+	if labelChanged || controllerRefChanged {
+		rss := c.getMatchingControllers(curVM)
+		if len(rss) == 0 {
+			return
+		}
+		log.Log.V(4).Object(curVM).Infof("Orphan VirtualMachine updated")
+		for _, rs := range rss {
+			c.enqueueReplicaSet(rs)
+		}
+	}
+}
+
+// When a vm is deleted, enqueue the replica set that manages the vm and update its expectations.
+// obj could be an *v1.VirtualMachine, or a DeletionFinalStateUnknown marker item.
+func (c *VMReplicaSet) deleteVirtualMachine(obj interface{}) {
+	vm, ok := obj.(*virtv1.VirtualMachine)
+
+	// When a delete is dropped, the relist will notice a vm in the store not
+	// in the list, leading to the insertion of a tombstone object which contains
+	// the deleted key/value. Note that this value might be stale. If the vm
+	// changed labels the new ReplicaSet will not be woken up till the periodic resync.
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			return
+		}
+		vm, ok = tombstone.Obj.(*virtv1.VirtualMachine)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vm %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+	}
+
+	controllerRef := controller.GetControllerOf(vm)
+	if controllerRef == nil {
+		// No controller should care about orphans being deleted.
+		return
+	}
+	rs := c.resolveControllerRef(vm.Namespace, controllerRef)
+	if rs == nil {
+		return
+	}
+	rsKey, err := controller.KeyFunc(rs)
+	if err != nil {
+		return
+	}
+	c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(vm))
+	c.enqueueReplicaSet(rs)
 }
 
 func (c *VMReplicaSet) addReplicaSet(obj interface{}) {
@@ -437,34 +579,6 @@ func (c *VMReplicaSet) enqueueReplicaSet(obj interface{}) {
 		logger.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
 	}
 	c.Queue.Add(key)
-}
-
-// getMatchingControllerKey takes a VirtualMachine and returns a the key of a macthing VMReplicaSet, if one exists.
-// Returns an empty string if no matching controller exists
-func (c *VMReplicaSet) getMatchingControllerKey(vm *virtv1.VirtualMachine) string {
-	logger := log.Log
-
-	// Let's search for a matching controller
-	rs, err := c.getMatchingController(vm)
-
-	// If none exists, ignore
-	if errors.IsNotFound(err) {
-		return ""
-	}
-
-	// If an unexpected error occurred, log it and ignore
-	if err != nil {
-		logger.Object(vm).Reason(err).Error("Searching for matching replicasets failed.")
-		return ""
-	}
-
-	// If we can't extract the key, log it and ignore
-	rsKey, err := controller.KeyFunc(rs)
-	if err != nil {
-		logger.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
-		return ""
-	}
-	return rsKey
 }
 
 func abs(x int) int {
@@ -517,7 +631,7 @@ func (c *VMReplicaSet) removeCondition(rs *virtv1.VirtualMachineReplicaSet, cond
 	rs.Status.Conditions = conds
 }
 
-func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine, scaleErr error) error {
+func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []*virtv1.VirtualMachine, scaleErr error) error {
 
 	diff := c.calcDiff(rs, vms)
 
@@ -563,7 +677,7 @@ func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []v
 	return nil
 }
 
-func (c *VMReplicaSet) calcDiff(rs *virtv1.VirtualMachineReplicaSet, vms []virtv1.VirtualMachine) int {
+func (c *VMReplicaSet) calcDiff(rs *virtv1.VirtualMachineReplicaSet, vms []*virtv1.VirtualMachine) int {
 	// TODO default this on the aggregated api server
 	wantedReplicas := int32(1)
 	if rs.Spec.Replicas != nil {
@@ -621,4 +735,42 @@ func (c *VMReplicaSet) checkFailure(rs *virtv1.VirtualMachineReplicaSet, diff in
 	} else if scaleErr == nil && c.hasCondition(rs, virtv1.VMReplicaSetReplicaFailure) {
 		c.removeCondition(rs, virtv1.VMReplicaSetReplicaFailure)
 	}
+}
+
+func OwnerRef(rs *virtv1.VirtualMachineReplicaSet) v1.OwnerReference {
+	t := true
+	gvk := virtv1.VMReplicaSetGroupVersionKind
+	return v1.OwnerReference{
+		APIVersion:         gvk.Version,
+		Kind:               gvk.Kind,
+		Name:               rs.ObjectMeta.Name,
+		UID:                rs.ObjectMeta.UID,
+		Controller:         &t,
+		BlockOwnerDeletion: &t,
+	}
+}
+
+// resolveControllerRef returns the controller referenced by a ControllerRef,
+// or nil if the ControllerRef could not be resolved to a matching controller
+// of the correct Kind.
+func (c *VMReplicaSet) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineReplicaSet {
+	// We can't look up by UID, so look up by Name and then verify UID.
+	// Don't even try to look up by Name if it's the wrong Kind.
+	if controllerRef.Kind != virtv1.VMReplicaSetGroupVersionKind.Kind {
+		return nil
+	}
+	rs, exists, err := c.vmRSInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	if err != nil {
+		return nil
+	}
+	if !exists {
+		return nil
+	}
+
+	if rs.(*virtv1.VirtualMachineReplicaSet).UID != controllerRef.UID {
+		// The controller we found with this Name is not the same one that the
+		// ControllerRef points to.
+		return nil
+	}
+	return rs.(*virtv1.VirtualMachineReplicaSet)
 }

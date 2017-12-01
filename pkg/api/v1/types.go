@@ -106,8 +106,8 @@ func init() {
 
 // VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
 type VirtualMachine struct {
-	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VM Spec contains the VM specification.
 	Spec VMSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
@@ -696,8 +696,8 @@ func PrepareVMNodeAntiAffinitySelectorRequirement(vm *VirtualMachine) k8sv1.Node
 
 // VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
 type VirtualMachineReplicaSet struct {
-	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VM Spec contains the VM specification.
 	Spec VMReplicaSetSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.

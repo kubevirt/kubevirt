@@ -183,6 +183,7 @@ var _ = Describe("Replicaset", func() {
 			for x := 0; x < 15; x++ {
 				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
 				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+				vm.OwnerReferences = []v12.OwnerReference{OwnerRef(rs)}
 				vmFeeder.Add(vm)
 			}
 
@@ -240,6 +241,39 @@ var _ = Describe("Replicaset", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
+		It("should detect that it is orphan deleted and remove the owner reference on the remaining VM", func() {
+			rs, vm := DefaultReplicaSet(1)
+
+			rs.Status.Replicas = 1
+
+			// Mark it as orphan deleted
+			now := v12.Now()
+			rs.ObjectMeta.DeletionTimestamp = &now
+			rs.ObjectMeta.Finalizers = []string{v12.FinalizerOrphanDependents}
+
+			addReplicaSet(rs)
+			vmFeeder.Add(vm)
+
+			vmInterface.EXPECT().Patch(vm.ObjectMeta.Name, gomock.Any(), gomock.Any())
+
+			controller.Execute()
+		})
+
+		It("should detect that a VM already exists and adopt it", func() {
+			rs, vm := DefaultReplicaSet(1)
+			vm.OwnerReferences = []v12.OwnerReference{}
+
+			rs.Status.Replicas = 1
+
+			addReplicaSet(rs)
+			vmFeeder.Add(vm)
+
+			rsInterface.EXPECT().Get(rs.ObjectMeta.Name, gomock.Any()).Return(rs, nil)
+			vmInterface.EXPECT().Patch(vm.ObjectMeta.Name, gomock.Any(), gomock.Any())
+
+			controller.Execute()
+		})
+
 		It("should detect that it has nothing to do", func() {
 			rs, vm := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
@@ -266,8 +300,10 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			// Move one VM to a final state
-			vm.Status.Phase = v1.Succeeded
-			vmFeeder.Modify(vm)
+			modifiedVM := vm.DeepCopy()
+			modifiedVM.Status.Phase = v1.Succeeded
+			modifiedVM.ResourceVersion = "1"
+			vmFeeder.Modify(modifiedVM)
 
 			// Expect the re-crate of the VM
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
@@ -296,8 +332,10 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			// Move one VM to a final state
-			vm.Status.Phase = v1.Running
-			vmFeeder.Modify(vm)
+			modifiedVM := vm.DeepCopy()
+			modifiedVM.Status.Phase = v1.Running
+			modifiedVM.ResourceVersion = "1"
+			vmFeeder.Modify(modifiedVM)
 
 			// Run the controller again
 			controller.Execute()
@@ -482,5 +520,6 @@ func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineReplicaSet, *v1.Virtua
 	vm := v1.NewMinimalVM("testvm")
 	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 	rs := ReplicaSetFromVM("rs", vm, replicas)
+	vm.OwnerReferences = []v12.OwnerReference{OwnerRef(rs)}
 	return rs, vm
 }

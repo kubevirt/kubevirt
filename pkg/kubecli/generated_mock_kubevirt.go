@@ -6,6 +6,7 @@ package kubecli
 import (
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
 	discovery "k8s.io/client-go/discovery"
 	v1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
 	v1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
@@ -570,6 +571,22 @@ func (_m *MockVMInterface) Delete(name string, options *v1.DeleteOptions) error 
 
 func (_mr *_MockVMInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
+}
+
+func (_m *MockVMInterface) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (*v18.VirtualMachine, error) {
+	_s := []interface{}{name, pt, data}
+	for _, _x := range subresources {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "Patch", _s...)
+	ret0, _ := ret[0].(*v18.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVMInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
 // Mock of ReplicaSetInterface interface

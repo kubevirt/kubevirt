@@ -166,6 +166,22 @@ var _ = Describe("Kubeproxy", func() {
 			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 		})
+		It("DELETE with delete options should succeed", func() {
+			policy := v12.DeletePropagationOrphan
+			apiserverMock.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest(http.MethodDelete, vmPath(sourceVM)),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, struct{}{}),
+					ghttp.VerifyJSONRepresenting(&v12.DeleteOptions{
+						TypeMeta: v12.TypeMeta{
+							Kind:       "DeleteOptions",
+							APIVersion: "kubevirt.io/v1alpha1"},
+						PropagationPolicy: &policy}),
+				),
+			)
+			result := restClient.Delete().Resource(vmResource).Name(sourceVM.GetObjectMeta().GetName()).Namespace(k8sv1.NamespaceDefault).Body(&v12.DeleteOptions{PropagationPolicy: &policy}).Do()
+			Expect(result).To(HaveStatusCode(http.StatusOK))
+		})
 		table.DescribeTable("GET a VM should succeed", func(accept string) {
 			apiserverMock.AppendHandlers(
 				ghttp.CombineHandlers(

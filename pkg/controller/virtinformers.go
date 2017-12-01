@@ -20,6 +20,7 @@
 package controller
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
@@ -30,9 +31,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
-
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
@@ -65,9 +65,10 @@ type kubeInformerFactory struct {
 
 func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.KubevirtClient) KubeInformerFactory {
 	return &kubeInformerFactory{
-		restClient:       restClient,
-		clientSet:        clientSet,
-		defaultResync:    0,
+		restClient: restClient,
+		clientSet:  clientSet,
+		// Resulting resync period will be between 12 and 24 hours, like the default for k8s
+		defaultResync:    resyncPeriod(12 * time.Hour),
 		informers:        make(map[string]cache.SharedIndexInformer),
 		startedInformers: make(map[string]bool),
 	}
@@ -141,4 +142,10 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{})
 	})
+}
+
+// resyncPeriod computes the time interval a shared informer waits before resyncing with the api server
+func resyncPeriod(minResyncPeriod time.Duration) time.Duration {
+	factor := rand.Float64() + 1
+	return time.Duration(float64(minResyncPeriod.Nanoseconds()) * factor)
 }

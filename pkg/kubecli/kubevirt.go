@@ -30,6 +30,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -56,6 +58,7 @@ type VMInterface interface {
 	Create(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
 }
 
 type ReplicaSetInterface interface {
