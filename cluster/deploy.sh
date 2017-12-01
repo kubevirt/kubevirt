@@ -62,18 +62,33 @@ $KUBECTL delete customresourcedefinitions vms.kubevirt.io  || :
 # Remove all external facing services
 externalServiceManifests | cluster/kubectl.sh --core delete -f - || :
 
-# Delete everything else
-for i in `ls manifests/*.yaml`; do
-    $KUBECTL delete -f $i --grace-period 0 2>/dev/null || :
-done
+if [[ -n "$DEPLOY_MANIFEST" ]]; then
+    $KUBECTL delete -f $DEPLOY_MANIFEST --grace-period 0 2>/dev/null || :
 
-sleep 2
+    externalServiceManifests | cluster/kubectl.sh --core apply -f -
 
-echo "Deploying ..."
-externalServiceManifests | cluster/kubectl.sh --core apply -f -
+    $KUBECTL create -f $DEPLOY_MANIFEST
+else
+    # Delete everything else
+    for i in `ls manifests/*.yaml`; do
+        $KUBECTL delete -f $i --grace-period 0 2>/dev/null || :
+    done
 
-for i in `ls manifests/*.yaml`; do
-    $KUBECTL create -f $i
+    sleep 2
+
+    echo "Deploying ..."
+    externalServiceManifests | cluster/kubectl.sh --core apply -f -
+
+    for i in `ls manifests/*.yaml`; do
+        $KUBECTL create -f $i
+    done
+fi
+
+echo "Wait until kubevirt pods are running"
+while [ -n "$($KUBECTL get pods --all-namespaces --no-headers | grep -v Running)" ]; do
+    echo " Waiting for kubevirt pods to enter the Running state ..."
+    kubectl get pods --all-namespaces --no-headers | >&2 grep -v Running || true
+    sleep 10
 done
 
 echo "Done"
