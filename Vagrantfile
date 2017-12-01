@@ -9,6 +9,10 @@ $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
 $nodes = (ENV['VAGRANT_NUM_NODES'] || 0).to_i
 $vagrant_pool = (ENV['VAGRANT_POOL'] unless
                   (ENV['VAGRANT_POOL'].nil? or ENV['VAGRANT_POOL'].empty?))
+# Used for matrix builds to similar setups on the same node without vagrant
+# machine name clashes.
+$libvirt_prefix = (ENV['TARGET'] unless
+                  (ENV['TARGET'].nil? or ENV['TARGET'].empty?))
 
 $config = Hash[*File.read('hack/config-default.sh').split(/=|\n/)]
 if File.file?('hack/config-local.sh') then
@@ -41,6 +45,9 @@ Vagrant.configure(2) do |config|
       end
       if $vagrant_pool then
           domain.storage_pool_name = $vagrant_pool
+      end
+      if $libvirt_prefix then
+          domain.default_prefix = $libvirt_prefix
       end
   end
 

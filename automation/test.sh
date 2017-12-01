@@ -17,6 +17,12 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+# CI considerations: $TARGET is used by the jenkins vagrant build, to distinguish what to test
+# Currently considered $TARGET values:
+#     vagrant-dev: Runs all functional tests on a development vagrant setup
+#     vagrant-release: Runs all possible functional tests on a release deployment in vagrant
+#     TODO: vagrant-tagged-release: Runs all possible functional tests on a release deployment in vagrant on a tagged release
+
 set -ex
 
 kubectl() { cluster/kubectl.sh --core "$@"; }
@@ -109,8 +115,12 @@ for i in ${namespaces[@]}; do
     kubectl -n ${i} delete pods -l 'app'
 done
 
-# Deploy kubevirt
-cluster/sync.sh
+if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
+    cluster/sync.sh
+elif [ "$TARGET" = "vagrant-release"  ]
+    # TODO do the right thing here
+    return 0
+fi
 
 # Wait until kubevirt pods are running
 while [ -n "$(kubectl get pods -n kube-system --no-headers | grep -v Running)" ]; do
