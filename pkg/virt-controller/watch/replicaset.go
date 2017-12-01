@@ -213,7 +213,7 @@ func (c *VMReplicaSet) execute(key string) error {
 	}
 
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMs. Don't update the status
-	if rs.ObjectMeta.DeletionTimestamp != nil && len(rs.ObjectMeta.Finalizers) > 0 && rs.ObjectMeta.Finalizers[0] == v1.FinalizerOrphanDependents {
+	if rs.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(rs, v1.FinalizerOrphanDependents) {
 		return c.orphan(cm, rs, vms)
 	}
 
@@ -231,6 +231,7 @@ func (c *VMReplicaSet) execute(key string) error {
 
 // orphan removes the owner reference of all VMs which are owned by the controller instance.
 // Workaround for https://github.com/kubernetes/kubernetes/issues/56348 to make no-cascading deletes possible
+// We don't have to remove the finalizer. This part of the gc is not affected by the mentioned bug
 func (c *VMReplicaSet) orphan(cm *controller.VirtualMachineControllerRefManager, rs *virtv1.VirtualMachineReplicaSet, vms []*virtv1.VirtualMachine) error {
 
 	var wg sync.WaitGroup

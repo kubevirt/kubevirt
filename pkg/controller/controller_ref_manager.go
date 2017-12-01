@@ -13,6 +13,9 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Taken from https://github.com/kubernetes/kubernetes/blob/b28a83a4cf779189d72a87e847441888e7918e5d/pkg/controller/controller_ref_manager.go
+and adapted for KubeVirt.
 */
 
 package controller

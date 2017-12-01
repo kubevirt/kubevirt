@@ -122,3 +122,12 @@ func VirtualMachineKeys(vms []*v1.VirtualMachine) []string {
 	}
 	return keys
 }
+
+func HasFinalizer(object metav1.Object, finalizer string) bool {
+	for _, f := range object.GetFinalizers() {
+		if f == finalizer {
+			return true
+		}
+	}
+	return false
+}
