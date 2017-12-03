@@ -30,10 +30,10 @@ spec:
           securityContext:
             privileged: true
           volumeMounts:
-            - name: libvirt-runtime
-              mountPath: /var/run/libvirt
-            - name: virt-share-dir
-              mountPath: /var/run/kubevirt
+          - name: libvirt-runtime
+            mountPath: /var/run/libvirt
+          - name: virt-share-dir
+            mountPath: /var/run/kubevirt
           env:
             - name: NODE_NAME
               valueFrom:
