@@ -49,6 +49,7 @@ export VAGRANT_DOTFILE_PATH="${VAGRANT_DOTFILE_PATH:-$WORKSPACE/.vagrant}"
 trap '{ vagrant halt; }' EXIT
 
 set +e
+
 vagrant up --provider=libvirt
 if [ $? -ne 0 ]; then
   # After a workspace cleanup we loose our .vagrant file, this means that we have to clean up libvirt
@@ -102,6 +103,7 @@ echo ""
 echo ""
 
 # Delete traces from old deployments
+# TODO remove this soon, kept for backward compatibility right now
 namespaces=(default kube-system)
 for i in ${namespaces[@]}; do
     kubectl -n ${i} delete deployment -l 'app'
@@ -113,6 +115,20 @@ for i in ${namespaces[@]}; do
     kubectl -n ${i} delete serviceaccounts -l 'name in (kubevirt, kubevirt-admin)'
     kubectl -n ${i} delete clusterrolebinding -l 'name=kubevirt'
     kubectl -n ${i} delete pods -l 'app'
+done
+
+# This is the new and cleaner way of removing kubevirt with harmonized labels
+namespaces=(default kube-system)
+for i in ${namespaces[@]}; do
+    kubectl -n ${i} delete deployment -l 'kubevirt.io'
+    kubectl -n ${i} delete services -l 'kubevirt.io'
+    kubectl -n ${i} delete pv -l 'kubevirt.io'
+    kubectl -n ${i} delete pvc -l 'kubevirt.io'
+    kubectl -n ${i} delete ds -l 'kubevirt.io'
+    kubectl -n ${i} delete crd -l 'kubevirt.io'
+    kubectl -n ${i} delete serviceaccounts -l 'kubevirt.io'
+    kubectl -n ${i} delete clusterrolebinding -l 'kubevirt.io'
+    kubectl -n ${i} delete pods -l 'kubevirt.io'
 done
 
 if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then

@@ -3,12 +3,14 @@ kind: DaemonSet
 metadata:
   name: libvirt
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   template:
     metadata:
       name: libvirt
       labels:
-        daemon: libvirt
+        kubevirt.io: libvirt
     spec:
       serviceAccountName: kubevirt-infra
       hostNetwork: true

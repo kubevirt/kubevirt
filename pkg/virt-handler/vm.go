@@ -253,10 +253,10 @@ func (c *VirtualMachineController) Execute() bool {
 	}
 	defer c.Queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
-		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineReplicaSet %v", key)
+		log.Log.Reason(err).Infof("re-enqueuing VirtualMachine %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineReplicaSet %v", key)
+		log.Log.V(4).Infof("processed VirtualMachine %v", key)
 		c.Queue.Forget(key)
 	}
 	return true

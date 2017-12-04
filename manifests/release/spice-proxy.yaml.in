@@ -3,11 +3,13 @@ kind: Deployment
 metadata:
   name: spice-proxy
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   template:
     metadata:
       labels:
-        app: spice-proxy
+        kubevirt.io: spice-proxy
     spec:
       containers:
         - name: spice-proxy

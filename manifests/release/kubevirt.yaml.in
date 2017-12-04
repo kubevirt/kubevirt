@@ -1,8 +1,102 @@
+# RBAC
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+      - update
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachines
+      - migrations
+      - virtualmachinereplicasets
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+      - update
+      - create
+      - deletecollection
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevirt-admin
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: kubevirt-infra
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-infra
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-infra-cluster-admin
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-infra
+    namespace: kube-system
+---
 # custom resource definitions
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: virtualmachines.kubevirt.io
+  labels:
+    kubevirt.io: ""
 spec:
   group: kubevirt.io
   version: v1alpha1
@@ -19,6 +113,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: migrations.kubevirt.io
+  labels:
+    kubevirt.io: ""
 spec:
   scope: Namespaced
   group: kubevirt.io
@@ -32,6 +128,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: virtualmachinereplicasets.kubevirt.io
+  labels:
+    kubevirt.io: ""
 spec:
   scope: Namespaced
   group: kubevirt.io
@@ -50,23 +148,27 @@ kind: Service
 metadata:
   name: haproxy
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   ports:
     - port: 8184
       targetPort: haproxy
   selector:
-    app: haproxy
+    kubevirt.io/app: haproxy
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: haproxy
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   template:
     metadata:
       labels:
-        app: haproxy
+        kubevirt.io: haproxy
     spec:
       serviceAccountName: kubevirt-infra
       containers:
@@ -98,23 +200,27 @@ kind: Service
 metadata:
   name: virt-api
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   ports:
     - port: 8183
       targetPort: virt-api
   selector:
-    app: virt-api
+    kubevirt.io: virt-api
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: virt-api
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   template:
     metadata:
       labels:
-        app: virt-api
+        kubevirt.io: virt-api
     spec:
       serviceAccountName: kubevirt-infra
       containers:
@@ -140,12 +246,14 @@ kind: Deployment
 metadata:
   name: virt-controller
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   replicas: 2
   template:
     metadata:
       labels:
-        app: virt-controller
+        kubevirt.io: virt-controller
     spec:
       serviceAccountName: kubevirt-infra
       containers:
@@ -186,12 +294,14 @@ kind: DaemonSet
 metadata:
   name: virt-handler
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   template:
     metadata:
       name: virt-handler
       labels:
-        daemon: virt-handler
+        kubevirt.io: virt-handler
     spec:
       serviceAccountName: kubevirt-infra
       hostPID: true
@@ -236,12 +346,14 @@ kind: DaemonSet
 metadata:
   name: libvirt
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   template:
     metadata:
       name: libvirt
       labels:
-        daemon: libvirt
+        kubevirt.io: libvirt
     spec:
       serviceAccountName: kubevirt-infra
       hostNetwork: true
@@ -294,95 +406,3 @@ spec:
         - name: virt-share-dir
           hostPath:
             path: /var/run/kubevirt
----
-# RBAC
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: kubevirt-infra
-  namespace: kube-system
-  labels:
-    name: kubevirt
-rules:
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-    verbs:
-      - get
-      - list
-      - watch
-      - delete
-      - update
-      - create
-  - apiGroups:
-      - ''
-    resources:
-      - nodes
-      - persistentvolumeclaims
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - kubevirt.io
-    resources:
-      - virtualmachines
-      - migrations
-      - virtualmachinereplicasets
-    verbs:
-      - get
-      - list
-      - watch
-      - delete
-      - update
-      - create
-      - deletecollection
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kubevirt-infra
-  namespace: kube-system
-  labels:
-    name: kubevirt
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kubevirt-admin
-  namespace: kube-system
-  labels:
-    name: kubevirt-admin
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: kubevirt-infra
-  namespace: kube-system
-  labels:
-    name: kubevirt
-roleRef:
-  kind: ClusterRole
-  name: kubevirt-infra
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
-    name: kubevirt-infra
-    namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: kubevirt-infra-cluster-admin
-  namespace: kube-system
-  labels:
-    name: kubevirt
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
-    name: kubevirt-infra
-    namespace: kube-system

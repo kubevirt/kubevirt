@@ -80,7 +80,7 @@ var _ = Describe("Console", func() {
 				Name:      "virt-handerler-xkfoiw",
 				Namespace: k8sv1.NamespaceDefault,
 				Labels: map[string]string{
-					"daemon": "virt-handler",
+					v1.AppLabel: "virt-handler",
 				},
 			},
 			Spec: k8sv1.PodSpec{

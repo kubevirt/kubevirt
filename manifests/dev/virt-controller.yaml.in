@@ -3,24 +3,28 @@ kind: Service
 metadata:
   name: virt-controller
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   ports:
     - port: 8182
       targetPort: virt-controller
   selector:
-    app: virt-controller
+    kubevirt.io: virt-controller
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: virt-controller
   namespace: kube-system
+  labels:
+    kubevirt.io: ""
 spec:
   replicas: 2
   template:
     metadata:
       labels:
-        app: virt-controller
+        kubevirt.io: virt-controller
     spec:
       serviceAccountName: kubevirt-infra
       containers:

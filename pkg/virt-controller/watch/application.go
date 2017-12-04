@@ -131,7 +131,6 @@ func (vca *VirtControllerApp) Run() {
 	logger := log.Log
 	stop := make(chan struct{})
 	defer close(stop)
-	vca.informerFactory.Start(stop)
 	go func() {
 		httpLogger := logger.With("service", "http")
 		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
@@ -167,6 +166,7 @@ func (vca *VirtControllerApp) Run() {
 			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
+					vca.informerFactory.Start(stop)
 					go vca.vmController.Run(3, stop)
 					go vca.migrationController.Run(3, stop)
 					go vca.rsController.Run(3, stop)
