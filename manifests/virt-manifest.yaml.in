@@ -54,9 +54,6 @@ spec:
           securityContext:
             privileged: true
             runAsUser: 0
-          env:
-          - name: LIBVIRTD_DEFAULT_NETWORK_DEVICE
-            value: {{ primary_nic }}
           volumeMounts:
             - name: libvirt-runtime
               mountPath: /var/run/libvirt
