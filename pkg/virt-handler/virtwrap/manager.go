@@ -310,19 +310,7 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
-
-	xmlStr, err := dom.GetXMLDesc(0)
-	if err != nil {
-		return nil, err
-	}
-
-	var spec api.DomainSpec
-	err = xml.Unmarshal([]byte(xmlStr), &spec)
-	if err != nil {
-		return nil, err
-	}
-
-	return &spec, nil
+	return cache.GetDomainSpec(dom)
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {

@@ -163,6 +163,14 @@ func (in *Domain) DeepCopyObject() runtime.Object {
 	}
 }
 
+func (in *Metadata) DeepCopyInto(out *Metadata) {
+	err := model.Copy(out, in)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 type DomainStatus struct {
 	Status LifeCycle
 	Reason StateChangeReason
