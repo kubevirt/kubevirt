@@ -26,7 +26,7 @@ externalServiceManifests()
   source hack/config.sh
 
   # Pretty much equivalent to `kubectl expose service ...`
-  for SVC in spice-proxy:3128 virt-api:8182 haproxy:8184 virt-manifest:8186;
+  for SVC in spice-proxy:3128 virt-api:8182 haproxy:8184;
   do
     IFS=: read NAME PORT <<<$SVC
     cat <<EOF

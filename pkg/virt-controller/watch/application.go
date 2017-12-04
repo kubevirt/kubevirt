@@ -28,10 +28,8 @@ import (
 )
 
 const (
-	// Default port that virt-manifest listens on.
 	defaultPort = 8182
 
-	// Default address that virt-manifest listens on.
 	defaultHost = "0.0.0.0"
 
 	launcherImage = "virt-launcher"
