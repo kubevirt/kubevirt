@@ -31,6 +31,9 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 
+	"gopkg.in/ini.v1"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
@@ -40,22 +43,24 @@ const TEMP_PREFIX = "spice"
 type Spice struct {
 }
 
-func DownloadSpice(namespace string, vm string, restClient *rest.RESTClient) (string, error) {
-	body, err := restClient.Get().
-		Resource("virtualmachines").SetHeader("Accept", "text/plain").
+func DownloadSpice(namespace string, vm string, restClient *rest.RESTClient) (*v1.Spice, error) {
+	spice := &v1.Spice{}
+	err := restClient.Get().
+		Resource("virtualmachines").SetHeader("Accept", "application/json").
 		SubResource("spice").
 		Namespace(namespace).
-		Name(vm).Do().Raw()
+		Name(vm).Do().Into(spice)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Can't read body: %s\n", err.Error()))
+		return nil, errors.New(fmt.Sprintf("Can't fetch connection details: %s\n", err.Error()))
 	}
-	return fmt.Sprintf("%s", body), nil
+	return spice, nil
 }
 
 func (o *Spice) FlagSet() *flag.FlagSet {
 
 	cf := flag.NewFlagSet(FLAG, flag.ExitOnError)
 	cf.BoolP("details", "d", false, "If present, print SPICE console to stdout, otherwise run remote-viewer")
+	cf.StringP("proxy", "p", "", "If given, will override any given proxy from the server")
 	return cf
 }
 
@@ -63,6 +68,7 @@ func (o *Spice) Run(flags *flag.FlagSet) int {
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
 	details, _ := flags.GetBool("details")
+	proxy, _ := flags.GetString("proxy")
 	namespace, _ := flags.GetString("namespace")
 	if namespace == "" {
 		namespace = kubev1.NamespaceDefault
@@ -80,13 +86,26 @@ func (o *Spice) Run(flags *flag.FlagSet) int {
 		log.Println(err)
 		return 1
 	}
-	body, err := DownloadSpice(namespace, vm, virtClient.RestClient())
+	spice, err := DownloadSpice(namespace, vm, virtClient.RestClient())
 	if err != nil {
 		log.Fatalf(err.Error())
 		return 1
 	}
+	if proxy != "" {
+		spice.Info.Proxy = proxy
+	}
+	cfg := ini.Empty()
+	err = ini.ReflectFrom(cfg, spice)
+	if err != nil {
+		log.Fatalf("Can't serialize spice struct to ini")
+		return 1
+	}
 	if details {
-		fmt.Printf("%s", body)
+		_, err := cfg.WriteTo(os.Stdout)
+		if err != nil {
+			log.Fatalf("Failed to write to stdout")
+			return 1
+		}
 	} else {
 		f, err := ioutil.TempFile("", TEMP_PREFIX)
 
@@ -97,7 +116,7 @@ func (o *Spice) Run(flags *flag.FlagSet) int {
 		defer os.Remove(f.Name())
 		defer f.Close()
 
-		_, err = f.WriteString(body)
+		_, err = cfg.WriteTo(f)
 		if err != nil {
 			log.Fatalf("Can't write to file: %s", err.Error())
 			return 1
@@ -117,12 +136,14 @@ func (o *Spice) Run(flags *flag.FlagSet) int {
 }
 
 func (o *Spice) Usage() string {
-	usage := "virtctl can connect via remote-viewer to VM, or show SPICE connection details\n\n"
+	usage := "virtctl can connect via remote-viewer to a VM, or can show SPICE connection details\n\n"
 	usage += "Examples:\n"
 	usage += "# Show SPICE connection details of the VM testvm\n"
 	usage += "./virtctl spice testvm --details\n\n"
 	usage += "# Connect to testvm via remote-viewer\n"
 	usage += "./virtctl spice testvm\n\n"
+	usage += "# Connect to testvm via remote-viewer using a proxy\n"
+	usage += "./virtctl spice testvm --proxy http://192.168.200.2:1234\n\n"
 	usage += "Options:\n"
 	usage += o.FlagSet().FlagUsages()
 	return usage

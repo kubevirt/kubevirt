@@ -31,7 +31,7 @@ spec:
               - "--port"
               - "8183"
               - "--spice-proxy"
-              - "{{ master_ip }}:3128"
+              - "http://{{ master_ip }}:3128"
           ports:
             - containerPort: 8183
               name: "virt-api"
