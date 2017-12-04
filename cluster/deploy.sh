@@ -50,30 +50,27 @@ EOF
 
 echo "Cleaning up ..."
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
-$KUBECTL delete -f manifests/virt-handler.yaml --cascade=false --grace-period 0 2>/dev/null || :
+$KUBECTL delete -f manifests/dev/virt-handler.yaml --cascade=false --grace-period 0 2>/dev/null || :
 $KUBECTL delete pods -n kube-system -l=daemon=virt-handler --force --grace-period 0 2>/dev/null || :
 
-$KUBECTL delete -f manifests/libvirt.yaml --cascade=false --grace-period 0 2>/dev/null || :
+$KUBECTL delete -f manifests/dev/libvirt.yaml --cascade=false --grace-period 0 2>/dev/null || :
 $KUBECTL delete pods -n kube-system -l=daemon=libvirt --force --grace-period 0 2>/dev/null || :
 
 # Make sure that the vms CRD is deleted, we use virtualmachines now
 $KUBECTL delete customresourcedefinitions vms.kubevirt.io  || :
 
 # Remove all external facing services
-externalServiceManifests | cluster/kubectl.sh --core delete -f - || :
+externalServiceManifests | $KUBECTL delete -f - || :
 
-# Delete everything else
-for i in `ls manifests/*.yaml`; do
-    $KUBECTL delete -f $i --grace-period 0 2>/dev/null || :
-done
+# Delete everything, no matter if release, devel or infra
+$KUBECTL delete -f manifests -R --grace-period 0 2>/dev/null || :
 
 sleep 2
 
 echo "Deploying ..."
-externalServiceManifests | cluster/kubectl.sh --core apply -f -
+externalServiceManifests | $KUBECTL apply -f -
 
-for i in `ls manifests/*.yaml`; do
-    $KUBECTL create -f $i
-done
+$KUBECTL create -f manifests/dev -R $i
+$KUBECTL create -f manifests/testing -R $i
 
 echo "Done"

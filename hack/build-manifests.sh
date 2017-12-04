@@ -22,13 +22,13 @@ set -e
 source hack/config.sh
 
 if [ $# -eq 0 ]; then
-    args=$manifest_templates
+    args=$(find manifests -type f -name "*.yaml.in")
 else
     args=$@
 fi
 
 # Delete all generated manifests in case an input file was deleted or renamed
-rm -f "manifests/*.yaml"
+find manifests -name "*.yaml" -type f -delete
 
 # Render kubernetes manifests
 for arg in $args; do
