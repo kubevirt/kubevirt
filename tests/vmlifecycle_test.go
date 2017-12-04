@@ -40,10 +40,6 @@ import (
 
 var _ = Describe("Vmlifecycle", func() {
 
-	primaryNodeName := os.Getenv("primary_node_name")
-	if primaryNodeName == "" {
-		primaryNodeName = "master"
-	}
 	dockerTag := os.Getenv("docker_tag")
 	if dockerTag == "" {
 		dockerTag = "latest"
@@ -231,10 +227,15 @@ var _ = Describe("Vmlifecycle", func() {
 
 				_, exists := os.LookupEnv("JENKINS_HOME")
 				if exists {
-					Skip("Skip log query tests for JENKINs ci test environment")
+					Skip("Skip log query tests for JENKINS ci test environment")
 				}
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).ToNot(BeEmpty())
+				node := nodes.Items[0].Name
+
 				vm = tests.NewRandomVMWithNS(namespace)
-				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(primaryNodeName).Pod()
+				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(node).Pod()
 				Expect(err).ToNot(HaveOccurred())
 
 				handlerName := virtHandlerPod.GetObjectMeta().GetName()
@@ -243,7 +244,7 @@ var _ = Describe("Vmlifecycle", func() {
 				logsQuery := virtClient.CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
 
 				// Make sure we schedule the VM to master
-				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": primaryNodeName}
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 
 				// Start the VM and wait for the confirmation of the start
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Body(vm).Do().Get()

@@ -7,4 +7,3 @@ manifest_templates="`ls ${KUBEVIRT_PATH}manifests/*.in`"
 master_ip=192.168.200.2
 master_port=8184
 network_provider=weave
-primary_node_name=${primary_node_name:-master}

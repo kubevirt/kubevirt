@@ -21,9 +21,6 @@ package tests_test
 
 import (
 	"flag"
-	"fmt"
-	"net/url"
-	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,14 +43,7 @@ var _ = Describe("Virtmanifest", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 
-			var err error
-			var masterUrl *url.URL
-			masterUrl, err = url.Parse(flag.Lookup("master").Value.String())
-			Expect(err).ToNot(HaveOccurred())
-			hostParts := strings.Split(masterUrl.Host, ":")
-			Expect(len(hostParts)).To(Equal(2))
-
-			virtClient, err := kubecli.GetKubevirtClientFromFlags(fmt.Sprintf("http://%s:8186", hostParts[0]), "")
+			virtClient, err := kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
 
 			manifestClient = virtClient.RestClient()
