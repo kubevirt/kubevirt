@@ -4,7 +4,7 @@ metadata:
   name: libvirt
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "libvirt"
 spec:
   template:
     metadata:

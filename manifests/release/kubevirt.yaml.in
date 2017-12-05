@@ -149,7 +149,7 @@ metadata:
   name: haproxy
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "haproxy"
 spec:
   template:
     metadata:
@@ -187,7 +187,7 @@ metadata:
   name: virt-api
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "virt-api"
 spec:
   ports:
     - port: 8183
@@ -201,7 +201,7 @@ metadata:
   name: virt-api
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "virt-api"
 spec:
   template:
     metadata:
@@ -233,7 +233,7 @@ metadata:
   name: virt-controller
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "virt-controller"
 spec:
   replicas: 2
   template:
@@ -281,7 +281,7 @@ metadata:
   name: virt-handler
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "virt-handler"
 spec:
   template:
     metadata:
@@ -333,7 +333,7 @@ metadata:
   name: libvirt
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "libvirt"
 spec:
   template:
     metadata:

@@ -4,7 +4,7 @@ metadata:
   name: virt-controller
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "virt-controller"
 spec:
   ports:
     - port: 8182
@@ -18,7 +18,7 @@ metadata:
   name: virt-controller
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "virt-controller"
 spec:
   replicas: 2
   template:

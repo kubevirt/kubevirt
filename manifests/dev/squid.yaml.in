@@ -4,7 +4,7 @@ metadata:
   name: spice-proxy
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "spice-proxy"
 spec:
   template:
     metadata:

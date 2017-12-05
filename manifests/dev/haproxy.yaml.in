@@ -4,7 +4,7 @@ metadata:
   name: haproxy
   namespace: kube-system
   labels:
-      kubevirt.io: ""
+      kubevirt.io: "haproxy"
 spec:
   template:
     metadata:

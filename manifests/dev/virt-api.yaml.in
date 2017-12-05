@@ -4,7 +4,7 @@ metadata:
   name: virt-api
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "virt-api"
 spec:
   ports:
     - port: 8183
@@ -18,7 +18,7 @@ metadata:
   name: virt-api
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "virt-api"
 spec:
   template:
     metadata:
