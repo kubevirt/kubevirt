@@ -133,9 +133,8 @@ done
 
 if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
     cluster/sync.sh
-elif [ "$TARGET" = "vagrant-release"  ]
-    # TODO do the right thing here
-    return 0
+elif [ "$TARGET" = "vagrant-release"  ]; then
+    cluster/sync.sh
 fi
 
 # Wait until kubevirt pods are running

@@ -23,6 +23,20 @@ KUBECTL=${KUBECTL:-kubectl}
 
 source hack/config.sh
 
+spiceProxy() {
+cat <<EOF
+spec:
+  template:
+    spec:
+      containers:
+        - name: virt-api
+          env:
+            - name: SPICE_PROXY
+              value: "http://${master_ip}:3128"
+---
+EOF
+}
+
 echo "Cleaning up ..."
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
 $KUBECTL delete ds -l "kubevirt.io" -n kube-system --cascade=false --grace-period 0 2>/dev/null || :
@@ -33,17 +47,26 @@ $KUBECTL delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grac
 $KUBECTL delete -f manifests -R --grace-period 1 2>/dev/null || :
 
 # Delete exposures
-$KUBECTL delete services -l "kubevirt.io" -n kube-system 
+$KUBECTL delete services -l "kubevirt.io" -n kube-system
 
 sleep 2
 
 echo "Deploying ..."
 
-# Create rbac resources first to avoid unauthorized exceptions
-$KUBECTL create -f manifests/dev -R $i
-$KUBECTL create -f manifests/testing -R $i
+# Deploy the right manifests for the right target
+if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
+    $KUBECTL create -f manifests/dev -R $i
+elif [ "$TARGET" = "vagrant-release"  ]; then
+    $KUBECTL create -f manifests/release -R $i
+   ## Tell virt-api where to look for the spice proxy
+   spiceProxy | $KUBECTL patch deployment virt-api -n kube-system --patch "$(cat -)"
+fi
 
+## Expose common services
 $KUBECTL expose deployment haproxy --port 8184 -l 'kubevirt.io=' -n kube-system --external-ip $master_ip
 $KUBECTL expose deployment spice-proxy --port 3128 -l 'kubevirt.io=' -n kube-system --external-ip $master_ip
+
+# Deploy additional infra for testing
+$KUBECTL create -f manifests/testing -R $i
 
 echo "Done"
