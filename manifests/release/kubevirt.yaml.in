@@ -143,20 +143,6 @@ spec:
       - vmrss
 ---        
 # apiserver and virt-api proxy (will be unnecessary soon)
-apiVersion: v1
-kind: Service
-metadata:
-  name: haproxy
-  namespace: kube-system
-  labels:
-    kubevirt.io: ""
-spec:
-  ports:
-    - port: 8184
-      targetPort: haproxy
-  selector:
-    kubevirt.io/app: haproxy
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
