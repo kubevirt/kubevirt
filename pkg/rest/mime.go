@@ -23,6 +23,7 @@ const (
 	MIME_JSON        string = "application/json"
 	MIME_JSON_PATCH  string = "application/json-patch+json"
 	MIME_JSON_STREAM string = "application/json;stream=watch"
+	MIME_MERGE_PATCH string = "application/merge-patch+json"
 	MIME_YAML        string = "application/yaml"
 	MIME_TEXT        string = "text/plain"
 	MIME_INI         string = "text/plain"

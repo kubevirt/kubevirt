@@ -147,7 +147,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 
 	ws.Route(
 		ws.PATCH(ResourcePath(gvr)).
-			Consumes(mime.MIME_JSON_PATCH).
+			Consumes(mime.MIME_JSON_PATCH, mime.MIME_MERGE_PATCH).
 			Produces(mime.MIME_JSON).
 			Operation("patchNamespaced"+objKind).
 			To(endpoints.MakeGoRestfulWrapper(patch)).
