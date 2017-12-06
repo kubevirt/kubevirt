@@ -27,6 +27,17 @@ set -ex
 
 kubectl() { cluster/kubectl.sh --core "$@"; }
 
+if [ "$TARGET" = "vagrant-dev"  ]; then
+cat > hack/config-local.sh <<EOF
+  master_ip=192.168.1.2
+EOF
+elif [ "$TARGET" = "vagrant-release"  ]; then
+cat > hack/config-local.sh <<EOF
+  master_ip=192.168.2.2
+EOF
+fi
+
+
 
 # Install GO
 eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=stable bash)"
