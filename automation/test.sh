@@ -29,15 +29,15 @@ kubectl() { cluster/kubectl.sh --core "$@"; }
 
 if [ "$TARGET" = "vagrant-dev"  ]; then
 cat > hack/config-local.sh <<EOF
-  master_ip=192.168.1.2
+master_ip=192.168.1.2
 EOF
 elif [ "$TARGET" = "vagrant-release"  ]; then
 cat > hack/config-local.sh <<EOF
-  master_ip=192.168.2.2
+master_ip=192.168.2.2
 EOF
 fi
 
-
+VAGRANT_PREFIX=${VARIABLE:-kubevirt}
 
 # Install GO
 eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=stable bash)"
@@ -61,17 +61,9 @@ trap '{ vagrant halt; }' EXIT
 
 set +e
 
+# TODO handle complete workspace removal on CI
 vagrant up --provider=libvirt
 if [ $? -ne 0 ]; then
-  # After a workspace cleanup we loose our .vagrant file, this means that we have to clean up libvirt
-  vagrant destroy
-  virsh destroy kubevirt_master
-  virsh undefine kubevirt_master
-  virsh destroy kubevirt_node0
-  virsh undefine kubevirt_node0
-  virsh net-destroy vagrant0
-  virsh net-undefine vagrant0
-  # Remove now stale images
   vagrant destroy
   set -e
   vagrant up --provider=libvirt

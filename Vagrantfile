@@ -11,8 +11,7 @@ $vagrant_pool = (ENV['VAGRANT_POOL'] unless
                   (ENV['VAGRANT_POOL'].nil? or ENV['VAGRANT_POOL'].empty?))
 # Used for matrix builds to similar setups on the same node without vagrant
 # machine name clashes.
-$libvirt_prefix = (ENV['TARGET'] unless
-                  (ENV['TARGET'].nil? or ENV['TARGET'].empty?))
+$libvirt_prefix = ENV['TARGET'] || "kubevirt"
 
 $config = Hash[*File.read('hack/config-default.sh').split(/=|\n/)]
 if File.file?('hack/config-local.sh') then
@@ -46,9 +45,7 @@ Vagrant.configure(2) do |config|
       if $vagrant_pool then
           domain.storage_pool_name = $vagrant_pool
       end
-      if $libvirt_prefix then
-          domain.default_prefix = $libvirt_prefix
-      end
+      domain.default_prefix = $libvirt_prefix
   end
 
   if $use_nfs then
@@ -76,11 +73,11 @@ Vagrant.configure(2) do |config|
 
   config.vm.define "master" do |master|
       master.vm.hostname = "master"
-      master.vm.network "private_network", ip: "#{$master_ip}"
+      master.vm.network "private_network", ip: "#{$master_ip}", libvirt__network_name: $libvirt_prefix + "0"
       master.vm.provider :libvirt do |domain|
           domain.memory = 3000
           if $cache_docker then
-              domain.storage :file, :size => '10G', :path => 'kubevirt_master_docker.img', :allow_existing => true
+                  domain.storage :file, :size => '10G', :path => $libvirt_prefix.to_s + '_master_docker.img', :allow_existing => true
           end
       end
 
@@ -102,11 +99,11 @@ Vagrant.configure(2) do |config|
   (0..($nodes-1)).each do |suffix|
     config.vm.define "node" + suffix.to_s do |node|
         node.vm.hostname = "node" + suffix.to_s
-        node.vm.network "private_network", ip: $master_ip[0..-2] + ($master_ip[-1].to_i + 1 + suffix).to_s
+        node.vm.network "private_network", ip: $master_ip[0..-2] + ($master_ip[-1].to_i + 1 + suffix).to_s, libvirt__network_name: $libvirt_prefix + "0" 
         node.vm.provider :libvirt do |domain|
             domain.memory = 2048
             if $cache_docker then
-                domain.storage :file, :size => '10G', :path => 'kubevirt_node_docker' + suffix.to_s + '.img', :allow_existing => true
+                    domain.storage :file, :size => '10G', :path => $libvirt_prefix.to_s + '_node_docker' + suffix.to_s + '.img', :allow_existing => true
             end
         end
 

@@ -62,8 +62,8 @@ we need the IP address of the host.
 
 ```bash
 cat > hack/config-local.sh <<EOF
-  master_ip=192.168.122.13
-  docker_tag=latest
+master_ip=192.168.122.13
+docker_tag=latest
 EOF
 make manifests docker
 ```
