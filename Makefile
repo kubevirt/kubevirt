@@ -74,7 +74,7 @@ docker: build
 publish: docker
 	./hack/build-docker.sh push ${WHAT}
 
-manifests: $(wildcard manifests/*.in)
+manifests:
 	./hack/build-manifests.sh
 
 check: check-bash vet
