@@ -337,7 +337,7 @@ there. Examples are `smartcard`, `input` and `controller`.
 
 ### Use optional structs to represent different sources or targets
 
-By having an inlinded wrapper-struct, containing optional structs corresponding
+By having an inlined wrapper-struct, containing optional structs corresponding
 to different types, we get a reasonable usable API and can maintain explicit
 mapping withing the code.
 
@@ -374,7 +374,7 @@ disk:
 
 ### Disks
 
-`disk`, `lun`, `floppy` and `cdrom` aret top level entries in the `devices`
+`disk`, `lun`, `floppy` and `cdrom` are top level entries in the `devices`
 array. Based on them, the `*.target` section can therefore be specialized based
 on the top level struct. Further, the `*.source` section can be specialized and
 can contain structs for traditional sources like `iscsi` or KubeVirt specific

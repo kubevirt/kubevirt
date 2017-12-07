@@ -65,7 +65,7 @@ as Pods (or similar) _on top of_ the Kubernetes cluster, and are not installed
 alongside of it. The type is - as said before - even defined inside the
 Kubernetes API server. This allows users to speak to Kubernetes, but modify VMs.
 
-The following diagram illustrates how the addditional controllers and daemons
+The following diagram illustrates how the additional controllers and daemons
 communicate with Kubernetes and where the additional types are stored:
 
 ![Architecture diagram](architecture.png "Architecture")
