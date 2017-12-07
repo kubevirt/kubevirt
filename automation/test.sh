@@ -93,15 +93,16 @@ done
 echo "Nodes are ready:"
 kubectl get nodes
 
+# Wait for all kubernetes pods to become ready (dont't wait for kubevirt pods from previous deployments)
 sleep 10
-while [ -n "$(kubectl get pods -n kube-system --no-headers | grep -v Running)" ]; do
+while [ -n "$(kubectl get pods -n kube-system -l '!kubevirt.io' --no-headers | grep -v Running)" ]; do
     echo "Waiting for kubernetes pods to become ready ..."
     kubectl get pods -n kube-system --no-headers | >&2 grep -v Running
     sleep 10
 done
 
 echo "Kubernetes is ready:"
-kubectl get pods -n kube-system
+kubectl get pods -n kube-system -l '!kubevirt.io'
 echo ""
 echo ""
 
