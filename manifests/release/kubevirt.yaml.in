@@ -1,0 +1,394 @@
+# RBAC
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+      - update
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachines
+      - migrations
+      - virtualmachinereplicasets
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+      - update
+      - create
+      - deletecollection
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevirt-admin
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-infra
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: kubevirt-infra
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-infra
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-infra-cluster-admin
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-infra
+    namespace: kube-system
+---
+# custom resource definitions
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachines.kubevirt.io
+  labels:
+    kubevirt.io: ""
+spec:
+  group: kubevirt.io
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    plural: virtualmachines
+    singular: virtualmachine
+    kind: VirtualMachine
+    shortNames:
+      - vm
+      - vms
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: migrations.kubevirt.io
+  labels:
+    kubevirt.io: ""
+spec:
+  scope: Namespaced
+  group: kubevirt.io
+  version: v1alpha1
+  names:
+    kind: Migration
+    plural: migrations
+    singular: migration
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachinereplicasets.kubevirt.io
+  labels:
+    kubevirt.io: ""
+spec:
+  scope: Namespaced
+  group: kubevirt.io
+  version: v1alpha1
+  names:
+    kind: VirtualMachineReplicaSet
+    plural: virtualmachinereplicasets
+    singular: virtualmachinereplicaset
+    shortNames:
+      - vmrs
+      - vmrss
+---        
+# apiserver and virt-api proxy (will be unnecessary soon)
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: haproxy
+  namespace: kube-system
+  labels:
+    kubevirt.io: "haproxy"
+spec:
+  template:
+    metadata:
+      labels:
+        kubevirt.io: haproxy
+    spec:
+      serviceAccountName: kubevirt-infra
+      containers:
+        - name: haproxy
+          image: {{ docker_prefix }}/haproxy:{{ docker_tag }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8184
+              name: "haproxy"
+              protocol: "TCP"
+          livenessProbe:
+            httpGet:
+              path: /apis/kubevirt.io/v1alpha1/healthz
+              port: 8184
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /apis/kubevirt.io/v1alpha1/healthz
+              port: 8184
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      securityContext:
+        runAsNonRoot: true
+---        
+# virt-api
+apiVersion: v1
+kind: Service
+metadata:
+  name: virt-api
+  namespace: kube-system
+  labels:
+    kubevirt.io: "virt-api"
+spec:
+  ports:
+    - port: 8183
+      targetPort: virt-api
+  selector:
+    kubevirt.io: virt-api
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: virt-api
+  namespace: kube-system
+  labels:
+    kubevirt.io: "virt-api"
+spec:
+  template:
+    metadata:
+      labels:
+        kubevirt.io: virt-api
+    spec:
+      serviceAccountName: kubevirt-infra
+      containers:
+        - name: virt-api
+          image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
+          imagePullPolicy: IfNotPresent
+          command:
+              - "/virt-api"
+              - "--port"
+              - "8183"
+              - "--spice-proxy"
+              - "$(SPICE_PROXY)"
+          ports:
+            - containerPort: 8183
+              name: "virt-api"
+              protocol: "TCP"
+      securityContext:
+        runAsNonRoot: true
+---
+# kubevirt controller
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: virt-controller
+  namespace: kube-system
+  labels:
+    kubevirt.io: "virt-controller"
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        kubevirt.io: virt-controller
+    spec:
+      serviceAccountName: kubevirt-infra
+      containers:
+        - name: virt-controller
+          image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
+          imagePullPolicy: IfNotPresent
+          command:
+              - "/virt-controller"
+              - "--launcher-image"
+              - "kubevirt/virt-launcher:{{ docker_tag }}"
+              - "--migrator-image"
+              - "kubevirt/virt-migrator:{{ docker_tag }}"
+              - "--port"
+              - "8182"
+          ports:
+            - containerPort: 8182
+              name: "virt-controller"
+              protocol: "TCP"
+          livenessProbe:
+            failureThreshold: 8
+            httpGet:
+              port: 8182
+              path: /healthz
+            initialDelaySeconds: 15
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              port: 8182
+              path: /leader
+            initialDelaySeconds: 15
+            timeoutSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+---
+# virt-handler daemon set
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: virt-handler
+  namespace: kube-system
+  labels:
+    kubevirt.io: "virt-handler"
+spec:
+  template:
+    metadata:
+      name: virt-handler
+      labels:
+        kubevirt.io: virt-handler
+    spec:
+      serviceAccountName: kubevirt-infra
+      hostPID: true
+      containers:
+        - name: virt-handler
+          ports:
+            - containerPort: 8185
+              hostPort: 8185
+          image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/virt-handler"
+            - "-v"
+            - "3"
+            - "--libvirt-uri"
+            - "qemu:///system"
+            - "--hostname-override"
+            - "$(NODE_NAME)"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: libvirt-runtime
+              mountPath: /var/run/libvirt
+            - name: virt-share-dir
+              mountPath: /var/run/kubevirt
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+      volumes:
+        - name: libvirt-runtime
+          hostPath:
+            path: /var/run/libvirt
+        - name: virt-share-dir
+          hostPath:
+            path: /var/run/kubevirt
+---
+# libvirt daemon set
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: libvirt
+  namespace: kube-system
+  labels:
+    kubevirt.io: "libvirt"
+spec:
+  template:
+    metadata:
+      name: libvirt
+      labels:
+        kubevirt.io: libvirt
+    spec:
+      serviceAccountName: kubevirt-infra
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: libvirtd
+          ports:
+            - containerPort: 16509
+              hostPort: 16509
+          image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: /host-dev
+              name: host-dev
+            - mountPath: /host-sys
+              name: host-sys
+            - name: libvirt-data
+              mountPath: /var/lib/libvirt
+            - name: libvirt-runtime
+              mountPath: /var/run/libvirt
+            - name: virt-share-dir
+              mountPath: /var/run/kubevirt
+          command: ["/libvirtd.sh"]
+        - name: virtlogd
+          image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: libvirt-runtime
+              mountPath: /var/run/libvirt
+          command: ["/usr/sbin/virtlogd", "-f", "/etc/libvirt/virtlogd.conf"]
+      volumes:
+        - name: libvirt-data
+          hostPath:
+            path: /var/lib/libvirt-container
+        - name: libvirt-runtime
+          hostPath:
+            path: /var/run/libvirt
+        - name: host-dev
+          hostPath:
+            path: /dev
+        - name: host-sys
+          hostPath:
+            path: /sys
+        - name: virt-share-dir
+          hostPath:
+            path: /var/run/kubevirt

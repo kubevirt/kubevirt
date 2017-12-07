@@ -58,15 +58,12 @@ step using
 ## Building kubevirt
 
 First configure kubevirt with site specific parameters. As above
-we need the hostname and IP address. We also, however, want to
-set the primary NIC name associated with the public IP addr.
+we need the IP address of the host.
 
 ```bash
 cat > hack/config-local.sh <<EOF
-  master_ip=192.168.122.13
-  primary_nic=ens3
-  primary_node_name=kubdev
-  docker_tag=latest
+master_ip=192.168.122.13
+docker_tag=latest
 EOF
 make manifests docker
 ```

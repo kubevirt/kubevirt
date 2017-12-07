@@ -22,19 +22,17 @@ set -e
 source hack/config.sh
 
 if [ $# -eq 0 ]; then
-    args=$manifest_templates
+    args=$(find manifests -type f -name "*.yaml.in")
 else
     args=$@
 fi
 
 # Delete all generated manifests in case an input file was deleted or renamed
-rm -f "manifests/*.yaml"
+find manifests -name "*.yaml" -type f -delete
 
 # Render kubernetes manifests
 for arg in $args; do
     sed -e "s/{{ master_ip }}/$master_ip/g" \
-        -e "s/{{ primary_nic }}/$primary_nic/g" \
-        -e "s/{{ primary_node_name }}/$primary_node_name/g" \
         -e "s/{{ docker_tag }}/$docker_tag/g" \
         -e "s/{{ docker_prefix }}/$docker_prefix/g" \
         $arg > ${arg%%.in}

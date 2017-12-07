@@ -12,7 +12,7 @@ cmd/virt-api/virt-api*
 cmd/virtctl/virtctl*
 cmd/virt-dhcp/virt-dhcp*
 tools/openapispec/openapispec
-manifests/*.yaml
+manifests/**/*.yaml
 **/bin
 bin/*
 .vagrant

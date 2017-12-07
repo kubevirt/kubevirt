@@ -21,59 +21,52 @@ set -ex
 
 KUBECTL=${KUBECTL:-kubectl}
 
-externalServiceManifests()
-{
-  source hack/config.sh
+source hack/config.sh
 
-  # Pretty much equivalent to `kubectl expose service ...`
-  for SVC in spice-proxy:3128 virt-api:8182 haproxy:8184 virt-manifest:8186;
-  do
-    IFS=: read NAME PORT <<<$SVC
-    cat <<EOF
-apiVersion: v1
-kind: Service
-metadata:
-  name: external-$NAME
-  namespace: kube-system
+spiceProxy() {
+cat <<EOF
 spec:
-  externalIPs:
-  - "$master_ip"
-  ports:
-    - port: $PORT
-      targetPort: $PORT
-  selector:
-    app: $NAME
+  template:
+    spec:
+      containers:
+        - name: virt-api
+          env:
+            - name: SPICE_PROXY
+              value: "http://${master_ip}:3128"
 ---
 EOF
-  done
 }
 
 echo "Cleaning up ..."
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
-$KUBECTL delete -f manifests/virt-handler.yaml --cascade=false --grace-period 0 2>/dev/null || :
-$KUBECTL delete pods -n kube-system -l=daemon=virt-handler --force --grace-period 0 2>/dev/null || :
+$KUBECTL delete ds -l "kubevirt.io" -n kube-system --cascade=false --grace-period 0 2>/dev/null || :
+$KUBECTL delete pods -n kube-system -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
+$KUBECTL delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
 
-$KUBECTL delete -f manifests/libvirt.yaml --cascade=false --grace-period 0 2>/dev/null || :
-$KUBECTL delete pods -n kube-system -l=daemon=libvirt --force --grace-period 0 2>/dev/null || :
+# Delete everything, no matter if release, devel or infra
+$KUBECTL delete -f manifests -R --grace-period 1 2>/dev/null || :
 
-# Make sure that the vms CRD is deleted, we use virtualmachines now
-$KUBECTL delete customresourcedefinitions vms.kubevirt.io  || :
-
-# Remove all external facing services
-externalServiceManifests | cluster/kubectl.sh --core delete -f - || :
-
-# Delete everything else
-for i in `ls manifests/*.yaml`; do
-    $KUBECTL delete -f $i --grace-period 0 2>/dev/null || :
-done
+# Delete exposures
+$KUBECTL delete services -l "kubevirt.io" -n kube-system
 
 sleep 2
 
 echo "Deploying ..."
-externalServiceManifests | cluster/kubectl.sh --core apply -f -
 
-for i in `ls manifests/*.yaml`; do
-    $KUBECTL create -f $i
-done
+# Deploy the right manifests for the right target
+if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
+    $KUBECTL create -f manifests/dev -R $i
+elif [ "$TARGET" = "vagrant-release"  ]; then
+    $KUBECTL create -f manifests/release -R $i
+   ## Tell virt-api where to look for the spice proxy
+   spiceProxy | $KUBECTL patch deployment virt-api -n kube-system --patch "$(cat -)"
+fi
+
+## Expose common services
+$KUBECTL expose deployment haproxy --port 8184 -l 'kubevirt.io=haproxy' -n kube-system --external-ip $master_ip
+$KUBECTL expose deployment spice-proxy --port 3128 -l 'kubevirt.io=spice-proxy' -n kube-system --external-ip $master_ip
+
+# Deploy additional infra for testing
+$KUBECTL create -f manifests/testing -R $i
 
 echo "Done"

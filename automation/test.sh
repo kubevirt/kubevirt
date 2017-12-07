@@ -17,10 +17,27 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+# CI considerations: $TARGET is used by the jenkins vagrant build, to distinguish what to test
+# Currently considered $TARGET values:
+#     vagrant-dev: Runs all functional tests on a development vagrant setup
+#     vagrant-release: Runs all possible functional tests on a release deployment in vagrant
+#     TODO: vagrant-tagged-release: Runs all possible functional tests on a release deployment in vagrant on a tagged release
+
 set -ex
 
 kubectl() { cluster/kubectl.sh --core "$@"; }
 
+if [ "$TARGET" = "vagrant-dev"  ]; then
+cat > hack/config-local.sh <<EOF
+master_ip=192.168.1.2
+EOF
+elif [ "$TARGET" = "vagrant-release"  ]; then
+cat > hack/config-local.sh <<EOF
+master_ip=192.168.2.2
+EOF
+fi
+
+VAGRANT_PREFIX=${VARIABLE:-kubevirt}
 
 # Install GO
 eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=stable bash)"
@@ -43,17 +60,10 @@ export VAGRANT_DOTFILE_PATH="${VAGRANT_DOTFILE_PATH:-$WORKSPACE/.vagrant}"
 trap '{ vagrant halt; }' EXIT
 
 set +e
+
+# TODO handle complete workspace removal on CI
 vagrant up --provider=libvirt
 if [ $? -ne 0 ]; then
-  # After a workspace cleanup we loose our .vagrant file, this means that we have to clean up libvirt
-  vagrant destroy
-  virsh destroy kubevirt_master
-  virsh undefine kubevirt_master
-  virsh destroy kubevirt_node0
-  virsh undefine kubevirt_node0
-  virsh net-destroy vagrant0
-  virsh net-undefine vagrant0
-  # Remove now stale images
   vagrant destroy
   set -e
   vagrant up --provider=libvirt
@@ -83,19 +93,21 @@ done
 echo "Nodes are ready:"
 kubectl get nodes
 
+# Wait for all kubernetes pods to become ready (dont't wait for kubevirt pods from previous deployments)
 sleep 10
-while [ -n "$(kubectl get pods -n kube-system --no-headers | grep -v Running)" ]; do
+while [ -n "$(kubectl get pods -n kube-system -l '!kubevirt.io' --no-headers | grep -v Running)" ]; do
     echo "Waiting for kubernetes pods to become ready ..."
     kubectl get pods -n kube-system --no-headers | >&2 grep -v Running
     sleep 10
 done
 
 echo "Kubernetes is ready:"
-kubectl get pods -n kube-system
+kubectl get pods -n kube-system -l '!kubevirt.io'
 echo ""
 echo ""
 
 # Delete traces from old deployments
+# TODO remove this soon, kept for backward compatibility right now
 namespaces=(default kube-system)
 for i in ${namespaces[@]}; do
     kubectl -n ${i} delete deployment -l 'app'
@@ -109,8 +121,25 @@ for i in ${namespaces[@]}; do
     kubectl -n ${i} delete pods -l 'app'
 done
 
-# Deploy kubevirt
-cluster/sync.sh
+# This is the new and cleaner way of removing kubevirt with harmonized labels
+namespaces=(default kube-system)
+for i in ${namespaces[@]}; do
+    kubectl -n ${i} delete deployment -l 'kubevirt.io'
+    kubectl -n ${i} delete services -l 'kubevirt.io'
+    kubectl -n ${i} delete pv -l 'kubevirt.io'
+    kubectl -n ${i} delete pvc -l 'kubevirt.io'
+    kubectl -n ${i} delete ds -l 'kubevirt.io'
+    kubectl -n ${i} delete crd -l 'kubevirt.io'
+    kubectl -n ${i} delete serviceaccounts -l 'kubevirt.io'
+    kubectl -n ${i} delete clusterrolebinding -l 'kubevirt.io'
+    kubectl -n ${i} delete pods -l 'kubevirt.io'
+done
+
+if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
+    cluster/sync.sh
+elif [ "$TARGET" = "vagrant-release"  ]; then
+    cluster/sync.sh
+fi
 
 # Wait until kubevirt pods are running
 while [ -n "$(kubectl get pods -n kube-system --no-headers | grep -v Running)" ]; do

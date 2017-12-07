@@ -75,7 +75,7 @@ func spiceFromVM(vm *v1.VirtualMachine) (*v1.Spice, error) {
 				Port: d.Port,
 			}
 			if spiceProxy != "" {
-				spice.Info.Proxy = fmt.Sprintf("http://%s", spiceProxy)
+				spice.Info.Proxy = fmt.Sprintf("%s", spiceProxy)
 			}
 			return spice, nil
 		}

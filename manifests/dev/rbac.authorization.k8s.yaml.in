@@ -4,7 +4,7 @@ metadata:
   name: kubevirt-infra
   namespace: kube-system
   labels:
-    name: kubevirt
+    kubevirt.io: ""
 rules:
   - apiGroups:
       - ''
@@ -47,7 +47,7 @@ metadata:
   name: kubevirt-infra
   namespace: kube-system
   labels:
-    name: kubevirt
+    kubevirt.io: ""
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -55,7 +55,7 @@ metadata:
   name: kubevirt-admin
   namespace: kube-system
   labels:
-    name: kubevirt-admin
+    kubevirt.io: ""
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -63,7 +63,7 @@ metadata:
   name: kubevirt-infra
   namespace: kube-system
   labels:
-    name: kubevirt
+    kubevirt.io: ""
 roleRef:
   kind: ClusterRole
   name: kubevirt-infra
@@ -79,7 +79,7 @@ metadata:
   name: kubevirt-infra-cluster-admin
   namespace: kube-system
   labels:
-    name: kubevirt
+    kubevirt.io: ""
 roleRef:
   kind: ClusterRole
   name: cluster-admin

@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/tests"
@@ -107,7 +108,7 @@ func getLeader() string {
 }
 
 func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
-	labelSelector, err := labels.Parse(fmt.Sprint("app=virt-controller"))
+	labelSelector, err := labels.Parse(fmt.Sprint(v1.AppLabel + "=virt-controller"))
 	tests.PanicOnError(err)
 	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
 	controllerPods, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).List(

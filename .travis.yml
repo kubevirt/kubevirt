@@ -45,6 +45,7 @@ script:
   -service=travis-ci -package=./pkg/... -ignore=$(find -name generated_mock*.go -printf
   "%P\n" | paste -d, -s) ; else make test; fi
 - make apidocs
+- make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
 
 cache:
   directories:
@@ -71,6 +72,8 @@ deploy:
   file_glob: true
   file:
   - cmd/virtctl/virtctl-*
+  - manifests/release/kubevirt.yaml
+  - manifests/release/spice-proxy.yaml
   on:
     tags: true
     repo: kubevirt/kubevirt

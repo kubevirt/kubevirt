@@ -58,7 +58,7 @@ func (v *virtHandler) ForNode(nodeName string) VirtHandlerConn {
 func (v *virtHandler) getVirtHandler(nodeName string) (*v1.Pod, bool, error) {
 
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
-	labelSelector, err := labels.Parse("daemon in (virt-handler)")
+	labelSelector, err := labels.Parse(virtv1.AppLabel + " in (virt-handler)")
 	if err != nil {
 		return nil, false, err
 	}

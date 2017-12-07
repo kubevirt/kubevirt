@@ -47,8 +47,8 @@ clean:
 	rm tools/openapispec/openapispec -rf
 
 distclean: clean
+	find manifests -name "*.yaml" -type f -delete
 	rm -rf vendor/
-	rm -f manifest/*.yaml
 	rm -f .glide.*.hash
 	glide cc
 
@@ -74,7 +74,7 @@ docker: build
 publish: docker
 	./hack/build-docker.sh push ${WHAT}
 
-manifests: $(wildcard manifests/*.in)
+manifests:
 	./hack/build-manifests.sh
 
 check: check-bash vet

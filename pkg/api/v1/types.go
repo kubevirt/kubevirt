@@ -318,7 +318,7 @@ const (
 )
 
 const (
-	AppLabel          string = "kubevirt.io/app"
+	AppLabel          string = "kubevirt.io"
 	DomainLabel       string = "kubevirt.io/domain"
 	VMUIDLabel        string = "kubevirt.io/vmUID"
 	NodeNameLabel     string = "kubevirt.io/nodeName"
