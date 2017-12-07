@@ -74,6 +74,7 @@ deploy:
   - cmd/virtctl/virtctl-*
   - manifests/release/kubevirt.yaml
   - manifests/release/spice-proxy.yaml
+  prerelease: true
   on:
     tags: true
     repo: kubevirt/kubevirt
