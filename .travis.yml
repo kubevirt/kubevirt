@@ -24,6 +24,8 @@ install:
  - go get -u github.com/rmohr/mock/mockgen
  - go get -u github.com/rmohr/go-swagger-utils/swagger-doc
  - go get -u github.com/onsi/ginkgo/ginkgo
+ - go get -u k8s.io/code-generator/cmd/deepcopy-gen
+ - go get -u k8s.io/code-generator/cmd/defaulter-gen
  - sudo apt-get install libvirt-dev make
  - make sync
 
