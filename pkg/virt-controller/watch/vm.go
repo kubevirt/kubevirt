@@ -240,12 +240,13 @@ func (c *VMController) execute(key string) error {
 		// VM got scheduled
 		vmCopy.Status.Phase = kubev1.Scheduled
 
-		// FIXME we store this in the metadata since field selectors are currently not working for TPRs
+		// FIXME we store this in the metadata since field selectors are currently not working for CRDs
 		if vmCopy.GetObjectMeta().GetLabels() == nil {
 			vmCopy.ObjectMeta.Labels = map[string]string{}
 		}
 		vmCopy.ObjectMeta.Labels[kubev1.NodeNameLabel] = pods.Items[0].Spec.NodeName
 		vmCopy.Status.NodeName = pods.Items[0].Spec.NodeName
+		vmCopy.ObjectMeta.Finalizers = append(vmCopy.ObjectMeta.Finalizers, kubev1.FinalizerDeleteVirtualMachine)
 		if _, err := c.vmService.PutVm(&vmCopy); err != nil {
 			logger.Reason(err).Error("Updating the VM state to 'Scheduled' failed.")
 			return err

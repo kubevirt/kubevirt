@@ -219,6 +219,7 @@ var _ = Describe("VM watcher", func() {
 			expectedVM.Status.Phase = v1.Scheduled
 			expectedVM.Status.NodeName = pod.Spec.NodeName
 			expectedVM.ObjectMeta.Labels = map[string]string{v1.NodeNameLabel: pod.Spec.NodeName}
+			expectedVM.ObjectMeta.Finalizers = []string{v1.FinalizerDeleteVirtualMachine}
 
 			// Register the expected REST call
 			server.AppendHandlers(

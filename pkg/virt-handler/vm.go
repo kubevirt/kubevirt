@@ -345,9 +345,13 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	log.Log.Object(vm).V(3).Info("Processing VM update.")
 
-	// Process the VM only if the current phases are in sync
 	var syncErr error
-	if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) || !exists {
+
+	// We only synchronize if
+	// the domain status and the vm status are in sync (gives the VM status time to catch up with the domain),
+	// or the VM got force deleted (vm status and domain status can then never match in some cases),
+	// or we had an error on the last sync (avoid flipping of the synchronized condition and make sure that back-off policy can detect failed sync attempts )
+	if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) || !exists || d.hasCondition(vm, v1.VirtualMachineSynchronized) {
 		syncErr = d.processVmUpdate(vm.DeepCopy(), shouldDeleteVm)
 		if syncErr != nil {
 			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
@@ -680,6 +684,11 @@ func (d *VirtualMachineController) removeCondition(vm *v1.VirtualMachine, cond v
 
 func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) {
 	vm.Status.Phase = d.calculateVmPhaseForStatusReason(domain, vm)
+	// If the VM is finally down and we were dealing with  a graceful delete, remove the finalizer, to allow final deletion
+	if vm.IsFinal() && vm.ObjectMeta.DeletionTimestamp != nil && len(vm.ObjectMeta.Finalizers) > 0 && vm.ObjectMeta.Finalizers[0] == v1.FinalizerDeleteVirtualMachine {
+		log.Log.V(2).Object(vm).Error("VM gracefully deleted, removing finalizer.")
+		vm.ObjectMeta.Finalizers = vm.ObjectMeta.Finalizers[1:]
+	}
 }
 func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) v1.VMPhase {
 

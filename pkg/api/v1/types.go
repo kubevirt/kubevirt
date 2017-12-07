@@ -279,6 +279,15 @@ const (
 	VirtualMachineSynchronized VirtualMachineConditionType = "Synchronized"
 )
 
+// KubeVirt finalizers on vms
+const (
+	// Once a VirtualMachine is scheduled, virt-handler is responsible for cleaning
+	// the craces of the VirtualMachine on the node. After the vm go scheduled, the
+	// controller adds this finalizer. On graceful-delete, virt-handler will remove
+	// the vm on the node and then remove this finalizer.
+	FinalizerDeleteVirtualMachine = "deleteVirtualMachine"
+)
+
 type VMCondition struct {
 	Type               VirtualMachineConditionType `json:"type"`
 	Status             k8sv1.ConditionStatus       `json:"status"`
