@@ -21,9 +21,9 @@ FROM fedora:26
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
 # Create non-root user
-RUN useradd --create-home -s /bin/bash virt-controller
+RUN useradd -u 1001 --create-home -s /bin/bash virt-controller
 WORKDIR /home/virt-controller
-USER virt-controller
+USER 1001
 COPY virt-controller /virt-controller
 
 ENTRYPOINT [ "/virt-controller" ]
