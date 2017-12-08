@@ -22,6 +22,7 @@ package api
 import (
 	"encoding/xml"
 	"reflect"
+	"time"
 
 	"github.com/jeevatkm/go-model"
 	kubev1 "k8s.io/api/core/v1"
@@ -231,8 +232,8 @@ type Metadata struct {
 }
 
 type GracePeriodMetadata struct {
-	Seconds       int64 `xml:"period"`
-	StartTimeUnix int64 `xml:"start"`
+	DeletionGracePeriodSeconds int64      `xml:"deletionGracePeriodSeconds"`
+	DeletionTimestamp          *time.Time `xml:"deletionTimestamp,omitempty"`
 }
 
 type Commandline struct {

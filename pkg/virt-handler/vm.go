@@ -129,8 +129,11 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (bool,
 		return true, 0, nil
 	}
 
-	startTime := dom.Spec.Metadata.GracePeriod.StartTimeUnix
-	gracePeriod := dom.Spec.Metadata.GracePeriod.Seconds
+	startTime := int64(0)
+	if dom.Spec.Metadata.GracePeriod.DeletionTimestamp != nil {
+		startTime = dom.Spec.Metadata.GracePeriod.DeletionTimestamp.UTC().Unix()
+	}
+	gracePeriod := dom.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds
 
 	if gracePeriod == 0 {
 		return true, 0, nil

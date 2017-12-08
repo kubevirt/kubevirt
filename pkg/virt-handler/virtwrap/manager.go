@@ -201,7 +201,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	}
 
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
-		wantedSpec.Metadata.GracePeriod.Seconds = *vm.Spec.TerminationGracePeriodSeconds
+		wantedSpec.Metadata.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
 	}
 
 	domName := cache.VMNamespaceKeyFunc(vm)
@@ -340,7 +340,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 			return err
 		}
 
-		if domSpec.Metadata.GracePeriod.StartTimeUnix == 0 {
+		if domSpec.Metadata.GracePeriod.DeletionTimestamp == nil {
 			err = dom.Shutdown()
 			if err != nil {
 				log.Log.Object(vm).Reason(err).Error("Signalling graceful shutdown failed.")
@@ -348,7 +348,8 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 			}
 			log.Log.Object(vm).Infof("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())
 
-			domSpec.Metadata.GracePeriod.StartTimeUnix = time.Now().UTC().Unix()
+			now := time.Now()
+			domSpec.Metadata.GracePeriod.DeletionTimestamp = &now
 			_, err = l.setDomainXML(vm, *domSpec)
 			if err != nil {
 				log.Log.Object(vm).Reason(err).Error("Unable to update grace period start time on domain xml")

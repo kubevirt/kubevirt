@@ -62,8 +62,7 @@ var exampleXML = `<domain type="qemu">
   </devices>
   <metadata>
     <graceperiod xmlns="http://kubevirt.io">
-      <period>0</period>
-      <start>0</start>
+      <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
     </graceperiod>
   </metadata>
 </domain>`

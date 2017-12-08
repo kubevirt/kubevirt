@@ -138,7 +138,7 @@ var _ = Describe("VM", func() {
 
 	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachine, dom *api.Domain) {
 		vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
-		dom.Spec.Metadata.GracePeriod.Seconds = gracePeriod
+		dom.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 
 	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
@@ -212,7 +212,8 @@ var _ = Describe("VM", func() {
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vm, domain)
-			domain.Spec.Metadata.GracePeriod.StartTimeUnix = time.Now().UTC().Unix() - 3
+			now := time.Unix(time.Now().UTC().Unix()-3, 0)
+			domain.Spec.Metadata.GracePeriod.DeletionTimestamp = &now
 
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
