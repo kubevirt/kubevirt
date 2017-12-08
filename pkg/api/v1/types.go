@@ -19,6 +19,8 @@
 
 package v1
 
+//go:generate deepcopy-gen -i .
+//go:generate defaulter-gen -i .
 //go:generate swagger-doc
 
 /*
@@ -74,6 +76,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineReplicaSet{},
 		&VirtualMachineReplicaSetList{},
 		&metav1.GetOptions{},
+		&Spice{},
 	)
 	return nil
 }
@@ -99,9 +102,9 @@ type VirtualMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VM Spec contains the VM specification.
-	Spec VMSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
-	Status VMStatus `json:"status,omitempty"`
+	Status VirtualMachineStatus `json:"status,omitempty"`
 }
 
 // VirtualMachineList is a list of VirtualMachines
@@ -112,17 +115,21 @@ type VirtualMachineList struct {
 	Items           []VirtualMachine `json:"items"`
 }
 
-// VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.
-// It is expected that v1.DomainSpec will be merged into this structure.
-type VMSpec struct {
-	// Domain is the actual libvirt domain.
+// VirtualMachineSpec is a description of a VirtualMachine.
+type VirtualMachineSpec struct {
+	// Specification of the desired behavior of the VirtualMachine on the host.
 	Domain *DomainSpec `json:"domain,omitempty"`
-	// If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.
+	// NodeSelector is a selector which must be true for the vm to fit on a node.
+	// Selector which must match a node's labels for the vm to be scheduled on that node.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// If affinity is specifies, obey all the affinity rules
 	Affinity *Affinity `json:"affinity,omitempty"`
 	// Grace period observed after signalling a VM to stop after which the VM is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+
+	Volumes *[]Volume
 }
 
 // Affinity groups all the affinity rules related to a VM
@@ -131,22 +138,22 @@ type Affinity struct {
 	NodeAffinity *k8sv1.NodeAffinity `json:"nodeAffinity,omitempty"`
 }
 
-// VMStatus represents information about the status of a VM. Status may trail the actual
+// VirtualMachineStatus represents information about the status of a VM. Status may trail the actual
 // state of a system.
-type VMStatus struct {
+type VirtualMachineStatus struct {
 	// NodeName is the name where the VM is currently running.
 	NodeName string `json:"nodeName,omitempty"`
 	// MigrationNodeName is the node where the VM is live migrating to.
 	MigrationNodeName string `json:"migrationNodeName,omitempty"`
 	// Conditions are specific points in VM's pod runtime.
-	Conditions []VMCondition `json:"conditions,omitempty"`
+	Conditions []VirtualMachineCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
 	Phase VMPhase `json:"phase,omitempty"`
 	// Graphics represent the details of available graphical consoles.
-	Graphics []VMGraphics `json:"graphics" optional:"true"`
+	Graphics []VirtualMachineGraphics `json:"graphics" optional:"true"`
 }
 
-type VMGraphics struct {
+type VirtualMachineGraphics struct {
 	Type string `json:"type"`
 	Host string `json:"host"`
 	Port int32  `json:"port"`
@@ -222,7 +229,7 @@ const (
 	VirtualMachineSynchronized VirtualMachineConditionType = "Synchronized"
 )
 
-type VMCondition struct {
+type VirtualMachineCondition struct {
 	Type               VirtualMachineConditionType `json:"type"`
 	Status             k8sv1.ConditionStatus       `json:"status"`
 	LastProbeTime      metav1.Time                 `json:"lastProbeTime,omitempty"`
@@ -271,13 +278,13 @@ const (
 
 func NewVM(name string, uid types.UID) *VirtualMachine {
 	return &VirtualMachine{
-		Spec: VMSpec{},
+		Spec: VirtualMachineSpec{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			UID:       uid,
 			Namespace: k8sv1.NamespaceDefault,
 		},
-		Status: VMStatus{},
+		Status: VirtualMachineStatus{},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       VirtualMachineGroupVersionKind.Kind,
@@ -320,7 +327,7 @@ func NewMinimalVM(vmName string) *VirtualMachine {
 func NewMinimalVMWithNS(namespace string, vmName string) *VirtualMachine {
 	precond.CheckNotEmpty(vmName)
 	vm := NewVMReferenceFromNameWithNS(namespace, vmName)
-	vm.Spec = VMSpec{Domain: NewMinimalDomainSpec()}
+	vm.Spec = VirtualMachineSpec{Domain: NewMinimalDomainSpec()}
 	vm.TypeMeta = metav1.TypeMeta{
 		APIVersion: GroupVersion.String(),
 		Kind:       "VirtualMachine",
@@ -345,6 +352,7 @@ func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine
 	return vm
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Spice struct {
 	metav1.TypeMeta `json:",inline" ini:"-"`
 	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty" ini:"-"`
@@ -640,7 +648,7 @@ const (
 type VMTemplateSpec struct {
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VM Spec contains the VM specification.
-	Spec VMSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
 }
 
 // Required to satisfy Object interface

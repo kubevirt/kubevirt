@@ -202,6 +202,6 @@ var _ = Describe("Manager", func() {
 func newVM(namespace string, name string) *v1.VirtualMachine {
 	return &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec:       v1.VMSpec{Domain: v1.NewMinimalDomainSpec()},
+		Spec:       v1.VirtualMachineSpec{Domain: v1.NewMinimalDomainSpec()},
 	}
 }

@@ -174,7 +174,7 @@ var _ = Describe("ConfigDiskServer", func() {
 				userData := "fake\nuser\ndata\n"
 				metaData := "fake\nmeta\ndata\n"
 				spec := &v1.CloudInitSpec{
-					NoCloudData: &v1.CloudInitDataSourceNoCloud{
+					NoCloudData: &v1.CloudInitNoCloudSource{
 						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 						MetaDataBase64: base64.StdEncoding.EncodeToString([]byte(metaData)),
 					},

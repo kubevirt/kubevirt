@@ -513,8 +513,7 @@ func NewRandomVMWithNS(namespace string) *v1.VirtualMachine {
 
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
-	vm.Spec.Domain.Memory.Value = 64
+	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
 		Type:   "RegistryDisk:v1alpha",
 		Device: "disk",
@@ -550,7 +549,7 @@ func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, cloudInitDat
 	switch cloudInitDataSource {
 	case "noCloud":
 		spec := &v1.CloudInitSpec{
-			NoCloudData: &v1.CloudInitDataSourceNoCloud{
+			NoCloudData: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 			},
 		}
@@ -573,7 +572,7 @@ func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.V
 	case "noCloud":
 		vm := NewRandomVMWithSerialConsole()
 		spec := &v1.CloudInitSpec{
-			NoCloudData: &v1.CloudInitDataSourceNoCloud{
+			NoCloudData: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 			},
 		}
@@ -593,8 +592,7 @@ func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.V
 
 func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
-	vm.Spec.Domain.Memory.Value = 64
+	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
 		Type:     "network",
 		Snapshot: "external",
@@ -631,8 +629,7 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 
 func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
-	vm.Spec.Domain.Memory.Value = 64
+	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
 		Type:     "PersistentVolumeClaim",
 		Snapshot: "external",

@@ -41,11 +41,8 @@ type StateChangeReason string
 
 func init() {
 	// TODO the whole mapping registration can be done be an automatic process with reflection
-	mapper.AddConversion(&Memory{}, &v1.Memory{})
-	mapper.AddConversion(&OS{}, &v1.OS{})
 	mapper.AddConversion(&Devices{}, &v1.Devices{})
 	mapper.AddPtrConversion((**Clock)(nil), (**v1.Clock)(nil))
-	mapper.AddPtrConversion((**SysInfo)(nil), (**v1.SysInfo)(nil))
 	mapper.AddConversion(&Channel{}, &v1.Channel{})
 	mapper.AddConversion(&Interface{}, &v1.Interface{})
 	mapper.AddConversion(&Graphics{}, &v1.Graphics{})
@@ -70,12 +67,6 @@ func init() {
 	mapper.AddPtrConversion((**LinkState)(nil), (**v1.LinkState)(nil))
 	mapper.AddPtrConversion((**FilterRef)(nil), (**v1.FilterRef)(nil))
 	mapper.AddPtrConversion((**Alias)(nil), (**v1.Alias)(nil))
-	mapper.AddConversion(&OSType{}, &v1.OSType{})
-	mapper.AddPtrConversion((**SMBios)(nil), (**v1.SMBios)(nil))
-	mapper.AddConversion(&Boot{}, &v1.Boot{})
-	mapper.AddPtrConversion((**BootMenu)(nil), (**v1.BootMenu)(nil))
-	mapper.AddPtrConversion((**BIOS)(nil), (**v1.BIOS)(nil))
-	mapper.AddConversion(&Entry{}, &v1.Entry{})
 	mapper.AddConversion(&ChannelSource{}, &v1.ChannelSource{})
 	mapper.AddPtrConversion((**ChannelTarget)(nil), (**v1.ChannelTarget)(nil))
 	mapper.AddConversion(&VideoModel{}, &v1.Video{})

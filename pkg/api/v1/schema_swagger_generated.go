@@ -2,9 +2,9 @@
 
 package v1
 
-func (CloudInitDataSourceNoCloud) SwaggerDoc() map[string]string {
+func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+		"":                  "Repre\nMorehttp://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 		"userDataSecretRef": "Reference to a k8s secret that contains NoCloud userdata",
 		"userDataBase64":    "The NoCloud cloud-init userdata as a base64 encoded string",
 		"metaDataBase64":    "The NoCloud cloud-init metadata as a base64 encoded string",
@@ -22,7 +22,11 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (Memory) SwaggerDoc() map[string]string {
+func (ResourceRequirements) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (Firmware) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
@@ -31,7 +35,59 @@ func (Devices) SwaggerDoc() map[string]string {
 }
 
 func (Disk) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "This must match the Name of a Volume.",
+	}
+}
+
+func (DiskTargets) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
+	}
+}
+
+func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (LunTarget) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (FloppyTarget) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (CDRomTarget) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (DiskBaseTarget) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (Volume) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "Volume represents a named volume in a vm.",
+		"name": "Volume's name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+	}
+}
+
+func (VolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
+		"ISCSI":                 "ISCSI represents an ISCSI Disk resource that is attached to a\nkubelet's host machine and then exposed to the pod.\nMore info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md\n+optional",
+		"PersistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nMade available to the vm as mounted block storage\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"CloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
+		"RegistryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
+	}
+}
+
+func (RegistryDiskSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "Represents a docker image with an embedded disk",
+		"image": "Image is the name of the image with the embedded disk",
+	}
 }
 
 func (DiskAuth) SwaggerDoc() map[string]string {
@@ -50,7 +106,7 @@ func (DiskSource) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (DiskTarget) SwaggerDoc() map[string]string {
+func (DiskTargetTmp) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
@@ -118,44 +174,19 @@ func (Alias) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (OS) SwaggerDoc() map[string]string {
-	return map[string]string{}
+func (ClockOffset) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "Exactly one of its members must be set.",
+		"utc":      "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and not reset.",
+		"timezone": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York')",
+	}
 }
 
-func (OSType) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (SMBios) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (NVRam) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Boot) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (BootMenu) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (BIOS) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Loader) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (SysInfo) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Entry) SwaggerDoc() map[string]string {
-	return map[string]string{}
+func (ClockOffsetUTC) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "UTC sets the guest clock to UTC on each boot.",
+		"offsetSeconds": "OffsetSeconds specifies an offset in seconds, relative to UTC. If set,\nguest changes to the clock will be kept during reboots and not reset.",
+	}
 }
 
 func (Clock) SwaggerDoc() map[string]string {
@@ -163,7 +194,68 @@ func (Clock) SwaggerDoc() map[string]string {
 }
 
 func (Timer) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"hpet":   "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
+		"kvm":    "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
+		"pit":    "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
+		"trc":    "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
+		"hyperv": "Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.",
+	}
+}
+
+func (RTCTimerAttrs) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (TimerAttrs) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
+		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+	}
+}
+
+func (Features) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"acpi":   "Defaults to the machine type setting\n+optional",
+		"apic":   "Defaults to the machine type setting\n+optional",
+		"hyperv": "Defaults to the machine type setting\n+optional",
+	}
+}
+
+func (FeatureState) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+	}
+}
+
+func (FeatureAPIC) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"endOfInterrupt": "EndOfInterrupt enables the end of interrupt notification in the guest\nDefaults to false\n+optional",
+	}
+}
+
+func (FeatureSpinlocks) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"Spinlocks": "Spinlocks indicates how many spinlocks are made available\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
+	}
+}
+
+func (FeatureVendorID) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (FeatureHyperv) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"Relaxed":    "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
+		"VAPIC":      "VAPIC indicates weather virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
+		"Spinlocks":  "Spiinlocks\nSpinlocks indicates if spinlocks should be made available to the guest\n+optional",
+		"VPIndex":    "VPIndex\nDefaults to the machine type setting\n+optional",
+		"Runtime":    "Runtime\nDefaults to the machine type setting\n+optional",
+		"SyNIC":      "SyNIC\nDefaults to the machine type setting\n+optional",
+		"SyNICTimer": "SyNICTimer\nDefaults to the machine type setting\n+optional",
+		"Reset":      "Reset\nDefaults to the machine type setting\n+optional",
+		"VendorID":   "VendorID\nDefaults to the machine type setting\n+optional",
+	}
 }
 
 func (Channel) SwaggerDoc() map[string]string {

@@ -208,13 +208,13 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	oldStatus := vm.DeepCopy().Status
 	// Make sure that we always deal with an empty instance for later equality checks
 	if oldStatus.Graphics == nil {
-		oldStatus.Graphics = []v1.VMGraphics{}
+		oldStatus.Graphics = []v1.VirtualMachineGraphics{}
 	}
 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
 
-	vm.Status.Graphics = []v1.VMGraphics{}
+	vm.Status.Graphics = []v1.VirtualMachineGraphics{}
 
 	// Update devices if device status changed
 	// TODO needs caching, better position or init fetch
@@ -224,12 +224,12 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 			return err
 		}
 
-		vm.Status.Graphics = []v1.VMGraphics{}
+		vm.Status.Graphics = []v1.VirtualMachineGraphics{}
 		for _, src := range domain.Spec.Devices.Graphics {
 			if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
 				continue
 			}
-			dst := v1.VMGraphics{
+			dst := v1.VirtualMachineGraphics{
 				Type: src.Type,
 				Host: nodeIP,
 				Port: src.Port,
@@ -772,7 +772,7 @@ func (d *VirtualMachineController) isMigrationDestination(namespace string, vmNa
 
 func (d *VirtualMachineController) checkFailure(vm *v1.VirtualMachine, syncErr error, reason string) (changed bool) {
 	if syncErr != nil && !d.hasCondition(vm, v1.VirtualMachineSynchronized) {
-		vm.Status.Conditions = append(vm.Status.Conditions, v1.VMCondition{
+		vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
 			Type:               v1.VirtualMachineSynchronized,
 			Reason:             reason,
 			Message:            syncErr.Error(),
@@ -797,7 +797,7 @@ func (d *VirtualMachineController) hasCondition(vm *v1.VirtualMachine, cond v1.V
 }
 
 func (d *VirtualMachineController) removeCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
-	conds := []v1.VMCondition{}
+	conds := []v1.VirtualMachineCondition{}
 	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
 			continue

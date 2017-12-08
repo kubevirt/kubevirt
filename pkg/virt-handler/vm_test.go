@@ -262,7 +262,7 @@ var _ = Describe("VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
-			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Graphics = []v1.VirtualMachineGraphics{}
 
 			mockWatchdog.CreateFile(vm)
 			domain := api.NewMinimalDomain("testvm")
@@ -277,7 +277,7 @@ var _ = Describe("VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
-			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Graphics = []v1.VirtualMachineGraphics{}
 
 			updatedVM := vm.DeepCopy()
 			updatedVM.Status.Phase = v1.Running
@@ -321,9 +321,9 @@ var _ = Describe("VM", func() {
 		It("should remove an error condition if a synchronization run succeeds", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
-			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Graphics = []v1.VirtualMachineGraphics{}
 			vm.Status.Phase = v1.Scheduled
-			vm.Status.Conditions = []v1.VMCondition{
+			vm.Status.Conditions = []v1.VirtualMachineCondition{
 				{
 					Type:   v1.VirtualMachineSynchronized,
 					Status: k8sv1.ConditionFalse,
@@ -331,7 +331,7 @@ var _ = Describe("VM", func() {
 			}
 
 			updatedVM := vm.DeepCopy()
-			updatedVM.Status.Conditions = []v1.VMCondition{}
+			updatedVM.Status.Conditions = []v1.VirtualMachineCondition{}
 
 			mockWatchdog.CreateFile(vm)
 			domain := api.NewMinimalDomain("testvm")
