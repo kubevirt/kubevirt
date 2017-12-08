@@ -106,8 +106,12 @@ var _ = Describe("Vmlifecycle", func() {
 		}, 30)
 
 		It("if grace period greater than 0, graceful shutdown should be attempted on delete", func(done Done) {
+			nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodes.Items).ToNot(BeEmpty())
+			node := nodes.Items[0].Name
 
-			virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(primaryNodeName).Pod()
+			virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(node).Pod()
 			Expect(err).ToNot(HaveOccurred())
 
 			handlerName := virtHandlerPod.GetObjectMeta().GetName()
@@ -120,7 +124,7 @@ var _ = Describe("Vmlifecycle", func() {
 			// Give the VM a custom grace period
 			vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
 			// Make sure we schedule the VM to master
-			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": primaryNodeName}
+			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 
 			obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 			Expect(err).To(BeNil())
