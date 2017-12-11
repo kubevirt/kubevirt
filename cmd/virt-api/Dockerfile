@@ -44,8 +44,9 @@ LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 # Create non-root user
 RUN useradd -u 1001 --create-home -s /bin/bash virt-api
-WORKDIR /home/virt-api
 USER 1001
+
+WORKDIR /usr/local/bin
 
 # Configure swagger
 RUN curl -OL https://github.com/swagger-api/swagger-ui/tarball/38f74164a7062edb5dc80ef2fdddda24f3f6eb85/swagger-ui.tar.gz \
