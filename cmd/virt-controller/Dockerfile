@@ -16,14 +16,38 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+# builder
+FROM pkotas/golang-centos:latest as builder
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+RUN yum -y update &&\
+    yum -y install \
+        gcc \
+        libvirt-client \
+        libvirt-dev 
+
+RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
+    mkdir -p /usr/src/build/pkg && \ 
+    mkdir -p /usr/src/build/bin
+
+ENV GOPATH=/usr/src/build
+
+WORKDIR /usr/src/build/src
+COPY vendor .
+COPY . kubevirt.io/kubevirt/
+
+WORKDIR kubevirt.io/kubevirt/cmd/virt-controller
+RUN go build virt-controller.go
+
+# production
+FROM centos:latest 
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 # Create non-root user
 RUN useradd -u 1001 --create-home -s /bin/bash virt-controller
-WORKDIR /home/virt-controller
 USER 1001
-COPY virt-controller /virt-controller
 
-ENTRYPOINT [ "/virt-controller" ]
+WORKDIR /usr/local/bin
+
+COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-controller/virt-controller .
+
+ENTRYPOINT [ "./virt-controller"]
