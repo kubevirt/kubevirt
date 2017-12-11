@@ -16,15 +16,39 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+# builder
+FROM pkotas/golang-centos:latest as builder
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+RUN yum -y update &&\
+    yum -y install \
+        gcc \
+        libvirt-client \
+        libvirt-devel 
 
-RUN dnf -y install libvirt-client genisoimage && \
+RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
+    mkdir -p /usr/src/build/pkg && \ 
+    mkdir -p /usr/src/build/bin
+
+ENV GOPATH=/usr/src/build
+
+WORKDIR /usr/src/build/src
+COPY vendor .
+COPY . kubevirt.io/kubevirt/
+
+WORKDIR kubevirt.io/kubevirt/cmd/virt-handler
+RUN go build virt-handler.go
+
+# production
+FROM centos:latest 
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
+
+RUN yum -y install libvirt-client genisoimage && \
     groupadd --gid 107 qemu && \
     useradd --uid 107 --gid 107 qemu && \
-    dnf -y clean all
+    yum -y clean all
 
-COPY virt-handler /virt-handler
+WORKDIR /usr/local/bin
 
-ENTRYPOINT [ "/virt-handler" ]
+COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-handler/virt-handler .
+
+ENTRYPOINT [ "./virt-handler" ]
