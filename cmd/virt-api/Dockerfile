@@ -16,9 +16,31 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+# builder
+FROM pkotas/golang-centos:latest as builder
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+RUN yum -y update &&\
+    yum -y install \
+        gcc \
+        libvirt-client \
+        libvirt-dev 
+
+RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
+    mkdir -p /usr/src/build/pkg && \ 
+    mkdir -p /usr/src/build/bin
+
+ENV GOPATH=/usr/src/build
+
+WORKDIR /usr/src/build/src
+COPY vendor .
+COPY . kubevirt.io/kubevirt/
+
+WORKDIR kubevirt.io/kubevirt/cmd/virt-api
+RUN go build virt-api.go
+
+# production
+FROM centos:latest 
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 # Create non-root user
 RUN useradd -u 1001 --create-home -s /bin/bash virt-api
@@ -33,6 +55,7 @@ RUN curl -OL https://github.com/swagger-api/swagger-ui/tarball/38f74164a7062edb5
     && sed -e 's@"http://petstore.swagger.io/v2/swagger.json"@"/swaggerapi/"@' -i  third_party/swagger-ui/index.html \
     && rm swagger-ui.tar.gz && rm -rf swagger-ui
 
-COPY virt-api /virt-api
 
-ENTRYPOINT [ "/virt-api" ]
+COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-api/virt-api .
+
+ENTRYPOINT [ "./virt-api"]
