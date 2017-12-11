@@ -91,8 +91,8 @@ Vagrant environment:
 
 ```bash
     # Building and deploying kubevirt in Vagrant
-    vagrant up
-    make vagrant-deploy
+    cluster/up.sh
+    cluster/deploy.sh
 ```
 
 This will create a VM called `master` which acts as Kubernetes master and then
@@ -162,7 +162,7 @@ They don't require vagrant. To run the *functional tests*, make sure you have se
 up [Vagrant](#vagrant). Then run
 
 ```bash
-    make vagrant-deploy # synchronize with your code, if necessary
+    cluster/sync.sh # synchronize with your code, if necessary
     make functest # run the functional tests against the Vagrant VMs
 ```
 

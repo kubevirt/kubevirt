@@ -17,13 +17,12 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+PROVIDER=${PROVIDER:-vagrant}
+source cluster/$PROVIDER/provider.sh
 source ${KUBEVIRT_PATH}hack/config.sh
 
-SYNC_CONFIG=${KUBEVIRT_PATH}cluster/vagrant/sync_config.sh
-
-if [ "$1" == "--init" ]
-then
-    exec $SYNC_CONFIG
+if [ "$1" == "console" ] || [ "$1" == "spice" ]; then
+    cmd/virtctl/virtctl "$@" -s http://${master_ip}:8184 
     exit
 fi
 
@@ -33,8 +32,12 @@ if [ "$1" == "--help" ]  || [ "$1" == "-h" ] ; then
 fi
 
 if [ -e  ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig ] &&
-   [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ]; then
-    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl --kubeconfig=${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig "$@"
+   [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ] &&
+   [ "x$1" == "x--core" ]; then
+    shift
+    _kubectl "$@"
+elif [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ];then
+    _kubectl -s http://${master_ip}:8184 "$@"
 else
-    echo "Did you already run '$SYNC_CONFIG' to deploy kubevirt?"
+    echo "Did you already run 'cluster/up.sh' to deploy kubevirt?"
 fi

@@ -19,21 +19,22 @@
 
 set -ex
 
-KUBECTL=${KUBECTL:-kubectl}
+PROVIDER=${PROVIDER:-vagrant}
 
+source cluster/$PROVIDER/provider.sh
 source hack/config.sh
 
 echo "Cleaning up ..."
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
-$KUBECTL delete ds -l "kubevirt.io" -n kube-system --cascade=false --grace-period 0 2>/dev/null || :
-$KUBECTL delete pods -n kube-system -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
-$KUBECTL delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
+_kubectl delete ds -l "kubevirt.io" -n kube-system --cascade=false --grace-period 0 2>/dev/null || :
+_kubectl delete pods -n kube-system -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
+_kubectl delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
 
 # Delete everything, no matter if release, devel or infra
-$KUBECTL delete -f manifests -R --grace-period 1 2>/dev/null || :
+_kubectl delete -f manifests -R --grace-period 1 2>/dev/null || :
 
 # Delete exposures
-$KUBECTL delete services -l "kubevirt.io" -n kube-system
+_kubectl delete services -l "kubevirt.io" -n kube-system
 
 sleep 2
 
@@ -41,12 +42,16 @@ echo "Deploying ..."
 
 # Deploy the right manifests for the right target
 if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
-    $KUBECTL create -f manifests/dev -R $i
+    _kubectl create -f manifests/dev -R $i
 elif [ "$TARGET" = "vagrant-release"  ]; then
-    $KUBECTL create -f manifests/release -R $i
+    _kubectl create -f manifests/release -R $i
 fi
 
+## Expose common services
+$KUBECTL expose deployment haproxy --port 8184 -l 'kubevirt.io=haproxy' -n kube-system --external-ip $master_ip
+$KUBECTL expose deployment spice-proxy --port 3128 -l 'kubevirt.io=spice-proxy' -n kube-system --external-ip $master_ip
+
 # Deploy additional infra for testing
-$KUBECTL create -f manifests/testing -R $i
+_kubectl create -f manifests/testing -R $i
 
 echo "Done"

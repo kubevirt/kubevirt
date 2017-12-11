@@ -66,7 +66,6 @@ checksync:
 sync:
 	glide install --strip-vendor
 	${HASH} glide.lock > .glide.lock.hash
- 
 
 docker: build
 	./hack/build-docker.sh build ${WHAT}
@@ -82,18 +81,6 @@ check: check-bash vet
 
 check-bash:
 	find . -name \*.sh -exec bash -n \{\} \;
-
-vagrant-sync-config:
-	./cluster/vagrant/sync_config.sh
-
-vagrant-sync-build: build
-	./cluster/vagrant/sync_build.sh
-
-vagrant-sync-optional:
-	./cluster/vagrant/sync_build.sh 'build optional'
-
-vagrant-deploy: vagrant-sync-config vagrant-sync-build
-	export KUBECTL="cluster/kubectl.sh" && ./cluster/deploy.sh
 
 .release-functest:
 	make functest > .release-functest 2>&1
