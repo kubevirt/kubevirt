@@ -58,6 +58,7 @@ var _ = Describe("Cache", func() {
 				x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
 				Expect(err).To(BeNil())
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
+				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
 				mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
 
 				informer, err := NewSharedInformer(mockConn)
@@ -92,6 +93,7 @@ var _ = Describe("Cache", func() {
 				x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
 				Expect(err).To(BeNil())
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
+				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
 
 				watcher := &DomainWatcher{make(chan watch.Event, 1)}
 				callback(mockDomain, &libvirt.DomainEventLifecycle{Event: event}, watcher.C)

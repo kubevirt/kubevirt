@@ -3,8 +3,13 @@ metadata:
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 spec:
+  terminationGracePeriodSeconds: 5
   domain:
     devices:
+      graphics:
+      - type: spice
+      consoles:
+      - type: pty
       disks:
       - type: RegistryDisk:v1alpha
         source:

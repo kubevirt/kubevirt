@@ -22,6 +22,7 @@ package api
 import (
 	"encoding/xml"
 	"reflect"
+	"time"
 
 	"github.com/jeevatkm/go-model"
 	kubev1 "k8s.io/api/core/v1"
@@ -163,6 +164,14 @@ func (in *Domain) DeepCopyObject() runtime.Object {
 	}
 }
 
+func (in *Metadata) DeepCopyInto(out *Metadata) {
+	err := model.Copy(out, in)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 type DomainStatus struct {
 	Status LifeCycle
 	Reason StateChangeReason
@@ -215,6 +224,16 @@ type DomainSpec struct {
 	Clock    *Clock       `xml:"clock,omitempty"`
 	Resource *Resource    `xml:"resource,omitempty"`
 	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
+	Metadata Metadata     `xml:"metadata,omitempty"`
+}
+
+type Metadata struct {
+	GracePeriod GracePeriodMetadata `xml:"http://kubevirt.io graceperiod,omitempty"`
+}
+
+type GracePeriodMetadata struct {
+	DeletionGracePeriodSeconds int64      `xml:"deletionGracePeriodSeconds"`
+	DeletionTimestamp          *time.Time `xml:"deletionTimestamp,omitempty"`
 }
 
 type Commandline struct {

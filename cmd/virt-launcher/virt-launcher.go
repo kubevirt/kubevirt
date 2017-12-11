@@ -77,6 +77,7 @@ func main() {
 	namespace := flag.String("namespace", "", "Namespace of the VM")
 	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
+	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -114,7 +115,14 @@ func main() {
 		}
 	}()
 
-	mon := virtlauncher.NewProcessMonitor("qemu")
+	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir, *namespace, *name)
+	err = virtlauncher.GracefulShutdownTriggerClear(gracefulShutdownTriggerFile)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Error detected clearning graceful shutdown trigger file %s.", gracefulShutdownTriggerFile)
+		panic(err)
+	}
+
+	mon := virtlauncher.NewProcessMonitor("qemu", gracefulShutdownTriggerFile, *gracePeriodSeconds)
 
 	markReady(*readinessFile)
 	mon.RunForever(*qemuTimeout)

@@ -46,6 +46,7 @@ import (
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -60,22 +61,24 @@ func NewController(
 	vmInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	watchdogInformer cache.SharedIndexInformer,
+	gracefulShutdownInformer cache.SharedIndexInformer,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	c := &VirtualMachineController{
-		Queue:                  queue,
-		domainManager:          domainManager,
-		recorder:               recorder,
-		clientset:              clientset,
-		host:                   host,
-		configDisk:             configDiskClient,
-		virtShareDir:           virtShareDir,
-		watchdogTimeoutSeconds: watchdogTimeoutSeconds,
-		vmInformer:             vmInformer,
-		domainInformer:         domainInformer,
-		watchdogInformer:       watchdogInformer,
+		Queue:                    queue,
+		domainManager:            domainManager,
+		recorder:                 recorder,
+		clientset:                clientset,
+		host:                     host,
+		configDisk:               configDiskClient,
+		virtShareDir:             virtShareDir,
+		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
+		vmInformer:               vmInformer,
+		domainInformer:           domainInformer,
+		watchdogInformer:         watchdogInformer,
+		gracefulShutdownInformer: gracefulShutdownInformer,
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -96,21 +99,75 @@ func NewController(
 		UpdateFunc: c.updateFunc,
 	})
 
+	gracefulShutdownInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addFunc,
+		DeleteFunc: c.deleteFunc,
+		UpdateFunc: c.updateFunc,
+	})
+
 	return c
 }
 
 type VirtualMachineController struct {
-	domainManager          virtwrap.DomainManager
-	recorder               record.EventRecorder
-	clientset              kubecli.KubevirtClient
-	host                   string
-	configDisk             configdisk.ConfigDiskClient
-	virtShareDir           string
-	watchdogTimeoutSeconds int
-	Queue                  workqueue.RateLimitingInterface
-	vmInformer             cache.SharedIndexInformer
-	domainInformer         cache.SharedInformer
-	watchdogInformer       cache.SharedIndexInformer
+	domainManager            virtwrap.DomainManager
+	recorder                 record.EventRecorder
+	clientset                kubecli.KubevirtClient
+	host                     string
+	configDisk               configdisk.ConfigDiskClient
+	virtShareDir             string
+	watchdogTimeoutSeconds   int
+	Queue                    workqueue.RateLimitingInterface
+	vmInformer               cache.SharedIndexInformer
+	domainInformer           cache.SharedInformer
+	watchdogInformer         cache.SharedIndexInformer
+	gracefulShutdownInformer cache.SharedIndexInformer
+}
+
+// Determines if a domain's grace period has expired during shutdown.
+// If the grace period has started but not expired, timeLeft represents
+// the time in seconds left until the period expires.
+// If the grace period has not started, timeLeft will be set to -1.
+func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasExpired bool, timeLeft int) {
+
+	hasExpired = false
+	timeLeft = 0
+
+	if dom == nil {
+		hasExpired = true
+		return
+	}
+
+	startTime := int64(0)
+	if dom.Spec.Metadata.GracePeriod.DeletionTimestamp != nil {
+		startTime = dom.Spec.Metadata.GracePeriod.DeletionTimestamp.UTC().Unix()
+	}
+	gracePeriod := dom.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds
+
+	// If gracePeriod == 0, then there will be no startTime set, deletion
+	// should occur immediately during shutdown.
+	if gracePeriod == 0 {
+		hasExpired = true
+		return
+	} else if startTime == 0 {
+		// If gracePeriod > 0, then the shutdown signal needs to be sent
+		// and the gracePeriod start time needs to be set.
+		timeLeft = -1
+		return
+	}
+
+	now := time.Now().UTC().Unix()
+	diff := now - startTime
+
+	if diff >= gracePeriod {
+		hasExpired = true
+		return
+	}
+
+	timeLeft = int(gracePeriod - diff)
+	if timeLeft < 1 {
+		timeLeft = 1
+	}
+	return
 }
 
 func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
@@ -230,7 +287,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	go c.vmInformer.Run(stopCh)
 	go c.watchdogInformer.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.watchdogInformer.HasSynced)
+	go c.gracefulShutdownInformer.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.watchdogInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -285,78 +343,133 @@ func (d *VirtualMachineController) getVMFromCache(key string) (vm *v1.VirtualMac
 	return vm, exists, nil
 }
 
-func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, err error) {
+func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, err error) {
 
 	obj, exists, err := d.domainInformer.GetStore().GetByKey(key)
 
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if exists {
 		domain = obj.(*api.Domain)
 	}
-	return domain, nil
+	return domain, exists, nil
 }
 
 func (d *VirtualMachineController) execute(key string) error {
 
-	shouldDeleteVm := false
+	// set to true when domain needs to be shutdown and removed from libvirt.
+	shouldShutdownAndDelete := false
+	// optimization. set to true when processing already deleted domain.
+	shouldCleanUp := false
+	// set to true when VM is active or about to become active.
+	shouldUpdate := false
 
-	vm, exists, err := d.getVMFromCache(key)
+	vm, vmExists, err := d.getVMFromCache(key)
 	if err != nil {
 		return err
 	}
 
-	domain, err := d.getDomainFromCache(key)
+	domain, domainExists, err := d.getDomainFromCache(key)
 	if err != nil {
 		return err
 	}
 
-	// Check For Migration before processing vm not in our cache
-	if !exists {
+	// Determine if VM's watchdog has expired
+	watchdogExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
+	if err != nil {
+		return err
+	} else if watchdogExpired && vm.IsRunning() {
+		log.Log.Object(vm).V(3).Info("Shutting down due to expired watchdog.")
+		shouldShutdownAndDelete = true
+	}
+
+	// Determine if gracefulShutdown has been triggered by virt-launcher
+	gracefulShutdown, err := virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vm)
+	if err != nil {
+		return err
+	} else if gracefulShutdown && vm.IsRunning() {
+		log.Log.Object(vm).V(3).Info("Shutting down due to graceful shutdown signal.")
+		shouldShutdownAndDelete = true
+	}
+
+	// Determine removal of VM from cache should result in deletion.
+	if !vmExists {
 		// If we don't have the VM in the cache, it could be that it is currently migrating to us
 		isDestination, err := d.isMigrationDestination(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 		if err != nil {
 			// unable to determine migration status, we'll try again later.
 			return err
-		}
-
-		if isDestination {
+		} else if isDestination {
 			// OK, this VM is migrating to us, don't interrupt it.
 			return nil
 		}
-		// The VM is deleted on the cluster, continue with processing the deletion on the host.
-		shouldDeleteVm = true
-	}
 
-	watchdogExpired, _ := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
-	if watchdogExpired {
-		if vm.IsRunning() {
-			log.Log.V(2).Object(vm).Info("Detected expired watchdog file for running VM.")
-			shouldDeleteVm = true
-		} else if vm.IsFinal() {
-			err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
-			if err != nil {
-				return nil
-			}
+		if domainExists {
+			// The VM is deleted on the cluster,
+			// then continue with processing the deletion on the host.
+			log.Log.Object(vm).V(3).Info("Shutting down domain for deleted VM object.")
+			shouldShutdownAndDelete = true
+		} else {
+			// If neither the domain nor the vm object exist locally,
+			// then ensure any remaining local ephemeral data is cleaned up.
+			shouldCleanUp = true
 		}
 	}
 
-	log.Log.Object(vm).V(3).Info("Processing VM update.")
+	// Determine if VM is being deleted.
+	if vmExists && vm.ObjectMeta.DeletionTimestamp != nil {
+		if vm.IsRunning() || domainExists {
+			log.Log.Object(vm).V(3).Info("Shutting down domain for VM with deletion timestamp.")
+			shouldShutdownAndDelete = true
+		} else {
+			shouldCleanUp = true
+		}
+	}
 
-	// Process the VM only if the current phases are in sync
+	// Determine if domain needs to be deleted as a result of VM
+	// shutting down naturally (guest internal invoked shutdown)
+	if domainExists && vmExists && vm.IsFinal() {
+		log.Log.Object(vm).V(3).Info("Removing domain and ephemeral data for finalized vm.")
+		shouldShutdownAndDelete = true
+	}
+
+	// Determine if an active (or about to be active) VM should be updated.
+	if vmExists && !vm.IsFinal() {
+		// requiring the phase of the domain and VM to be in sync is an
+		// optimization that prevents unnecessary re-processing VMs during the start flow.
+		if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) {
+			shouldUpdate = true
+		}
+	}
+
 	var syncErr error
-	if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) || !exists {
-		syncErr = d.processVmUpdate(vm.DeepCopy(), shouldDeleteVm)
-		if syncErr != nil {
-			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
-			log.Log.Object(vm).Reason(syncErr).Error("Synchronizing the VM failed.")
-		}
+
+	// Process the VM update in this order.
+	// * Shutdown and Deletion due to VM deletion, process stopping, graceful shutdown trigger, expired watchdog, etc...
+	// * Cleanup of already shutdown and Deleted VMs
+	// * Update due to spec change and initial start flow.
+	if shouldShutdownAndDelete {
+		log.Log.Object(vm).V(3).Info("Processing shutdown.")
+		syncErr = d.processVmShutdown(vm, domain)
+	} else if shouldCleanUp {
+		log.Log.Object(vm).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
+		syncErr = d.processVmCleanup(vm)
+	} else if shouldUpdate {
+		log.Log.Object(vm).V(3).Info("Processing vm update")
+		syncErr = d.processVmUpdate(vm)
+	} else {
+		log.Log.Object(vm).V(3).Info("No update processing required")
+	}
+
+	if syncErr != nil {
+		d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
+		log.Log.Object(vm).Reason(syncErr).Error("Synchronizing the VM failed.")
 	}
 
 	// Update the VM status, if the VM exists
-	if exists {
+	if vmExists {
 		err = d.updateVMStatus(vm.DeepCopy(), domain, syncErr)
 		if err != nil {
 			log.Log.Object(vm).Reason(err).Error("Updating the VM status failed.")
@@ -529,44 +642,64 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (*v1.Vi
 	return vm, nil
 }
 
-func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine, shouldDeleteVM bool) error {
+func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
+	err := d.domainManager.RemoveVMSecrets(vm)
+	if err != nil {
+		return err
+	}
 
-	if shouldDeleteVM || vm.ObjectMeta.DeletionTimestamp != nil || vm.IsFinal() {
-		// Since the VM was not in the cache, we delete it
-		err := d.domainManager.KillVM(vm)
+	err = registrydisk.CleanupEphemeralDisks(vm)
+	if err != nil {
+		return err
+	}
+
+	err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
+	if err != nil {
+		return err
+	}
+
+	err = virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vm)
+	if err != nil {
+		return err
+	}
+
+	return d.configDisk.Undefine(vm)
+}
+
+func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachine, domain *api.Domain) error {
+
+	expired, timeLeft := d.hasGracePeriodExpired(domain)
+
+	if expired == false {
+		err := d.domainManager.SignalShutdownVM(vm)
 		if err != nil {
 			return err
 		}
-
-		// remove any defined libvirt secrets associated with this vm
-		err = d.domainManager.RemoveVMSecrets(vm)
-		if err != nil {
-			return err
-		}
-
-		err = registrydisk.CleanupEphemeralDisks(vm)
-		if err != nil {
-			return err
-		}
-
-		err = watchdog.WatchdogFileRemove(d.virtShareDir, vm)
-		if err != nil {
-			return err
-		}
-
-		return d.configDisk.Undefine(vm)
-	} else if isWorthSyncing(vm) == false {
-		// nothing to do here.
+		// pending graceful shutdown.
+		d.Queue.AddAfter(controller.VirtualMachineKey(vm), time.Duration(timeLeft)*time.Second)
 		return nil
 	}
 
+	log.Log.Object(vm).Infof("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())
+
+	err := d.domainManager.KillVM(vm)
+	if err != nil {
+		return err
+	}
+
+	return d.processVmCleanup(vm)
+
+}
+
+func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error {
+
 	hasWatchdog, err := watchdog.WatchdogFileExists(d.virtShareDir, vm)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).V(3).Error("Error accessing virt-launcher watchdog file.")
+		log.Log.Object(vm).Reason(err).Error("Error accessing virt-launcher watchdog file.")
 		return err
 	}
 	if hasWatchdog == false {
-		log.Log.Object(vm).Reason(err).V(3).Error("Could not detect virt-launcher watchdog file.")
+		log.Log.Object(vm).Reason(err).Error("Could not detect virt-launcher watchdog file.")
 		return goerror.New(fmt.Sprintf("No watchdog file found for vm"))
 	}
 
@@ -637,10 +770,6 @@ func (d *VirtualMachineController) isMigrationDestination(namespace string, vmNa
 	return false, nil
 }
 
-func isWorthSyncing(vm *v1.VirtualMachine) bool {
-	return !vm.IsFinal()
-}
-
 func (d *VirtualMachineController) checkFailure(vm *v1.VirtualMachine, syncErr error, reason string) (changed bool) {
 	if syncErr != nil && !d.hasCondition(vm, v1.VirtualMachineSynchronized) {
 		vm.Status.Conditions = append(vm.Status.Conditions, v1.VMCondition{
@@ -684,9 +813,9 @@ func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) v1.VMPhase {
 
 	if domain == nil {
-		if !vm.IsRunning() {
+		if !vm.IsRunning() && !vm.IsFinal() {
 			return v1.Scheduled
-		} else {
+		} else if !vm.IsFinal() {
 			// That is unexpected. We should not be able to delete a VM before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
 			return v1.Failed

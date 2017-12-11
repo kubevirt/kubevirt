@@ -18,10 +18,11 @@ func (VirtualMachineList) SwaggerDoc() map[string]string {
 
 func (VMSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":             "VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.\nIt is expected that v1.DomainSpec will be merged into this structure.",
-		"domain":       "Domain is the actual libvirt domain.",
-		"nodeSelector": "If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.",
-		"affinity":     "If affinity is specifies, obey all the affinity rules",
+		"":                              "VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.\nIt is expected that v1.DomainSpec will be merged into this structure.",
+		"domain":                        "Domain is the actual libvirt domain.",
+		"nodeSelector":                  "If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.",
+		"affinity":                      "If affinity is specifies, obey all the affinity rules",
+		"terminationGracePeriodSeconds": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
 	}
 }
 

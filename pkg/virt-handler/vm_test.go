@@ -22,6 +22,7 @@ package virthandler
 import (
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -41,9 +42,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -60,14 +63,18 @@ var _ = Describe("VM", func() {
 	var domainInformer cache.SharedIndexInformer
 	var watchdogSource *framework.FakeControllerSource
 	var watchdogInformer cache.SharedIndexInformer
+	var gracefulShutdownSource *framework.FakeControllerSource
+	var gracefulShutdownInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
+	var mockGracefulShutdown *MockGracefulShutdown
 
 	var vmFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
 
 	var recorder record.EventRecorder
 
+	var err error
 	var shareDir string
 	var stop chan struct{}
 
@@ -75,7 +82,7 @@ var _ = Describe("VM", func() {
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
-		shareDir, err := ioutil.TempDir("", "kubevirt-share")
+		shareDir, err = ioutil.TempDir("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
 		host := "master"
@@ -85,6 +92,7 @@ var _ = Describe("VM", func() {
 		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		watchdogInformer, watchdogSource = testutils.NewFakeInformerFor(&api.Domain{})
+		gracefulShutdownInformer, gracefulShutdownSource = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -95,8 +103,20 @@ var _ = Describe("VM", func() {
 
 		configDiskClient := configdisk.NewConfigDiskClient(virtClient)
 		mockWatchdog = &MockWatchdog{shareDir}
+		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
 
-		controller = NewController(domainManager, recorder, virtClient, host, configDiskClient, shareDir, 10, vmInformer, domainInformer, watchdogInformer)
+		controller = NewController(domainManager,
+			recorder,
+			virtClient,
+			host,
+			configDiskClient,
+			shareDir,
+			10,
+			vmInformer,
+			domainInformer,
+			watchdogInformer,
+			gracefulShutdownInformer)
+
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 
@@ -106,12 +126,24 @@ var _ = Describe("VM", func() {
 		go vmInformer.Run(stop)
 		go domainInformer.Run(stop)
 		go watchdogInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, domainInformer.HasSynced, watchdogInformer.HasSynced)).To(BeTrue())
+		go gracefulShutdownInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, domainInformer.HasSynced, watchdogInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 	})
+
+	AfterEach(func() {
+		close(stop)
+		ctrl.Finish()
+		os.RemoveAll(shareDir)
+	})
+
+	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachine, dom *api.Domain) {
+		vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
+		dom.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
+	}
 
 	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
 
-		It("should delete non-running Domains if no cluster wide equivalent exists", func() {
+		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomain("testvm")
 			domainFeeder.Add(domain)
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
@@ -122,7 +154,7 @@ var _ = Describe("VM", func() {
 			controller.Execute()
 		})
 
-		It("should delete running Domains if no cluster wide equivalent exists", func() {
+		It("should delete running Domains if no cluster wide equivalent existsi and no grace period info exists", func() {
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
@@ -133,6 +165,82 @@ var _ = Describe("VM", func() {
 
 			controller.Execute()
 		})
+
+		It("should perform cleanup of local ephemeral data if domain and vm are deleted", func() {
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
+			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
+			mockQueue.Add("default/testvm")
+			controller.Execute()
+		})
+
+		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Status.Phase = v1.Running
+
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Running
+
+			initGracePeriodHelper(1, vm, domain)
+			mockWatchdog.CreateFile(vm)
+			mockGracefulShutdown.TriggerShutdown(vm)
+
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
+			domainManager.EXPECT().SignalShutdownVM(v1.NewVMReferenceFromName("testvm"))
+			domainFeeder.Add(domain)
+
+			controller.Execute()
+		}, 3)
+
+		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
+			vm := v1.NewMinimalVM("testvm")
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Running
+
+			initGracePeriodHelper(1, vm, domain)
+			mockWatchdog.CreateFile(vm)
+
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
+			domainManager.EXPECT().SignalShutdownVM(v1.NewVMReferenceFromName("testvm"))
+			domainFeeder.Add(domain)
+
+			controller.Execute()
+		}, 3)
+
+		It("should attempt force terminate Domain if grace period expires", func() {
+			vm := v1.NewMinimalVM("testvm")
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Running
+
+			initGracePeriodHelper(1, vm, domain)
+			now := time.Unix(time.Now().UTC().Unix()-3, 0)
+			domain.Spec.Metadata.GracePeriod.DeletionTimestamp = &now
+
+			mockWatchdog.CreateFile(vm)
+			mockGracefulShutdown.TriggerShutdown(vm)
+
+			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
+			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
+			domainFeeder.Add(domain)
+
+			controller.Execute()
+		}, 3)
+
+		It("should immediately kill domain with grace period of 0", func() {
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Running
+			vm := v1.NewMinimalVM("testvm")
+
+			initGracePeriodHelper(0, vm, domain)
+			mockWatchdog.CreateFile(vm)
+			mockGracefulShutdown.TriggerShutdown(vm)
+
+			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
+			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
+			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
+			domainFeeder.Add(domain)
+			controller.Execute()
+		}, 3)
 
 		It("should leave the Domain alone if the VM is migrating to its host", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -247,13 +355,6 @@ var _ = Describe("VM", func() {
 			table.Entry("failed", v1.Failed),
 		)
 	})
-
-	AfterEach(func() {
-		close(stop)
-		ctrl.Finish()
-		os.RemoveAll(shareDir)
-	})
-
 })
 
 var _ = Describe("PVC", func() {
@@ -366,6 +467,20 @@ var _ = Describe("PVC", func() {
 		})
 	})
 })
+
+type MockGracefulShutdown struct {
+	baseDir string
+}
+
+func (m *MockGracefulShutdown) TriggerShutdown(vm *v1.VirtualMachine) {
+	Expect(os.MkdirAll(virtlauncher.GracefulShutdownTriggerDir(m.baseDir), os.ModePerm)).To(Succeed())
+
+	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+	triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
+	err := virtlauncher.GracefulShutdownTriggerInitiate(triggerFile)
+	Expect(err).NotTo(HaveOccurred())
+}
 
 type MockWatchdog struct {
 	baseDir string

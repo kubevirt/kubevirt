@@ -58,7 +58,9 @@ var _ = Describe("Template", func() {
 					"--name", "testvm",
 					"--namespace", "testns",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
-					"--readiness-file", "/tmp/healthy"}))
+					"--readiness-file", "/tmp/healthy",
+					"--grace-period-seconds", "45"}))
+				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
 		})
 		Context("with node selectors", func() {
@@ -87,9 +89,11 @@ var _ = Describe("Template", func() {
 					"--name", "testvm",
 					"--namespace", "default",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
-					"--readiness-file", "/tmp/healthy"}))
+					"--readiness-file", "/tmp/healthy",
+					"--grace-period-seconds", "45"}))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/kubevirt"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/kubevirt"))
+				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
 
 			It("should add node affinity to pod", func() {

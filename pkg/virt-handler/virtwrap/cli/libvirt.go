@@ -313,6 +313,7 @@ type VirDomain interface {
 	Create() error
 	Resume() error
 	Destroy() error
+	Shutdown() error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)

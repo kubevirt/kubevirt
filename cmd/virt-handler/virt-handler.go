@@ -41,6 +41,7 @@ import (
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
+	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
@@ -52,6 +53,7 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -161,10 +163,19 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{},
 	)
 
+	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
+
 	watchdogInformer := cache.NewSharedIndexInformer(
 		watchdog.NewWatchdogListWatchFromClient(
 			app.VirtShareDir,
 			int(app.WatchdogTimeoutDuration.Seconds())),
+		&virt_api.Domain{},
+		0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	gracefulShutdownInformer := cache.NewSharedIndexInformer(
+		inotifyinformer.NewFileListWatchFromClient(
+			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
 		&virt_api.Domain{},
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
@@ -180,6 +191,7 @@ func (app *virtHandlerApp) Run() {
 		vmSharedInformer,
 		domainSharedInformer,
 		watchdogInformer,
+		gracefulShutdownInformer,
 	)
 
 	// Bootstrapping. From here on the startup order matters

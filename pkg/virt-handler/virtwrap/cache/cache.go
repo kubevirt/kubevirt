@@ -22,6 +22,7 @@ package cache
 import (
 	"encoding/xml"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/libvirt/libvirt-go"
@@ -91,7 +92,7 @@ func newListWatchFromClient(c cli.Connection, events ...int) *cache.ListWatch {
 				}
 				return nil, err
 			}
-			spec, err := NewDomainSpec(dom)
+			spec, err := GetDomainSpec(dom)
 			if err != nil {
 				if errors.IsNotFound(err) {
 					continue
@@ -149,9 +150,9 @@ func newDomainWatcher(c cli.Connection, events ...int) (watch.Interface, error) 
 	return watcher, err
 }
 
-func NewDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
+func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*api.DomainSpec, error) {
 	domain := api.DomainSpec{}
-	domxml, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
+	domxml, err := dom.GetXMLDesc(flags)
 	if err != nil {
 		return nil, err
 	}
@@ -161,6 +162,27 @@ func NewDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 	}
 
 	return &domain, nil
+}
+
+func GetDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
+	spec, err := GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_MIGRATABLE)
+	if err != nil {
+		return nil, err
+	}
+
+	inactiveSpec, err := GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+	if err != nil {
+		return nil, err
+	}
+
+	if !reflect.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
+		// Metadata is updated on offline config only. As a result,
+		// We have to merge updates to metadata into the domain spec.
+		metadata := &inactiveSpec.Metadata
+		metadata.DeepCopyInto(&spec.Metadata)
+	}
+
+	return spec, nil
 }
 
 // VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
@@ -215,7 +237,7 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 	//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
 
 	// No matter which event, try to fetch the domain xml and the state. If we get a IsNotFound error, that means that the VM was removed.
-	spec, err := NewDomainSpec(d)
+	spec, err := GetDomainSpec(d)
 	if err != nil {
 
 		if !errors.IsNotFound(err) {

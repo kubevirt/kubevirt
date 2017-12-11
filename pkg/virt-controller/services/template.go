@@ -21,6 +21,7 @@ package services
 
 import (
 	"fmt"
+	"strconv"
 
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +57,18 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	successThreshold := 1
 	failureThreshold := 5
 
+	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
+	if vm.Spec.TerminationGracePeriodSeconds != nil {
+		gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+	}
+
+	// Pad the virt-launcher grace period.
+	// Ideally we want virt-handler to handle tearing down
+	// the vm without virt-launcher's termination forcing
+	// the vm down.
+	gracePeriodSeconds = gracePeriodSeconds + int64(15)
+	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
+
 	// VM target container
 	container := kubev1.Container{
 		Name:            "compute",
@@ -67,6 +80,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			"--namespace", namespace,
 			"--kubevirt-share-dir", t.virtShareDir,
 			"--readiness-file", "/tmp/healthy",
+			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		},
 		VolumeMounts: []kubev1.VolumeMount{
 			{
@@ -117,11 +131,12 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			},
 		},
 		Spec: kubev1.PodSpec{
-			HostPID:       true,
-			RestartPolicy: kubev1.RestartPolicyNever,
-			Containers:    containers,
-			NodeSelector:  vm.Spec.NodeSelector,
-			Volumes:       volumes,
+			HostPID: true,
+			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
+			RestartPolicy:                 kubev1.RestartPolicyNever,
+			Containers:                    containers,
+			NodeSelector:                  vm.Spec.NodeSelector,
+			Volumes:                       volumes,
 		},
 	}
 
