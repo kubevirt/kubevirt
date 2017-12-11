@@ -16,13 +16,15 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+FROM centos:7
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
-RUN dnf -y install libvirt-client xmlstarlet \
-    && dnf -y clean all
+RUN yum -y install libvirt-client xmlstarlet \
+    && yum -y clean all
 
-COPY migrate /migrate
+WORKDIR /usr/local/bin
 
-ENTRYPOINT [ "/migrate" ]
+COPY cmd/virt-migrator/migrate .
+
+ENTRYPOINT [ "./migrate" ]
