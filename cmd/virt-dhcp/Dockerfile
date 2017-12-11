@@ -16,12 +16,36 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+# builder
+FROM pkotas/golang-centos:latest as builder
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+RUN yum -y update &&\
+    yum -y install \
+        gcc \
+        libvirt-client \
+        libvirt-dev 
 
-RUN dnf -y install dnsmasq
+RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
+    mkdir -p /usr/src/build/pkg && \ 
+    mkdir -p /usr/src/build/bin
 
-COPY virt-dhcp /virt-dhcp
+ENV GOPATH=/usr/src/build
 
-ENTRYPOINT [ "/virt-dhcp" ]
+WORKDIR /usr/src/build/src
+COPY vendor .
+COPY . kubevirt.io/kubevirt/
+
+WORKDIR kubevirt.io/kubevirt/cmd/virt-dhcp
+RUN go build virt-dhcp.go
+
+# production
+FROM centos:latest 
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
+
+RUN yum -y install dnsmasq
+
+WORKDIR /usr/local/bin
+
+COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-dhcp/virt-dhcp .
+
+ENTRYPOINT [ "./virt-dhcp" ]
