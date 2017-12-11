@@ -23,7 +23,7 @@ RUN yum -y update &&\
     yum -y install \
         gcc \
         libvirt-client \
-        libvirt-dev 
+        libvirt-devel
 
 RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
     mkdir -p /usr/src/build/pkg && \ 
