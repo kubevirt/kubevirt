@@ -16,10 +16,34 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+# builder
+FROM pkotas/golang-centos:latest as builder
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+RUN yum -y update &&\
+    yum -y install \
+        gcc \
+        libvirt-client \
+        libvirt-devel 
 
-COPY virt-launcher /virt-launcher
+RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
+    mkdir -p /usr/src/build/pkg && \ 
+    mkdir -p /usr/src/build/bin
 
-ENTRYPOINT [ "/virt-launcher" ]
+ENV GOPATH=/usr/src/build
+
+WORKDIR /usr/src/build/src
+COPY vendor .
+COPY . kubevirt.io/kubevirt/
+
+WORKDIR kubevirt.io/kubevirt/cmd/virt-launcher
+RUN go build virt-launcher.go
+
+# production
+FROM centos:latest 
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
+
+WORKDIR /usr/local/bin
+
+COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-launcher/virt-launcher .
+
+ENTRYPOINT [ "./virt-launcher" ]
