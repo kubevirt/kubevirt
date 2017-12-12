@@ -2003,21 +2003,17 @@
     }
    },
    "v1.CloudInitNoCloudSource": {
-    "description": "Repre\nMorehttp://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+    "description": "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "required": [
      "userDataBase64"
     ],
     "properties": {
-     "metaDataBase64": {
-      "description": "The NoCloud cloud-init metadata as a base64 encoded string",
-      "type": "string"
+     "secretRef": {
+      "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
+      "$ref": "#/definitions/v1.LocalObjectReference"
      },
      "userDataBase64": {
-      "description": "The NoCloud cloud-init userdata as a base64 encoded string",
-      "type": "string"
-     },
-     "userDataSecretRef": {
-      "description": "Reference to a k8s secret that contains NoCloud userdata",
+      "description": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string\n+ optional",
       "type": "string"
      }
     }
@@ -2131,9 +2127,14 @@
    },
    "v1.Disk": {
     "required": [
-     "name"
+     "name",
+     "dev"
     ],
     "properties": {
+     "dev": {
+      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+      "type": "string"
+     },
      "name": {
       "description": "This must match the Name of a Volume.",
       "type": "string"
@@ -3340,6 +3341,7 @@
     ],
     "properties": {
      "Volumes": {
+      "description": "List of volumes that can be mounted by disks belonging to the vm.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Volume"

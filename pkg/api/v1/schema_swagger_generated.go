@@ -4,10 +4,9 @@ package v1
 
 func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "Repre\nMorehttp://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
-		"userDataSecretRef": "Reference to a k8s secret that contains NoCloud userdata",
-		"userDataBase64":    "The NoCloud cloud-init userdata as a base64 encoded string",
-		"metaDataBase64":    "The NoCloud cloud-init metadata as a base64 encoded string",
+		"":               "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+		"secretRef":      "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
+		"userDataBase64": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string\n+ optional",
 	}
 }
 
@@ -42,7 +41,11 @@ func (Disk) SwaggerDoc() map[string]string {
 
 func (DiskTargets) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
+		"":       "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
+		"disk":   "Attach a volume as a disk to the vm",
+		"lun":    "Attach a volume as a LUN to the vm",
+		"floppy": "Attach a volume as a floppy to the vm",
+		"cdrom":  "Attach a volume as a cdrom to the vm",
 	}
 }
 
@@ -63,7 +66,9 @@ func (CDRomTarget) SwaggerDoc() map[string]string {
 }
 
 func (DiskBaseTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"dev": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+	}
 }
 
 func (Volume) SwaggerDoc() map[string]string {
@@ -88,14 +93,6 @@ func (RegistryDiskSource) SwaggerDoc() map[string]string {
 		"":      "Represents a docker image with an embedded disk",
 		"image": "Image is the name of the image with the embedded disk",
 	}
-}
-
-func (DiskAuth) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (DiskSecret) SwaggerDoc() map[string]string {
-	return map[string]string{}
 }
 
 func (ReadOnly) SwaggerDoc() map[string]string {

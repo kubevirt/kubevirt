@@ -31,15 +31,15 @@ import (
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
-// Repre
-// Morehttp://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
+// Represents a cloud-init nocloud user data source
+// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 type CloudInitNoCloudSource struct {
-	// Reference to a k8s secret that contains NoCloud userdata
-	UserDataSecretRef string `json:"userDataSecretRef,omitempty"`
-	// The NoCloud cloud-init userdata as a base64 encoded string
+	// UserDataSecretRef references a k8s secret that contains NoCloud userdata
+	// + optional
+	UserDataSecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
+	// UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string
+	// + optional
 	UserDataBase64 string `json:"userDataBase64"`
-	// The NoCloud cloud-init metadata as a base64 encoded string
-	MetaDataBase64 string `json:"metaDataBase64,omitempty"`
 }
 
 // Only one of the fields in the CloudInitSpec can be set
@@ -89,25 +89,37 @@ type Disk struct {
 // Represents the target of a volume to mount.
 // Only one of its members may be specified.
 type DiskTargets struct {
-	Disk   *DiskTarget   `json:"disk,omitempty"`
-	LUN    *LunTarget    `json:"lun,omitempty"`
+	// Attach a volume as a disk to the vm
+	Disk *DiskTarget `json:"disk,omitempty"`
+	// Attach a volume as a LUN to the vm
+	LUN *LunTarget `json:"lun,omitempty"`
+	// Attach a volume as a floppy to the vm
 	Floppy *FloppyTarget `json:"floppy,omitempty"`
-	CDRom  *CDRomTarget  `json:"cdrom,omitempty"`
+	// Attach a volume as a cdrom to the vm
+	CDRom *CDRomTarget `json:"cdrom,omitempty"`
 }
 
 type DiskTarget struct {
+	DiskBaseTarget `json:",inline"`
 }
 
 type LunTarget struct {
+	DiskBaseTarget `json:",inline"`
 }
 
 type FloppyTarget struct {
+	DiskBaseTarget `json:",inline"`
 }
 
 type CDRomTarget struct {
+	DiskBaseTarget `json:",inline"`
 }
 
 type DiskBaseTarget struct {
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev"`
 }
 
 // Volume represents a named volume in a vm.
@@ -149,16 +161,6 @@ type VolumeSource struct {
 type RegistryDiskSource struct {
 	// Image is the name of the image with the embedded disk
 	Image string `json:"image"`
-}
-
-type DiskAuth struct {
-	Username string      `json:"username"`
-	Secret   *DiskSecret `json:"secret,omitempty"`
-}
-
-type DiskSecret struct {
-	Type  string `json:"type"`
-	Usage string `json:"usage"`
 }
 
 type ReadOnly struct{}
