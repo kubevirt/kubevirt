@@ -5,6 +5,7 @@ All following providers allow a common workflow:
  * `cluster/up.sh` to create the environment
  * `cluster/down.sh` to stop the environment
  * `cluster/sync.sh` to build the code and deploy it
+ * `cluster/deploy.sh` to (re)deploy the code (no provider support needed)
  * `make functests` to run the functional tests against a KubeVirt
  * `cluster/kubectl.sh` to talk to the k8s installation
 
