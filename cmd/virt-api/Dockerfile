@@ -16,30 +16,7 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-# builder
-FROM pkotas/golang-centos:latest as builder
-
-RUN yum -y update &&\
-    yum -y install \
-        gcc \
-        libvirt-client \
-        libvirt-devel
-
-RUN mkdir -p /usr/src/build/src/kubevirt.io/kubevirt && \
-    mkdir -p /usr/src/build/pkg && \ 
-    mkdir -p /usr/src/build/bin
-
-ENV GOPATH=/usr/src/build
-
-WORKDIR /usr/src/build/src
-COPY vendor .
-COPY . kubevirt.io/kubevirt/
-
-WORKDIR kubevirt.io/kubevirt/cmd/virt-api
-RUN go build virt-api.go
-
-# production
-FROM centos:latest 
+FROM centos:7 
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 # Create non-root user
@@ -57,6 +34,6 @@ RUN curl -OL https://github.com/swagger-api/swagger-ui/tarball/38f74164a7062edb5
     && rm swagger-ui.tar.gz && rm -rf swagger-ui
 
 
-COPY --from=builder /usr/src/build/src/kubevirt.io/kubevirt/cmd/virt-api/virt-api .
+COPY virt-api .
 
 ENTRYPOINT [ "./virt-api"]
