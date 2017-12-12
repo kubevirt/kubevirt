@@ -1,32 +1,34 @@
 #!/usr/bin/bash
 
-underline() { echo "$2" ; printf "%0.s$1" $(seq ${#2}) ; }
+underline() {
+    echo "$2"
+    printf "%0.s$1" $(seq ${#2})
+}
 
-log() { echo "$@" >&2 ; }
-title() { underline "=" "$@" ; }
-section() { underline "-" "$@" ; }
-
+log() { echo "$@" >&2; }
+title() { underline "=" "$@"; }
+section() { underline "-" "$@"; }
 
 #
 # All sorts of content
 #
 release_notes() {
-  log "Fetching release notes"
-  cat manual-release-notes || echo "FIXME manual notes needed"
+    log "Fetching release notes"
+    cat manual-release-notes || echo "FIXME manual notes needed"
 }
 
 summary() {
-  log "Building summary"
-  echo "This release follows $PREREF and consists of $(git log --oneline $RELSPANREF | wc -l) changes, contributed by"
-  echo -n "$(git shortlog -sne $RELSPANREF | wc -l) people, leading to"
-  echo "$(git diff --shortstat $RELSPANREF)."
+    log "Building summary"
+    echo "This release follows $PREREF and consists of $(git log --oneline $RELSPANREF | wc -l) changes, contributed by"
+    echo -n "$(git shortlog -sne $RELSPANREF | wc -l) people, leading to"
+    echo "$(git diff --shortstat $RELSPANREF)."
 }
 
 downloads() {
-  log "Adding download urls"
-  local GHRELURL="https://github.com/kubevirt/kubevirt/releases/tag/"
-  local RELURL="$GHRELURL$RELREF"
-  cat <<EOF
+    log "Adding download urls"
+    local GHRELURL="https://github.com/kubevirt/kubevirt/releases/tag/"
+    local RELURL="$GHRELURL$RELREF"
+    cat <<EOF
 The source code and selected binaries are available for download at:
 <$RELURL>.
 
@@ -39,48 +41,46 @@ EOF
 }
 
 shortlog() {
-  git shortlog -sne $RELSPANREF | sed "s/^/    /"
+    git shortlog -sne $RELSPANREF | sed "s/^/    /"
 }
 
 functest() {
-  log "Running functional tests - can take a while."
-  cat .release-functest | tail -n5 | \
-  sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" | \
-  egrep "(Ran|PASS)" | \
-  fold -sw 74 | sed -n "{ s/^/> / ; p }"
+    log "Running functional tests - can take a while."
+    cat .release-functest | tail -n5 |
+        sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" |
+        egrep "(Ran|PASS)" |
+        fold -sw 74 | sed -n "{ s/^/> / ; p }"
 }
 
 usage() {
-  echo "Usage: $0 [RELEASE_REF] [PREV_RELEASE_REF]"
+    echo "Usage: $0 [RELEASE_REF] [PREV_RELEASE_REF]"
 }
 
+main() {
+    log "Span: $RELSPANREF"
 
-main()
-{
-  log "Span: $RELSPANREF"
+    fold -s <<EOF | tee release-announce
+$(summary)
 
-  fold -s <<EOF | tee release-announce
-`summary`
-
-`downloads`
+$(downloads)
 
 
-`section "Notable changes"`
+$(section "Notable changes")
 
-`release_notes`
+$(release_notes)
 
 
-`section "Contributors"`
+$(section "Contributors")
 
 $(git shortlog -sne $RELSPANREF | wc -l) people contributed to this release:
 
-`shortlog`
+$(shortlog)
 
 
 Test Results
 ------------
 
-`functest`
+$(functest)
 
 
 Additional Resources
@@ -97,7 +97,6 @@ Additional Resources
 [license]: https://github.com/kubevirt/kubevirt/blob/master/LICENSE
 EOF
 }
-
 
 #
 # Let's get the party started

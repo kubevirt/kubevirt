@@ -19,7 +19,7 @@
 
 bash ./setup_kubernetes_common.sh
 
-ADVERTISED_MASTER_IP=`sshpass -p vagrant ssh -oStrictHostKeyChecking=no vagrant@$MASTER_IP hostname -I | cut -d " " -f1`
+ADVERTISED_MASTER_IP=$(sshpass -p vagrant ssh -oStrictHostKeyChecking=no vagrant@$MASTER_IP hostname -I | cut -d " " -f1)
 set +e
 
 echo 'Trying to register myself...'

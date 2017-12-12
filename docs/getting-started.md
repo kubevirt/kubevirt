@@ -73,6 +73,8 @@ to install a few build requirements:
     go get golang.org/x/tools/cmd/goimports
     # Setup glide which is used to track dependencies
     go get github.com/Masterminds/glide
+    # Shell script formatter
+    go get -u mvdan.cc/sh/cmd/shfmt
 ```
 
 ### Sources

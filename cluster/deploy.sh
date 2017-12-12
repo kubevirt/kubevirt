@@ -41,9 +41,9 @@ sleep 2
 echo "Deploying ..."
 
 # Deploy the right manifests for the right target
-if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
+if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev" ]; then
     _kubectl create -f manifests/dev -R $i
-elif [ "$TARGET" = "vagrant-release"  ]; then
+elif [ "$TARGET" = "vagrant-release" ]; then
     _kubectl create -f manifests/release -R $i
 fi
 

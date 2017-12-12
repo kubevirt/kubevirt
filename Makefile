@@ -35,6 +35,9 @@ vet:
 fmt:
 	goimports -w -local kubevirt.io cmd/ pkg/ tests/
 
+fmt-bash:
+	shfmt -i 4 -w cluster/ hack/ images/
+
 test: build
 	./hack/build-go.sh test ${WHAT}
 
@@ -88,4 +91,4 @@ check-bash:
 release-announce: .release-functest
 	./hack/release-announce.sh $(RELREF) $(PREREF)
 
-.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest release-announce
+.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest release-announce fmt-bash

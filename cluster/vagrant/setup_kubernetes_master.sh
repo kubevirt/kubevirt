@@ -37,18 +37,18 @@ set +e
 
 kubectl version
 while [ $? -ne 0 ]; do
-  sleep 60
-  echo 'Waiting for Kubernetes cluster to become functional...'
-  kubectl version
+    sleep 60
+    echo 'Waiting for Kubernetes cluster to become functional...'
+    kubectl version
 done
 
 set -e
 
 if [ "$NETWORK_PROVIDER" == "weave" ]; then
-  kubever=$(kubectl version | base64 | tr -d '\n')
-  kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$kubever"
+    kubever=$(kubectl version | base64 | tr -d '\n')
+    kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$kubever"
 else
-  kubectl create -f kube-$NETWORK_PROVIDER.yaml
+    kubectl create -f kube-$NETWORK_PROVIDER.yaml
 fi
 
 # Allow scheduling pods on master
@@ -60,6 +60,6 @@ mkdir -p /exports/share1
 chmod 0755 /exports/share1
 chown 36:36 /exports/share1
 
-echo "/exports/share1  *(rw,anonuid=36,anongid=36,all_squash,sync,no_subtree_check)" > /etc/exports
+echo "/exports/share1  *(rw,anonuid=36,anongid=36,all_squash,sync,no_subtree_check)" >/etc/exports
 
 systemctl enable nfs-server && systemctl start nfs-server

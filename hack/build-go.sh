@@ -38,31 +38,48 @@ fi
 # TODO finetune this a little bit more
 if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
-        (cd pkg; go ${target} -v ./...)
+        (
+            cd pkg
+            go ${target} -v ./...
+        )
     elif [ "${target}" = "functest" ]; then
         (cd tests; go test -kubeconfig=../cluster/vagrant/.kubeconfig -timeout 30m ${FUNC_TEST_ARGS})
         exit
     else
-        (cd pkg; go $target ./...)
-        (cd tests; go $target ./...)
+        (
+            cd pkg
+            go $target ./...
+        )
+        (
+            cd tests
+            go $target ./...
+        )
     fi
 fi
 
 # handle binaries
 for arg in $args; do
     if [ "${target}" = "test" ]; then
-        (cd $arg; go ${target} -v ./...)
+        (
+            cd $arg
+            go ${target} -v ./...
+        )
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
         ARCHBIN=$(basename $arg)-$(git describe --always)-$GOHOSTOS-$GOHOSTARCH
         ALIASLNK=$(basename $arg)
         rm $arg/$ALIASLNK $arg/$(basename $arg)-*-$GOHOSTOS-$GOHOSTARCH || :
-        (cd $arg; GOBIN=$PWD go build -o $ARCHBIN)
+        (
+            cd $arg
+            GOBIN=$PWD go build -o $ARCHBIN
+        )
         mkdir -p bin
         ln -sf $ARCHBIN $arg/$ALIASLNK
         ln -sf ../$arg/$ARCHBIN bin/$ALIASLNK
     else
-        (cd $arg; go $target ./...)
+        (
+            cd $arg
+            go $target ./...
+        )
     fi
 done
-
