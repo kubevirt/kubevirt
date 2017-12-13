@@ -1,0 +1,5 @@
+#!/bin/bash
+stty -echo
+#stty -isig
+SOCKET=$1
+socat unix-connect:/$SOCKET stdio
