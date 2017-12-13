@@ -43,8 +43,6 @@ var _ = Describe("CloudInit UserData", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
-	virtConfig, err := kubecli.GetKubevirtClientConfig()
-	tests.PanicOnError(err)
 
 	LaunchVM := func(vm *v1.VirtualMachine) runtime.Object {
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
@@ -57,7 +55,7 @@ var _ = Describe("CloudInit UserData", func() {
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 		tests.WaitForSuccessfulVMStart(obj)
 
-		expecter, _, err := tests.NewConsoleExpecter(virtConfig, vm, "serial0", 10*time.Second)
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
