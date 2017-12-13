@@ -69,6 +69,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
+	// TODO remove mounting the privateDir once
+	// the qemu pid is in the pods mount namespace
+	privateDir := fmt.Sprintf("%s-private/%s/%s", t.virtShareDir, namespace, domain)
+
 	// VM target container
 	container := kubev1.Container{
 		Name:            "compute",
@@ -86,6 +90,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			{
 				Name:      "virt-share-dir",
 				MountPath: t.virtShareDir,
+			},
+			{
+				Name:      "virt-private-dir",
+				MountPath: privateDir,
 			},
 		},
 		ReadinessProbe: &kubev1.Probe{
@@ -115,6 +123,14 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		VolumeSource: kubev1.VolumeSource{
 			HostPath: &kubev1.HostPathVolumeSource{
 				Path: t.virtShareDir,
+			},
+		},
+	})
+	volumes = append(volumes, kubev1.Volume{
+		Name: "virt-private-dir",
+		VolumeSource: kubev1.VolumeSource{
+			HostPath: &kubev1.HostPathVolumeSource{
+				Path: privateDir,
 			},
 		},
 	})
