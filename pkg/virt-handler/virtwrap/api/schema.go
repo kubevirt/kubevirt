@@ -59,6 +59,7 @@ func init() {
 	mapper.AddPtrConversion((**Address)(nil), (**v1.Address)(nil))
 	mapper.AddConversion(&Serial{}, &v1.Serial{})
 	mapper.AddPtrConversion((**SerialTarget)(nil), (**v1.SerialTarget)(nil))
+	mapper.AddPtrConversion((**SerialSource)(nil), (**v1.SerialSource)(nil))
 	mapper.AddConversion(&Console{}, &v1.Console{})
 	mapper.AddPtrConversion((**ConsoleTarget)(nil), (**v1.ConsoleTarget)(nil))
 	mapper.AddConversion(&InterfaceSource{}, &v1.InterfaceSource{})
@@ -326,10 +327,16 @@ type DiskSourceHost struct {
 type Serial struct {
 	Type   string        `xml:"type,attr"`
 	Target *SerialTarget `xml:"target,omitempty"`
+	Source *SerialSource `xml:"source,omitempty"`
 }
 
 type SerialTarget struct {
 	Port *uint `xml:"port,attr,omitempty"`
+}
+
+type SerialSource struct {
+	Mode string `xml:"mode,attr,omitempty"`
+	Path string `xml:"path,attr,omitempty"`
 }
 
 // END Serial -----------------------------

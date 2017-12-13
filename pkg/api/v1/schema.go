@@ -130,10 +130,16 @@ type DiskSourceHost struct {
 type Serial struct {
 	Type   string        `json:"type"`
 	Target *SerialTarget `json:"target,omitempty"`
+	Source *SerialSource `json:"source,omitempty"`
 }
 
 type SerialTarget struct {
 	Port *uint `json:"port,omitempty"`
+}
+
+type SerialSource struct {
+	Mode string `json:"mode,omitempty"`
+	Path string `json:"path,omitempty"`
 }
 
 // END Serial -----------------------------
