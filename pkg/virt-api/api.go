@@ -87,14 +87,6 @@ func (app *VirtAPIApp) Compose() {
 	// TODO: That os.File doesn't work as I expect.
 	// I need end up with response_type="file", but I am getting response_type="os.File"
 
-	ws.Route(ws.GET(rest.ResourcePath(vmGVR) + rest.SubResourcePath("console")).
-		To(rest.NewConsoleResource(virtCli, virtCli.CoreV1()).Console).
-		Param(restful.QueryParameter("console", "Name of the serial console to connect to")).
-		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
-		Operation("console").
-		Doc("Open a websocket connection to a serial console on the specified VM."))
-	// TODO: Add 'Returns', but I don't know what return type to put there.
-
 	restful.Add(ws)
 
 	ws.Route(ws.GET("/healthz").
