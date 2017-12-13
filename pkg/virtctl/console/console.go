@@ -139,6 +139,11 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 			if n == 0 && err == io.EOF {
 				return
 			}
+
+			// the escape sequence
+			if buf[0] == 29 {
+				return
+			}
 			// Writing out to the console connection
 			_, err = stdinWriter.Write(buf[0:n])
 			if err == io.EOF {
