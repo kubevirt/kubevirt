@@ -17,8 +17,5 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-oc adm policy add-cluster-role-to-user cluster-admin -z kubevirt-infra -n kube-system
-oc adm policy add-scc-to-user hostmount-anyuid -z kubevirt-iscsi -n kube-system
-oc patch deployment/iscsi-demo-target-tgtd --patch '{"spec":{"template":{"spec":{"serviceAccountName": "kubevirt-iscsi"}}}}'
-oc adm policy add-scc-to-user privileged -z kubevirt-infra -n kube-system
-oc adm policy add-cluster-role-to-user cluster-admin -z kubevirt-infra -n kube-system
+oc adm policy add-scc-to-user privileged -z kubevirt-infra
+oc adm policy add-scc-to-user hostmount-anyuid -z kubevirt-infra
