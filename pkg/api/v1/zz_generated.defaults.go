@@ -92,6 +92,27 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.VendorID.FeatureState)
 			}
 		}
+		for i := range in.Spec.Domain.Devices.Disks {
+			a := &in.Spec.Domain.Devices.Disks[i]
+			SetDefaults_DiskDevice(&a.DiskDevice)
+			if a.DiskDevice.Floppy != nil {
+				SetDefaults_FloppyTarget(a.DiskDevice.Floppy)
+			}
+			if a.DiskDevice.CDRom != nil {
+				SetDefaults_CDRomTarget(a.DiskDevice.CDRom)
+			}
+		}
+		for i := range in.Spec.Domain.Devices.Interfaces {
+			a := &in.Spec.Domain.Devices.Interfaces[i]
+			SetDefaults_InterfaceDevice(&a.InterfaceDevice)
+		}
+		for i := range in.Spec.Domain.Devices.Watchdog {
+			a := &in.Spec.Domain.Devices.Watchdog[i]
+			SetDefaults_Watchdog(a)
+			if a.WatchdogDevice.I6300ESB != nil {
+				SetDefaults_I6300ESBWatchdog(a.WatchdogDevice.I6300ESB)
+			}
+		}
 	}
 }
 
@@ -156,6 +177,27 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID != nil {
 					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID.FeatureState)
+				}
+			}
+			for i := range in.Spec.Template.Spec.Domain.Devices.Disks {
+				a := &in.Spec.Template.Spec.Domain.Devices.Disks[i]
+				SetDefaults_DiskDevice(&a.DiskDevice)
+				if a.DiskDevice.Floppy != nil {
+					SetDefaults_FloppyTarget(a.DiskDevice.Floppy)
+				}
+				if a.DiskDevice.CDRom != nil {
+					SetDefaults_CDRomTarget(a.DiskDevice.CDRom)
+				}
+			}
+			for i := range in.Spec.Template.Spec.Domain.Devices.Interfaces {
+				a := &in.Spec.Template.Spec.Domain.Devices.Interfaces[i]
+				SetDefaults_InterfaceDevice(&a.InterfaceDevice)
+			}
+			for i := range in.Spec.Template.Spec.Domain.Devices.Watchdog {
+				a := &in.Spec.Template.Spec.Domain.Devices.Watchdog[i]
+				SetDefaults_Watchdog(a)
+				if a.WatchdogDevice.I6300ESB != nil {
+					SetDefaults_I6300ESBWatchdog(a.WatchdogDevice.I6300ESB)
 				}
 			}
 		}

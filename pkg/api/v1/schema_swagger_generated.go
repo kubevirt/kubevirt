@@ -10,23 +10,26 @@ func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	}
 }
 
-func (CloudInitSpec) SwaggerDoc() map[string]string {
+func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "Only one of the fields in the CloudInitSpec can be set",
-		"nocloud": "Nocloud DataSource",
+		"resources": "Resources describes the Compute Resources required by this vm.",
+		"firmware":  "Firmware",
+		"clock":     "Clock sets the clock and timers of the vm.",
+		"features":  "Features like acpi, apic, hyperv",
+		"devices":   "Devices allows adding disks, network interfaces, ...",
 	}
 }
 
-func (DomainSpec) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (ResourceRequirements) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"initial": "Initial is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+	}
 }
 
 func (Firmware) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"uid": "UID reported by the vm bios\nDefaults to a random generated uid",
+	}
 }
 
 func (Devices) SwaggerDoc() map[string]string {
@@ -35,11 +38,11 @@ func (Devices) SwaggerDoc() map[string]string {
 
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name": "This must match the Name of a Volume.",
+		"name": "Name is the device name\nMust match the Name of a Volume.",
 	}
 }
 
-func (DiskTargets) SwaggerDoc() map[string]string {
+func (DiskDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
 		"disk":   "Attach a volume as a disk to the vm",
@@ -50,19 +53,29 @@ func (DiskTargets) SwaggerDoc() map[string]string {
 }
 
 func (DiskTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"readonly": "ReadOnly\nDefaults to false",
+	}
 }
 
 func (LunTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"readonly": "ReadOnly\nDefaults to false",
+	}
 }
 
 func (FloppyTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"readonly": "ReadOnly\nDefaults to false",
+		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
+	}
 }
 
 func (CDRomTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"readonly": "ReadOnly\nDefaults to true",
+		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
+	}
 }
 
 func (DiskBaseTarget) SwaggerDoc() map[string]string {
@@ -81,10 +94,10 @@ func (Volume) SwaggerDoc() map[string]string {
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
-		"ISCSI":                 "ISCSI represents an ISCSI Disk resource that is attached to a\nkubelet's host machine and then exposed to the pod.\nMore info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md\n+optional",
-		"PersistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nMade available to the vm as mounted block storage\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
-		"CloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
-		"RegistryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
+		"iscsi":                 "ISCSI represents an ISCSI Disk resource that is attached to a\nkubelet's host machine and then exposed to the pod.\nMore info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md\n+optional",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nMade available to the vm as mounted block storage\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
+		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
 	}
 }
 
@@ -95,80 +108,60 @@ func (RegistryDiskSource) SwaggerDoc() map[string]string {
 	}
 }
 
-func (ReadOnly) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (DiskSource) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (DiskTargetTmp) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (DiskDriver) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (DiskSourceHost) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Serial) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (SerialTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Console) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (ConsoleTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Interface) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"":     "Represents a network interface inside the vm",
+		"name": "Name of the interface",
+	}
 }
 
-func (LinkState) SwaggerDoc() map[string]string {
-	return map[string]string{}
+func (InterfaceDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "Only one of its members may be specified.",
+		"e1000":   "E1000 represents an e1000 network device",
+		"virtio":  "VIRTIO represents a virtio network device",
+		"rtl8139": "RTL8139 represents a rtl8139 network device",
+	}
 }
 
-func (BandWidth) SwaggerDoc() map[string]string {
-	return map[string]string{}
+func (E1000Interface) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "e1000 vm network interface",
+	}
 }
 
-func (BootOrder) SwaggerDoc() map[string]string {
-	return map[string]string{}
+func (VirtIOInterface) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "virtio vm network interface",
+	}
 }
 
-func (MAC) SwaggerDoc() map[string]string {
-	return map[string]string{}
+func (RTL8139Interface) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "rtl8139 vm network interface",
+	}
 }
 
-func (FilterRef) SwaggerDoc() map[string]string {
-	return map[string]string{}
+func (InterfaceAttrs) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "Represents the basic network interface device properties of a vm",
+		"address": "Address represents the device addres of the interface",
+		"mac":     "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
+	}
 }
 
 func (InterfaceSource) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"":     "Only one of its members may be specified.",
+		"name": "Name of the interface",
+		"pod":  "Pod indicates that the interface target device will be connected to the pod network",
+	}
 }
 
-func (Model) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (InterfaceTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Alias) SwaggerDoc() map[string]string {
-	return map[string]string{}
+func (PodNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Represents an interface source, connected to the pod network",
+	}
 }
 
 func (ClockOffset) SwaggerDoc() map[string]string {
@@ -187,11 +180,14 @@ func (ClockOffsetUTC) SwaggerDoc() map[string]string {
 }
 
 func (Clock) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "Represents the clock and timers of a vm",
+	}
 }
 
 func (Timer) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":       "Represents all available timers in a vm",
 		"hpet":   "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
 		"kvm":    "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
 		"pit":    "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
@@ -201,7 +197,9 @@ func (Timer) SwaggerDoc() map[string]string {
 }
 
 func (RTCTimerAttrs) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"track": "Track the guest or the wall clock",
+	}
 }
 
 func (TimerAttrs) SwaggerDoc() map[string]string {
@@ -221,6 +219,7 @@ func (Features) SwaggerDoc() map[string]string {
 
 func (FeatureState) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":        "Represents if a feature is enabled or disabled",
 		"enabled": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
 	}
 }
@@ -233,68 +232,52 @@ func (FeatureAPIC) SwaggerDoc() map[string]string {
 
 func (FeatureSpinlocks) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"Spinlocks": "Spinlocks indicates how many spinlocks are made available\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
+		"spinlocks": "Spinlocks indicates how many spinlocks are made available\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
 	}
 }
 
 func (FeatureVendorID) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"vendorid": "VendorID sets the hypervisor vendor id, visible to the vm",
+	}
 }
 
 func (FeatureHyperv) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"Relaxed":    "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
-		"VAPIC":      "VAPIC indicates weather virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
-		"Spinlocks":  "Spiinlocks\nSpinlocks indicates if spinlocks should be made available to the guest\n+optional",
-		"VPIndex":    "VPIndex\nDefaults to the machine type setting\n+optional",
-		"Runtime":    "Runtime\nDefaults to the machine type setting\n+optional",
-		"SyNIC":      "SyNIC\nDefaults to the machine type setting\n+optional",
-		"SyNICTimer": "SyNICTimer\nDefaults to the machine type setting\n+optional",
-		"Reset":      "Reset\nDefaults to the machine type setting\n+optional",
-		"VendorID":   "VendorID\nDefaults to the machine type setting\n+optional",
+		"":           "Hyperv specific features",
+		"relaxed":    "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
+		"vapic":      "VAPIC indicates weather virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
+		"spinlocks":  "Spinlocks indicates if spinlocks should be made available to the guest\n+optional",
+		"vpindex":    "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors\nDefaults to the machine type setting\n+optional",
+		"runtime":    "Runtime\nDefaults to the machine type setting\n+optional",
+		"synic":      "SyNIC enable Synthetic Interrupt Controller\nDefaults to the machine type setting\n+optional",
+		"synictimer": "SyNICTimer enable Synthetic Interrupt Controller timer\nDefaults to the machine type setting\n+optional",
+		"reset":      "Reset enables Hyperv reboot/reset for the vm\nDefaults to the machine type setting\n+optional",
+		"vendorid":   "VendorID allows setting the hypervisor vendor id\nDefaults to the machine type setting\n+optional",
 	}
-}
-
-func (Channel) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (ChannelTarget) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (ChannelSource) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Video) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Graphics) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (Listen) SwaggerDoc() map[string]string {
-	return map[string]string{}
 }
 
 func (Address) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (Ballooning) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
-func (RandomGenerator) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (Watchdog) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "Hardware watchdog device",
-		"model":  "Defines what watchdog model to use, typically 'i6300esb'",
-		"action": "The action to take. poweroff, reset, shutdown, pause, dump.",
+		"":     "Named watchdog device",
+		"name": "Name of the watchdog",
+	}
+}
+
+func (WatchdogDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "Hardware watchdog device\nExactly one of its members must be set.",
+		"i6300esb": "i6300esb watchdog device\n+optional",
+	}
+}
+
+func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "i6300esb watchdog device",
+		"action": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
 	}
 }

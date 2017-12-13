@@ -14,12 +14,56 @@ func SetDefaults_FeatureState(obj *FeatureState) {
 	}
 }
 
+func SetDefaults_DiskDevice(obj *DiskDevice) {
+	if obj.Disk == nil &&
+		obj.CDRom == nil &&
+		obj.Floppy == nil &&
+		obj.LUN == nil {
+		obj.Disk = &DiskTarget{}
+	}
+}
+
+func SetDefaults_InterfaceDevice(obj *InterfaceDevice) {
+	if obj.E1000 == nil &&
+		obj.VIRTIO == nil &&
+		obj.RTL8139 == nil {
+		obj.RTL8139 = &RTL8139Interface{}
+	}
+}
+
+func SetDefaults_Watchdog(obj *Watchdog) {
+	if obj.I6300ESB == nil {
+		obj.I6300ESB = &I6300ESBWatchdog{}
+	}
+}
+
+func SetDefaults_CDRomTarget(obj *CDRomTarget) {
+	if obj.ReadOnly == nil {
+		obj.ReadOnly = _true
+	}
+	if obj.Tray == "" {
+		obj.Tray = TrayStateClosed
+	}
+}
+
+func SetDefaults_FloppyTarget(obj *FloppyTarget) {
+	if obj.Tray == "" {
+		obj.Tray = TrayStateClosed
+	}
+}
+
 func SetDefaults_FeatureSpinlocks(obj *FeatureSpinlocks) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true
 	}
 	if obj.Enabled == _true && obj.Spinlocks == nil {
 		obj.Spinlocks = ui32(4096)
+	}
+}
+
+func SetDefaults_I6300ESBWatchdog(obj *I6300ESBWatchdog) {
+	if obj.Action == "" {
+		obj.Action = WatchdogActionReset
 	}
 }
 

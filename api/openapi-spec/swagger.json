@@ -1872,94 +1872,32 @@
     "description": "Affinity groups all the affinity rules related to a VM",
     "properties": {
      "nodeAffinity": {
-      "description": "Host affinity support",
+      "description": "Node affinity support",
       "$ref": "#/definitions/v1.NodeAffinity"
      }
     }
    },
-   "v1.Alias": {
+   "v1.CDRomTarget": {
     "required": [
-     "name"
+     "dev"
     ],
     "properties": {
-     "name": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.Ballooning": {
-    "required": [
-     "model"
-    ],
-    "properties": {
-     "model": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.BandWidth": {},
-   "v1.BootOrder": {
-    "required": [
-     "order"
-    ],
-    "properties": {
-     "order": {
-      "type": "integer",
-      "format": "integer"
-     }
-    }
-   },
-   "v1.Channel": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "source": {
-      "$ref": "#/definitions/v1.ChannelSource"
-     },
-     "target": {
-      "$ref": "#/definitions/v1.ChannelTarget"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.ChannelSource": {
-    "required": [
-     "mode",
-     "path"
-    ],
-    "properties": {
-     "mode": {
+     "dev": {
+      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"
      },
-     "path": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.ChannelTarget": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "address": {
-      "type": "string"
+     "readonly": {
+      "description": "ReadOnly\nDefaults to true",
+      "type": "boolean"
      },
-     "name": {
-      "type": "string"
-     },
-     "port": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "type": {
+     "tray": {
+      "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
       "type": "string"
      }
     }
    },
    "v1.Clock": {
+    "description": "Represents the clock and timers of a vm",
     "properties": {
      "hpet": {
       "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
@@ -2018,30 +1956,6 @@
      }
     }
    },
-   "v1.Console": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "target": {
-      "$ref": "#/definitions/v1.ConsoleTarget"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.ConsoleTarget": {
-    "properties": {
-     "port": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
    "v1.DeleteOptions": {
     "description": "DeleteOptions may be provided when deleting an API object.",
     "properties": {
@@ -2075,28 +1989,10 @@
    "v1.DeletionPropagation": {},
    "v1.Devices": {
     "properties": {
-     "channels": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Channel"
-      }
-     },
-     "consoles": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Console"
-      }
-     },
      "disks": {
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
-      }
-     },
-     "graphics": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Graphics"
       }
      },
      "interfaces": {
@@ -2105,29 +2001,43 @@
        "$ref": "#/definitions/v1.Interface"
       }
      },
-     "memballoon": {
-      "$ref": "#/definitions/v1.Ballooning"
-     },
-     "serials": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Serial"
-      }
-     },
-     "video": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Video"
-      }
-     },
      "watchdog": {
-      "$ref": "#/definitions/v1.Watchdog"
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Watchdog"
+      }
      }
     }
    },
    "v1.Disk": {
     "required": [
-     "name",
+     "name"
+    ],
+    "properties": {
+     "cdrom": {
+      "description": "Attach a volume as a cdrom to the vm",
+      "$ref": "#/definitions/v1.CDRomTarget"
+     },
+     "disk": {
+      "description": "Attach a volume as a disk to the vm",
+      "$ref": "#/definitions/v1.DiskTarget"
+     },
+     "floppy": {
+      "description": "Attach a volume as a floppy to the vm",
+      "$ref": "#/definitions/v1.FloppyTarget"
+     },
+     "lun": {
+      "description": "Attach a volume as a LUN to the vm",
+      "$ref": "#/definitions/v1.LunTarget"
+     },
+     "name": {
+      "description": "Name is the device name\nMust match the Name of a Volume.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.DiskTarget": {
+    "required": [
      "dev"
     ],
     "properties": {
@@ -2135,9 +2045,9 @@
       "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"
      },
-     "name": {
-      "description": "This must match the Name of a Volume.",
-      "type": "string"
+     "readonly": {
+      "description": "ReadOnly\nDefaults to false",
+      "type": "boolean"
      }
     }
    },
@@ -2147,89 +2057,95 @@
     ],
     "properties": {
      "clock": {
+      "description": "Clock sets the clock and timers of the vm.",
       "$ref": "#/definitions/v1.Clock"
      },
      "devices": {
+      "description": "Devices allows adding disks, network interfaces, ...",
       "$ref": "#/definitions/v1.Devices"
      },
      "features": {
+      "description": "Features like acpi, apic, hyperv",
       "$ref": "#/definitions/v1.Features"
      },
      "firmware": {
+      "description": "Firmware",
       "$ref": "#/definitions/v1.Firmware"
      },
      "resources": {
+      "description": "Resources describes the Compute Resources required by this vm.",
       "$ref": "#/definitions/v1.ResourceRequirements"
      }
     }
    },
-   "v1.FeatureHyperv": {
-    "required": [
-     "Relaxed",
-     "VAPIC",
-     "Spinlocks",
-     "VPIndex",
-     "Runtime",
-     "SyNIC",
-     "SyNICTimer",
-     "Reset",
-     "VendorID"
-    ],
+   "v1.E1000Interface": {
+    "description": "e1000 vm network interface",
     "properties": {
-     "Relaxed": {
+     "address": {
+      "description": "Address represents the device addres of the interface",
+      "$ref": "#/definitions/v1.Address"
+     },
+     "mac": {
+      "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
+      "type": "string"
+     }
+    }
+   },
+   "v1.FeatureHyperv": {
+    "description": "Hyperv specific features",
+    "properties": {
+     "relaxed": {
       "description": "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
-     "Reset": {
-      "description": "Reset\nDefaults to the machine type setting\n+optional",
+     "reset": {
+      "description": "Reset enables Hyperv reboot/reset for the vm\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
-     "Runtime": {
+     "runtime": {
       "description": "Runtime\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
-     "Spinlocks": {
-      "description": "Spiinlocks\nSpinlocks indicates if spinlocks should be made available to the guest\n+optional",
+     "spinlocks": {
+      "description": "Spinlocks indicates if spinlocks should be made available to the guest\n+optional",
       "$ref": "#/definitions/v1.FeatureSpinlocks"
      },
-     "SyNIC": {
-      "description": "SyNIC\nDefaults to the machine type setting\n+optional",
+     "synic": {
+      "description": "SyNIC enable Synthetic Interrupt Controller\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
-     "SyNICTimer": {
-      "description": "SyNICTimer\nDefaults to the machine type setting\n+optional",
+     "synictimer": {
+      "description": "SyNICTimer enable Synthetic Interrupt Controller timer\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
-     "VAPIC": {
+     "vapic": {
       "description": "VAPIC indicates weather virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
-     "VPIndex": {
-      "description": "VPIndex\nDefaults to the machine type setting\n+optional",
-      "$ref": "#/definitions/v1.FeatureState"
-     },
-     "VendorID": {
-      "description": "VendorID\nDefaults to the machine type setting\n+optional",
+     "vendorid": {
+      "description": "VendorID allows setting the hypervisor vendor id\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureVendorID"
+     },
+     "vpindex": {
+      "description": "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
      }
     }
    },
    "v1.FeatureSpinlocks": {
-    "required": [
-     "Spinlocks"
-    ],
     "properties": {
-     "Spinlocks": {
-      "description": "Spinlocks indicates how many spinlocks are made available\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
-      "type": "integer"
-     },
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
       "type": "boolean"
+     },
+     "spinlocks": {
+      "description": "Spinlocks indicates how many spinlocks are made available\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
+      "type": "integer"
      }
     }
    },
    "v1.FeatureState": {
+    "description": "Represents if a feature is enabled or disabled",
     "properties": {
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
@@ -2239,15 +2155,16 @@
    },
    "v1.FeatureVendorID": {
     "required": [
-     "VendorID"
+     "vendorid"
     ],
     "properties": {
-     "VendorID": {
-      "type": "string"
-     },
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
       "type": "boolean"
+     },
+     "vendorid": {
+      "description": "VendorID sets the hypervisor vendor id, visible to the vm",
+      "type": "string"
      }
     }
    },
@@ -2267,52 +2184,29 @@
      }
     }
    },
-   "v1.FilterRef": {
-    "required": [
-     "filter"
-    ],
-    "properties": {
-     "filter": {
-      "type": "string"
-     }
-    }
-   },
    "v1.Firmware": {
-    "required": [
-     "UID"
-    ],
     "properties": {
-     "UID": {
+     "uid": {
+      "description": "UID reported by the vm bios\nDefaults to a random generated uid",
       "type": "string"
      }
     }
    },
-   "v1.Graphics": {
+   "v1.FloppyTarget": {
     "required": [
-     "type"
+     "dev"
     ],
     "properties": {
-     "autoPort": {
+     "dev": {
+      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"
      },
-     "defaultMode": {
-      "type": "string"
+     "readonly": {
+      "description": "ReadOnly\nDefaults to false",
+      "type": "boolean"
      },
-     "listen": {
-      "$ref": "#/definitions/v1.Listen"
-     },
-     "passwdValidTo": {
-      "type": "string"
-     },
-     "port": {
-      "type": "integer",
-      "format": "int32"
-     },
-     "tlsPort": {
-      "type": "integer",
-      "format": "int32"
-     },
-     "type": {
+     "tray": {
+      "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
       "type": "string"
      }
     }
@@ -2330,6 +2224,15 @@
      },
      "version": {
       "description": "version specifies the version in the form of \"version\". This is to save the clients the trouble of splitting the GroupVersion.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.I6300ESBWatchdog": {
+    "description": "i6300esb watchdog device",
+    "properties": {
+     "action": {
+      "description": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
       "type": "string"
      }
     }
@@ -2424,66 +2327,42 @@
     }
    },
    "v1.Interface": {
+    "description": "Represents a network interface inside the vm",
     "required": [
-     "type",
-     "source"
+     "name"
     ],
     "properties": {
-     "address": {
-      "$ref": "#/definitions/v1.Address"
+     "e1000": {
+      "description": "E1000 represents an e1000 network device",
+      "$ref": "#/definitions/v1.E1000Interface"
      },
-     "alias": {
-      "$ref": "#/definitions/v1.Alias"
-     },
-     "bandwidth": {
-      "$ref": "#/definitions/v1.BandWidth"
-     },
-     "boot": {
-      "$ref": "#/definitions/v1.BootOrder"
-     },
-     "filterRef": {
-      "$ref": "#/definitions/v1.FilterRef"
-     },
-     "link": {
-      "$ref": "#/definitions/v1.LinkState"
-     },
-     "mac": {
-      "$ref": "#/definitions/v1.MAC"
-     },
-     "model": {
-      "$ref": "#/definitions/v1.Model"
-     },
-     "source": {
-      "$ref": "#/definitions/v1.InterfaceSource"
-     },
-     "target": {
-      "$ref": "#/definitions/v1.InterfaceTarget"
-     },
-     "type": {
+     "name": {
+      "description": "Name of the interface",
       "type": "string"
+     },
+     "rtl8139": {
+      "description": "RTL8139 represents a rtl8139 network device",
+      "$ref": "#/definitions/v1.RTL8139Interface"
+     },
+     "virtio": {
+      "description": "VIRTIO represents a virtio network device",
+      "$ref": "#/definitions/v1.VirtIOInterface"
      }
     }
    },
    "v1.InterfaceSource": {
-    "properties": {
-     "bridge": {
-      "type": "string"
-     },
-     "device": {
-      "type": "string"
-     },
-     "network": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.InterfaceTarget": {
+    "description": "Only one of its members may be specified.",
     "required": [
-     "dev"
+     "name"
     ],
     "properties": {
-     "dev": {
+     "name": {
+      "description": "Name of the interface",
       "type": "string"
+     },
+     "pod": {
+      "description": "Pod indicates that the interface target device will be connected to the pod network",
+      "$ref": "#/definitions/v1.PodNetwork"
      }
     }
    },
@@ -2527,16 +2406,6 @@
      }
     }
    },
-   "v1.LinkState": {
-    "required": [
-     "state"
-    ],
-    "properties": {
-     "state": {
-      "type": "string"
-     }
-    }
-   },
    "v1.ListMeta": {
     "description": "ListMeta describes metadata that synthetic resources must have, including lists and various status objects. A resource may have only one of {ObjectMeta, ListMeta}.",
     "properties": {
@@ -2554,22 +2423,6 @@
      }
     }
    },
-   "v1.Listen": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "address": {
-      "type": "string"
-     },
-     "network": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
    "v1.LocalObjectReference": {
     "description": "LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.",
     "properties": {
@@ -2579,13 +2432,18 @@
      }
     }
    },
-   "v1.MAC": {
+   "v1.LunTarget": {
     "required": [
-     "address"
+     "dev"
     ],
     "properties": {
-     "address": {
+     "dev": {
+      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"
+     },
+     "readonly": {
+      "description": "ReadOnly\nDefaults to false",
+      "type": "boolean"
      }
     }
    },
@@ -2659,16 +2517,6 @@
       "$ref": "#/definitions/types.UID"
      },
      "phase": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.Model": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "type": {
       "type": "string"
      }
     }
@@ -2871,6 +2719,9 @@
      }
     }
    },
+   "v1.PodNetwork": {
+    "description": "Represents an interface source, connected to the pod network"
+   },
    "v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",
     "properties": {
@@ -2909,6 +2760,20 @@
       "type": "string"
      },
      "track": {
+      "description": "Track the guest or the wall clock",
+      "type": "string"
+     }
+    }
+   },
+   "v1.RTL8139Interface": {
+    "description": "rtl8139 vm network interface",
+    "properties": {
+     "address": {
+      "description": "Address represents the device addres of the interface",
+      "$ref": "#/definitions/v1.Address"
+     },
+     "mac": {
+      "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
       "type": "string"
      }
     }
@@ -2926,33 +2791,10 @@
     }
    },
    "v1.ResourceRequirements": {
-    "required": [
-     "Initial"
-    ],
     "properties": {
-     "Initial": {
+     "initial": {
+      "description": "Initial is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
       "type": "object"
-     }
-    }
-   },
-   "v1.Serial": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "target": {
-      "$ref": "#/definitions/v1.SerialTarget"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.SerialTarget": {
-    "properties": {
-     "port": {
-      "type": "integer",
-      "format": "integer"
      }
     }
    },
@@ -3165,29 +3007,16 @@
      }
     }
    },
-   "v1.Video": {
-    "required": [
-     "type"
-    ],
+   "v1.VirtIOInterface": {
+    "description": "virtio vm network interface",
     "properties": {
-     "heads": {
-      "type": "integer",
-      "format": "integer"
+     "address": {
+      "description": "Address represents the device addres of the interface",
+      "$ref": "#/definitions/v1.Address"
      },
-     "ram": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "type": {
+     "mac": {
+      "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
       "type": "string"
-     },
-     "vRam": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "vgaMem": {
-      "type": "integer",
-      "format": "integer"
      }
     }
    },
@@ -3337,9 +3166,17 @@
    "v1.VirtualMachineSpec": {
     "description": "VirtualMachineSpec is a description of a VirtualMachine.",
     "required": [
-     "Volumes"
+     "Volumes",
+     "Interfaces"
     ],
     "properties": {
+     "Interfaces": {
+      "description": "List of interfaces/networks which can be attached to an interface inside the vm.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.InterfaceSource"
+      }
+     },
      "Volumes": {
       "description": "List of volumes that can be mounted by disks belonging to the vm.",
       "type": "array",
@@ -3400,48 +3237,43 @@
    "v1.Volume": {
     "description": "Volume represents a named volume in a vm.",
     "required": [
-     "name",
-     "ISCSI",
-     "PersistentVolumeClaim",
-     "CloudInitNoCloud",
-     "RegistryDisk"
+     "name"
     ],
     "properties": {
-     "CloudInitNoCloud": {
+     "cloudInitNoCloud": {
       "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
      },
-     "ISCSI": {
+     "iscsi": {
       "description": "ISCSI represents an ISCSI Disk resource that is attached to a\nkubelet's host machine and then exposed to the pod.\nMore info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md\n+optional",
       "$ref": "#/definitions/v1.ISCSIVolumeSource"
-     },
-     "PersistentVolumeClaim": {
-      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nMade available to the vm as mounted block storage\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
-      "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
-     },
-     "RegistryDisk": {
-      "description": "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
-      "$ref": "#/definitions/v1.RegistryDiskSource"
      },
      "name": {
       "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
+     },
+     "persistentVolumeClaim": {
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nMade available to the vm as mounted block storage\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+      "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
+     },
+     "registryDisk": {
+      "description": "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
+      "$ref": "#/definitions/v1.RegistryDiskSource"
      }
     }
    },
    "v1.Watchdog": {
-    "description": "Hardware watchdog device",
+    "description": "Named watchdog device",
     "required": [
-     "model",
-     "action"
+     "name"
     ],
     "properties": {
-     "action": {
-      "description": "The action to take. poweroff, reset, shutdown, pause, dump.",
-      "type": "string"
+     "i6300esb": {
+      "description": "i6300esb watchdog device\n+optional",
+      "$ref": "#/definitions/v1.I6300ESBWatchdog"
      },
-     "model": {
-      "description": "Defines what watchdog model to use, typically 'i6300esb'",
+     "name": {
+      "description": "Name of the watchdog",
       "type": "string"
      }
     }

@@ -42,53 +42,51 @@ type CloudInitNoCloudSource struct {
 	UserDataBase64 string `json:"userDataBase64"`
 }
 
-// Only one of the fields in the CloudInitSpec can be set
-type CloudInitSpec struct {
-	// Nocloud DataSource
-	NoCloudData *CloudInitNoCloudSource `json:"nocloud"`
-
-	// Add future cloud init datasource structures below.
-}
-
 type DomainSpec struct {
+	// Resources describes the Compute Resources required by this vm.
 	Resources ResourceRequirements `json:"resources,omitempty"`
-	Firmware  *Firmware            `json:"firmware,omitempty"`
-	Clock     *Clock               `json:"clock,omitempty"`
-	Features  Features             `json:"features,omitempty"`
-	Devices   Devices              `json:"devices"`
+	// Firmware
+	Firmware *Firmware `json:"firmware,omitempty"`
+	// Clock sets the clock and timers of the vm.
+	Clock *Clock `json:"clock,omitempty"`
+	// Features like acpi, apic, hyperv
+	Features Features `json:"features,omitempty"`
+	// Devices allows adding disks, network interfaces, ...
+	Devices Devices `json:"devices"`
 }
 
 type ResourceRequirements struct {
-	Initial v1.ResourceList
+	// Initial is a description of the initial vm resources.
+	// Valid resource keys are "memory" and "cpu".
+	// +optional
+	Initial v1.ResourceList `json:"initial,omitempty"`
 }
 
 type Firmware struct {
-	UID types.UID
+	// UID reported by the vm bios
+	// Defaults to a random generated uid
+	UID types.UID `json:"uid,omitempty"`
 }
 
 type Devices struct {
 	Disks      []Disk      `json:"disks,omitempty"`
 	Interfaces []Interface `json:"interfaces,omitempty"`
-	Channels   []Channel   `json:"channels,omitempty"`
-	Video      []Video     `json:"video,omitempty"`
-	Graphics   []Graphics  `json:"graphics,omitempty"`
-	Ballooning *Ballooning `json:"memballoon,omitempty"`
-	Serials    []Serial    `json:"serials,omitempty"`
-	Consoles   []Console   `json:"consoles,omitempty"`
-	Watchdog   *Watchdog   `json:"watchdog,omitempty"`
+	Watchdog   []Watchdog  `json:"watchdog,omitempty"`
 }
 
 type Disk struct {
-	// This must match the Name of a Volume.
+	// Name is the device name
+	// Must match the Name of a Volume.
 	Name string `json:"name"`
 
-	// DiskTarget specifies as which device the disk should be added to the guest
-	DiskTarget `json:",inline"`
+	// DiskDevice specifies as which device the disk should be added to the guest
+	// Defaults to Disk
+	DiskDevice `json:",inline"`
 }
 
 // Represents the target of a volume to mount.
 // Only one of its members may be specified.
-type DiskTargets struct {
+type DiskDevice struct {
 	// Attach a volume as a disk to the vm
 	Disk *DiskTarget `json:"disk,omitempty"`
 	// Attach a volume as a LUN to the vm
@@ -101,18 +99,50 @@ type DiskTargets struct {
 
 type DiskTarget struct {
 	DiskBaseTarget `json:",inline"`
+	// ReadOnly
+	// Defaults to false
+	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type LunTarget struct {
 	DiskBaseTarget `json:",inline"`
+	// ReadOnly
+	// Defaults to false
+	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type FloppyTarget struct {
 	DiskBaseTarget `json:",inline"`
+	// ReadOnly
+	// Defaults to false
+	ReadOnly bool `json:"readonly,omitempty"`
+	// Tray indicates if the tray of the device is open or closed.
+	// Allowed values are "open" and "closed"
+	// Defaults to closed
+	// +optional
+	Tray TrayState `json:"tray,omitempty"`
 }
+
+// TrayState indicates if a tray of a cdrom or floppy is open or closed
+type TrayState string
+
+const (
+	// TrayStateOpen indicates that the tray of a cdrom or floppy is open
+	TrayStateOpen TrayState = "open"
+	// TrayStateClosed indicates that the tray of a cdrom or floppy is closed
+	TrayStateClosed TrayState = "closed"
+)
 
 type CDRomTarget struct {
 	DiskBaseTarget `json:",inline"`
+	// ReadOnly
+	// Defaults to true
+	ReadOnly *bool `json:"readonly,omitempty"`
+	// Tray indicates if the tray of the device is open or closed.
+	// Allowed values are "open" and "closed"
+	// Defaults to closed
+	// +optional
+	Tray TrayState `json:"tray,omitempty"`
 }
 
 type DiskBaseTarget struct {
@@ -140,21 +170,21 @@ type VolumeSource struct {
 	// kubelet's host machine and then exposed to the pod.
 	// More info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md
 	// +optional
-	ISCSI *v1.ISCSIVolumeSource
+	ISCSI *v1.ISCSIVolumeSource `json:"iscsi,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Made available to the vm as mounted block storage
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
-	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 	// CloudInitNoCloud represents a cloud-init NoCloud user-data source.
 	// The NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.
 	// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 	// +optional
-	CloudInitNoCloud *CloudInitNoCloudSource
+	CloudInitNoCloud *CloudInitNoCloudSource `json:"cloudInitNoCloud,omitempty"`
 	// RegistryDisk references a docker image, embedding a qcow or raw disk
 	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
 	// +optional
-	RegistryDisk *RegistryDiskSource
+	RegistryDisk *RegistryDiskSource `json:"registryDisk,omitempty"`
 }
 
 // Represents a docker image with an embedded disk
@@ -163,115 +193,63 @@ type RegistryDiskSource struct {
 	Image string `json:"image"`
 }
 
-type ReadOnly struct{}
-
-type DiskSource struct {
-	File          string          `json:"file,omitempty"`
-	StartupPolicy string          `json:"startupPolicy,omitempty"`
-	Protocol      string          `json:"protocol,omitempty"`
-	Name          string          `json:"name,omitempty"`
-	Host          *DiskSourceHost `json:"host,omitempty"`
-}
-
-type DiskTargetTmp struct {
-	Bus    string `json:"bus,omitempty"`
-	Device string `json:"dev"`
-}
-
-type DiskDriver struct {
-	Cache       string `json:"cache,omitempty"`
-	ErrorPolicy string `json:"errorPolicy,omitempty"`
-	IO          string `json:"io,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Type        string `json:"type,omitempty"`
-}
-
-type DiskSourceHost struct {
-	Name string `json:"name"`
-	Port string `json:"port,omitempty"`
-}
-
-// END Disk -----------------------------
-
-// BEGIN Serial -----------------------------
-
-type Serial struct {
-	Type   string        `json:"type"`
-	Target *SerialTarget `json:"target,omitempty"`
-}
-
-type SerialTarget struct {
-	Port *uint `json:"port,omitempty"`
-}
-
-// END Serial -----------------------------
-
-// BEGIN Console -----------------------------
-
-type Console struct {
-	Type   string         `json:"type"`
-	Target *ConsoleTarget `json:"target,omitempty"`
-}
-
-type ConsoleTarget struct {
-	Type *string `json:"type,omitempty"`
-	Port *uint   `json:"port,omitempty"`
-}
-
-// END Serial -----------------------------
-
-// BEGIN Inteface -----------------------------
-
+// Represents a network interface inside the vm
 type Interface struct {
-	Address   *Address         `json:"address,omitempty"`
-	Type      string           `json:"type"`
-	Source    InterfaceSource  `json:"source"`
-	Target    *InterfaceTarget `json:"target,omitempty"`
-	Model     *Model           `json:"model,omitempty"`
-	MAC       *MAC             `json:"mac,omitempty"`
-	BandWidth *BandWidth       `json:"bandwidth,omitempty"`
-	BootOrder *BootOrder       `json:"boot,omitempty"`
-	LinkState *LinkState       `json:"link,omitempty"`
-	FilterRef *FilterRef       `json:"filterRef,omitempty"`
-	Alias     *Alias           `json:"alias,omitempty"`
-}
-
-type LinkState struct {
-	State string `json:"state"`
-}
-
-type BandWidth struct {
-}
-
-type BootOrder struct {
-	Order uint `json:"order"`
-}
-
-type MAC struct {
-	MAC string `json:"address"`
-}
-
-type FilterRef struct {
-	Filter string `json:"filter"`
-}
-
-type InterfaceSource struct {
-	Network string `json:"network,omitempty"`
-	Device  string `json:"device,omitempty"`
-	Bridge  string `json:"bridge,omitempty"`
-}
-
-type Model struct {
-	Type string `json:"type"`
-}
-
-type InterfaceTarget struct {
-	Device string `json:"dev"`
-}
-
-type Alias struct {
+	// Name of the interface
 	Name string `json:"name"`
+	// InterfaceDevice contains the guest details of the interface
+	// Defaults to rtl8139
+	InterfaceDevice `json:",inline"`
 }
+
+// Only one of its members may be specified.
+type InterfaceDevice struct {
+	// E1000 represents an e1000 network device
+	E1000 *E1000Interface `json:"e1000,omitempty"`
+	// VIRTIO represents a virtio network device
+	VIRTIO *VirtIOInterface `json:"virtio,omitempty"`
+	// RTL8139 represents a rtl8139 network device
+	RTL8139 *RTL8139Interface `json:"rtl8139,omitempty"`
+}
+
+// e1000 vm network interface
+type E1000Interface struct {
+	// InterfaceAttrs represents the basic network interface device properties of a vm
+	InterfaceAttrs `json:",inline"`
+}
+
+// virtio vm network interface
+type VirtIOInterface struct {
+	// InterfaceAttrs represents the basic network interface device properties of a vm
+	InterfaceAttrs `json:",inline"`
+}
+
+// rtl8139 vm network interface
+type RTL8139Interface struct {
+	// InterfaceAttrs represents the basic network interface device properties of a vm
+	InterfaceAttrs `json:",inline"`
+}
+
+// Represents the basic network interface device properties of a vm
+type InterfaceAttrs struct {
+	// Address represents the device addres of the interface
+	Address *Address `json:"address,omitempty"`
+	// MAC address of the vm network interface
+	// Defaults to a random generated mac
+	// +optional
+	MAC string `json:"mac,omitempty"`
+}
+
+// Only one of its members may be specified.
+type InterfaceSource struct {
+	// Name of the interface
+	Name string `json:"name"`
+	// Pod indicates that the interface target device will be connected to the pod network
+	Pod *PodNetwork `json:"pod,omitempty"`
+}
+
+// Represents an interface source, connected to the pod network
+type PodNetwork struct{}
 
 // Exactly one of its members must be set.
 type ClockOffset struct {
@@ -294,11 +272,15 @@ type ClockOffsetUTC struct {
 // Zone name follows the TZ environment variable format (e.g. 'America/New_York')
 type ClockOffsetTimezone string
 
+// Represents the clock and timers of a vm
 type Clock struct {
+	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock
 	ClockOffset `json:",inline"`
-	Timer       `json:",inline"`
+	// Timer specifies whih timers are attached to the vm
+	Timer `json:",inline"`
 }
 
+// Represents all available timers in a vm
 type Timer struct {
 	// HPET (High Precision Event Timer) - multiple timers with periodic interrupts.
 	HPET *TimerAttrs `json:"hpet,omitempty"`
@@ -330,6 +312,7 @@ const (
 	TickPolicyDiscard TickPolicy = "discard"
 )
 
+// RTCTimerTrack specifies from which source to track the time
 type RTCTimerTrack string
 
 const (
@@ -341,7 +324,8 @@ const (
 
 type RTCTimerAttrs struct {
 	TimerAttrs `json:",inline"`
-	Track      RTCTimerTrack `json:"track,omitempty"`
+	// Track the guest or the wall clock
+	Track RTCTimerTrack `json:"track,omitempty"`
 }
 
 type TimerAttrs struct {
@@ -367,6 +351,7 @@ type Features struct {
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
 }
 
+// Represents if a feature is enabled or disabled
 type FeatureState struct {
 	// Enabled determines if the feature should be enabled or disabled on the guest
 	// Defaults to true
@@ -375,6 +360,7 @@ type FeatureState struct {
 }
 
 type FeatureAPIC struct {
+	// FeatureState allows enabling or disabling the feature
 	FeatureState `json:",inline"`
 	// EndOfInterrupt enables the end of interrupt notification in the guest
 	// Defaults to false
@@ -383,107 +369,59 @@ type FeatureAPIC struct {
 }
 
 type FeatureSpinlocks struct {
+	// FeatureState allows enabling or disabling the feature
 	FeatureState `json:",inline"`
 	// Spinlocks indicates how many spinlocks are made available
 	// Must be a value greater or equal 4096
 	// Defaults to 4096
 	// +optional
-	Spinlocks *uint32
+	Spinlocks *uint32 `json:"spinlocks,omitempty"`
 }
 
 type FeatureVendorID struct {
+	// FeatureState allows enabling or disabling the feature
 	FeatureState `json:",inline"`
-	VendorID     string
+	// VendorID sets the hypervisor vendor id, visible to the vm
+	VendorID string `json:"vendorid, omitempty"`
 }
 
+// Hyperv specific features
 type FeatureHyperv struct {
 	// Relaxed relaxes constraints on timer
 	// Defaults to the machine type setting
 	// +optional
-	Relaxed *FeatureState
+	Relaxed *FeatureState `json:"relaxed,omitempty"`
 	// VAPIC indicates weather virtual APIC is enabled
 	// Defaults to the machine type setting
 	// +optional
-	VAPIC *FeatureState
-	// Spiinlocks
+	VAPIC *FeatureState `json:"vapic,omitempty"`
 	// Spinlocks indicates if spinlocks should be made available to the guest
 	// +optional
-	Spinlocks *FeatureSpinlocks
-	// VPIndex
+	Spinlocks *FeatureSpinlocks `json:"spinlocks,omitempty"`
+	// VPIndex enables the Virtual Processor Index to help windows identifying virtual processors
 	// Defaults to the machine type setting
 	// +optional
-	VPIndex *FeatureState
+	VPIndex *FeatureState `json:"vpindex,omitempty"`
 	// Runtime
 	// Defaults to the machine type setting
 	// +optional
-	Runtime *FeatureState
-	// SyNIC
+	Runtime *FeatureState `json:"runtime,omitempty"`
+	// SyNIC enable Synthetic Interrupt Controller
 	// Defaults to the machine type setting
 	// +optional
-	SyNIC *FeatureState
-	// SyNICTimer
+	SyNIC *FeatureState `json:"synic,omitempty"`
+	// SyNICTimer enable Synthetic Interrupt Controller timer
 	// Defaults to the machine type setting
 	// +optional
-	SyNICTimer *FeatureState
-	// Reset
+	SyNICTimer *FeatureState `json:"synictimer,omitempty"`
+	// Reset enables Hyperv reboot/reset for the vm
 	// Defaults to the machine type setting
 	// +optional
-	Reset *FeatureState
-	// VendorID
+	Reset *FeatureState `json:"reset,omitempty"`
+	// VendorID allows setting the hypervisor vendor id
 	// Defaults to the machine type setting
 	// +optional
-	VendorID *FeatureVendorID
-}
-
-//BEGIN Channel --------------------
-
-type Channel struct {
-	Type   string         `json:"type"`
-	Source ChannelSource  `json:"source,omitempty"`
-	Target *ChannelTarget `json:"target,omitempty"`
-}
-
-type ChannelTarget struct {
-	Name    string `json:"name,omitempty"`
-	Type    string `json:"type"`
-	Address string `json:"address,omitempty"`
-	Port    uint   `json:"port,omitempty"`
-}
-
-type ChannelSource struct {
-	Mode string `json:"mode"`
-	Path string `json:"path"`
-}
-
-//END Channel --------------------
-
-//BEGIN Video -------------------
-/*
-<graphics autoport="yes" defaultMode="secure" listen="0" passwd="*****" passwdValidTo="1970-01-01T00:00:01" port="-1" tlsPort="-1" type="spice" />
-*/
-
-type Video struct {
-	Type   string `json:"type"`
-	Heads  *uint  `json:"heads,omitempty"`
-	Ram    *uint  `json:"ram,omitempty"`
-	VRam   *uint  `json:"vRam,omitempty"`
-	VGAMem *uint  `json:"vgaMem,omitempty"`
-}
-
-type Graphics struct {
-	AutoPort      string `json:"autoPort,omitempty"`
-	DefaultMode   string `json:"defaultMode,omitempty"`
-	Listen        Listen `json:"listen,omitempty"`
-	PasswdValidTo string `json:"passwdValidTo,omitempty"`
-	Port          int32  `json:"port,omitempty"`
-	TLSPort       int    `json:"tlsPort,omitempty"`
-	Type          string `json:"type"`
-}
-
-type Listen struct {
-	Type    string `json:"type"`
-	Address string `json:"address,omitempty"`
-	Network string `json:"network,omitempty"`
+	VendorID *FeatureVendorID `json:"vendorid,omitempty"`
 }
 
 type Address struct {
@@ -494,21 +432,40 @@ type Address struct {
 	Function string `json:"function"`
 }
 
-//END Video -------------------
+// WatchdogAction defines the watchdog action, if a watchdog gets triggered
+type WatchdogAction string
 
-type Ballooning struct {
-	Model string `json:"model"`
-}
+const (
+	// WatchdogActionPoweroff will poweroff the vm if the watchdog gets triggered
+	WatchdogActionPoweroff WatchdogAction = "poweroff"
+	// WatchdogActionReset will reset the vm if the watchdog gets triggered
+	WatchdogActionReset WatchdogAction = "reset"
+	// WatchdogActionShutdown will shutdown the vm if the watchdog gets triggered
+	WatchdogActionShutdown WatchdogAction = "shutdown"
+)
 
-type RandomGenerator struct {
+// Named watchdog device
+type Watchdog struct {
+	// Name of the watchdog
+	Name string `json:"name"`
+	// WatchdogDevice contains the watchdog type and actions
+	// Defaults to i6300esb
+	WatchdogDevice `json:",inline"`
 }
 
 // Hardware watchdog device
-type Watchdog struct {
-	// Defines what watchdog model to use, typically 'i6300esb'
-	Model string `json:"model"`
-	// The action to take. poweroff, reset, shutdown, pause, dump.
-	Action string `json:"action"`
+// Exactly one of its members must be set.
+type WatchdogDevice struct {
+	// i6300esb watchdog device
+	// +optional
+	I6300ESB *I6300ESBWatchdog `json:"i6300esb,omitempty"`
+}
+
+// i6300esb watchdog device
+type I6300ESBWatchdog struct {
+	// The action to take. Valid values are poweroff, reset, shutdown.
+	// Defaults to reset
+	Action WatchdogAction `json:"action,omitempty"`
 }
 
 // TODO ballooning, rng, cpu ...
@@ -517,8 +474,5 @@ func NewMinimalDomainSpec() *DomainSpec {
 	domain := DomainSpec{}
 	domain.Resources.Initial[v1.ResourceMemory] = resource.MustParse("8192Ki")
 	domain.Devices = Devices{}
-	domain.Devices.Interfaces = []Interface{
-		{Type: "network", Source: InterfaceSource{Network: "default"}},
-	}
 	return &domain
 }

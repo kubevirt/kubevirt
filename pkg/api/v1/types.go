@@ -19,9 +19,9 @@
 
 package v1
 
+//go:generate swagger-doc
 //go:generate deepcopy-gen -i .
 //go:generate defaulter-gen -i .
-//go:generate swagger-doc
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
@@ -130,11 +130,13 @@ type VirtualMachineSpec struct {
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vm.
 	Volumes *[]Volume
+	// List of interfaces/networks which can be attached to an interface inside the vm.
+	Interfaces *[]InterfaceSource
 }
 
 // Affinity groups all the affinity rules related to a VM
 type Affinity struct {
-	// Host affinity support
+	// Node affinity support
 	NodeAffinity *k8sv1.NodeAffinity `json:"nodeAffinity,omitempty"`
 }
 
