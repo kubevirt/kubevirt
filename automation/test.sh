@@ -80,7 +80,7 @@ cluster/kubectl.sh --init
 
 # Make sure we can connect to kubernetes
 export APISERVER=$(cat cluster/vagrant/.kubeconfig | grep server | sed -e 's# \+server: https://##' | sed -e 's/\r//')
-$WORKSPACE/dockerize -wait tcp://$APISERVER -timeout 120s
+$WORKSPACE/dockerize -wait tcp://$APISERVER -timeout 300s
 # Make sure we don't try to talk to Vagrant host via a proxy
 export no_proxy="${APISERVER%:*}"
 
