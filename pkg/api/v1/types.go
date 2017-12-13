@@ -20,8 +20,8 @@
 package v1
 
 //go:generate swagger-doc
-//go:generate deepcopy-gen -i .
-//go:generate defaulter-gen -i .
+//go:generate deepcopy-gen -i . --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
+//go:generate defaulter-gen -i . --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
