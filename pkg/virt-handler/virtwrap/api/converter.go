@@ -158,6 +158,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	domain.Spec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 	domain.Spec.Type = "qemu"
+	domain.Spec.SysInfo.Type = "smbios"
+	domain.Spec.SysInfo.System = []Entry{
+		{
+			Name:  "uuid",
+			Value: string(vm.Spec.Domain.Firmware.UID),
+		},
+	}
 
 	if v, ok := vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory]; ok {
 		domain.Spec.Memory = QuantityToMegaByte(v)

@@ -30,6 +30,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/pborman/uuid"
+	"k8s.io/apimachinery/pkg/types"
+
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -167,6 +170,11 @@ func (c *VMController) execute(key string) error {
 		if vmCopy.Spec.Domain == nil {
 			spec := kubev1.NewMinimalDomainSpec()
 			vmCopy.Spec.Domain = spec
+		}
+
+		// Set random generated firmware uid
+		if vmCopy.Spec.Domain.Firmware.UID == "" {
+			vmCopy.Spec.Domain.Firmware.UID = types.UID(uuid.NewRandom().String())
 		}
 
 		// Create a Pod which will be the VM destination
