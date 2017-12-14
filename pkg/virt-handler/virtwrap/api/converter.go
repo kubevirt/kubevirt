@@ -23,27 +23,25 @@ type Context struct {
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk) error {
 
-	var baseAtts *v1.DiskBaseTarget
 	if diskDevice.Disk != nil {
 		disk.Device = "disk"
-		baseAtts = &diskDevice.Disk.DiskBaseTarget
+		disk.Target.Device = diskDevice.Disk.Device
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
-		baseAtts = &diskDevice.LUN.DiskBaseTarget
+		disk.Target.Device = diskDevice.LUN.Device
 	} else if diskDevice.Floppy != nil {
 		disk.Device = "floppy"
 		disk.Target.Tray = string(diskDevice.Floppy.Tray)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
-		baseAtts = &diskDevice.Floppy.DiskBaseTarget
+		disk.Target.Device = diskDevice.Floppy.Device
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.Floppy.Tray)
 		disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
-		baseAtts = &diskDevice.CDRom.DiskBaseTarget
+		disk.Target.Device = diskDevice.CDRom.Device
 	}
-	disk.Target.Device = baseAtts.Device
 	disk.Driver = &DiskDriver{
 		Name: "qemu",
 	}

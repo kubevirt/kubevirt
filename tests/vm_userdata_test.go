@@ -76,8 +76,7 @@ var _ = Describe("CloudInit UserData", func() {
 			magicStr := "printed from cloud-init userdata"
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
 
-			vm, err := tests.NewRandomVMWithUserData("noCloud", userData)
-			Expect(err).ToNot(HaveOccurred())
+			vm := tests.NewRandomVMWithUserData(userData)
 			obj := LaunchVM(vm)
 			VerifyUserDataVM(vm, obj, magicStr)
 			close(done)
@@ -87,8 +86,7 @@ var _ = Describe("CloudInit UserData", func() {
 			magicStr := "printed from cloud-init userdata"
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
 
-			vm, err := tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", "noCloud", userData)
-			Expect(err).ToNot(HaveOccurred())
+			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
 			obj := LaunchVM(vm)
 			VerifyUserDataVM(vm, obj, magicStr)
 			close(done)
@@ -97,8 +95,7 @@ var _ = Describe("CloudInit UserData", func() {
 		It("should launch VMs with user-data in k8s secret", func(done Done) {
 			magicStr := "printed from cloud-init userdata"
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
-			vm, err := tests.NewRandomVMWithUserData("noCloud", userData)
-			Expect(err).ToNot(HaveOccurred())
+			vm := tests.NewRandomVMWithUserData(userData)
 
 			for _, disk := range vm.Spec.Domain.Devices.Disks {
 				if disk.CloudInit == nil {

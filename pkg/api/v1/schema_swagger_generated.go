@@ -54,18 +54,21 @@ func (DiskDevice) SwaggerDoc() map[string]string {
 
 func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
 		"readonly": "ReadOnly\nDefaults to false",
 	}
 }
 
 func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
 		"readonly": "ReadOnly\nDefaults to false",
 	}
 }
 
 func (FloppyTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
 		"readonly": "ReadOnly\nDefaults to false",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
 	}
@@ -73,6 +76,7 @@ func (FloppyTarget) SwaggerDoc() map[string]string {
 
 func (CDRomTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
 		"readonly": "ReadOnly\nDefaults to true",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
 	}

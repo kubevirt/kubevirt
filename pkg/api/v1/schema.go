@@ -98,21 +98,30 @@ type DiskDevice struct {
 }
 
 type DiskTarget struct {
-	DiskBaseTarget `json:",inline"`
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type LunTarget struct {
-	DiskBaseTarget `json:",inline"`
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type FloppyTarget struct {
-	DiskBaseTarget `json:",inline"`
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -134,7 +143,10 @@ const (
 )
 
 type CDRomTarget struct {
-	DiskBaseTarget `json:",inline"`
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev"`
 	// ReadOnly
 	// Defaults to true
 	ReadOnly *bool `json:"readonly,omitempty"`
