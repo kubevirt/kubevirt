@@ -1898,33 +1898,20 @@
    },
    "v1.Clock": {
     "description": "Represents the clock and timers of a vm",
+    "required": [
+     "timer"
+    ],
     "properties": {
-     "hpet": {
-      "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
-      "$ref": "#/definitions/v1.TimerAttrs"
-     },
-     "hyperv": {
-      "description": "Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.",
-      "$ref": "#/definitions/v1.TimerAttrs"
-     },
-     "kvm": {
-      "description": "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
-      "$ref": "#/definitions/v1.TimerAttrs"
-     },
-     "pit": {
-      "description": "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
-      "$ref": "#/definitions/v1.TimerAttrs"
+     "timer": {
+      "description": "Timer specifies whih timers are attached to the vm",
+      "$ref": "#/definitions/v1.Timer"
      },
      "timezone": {
       "description": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York')",
       "$ref": "#/definitions/v1.ClockOffsetTimezone"
      },
-     "trc": {
-      "description": "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
-      "$ref": "#/definitions/v1.RTCTimerAttrs"
-     },
      "utc": {
-      "description": "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and not reset.",
+      "description": "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and are not reset.",
       "$ref": "#/definitions/v1.ClockOffsetUTC"
      }
     }
@@ -2897,6 +2884,31 @@
      "uid": {
       "description": "UID of the resource. (when there is a single resource which can be described). More info: http://kubernetes.io/docs/user-guide/identifiers#uids",
       "type": "string"
+     }
+    }
+   },
+   "v1.Timer": {
+    "description": "Represents all available timers in a vm",
+    "properties": {
+     "hpet": {
+      "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
+      "$ref": "#/definitions/v1.TimerAttrs"
+     },
+     "hyperv": {
+      "description": "Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.",
+      "$ref": "#/definitions/v1.TimerAttrs"
+     },
+     "kvm": {
+      "description": "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
+      "$ref": "#/definitions/v1.TimerAttrs"
+     },
+     "pit": {
+      "description": "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
+      "$ref": "#/definitions/v1.TimerAttrs"
+     },
+     "trc": {
+      "description": "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
+      "$ref": "#/definitions/v1.RTCTimerAttrs"
      }
     }
    },

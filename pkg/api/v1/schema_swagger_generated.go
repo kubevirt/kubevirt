@@ -167,7 +167,7 @@ func (PodNetworkSource) SwaggerDoc() map[string]string {
 func (ClockOffset) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Exactly one of its members must be set.",
-		"utc":      "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and not reset.",
+		"utc":      "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and are not reset.",
 		"timezone": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York')",
 	}
 }
@@ -181,7 +181,8 @@ func (ClockOffsetUTC) SwaggerDoc() map[string]string {
 
 func (Clock) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the clock and timers of a vm",
+		"":      "Represents the clock and timers of a vm",
+		"timer": "Timer specifies whih timers are attached to the vm",
 	}
 }
 

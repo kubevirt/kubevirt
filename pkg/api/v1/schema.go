@@ -254,7 +254,7 @@ type PodNetworkSource struct{}
 // Exactly one of its members must be set.
 type ClockOffset struct {
 	// UTC sets the guest clock to UTC on each boot. If an offset is specified,
-	// guest changes to the clock will be kept during reboots and not reset.
+	// guest changes to the clock will be kept during reboots and are not reset.
 	UTC *ClockOffsetUTC `json:"utc,omitempty"`
 	// Timezone sets the guest clock to the specified timezone.
 	// Zone name follows the TZ environment variable format (e.g. 'America/New_York')
@@ -277,7 +277,7 @@ type Clock struct {
 	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock
 	ClockOffset `json:",inline"`
 	// Timer specifies whih timers are attached to the vm
-	Timer `json:",inline"`
+	Timer *Timer `json:"timer,inline"`
 }
 
 // Represents all available timers in a vm

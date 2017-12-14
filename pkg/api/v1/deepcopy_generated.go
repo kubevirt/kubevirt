@@ -98,7 +98,15 @@ func (in *CDRomTarget) DeepCopy() *CDRomTarget {
 func (in *Clock) DeepCopyInto(out *Clock) {
 	*out = *in
 	in.ClockOffset.DeepCopyInto(&out.ClockOffset)
-	in.Timer.DeepCopyInto(&out.Timer)
+	if in.Timer != nil {
+		in, out := &in.Timer, &out.Timer
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Timer)
+			(*in).DeepCopyInto(*out)
+		}
+	}
 	return
 }
 

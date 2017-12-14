@@ -117,7 +117,7 @@ func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRec
 
 func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error {
 
-	domName := cache.VMNamespaceKeyFunc(vm)
+	domName := api.VMNamespaceKeyFunc(vm)
 
 	switch usageType {
 	case "iscsi":
@@ -301,7 +301,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 }
 
 func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
-	domName := cache.VMNamespaceKeyFunc(vm)
+	domName := api.VMNamespaceKeyFunc(vm)
 
 	secretUUIDs, ok := l.secretCache[domName]
 	if ok == false {
@@ -384,7 +384,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 }
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
-	domName := cache.VMNamespaceKeyFunc(vm)
+	domName := api.VMNamespaceKeyFunc(vm)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VM does not exist, we are done

@@ -29,8 +29,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"fmt"
+
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -401,12 +404,16 @@ type Entry struct {
 //BEGIN Clock --------------------
 
 type Clock struct {
+	Offset     string  `xml:"offset,attr,omitempty"`
+	Adjustment string  `xml:"adjustment,attr,omitempty"`
+	Timer      []Timer `xml:"timer,omitempty"`
 }
 
 type Timer struct {
 	Name       string `xml:"name,attr"`
 	TickPolicy string `xml:"tickpolicy,attr,omitempty"`
 	Present    string `xml:"present,attr,omitempty"`
+	Track      string `xml:"track,attr,omitempty"`
 }
 
 //END Clock --------------------
@@ -563,4 +570,11 @@ func (dl *DomainList) GetObjectKind() schema.ObjectKind {
 // Required to satisfy ListMetaAccessor interface
 func (dl *DomainList) GetListMeta() meta.List {
 	return &dl.ListMeta
+}
+
+// VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
+// namespace_name.
+func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
+	domName := fmt.Sprintf("%s_%s", vm.Namespace, vm.Name)
+	return domName
 }

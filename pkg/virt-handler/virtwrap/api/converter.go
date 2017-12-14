@@ -8,11 +8,12 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"strconv"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
 )
 
 type Context struct {
@@ -155,13 +156,65 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
 
+func Convert_v1_TimerAttrs_To_api_Timer(source *v1.TimerAttrs, timer *Timer, c *Context) error {
+	timer.TickPolicy = string(source.TickPolicy)
+	timer.Present = "yes"
+	if source.Enabled != nil && *source.Enabled == false {
+		timer.Present = "no"
+	}
+	return nil
+}
+
+func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *Context) error {
+	if source.UTC != nil {
+		clock.Offset = "utc"
+		if source.UTC.OffsetSeconds != nil {
+			clock.Adjustment = strconv.Itoa(*source.UTC.OffsetSeconds)
+		} else {
+			clock.Adjustment = "reset"
+		}
+	} else if source.Timezone != nil {
+		clock.Offset = "timezone"
+	}
+
+	if source.Timer != nil {
+		if source.Timer.RTC != nil {
+			newTimer := Timer{Name: "rtc"}
+			newTimer.Track = string(source.Timer.RTC.Track)
+			Convert_v1_TimerAttrs_To_api_Timer(&source.Timer.RTC.TimerAttrs, &newTimer, c)
+			clock.Timer = append(clock.Timer, newTimer)
+		}
+		if source.Timer.PIT != nil {
+			newTimer := Timer{Name: "pit"}
+			Convert_v1_TimerAttrs_To_api_Timer(source.Timer.PIT, &newTimer, c)
+			clock.Timer = append(clock.Timer, newTimer)
+		}
+		if source.Timer.KVM != nil {
+			newTimer := Timer{Name: "kvmclock"}
+			Convert_v1_TimerAttrs_To_api_Timer(source.Timer.KVM, &newTimer, c)
+			clock.Timer = append(clock.Timer, newTimer)
+		}
+		if source.Timer.HPET != nil {
+			newTimer := Timer{Name: "hpet"}
+			Convert_v1_TimerAttrs_To_api_Timer(source.Timer.HPET, &newTimer, c)
+			clock.Timer = append(clock.Timer, newTimer)
+		}
+		if source.Timer.Hyperv != nil {
+			newTimer := Timer{Name: "hypervclock"}
+			Convert_v1_TimerAttrs_To_api_Timer(source.Timer.Hyperv, &newTimer, c)
+			clock.Timer = append(clock.Timer, newTimer)
+		}
+	}
+
+	return nil
+}
+
 func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Domain, c *Context) (err error) {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
-	domName := cache.VMNamespaceKeyFunc(vm)
-	domain.Spec.Name = domName
+	domain.Spec.Name = VMNamespaceKeyFunc(vm)
 	domain.Spec.UUID = string(vm.GetObjectMeta().GetUID())
 	domain.ObjectMeta.Name = vm.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
@@ -195,6 +248,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		newWatchdog := &Watchdog{}
 		Convert_v1_Watchdog_To_api_Watchdog(vm.Spec.Domain.Devices.Watchdog, newWatchdog, c)
 		domain.Spec.Devices.Watchdog = newWatchdog
+	}
+
+	if vm.Spec.Domain.Clock != nil {
+		clock := vm.Spec.Domain.Clock
+		newClock := &Clock{}
+		Convert_v1_Clock_To_api_Clock(clock, newClock, c)
+		domain.Spec.Clock = newClock
 	}
 
 	return nil
