@@ -66,6 +66,7 @@ to install a few build requirements:
 ```bash
     # We are interfacing with libvirt
     sudo dnf install libvirt-devel
+    sudo dnf install mercurial
 
     cd $GOPATH
     # Use goimports for package import ordering
