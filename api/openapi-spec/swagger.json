@@ -2002,10 +2002,7 @@
       }
      },
      "watchdog": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Watchdog"
-      }
+      "$ref": "#/definitions/v1.Watchdog"
      }
     }
    },

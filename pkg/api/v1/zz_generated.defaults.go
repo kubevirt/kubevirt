@@ -106,11 +106,10 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 			a := &in.Spec.Domain.Devices.Interfaces[i]
 			SetDefaults_InterfaceDevice(&a.InterfaceDevice)
 		}
-		for i := range in.Spec.Domain.Devices.Watchdog {
-			a := &in.Spec.Domain.Devices.Watchdog[i]
-			SetDefaults_Watchdog(a)
-			if a.WatchdogDevice.I6300ESB != nil {
-				SetDefaults_I6300ESBWatchdog(a.WatchdogDevice.I6300ESB)
+		if in.Spec.Domain.Devices.Watchdog != nil {
+			SetDefaults_Watchdog(in.Spec.Domain.Devices.Watchdog)
+			if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
+				SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
 		}
 	}
@@ -193,11 +192,10 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 				a := &in.Spec.Template.Spec.Domain.Devices.Interfaces[i]
 				SetDefaults_InterfaceDevice(&a.InterfaceDevice)
 			}
-			for i := range in.Spec.Template.Spec.Domain.Devices.Watchdog {
-				a := &in.Spec.Template.Spec.Domain.Devices.Watchdog[i]
-				SetDefaults_Watchdog(a)
-				if a.WatchdogDevice.I6300ESB != nil {
-					SetDefaults_I6300ESBWatchdog(a.WatchdogDevice.I6300ESB)
+			if in.Spec.Template.Spec.Domain.Devices.Watchdog != nil {
+				SetDefaults_Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog)
+				if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
+					SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 				}
 			}
 		}

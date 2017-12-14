@@ -486,6 +486,7 @@ type RandomGenerator struct {
 type Watchdog struct {
 	Model  string `xml:"model,attr"`
 	Action string `xml:"action,attr"`
+	Alias  *Alias `xml:"alias,omitmepty"`
 }
 
 // TODO ballooning, rng, cpu ...

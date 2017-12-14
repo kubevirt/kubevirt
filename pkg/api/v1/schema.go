@@ -71,7 +71,7 @@ type Firmware struct {
 type Devices struct {
 	Disks      []Disk      `json:"disks,omitempty"`
 	Interfaces []Interface `json:"interfaces,omitempty"`
-	Watchdog   []Watchdog  `json:"watchdog,omitempty"`
+	Watchdog   *Watchdog   `json:"watchdog,omitempty"`
 }
 
 type Disk struct {

@@ -130,7 +130,7 @@ func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSo
 	return nil
 }
 
-func Convert_v1_RegistryDiskSource_To_api_Disk(source *v1.RegistryDiskSource, disk *Disk, c *Context) error {
+func Convert_v1_RegistryDiskSource_To_api_Disk(_ *v1.RegistryDiskSource, disk *Disk, c *Context) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
 	}
@@ -144,6 +144,15 @@ func Convert_v1_RegistryDiskSource_To_api_Disk(source *v1.RegistryDiskSource, di
 	disk.Driver.Type = diskType
 	disk.Source.File = diskPath
 	return nil
+}
+
+func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog, _ *Context) error {
+	watchdog.Alias.Name = source.Name
+	if source.I6300ESB != nil {
+		watchdog.Model = "i6300esb"
+		watchdog.Action = string(source.I6300ESB.Action)
+	}
+	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
 
 func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Domain, c *Context) (err error) {
@@ -176,9 +185,16 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	}
 
 	for _, disk := range vm.Spec.Domain.Devices.Disks {
-		newDisk := &Disk{}
-		Convert_v1_Disk_To_api_Disk(&disk, newDisk)
-		Convert_v1_Volume_To_api_Disk(volumes[disk.Name], newDisk, c)
+		newDisk := Disk{}
+		Convert_v1_Disk_To_api_Disk(&disk, &newDisk)
+		Convert_v1_Volume_To_api_Disk(volumes[disk.Name], &newDisk, c)
+		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
+	}
+
+	if vm.Spec.Domain.Devices.Watchdog != nil {
+		newWatchdog := &Watchdog{}
+		Convert_v1_Watchdog_To_api_Watchdog(vm.Spec.Domain.Devices.Watchdog, newWatchdog, c)
+		domain.Spec.Devices.Watchdog = newWatchdog
 	}
 
 	return nil
