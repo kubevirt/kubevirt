@@ -5,8 +5,9 @@ package virtwrap
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	v1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v10 "kubevirt.io/kubevirt/pkg/api/v1"
 	api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 )
 
@@ -31,7 +32,7 @@ func (_m *MockDomainManager) EXPECT() *_MockDomainManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error {
+func (_m *MockDomainManager) SyncVMSecret(vm *v10.VirtualMachine, usageType string, usageID string, secretValue string) error {
 	ret := _m.ctrl.Call(_m, "SyncVMSecret", vm, usageType, usageID, secretValue)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -41,7 +42,7 @@ func (_mr *_MockDomainManagerRecorder) SyncVMSecret(arg0, arg1, arg2, arg3 inter
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVMSecret", arg0, arg1, arg2, arg3)
 }
 
-func (_m *MockDomainManager) RemoveVMSecrets(_param0 *v1.VirtualMachine) error {
+func (_m *MockDomainManager) RemoveVMSecrets(_param0 *v10.VirtualMachine) error {
 	ret := _m.ctrl.Call(_m, "RemoveVMSecrets", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -51,18 +52,18 @@ func (_mr *_MockDomainManagerRecorder) RemoveVMSecrets(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVMSecrets", arg0)
 }
 
-func (_m *MockDomainManager) SyncVM(_param0 *v1.VirtualMachine) (*api.DomainSpec, error) {
-	ret := _m.ctrl.Call(_m, "SyncVM", _param0)
+func (_m *MockDomainManager) SyncVM(_param0 *v10.VirtualMachine, _param1 map[string]*v1.Secret) (*api.DomainSpec, error) {
+	ret := _m.ctrl.Call(_m, "SyncVM", _param0, _param1)
 	ret0, _ := ret[0].(*api.DomainSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockDomainManagerRecorder) SyncVM(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVM", arg0)
+func (_mr *_MockDomainManagerRecorder) SyncVM(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVM", arg0, arg1)
 }
 
-func (_m *MockDomainManager) KillVM(_param0 *v1.VirtualMachine) error {
+func (_m *MockDomainManager) KillVM(_param0 *v10.VirtualMachine) error {
 	ret := _m.ctrl.Call(_m, "KillVM", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -72,7 +73,7 @@ func (_mr *_MockDomainManagerRecorder) KillVM(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVM", arg0)
 }
 
-func (_m *MockDomainManager) SignalShutdownVM(_param0 *v1.VirtualMachine) error {
+func (_m *MockDomainManager) SignalShutdownVM(_param0 *v10.VirtualMachine) error {
 	ret := _m.ctrl.Call(_m, "SignalShutdownVM", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0

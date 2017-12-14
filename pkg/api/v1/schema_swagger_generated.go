@@ -152,13 +152,13 @@ func (InterfaceAttrs) SwaggerDoc() map[string]string {
 
 func (InterfaceSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "Only one of its members may be specified.",
-		"name": "Name of the interface",
-		"pod":  "Pod indicates that the interface target device will be connected to the pod network",
+		"":           "Only one of its members may be specified.",
+		"name":       "Name of the interface",
+		"podNetwork": "PodNetwork indicates that the interface target device will be connected to the pod network",
 	}
 }
 
-func (PodNetwork) SwaggerDoc() map[string]string {
+func (PodNetworkSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "Represents an interface source, connected to the pod network",
 	}

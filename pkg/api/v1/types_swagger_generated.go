@@ -23,8 +23,8 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
-		"Volumes":                       "List of volumes that can be mounted by disks belonging to the vm.",
-		"Interfaces":                    "List of interfaces/networks which can be attached to an interface inside the vm.",
+		"volumes":                       "List of volumes that can be mounted by disks belonging to the vm.",
+		"interfaces":                    "List of interfaces/networks which can be attached to an interface inside the vm.",
 	}
 }
 

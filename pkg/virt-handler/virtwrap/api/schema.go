@@ -21,77 +21,21 @@ package api
 
 import (
 	"encoding/xml"
-	"reflect"
-	"time"
 
 	"github.com/jeevatkm/go-model"
 	kubev1 "k8s.io/api/core/v1"
-	meta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/mapper"
+	"time"
+
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 type LifeCycle string
 type StateChangeReason string
-
-func init() {
-	// TODO the whole mapping registration can be done be an automatic process with reflection
-	mapper.AddConversion(&Devices{}, &v1.Devices{})
-	mapper.AddPtrConversion((**Clock)(nil), (**v1.Clock)(nil))
-	mapper.AddConversion(&Channel{}, &v1.Channel{})
-	mapper.AddConversion(&Interface{}, &v1.Interface{})
-	mapper.AddConversion(&Graphics{}, &v1.Graphics{})
-	mapper.AddPtrConversion((**Ballooning)(nil), (**v1.Ballooning)(nil))
-	mapper.AddConversion(&Disk{}, &v1.Disk{})
-	mapper.AddConversion(&DiskSource{}, &v1.DiskSource{})
-	mapper.AddPtrConversion((**DiskSourceHost)(nil), (**v1.DiskSourceHost)(nil))
-	mapper.AddConversion(&DiskTarget{}, &v1.DiskTarget{})
-	mapper.AddPtrConversion((**DiskDriver)(nil), (**v1.DiskDriver)(nil))
-	mapper.AddPtrConversion((**ReadOnly)(nil), (**v1.ReadOnly)(nil))
-	mapper.AddPtrConversion((**Address)(nil), (**v1.Address)(nil))
-	mapper.AddConversion(&Serial{}, &v1.Serial{})
-	mapper.AddPtrConversion((**SerialTarget)(nil), (**v1.SerialTarget)(nil))
-	mapper.AddConversion(&Console{}, &v1.Console{})
-	mapper.AddPtrConversion((**ConsoleTarget)(nil), (**v1.ConsoleTarget)(nil))
-	mapper.AddConversion(&InterfaceSource{}, &v1.InterfaceSource{})
-	mapper.AddPtrConversion((**InterfaceTarget)(nil), (**v1.InterfaceTarget)(nil))
-	mapper.AddPtrConversion((**Model)(nil), (**v1.Model)(nil))
-	mapper.AddPtrConversion((**MAC)(nil), (**v1.MAC)(nil))
-	mapper.AddPtrConversion((**BandWidth)(nil), (**v1.BandWidth)(nil))
-	mapper.AddPtrConversion((**BootOrder)(nil), (**v1.BootOrder)(nil))
-	mapper.AddPtrConversion((**LinkState)(nil), (**v1.LinkState)(nil))
-	mapper.AddPtrConversion((**FilterRef)(nil), (**v1.FilterRef)(nil))
-	mapper.AddPtrConversion((**Alias)(nil), (**v1.Alias)(nil))
-	mapper.AddConversion(&ChannelSource{}, &v1.ChannelSource{})
-	mapper.AddPtrConversion((**ChannelTarget)(nil), (**v1.ChannelTarget)(nil))
-	mapper.AddConversion(&VideoModel{}, &v1.Video{})
-	mapper.AddConversion(&Listen{}, &v1.Listen{})
-	mapper.AddPtrConversion((**DiskAuth)(nil), (**v1.DiskAuth)(nil))
-	mapper.AddPtrConversion((**DiskSecret)(nil), (**v1.DiskSecret)(nil))
-	mapper.AddPtrConversion((**Watchdog)(nil), (**v1.Watchdog)(nil))
-
-	model.AddConversion(&Video{}, &v1.Video{}, func(in reflect.Value) (reflect.Value, error) {
-		out := v1.Video{}
-		errs := model.Copy(&out, in.Interface().(Video).Model)
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion(&v1.Video{}, &Video{}, func(in reflect.Value) (reflect.Value, error) {
-		out := Video{}
-		errs := model.Copy(&out.Model, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-}
 
 const (
 	NoState     LifeCycle = "NoState"
@@ -270,6 +214,7 @@ type Disk struct {
 	Driver   *DiskDriver `xml:"driver,omitempty"`
 	ReadOnly *ReadOnly   `xml:"readonly,omitempty"`
 	Auth     *DiskAuth   `xml:"auth,omitempty"`
+	Alias    *Alias      `xml:"alias,omitmepty"`
 }
 
 type DiskAuth struct {
@@ -295,6 +240,7 @@ type DiskSource struct {
 type DiskTarget struct {
 	Bus    string `xml:"bus,attr,omitempty"`
 	Device string `xml:"dev,attr"`
+	Tray   string `xml:"tray,attr"`
 }
 
 type DiskDriver struct {

@@ -22,9 +22,7 @@ package virthandler
 import (
 	goerror "errors"
 	"fmt"
-	"net"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/jeevatkm/go-model"
@@ -38,16 +36,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
+	"kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
-	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
+	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 func NewController(
@@ -485,20 +482,18 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
-// Almost everything in the VM object maps exactly to its domain counterpart
-// One exception is persistent volume claims. This function looks up each PV
-// and inserts a corrected disk entry into the VM's device map.
+// Look up PVs and translate them into their primitives (only supports ISCSI PVs right now)
 func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
 	vmCopy := &v1.VirtualMachine{}
 	model.Copy(vmCopy, vm)
 	logger := log.Log.Object(vm)
 
-	for idx, disk := range vmCopy.Spec.Domain.Devices.Disks {
-		if disk.Type == "PersistentVolumeClaim" {
-			logger.V(3).Infof("Mapping PersistentVolumeClaim: %s", disk.Source.Name)
+	for _, volume := range vmCopy.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			logger.V(3).Infof("Mapping PersistentVolumeClaim: %s", volume.PersistentVolumeClaim.ClaimName)
 
 			// Look up existing persistent volume
-			pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(disk.Source.Name, metav1.GetOptions{})
+			pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 
 			if err != nil {
 				logger.Reason(err).Error("unable to look up persistent volume claim")
@@ -519,127 +514,60 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClien
 			}
 
 			logger.Infof("Mapping PVC %s", pv.Name)
-			newDisk, err := mapPVToDisk(&disk, pv)
-
-			if err != nil {
+			if err = mapPVToDisk(&volume, pv); err != nil {
 				logger.Reason(err).Errorf("Mapping PVC %s failed", pv.Name)
 				return vm, err
 			}
-
-			vmCopy.Spec.Domain.Devices.Disks[idx] = *newDisk
-		} else if disk.Type == "network" {
-			newDisk := v1.Disk{}
-			model.Copy(&newDisk, disk)
-
-			if disk.Source.Host == nil {
-				logger.Error("Missing disk source host")
-				return vm, fmt.Errorf("Missing disk source host")
-			}
-
-			ipAddrs, err := net.LookupIP(disk.Source.Host.Name)
-			if err != nil || ipAddrs == nil || len(ipAddrs) < 1 {
-				logger.Reason(err).Errorf("Unable to resolve host '%s'", disk.Source.Host.Name)
-				return vm, fmt.Errorf("Unable to resolve host '%s': %s", disk.Source.Host.Name, err)
-			}
-
-			newDisk.Source.Host.Name = ipAddrs[0].String()
-
-			vmCopy.Spec.Domain.Devices.Disks[idx] = newDisk
 		}
 	}
 
 	return vmCopy, nil
 }
 
-func mapPVToDisk(disk *v1.Disk, pv *k8sv1.PersistentVolume) (*v1.Disk, error) {
+func mapPVToDisk(volume *v1.Volume, pv *k8sv1.PersistentVolume) error {
 	if pv.Spec.ISCSI != nil {
-		newDisk := v1.Disk{}
-
-		newDisk.Type = "network"
-		newDisk.Device = "disk"
-		newDisk.Target = disk.Target
-		newDisk.Driver = new(v1.DiskDriver)
-		newDisk.Driver.Type = "raw"
-		newDisk.Driver.Name = "qemu"
-
-		newDisk.Source.Name = fmt.Sprintf("%s/%d", pv.Spec.ISCSI.IQN, pv.Spec.ISCSI.Lun)
-		newDisk.Source.Protocol = "iscsi"
-
-		hostPort := strings.Split(pv.Spec.ISCSI.TargetPortal, ":")
-		ipAddrs, err := net.LookupIP(hostPort[0])
-		if err != nil || len(ipAddrs) < 1 {
-			return nil, fmt.Errorf("Unable to resolve host '%s': %s", hostPort[0], err)
-		}
-
-		newDisk.Source.Host = &v1.DiskSourceHost{}
-		newDisk.Source.Host.Name = ipAddrs[0].String()
-		if len(hostPort) > 1 {
-			newDisk.Source.Host.Port = hostPort[1]
-		}
-
-		// This iscsi device has auth associated with it.
-		if pv.Spec.ISCSI.SecretRef != nil && pv.Spec.ISCSI.SecretRef.Name != "" {
-			newDisk.Auth = &v1.DiskAuth{
-				Secret: &v1.DiskSecret{
-					Type:  "iscsi",
-					Usage: pv.Spec.ISCSI.SecretRef.Name,
-				},
-			}
-		}
-		return &newDisk, nil
-	} else {
-		err := fmt.Errorf("Referenced PV %s is backed by an unsupported storage type. Only iSCSI is supported.", pv.ObjectMeta.Name)
-		return nil, err
+		// Take the ISCSI config from the PV and set it on the vm
+		volume.ISCSI = pv.Spec.ISCSI
+		volume.PersistentVolumeClaim = nil
+		return nil
 	}
+	return fmt.Errorf("Referenced PV %s is backed by an unsupported storage type. Only iSCSI is supported.", pv.ObjectMeta.Name)
 }
 
-func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	for idx, disk := range vm.Spec.Domain.Devices.Disks {
-		if disk.Auth == nil || disk.Auth.Secret == nil || disk.Auth.Secret.Usage == "" {
-			continue
-		}
+// injectDiskAuth takes a virtual machine, extracts secrets, synchronizes them with libvirt and returns a map
+// of all extrated secrets, for later use when converting from v1.VirtualMachine to api.Domain
+func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (map[string]*k8sv1.Secret, error) {
+	secrets := map[string]*k8sv1.Secret{}
+	for _, volume := range vm.Spec.Volumes {
+		if volume.ISCSI != nil {
+			if volume.ISCSI.SecretRef == nil || volume.ISCSI.SecretRef.Name == "" {
+				continue
+			}
 
-		usageIDSuffix := fmt.Sprintf("-%s-%s---", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
-		usageID := disk.Auth.Secret.Usage
-		usageType := disk.Auth.Secret.Type
-		secretID := usageID
+			usageType := "iscsi"
+			secretID := volume.ISCSI.SecretRef.Name
+			usageID := api.SecretToLibvirtSecret(vm, volume.ISCSI.SecretRef.Name)
 
-		if strings.HasSuffix(usageID, usageIDSuffix) {
-			secretID = strings.TrimSuffix(usageID, usageIDSuffix)
-		} else {
-			usageID = fmt.Sprintf("%s%s", usageID, usageIDSuffix)
-		}
+			secret, err := d.clientset.CoreV1().Secrets(vm.Namespace).Get(secretID, metav1.GetOptions{})
+			if err != nil {
+				log.Log.Reason(err).Error("Defining the VM secret failed unable to pull corresponding k8s secret value")
+				return nil, err
+			}
 
-		secret, err := d.clientset.CoreV1().Secrets(vm.ObjectMeta.Namespace).Get(secretID, metav1.GetOptions{})
-		if err != nil {
-			log.Log.Reason(err).Error("Defining the VM secret failed unable to pull corresponding k8s secret value")
-			return nil, err
-		}
+			secretValue, ok := secret.Data["node.session.auth.password"]
+			if ok == false {
+				return nil, fmt.Errorf("No password value found in k8s secret %s %v", secretID, err)
+			}
 
-		secretValue, ok := secret.Data["node.session.auth.password"]
-		if ok == false {
-			return nil, goerror.New(fmt.Sprintf("No password value found in k8s secret %s %v", secretID, err))
-		}
-
-		userValue, ok := secret.Data["node.session.auth.username"]
-		if ok == false {
-			return nil, goerror.New(fmt.Sprintf("Failed to find username for disk auth %s", secretID))
-		}
-		vm.Spec.Domain.Devices.Disks[idx].Auth.Username = string(userValue)
-
-		// override the usage id on the VM with the VM specific one.
-		// By decoupling usage from the k8s secret name here, this allows
-		// multiple VMs to reference the same k8s secret without conflicting
-		// with one another.
-		vm.Spec.Domain.Devices.Disks[idx].Auth.Secret.Usage = usageID
-
-		err = d.domainManager.SyncVMSecret(vm, usageType, usageID, string(secretValue))
-		if err != nil {
-			return nil, err
+			err = d.domainManager.SyncVMSecret(vm, usageType, usageID, string(secretValue))
+			if err != nil {
+				return nil, err
+			}
+			secrets[secretID] = secret
 		}
 	}
 
-	return vm, nil
+	return secrets, nil
 }
 
 func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
@@ -726,13 +654,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 		return err
 	}
 
-	vm, err = d.injectDiskAuth(vm)
-	if err != nil {
-		return err
-	}
-
-	// Map whatever devices are being used for config-init
-	vm, err = cloudinit.MapCloudInitDisks(vm)
+	secrets, err := d.injectDiskAuth(vm)
 	if err != nil {
 		return err
 	}
@@ -747,7 +669,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain first
-	_, err = d.domainManager.SyncVM(vm)
+	_, err = d.domainManager.SyncVM(vm, secrets)
 	return err
 }
 

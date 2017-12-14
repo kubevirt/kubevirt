@@ -129,9 +129,9 @@ type VirtualMachineSpec struct {
 	// Grace period observed after signalling a VM to stop after which the VM is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vm.
-	Volumes *[]Volume
+	Volumes []Volume `json:"volumes,omitempty"`
 	// List of interfaces/networks which can be attached to an interface inside the vm.
-	Interfaces *[]InterfaceSource
+	Interfaces []InterfaceSource `json:"interfaces,omitempty"`
 }
 
 // Affinity groups all the affinity rules related to a VM

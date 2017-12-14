@@ -31,10 +31,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 
 	"strings"
@@ -51,7 +49,7 @@ import (
 type DomainManager interface {
 	SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error
 	RemoveVMSecrets(*v1.VirtualMachine) error
-	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
+	SyncVM(*v1.VirtualMachine, map[string]*kubev1.Secret) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
 	SignalShutdownVM(*v1.VirtualMachine) error
 }
@@ -174,16 +172,19 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 	return nil
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, error) {
-	var wantedSpec api.DomainSpec
-	wantedSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-	wantedSpec.Type = "qemu"
-	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]*kubev1.Secret) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
-	if len(mappingErrs) > 0 {
-		logger.Error("model copy failed.")
-		return nil, errors.NewAggregate(mappingErrs)
+	domain := &api.Domain{}
+
+	// Map the VirtualMachine to the Domain
+	c := &api.Context{
+		VirtualMachine: vm,
+		Secrets:        secrets,
+	}
+	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c); err != nil {
+		logger.Error("Conversion failed.")
+		return nil, err
 	}
 
 	res, err := l.podIsolationDetector.Detect(vm)
@@ -193,7 +194,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	}
 
 	logger.With("slice", res.Slice()).V(3).Info("Detected cgroup slice.")
-	wantedSpec.QEMUCmd = &api.Commandline{
+	domain.Spec.QEMUCmd = &api.Commandline{
 		QEMUEnv: []api.Env{
 			{Name: "SLICE", Value: res.Slice()},
 			{Name: "CONTROLLERS", Value: strings.Join(res.Controller(), ",")},
@@ -208,12 +209,31 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	wantedSpec.Name = domName
 	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
 	dom, err := l.virConn.LookupDomainByName(domName)
+	// Add mandatory spice device
+	domain.Spec.Devices.Graphics = []api.Graphics{
+		{
+			Port: -1,
+			Listen: api.Listen{
+				Type:    "address",
+				Address: "0.0.0.0",
+			},
+		},
+	}
+
+	// Add mandatory console device
+	domain.Spec.Devices.Consoles = []api.Console{
+		{
+			Type: "pty",
+		},
+	}
+
+	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
-			dom, err = l.setDomainXML(vm, wantedSpec)
+			dom, err = l.setDomainXML(vm, domain.Spec)
 			if err != nil {
 				return nil, err
 			}
@@ -234,7 +254,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VM was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
-		dom, err = l.setDomainXML(vm, wantedSpec)
+		dom, err = l.setDomainXML(vm, domain.Spec)
 		if err != nil {
 			return nil, err
 		}

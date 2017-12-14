@@ -60,12 +60,12 @@ func createKey(vm *v1.VirtualMachine) string {
 func (c *configDiskClient) Define(vm *v1.VirtualMachine) (bool, error) {
 	pending := false
 
-	cloudInitSpec := cloudinit.GetCloudInitSpec(vm)
+	cloudInitSpec := cloudinit.GetCloudInitNoCloudSource(vm)
 	if cloudInitSpec == nil {
 		return false, nil
 	}
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+	vmName := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -78,14 +78,13 @@ func (c *configDiskClient) Define(vm *v1.VirtualMachine) (bool, error) {
 		v = make(chan string, 1)
 
 		go func() {
-			cloudinit.ApplyMetadata(vm)
 			err := cloudinit.ResolveSecrets(cloudInitSpec, namespace, c.clientset)
 			if err != nil {
 				v <- fmt.Sprintf("config-disk failure: %v", err)
 				return
 			}
 
-			err = cloudinit.GenerateLocalData(domain, namespace, cloudInitSpec)
+			err = cloudinit.GenerateLocalData(vmName, namespace, cloudInitSpec)
 			if err != nil {
 				v <- fmt.Sprintf("config-disk failure: %v", err)
 				return

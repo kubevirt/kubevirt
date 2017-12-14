@@ -244,12 +244,12 @@ type InterfaceAttrs struct {
 type InterfaceSource struct {
 	// Name of the interface
 	Name string `json:"name"`
-	// Pod indicates that the interface target device will be connected to the pod network
-	Pod *PodNetwork `json:"pod,omitempty"`
+	// PodNetwork indicates that the interface target device will be connected to the pod network
+	PodNetwork *PodNetworkSource `json:"podNetwork,omitempty"`
 }
 
 // Represents an interface source, connected to the pod network
-type PodNetwork struct{}
+type PodNetworkSource struct{}
 
 // Exactly one of its members must be set.
 type ClockOffset struct {

@@ -2360,9 +2360,9 @@
       "description": "Name of the interface",
       "type": "string"
      },
-     "pod": {
-      "description": "Pod indicates that the interface target device will be connected to the pod network",
-      "$ref": "#/definitions/v1.PodNetwork"
+     "podNetwork": {
+      "description": "PodNetwork indicates that the interface target device will be connected to the pod network",
+      "$ref": "#/definitions/v1.PodNetworkSource"
      }
     }
    },
@@ -2719,7 +2719,7 @@
      }
     }
    },
-   "v1.PodNetwork": {
+   "v1.PodNetworkSource": {
     "description": "Represents an interface source, connected to the pod network"
    },
    "v1.Preconditions": {
@@ -3165,25 +3165,7 @@
    },
    "v1.VirtualMachineSpec": {
     "description": "VirtualMachineSpec is a description of a VirtualMachine.",
-    "required": [
-     "Volumes",
-     "Interfaces"
-    ],
     "properties": {
-     "Interfaces": {
-      "description": "List of interfaces/networks which can be attached to an interface inside the vm.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.InterfaceSource"
-      }
-     },
-     "Volumes": {
-      "description": "List of volumes that can be mounted by disks belonging to the vm.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Volume"
-      }
-     },
      "affinity": {
       "description": "If affinity is specifies, obey all the affinity rules",
       "$ref": "#/definitions/v1.Affinity"
@@ -3191,6 +3173,13 @@
      "domain": {
       "description": "Specification of the desired behavior of the VirtualMachine on the host.",
       "$ref": "#/definitions/v1.DomainSpec"
+     },
+     "interfaces": {
+      "description": "List of interfaces/networks which can be attached to an interface inside the vm.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.InterfaceSource"
+      }
      },
      "nodeSelector": {
       "description": "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
@@ -3200,6 +3189,13 @@
       "description": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
       "type": "integer",
       "format": "int64"
+     },
+     "volumes": {
+      "description": "List of volumes that can be mounted by disks belonging to the vm.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Volume"
+      }
      }
     }
    },
