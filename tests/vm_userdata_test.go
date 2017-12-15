@@ -97,16 +97,16 @@ var _ = Describe("CloudInit UserData", func() {
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
 			vm := tests.NewRandomVMWithUserData(userData)
 
-			for _, disk := range vm.Spec.Domain.Devices.Disks {
-				if disk.CloudInit == nil {
+			for _, volume := range vm.Spec.Volumes {
+				if volume.CloudInitNoCloud == nil {
 					continue
 				}
 
-				secretID := fmt.Sprintf("%s-test-secret", vm.GetObjectMeta().GetName())
-				spec := disk.CloudInit
-				spec.NoCloudData.UserDataSecretRef = secretID
-				userData64 := spec.NoCloudData.UserDataBase64
-				spec.NoCloudData.UserDataBase64 = ""
+				secretID := fmt.Sprintf("%s-test-secret", vm.Name)
+				spec := volume.CloudInitNoCloud
+				spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
+				userData64 := spec.UserDataBase64
+				spec.UserDataBase64 = ""
 
 				// Store userdata as k8s secret
 				secret := kubev1.Secret{

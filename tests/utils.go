@@ -43,8 +43,6 @@ import (
 	"github.com/google/goexpect"
 	"k8s.io/client-go/rest"
 
-	"strconv"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
@@ -351,11 +349,11 @@ func newPV(os string, lun int32, withAuth bool) *k8sv1.PersistentVolume {
 	PanicOnError(err)
 
 	name := fmt.Sprintf("iscsi-disk-%s-for-tests", os)
-	target := "iscsi-demo-target.kube-system.svc.cluster.local"
+	target := "iscsi-demo-target.kube-system"
 	label := os
 	if withAuth {
 		name = fmt.Sprintf("iscsi-auth-disk-%s-for-tests", os)
-		target = "iscsi-auth-demo-target.kube-system.svc.cluster.local"
+		target = "iscsi-auth-demo-target.kube-system"
 		label = fmt.Sprintf("%s-auth", os)
 	}
 
@@ -578,7 +576,7 @@ func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
 	return vm
 }
 
-func NewRandomVMWithDirectLun(lun int, withSecret string) *v1.VirtualMachine {
+func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
@@ -594,14 +592,14 @@ func NewRandomVMWithDirectLun(lun int, withSecret string) *v1.VirtualMachine {
 	volumeSource := v1.VolumeSource{
 		ISCSI: &k8sv1.ISCSIVolumeSource{
 			TargetPortal: "iscsi-demo-target.kube-system:3260",
-			IQN:          strconv.Itoa(42),
+			IQN:          "iqn.2017-01.io.kubevirt:sn.42",
 			Lun:          int32(lun),
 		},
 	}
 
-	if withSecret != "" {
+	if withAuth {
 		volumeSource.ISCSI.TargetPortal = "iscsi-auth-demo-target.kube-system:3260"
-		volumeSource.ISCSI.SecretRef = &k8sv1.LocalObjectReference{Name: withSecret}
+		volumeSource.ISCSI.SecretRef = &k8sv1.LocalObjectReference{Name: "iscsi-demo-secret"}
 	}
 
 	vm.Spec.Volumes = []v1.Volume{{
@@ -641,7 +639,7 @@ func NewRandomMigrationForVm(vm *v1.VirtualMachine) *v1.Migration {
 }
 
 func NewRandomVMWithWatchdog() *v1.VirtualMachine {
-	vm := NewRandomVMWithDirectLun(2, "")
+	vm := NewRandomVMWithDirectLun(2, false)
 
 	vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",
@@ -709,15 +707,7 @@ func GetReadyNodes() []k8sv1.Node {
 	return readyNodes
 }
 
-func newUInt(x uint) *uint {
-	return &x
-}
-
 func NewInt32(x int32) *int32 {
-	return &x
-}
-
-func newString(x string) *string {
 	return &x
 }
 

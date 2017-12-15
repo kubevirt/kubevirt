@@ -54,7 +54,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vm = tests.NewRandomVM()
+		vm = tests.NewRandomVMWithDirectLun(2, true)
 	})
 
 	Context("New VM given", func() {
@@ -155,7 +155,7 @@ var _ = Describe("Vmlifecycle", func() {
 		Context("New VM which can't be started", func() {
 
 			It("Should retry starting the VM", func(done Done) {
-				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
+				vm.Spec.Volumes[0].ISCSI.SecretRef.Name = "nonexistent"
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
@@ -174,7 +174,7 @@ var _ = Describe("Vmlifecycle", func() {
 			}, 30)
 
 			It("Should stop retrying invalid VM and go on to latest change request", func(done Done) {
-				vm.Spec.Domain.Devices.Interfaces[0].Source.Network = "nonexistent"
+				vm.Spec.Volumes[0].ISCSI.SecretRef.Name = "nonexistent"
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
