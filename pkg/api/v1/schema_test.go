@@ -24,75 +24,189 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/api/core/v1"
 )
 
 var exampleJSON = `{
-  "memory": {
-    "value": 8192,
-    "unit": "KiB"
+  "kind": "VirtualMachine",
+  "apiVersion": "kubevirt.io/v1alpha1",
+  "metadata": {
+    "name": "testvm",
+    "namespace": "default",
+    "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
+    "creationTimestamp": null
   },
-  "type": "qemu",
-  "os": {
-    "type": {
-      "os": "hvm"
-    }
-  },
-  "devices": {
-    "interfaces": [
-      {
-        "type": "network",
-        "source": {
-          "network": "default"
+  "spec": {
+    "domain": {
+      "resources": {
+        "initial": {
+          "memory": "8Mi"
         }
-      }
-    ],
-    "disks": [
-      {
-        "device": "disk",
-        "type": "network",
-        "source": {
-          "protocol": "iscsi",
-          "name": "iqn.2013-07.com.example:iscsi-nopool/2",
-          "host": {
-            "name": "example.com",
-            "port": "3260"
+      },
+      "devices": {
+        "disks": [
+          {
+            "name": "disk0",
+            "disk": {
+              "dev": "vda"
+            }
+          },
+          {
+            "name": "cdrom0",
+            "cdrom": {
+              "dev": "vdb",
+              "readonly": true,
+              "tray": "open"
+            }
+          },
+          {
+            "name": "floppy0",
+            "floppy": {
+              "dev": "vdc",
+              "readonly": true,
+              "tray": "open"
+            }
+          },
+          {
+            "name": "lun0",
+            "lun": {
+              "dev": "vdd",
+              "readonly": true
+            }
           }
-        },
-        "target": {
-          "dev": "vda"
-        },
-        "driver": {
-          "name": "qemu",
-          "type": "raw"
+        ]
+      }
+    },
+    "volumes": [
+      {
+        "name": "disk0",
+        "registryDisk": {
+          "image": "test/image"
+        }
+      },
+      {
+        "name": "cdrom0",
+        "cloudInitNoCloud": {
+          "secretRef": {
+            "name": "testsecret"
+          }
+        }
+      },
+      {
+        "name": "floppy0",
+        "iscsi": {
+          "targetPortal": "1234",
+          "iqn": "",
+          "lun": 0,
+          "secretRef": {
+            "name": "testsecret"
+          }
+        }
+      },
+      {
+        "name": "lun0",
+        "persistentVolumeClaim": {
+          "claimName": "testclaim"
         }
       }
     ]
+  },
+  "status": {
+    "graphics": null
   }
 }`
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
-	var exampleVM = NewMinimalDomainSpec()
-	exampleVM.Devices.Disks = []Disk{
+	var exampleVM = NewMinimalVM("testvm")
+	exampleVM.Spec.Domain.Devices.Disks = []Disk{
 		{
-			Type:   "network",
-			Device: "disk",
-			Driver: &DiskDriver{Name: "qemu",
-				Type: "raw"},
-			Source: DiskSource{Protocol: "iscsi",
-				Name: "iqn.2013-07.com.example:iscsi-nopool/2",
-				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
-			Target: DiskTarget{Device: "vda"},
+			Name: "disk0",
+			DiskDevice: DiskDevice{
+				Disk: &DiskTarget{
+					Device:   "vda",
+					ReadOnly: false,
+				},
+			},
+		},
+		{
+			Name: "cdrom0",
+			DiskDevice: DiskDevice{
+				CDRom: &CDRomTarget{
+					Device:   "vdb",
+					ReadOnly: _true,
+					Tray:     "open",
+				},
+			},
+		},
+		{
+			Name: "floppy0",
+			DiskDevice: DiskDevice{
+				Floppy: &FloppyTarget{
+					Device:   "vdc",
+					ReadOnly: true,
+					Tray:     "open",
+				},
+			},
+		},
+		{
+			Name: "lun0",
+			DiskDevice: DiskDevice{
+				LUN: &LunTarget{
+					Device:   "vdd",
+					ReadOnly: true,
+				},
+			},
+		},
+	}
+
+	exampleVM.Spec.Volumes = []Volume{
+		{
+			Name: "disk0",
+			VolumeSource: VolumeSource{
+				RegistryDisk: &RegistryDiskSource{
+					Image: "test/image",
+				},
+			},
+		},
+		{
+			Name: "cdrom0",
+			VolumeSource: VolumeSource{
+				CloudInitNoCloud: &CloudInitNoCloudSource{
+					UserDataSecretRef: &v1.LocalObjectReference{
+						Name: "testsecret",
+					},
+				},
+			},
+		},
+		{
+			Name: "floppy0",
+			VolumeSource: VolumeSource{
+				ISCSI: &v1.ISCSIVolumeSource{
+					TargetPortal: "1234",
+					SecretRef: &v1.LocalObjectReference{
+						Name: "testsecret",
+					},
+				},
+			},
+		},
+		{
+			Name: "lun0",
+			VolumeSource: VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "testclaim",
+				},
+			},
 		},
 	}
 
 	Context("With example schema in json", func() {
 		It("Unmarshal json into struct", func() {
-			newDomain := DomainSpec{}
-			err := json.Unmarshal([]byte(exampleJSON), &newDomain)
+			newVM := &VirtualMachine{}
+			err := json.Unmarshal([]byte(exampleJSON), newVM)
 			Expect(err).To(BeNil())
 
-			Expect(newDomain).To(Equal(*exampleVM))
+			Expect(newVM).To(Equal(exampleVM))
 		})
 		It("Marshal struct into json", func() {
 			buf, err := json.MarshalIndent(*exampleVM, "", "  ")

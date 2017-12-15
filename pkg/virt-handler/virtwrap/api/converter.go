@@ -274,16 +274,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	precond.MustNotBeNil(c)
 
 	domain.Spec.Name = VMNamespaceKeyFunc(vm)
-	domain.Spec.UUID = string(vm.GetObjectMeta().GetUID())
+	domain.Spec.UUID = string(vm.UID)
 	domain.ObjectMeta.Name = vm.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
-	domain.Spec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-	domain.Spec.Type = "qemu"
-	domain.Spec.SysInfo.Type = "smbios"
-	domain.Spec.SysInfo.System = []Entry{
-		{
-			Name:  "uuid",
-			Value: string(vm.Spec.Domain.Firmware.UID),
+	domain.Spec.SysInfo = &SysInfo{
+		System: []Entry{
+			{
+				Name:  "uuid",
+				Value: string(vm.Spec.Domain.Firmware.UID),
+			},
 		},
 	}
 

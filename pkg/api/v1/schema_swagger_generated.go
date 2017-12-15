@@ -82,12 +82,6 @@ func (CDRomTarget) SwaggerDoc() map[string]string {
 	}
 }
 
-func (DiskBaseTarget) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"dev": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
-	}
-}
-
 func (Volume) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "Volume represents a named volume in a vm.",

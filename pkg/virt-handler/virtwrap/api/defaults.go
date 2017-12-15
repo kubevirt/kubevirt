@@ -38,3 +38,16 @@ func SetDefaults_Devices(devices *Devices) {
 		}},
 	}
 }
+
+func SetDefaults_OSType(ostype *OSType) {
+	ostype.OS = "hvm"
+}
+
+func SetDefaults_DomainSpec(spec *DomainSpec) {
+	spec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
+	spec.Type = "qemu"
+}
+
+func SetDefaults_SysInfo(sysinfo *SysInfo) {
+	sysinfo.Type = "smbios"
+}

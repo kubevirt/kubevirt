@@ -34,6 +34,11 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 }
 
 func SetObjectDefaults_Domain(in *Domain) {
+	SetDefaults_DomainSpec(&in.Spec)
+	SetDefaults_OSType(&in.Spec.OS.Type)
+	if in.Spec.SysInfo != nil {
+		SetDefaults_SysInfo(in.Spec.SysInfo)
+	}
 	SetDefaults_Devices(&in.Spec.Devices)
 }
 

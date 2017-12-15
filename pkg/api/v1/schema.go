@@ -39,7 +39,7 @@ type CloudInitNoCloudSource struct {
 	UserDataSecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
 	// UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string
 	// + optional
-	UserDataBase64 string `json:"userDataBase64"`
+	UserDataBase64 string `json:"userDataBase64,omitempty"`
 }
 
 type DomainSpec struct {
@@ -158,13 +158,6 @@ type CDRomTarget struct {
 	// Defaults to closed
 	// +optional
 	Tray TrayState `json:"tray,omitempty"`
-}
-
-type DiskBaseTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev"`
 }
 
 // Volume represents a named volume in a vm.
@@ -490,7 +483,9 @@ type I6300ESBWatchdog struct {
 
 func NewMinimalDomainSpec() *DomainSpec {
 	domain := DomainSpec{}
-	domain.Resources.Initial[v1.ResourceMemory] = resource.MustParse("8192Ki")
+	domain.Resources.Initial = v1.ResourceList{
+		v1.ResourceMemory: resource.MustParse("8192Ki"),
+	}
 	domain.Devices = Devices{}
 	return &domain
 }
