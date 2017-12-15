@@ -24,6 +24,7 @@ A quick start guide to get KubeVirt up and running inside Vagrant.
     mkdir -p ~/go
 
     sudo dnf install golang
+    sudo dnf install mercurial
 ```
 
 **Note:** Some code within k8s.io/client-go and k8s.io/apimachinery uses
@@ -66,7 +67,6 @@ to install a few build requirements:
 ```bash
     # We are interfacing with libvirt
     sudo dnf install libvirt-devel
-    sudo dnf install mercurial
 
     cd $GOPATH
     # Use goimports for package import ordering
