@@ -46,11 +46,14 @@ type DomainSpec struct {
 	// Resources describes the Compute Resources required by this vm.
 	Resources ResourceRequirements `json:"resources,omitempty"`
 	// Firmware
+	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`
 	// Clock sets the clock and timers of the vm.
+	// +optional
 	Clock *Clock `json:"clock,omitempty"`
 	// Features like acpi, apic, hyperv
-	Features Features `json:"features,omitempty"`
+	// +optional
+	Features *Features `json:"features,omitempty"`
 	// Devices allows adding disks, network interfaces, ...
 	Devices Devices `json:"devices"`
 }
@@ -244,8 +247,6 @@ type RTL8139Interface struct {
 
 // Represents the basic network interface device properties of a vm
 type InterfaceAttrs struct {
-	// Address represents the device addres of the interface
-	Address *Address `json:"address,omitempty"`
 	// MAC address of the vm network interface
 	// Defaults to a random generated mac
 	// +optional
@@ -372,8 +373,10 @@ type FeatureState struct {
 }
 
 type FeatureAPIC struct {
-	// FeatureState allows enabling or disabling the feature
-	FeatureState `json:",inline"`
+	// Enabled determines if the feature should be enabled or disabled on the guest
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 	// EndOfInterrupt enables the end of interrupt notification in the guest
 	// Defaults to false
 	// +optional
@@ -381,8 +384,10 @@ type FeatureAPIC struct {
 }
 
 type FeatureSpinlocks struct {
-	// FeatureState allows enabling or disabling the feature
-	FeatureState `json:",inline"`
+	// Enabled determines if the feature should be enabled or disabled on the guest
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 	// Spinlocks indicates how many spinlocks are made available
 	// Must be a value greater or equal 4096
 	// Defaults to 4096
@@ -391,8 +396,10 @@ type FeatureSpinlocks struct {
 }
 
 type FeatureVendorID struct {
-	// FeatureState allows enabling or disabling the feature
-	FeatureState `json:",inline"`
+	// Enabled determines if the feature should be enabled or disabled on the guest
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 	// VendorID sets the hypervisor vendor id, visible to the vm
 	VendorID string `json:"vendorid, omitempty"`
 }
@@ -434,14 +441,6 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting
 	// +optional
 	VendorID *FeatureVendorID `json:"vendorid,omitempty"`
-}
-
-type Address struct {
-	Type     string `json:"type"`
-	Domain   string `json:"domain"`
-	Bus      string `json:"bus"`
-	Slot     string `json:"slot"`
-	Function string `json:"function"`
 }
 
 // WatchdogAction defines the watchdog action, if a watchdog gets triggered

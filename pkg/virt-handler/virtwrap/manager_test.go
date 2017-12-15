@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -62,8 +61,12 @@ var _ = Describe("Manager", func() {
 	})
 
 	expectIsolationDetectionForVM := func(vm *v1.VirtualMachine) *api.DomainSpec {
-		var domainSpec api.DomainSpec
-		Expect(model.Copy(&domainSpec, vm.Spec.Domain)).To(BeEmpty())
+		domain := &api.Domain{}
+		c := &api.Context{
+			VirtualMachine: vm,
+		}
+		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())
+		domainSpec := domain.Spec
 
 		domainSpec.Name = testDomainName
 		domainSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
@@ -93,7 +96,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
-			newspec, err := manager.SyncVM(vm)
+			newspec, err := manager.SyncVM(vm, nil)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 			Expect(<-recorder.Events).To(ContainSubstring(v1.Created.String()))
@@ -110,7 +113,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
-			newspec, err := manager.SyncVM(vm)
+			newspec, err := manager.SyncVM(vm, nil)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 			Expect(recorder.Events).To(BeEmpty())
@@ -128,7 +131,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
-				newspec, err := manager.SyncVM(vm)
+				newspec, err := manager.SyncVM(vm, nil)
 				Expect(newspec).ToNot(BeNil())
 				Expect(err).To(BeNil())
 				Expect(<-recorder.Events).To(ContainSubstring(v1.Started.String()))
@@ -150,7 +153,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, recorder, mockDetector)
-			newspec, err := manager.SyncVM(vm)
+			newspec, err := manager.SyncVM(vm, nil)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 			Expect(<-recorder.Events).To(ContainSubstring(v1.Resumed.String()))

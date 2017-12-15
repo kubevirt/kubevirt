@@ -63,7 +63,7 @@ var _ = Describe("RegistryDisk", func() {
 		filePath := volumeMountDir + "/disk0/disk-image." + diskExtension
 		_, err := os.Create(filePath)
 
-		vm, err = MapRegistryDisks(vm)
+		err = TakeOverRegistryDisks(vm)
 		Expect(err).ToNot(HaveOccurred())
 
 		// verify file gets renamed by virt-handler to prevent container from
@@ -126,7 +126,7 @@ var _ = Describe("RegistryDisk", func() {
 					},
 				})
 
-				vm, err := MapRegistryDisks(vm)
+				err := TakeOverRegistryDisks(vm)
 				Expect(err).To(HaveOccurred())
 			})
 			It("by verifying container generation", func() {

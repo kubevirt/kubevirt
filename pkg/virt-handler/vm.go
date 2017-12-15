@@ -25,7 +25,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -484,8 +483,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 // Look up PVs and translate them into their primitives (only supports ISCSI PVs right now)
 func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
-	vmCopy := &v1.VirtualMachine{}
-	model.Copy(vmCopy, vm)
+	vmCopy := vm.DeepCopy()
 	logger := log.Log.Object(vm)
 
 	for _, volume := range vmCopy.Spec.Volumes {
@@ -649,7 +647,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	}
 
 	// Map Container Registry Disks to block devices Libvirt can consume
-	vm, err = registrydisk.MapRegistryDisks(vm)
+	err = registrydisk.TakeOverRegistryDisks(vm)
 	if err != nil {
 		return err
 	}

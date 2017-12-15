@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jeevatkm/go-model"
-
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -121,18 +119,15 @@ func CleanupEphemeralDisks(vm *v1.VirtualMachine) error {
 	return err
 }
 
-// The virt-handler converts registry disks to their corresponding iscsi network
-// disks when the VM spec is being defined as a domain with libvirt.
-// The ports and host of the iscsi disks are already provided here by the controller.
-func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	vmCopy := &v1.VirtualMachine{}
-	model.Copy(vmCopy, vm)
+// The virt-handler renames all registry disks in order to indicate to virt-launcher
+// that it took the ownership of the image
+func TakeOverRegistryDisks(vm *v1.VirtualMachine) error {
 
-	for _, volume := range vmCopy.Spec.Volumes {
+	for _, volume := range vm.Spec.Volumes {
 		if volume.RegistryDisk != nil {
 			diskPath, _, err := GetFilePath(vm, volume.Name)
 			if err != nil {
-				return vm, err
+				return err
 			}
 
 			// Rename file to release management of it from container process.
@@ -141,18 +136,18 @@ func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 				diskPath = oldDiskPath + ".virt"
 				err = os.Rename(oldDiskPath, diskPath)
 				if err != nil {
-					return vm, err
+					return err
 				}
 			}
 
 			err = diskutils.SetFileOwnership(registryDiskOwner, diskPath)
 			if err != nil {
-				return vm, err
+				return err
 			}
 		}
 	}
 
-	return vmCopy, nil
+	return nil
 }
 
 // The controller uses this function to generate the container

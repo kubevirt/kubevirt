@@ -187,6 +187,9 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 		return nil, err
 	}
 
+	// Set defaults which are not comming from the cluster
+	api.SetObjectDefaults_Domain(domain)
+
 	res, err := l.podIsolationDetector.Detect(vm)
 	if err != nil {
 		logger.V(3).Reason(err).Error("Could not detect virt-launcher cgroups.")
@@ -203,28 +206,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
 		wantedSpec.Metadata.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
-	}
-
-	domName := cache.VMNamespaceKeyFunc(vm)
-	wantedSpec.Name = domName
-	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
-	dom, err := l.virConn.LookupDomainByName(domName)
-	// Add mandatory spice device
-	domain.Spec.Devices.Graphics = []api.Graphics{
-		{
-			Port: -1,
-			Listen: api.Listen{
-				Type:    "address",
-				Address: "0.0.0.0",
-			},
-		},
-	}
-
-	// Add mandatory console device
-	domain.Spec.Devices.Consoles = []api.Console{
-		{
-			Type: "pty",
-		},
 	}
 
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)

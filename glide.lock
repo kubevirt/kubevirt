@@ -311,8 +311,6 @@ imports:
   - client/v2
   - models
   - pkg/escape
-- name: github.com/jeevatkm/go-model
-  version: 00bcf69e10573c4ba261c9842194d07e6d4b50e9
 - name: github.com/jonboulle/clockwork
   version: 72f9bd7c4e0c2a40055ab3d0f09654f730cce982
 - name: github.com/json-iterator/go

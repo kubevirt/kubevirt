@@ -58,40 +58,38 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				}
 			}
 		}
-		if in.Spec.Domain.Features.ACPI != nil {
-			SetDefaults_FeatureState(in.Spec.Domain.Features.ACPI)
-		}
-		if in.Spec.Domain.Features.APIC != nil {
-			SetDefaults_FeatureState(in.Spec.Domain.Features.APIC)
-		}
-		if in.Spec.Domain.Features.Hyperv != nil {
-			if in.Spec.Domain.Features.Hyperv.Relaxed != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Relaxed)
+		if in.Spec.Domain.Features != nil {
+			if in.Spec.Domain.Features.ACPI != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.ACPI)
 			}
-			if in.Spec.Domain.Features.Hyperv.VAPIC != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VAPIC)
+			if in.Spec.Domain.Features.APIC != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.APIC)
 			}
-			if in.Spec.Domain.Features.Hyperv.Spinlocks != nil {
-				SetDefaults_FeatureSpinlocks(in.Spec.Domain.Features.Hyperv.Spinlocks)
-				SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.Spinlocks.FeatureState)
-			}
-			if in.Spec.Domain.Features.Hyperv.VPIndex != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VPIndex)
-			}
-			if in.Spec.Domain.Features.Hyperv.Runtime != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Runtime)
-			}
-			if in.Spec.Domain.Features.Hyperv.SyNIC != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.SyNIC)
-			}
-			if in.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.SyNICTimer)
-			}
-			if in.Spec.Domain.Features.Hyperv.Reset != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Reset)
-			}
-			if in.Spec.Domain.Features.Hyperv.VendorID != nil {
-				SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.VendorID.FeatureState)
+			if in.Spec.Domain.Features.Hyperv != nil {
+				if in.Spec.Domain.Features.Hyperv.Relaxed != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Relaxed)
+				}
+				if in.Spec.Domain.Features.Hyperv.VAPIC != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VAPIC)
+				}
+				if in.Spec.Domain.Features.Hyperv.Spinlocks != nil {
+					SetDefaults_FeatureSpinlocks(in.Spec.Domain.Features.Hyperv.Spinlocks)
+				}
+				if in.Spec.Domain.Features.Hyperv.VPIndex != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VPIndex)
+				}
+				if in.Spec.Domain.Features.Hyperv.Runtime != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Runtime)
+				}
+				if in.Spec.Domain.Features.Hyperv.SyNIC != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.SyNIC)
+				}
+				if in.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.SyNICTimer)
+				}
+				if in.Spec.Domain.Features.Hyperv.Reset != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Reset)
+				}
 			}
 		}
 		for i := range in.Spec.Domain.Devices.Disks {
@@ -146,40 +144,38 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 					}
 				}
 			}
-			if in.Spec.Template.Spec.Domain.Features.ACPI != nil {
-				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.ACPI)
-			}
-			if in.Spec.Template.Spec.Domain.Features.APIC != nil {
-				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.APIC)
-			}
-			if in.Spec.Template.Spec.Domain.Features.Hyperv != nil {
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed)
+			if in.Spec.Template.Spec.Domain.Features != nil {
+				if in.Spec.Template.Spec.Domain.Features.ACPI != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.ACPI)
 				}
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.VAPIC != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VAPIC)
+				if in.Spec.Template.Spec.Domain.Features.APIC != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.APIC)
 				}
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks != nil {
-					SetDefaults_FeatureSpinlocks(in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks)
-					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks.FeatureState)
-				}
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex)
-				}
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.Runtime != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Runtime)
-				}
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC)
-				}
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer)
-				}
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.Reset != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Reset)
-				}
-				if in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID != nil {
-					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID.FeatureState)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv != nil {
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.VAPIC != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VAPIC)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks != nil {
+						SetDefaults_FeatureSpinlocks(in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.Runtime != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Runtime)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.Reset != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Reset)
+					}
 				}
 			}
 			for i := range in.Spec.Template.Spec.Domain.Devices.Disks {

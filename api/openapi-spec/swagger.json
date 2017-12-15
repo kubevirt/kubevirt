@@ -1842,32 +1842,6 @@
      }
     }
    },
-   "v1.Address": {
-    "required": [
-     "type",
-     "domain",
-     "bus",
-     "slot",
-     "function"
-    ],
-    "properties": {
-     "bus": {
-      "type": "string"
-     },
-     "domain": {
-      "type": "string"
-     },
-     "function": {
-      "type": "string"
-     },
-     "slot": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
    "v1.Affinity": {
     "description": "Affinity groups all the affinity rules related to a VM",
     "properties": {
@@ -2041,7 +2015,7 @@
     ],
     "properties": {
      "clock": {
-      "description": "Clock sets the clock and timers of the vm.",
+      "description": "Clock sets the clock and timers of the vm.\n+optional",
       "$ref": "#/definitions/v1.Clock"
      },
      "devices": {
@@ -2049,11 +2023,11 @@
       "$ref": "#/definitions/v1.Devices"
      },
      "features": {
-      "description": "Features like acpi, apic, hyperv",
+      "description": "Features like acpi, apic, hyperv\n+optional",
       "$ref": "#/definitions/v1.Features"
      },
      "firmware": {
-      "description": "Firmware",
+      "description": "Firmware\n+optional",
       "$ref": "#/definitions/v1.Firmware"
      },
      "resources": {
@@ -2065,10 +2039,6 @@
    "v1.E1000Interface": {
     "description": "e1000 vm network interface",
     "properties": {
-     "address": {
-      "description": "Address represents the device addres of the interface",
-      "$ref": "#/definitions/v1.Address"
-     },
      "mac": {
       "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
       "type": "string"
@@ -2752,10 +2722,6 @@
    "v1.RTL8139Interface": {
     "description": "rtl8139 vm network interface",
     "properties": {
-     "address": {
-      "description": "Address represents the device addres of the interface",
-      "$ref": "#/definitions/v1.Address"
-     },
      "mac": {
       "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
       "type": "string"
@@ -3019,10 +2985,6 @@
    "v1.VirtIOInterface": {
     "description": "virtio vm network interface",
     "properties": {
-     "address": {
-      "description": "Address represents the device addres of the interface",
-      "$ref": "#/definitions/v1.Address"
-     },
      "mac": {
       "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
       "type": "string"

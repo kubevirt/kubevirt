@@ -13,9 +13,9 @@ func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"resources": "Resources describes the Compute Resources required by this vm.",
-		"firmware":  "Firmware",
-		"clock":     "Clock sets the clock and timers of the vm.",
-		"features":  "Features like acpi, apic, hyperv",
+		"firmware":  "Firmware\n+optional",
+		"clock":     "Clock sets the clock and timers of the vm.\n+optional",
+		"features":  "Features like acpi, apic, hyperv\n+optional",
 		"devices":   "Devices allows adding disks, network interfaces, ...",
 	}
 }
@@ -148,9 +148,8 @@ func (RTL8139Interface) SwaggerDoc() map[string]string {
 
 func (InterfaceAttrs) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "Represents the basic network interface device properties of a vm",
-		"address": "Address represents the device addres of the interface",
-		"mac":     "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
+		"":    "Represents the basic network interface device properties of a vm",
+		"mac": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
 	}
 }
 
@@ -231,18 +230,21 @@ func (FeatureState) SwaggerDoc() map[string]string {
 
 func (FeatureAPIC) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"enabled":        "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
 		"endOfInterrupt": "EndOfInterrupt enables the end of interrupt notification in the guest\nDefaults to false\n+optional",
 	}
 }
 
 func (FeatureSpinlocks) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"enabled":   "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
 		"spinlocks": "Spinlocks indicates how many spinlocks are made available\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
 	}
 }
 
 func (FeatureVendorID) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"enabled":  "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
 		"vendorid": "VendorID sets the hypervisor vendor id, visible to the vm",
 	}
 }
@@ -260,10 +262,6 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 		"reset":      "Reset enables Hyperv reboot/reset for the vm\nDefaults to the machine type setting\n+optional",
 		"vendorid":   "VendorID allows setting the hypervisor vendor id\nDefaults to the machine type setting\n+optional",
 	}
-}
-
-func (Address) SwaggerDoc() map[string]string {
-	return map[string]string{}
 }
 
 func (Watchdog) SwaggerDoc() map[string]string {

@@ -22,7 +22,6 @@ package watch
 import (
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -142,12 +141,11 @@ func (c *VMController) execute(key string) error {
 		// Schedule the VM
 
 		// Deep copy the object, so that we can safely manipulate it
-		vmCopy := kubev1.VirtualMachine{}
-		model.Copy(&vmCopy, vm)
-		logger = log.Log.Object(&vmCopy)
+		vmCopy := vm.DeepCopy()
+		logger = log.Log.Object(vmCopy)
 
 		// Check if there are already outdated VM Pods
-		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
+		pods, err := c.vmService.GetRunningVMPods(vmCopy)
 		if err != nil {
 			logger.Reason(err).Error("Fetching VM pods failed.")
 			return err
@@ -156,7 +154,7 @@ func (c *VMController) execute(key string) error {
 		// If there are already pods, delete them before continuing ...
 		if len(pods.Items) > 0 {
 			logger.Error("VM Pods do already exist, will clean up before continuing.")
-			if err := c.vmService.DeleteVMPod(&vmCopy); err != nil {
+			if err := c.vmService.DeleteVMPod(vmCopy); err != nil {
 				logger.Reason(err).Error("Deleting VM pods failed.")
 				return err
 			}
@@ -167,6 +165,8 @@ func (c *VMController) execute(key string) error {
 		// Defaulting and setting constants
 		// TODO move defaulting to virt-api
 		// TODO move constants to virt-handler and remove from the spec
+		kubev1.SetObjectDefaults_VirtualMachine(vmCopy)
+
 		if vmCopy.Spec.Domain == nil {
 			spec := kubev1.NewMinimalDomainSpec()
 			vmCopy.Spec.Domain = spec
@@ -178,7 +178,7 @@ func (c *VMController) execute(key string) error {
 		}
 
 		// Create a Pod which will be the VM destination
-		if err := c.vmService.StartVMPod(&vmCopy); err != nil {
+		if err := c.vmService.StartVMPod(vmCopy); err != nil {
 			logger.Reason(err).Error("Defining a target pod for the VM failed.")
 			return err
 		}
@@ -195,11 +195,10 @@ func (c *VMController) execute(key string) error {
 		// Target Pod for the VM was already created, check if it is  running and update the VM to Scheduled
 
 		// Deep copy the object, so that we can safely manipulate it
-		vmCopy := kubev1.VirtualMachine{}
-		model.Copy(&vmCopy, vm)
-		logger = log.Log.Object(&vmCopy)
+		vmCopy := vm.DeepCopy()
+		logger = log.Log.Object(vmCopy)
 
-		pods, err := c.vmService.GetRunningVMPods(&vmCopy)
+		pods, err := c.vmService.GetRunningVMPods(vmCopy)
 		if err != nil {
 			logger.Reason(err).Error("Fetching VM pods failed.")
 			return err
@@ -240,7 +239,7 @@ func (c *VMController) execute(key string) error {
 		}
 		vmCopy.ObjectMeta.Labels[kubev1.NodeNameLabel] = pods.Items[0].Spec.NodeName
 		vmCopy.Status.NodeName = pods.Items[0].Spec.NodeName
-		if _, err := c.vmService.PutVm(&vmCopy); err != nil {
+		if _, err := c.vmService.PutVm(vmCopy); err != nil {
 			logger.Reason(err).Error("Updating the VM state to 'Scheduled' failed.")
 			return err
 		}

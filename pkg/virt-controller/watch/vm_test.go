@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -143,10 +142,9 @@ var _ = Describe("VM watcher", func() {
 			// We want to ensure the vm object we initially post
 			// doesn't have ports set, so we make a copy in order
 			// to render the pod object early for the test.
-			vmCopy := v1.VirtualMachine{}
-			model.Copy(&vmCopy, vm)
+			vmCopy := vm.DeepCopy()
 
-			pod, err := templateService.RenderLaunchManifest(&vmCopy)
+			pod, err := templateService.RenderLaunchManifest(vmCopy)
 			Expect(err).ToNot(HaveOccurred())
 
 			pod.Spec.NodeName = "mynode"

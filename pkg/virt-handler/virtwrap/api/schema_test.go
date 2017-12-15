@@ -22,7 +22,6 @@ package api
 import (
 	"encoding/xml"
 
-	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -155,15 +154,13 @@ var _ = Describe("Schema", func() {
 		}
 
 		It("converts to libvirt.DomainSpec", func() {
-			virtDomainSpec := DomainSpec{}
-			errs := model.Copy(&virtDomainSpec, v1DomainSpec)
+			virtDomainSpec := v1DomainSpec.DeepCopy()
 			virtDomainSpec.Name = "testvm"
 			Expect(virtDomainSpec).To(Equal(*exampleDomain))
 			Expect(errs).To(BeEmpty())
 		})
 		It("converts to v1.DomainSpec", func() {
-			convertedDomainSpec := v1.DomainSpec{}
-			errs := model.Copy(&convertedDomainSpec, exampleDomain)
+			convertedDomainSpec := exampleDomain.DeepCopy()
 			Expect(convertedDomainSpec).To(Equal(*v1DomainSpec))
 			Expect(errs).To(BeEmpty())
 		})
