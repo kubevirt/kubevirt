@@ -30,4 +30,11 @@ func SetDefaults_Devices(devices *Devices) {
 			Type: "pty",
 		},
 	}
+	// For now connect every virtual machine to the default network
+	devices.Interfaces = []Interface{{
+		Type: "network",
+		Source: InterfaceSource{
+			Network: "default",
+		}},
+	}
 }
