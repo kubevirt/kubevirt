@@ -70,6 +70,10 @@ func (SerialTarget) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (SerialSource) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (Console) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }

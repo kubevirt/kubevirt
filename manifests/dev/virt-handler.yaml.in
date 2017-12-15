@@ -36,6 +36,8 @@ spec:
               mountPath: /var/run/libvirt
             - name: virt-share-dir
               mountPath: /var/run/kubevirt
+            - name: virt-private-dir
+              mountPath: /var/run/kubevirt-private
           env:
             - name: NODE_NAME
               valueFrom:
@@ -48,3 +50,6 @@ spec:
         - name: virt-share-dir
           hostPath:
             path: /var/run/kubevirt
+        - name: virt-private-dir
+          hostPath:
+            path: /var/run/kubevirt-private
