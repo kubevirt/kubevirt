@@ -182,22 +182,34 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *Context) e
 		}
 		if source.Timer.PIT != nil {
 			newTimer := Timer{Name: "pit"}
-			Convert_v1_TimerAttrs_To_api_Timer(source.Timer.PIT, &newTimer, c)
+			err := Convert_v1_TimerAttrs_To_api_Timer(source.Timer.PIT, &newTimer, c)
+			if err != nil {
+				return err
+			}
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.KVM != nil {
 			newTimer := Timer{Name: "kvmclock"}
-			Convert_v1_TimerAttrs_To_api_Timer(source.Timer.KVM, &newTimer, c)
+			err := Convert_v1_TimerAttrs_To_api_Timer(source.Timer.KVM, &newTimer, c)
+			if err != nil {
+				return err
+			}
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.HPET != nil {
 			newTimer := Timer{Name: "hpet"}
-			Convert_v1_TimerAttrs_To_api_Timer(source.Timer.HPET, &newTimer, c)
+			err := Convert_v1_TimerAttrs_To_api_Timer(source.Timer.HPET, &newTimer, c)
+			if err != nil {
+				return err
+			}
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.Hyperv != nil {
 			newTimer := Timer{Name: "hypervclock"}
-			Convert_v1_TimerAttrs_To_api_Timer(source.Timer.Hyperv, &newTimer, c)
+			err := Convert_v1_TimerAttrs_To_api_Timer(source.Timer.Hyperv, &newTimer, c)
+			if err != nil {
+				return err
+			}
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 	}
@@ -225,7 +237,10 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features
 	}
 	if source.Hyperv != nil {
 		features.Hyperv = &FeatureHyperv{}
-		Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source.Hyperv, features.Hyperv, c)
+		err := Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source.Hyperv, features.Hyperv, c)
+		if err != nil {
+			return nil
+		}
 	}
 	return nil
 }
@@ -283,27 +298,42 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 
 	for _, disk := range vm.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
-		Convert_v1_Disk_To_api_Disk(&disk, &newDisk)
-		Convert_v1_Volume_To_api_Disk(volumes[disk.Name], &newDisk, c)
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk)
+		if err != nil {
+			return err
+		}
+		err = Convert_v1_Volume_To_api_Disk(volumes[disk.Name], &newDisk, c)
+		if err != nil {
+			return err
+		}
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 	}
 
 	if vm.Spec.Domain.Devices.Watchdog != nil {
 		newWatchdog := &Watchdog{}
-		Convert_v1_Watchdog_To_api_Watchdog(vm.Spec.Domain.Devices.Watchdog, newWatchdog, c)
+		err := Convert_v1_Watchdog_To_api_Watchdog(vm.Spec.Domain.Devices.Watchdog, newWatchdog, c)
+		if err != nil {
+			return err
+		}
 		domain.Spec.Devices.Watchdog = newWatchdog
 	}
 
 	if vm.Spec.Domain.Clock != nil {
 		clock := vm.Spec.Domain.Clock
 		newClock := &Clock{}
-		Convert_v1_Clock_To_api_Clock(clock, newClock, c)
+		err := Convert_v1_Clock_To_api_Clock(clock, newClock, c)
+		if err != nil {
+			return err
+		}
 		domain.Spec.Clock = newClock
 	}
 
 	if vm.Spec.Domain.Features != nil {
 		domain.Spec.Features = &Features{}
-		Convert_v1_Features_To_api_Features(vm.Spec.Domain.Features, domain.Spec.Features, c)
+		err := Convert_v1_Features_To_api_Features(vm.Spec.Domain.Features, domain.Spec.Features, c)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
