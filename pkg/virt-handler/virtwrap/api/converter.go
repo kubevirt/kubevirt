@@ -156,10 +156,7 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog
 
 func Convert_v1_TimerAttrs_To_api_Timer(source *v1.TimerAttrs, timer *Timer, c *Context) error {
 	timer.TickPolicy = string(source.TickPolicy)
-	timer.Present = "yes"
-	if source.Enabled != nil && *source.Enabled == false {
-		timer.Present = "no"
-	}
+	timer.Present = boolToYesNo(source.Enabled, true)
 	return nil
 }
 
@@ -179,7 +176,8 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *Context) e
 		if source.Timer.RTC != nil {
 			newTimer := Timer{Name: "rtc"}
 			newTimer.Track = string(source.Timer.RTC.Track)
-			Convert_v1_TimerAttrs_To_api_Timer(&source.Timer.RTC.TimerAttrs, &newTimer, c)
+			newTimer.TickPolicy = string(source.Timer.RTC.TickPolicy)
+			newTimer.Present = boolToYesNo(source.Timer.RTC.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.PIT != nil {
@@ -204,6 +202,54 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *Context) e
 		}
 	}
 
+	return nil
+}
+
+func convertFeatureState(source *v1.FeatureState) *FeatureState {
+	if source != nil {
+		return &FeatureState{
+			State: boolToOnOff(source.Enabled, true),
+		}
+	}
+	return nil
+}
+
+func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *Context) error {
+	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
+		features.ACPI = &FeatureEnabled{}
+	}
+	if source.APIC != nil {
+		if source.APIC.Enabled == nil || *source.APIC.Enabled {
+			features.APIC = &FeatureEnabled{}
+		}
+	}
+	if source.Hyperv != nil {
+		features.Hyperv = &FeatureHyperv{}
+		Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source.Hyperv, features.Hyperv, c)
+	}
+	return nil
+}
+
+func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *FeatureHyperv, c *Context) error {
+	if source.Spinlocks != nil {
+		hyperv.Spinlocks = &FeatureSpinlocks{
+			State:   boolToOnOff(source.Spinlocks.Enabled, true),
+			Retries: source.Spinlocks.Retries,
+		}
+	}
+	if source.VendorID != nil {
+		hyperv.VendorID = &FeatureVendorID{
+			State: boolToOnOff(source.VendorID.Enabled, true),
+			Value: source.VendorID.VendorID,
+		}
+	}
+	hyperv.Relaxed = convertFeatureState(source.Relaxed)
+	hyperv.Reset = convertFeatureState(source.Reset)
+	hyperv.Runtime = convertFeatureState(source.Runtime)
+	hyperv.SyNIC = convertFeatureState(source.SyNIC)
+	hyperv.SyNICTimer = convertFeatureState(source.SyNICTimer)
+	hyperv.VAPIC = convertFeatureState(source.VAPIC)
+	hyperv.VPIndex = convertFeatureState(source.VPIndex)
 	return nil
 }
 
@@ -255,6 +301,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		domain.Spec.Clock = newClock
 	}
 
+	if vm.Spec.Domain.Features != nil {
+		domain.Spec.Features = &Features{}
+		Convert_v1_Features_To_api_Features(vm.Spec.Domain.Features, domain.Spec.Features, c)
+	}
+
 	return nil
 }
 
@@ -267,4 +318,32 @@ func QuantityToMegaByte(quantity resource.Quantity) Memory {
 		Value: uint(quantity.ToDec().ScaledValue(6)),
 		Unit:  "MB",
 	}
+}
+
+func boolToOnOff(value *bool, defaultOn bool) string {
+	if value == nil {
+		if defaultOn {
+			return "on"
+		}
+		return "off"
+	}
+
+	if *value {
+		return "on"
+	}
+	return "off"
+}
+
+func boolToYesNo(value *bool, defaultYes bool) string {
+	if value == nil {
+		if defaultYes {
+			return "yes"
+		}
+		return "no"
+	}
+
+	if *value {
+		return "yes"
+	}
+	return "no"
 }

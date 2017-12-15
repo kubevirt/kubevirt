@@ -336,7 +336,13 @@ const (
 )
 
 type RTCTimerAttrs struct {
-	TimerAttrs `json:",inline"`
+	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+	// One of "delay", "catchup", "merge", "discard"
+	TickPolicy TickPolicy `json:"tickPolicy,omitempty"`
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
 	// Track the guest or the wall clock
 	Track RTCTimerTrack `json:"track,omitempty"`
 }
@@ -352,10 +358,10 @@ type TimerAttrs struct {
 }
 
 type Features struct {
-	// Defaults to the machine type setting
+	// ACPI enables/disables ACPI inside the guest
+	// Defaults to enabled
 	// +optional
-	// TODO: Should it even be possible to disable ACPI?
-	ACPI *FeatureState `json:"acpi,omitempty"`
+	ACPI FeatureState `json:"acpi,omitempty"`
 	// Defaults to the machine type setting
 	// +optional
 	APIC *FeatureState `json:"apic,omitempty"`
@@ -388,11 +394,11 @@ type FeatureSpinlocks struct {
 	// Defaults to true
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
-	// Spinlocks indicates how many spinlocks are made available
+	// Retries indicates the number of retries
 	// Must be a value greater or equal 4096
 	// Defaults to 4096
 	// +optional
-	Spinlocks *uint32 `json:"spinlocks,omitempty"`
+	Retries *uint32 `json:"spinlocks,omitempty"`
 }
 
 type FeatureVendorID struct {
@@ -401,6 +407,7 @@ type FeatureVendorID struct {
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 	// VendorID sets the hypervisor vendor id, visible to the vm
+	// String up to twelve characters
 	VendorID string `json:"vendorid, omitempty"`
 }
 

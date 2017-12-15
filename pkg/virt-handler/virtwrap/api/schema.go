@@ -108,6 +108,42 @@ type DomainSpec struct {
 	Resource *Resource    `xml:"resource,omitempty"`
 	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
 	Metadata Metadata     `xml:"metadata,omitempty"`
+	Features *Features    `xml:"features,omitempty"`
+}
+
+type Features struct {
+	ACPI   *FeatureEnabled `xml:"acpi,omitempty"`
+	APIC   *FeatureEnabled `xml:"apic,omitempty"`
+	Hyperv *FeatureHyperv  `xml:"hyperv,omitempty"`
+}
+
+type FeatureHyperv struct {
+	Relaxed    *FeatureState     `xml:"relaxed,omitempty"`
+	VAPIC      *FeatureState     `xml:"vapic,omitempty"`
+	Spinlocks  *FeatureSpinlocks `xml:"spinlocks,omitempty"`
+	VPIndex    *FeatureState     `xml:"vpindex,omitempty"`
+	Runtime    *FeatureState     `xml:"runtime,omitempty"`
+	SyNIC      *FeatureState     `xml:"synic,omitempty"`
+	SyNICTimer *FeatureState     `xml:"stimer,omitempty"`
+	Reset      *FeatureState     `xml:"reset,omitempty"`
+	VendorID   *FeatureVendorID  `xml:"vendor_id,omitempty"`
+}
+
+type FeatureSpinlocks struct {
+	State   string  `xml:"state,attr,omitempty"`
+	Retries *uint32 `xml:"retries,attr,omitempty"`
+}
+
+type FeatureVendorID struct {
+	State string `xml:"state,attr,omitempty"`
+	Value string `xml:"value,attr,omitempty"`
+}
+
+type FeatureEnabled struct {
+}
+
+type FeatureState struct {
+	State string `xml:"state,attr,omitempty"`
 }
 
 type Metadata struct {

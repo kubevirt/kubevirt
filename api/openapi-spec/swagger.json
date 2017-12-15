@@ -2093,7 +2093,7 @@
       "type": "boolean"
      },
      "spinlocks": {
-      "description": "Spinlocks indicates how many spinlocks are made available\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
+      "description": "Retries indicates the number of retries\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
       "type": "integer"
      }
     }
@@ -2117,7 +2117,7 @@
       "type": "boolean"
      },
      "vendorid": {
-      "description": "VendorID sets the hypervisor vendor id, visible to the vm",
+      "description": "VendorID sets the hypervisor vendor id, visible to the vm\nString up to twelve characters",
       "type": "string"
      }
     }
@@ -2125,7 +2125,7 @@
    "v1.Features": {
     "properties": {
      "acpi": {
-      "description": "Defaults to the machine type setting\n+optional",
+      "description": "ACPI enables/disables ACPI inside the guest\nDefaults to enabled\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "apic": {

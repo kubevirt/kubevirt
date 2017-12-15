@@ -202,7 +202,9 @@ func (Timer) SwaggerDoc() map[string]string {
 
 func (RTCTimerAttrs) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"track": "Track the guest or the wall clock",
+		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
+		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+		"track":      "Track the guest or the wall clock",
 	}
 }
 
@@ -215,7 +217,7 @@ func (TimerAttrs) SwaggerDoc() map[string]string {
 
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"acpi":   "Defaults to the machine type setting\n+optional",
+		"acpi":   "ACPI enables/disables ACPI inside the guest\nDefaults to enabled\n+optional",
 		"apic":   "Defaults to the machine type setting\n+optional",
 		"hyperv": "Defaults to the machine type setting\n+optional",
 	}
@@ -238,14 +240,14 @@ func (FeatureAPIC) SwaggerDoc() map[string]string {
 func (FeatureSpinlocks) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"enabled":   "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
-		"spinlocks": "Spinlocks indicates how many spinlocks are made available\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
+		"spinlocks": "Retries indicates the number of retries\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
 	}
 }
 
 func (FeatureVendorID) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"enabled":  "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
-		"vendorid": "VendorID sets the hypervisor vendor id, visible to the vm",
+		"vendorid": "VendorID sets the hypervisor vendor id, visible to the vm\nString up to twelve characters",
 	}
 }
 

@@ -50,18 +50,13 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				if in.Spec.Domain.Clock.Timer.PIT != nil {
 					SetDefaults_TimerAttrs(in.Spec.Domain.Clock.Timer.PIT)
 				}
-				if in.Spec.Domain.Clock.Timer.RTC != nil {
-					SetDefaults_TimerAttrs(&in.Spec.Domain.Clock.Timer.RTC.TimerAttrs)
-				}
 				if in.Spec.Domain.Clock.Timer.Hyperv != nil {
 					SetDefaults_TimerAttrs(in.Spec.Domain.Clock.Timer.Hyperv)
 				}
 			}
 		}
 		if in.Spec.Domain.Features != nil {
-			if in.Spec.Domain.Features.ACPI != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.ACPI)
-			}
+			SetDefaults_FeatureState(&in.Spec.Domain.Features.ACPI)
 			if in.Spec.Domain.Features.APIC != nil {
 				SetDefaults_FeatureState(in.Spec.Domain.Features.APIC)
 			}
@@ -136,18 +131,13 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 					if in.Spec.Template.Spec.Domain.Clock.Timer.PIT != nil {
 						SetDefaults_TimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.PIT)
 					}
-					if in.Spec.Template.Spec.Domain.Clock.Timer.RTC != nil {
-						SetDefaults_TimerAttrs(&in.Spec.Template.Spec.Domain.Clock.Timer.RTC.TimerAttrs)
-					}
 					if in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv != nil {
 						SetDefaults_TimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv)
 					}
 				}
 			}
 			if in.Spec.Template.Spec.Domain.Features != nil {
-				if in.Spec.Template.Spec.Domain.Features.ACPI != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.ACPI)
-				}
+				SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.ACPI)
 				if in.Spec.Template.Spec.Domain.Features.APIC != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.APIC)
 				}
