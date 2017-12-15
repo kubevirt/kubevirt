@@ -125,13 +125,17 @@ var _ = Describe("VM watcher", func() {
 			vm.Status.Phase = ""
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-				Type:   "RegistryDisk:v1alpha",
-				Device: "disk",
-				Source: v1.DiskSource{
-					Name: "someimage:v1.2.3.4",
+				Name: "r0",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
 				},
-				Target: v1.DiskTarget{
-					Device: "vda",
+			})
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "r0",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{
+						Image: "someimage:v1.2.3.4",
+					},
 				},
 			})
 

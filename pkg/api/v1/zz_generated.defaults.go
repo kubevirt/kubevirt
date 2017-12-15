@@ -38,7 +38,11 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 }
 
 func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
+	SetDefaults_VirtualMachine(in)
 	if in.Spec.Domain != nil {
+		if in.Spec.Domain.Firmware != nil {
+			SetDefaults_Firmware(in.Spec.Domain.Firmware)
+		}
 		if in.Spec.Domain.Clock != nil {
 			if in.Spec.Domain.Clock.Timer != nil {
 				if in.Spec.Domain.Clock.Timer.HPET != nil {
@@ -120,6 +124,9 @@ func SetObjectDefaults_VirtualMachineList(in *VirtualMachineList) {
 func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 	if in.Spec.Template != nil {
 		if in.Spec.Template.Spec.Domain != nil {
+			if in.Spec.Template.Spec.Domain.Firmware != nil {
+				SetDefaults_Firmware(in.Spec.Template.Spec.Domain.Firmware)
+			}
 			if in.Spec.Template.Spec.Domain.Clock != nil {
 				if in.Spec.Template.Spec.Domain.Clock.Timer != nil {
 					if in.Spec.Template.Spec.Domain.Clock.Timer.HPET != nil {

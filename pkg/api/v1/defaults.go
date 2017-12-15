@@ -1,5 +1,10 @@
 package v1
 
+import (
+	"github.com/pborman/uuid"
+	"k8s.io/apimachinery/pkg/types"
+)
+
 var _true = t(true)
 
 func SetDefaults_TimerAttrs(obj *TimerAttrs) {
@@ -64,6 +69,22 @@ func SetDefaults_FeatureSpinlocks(obj *FeatureSpinlocks) {
 func SetDefaults_I6300ESBWatchdog(obj *I6300ESBWatchdog) {
 	if obj.Action == "" {
 		obj.Action = WatchdogActionReset
+	}
+}
+
+func SetDefaults_Firmware(obj *Firmware) {
+	if obj.UID == "" {
+		obj.UID = types.UID(uuid.NewRandom().String())
+	}
+}
+
+func SetDefaults_VirtualMachine(obj *VirtualMachine) {
+	if obj.Spec.Domain == nil {
+		// FIXME we need proper validation instead of this
+		obj.Spec.Domain = NewMinimalDomainSpec()
+	}
+	if obj.Spec.Domain.Firmware == nil {
+		obj.Spec.Domain.Firmware = &Firmware{}
 	}
 }
 

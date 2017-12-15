@@ -29,9 +29,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/pborman/uuid"
-	"k8s.io/apimachinery/pkg/types"
-
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -164,18 +161,7 @@ func (c *VMController) execute(key string) error {
 
 		// Defaulting and setting constants
 		// TODO move defaulting to virt-api
-		// TODO move constants to virt-handler and remove from the spec
 		kubev1.SetObjectDefaults_VirtualMachine(vmCopy)
-
-		if vmCopy.Spec.Domain == nil {
-			spec := kubev1.NewMinimalDomainSpec()
-			vmCopy.Spec.Domain = spec
-		}
-
-		// Set random generated firmware uid
-		if vmCopy.Spec.Domain.Firmware.UID == "" {
-			vmCopy.Spec.Domain.Firmware.UID = types.UID(uuid.NewRandom().String())
-		}
 
 		// Create a Pod which will be the VM destination
 		if err := c.vmService.StartVMPod(vmCopy); err != nil {
@@ -186,7 +172,7 @@ func (c *VMController) execute(key string) error {
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
 		// kubernetes, virt-handler can take over.
 		vmCopy.Status.Phase = kubev1.Scheduling
-		if err := c.restClient.Put().Resource("virtualmachines").Body(&vmCopy).Name(vmCopy.ObjectMeta.Name).Namespace(vmCopy.ObjectMeta.Namespace).Do().Error(); err != nil {
+		if _, err := c.clientset.VM(vm.Namespace).Update(vmCopy); err != nil {
 			logger.Reason(err).Error("Updating the VM state to 'Scheduling' failed.")
 			return err
 		}
