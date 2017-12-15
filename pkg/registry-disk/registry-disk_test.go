@@ -25,13 +25,12 @@ import (
 	"os"
 	"os/user"
 
-	"k8s.io/client-go/tools/cache"
-
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -44,23 +43,14 @@ var _ = Describe("RegistryDisk", func() {
 
 	VerifyDiskType := func(diskExtension string) {
 		vm := v1.NewMinimalVM("fake-vm")
-		vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-			Type:   "RegistryDisk:v1alpha",
-			Device: "disk",
-			Source: v1.DiskSource{
-				Name: "someimage:v1.2.3.4",
-			},
-			Target: v1.DiskTarget{
-				Device: "vda",
-			},
-		})
+		appendRegistryDisk(vm, "r0")
 
 		// create a fake disk file
 		volumeMountDir := generateVMBaseDir(vm)
-		err = os.MkdirAll(volumeMountDir+"/disk0", 0750)
+		err = os.MkdirAll(volumeMountDir+"/disk_r0", 0750)
 		Expect(err).ToNot(HaveOccurred())
 
-		filePath := volumeMountDir + "/disk0/disk-image." + diskExtension
+		filePath := volumeMountDir + "/disk_r0/disk-image." + diskExtension
 		_, err := os.Create(filePath)
 
 		err = TakeOverRegistryDisks(vm)
@@ -76,13 +66,6 @@ var _ = Describe("RegistryDisk", func() {
 		exists, err = diskutils.FileExists(filePath + ".virt")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exists).To(Equal(true))
-
-		Expect(vm.Spec.Domain.Devices.Disks[0].Type).To(Equal("file"))
-		Expect(vm.Spec.Domain.Devices.Disks[0].Target.Device).To(Equal("vda"))
-		Expect(vm.Spec.Domain.Devices.Disks[0].Driver).ToNot(Equal(nil))
-		Expect(vm.Spec.Domain.Devices.Disks[0].Driver.Type).To(Equal(diskExtension))
-		Expect(vm.Spec.Domain.Devices.Disks[0].Source).ToNot(Equal(nil))
-		Expect(vm.Spec.Domain.Devices.Disks[0].Source.File).To(Equal(filePath + ".virt"))
 
 		err = CleanupEphemeralDisks(vm)
 		exists, err = diskutils.FileExists(volumeMountDir)
@@ -115,43 +98,15 @@ var _ = Describe("RegistryDisk", func() {
 			It("by verifying error when no disk is present", func() {
 
 				vm := v1.NewMinimalVM("fake-vm")
-				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-					Type:   "RegistryDisk:v1alpha",
-					Device: "disk",
-					Source: v1.DiskSource{
-						Name: "someimage:v1.2.3.4",
-					},
-					Target: v1.DiskTarget{
-						Device: "vda",
-					},
-				})
+				appendRegistryDisk(vm, "r0")
 
 				err := TakeOverRegistryDisks(vm)
 				Expect(err).To(HaveOccurred())
 			})
 			It("by verifying container generation", func() {
 				vm := v1.NewMinimalVM("fake-vm")
-				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-					Type:   "RegistryDisk:v1alpha",
-					Device: "disk",
-					Source: v1.DiskSource{
-						Name: "someimage:v1.2.3.4",
-					},
-					Target: v1.DiskTarget{
-						Device: "vda",
-					},
-				})
-				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-					Type:   "RegistryDisk:v1alpha",
-					Device: "disk",
-					Source: v1.DiskSource{
-						Name: "someimage:v1.2.3.4",
-					},
-					Target: v1.DiskTarget{
-						Device: "vdb",
-					},
-				})
-
+				appendRegistryDisk(vm, "r1")
+				appendRegistryDisk(vm, "r0")
 				containers, volumes, err := GenerateContainers(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -219,23 +174,13 @@ var _ = Describe("RegistryDisk", func() {
 
 			It("by verifying data cleanup", func() {
 				vm := v1.NewMinimalVM("fake-vm")
-				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-					Type:   "RegistryDisk:v1alpha",
-					Device: "disk",
-					Source: v1.DiskSource{
-						Name: "someimage:v1.2.3.4",
-					},
-					Target: v1.DiskTarget{
-						Device: "vda",
-					},
-				})
-
+				appendRegistryDisk(vm, "r0")
 				volumeMountDir := generateVMBaseDir(vm)
 				err = os.MkdirAll(volumeMountDir, 0755)
 				Expect(err).ToNot(HaveOccurred())
-				err = os.MkdirAll(volumeMountDir+"/disk0", 0755)
+				err = os.MkdirAll(volumeMountDir+"/disk_r0", 0755)
 				Expect(err).ToNot(HaveOccurred())
-				err = os.MkdirAll(volumeMountDir+"/disk1", 0755)
+				err = os.MkdirAll(volumeMountDir+"/disk_r1", 0755)
 				Expect(err).ToNot(HaveOccurred())
 
 				exists, err := diskutils.FileExists(volumeMountDir)
@@ -253,3 +198,20 @@ var _ = Describe("RegistryDisk", func() {
 		})
 	})
 })
+
+func appendRegistryDisk(vm *v1.VirtualMachine, diskName string) {
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name: diskName,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{},
+		},
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: diskName,
+		VolumeSource: v1.VolumeSource{
+			RegistryDisk: &v1.RegistryDiskSource{
+				Image: "someimage:v1.2.3.4",
+			},
+		},
+	})
+}

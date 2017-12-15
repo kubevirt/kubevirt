@@ -164,7 +164,7 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 
 	// Make VM Image Wrapper Containers
 	for _, volume := range vm.Spec.Volumes {
-		if volume.RegistryDisk == nil {
+		if volume.RegistryDisk != nil {
 
 			volumeMountDir := generateVolumeMountDir(vm, volume.Name)
 			volumeName := fmt.Sprintf("volume%s-volume", volume.Name)
