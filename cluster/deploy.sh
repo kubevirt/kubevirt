@@ -64,6 +64,7 @@ fi
 
 ## Expose common services
 $KUBECTL expose deployment haproxy --port 8184 -l 'kubevirt.io=haproxy' -n kube-system --external-ip $master_ip
+$KUBECTL expose pod kube-apiserver-master --port 6443 -l 'component=kube-apiserver' -n kube-system --external-ip $master_ip
 $KUBECTL expose deployment spice-proxy --port 3128 -l 'kubevirt.io=spice-proxy' -n kube-system --external-ip $master_ip
 
 # Deploy additional infra for testing
