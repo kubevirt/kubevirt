@@ -3,6 +3,6 @@ docker_images="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-a
 optional_docker_images="cmd/registry-disk-v1alpha images/fedora-atomic-registry-disk-demo"
 docker_prefix=kubevirt
 docker_tag=${DOCKER_TAG:-latest}
-master_ip=192.168.121.121
+master_ip=192.168.200.2
 master_port=6443
 network_provider=weave
