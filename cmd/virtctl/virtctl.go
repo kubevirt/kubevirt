@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
-	"kubevirt.io/kubevirt/pkg/virtctl/spice"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
 )
 
@@ -41,7 +40,6 @@ func main() {
 	registry := map[string]virtctl.App{
 		"console": &console.Console{},
 		"options": &virtctl.Options{},
-		"spice":   &spice.Spice{},
 		"vnc":     &vnc.Vnc{},
 	}
 
@@ -84,7 +82,7 @@ func Usage() {
 
 Basic Commands:
   console        Connect to a serial console on a VM
-  spice          Connect to a SPICE display of a VM
+  vnc            Connect to a VNC display of a VM
 
 Use "virtctl <command> --help" for more information about a given command.
 Use "virtctl options" for a list of global command-line options (applies to all commands).
