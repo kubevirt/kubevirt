@@ -21,9 +21,8 @@ limitations under the License.
 package api
 
 import (
-	time "time"
-
 	v1 "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
 	api_v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -1025,7 +1024,7 @@ func (in *GracePeriodMetadata) DeepCopyInto(out *GracePeriodMetadata) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(time.Time)
+			*out = new(meta_v1.Time)
 			(*in).DeepCopyInto(*out)
 		}
 	}

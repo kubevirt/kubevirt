@@ -29,13 +29,14 @@ import (
 	"encoding/xml"
 	goerrors "errors"
 	"fmt"
-	"time"
 
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 
 	"strings"
+
+	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -204,10 +205,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 		},
 	}
 
-	if vm.Spec.TerminationGracePeriodSeconds != nil {
-		wantedSpec.Metadata.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
-	}
-
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false
 	if err != nil {
@@ -349,7 +346,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 			}
 			log.Log.Object(vm).Infof("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())
 
-			now := time.Now()
+			now := k8sv1.Now()
 			domSpec.Metadata.GracePeriod.DeletionTimestamp = &now
 			_, err = l.setDomainXML(vm, *domSpec)
 			if err != nil {

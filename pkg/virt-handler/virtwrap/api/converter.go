@@ -332,6 +332,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		}
 	}
 
+	if vm.Spec.TerminationGracePeriodSeconds != nil {
+		domain.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+	}
+
 	return nil
 }
 

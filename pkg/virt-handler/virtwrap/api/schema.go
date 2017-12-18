@@ -32,8 +32,6 @@ import (
 
 	"fmt"
 
-	"time"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -151,8 +149,8 @@ type Metadata struct {
 }
 
 type GracePeriodMetadata struct {
-	DeletionGracePeriodSeconds int64      `xml:"deletionGracePeriodSeconds"`
-	DeletionTimestamp          *time.Time `xml:"deletionTimestamp,omitempty"`
+	DeletionGracePeriodSeconds int64        `xml:"deletionGracePeriodSeconds"`
+	DeletionTimestamp          *metav1.Time `xml:"deletionTimestamp,omitempty"`
 }
 
 type Commandline struct {

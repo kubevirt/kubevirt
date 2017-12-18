@@ -212,7 +212,8 @@ var _ = Describe("VM", func() {
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vm, domain)
-			now := time.Unix(time.Now().UTC().Unix()-3, 0)
+			metav1.Now()
+			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
 			domain.Spec.Metadata.GracePeriod.DeletionTimestamp = &now
 
 			mockWatchdog.CreateFile(vm)
