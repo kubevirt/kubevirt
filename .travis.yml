@@ -44,7 +44,7 @@ script:
 - make check
 - make build
 - if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then $HOME/gopath/bin/goveralls
-  -service=travis-ci -package=./pkg/... -ignore=$(find -name generated_mock*.go -printf
+  -service=travis-ci -package=./pkg/... -ignore=$(find -regextype posix-egrep -regex ".*generated_mock.*\.go|.*swagger_generated\.go" -printf
   "%P\n" | paste -d, -s) ; else make test; fi
 - make apidocs
 - make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
