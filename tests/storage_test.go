@@ -151,6 +151,7 @@ var _ = Describe("Storage", func() {
 
 		It("should not modify the VM spec on status update", func() {
 			vm := tests.NewRandomVMWithPVC("disk-auth-alpine")
+			v1.SetObjectDefaults_VirtualMachine(vm)
 			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)

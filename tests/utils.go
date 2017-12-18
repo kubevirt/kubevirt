@@ -45,6 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 )
 
@@ -167,10 +168,24 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
+			if event.Type == string(WarningEvent) {
+				log.Log.Reason(fmt.Errorf("Unexpected Warning event recieved.")).With("reason", event.Reason).Error(event.Message)
+			} else {
+				log.Log.With("reason", event.Reason).Infof(event.Message)
+			}
 			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event recieved.")
 			return processFunc(event)
 		}
 
+	} else {
+		f = func(event *k8sv1.Event) bool {
+			if event.Type == string(WarningEvent) {
+				log.Log.Reason(fmt.Errorf("Unexpected Warning event recieved.")).With("reason", event.Reason).Error(event.Message)
+			} else {
+				log.Log.With("reason", event.Reason).Infof(event.Message)
+			}
+			return processFunc(event)
+		}
 	}
 
 	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
@@ -248,6 +263,9 @@ func BeforeTestCleanup() {
 }
 
 func BeforeTestSuitSetup() {
+
+	log.Log.SetIOWriter(GinkgoWriter)
+
 	createNamespaces()
 	createIscsiSecrets()
 
@@ -628,7 +646,7 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 		},
 	}}
 	vm.Spec.Volumes = []v1.Volume{{
-		Name: "vda",
+		Name: "vdb",
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
