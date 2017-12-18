@@ -5,37 +5,17 @@ metadata:
 spec:
   terminationGracePeriodSeconds: 0
   domain:
+    resources:
+      initial:
+        memory: 64M
     devices:
-      graphics:
-      - type: spice
-      interfaces:
-      - type: network
-        source:
-          network: default
-      video:
-      - type: qxl
       disks:
-      - type: network
-        snapshot: external
-        device: disk
-        driver:
-          name: qemu
-          type: raw
-          cache: none
-        source:
-          host:
-            name: iscsi-demo-target.kube-system
-            port: "3260"
-          protocol: iscsi
-          name: iqn.2017-01.io.kubevirt:sn.42/2
-        target:
+      - name: mydisk
+        disk:
           dev: vda
-      consoles:
-      - type: pty
-    memory:
-      unit: MB
-      value: 64
-    os:
-      type:
-        os: hvm
-    type: qemu
+  volumes:
+    - name: mydisk
+      iscsi:
+        iqn: iqn.2017-01.io.kubevirt:sn.42
+        lun: 2
+        targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
