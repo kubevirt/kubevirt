@@ -62,7 +62,7 @@ var _ = Describe("Manager", func() {
 
 	expectIsolationDetectionForVM := func(vm *v1.VirtualMachine) *api.DomainSpec {
 		domain := &api.Domain{}
-		c := &api.Context{
+		c := &api.ConverterContext{
 			VirtualMachine: vm,
 		}
 		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())

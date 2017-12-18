@@ -376,7 +376,7 @@ type SysInfo struct {
 }
 
 type Entry struct {
-	Name  string `xml:"name"`
+	Name  string `xml:"name,attr"`
 	Value string `xml:",chardata"`
 }
 
@@ -494,13 +494,14 @@ type SecretSpec struct {
 
 func NewMinimalDomainSpec(vmName string) *DomainSpec {
 	precond.MustNotBeEmpty(vmName)
-	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
-	domain.Memory = Memory{Unit: "KiB", Value: 8192}
+	domain := &DomainSpec{}
+	domain.Name = vmName
+	domain.Memory = Memory{Unit: "MB", Value: 9}
 	domain.Devices = Devices{}
 	domain.Devices.Interfaces = []Interface{
 		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}
-	return &domain
+	return domain
 }
 
 func NewMinimalDomain(name string) *Domain {
@@ -509,7 +510,7 @@ func NewMinimalDomain(name string) *Domain {
 
 func NewMinimalDomainWithNS(namespace string, name string) *Domain {
 	domain := NewDomainReferenceFromName(namespace, name)
-	domain.Spec = *NewMinimalDomainSpec(name)
+	domain.Spec = *NewMinimalDomainSpec(namespace + "_" + name)
 	return domain
 }
 

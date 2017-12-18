@@ -178,7 +178,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 	domain := &api.Domain{}
 
 	// Map the VirtualMachine to the Domain
-	c := &api.Context{
+	c := &api.ConverterContext{
 		VirtualMachine: vm,
 		Secrets:        secrets,
 	}

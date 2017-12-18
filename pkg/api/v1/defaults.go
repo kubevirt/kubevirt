@@ -86,6 +86,10 @@ func SetDefaults_VirtualMachine(obj *VirtualMachine) {
 	if obj.Spec.Domain.Firmware == nil {
 		obj.Spec.Domain.Firmware = &Firmware{}
 	}
+
+	if obj.Spec.Domain.Features == nil {
+		obj.Spec.Domain.Features = &Features{}
+	}
 }
 
 func t(v bool) *bool {

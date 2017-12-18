@@ -34,6 +34,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"net"
+	"strings"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -486,7 +489,7 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClien
 	vmCopy := vm.DeepCopy()
 	logger := log.Log.Object(vm)
 
-	for _, volume := range vmCopy.Spec.Volumes {
+	for idx, volume := range vmCopy.Spec.Volumes {
 		if volume.PersistentVolumeClaim != nil {
 			logger.V(3).Infof("Mapping PersistentVolumeClaim: %s", volume.PersistentVolumeClaim.ClaimName)
 
@@ -517,6 +520,23 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClien
 				return vm, err
 			}
 		}
+
+		// After a PVC translation, ISCSI can be the resolved type, so no else if
+		if volume.ISCSI != nil {
+			// FIXME ugly hack to resolve the IP from dns, since qemu is not in the right namespace
+			hostPort := strings.Split(volume.ISCSI.TargetPortal, ":")
+			ipAddrs, err := net.LookupIP(hostPort[0])
+			if err != nil || len(ipAddrs) < 1 {
+				return nil, fmt.Errorf("unable to resolve host '%s': %s", hostPort[0], err)
+			}
+			volume.ISCSI.TargetPortal = ipAddrs[0].String()
+			for _, part := range hostPort[1:] {
+				volume.ISCSI.TargetPortal = volume.ISCSI.TargetPortal + ":" + part
+			}
+		}
+
+		// Set the translated volume, necessary since the VolumeSource might have been exchanged
+		vmCopy.Spec.Volumes[idx] = volume
 	}
 
 	return vmCopy, nil

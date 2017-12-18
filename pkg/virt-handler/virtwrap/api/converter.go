@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"net"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -16,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
-type Context struct {
+type ConverterContext struct {
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachine
 }
@@ -56,7 +55,7 @@ func toApiReadOnly(src bool) *ReadOnly {
 	return nil
 }
 
-func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *Context) error {
+func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext) error {
 
 	if source.RegistryDisk != nil {
 		return Convert_v1_RegistryDiskSource_To_api_Disk(source.RegistryDisk, disk, c)
@@ -72,7 +71,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *Context) er
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
-func Convert_v1_ISCSIVolumeSource_To_api_Disk(source *k8sv1.ISCSIVolumeSource, disk *Disk, c *Context) error {
+func Convert_v1_ISCSIVolumeSource_To_api_Disk(source *k8sv1.ISCSIVolumeSource, disk *Disk, c *ConverterContext) error {
 
 	disk.Type = "network"
 	disk.Driver.Type = "raw"
@@ -81,15 +80,9 @@ func Convert_v1_ISCSIVolumeSource_To_api_Disk(source *k8sv1.ISCSIVolumeSource, d
 	disk.Source.Protocol = "iscsi"
 
 	hostPort := strings.Split(source.TargetPortal, ":")
-	// FIXME ugly hack to resolve the IP from dns, since qemu is not in the right namespace
-	// FIXME Move this out of the converter!
-	ipAddrs, err := net.LookupIP(hostPort[0])
-	if err != nil || len(ipAddrs) < 1 {
-		return fmt.Errorf("unable to resolve host '%s': %s", hostPort[0], err)
-	}
 
 	disk.Source.Host = &DiskSourceHost{}
-	disk.Source.Host.Name = ipAddrs[0].String()
+	disk.Source.Host.Name = hostPort[0]
 	if len(hostPort) > 1 {
 		disk.Source.Host.Port = hostPort[1]
 	}
@@ -117,7 +110,7 @@ func Convert_v1_ISCSIVolumeSource_To_api_Disk(source *k8sv1.ISCSIVolumeSource, d
 	return nil
 }
 
-func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSource, disk *Disk, c *Context) error {
+func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSource, disk *Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
 	}
@@ -129,7 +122,7 @@ func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSo
 	return nil
 }
 
-func Convert_v1_RegistryDiskSource_To_api_Disk(_ *v1.RegistryDiskSource, disk *Disk, c *Context) error {
+func Convert_v1_RegistryDiskSource_To_api_Disk(_ *v1.RegistryDiskSource, disk *Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
 	}
@@ -145,22 +138,25 @@ func Convert_v1_RegistryDiskSource_To_api_Disk(_ *v1.RegistryDiskSource, disk *D
 	return nil
 }
 
-func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog, _ *Context) error {
-	watchdog.Alias.Name = source.Name
+func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog, _ *ConverterContext) error {
+	watchdog.Alias = &Alias{
+		Name: source.Name,
+	}
 	if source.I6300ESB != nil {
 		watchdog.Model = "i6300esb"
 		watchdog.Action = string(source.I6300ESB.Action)
+		return nil
 	}
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
 
-func Convert_v1_TimerAttrs_To_api_Timer(source *v1.TimerAttrs, timer *Timer, c *Context) error {
+func Convert_v1_TimerAttrs_To_api_Timer(source *v1.TimerAttrs, timer *Timer, c *ConverterContext) error {
 	timer.TickPolicy = string(source.TickPolicy)
 	timer.Present = boolToYesNo(source.Enabled, true)
 	return nil
 }
 
-func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *Context) error {
+func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterContext) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
 		if source.UTC.OffsetSeconds != nil {
@@ -226,7 +222,7 @@ func convertFeatureState(source *v1.FeatureState) *FeatureState {
 	return nil
 }
 
-func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *Context) error {
+func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *ConverterContext) error {
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &FeatureEnabled{}
 	}
@@ -245,7 +241,7 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features
 	return nil
 }
 
-func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *FeatureHyperv, c *Context) error {
+func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *FeatureHyperv, c *ConverterContext) error {
 	if source.Spinlocks != nil {
 		hyperv.Spinlocks = &FeatureSpinlocks{
 			State:   boolToOnOff(source.Spinlocks.Enabled, true),
@@ -268,7 +264,7 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	return nil
 }
 
-func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Domain, c *Context) (err error) {
+func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Domain, c *ConverterContext) (err error) {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
