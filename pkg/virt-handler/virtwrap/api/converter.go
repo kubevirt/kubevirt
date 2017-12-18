@@ -58,7 +58,7 @@ func toApiReadOnly(src bool) *ReadOnly {
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext) error {
 
 	if source.RegistryDisk != nil {
-		return Convert_v1_RegistryDiskSource_To_api_Disk(source.RegistryDisk, disk, c)
+		return Convert_v1_RegistryDiskSource_To_api_Disk(source.Name, source.RegistryDisk, disk, c)
 	}
 
 	if source.CloudInitNoCloud != nil {
@@ -122,14 +122,14 @@ func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSo
 	return nil
 }
 
-func Convert_v1_RegistryDiskSource_To_api_Disk(_ *v1.RegistryDiskSource, disk *Disk, c *ConverterContext) error {
+func Convert_v1_RegistryDiskSource_To_api_Disk(volumeName string, _ *v1.RegistryDiskSource, disk *Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
 	}
 
 	disk.Type = "file"
-	disk.Device = "volume"
-	diskPath, diskType, err := registrydisk.GetFilePath(c.VirtualMachine, disk.Alias.Name)
+	disk.Device = "disk"
+	diskPath, diskType, err := registrydisk.GetFilePath(c.VirtualMachine, volumeName)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 
 	volumes := map[string]*v1.Volume{}
 	for _, volume := range vm.Spec.Volumes {
-		volumes[volume.Name] = &volume
+		volumes[volume.Name] = volume.DeepCopy()
 	}
 
 	for _, disk := range vm.Spec.Domain.Devices.Disks {

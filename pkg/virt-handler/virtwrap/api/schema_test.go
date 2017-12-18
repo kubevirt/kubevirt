@@ -62,6 +62,12 @@ var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/dom
       <driver name="qemu" type="raw"></driver>
       <alias name="mydisk"></alias>
     </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso"></source>
+      <target dev="vdb"></target>
+      <driver name="qemu" type="raw"></driver>
+      <alias name="mydisk1"></alias>
+    </disk>
     <console type="pty"></console>
     <watchdog model="i6300esb" action="poweroff">
       <alias name="mywatchdog"></alias>
@@ -95,7 +101,20 @@ var _ = Describe("Schema", func() {
 				Name: "mydisk",
 			},
 		},
+		{Type: "file",
+			Device: "disk",
+			Driver: &DiskDriver{Name: "qemu",
+				Type: "raw"},
+			Source: DiskSource{
+				File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso",
+			},
+			Target: DiskTarget{Device: "vdb"},
+			Alias: &Alias{
+				Name: "mydisk1",
+			},
+		},
 	}
+
 	var heads uint = 1
 	var vram uint = 16384
 	exampleDomain.Spec.Devices.Video = []Video{
@@ -180,6 +199,15 @@ var _ = Describe("Schema", func() {
 					},
 				},
 			},
+			{
+				Name:       "mydisk1",
+				VolumeName: "nocloud",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Device: "vdb",
+					},
+				},
+			},
 		}
 		vm.Spec.Volumes = []v1.Volume{
 			{
@@ -189,6 +217,14 @@ var _ = Describe("Schema", func() {
 						TargetPortal: "example.com:3260",
 						IQN:          "iqn.2013-07.com.example:iscsi-nopool",
 						Lun:          2,
+					},
+				},
+			},
+			{
+				Name: "nocloud",
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+						UserDataBase64: "1234",
 					},
 				},
 			},

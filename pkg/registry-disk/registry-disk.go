@@ -169,8 +169,7 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 			volumeMountDir := generateVolumeMountDir(vm, volume.Name)
 			volumeName := fmt.Sprintf("volume%s-volume", volume.Name)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
-			// container image is volume.Source.Name
-			diskContainerImage := volume.Name
+			diskContainerImage := volume.RegistryDisk.Image
 
 			volumes = append(volumes, kubev1.Volume{
 				Name: volumeName,
@@ -186,7 +185,7 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 				ImagePullPolicy: kubev1.PullIfNotPresent,
 				Command:         []string{"/entry-point.sh"},
 				Env: []kubev1.EnvVar{
-					kubev1.EnvVar{
+					{
 						Name:  "COPY_PATH",
 						Value: volumeMountDir + "/" + filePrefix,
 					},
