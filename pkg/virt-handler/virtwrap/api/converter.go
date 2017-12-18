@@ -273,13 +273,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	domain.Spec.UUID = string(vm.UID)
 	domain.ObjectMeta.Name = vm.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
-	domain.Spec.SysInfo = &SysInfo{
-		System: []Entry{
+	domain.Spec.SysInfo = &SysInfo{}
+	if vm.Spec.Domain.Firmware != nil {
+		domain.Spec.SysInfo.System = []Entry{
 			{
 				Name:  "uuid",
 				Value: string(vm.Spec.Domain.Firmware.UID),
 			},
-		},
+		}
 	}
 
 	if v, ok := vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory]; ok {
