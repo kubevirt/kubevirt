@@ -21,6 +21,9 @@
 export KUBECONFIG=/etc/kubernetes/admin.conf
 cp /etc/kubernetes/admin.conf ~/.kube/config
 
+# install glusterfs mount util
+yum install -y glusterfs-client
+
 # label nodes 
 kubectl label node --all storagenode=glusterfs 
 
@@ -49,7 +52,7 @@ done
 
 
 # create glusterfs provisioner
-docker run -d -v /root/.kube:/kube  -v /var/run/kubernetes:/var/run/kubernetes rootfs/glusterfs-provisioner --kubeconfig=/kube/config
+kubectl create -f glusterfs-provisioner-deploy.yaml
 
 # create storage class
 echo 'kind: StorageClass

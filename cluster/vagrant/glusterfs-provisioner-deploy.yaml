@@ -1,0 +1,62 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: glusterfs-provisioner-runner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "delete", "create"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["list", "get", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec"]
+    verbs: ["list", "create", "delete"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: run-glusterfs-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: glusterfs-provisioner
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: glusterfs-provisioner-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: glusterfs-provisioner
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: glusterfs-simple-provisioner
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: glusterfs-simple-provisioner
+    spec:
+      containers:
+        - image: "docker.io/rootfs/glusterfs-provisioner:latest"
+          name: glusterfs-simple-provisioner
+      serviceAccount: glusterfs-provisioner
