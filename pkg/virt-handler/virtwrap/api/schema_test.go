@@ -172,7 +172,8 @@ var _ = Describe("Schema", func() {
 		}
 		vm.Spec.Domain.Devices.Disks = []v1.Disk{
 			{
-				Name: "mydisk",
+				Name:       "mydisk",
+				VolumeName: "myvolume",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						Device: "vda",
@@ -182,7 +183,7 @@ var _ = Describe("Schema", func() {
 		}
 		vm.Spec.Volumes = []v1.Volume{
 			{
-				Name: "mydisk",
+				Name: "myvolume",
 				VolumeSource: v1.VolumeSource{
 					ISCSI: &k8sv1.ISCSIVolumeSource{
 						TargetPortal: "example.com:3260",

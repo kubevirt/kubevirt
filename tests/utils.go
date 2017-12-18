@@ -514,7 +514,8 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Name: "vda",
+		Name:       "vda",
+		VolumeName: "vda",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Device: "vda",
@@ -536,7 +537,8 @@ func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData str
 	vm := NewRandomVMWithEphemeralDisk(containerImage)
 
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Name: "vdb",
+		Name:       "vdb",
+		VolumeName: "vdb",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Device: "vdb",
@@ -558,7 +560,8 @@ func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Name: "vdb",
+		Name:       "vdb",
+		VolumeName: "vdb",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Device: "vdb",
@@ -581,7 +584,8 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Name: "vdb",
+		Name:       "vdb",
+		VolumeName: "vdb",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Device: "vdb",
@@ -615,7 +619,8 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
 	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Name: "vda",
+		Name:       "vda",
+		VolumeName: "vdb",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Device: "vda",

@@ -11,10 +11,11 @@ spec:
     devices:
       disks:
       - name: mydisk
+        volumeName: myvolume
         disk:
           dev: vda
   volumes:
-    - name: mydisk
+    - name: myvolume
       iscsi:
         iqn: iqn.2017-01.io.kubevirt:sn.42
         lun: 2

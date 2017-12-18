@@ -47,12 +47,14 @@ var exampleJSON = `{
         "disks": [
           {
             "name": "disk0",
+            "volumeName": "volume0",
             "disk": {
               "dev": "vda"
             }
           },
           {
             "name": "cdrom0",
+            "volumeName": "volume1",
             "cdrom": {
               "dev": "vdb",
               "readonly": true,
@@ -61,6 +63,7 @@ var exampleJSON = `{
           },
           {
             "name": "floppy0",
+            "volumeName": "volume2",
             "floppy": {
               "dev": "vdc",
               "readonly": true,
@@ -69,6 +72,7 @@ var exampleJSON = `{
           },
           {
             "name": "lun0",
+            "volumeName": "volume3",
             "lun": {
               "dev": "vdd",
               "readonly": true
@@ -79,13 +83,13 @@ var exampleJSON = `{
     },
     "volumes": [
       {
-        "name": "disk0",
+        "name": "volume0",
         "registryDisk": {
           "image": "test/image"
         }
       },
       {
-        "name": "cdrom0",
+        "name": "volume1",
         "cloudInitNoCloud": {
           "secretRef": {
             "name": "testsecret"
@@ -93,7 +97,7 @@ var exampleJSON = `{
         }
       },
       {
-        "name": "floppy0",
+        "name": "volume2",
         "iscsi": {
           "targetPortal": "1234",
           "iqn": "",
@@ -104,7 +108,7 @@ var exampleJSON = `{
         }
       },
       {
-        "name": "lun0",
+        "name": "volume3",
         "persistentVolumeClaim": {
           "claimName": "testclaim"
         }
@@ -121,7 +125,8 @@ var _ = Describe("Schema", func() {
 	var exampleVM = NewMinimalVM("testvm")
 	exampleVM.Spec.Domain.Devices.Disks = []Disk{
 		{
-			Name: "disk0",
+			Name:       "disk0",
+			VolumeName: "volume0",
 			DiskDevice: DiskDevice{
 				Disk: &DiskTarget{
 					Device:   "vda",
@@ -130,7 +135,8 @@ var _ = Describe("Schema", func() {
 			},
 		},
 		{
-			Name: "cdrom0",
+			Name:       "cdrom0",
+			VolumeName: "volume1",
 			DiskDevice: DiskDevice{
 				CDRom: &CDRomTarget{
 					Device:   "vdb",
@@ -140,7 +146,8 @@ var _ = Describe("Schema", func() {
 			},
 		},
 		{
-			Name: "floppy0",
+			Name:       "floppy0",
+			VolumeName: "volume2",
 			DiskDevice: DiskDevice{
 				Floppy: &FloppyTarget{
 					Device:   "vdc",
@@ -150,7 +157,8 @@ var _ = Describe("Schema", func() {
 			},
 		},
 		{
-			Name: "lun0",
+			Name:       "lun0",
+			VolumeName: "volume3",
 			DiskDevice: DiskDevice{
 				LUN: &LunTarget{
 					Device:   "vdd",
@@ -162,7 +170,7 @@ var _ = Describe("Schema", func() {
 
 	exampleVM.Spec.Volumes = []Volume{
 		{
-			Name: "disk0",
+			Name: "volume0",
 			VolumeSource: VolumeSource{
 				RegistryDisk: &RegistryDiskSource{
 					Image: "test/image",
@@ -170,7 +178,7 @@ var _ = Describe("Schema", func() {
 			},
 		},
 		{
-			Name: "cdrom0",
+			Name: "volume1",
 			VolumeSource: VolumeSource{
 				CloudInitNoCloud: &CloudInitNoCloudSource{
 					UserDataSecretRef: &v1.LocalObjectReference{
@@ -180,7 +188,7 @@ var _ = Describe("Schema", func() {
 			},
 		},
 		{
-			Name: "floppy0",
+			Name: "volume2",
 			VolumeSource: VolumeSource{
 				ISCSI: &v1.ISCSIVolumeSource{
 					TargetPortal: "1234",
@@ -191,7 +199,7 @@ var _ = Describe("Schema", func() {
 			},
 		},
 		{
-			Name: "lun0",
+			Name: "volume3",
 			VolumeSource: VolumeSource{
 				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "testclaim",

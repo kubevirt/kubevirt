@@ -304,7 +304,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		if err != nil {
 			return err
 		}
-		err = Convert_v1_Volume_To_api_Disk(volumes[disk.Name], &newDisk, c)
+		volume := volumes[disk.VolumeName]
+		if volume == nil {
+			return fmt.Errorf("No matching volume with name %s found", disk.VolumeName)
+		}
+		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c)
 		if err != nil {
 			return err
 		}

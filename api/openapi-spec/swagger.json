@@ -1966,7 +1966,8 @@
    },
    "v1.Disk": {
     "required": [
-     "name"
+     "name",
+     "volumeName"
     ],
     "properties": {
      "cdrom": {
@@ -1986,7 +1987,11 @@
       "$ref": "#/definitions/v1.LunTarget"
      },
      "name": {
-      "description": "Name is the device name\nMust match the Name of a Volume.",
+      "description": "Name is the device name",
+      "type": "string"
+     },
+     "volumeName": {
+      "description": "Name of the volume which is referenced\nMust match the Name of a Volume.",
       "type": "string"
      }
     }
