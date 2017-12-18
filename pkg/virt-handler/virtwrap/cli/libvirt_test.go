@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"fmt"
-	"testing"
 	"time"
 )
 
@@ -38,8 +37,3 @@ var _ = Describe("Libvirt Suite", func() {
 		})
 	})
 })
-
-func TestLibvirt(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Libvirt Suite")
-}
