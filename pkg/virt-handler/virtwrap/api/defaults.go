@@ -9,6 +9,7 @@ func SetDefaults_Devices(devices *Devices) {
 				Type:    "address",
 				Address: "0.0.0.0",
 			},
+			Type: "spice",
 		},
 	}
 	// Use vga as video device, since it is better than cirrus

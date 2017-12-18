@@ -221,8 +221,8 @@ type DiskSource struct {
 
 type DiskTarget struct {
 	Bus    string `xml:"bus,attr,omitempty"`
-	Device string `xml:"dev,attr"`
-	Tray   string `xml:"tray,attr"`
+	Device string `xml:"dev,attr,omitempty"`
+	Tray   string `xml:"tray,attr,omitempty"`
 }
 
 type DiskDriver struct {
