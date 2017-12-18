@@ -30,6 +30,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 func IsDNSMasqPidRunning(pid int) bool {
@@ -53,6 +55,8 @@ var _ = Describe("Virt-DHCP Monitor test", func() {
 	var pid int
 	var prevPid int
 	var monStop = make(chan bool)
+
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	OS = &OSHandler{}
 	dir := os.Getenv("PWD")

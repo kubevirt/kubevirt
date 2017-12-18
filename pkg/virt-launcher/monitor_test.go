@@ -29,6 +29,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 var _ = Describe("VirtLauncher", func() {
@@ -36,6 +38,8 @@ var _ = Describe("VirtLauncher", func() {
 	var cmd *exec.Cmd
 
 	tmpDir, _ := ioutil.TempDir("", "monitortest")
+
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	dir := os.Getenv("PWD")
 	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
