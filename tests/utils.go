@@ -264,6 +264,7 @@ func BeforeTestCleanup() {
 
 func BeforeTestSuitSetup() {
 
+	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	createNamespaces()

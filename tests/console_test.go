@@ -46,7 +46,7 @@ var _ = Describe("Console", func() {
 
 	Context("New VM with a serial console given", func() {
 		It("should be returned that we are running cirros", func() {
-			vm := tests.NewRandomVM()
+			vm := tests.NewRandomVMWithPVC("disk-cirros")
 
 			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
