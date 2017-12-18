@@ -531,7 +531,7 @@ func NewRandomVMWithNS(namespace string) *v1.VirtualMachine {
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
-	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "vda",
 		VolumeName: "vda",
 		DiskDevice: v1.DiskDevice{
@@ -539,22 +539,22 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 				Device: "vda",
 			},
 		},
-	}}
-	vm.Spec.Volumes = []v1.Volume{{
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 		Name: "vda",
 		VolumeSource: v1.VolumeSource{
 			RegistryDisk: &v1.RegistryDiskSource{
 				Image: containerImage,
 			},
 		},
-	}}
+	})
 	return vm
 }
 
 func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachine {
 	vm := NewRandomVMWithEphemeralDisk(containerImage)
 
-	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "vdb",
 		VolumeName: "vdb",
 		DiskDevice: v1.DiskDevice{
@@ -562,22 +562,22 @@ func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData str
 				Device: "vdb",
 			},
 		},
-	}}
-	vm.Spec.Volumes = []v1.Volume{{
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 		Name: "vdb",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 			},
 		},
-	}}
+	})
 	return vm
 }
 
 func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
-	vm := NewRandomVM()
+	vm := NewRandomVMWithPVC("disk-cirros")
 
-	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "vdb",
 		VolumeName: "vdb",
 		DiskDevice: v1.DiskDevice{
@@ -585,15 +585,15 @@ func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
 				Device: "vdb",
 			},
 		},
-	}}
-	vm.Spec.Volumes = []v1.Volume{{
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 		Name: "vdb",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 			},
 		},
-	}}
+	})
 	return vm
 }
 
@@ -601,15 +601,15 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
-	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Name:       "vdb",
-		VolumeName: "vdb",
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "vda",
+		VolumeName: "vda",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Device: "vdb",
+				Device: "vda",
 			},
 		},
-	}}
+	})
 
 	volumeSource := v1.VolumeSource{
 		ISCSI: &k8sv1.ISCSIVolumeSource{
@@ -624,11 +624,10 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 		volumeSource.ISCSI.SecretRef = &k8sv1.LocalObjectReference{Name: "iscsi-demo-secret"}
 	}
 
-	vm.Spec.Volumes = []v1.Volume{{
-		Name:         "vdb",
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name:         "vda",
 		VolumeSource: volumeSource,
-	},
-	}
+	})
 	return vm
 }
 
@@ -636,23 +635,23 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
-	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "vda",
-		VolumeName: "vdb",
+		VolumeName: "vda",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Device: "vda",
 			},
 		},
-	}}
-	vm.Spec.Volumes = []v1.Volume{{
-		Name: "vdb",
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: "vda",
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			},
 		},
-	}}
+	})
 	return vm
 }
 
