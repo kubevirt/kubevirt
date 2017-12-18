@@ -270,9 +270,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	precond.MustNotBeNil(c)
 
 	domain.Spec.Name = VMNamespaceKeyFunc(vm)
-	domain.Spec.UUID = string(vm.UID)
 	domain.ObjectMeta.Name = vm.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
+
+	// Spec metadata
+	domain.Spec.Metadata.UID = vm.UID
+	if vm.Spec.TerminationGracePeriodSeconds != nil {
+		domain.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+	}
+
 	domain.Spec.SysInfo = &SysInfo{}
 	if vm.Spec.Domain.Firmware != nil {
 		domain.Spec.SysInfo.System = []Entry{
@@ -330,10 +336,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		if err != nil {
 			return err
 		}
-	}
-
-	if vm.Spec.TerminationGracePeriodSeconds != nil {
-		domain.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
 	}
 
 	return nil

@@ -35,7 +35,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/record"
 
+	"encoding/xml"
+
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 )
 
@@ -109,21 +112,29 @@ var _ = Describe("Console", func() {
 	})
 
 	Context("with existing domain", func() {
+		var specXML string
+
 		BeforeEach(func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
+			spec := api.NewMinimalDomainSpec("default_testvm")
+			spec.Metadata.UID = uuid.NewUUID()
+			data, err := xml.Marshal(spec)
+			specXML = string(data)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should return 500 if uid of domain can't be looked up", func() {
+		It("should return 500 if metadata of domain can't be looked up", func() {
 			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
-			mockDomain.EXPECT().GetUUIDString().Return("", libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return("", libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
+
 			r, err := get("testvm")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(r.StatusCode).To(Equal(http.StatusInternalServerError))
 		})
 		It("should return 500 if creating a stream fails", func() {
 			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
-			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(specXML, nil)
 			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(nil, libvirt.Error{Code: libvirt.ERR_INVALID_CONN})
 			r, err := get("testvm")
 			Expect(err).ToNot(HaveOccurred())
@@ -131,7 +142,7 @@ var _ = Describe("Console", func() {
 		})
 		It("should return 500 if opening a console connection fails", func() {
 			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
-			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(specXML, nil)
 			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
 			stream := &libvirt.Stream{}
 			mockStream.EXPECT().UnderlyingStream().Return(stream)
@@ -143,7 +154,7 @@ var _ = Describe("Console", func() {
 		})
 		It("should return 400 if ws upgrade does not work", func() {
 			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
-			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(specXML, nil)
 			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(mockStream, nil)
 			stream := &libvirt.Stream{}
 			mockStream.EXPECT().UnderlyingStream().Return(stream)
@@ -163,7 +174,7 @@ var _ = Describe("Console", func() {
 			stream := &fakeStream{in: inBuf, out: outBuf, s: &libvirt.Stream{}}
 
 			mockConn.EXPECT().LookupDomainByName("default_testvm").Return(mockDomain, nil)
-			mockDomain.EXPECT().GetUUIDString().Return(string(uuid.NewUUID()), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(specXML, nil)
 			mockConn.EXPECT().NewStream(libvirt.StreamFlags(0)).Return(stream, nil)
 			mockDomain.EXPECT().OpenConsole("console0", stream.s, libvirt.DomainConsoleFlags(libvirt.DOMAIN_CONSOLE_FORCE)).Return(nil)
 

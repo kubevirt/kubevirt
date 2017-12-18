@@ -54,7 +54,6 @@ var _ = Describe("Cache", func() {
 				mockConn.EXPECT().DomainEventLifecycleRegister(gomock.Any()).Return(nil)
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
-				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
 				x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
 				Expect(err).To(BeNil())
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
@@ -89,7 +88,6 @@ var _ = Describe("Cache", func() {
 			func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
 				mockDomain.EXPECT().GetState().Return(state, -1, nil)
 				mockDomain.EXPECT().GetName().Return("test", nil)
-				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
 				x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
 				Expect(err).To(BeNil())
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
@@ -117,7 +115,6 @@ var _ = Describe("Cache", func() {
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetName().Return("test", nil)
-				mockDomain.EXPECT().GetUUIDString().Return("1235", nil)
 
 				watcher := &DomainWatcher{make(chan watch.Event, 1)}
 				callback(mockDomain, &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}, watcher.C)

@@ -51,14 +51,14 @@ var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/dom
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
-    <graphics port="-1" type="">
+    <graphics port="-1" type="spice">
       <listen type="address" address="0.0.0.0"></listen>
     </graphics>
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target dev="vda" tray=""></target>
+      <target dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="mydisk"></alias>
     </disk>
@@ -68,6 +68,7 @@ var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/dom
     </watchdog>
   </devices>
   <metadata>
+    <uid xmlns="http://kubevirt.io">f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
     <graceperiod xmlns="http://kubevirt.io">
       <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
     </graceperiod>
@@ -119,6 +120,7 @@ var _ = Describe("Schema", func() {
 			{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
 		},
 	}
+	exampleDomain.Spec.Metadata.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 
 	Context("With schema", func() {
 		It("Generate expected libvirt xml", func() {
@@ -197,6 +199,7 @@ var _ = Describe("Schema", func() {
 		c := &ConverterContext{
 			VirtualMachine: vm,
 		}
+		vm.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 
 		It("converts to libvirt.DomainSpec", func() {
 			domain := &Domain{}

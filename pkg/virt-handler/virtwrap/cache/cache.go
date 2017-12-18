@@ -20,16 +20,13 @@
 package cache
 
 import (
-	"encoding/xml"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/libvirt/libvirt-go"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -38,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/util"
 )
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{
@@ -92,7 +90,7 @@ func newListWatchFromClient(c cli.Connection, events ...int) *cache.ListWatch {
 				}
 				return nil, err
 			}
-			spec, err := GetDomainSpec(dom)
+			spec, err := util.GetDomainSpec(dom)
 			if err != nil {
 				if errors.IsNotFound(err) {
 					continue
@@ -150,41 +148,6 @@ func newDomainWatcher(c cli.Connection, events ...int) (watch.Interface, error) 
 	return watcher, err
 }
 
-func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*api.DomainSpec, error) {
-	domain := api.DomainSpec{}
-	domxml, err := dom.GetXMLDesc(flags)
-	if err != nil {
-		return nil, err
-	}
-	err = xml.Unmarshal([]byte(domxml), &domain)
-	if err != nil {
-		return nil, err
-	}
-
-	return &domain, nil
-}
-
-func GetDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
-	spec, err := GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_MIGRATABLE)
-	if err != nil {
-		return nil, err
-	}
-
-	inactiveSpec, err := GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
-	if err != nil {
-		return nil, err
-	}
-
-	if !reflect.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
-		// Metadata is updated on offline config only. As a result,
-		// We have to merge updates to metadata into the domain spec.
-		metadata := &inactiveSpec.Metadata
-		metadata.DeepCopyInto(&spec.Metadata)
-	}
-
-	return spec, nil
-}
-
 // VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
 func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
@@ -209,13 +172,9 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 		return nil, err
 	}
 	namespace, name := SplitVMNamespaceKey(name)
-	uuid, err := dom.GetUUIDString()
-	if err != nil {
-		return nil, err
-	}
 
 	domain := api.NewDomainReferenceFromName(namespace, name)
-	domain.GetObjectMeta().SetUID(types.UID(uuid))
+	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.UID)
 	return domain, nil
 }
 
@@ -237,9 +196,8 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 	//      Think about device removal: First event is a DEFINED/UPDATED event and then we get the REMOVED event when it is done (is it that way?)
 
 	// No matter which event, try to fetch the domain xml and the state. If we get a IsNotFound error, that means that the VM was removed.
-	spec, err := GetDomainSpec(d)
+	spec, err := util.GetDomainSpec(d)
 	if err != nil {
-
 		if !errors.IsNotFound(err) {
 			log.Log.Reason(err).Error("Could not fetch the Domain specification.")
 			watcher <- newWatchEventError(err)
@@ -247,6 +205,7 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 		}
 	} else {
 		domain.Spec = *spec
+		domain.ObjectMeta.UID = spec.Metadata.UID
 	}
 	status, reason, err := d.GetState()
 	if err != nil {

@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/util"
 )
 
 type DomainManager interface {
@@ -211,7 +212,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
-			dom, err = l.setDomainXML(vm, domain.Spec)
+			dom, err = util.SetDomainSpec(l.virConn, vm, domain.Spec)
 			if err != nil {
 				return nil, err
 			}
@@ -232,7 +233,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VM was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
-		dom, err = l.setDomainXML(vm, domain.Spec)
+		dom, err = util.SetDomainSpec(l.virConn, vm, domain.Spec)
 		if err != nil {
 			return nil, err
 		}
@@ -308,7 +309,7 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
-	return cache.GetDomainSpec(dom)
+	return util.GetDomainSpec(dom)
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
@@ -348,7 +349,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 
 			now := k8sv1.Now()
 			domSpec.Metadata.GracePeriod.DeletionTimestamp = &now
-			_, err = l.setDomainXML(vm, *domSpec)
+			_, err = util.SetDomainSpec(l.virConn, vm, *domSpec)
 			if err != nil {
 				log.Log.Object(vm).Reason(err).Error("Unable to update grace period start time on domain xml")
 				return err
@@ -399,19 +400,4 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	log.Log.Object(vm).Info("Domain undefined.")
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
-}
-
-func (l *LibvirtDomainManager) setDomainXML(vm *v1.VirtualMachine, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
-	xmlStr, err := xml.Marshal(&wantedSpec)
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Generating the domain XML failed.")
-		return nil, err
-	}
-	log.Log.Object(vm).V(3).With("xml", xmlStr).Info("Domain XML generated.")
-	dom, err := l.virConn.DomainDefineXML(string(xmlStr))
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Defining the VM failed.")
-		return nil, err
-	}
-	return dom, nil
 }

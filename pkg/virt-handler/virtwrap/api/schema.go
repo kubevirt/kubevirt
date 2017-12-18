@@ -32,6 +32,8 @@ import (
 
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -145,6 +147,7 @@ type FeatureState struct {
 }
 
 type Metadata struct {
+	UID         types.UID           `xml:"http://kubevirt.io uid"`
 	GracePeriod GracePeriodMetadata `xml:"http://kubevirt.io graceperiod,omitempty"`
 }
 
