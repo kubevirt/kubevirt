@@ -17,6 +17,9 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+# gluster volume dir, must match glusterfs-data-vol mountpoint
+DIR=/vol
+
 # prep
 export KUBECONFIG=/etc/kubernetes/admin.conf
 cp /etc/kubernetes/admin.conf ~/.kube/config
@@ -28,7 +31,7 @@ yum install -y glusterfs-client
 kubectl label node --all storagenode=glusterfs 
 
 # create glusterfs cluster
-kubectl create -f https://raw.githubusercontent.com/kubernetes-incubator/external-storage/master/gluster/glusterfs/deploy/glusterfs-daemonset.yaml
+kubectl create -f gluster-daemonset.yaml
 
 # get glusterfs bricks
 BRICKS=$(kubectl get pods --selector=glusterfs-node=pod -o template --template="{{range .items}} {{.status.podIP}} {{end}}")
@@ -44,8 +47,8 @@ for i in ${BRICKS}
 do
     if [ ! -z ${i} ]; then
         if [ -z ${BRICK_PATH} ]; then
-            BRICK_PATH="${i}:/tmp"
-        else BRICK_PATH=${BRICK_PATH}",${i}/tmp"
+            BRICK_PATH="${i}:${DIR}"
+        else BRICK_PATH=${BRICK_PATH}",${i}:${DIR}"
         fi
     fi
 done
