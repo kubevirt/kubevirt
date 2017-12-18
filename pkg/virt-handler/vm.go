@@ -484,8 +484,8 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
-// Look up PVs and translate them into their primitives (only supports ISCSI PVs right now)
-func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
+// Look up Volumes and PVs and translate them into their primitives (only supports ISCSI and PVs right now)
+func MapVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
 	vmCopy := vm.DeepCopy()
 	logger := log.Log.Object(vm)
 
@@ -521,7 +521,7 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClien
 			}
 		}
 
-		// After a PVC translation, ISCSI can be the resolved type, so no else if
+		// After a PVC translation, ISCSI can be the resolved type, so "if" instead of "else if"
 		if volume.ISCSI != nil {
 			// FIXME ugly hack to resolve the IP from dns, since qemu is not in the right namespace
 			hostPort := strings.Split(volume.ISCSI.TargetPortal, ":")
@@ -549,7 +549,7 @@ func mapPVToDisk(volume *v1.Volume, pv *k8sv1.PersistentVolume) error {
 		volume.PersistentVolumeClaim = nil
 		return nil
 	}
-	return fmt.Errorf("Referenced PV %s is backed by an unsupported storage type. Only iSCSI is supported.", pv.ObjectMeta.Name)
+	return fmt.Errorf("referenced PV %s is backed by an unsupported storage type", pv.ObjectMeta.Name)
 }
 
 // injectDiskAuth takes a virtual machine, extracts secrets, synchronizes them with libvirt and returns a map
@@ -661,7 +661,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	}
 
 	// Synchronize the VM state
-	vm, err = MapPersistentVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
+	vm, err = MapVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
 	if err != nil {
 		return err
 	}
