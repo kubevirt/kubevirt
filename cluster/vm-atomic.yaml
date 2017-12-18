@@ -1,31 +1,28 @@
-metadata:
-  name: atomic-ephemeral
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
+metadata:
+  name: atomic-ephemeral
 spec:
   terminationGracePeriodSeconds: 0
   domain:
+    resources:
+      initial:
+        memory: 1024M
     devices:
       disks:
-      - type: RegistryDisk:v1alpha
-        source:
-          name: kubevirt/fedora-atomic-registry-disk-demo:devel
-        target:
+      - name: registrydisk
+        volumeName: registryvolume
+        disk:
           dev: vda
-      - type: file
-        target:
+      - name: cloudinitdisk
+        volumeName: cloudinitvolume
+        disk:
           dev: vdb
-        cloudinit:
-            nocloud:
-                userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
-      interfaces:
-      - source:
-          network: default
-        type: network
-    memory:
-      unit: MB
-      value: 1024
-    os:
-      type:
-        os: hvm
-    type: qemu
+  volumes:
+    - name: registryvolume
+      registryDisk:
+        image: kubevirt/fedora-atomic-registry-disk-demo:devel
+    - name: cloudinitvolume
+      cloudInitNoCloud:
+        userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
+

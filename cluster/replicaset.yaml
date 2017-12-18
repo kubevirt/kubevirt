@@ -14,33 +14,16 @@ spec:
         myvm: "myvm"
     spec:
       domain:
+        resources:
+          initial:
+            memory: 64M
         devices:
-          graphics:
-          - type: spice
-          interfaces:
-          - type: network
-            source:
-              network: default
-          video:
-          - type: qxl
           disks:
-          - type: RegistryDisk:v1alpha
-            source:
-              name: kubevirt/cirros-registry-disk-demo:devel
-            target:
+          - name: registrydisk
+            volumeName: registryvolume
+            disk:
               dev: vda
-          - type: file
-            target:
-              dev: vdb
-            cloudinit:
-                nocloud:
-                    userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
-          consoles:
-          - type: pty
-        memory:
-          unit: MB
-          value: 64
-        os:
-          type:
-            os: hvm
-        type: qemu
+      volumes:
+        - name: registryvolume
+          registryDisk:
+            image: kubevirt/cirros-registry-disk-demo:devel
