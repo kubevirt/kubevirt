@@ -74,10 +74,12 @@ var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/dom
     </watchdog>
   </devices>
   <metadata>
-    <uid xmlns="http://kubevirt.io">f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
-    <graceperiod xmlns="http://kubevirt.io">
-      <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
-    </graceperiod>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
+      <graceperiod>
+        <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
   </metadata>
   <features>
     <acpi></acpi>
@@ -139,7 +141,8 @@ var _ = Describe("Schema", func() {
 			{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
 		},
 	}
-	exampleDomain.Spec.Metadata.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
+	exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
+	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
 
 	Context("With schema", func() {
 		It("Generate expected libvirt xml", func() {
@@ -232,6 +235,9 @@ var _ = Describe("Schema", func() {
 		vm.Spec.Domain.Firmware = &v1.Firmware{
 			UID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
 		}
+
+		gracePerod := int64(5)
+		vm.Spec.TerminationGracePeriodSeconds = &gracePerod
 
 		c := &ConverterContext{
 			VirtualMachine: vm,

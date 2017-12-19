@@ -169,9 +169,9 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("Unexpected Warning event recieved.")).With("reason", event.Reason).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("Unexpected Warning event recieved.")).Error(event.Message)
 			} else {
-				log.Log.With("reason", event.Reason).Infof(event.Message)
+				log.Log.Infof(event.Message)
 			}
 			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event recieved.")
 			return processFunc(event)
@@ -180,9 +180,9 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	} else {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("Unexpected Warning event recieved.")).With("reason", event.Reason).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("Unexpected Warning event recieved.")).Error(event.Message)
 			} else {
-				log.Log.With("reason", event.Reason).Infof(event.Message)
+				log.Log.Infof(event.Message)
 			}
 			return processFunc(event)
 		}
@@ -253,7 +253,6 @@ func AfterTestSuitCleanup() {
 	deletePVC("cirros", true)
 	deletePV("cirros", true)
 
-	deleteIscsiSecrets()
 	removeNamespaces()
 }
 
@@ -454,18 +453,6 @@ func removeNamespaces() {
 		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
 		Eventually(func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 180*time.Second, 1*time.Second).
 			Should(BeTrue())
-	}
-}
-
-func deleteIscsiSecrets() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	for _, namespace := range testNamespaces {
-		err = virtCli.CoreV1().Secrets(namespace).Delete("iscsi-demo-secret", nil)
-		if !errors.IsNotFound(err) {
-			PanicOnError(err)
-		}
 	}
 }
 

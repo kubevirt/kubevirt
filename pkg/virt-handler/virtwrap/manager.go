@@ -339,7 +339,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 			return err
 		}
 
-		if domSpec.Metadata.GracePeriod.DeletionTimestamp == nil {
+		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
 			err = dom.Shutdown()
 			if err != nil {
 				log.Log.Object(vm).Reason(err).Error("Signalling graceful shutdown failed.")
@@ -348,7 +348,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 			log.Log.Object(vm).Infof("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())
 
 			now := k8sv1.Now()
-			domSpec.Metadata.GracePeriod.DeletionTimestamp = &now
+			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
 			_, err = util.SetDomainSpec(l.virConn, vm, *domSpec)
 			if err != nil {
 				log.Log.Object(vm).Reason(err).Error("Unable to update grace period start time on domain xml")

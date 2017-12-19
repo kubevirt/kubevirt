@@ -174,7 +174,7 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 	namespace, name := SplitVMNamespaceKey(name)
 
 	domain := api.NewDomainReferenceFromName(namespace, name)
-	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.UID)
+	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
 	return domain, nil
 }
 
@@ -205,7 +205,7 @@ func callback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, watcher chan
 		}
 	} else {
 		domain.Spec = *spec
-		domain.ObjectMeta.UID = spec.Metadata.UID
+		domain.ObjectMeta.UID = spec.Metadata.KubeVirt.UID
 	}
 	status, reason, err := d.GetState()
 	if err != nil {

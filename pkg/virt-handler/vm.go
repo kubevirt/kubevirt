@@ -137,10 +137,10 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	}
 
 	startTime := int64(0)
-	if dom.Spec.Metadata.GracePeriod.DeletionTimestamp != nil {
-		startTime = dom.Spec.Metadata.GracePeriod.DeletionTimestamp.UTC().Unix()
+	if dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp != nil {
+		startTime = dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp.UTC().Unix()
 	}
-	gracePeriod := dom.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds
+	gracePeriod := dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds
 
 	// If gracePeriod == 0, then there will be no startTime set, deletion
 	// should occur immediately during shutdown.

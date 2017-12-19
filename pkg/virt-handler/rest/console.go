@@ -75,7 +75,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 		logger.Reason(err).Error("Failed to look up domain UID.")
 		return
 	}
-	vm.GetObjectMeta().SetUID(spec.Metadata.UID)
+	vm.GetObjectMeta().SetUID(spec.Metadata.KubeVirt.UID)
 	logger = log.Log.Object(vm)
 
 	logger.Infof("Opening connection to console %s", console)

@@ -147,8 +147,14 @@ type FeatureState struct {
 }
 
 type Metadata struct {
-	UID         types.UID           `xml:"http://kubevirt.io uid"`
-	GracePeriod GracePeriodMetadata `xml:"http://kubevirt.io graceperiod,omitempty"`
+	// KubeVirt contains kubevirt related metadata
+	// Note: Libvirt only accept one element at metadata root with a specific namespace
+	KubeVirt KubeVirtMetadata `xml:"http://kubevirt.io kubevirt"`
+}
+
+type KubeVirtMetadata struct {
+	UID         types.UID           `xml:"uid"`
+	GracePeriod GracePeriodMetadata `xml:"graceperiod,omitempty"`
 }
 
 type GracePeriodMetadata struct {

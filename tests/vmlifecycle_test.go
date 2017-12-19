@@ -126,13 +126,12 @@ var _ = Describe("Vmlifecycle", func() {
 			// Make sure we schedule the VM to master
 			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
-			Expect(err).To(BeNil())
+			obj, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMStart(obj)
 
 			// Delete the VM and wait for the confirmation of the delete
-			_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
-			Expect(err).To(BeNil())
+			Expect(virtClient.VM(vm.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed())
 			tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
 
 			// Check if the graceful shutdown was logged
@@ -173,24 +172,29 @@ var _ = Describe("Vmlifecycle", func() {
 				close(done)
 			}, 30)
 
-			It("Should stop retrying invalid VM and go on to latest change request", func(done Done) {
+			It("Should log warning if secret is not present, and proceed once the secret is there", func(done Done) {
 				vm.Spec.Volumes[0].ISCSI.SecretRef.Name = "nonexistent"
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				createdVM, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).To(BeNil())
 
 				// Wait until we see that starting the VM is failing
-				event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
+				event := tests.NewObjectEventWatcher(createdVM).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
 				Expect(event.Message).To(ContainSubstring("nonexistent"))
 
-				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.GetObjectMeta().GetName()).Do().Get()
-				Expect(err).To(BeNil())
+				// Creat nonexistent secret, so that the VM can recover
+				secret, err := virtClient.CoreV1().Secrets(vm.Namespace).Get("iscsi-demo-secret", metav1.GetOptions{})
+				secret.ObjectMeta = metav1.ObjectMeta{
+					Name: "nonexistent",
+				}
+				_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(secret)
+				Expect(err).ToNot(HaveOccurred())
 
-				// Check that the definition is deleted from the host
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				// Wait for the VM to be started, allow warning events to occur
+				tests.NewObjectEventWatcher(createdVM).SinceWatchedObjectResourceVersion().Timeout(30*time.Second).WaitFor(tests.NormalEvent, v1.Started)
 
 				close(done)
 
-			}, 30)
+			}, 60)
 		})
 
 		Context("New VM that will be killed", func() {

@@ -118,7 +118,7 @@ var _ = Describe("Console", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			spec := api.NewMinimalDomainSpec("default_testvm")
-			spec.Metadata.UID = uuid.NewUUID()
+			spec.Metadata.KubeVirt.UID = uuid.NewUUID()
 			data, err := xml.Marshal(spec)
 			specXML = string(data)
 			Expect(err).ToNot(HaveOccurred())

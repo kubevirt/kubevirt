@@ -274,9 +274,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 
 	// Spec metadata
-	domain.Spec.Metadata.UID = vm.UID
+	domain.Spec.Metadata.KubeVirt.UID = vm.UID
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
-		domain.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
 	}
 
 	domain.Spec.SysInfo = &SysInfo{}
