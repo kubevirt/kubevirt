@@ -6,6 +6,7 @@ import (
 )
 
 var _true = t(true)
+var _false = t(false)
 
 func SetDefaults_TimerAttrs(obj *TimerAttrs) {
 	if obj.Enabled == nil {
@@ -13,7 +14,19 @@ func SetDefaults_TimerAttrs(obj *TimerAttrs) {
 	}
 }
 
+func SetDefaults_RTCTimerAttrs(obj *RTCTimerAttrs) {
+	if obj.Enabled == nil {
+		obj.Enabled = _true
+	}
+}
+
 func SetDefaults_FeatureState(obj *FeatureState) {
+	if obj.Enabled == nil {
+		obj.Enabled = _true
+	}
+}
+
+func SetDefaults_FeatureVendorID(obj *FeatureVendorID) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true
 	}

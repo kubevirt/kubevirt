@@ -54,6 +54,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				if in.Spec.Domain.Clock.Timer.PIT != nil {
 					SetDefaults_TimerAttrs(in.Spec.Domain.Clock.Timer.PIT)
 				}
+				if in.Spec.Domain.Clock.Timer.RTC != nil {
+					SetDefaults_RTCTimerAttrs(in.Spec.Domain.Clock.Timer.RTC)
+				}
 				if in.Spec.Domain.Clock.Timer.Hyperv != nil {
 					SetDefaults_TimerAttrs(in.Spec.Domain.Clock.Timer.Hyperv)
 				}
@@ -88,6 +91,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				}
 				if in.Spec.Domain.Features.Hyperv.Reset != nil {
 					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Reset)
+				}
+				if in.Spec.Domain.Features.Hyperv.VendorID != nil {
+					SetDefaults_FeatureVendorID(in.Spec.Domain.Features.Hyperv.VendorID)
 				}
 			}
 		}
@@ -138,6 +144,9 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 					if in.Spec.Template.Spec.Domain.Clock.Timer.PIT != nil {
 						SetDefaults_TimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.PIT)
 					}
+					if in.Spec.Template.Spec.Domain.Clock.Timer.RTC != nil {
+						SetDefaults_RTCTimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.RTC)
+					}
 					if in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv != nil {
 						SetDefaults_TimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv)
 					}
@@ -172,6 +181,9 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 					}
 					if in.Spec.Template.Spec.Domain.Features.Hyperv.Reset != nil {
 						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Reset)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID != nil {
+						SetDefaults_FeatureVendorID(in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID)
 					}
 				}
 			}
