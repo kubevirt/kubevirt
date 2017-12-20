@@ -27,7 +27,7 @@ mkdir /dev.container && {
 
   # Keep some devices from the containerinal /dev
   keep() { mount --rbind /dev.container/$1 /dev/$1 ; }
-  keep shm
+  keep shm || :
   keep mqueue
   # Keep ptmx/pts for pty creation
   keep pts
