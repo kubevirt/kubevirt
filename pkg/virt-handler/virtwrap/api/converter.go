@@ -37,7 +37,7 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk) error {
 		disk.Target.Device = diskDevice.Floppy.Device
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
-		disk.Target.Tray = string(diskDevice.Floppy.Tray)
+		disk.Target.Tray = string(diskDevice.CDRom.Tray)
 		disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
 		disk.Target.Device = diskDevice.CDRom.Device
 	}
@@ -117,7 +117,6 @@ func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSo
 
 	disk.Source.File = fmt.Sprintf("%s/%s", cloudinit.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), cloudinit.NoCloudFile)
 	disk.Type = "file"
-	disk.Device = "disk"
 	disk.Driver.Type = "raw"
 	return nil
 }
@@ -128,7 +127,6 @@ func Convert_v1_RegistryDiskSource_To_api_Disk(volumeName string, _ *v1.Registry
 	}
 
 	disk.Type = "file"
-	disk.Device = "disk"
 	diskPath, diskType, err := registrydisk.GetFilePath(c.VirtualMachine, volumeName)
 	if err != nil {
 		return err

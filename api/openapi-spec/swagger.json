@@ -1852,9 +1852,6 @@
     }
    },
    "v1.CDRomTarget": {
-    "required": [
-     "dev"
-    ],
     "properties": {
      "dev": {
       "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
@@ -1997,9 +1994,6 @@
     }
    },
    "v1.DiskTarget": {
-    "required": [
-     "dev"
-    ],
     "properties": {
      "dev": {
       "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
@@ -2127,7 +2121,7 @@
    "v1.Features": {
     "properties": {
      "acpi": {
-      "description": "ACPI enables/disables ACPI inside the guest\nDefaults to enabled\n+optional",
+      "description": "ACPI enables/disables ACPI insidejsondata guest\nDefaults to enabled\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "apic": {
@@ -2149,9 +2143,6 @@
     }
    },
    "v1.FloppyTarget": {
-    "required": [
-     "dev"
-    ],
     "properties": {
      "dev": {
       "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
@@ -2389,9 +2380,6 @@
     }
    },
    "v1.LunTarget": {
-    "required": [
-     "dev"
-    ],
     "properties": {
      "dev": {
       "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",

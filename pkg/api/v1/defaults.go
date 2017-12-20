@@ -74,7 +74,7 @@ func SetDefaults_FeatureSpinlocks(obj *FeatureSpinlocks) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true
 	}
-	if obj.Enabled == _true && obj.Retries == nil {
+	if *obj.Enabled == *_true && obj.Retries == nil {
 		obj.Retries = ui32(4096)
 	}
 }

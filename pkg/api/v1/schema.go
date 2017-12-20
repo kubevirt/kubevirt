@@ -105,7 +105,7 @@ type DiskTarget struct {
 	// Device indicates the "logical" device name. The actual device name
 	// specified is not guaranteed to map to the device name in the guest OS. Treat
 	// it as a device ordering hint.
-	Device string `json:"dev"`
+	Device string `json:"dev,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -115,7 +115,7 @@ type LunTarget struct {
 	// Device indicates the "logical" device name. The actual device name
 	// specified is not guaranteed to map to the device name in the guest OS. Treat
 	// it as a device ordering hint.
-	Device string `json:"dev"`
+	Device string `json:"dev,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -125,7 +125,7 @@ type FloppyTarget struct {
 	// Device indicates the "logical" device name. The actual device name
 	// specified is not guaranteed to map to the device name in the guest OS. Treat
 	// it as a device ordering hint.
-	Device string `json:"dev"`
+	Device string `json:"dev,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -150,7 +150,7 @@ type CDRomTarget struct {
 	// Device indicates the "logical" device name. The actual device name
 	// specified is not guaranteed to map to the device name in the guest OS. Treat
 	// it as a device ordering hint.
-	Device string `json:"dev"`
+	Device string `json:"dev,omitempty"`
 	// ReadOnly
 	// Defaults to true
 	ReadOnly *bool `json:"readonly,omitempty"`
@@ -352,7 +352,7 @@ type TimerAttrs struct {
 }
 
 type Features struct {
-	// ACPI enables/disables ACPI inside the guest
+	// ACPI enables/disables ACPI insidejsondata guest
 	// Defaults to enabled
 	// +optional
 	ACPI FeatureState `json:"acpi,omitempty"`

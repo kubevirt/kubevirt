@@ -24,11 +24,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	k8sv1 "k8s.io/api/core/v1"
-	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
@@ -174,81 +169,5 @@ var _ = Describe("Schema", func() {
 			Expect(string(buf)).To(Equal(exampleXML))
 		})
 
-	})
-	Context("With v1.DomainSpec", func() {
-
-		vm := &v1.VirtualMachine{
-			ObjectMeta: k8smeta.ObjectMeta{
-				Name:      "testvm",
-				Namespace: "mynamespace",
-			},
-		}
-		v1.SetObjectDefaults_VirtualMachine(vm)
-		vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
-			Name: "mywatchdog",
-			WatchdogDevice: v1.WatchdogDevice{
-				I6300ESB: &v1.I6300ESBWatchdog{
-					Action: v1.WatchdogActionPoweroff,
-				},
-			},
-		}
-		vm.Spec.Domain.Devices.Disks = []v1.Disk{
-			{
-				Name:       "mydisk",
-				VolumeName: "myvolume",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Device: "vda",
-					},
-				},
-			},
-			{
-				Name:       "mydisk1",
-				VolumeName: "nocloud",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Device: "vdb",
-					},
-				},
-			},
-		}
-		vm.Spec.Volumes = []v1.Volume{
-			{
-				Name: "myvolume",
-				VolumeSource: v1.VolumeSource{
-					ISCSI: &k8sv1.ISCSIVolumeSource{
-						TargetPortal: "example.com:3260",
-						IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-						Lun:          2,
-					},
-				},
-			},
-			{
-				Name: "nocloud",
-				VolumeSource: v1.VolumeSource{
-					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-						UserDataBase64: "1234",
-					},
-				},
-			},
-		}
-		vm.Spec.Domain.Firmware = &v1.Firmware{
-			UID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
-		}
-
-		gracePerod := int64(5)
-		vm.Spec.TerminationGracePeriodSeconds = &gracePerod
-
-		c := &ConverterContext{
-			VirtualMachine: vm,
-		}
-		vm.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
-
-		It("converts to libvirt.DomainSpec", func() {
-			domain := &Domain{}
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())
-			SetObjectDefaults_Domain(domain)
-			Expect(domain.Spec).To(Equal(exampleDomain.Spec))
-		})
 	})
 })
