@@ -38,6 +38,13 @@ EOF
 }
 
 echo "Cleaning up ..."
+# Delete demo namespace
+$KUBECTL delete -f manifests/testing/demo-namespace.yaml 2>/dev/null || :
+while [ -n "$($KUBECTL get ns --no-headers | grep kubevirt-demo)" ]; do
+    echo "Waiting for demo namespace delete..."
+    sleep 10
+done
+
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
 $KUBECTL delete ds -l "kubevirt.io" -n kube-system --cascade=false --grace-period 0 2>/dev/null || :
 $KUBECTL delete pods -n kube-system -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
@@ -67,6 +74,11 @@ $KUBECTL expose deployment haproxy --port 8184 -l 'kubevirt.io=haproxy' -n kube-
 $KUBECTL expose deployment spice-proxy --port 3128 -l 'kubevirt.io=spice-proxy' -n kube-system --external-ip $master_ip
 
 # Deploy additional infra for testing
-$KUBECTL create -f manifests/testing -R $i
+$KUBECTL create -f manifests/testing/demo-namespace.yaml
+for i in `ls manifests/testing/*.yaml`; do
+  if [[ ${i} != *"namespace"* ]]; then
+    $KUBECTL create -f $i
+  fi
+done
 
 echo "Done"

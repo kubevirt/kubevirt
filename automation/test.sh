@@ -108,7 +108,7 @@ echo ""
 
 # Delete traces from old deployments
 # TODO remove this soon, kept for backward compatibility right now
-namespaces=(default kube-system)
+namespaces=(default kubevirt-demo kube-system)
 for i in ${namespaces[@]}; do
     kubectl -n ${i} delete deployment -l 'app'
     kubectl -n ${i} delete services -l '!k8s-app,!provider'
@@ -118,11 +118,11 @@ for i in ${namespaces[@]}; do
     kubectl -n ${i} delete crd --all
     kubectl -n ${i} delete serviceaccounts -l 'name in (kubevirt, kubevirt-admin)'
     kubectl -n ${i} delete clusterrolebinding -l 'name=kubevirt'
-    kubectl -n ${i} delete pods -l 'app'
+    kubectl -n ${i} delete pods -l 'app,name=kubevirt-cockpit-demo'
 done
 
 # This is the new and cleaner way of removing kubevirt with harmonized labels
-namespaces=(default kube-system)
+namespaces=(default kubevirt-demo kube-system)
 for i in ${namespaces[@]}; do
     kubectl -n ${i} delete deployment -l 'kubevirt.io'
     kubectl -n ${i} delete services -l 'kubevirt.io'
@@ -159,6 +159,13 @@ done
 while [ "$(kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l)" -lt "1" ]; do
     echo "Waiting for KubeVirt virt-controller container to become ready ..."
     kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l
+    sleep 10
+done
+
+# Wait until demo pods are running
+while [ -n "$(kubectl get pods -n kubevirt-demo --no-headers | grep -v Running)" ]; do
+    echo "Waiting for kubevirt pods to enter the Running state ..."
+    kubectl get pods -n kubevirt-demo --no-headers | >&2 grep -v Running || true
     sleep 10
 done
 
