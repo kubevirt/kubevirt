@@ -12,6 +12,12 @@ import (
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"io/ioutil"
+	"os"
+
+	"k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/cert/triple"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -40,6 +46,7 @@ var _ service.Service = &VirtAPIApp{}
 func (app *VirtAPIApp) Compose() {
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
+	subresourcesvmGVR := schema.GroupVersionResource{Group: "subresources.kubevirt.io", Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "migrations"}
 	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
 
@@ -78,24 +85,30 @@ func (app *VirtAPIApp) Compose() {
 				mime.MIME_YAML: endpoints.NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
 
-	ws.Route(ws.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
+	subws, err := rest.GroupVersionProxyBase(ctx, subresourcesvmGVR.GroupVersion())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("spice")).
 		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
-		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("spice").
 		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format.").
 		Returns(http.StatusOK, "remote-viewer configuration file" /*os.File{}*/, nil))
 	// TODO: That os.File doesn't work as I expect.
 	// I need end up with response_type="file", but I am getting response_type="os.File"
 
-	ws.Route(ws.GET(rest.ResourcePath(vmGVR) + rest.SubResourcePath("console")).
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("console")).
 		To(rest.NewConsoleResource(virtCli, virtCli.CoreV1()).Console).
 		Param(restful.QueryParameter("console", "Name of the serial console to connect to")).
-		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("console").
 		Doc("Open a websocket connection to a serial console on the specified VM."))
 	// TODO: Add 'Returns', but I don't know what return type to put there.
 
 	restful.Add(ws)
+	restful.Add(subws)
 
 	ws.Route(ws.GET("/healthz").
 		To(healthz.KubeConnectionHealthzFunc).
@@ -149,7 +162,34 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 }
 
 func (app *VirtAPIApp) Run() {
-	log.Fatal(http.ListenAndServe(app.Address(), nil))
+
+	caKeyPair, _ := triple.NewCA("kubevirt.io")
+	keyPair, _ := triple.NewServerKeyPair(
+		caKeyPair,
+		"virt-api.kube-system.pod.cluster.local",
+		"virt-api",
+		"kube-system",
+		"cluster.local",
+		nil,
+		nil,
+	)
+	dir, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	ioutil.WriteFile(dir+"/key.pem", cert.EncodePrivateKeyPEM(keyPair.Key), 0600)
+	ioutil.WriteFile(dir+"/cert.pem", cert.EncodeCertPEM(keyPair.Cert), 0600)
+
+	errors := make(chan error)
+
+	go func() {
+		errors <- http.ListenAndServe(app.Address(), nil)
+	}()
+
+	go func() {
+		errors <- http.ListenAndServeTLS(app.BindAddress+":"+"8443", dir+"/cert.pem", dir+"/key.pem", nil)
+	}()
+	log.Fatal(<-errors)
 }
 
 func (app *VirtAPIApp) AddFlags() {
