@@ -2862,7 +2862,7 @@
       "description": "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
       "$ref": "#/definitions/v1.TimerAttrs"
      },
-     "trc": {
+     "rtc": {
       "description": "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
       "$ref": "#/definitions/v1.RTCTimerAttrs"
      }

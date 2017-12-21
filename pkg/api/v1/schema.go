@@ -296,7 +296,7 @@ type Timer struct {
 	// PIT (Programmable Interval Timer) - a timer with periodic interrupts.
 	PIT *TimerAttrs `json:"pit,omitempty"`
 	// RTC (Real Time Clock) - a continuously running timer with periodic interrupts.
-	RTC *RTCTimerAttrs `json:"trc,omitempty"`
+	RTC *RTCTimerAttrs `json:"rtc,omitempty"`
 	// Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.
 	Hyperv *TimerAttrs `json:"hyperv,omitempty"`
 }

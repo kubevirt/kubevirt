@@ -43,6 +43,68 @@ var exampleJSON = `{
           "memory": "8Mi"
         }
       },
+      "firmware": {
+        "uid": "28a42a60-44ef-4428-9c10-1a6aee94627f"
+      },
+      "clock": {
+        "utc": {},
+        "timer": {
+          "hpet": {
+            "present": true
+          },
+          "kvm": {
+            "present": true
+          },
+          "pit": {
+            "present": true
+          },
+          "rtc": {
+            "present": true
+          },
+          "hyperv": {
+            "present": true
+          }
+        }
+      },
+      "features": {
+        "acpi": {
+          "enabled": false
+        },
+        "apic": {
+          "enabled": true
+        },
+        "hyperv": {
+          "relaxed": {
+            "enabled": true
+          },
+          "vapic": {
+            "enabled": false
+          },
+          "spinlocks": {
+            "enabled": true,
+            "spinlocks": 4096
+          },
+          "vpindex": {
+            "enabled": false
+          },
+          "runtime": {
+            "enabled": true
+          },
+          "synic": {
+            "enabled": false
+          },
+          "synictimer": {
+            "enabled": true
+          },
+          "reset": {
+            "enabled": false
+          },
+          "vendorid": {
+            "enabled": true,
+            "vendorid": "vendor"
+          }
+        }
+      },
       "devices": {
         "disks": [
           {
@@ -207,6 +269,37 @@ var _ = Describe("Schema", func() {
 			},
 		},
 	}
+	exampleVM.Spec.Domain.Features = &Features{
+		ACPI: FeatureState{Enabled: _false},
+		APIC: &FeatureState{Enabled: _true},
+		Hyperv: &FeatureHyperv{
+			Relaxed:    &FeatureState{Enabled: _true},
+			VAPIC:      &FeatureState{Enabled: _false},
+			Spinlocks:  &FeatureSpinlocks{Enabled: _true},
+			VPIndex:    &FeatureState{Enabled: _false},
+			Runtime:    &FeatureState{Enabled: _true},
+			SyNIC:      &FeatureState{Enabled: _false},
+			SyNICTimer: &FeatureState{Enabled: _true},
+			Reset:      &FeatureState{Enabled: _false},
+			VendorID:   &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
+		},
+	}
+	exampleVM.Spec.Domain.Clock = &Clock{
+		ClockOffset: ClockOffset{
+			UTC: &ClockOffsetUTC{},
+		},
+		Timer: &Timer{
+			HPET:   &TimerAttrs{},
+			KVM:    &TimerAttrs{},
+			PIT:    &TimerAttrs{},
+			RTC:    &RTCTimerAttrs{},
+			Hyperv: &TimerAttrs{},
+		},
+	}
+	exampleVM.Spec.Domain.Firmware = &Firmware{
+		UID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
+	}
+	SetObjectDefaults_VirtualMachine(exampleVM)
 
 	Context("With example schema in json", func() {
 		It("Unmarshal json into struct", func() {
@@ -219,7 +312,6 @@ var _ = Describe("Schema", func() {
 		It("Marshal struct into json", func() {
 			buf, err := json.MarshalIndent(*exampleVM, "", "  ")
 			Expect(err).To(BeNil())
-
 			Expect(string(buf)).To(Equal(exampleJSON))
 		})
 	})

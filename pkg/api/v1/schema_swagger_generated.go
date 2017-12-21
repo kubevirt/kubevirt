@@ -190,7 +190,7 @@ func (Timer) SwaggerDoc() map[string]string {
 		"hpet":   "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
 		"kvm":    "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
 		"pit":    "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
-		"trc":    "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
+		"rtc":    "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
 		"hyperv": "Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.",
 	}
 }
