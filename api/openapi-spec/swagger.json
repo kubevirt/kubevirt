@@ -2175,6 +2175,14 @@
      }
     }
    },
+   "v1.HypervTimerAttrs": {
+    "properties": {
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.I6300ESBWatchdog": {
     "description": "i6300esb watchdog device",
     "properties": {
@@ -2310,6 +2318,14 @@
      "podNetwork": {
       "description": "PodNetwork indicates that the interface target device will be connected to the pod network",
       "$ref": "#/definitions/v1.PodNetworkSource"
+     }
+    }
+   },
+   "v1.KVMTimerAttrs": {
+    "properties": {
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
      }
     }
    },
@@ -2852,11 +2868,11 @@
      },
      "hyperv": {
       "description": "Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.",
-      "$ref": "#/definitions/v1.TimerAttrs"
+      "$ref": "#/definitions/v1.HypervTimerAttrs"
      },
      "kvm": {
       "description": "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
-      "$ref": "#/definitions/v1.TimerAttrs"
+      "$ref": "#/definitions/v1.KVMTimerAttrs"
      },
      "pit": {
       "description": "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",

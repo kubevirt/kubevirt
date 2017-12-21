@@ -220,10 +220,10 @@ var _ = Describe("Defaults", func() {
 					Clock: &Clock{
 						Timer: &Timer{
 							HPET:   &TimerAttrs{},
-							KVM:    &TimerAttrs{},
+							KVM:    &KVMTimerAttrs{},
 							PIT:    &TimerAttrs{},
 							RTC:    &RTCTimerAttrs{},
-							Hyperv: &TimerAttrs{},
+							Hyperv: &HypervTimerAttrs{},
 						},
 					},
 				},

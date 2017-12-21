@@ -210,6 +210,18 @@ func (TimerAttrs) SwaggerDoc() map[string]string {
 	}
 }
 
+func (KVMTimerAttrs) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+	}
+}
+
+func (HypervTimerAttrs) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+	}
+}
+
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"acpi":   "ACPI enables/disables ACPI insidejsondata guest\nDefaults to enabled\n+optional",

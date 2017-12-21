@@ -65,9 +65,8 @@ var _ = Describe("Converter", func() {
 						Enabled:    &_false,
 						TickPolicy: v1.TickPolicyDelay,
 					},
-					KVM: &v1.TimerAttrs{
-						Enabled:    &_true,
-						TickPolicy: v1.TickPolicyCatchup,
+					KVM: &v1.KVMTimerAttrs{
+						Enabled: &_true,
 					},
 					PIT: &v1.TimerAttrs{
 						Enabled:    &_false,
@@ -78,9 +77,8 @@ var _ = Describe("Converter", func() {
 						TickPolicy: v1.TickPolicyMerge,
 						Track:      v1.TrackGuest,
 					},
-					Hyperv: &v1.TimerAttrs{
-						Enabled:    &_true,
-						TickPolicy: v1.TickPolicyDelay,
+					Hyperv: &v1.HypervTimerAttrs{
+						Enabled: &_true,
 					},
 				},
 			}
@@ -348,9 +346,9 @@ var _ = Describe("Converter", func() {
   <clock offset="utc" adjustment="reset">
     <timer name="rtc" tickpolicy="merge" present="yes" track="guest"></timer>
     <timer name="pit" tickpolicy="discard" present="no"></timer>
-    <timer name="kvmclock" tickpolicy="catchup" present="yes"></timer>
+    <timer name="kvmclock" present="yes"></timer>
     <timer name="hpet" tickpolicy="delay" present="no"></timer>
-    <timer name="hypervclock" tickpolicy="delay" present="yes"></timer>
+    <timer name="hypervclock" present="yes"></timer>
   </clock>
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">

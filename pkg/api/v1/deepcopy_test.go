@@ -42,6 +42,8 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&Timer{},
 			&RTCTimerAttrs{},
 			&TimerAttrs{},
+			&KVMTimerAttrs{},
+			&HypervTimerAttrs{},
 			&Features{},
 			&FeatureState{},
 			&FeatureAPIC{},

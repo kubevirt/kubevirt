@@ -14,6 +14,18 @@ func SetDefaults_TimerAttrs(obj *TimerAttrs) {
 	}
 }
 
+func SetDefaults_KVMTimerAttrs(obj *KVMTimerAttrs) {
+	if obj.Enabled == nil {
+		obj.Enabled = _true
+	}
+}
+
+func SetDefaults_HypervTimerAttrs(obj *HypervTimerAttrs) {
+	if obj.Enabled == nil {
+		obj.Enabled = _true
+	}
+}
+
 func SetDefaults_RTCTimerAttrs(obj *RTCTimerAttrs) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true

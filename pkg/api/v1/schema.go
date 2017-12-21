@@ -292,13 +292,13 @@ type Timer struct {
 	// HPET (High Precision Event Timer) - multiple timers with periodic interrupts.
 	HPET *TimerAttrs `json:"hpet,omitempty"`
 	// KVM 	(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.
-	KVM *TimerAttrs `json:"kvm,omitempty"`
+	KVM *KVMTimerAttrs `json:"kvm,omitempty"`
 	// PIT (Programmable Interval Timer) - a timer with periodic interrupts.
 	PIT *TimerAttrs `json:"pit,omitempty"`
 	// RTC (Real Time Clock) - a continuously running timer with periodic interrupts.
 	RTC *RTCTimerAttrs `json:"rtc,omitempty"`
 	// Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.
-	Hyperv *TimerAttrs `json:"hyperv,omitempty"`
+	Hyperv *HypervTimerAttrs `json:"hyperv,omitempty"`
 }
 
 // TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
@@ -345,6 +345,20 @@ type TimerAttrs struct {
 	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
 	// One of "delay", "catchup", "merge", "discard"
 	TickPolicy TickPolicy `json:"tickPolicy,omitempty"`
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
+}
+
+type KVMTimerAttrs struct {
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
+}
+
+type HypervTimerAttrs struct {
 	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
 	// Defaults to true
 	// +optional

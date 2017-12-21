@@ -184,10 +184,7 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterC
 		}
 		if source.Timer.KVM != nil {
 			newTimer := Timer{Name: "kvmclock"}
-			err := Convert_v1_TimerAttrs_To_api_Timer(source.Timer.KVM, &newTimer, c)
-			if err != nil {
-				return err
-			}
+			newTimer.Present = boolToYesNo(source.Timer.KVM.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.HPET != nil {
@@ -200,10 +197,7 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterC
 		}
 		if source.Timer.Hyperv != nil {
 			newTimer := Timer{Name: "hypervclock"}
-			err := Convert_v1_TimerAttrs_To_api_Timer(source.Timer.Hyperv, &newTimer, c)
-			if err != nil {
-				return err
-			}
+			newTimer.Present = boolToYesNo(source.Timer.Hyperv.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 	}

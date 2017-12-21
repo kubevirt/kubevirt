@@ -290,10 +290,10 @@ var _ = Describe("Schema", func() {
 		},
 		Timer: &Timer{
 			HPET:   &TimerAttrs{},
-			KVM:    &TimerAttrs{},
+			KVM:    &KVMTimerAttrs{},
 			PIT:    &TimerAttrs{},
 			RTC:    &RTCTimerAttrs{},
-			Hyperv: &TimerAttrs{},
+			Hyperv: &HypervTimerAttrs{},
 		},
 	}
 	exampleVM.Spec.Domain.Firmware = &Firmware{
