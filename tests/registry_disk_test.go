@@ -103,7 +103,7 @@ var _ = Describe("RegistryDisk", func() {
 			for i := 0; i < num; i++ {
 				vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
 				// FIXME if we give too much ram, the vms really boot and eat all our memory (cache?)
-				vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("1M")
+				vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
 				obj := LaunchVM(vm)
 				vms = append(vms, vm)
 				objs = append(objs, obj)

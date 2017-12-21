@@ -22,7 +22,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"initial": "Initial is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+		"requests": "Requests is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
 	}
 }
 
@@ -33,7 +33,10 @@ func (Firmware) SwaggerDoc() map[string]string {
 }
 
 func (Devices) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"disks":    "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
+		"watchdog": "Watchdog describes a watchdog device which can be added to the vm",
+	}
 }
 
 func (Disk) SwaggerDoc() map[string]string {
@@ -93,8 +96,8 @@ func (Volume) SwaggerDoc() map[string]string {
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
-		"iscsi":                 "ISCSI represents an ISCSI Disk resource that is attached to a\nkubelet's host machine and then exposed to the pod.\nMore info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md\n+optional",
-		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nMade available to the vm as mounted block storage\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"iscsi":                 "ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.\n+optional",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
 	}
@@ -104,61 +107,6 @@ func (RegistryDiskSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "Represents a docker image with an embedded disk",
 		"image": "Image is the name of the image with the embedded disk",
-	}
-}
-
-func (Interface) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":     "Represents a network interface inside the vm",
-		"name": "Name of the interface",
-	}
-}
-
-func (InterfaceDevice) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":        "Only one of its members may be specified.",
-		"e1000":   "E1000 represents an e1000 network device",
-		"virtio":  "VIRTIO represents a virtio network device",
-		"rtl8139": "RTL8139 represents a rtl8139 network device",
-	}
-}
-
-func (E1000Interface) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "e1000 vm network interface",
-	}
-}
-
-func (VirtIOInterface) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "virtio vm network interface",
-	}
-}
-
-func (RTL8139Interface) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "rtl8139 vm network interface",
-	}
-}
-
-func (InterfaceAttrs) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":    "Represents the basic network interface device properties of a vm",
-		"mac": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
-	}
-}
-
-func (InterfaceSource) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":           "Only one of its members may be specified.",
-		"name":       "Name of the interface",
-		"podNetwork": "PodNetwork indicates that the interface target device will be connected to the pod network",
-	}
-}
-
-func (PodNetworkSource) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "Represents an interface source, connected to the pod network",
 	}
 }
 

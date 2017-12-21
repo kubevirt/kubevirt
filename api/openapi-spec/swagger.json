@@ -1945,18 +1945,14 @@
    "v1.Devices": {
     "properties": {
      "disks": {
+      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
       }
      },
-     "interfaces": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Interface"
-      }
-     },
      "watchdog": {
+      "description": "Watchdog describes a watchdog device which can be added to the vm",
       "$ref": "#/definitions/v1.Watchdog"
      }
     }
@@ -2029,15 +2025,6 @@
      "resources": {
       "description": "Resources describes the Compute Resources required by this vm.",
       "$ref": "#/definitions/v1.ResourceRequirements"
-     }
-    }
-   },
-   "v1.E1000Interface": {
-    "description": "e1000 vm network interface",
-    "properties": {
-     "mac": {
-      "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
-      "type": "string"
      }
     }
    },
@@ -2290,46 +2277,6 @@
      "result": {
       "description": "If result is set with the Failure field, the object will be persisted to storage and then deleted, ensuring that other clients can observe the deletion.",
       "$ref": "#/definitions/v1.Status"
-     }
-    }
-   },
-   "v1.Interface": {
-    "description": "Represents a network interface inside the vm",
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "e1000": {
-      "description": "E1000 represents an e1000 network device",
-      "$ref": "#/definitions/v1.E1000Interface"
-     },
-     "name": {
-      "description": "Name of the interface",
-      "type": "string"
-     },
-     "rtl8139": {
-      "description": "RTL8139 represents a rtl8139 network device",
-      "$ref": "#/definitions/v1.RTL8139Interface"
-     },
-     "virtio": {
-      "description": "VIRTIO represents a virtio network device",
-      "$ref": "#/definitions/v1.VirtIOInterface"
-     }
-    }
-   },
-   "v1.InterfaceSource": {
-    "description": "Only one of its members may be specified.",
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "Name of the interface",
-      "type": "string"
-     },
-     "podNetwork": {
-      "description": "PodNetwork indicates that the interface target device will be connected to the pod network",
-      "$ref": "#/definitions/v1.PodNetworkSource"
      }
     }
    },
@@ -2703,9 +2650,6 @@
      }
     }
    },
-   "v1.PodNetworkSource": {
-    "description": "Represents an interface source, connected to the pod network"
-   },
    "v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",
     "properties": {
@@ -2749,15 +2693,6 @@
      }
     }
    },
-   "v1.RTL8139Interface": {
-    "description": "rtl8139 vm network interface",
-    "properties": {
-     "mac": {
-      "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
-      "type": "string"
-     }
-    }
-   },
    "v1.RegistryDiskSource": {
     "description": "Represents a docker image with an embedded disk",
     "required": [
@@ -2772,8 +2707,8 @@
    },
    "v1.ResourceRequirements": {
     "properties": {
-     "initial": {
-      "description": "Initial is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+     "requests": {
+      "description": "Requests is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
       "type": "object"
      }
     }
@@ -3000,15 +2935,6 @@
      }
     }
    },
-   "v1.VirtIOInterface": {
-    "description": "virtio vm network interface",
-    "properties": {
-     "mac": {
-      "description": "MAC address of the vm network interface\nDefaults to a random generated mac\n+optional",
-      "type": "string"
-     }
-    }
-   },
    "v1.VirtualMachine": {
     "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "properties": {
@@ -3163,13 +3089,6 @@
       "description": "Specification of the desired behavior of the VirtualMachine on the host.",
       "$ref": "#/definitions/v1.DomainSpec"
      },
-     "interfaces": {
-      "description": "List of interfaces/networks which can be attached to an interface inside the vm.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.InterfaceSource"
-      }
-     },
      "nodeSelector": {
       "description": "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
       "type": "object"
@@ -3230,7 +3149,7 @@
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
      },
      "iscsi": {
-      "description": "ISCSI represents an ISCSI Disk resource that is attached to a\nkubelet's host machine and then exposed to the pod.\nMore info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md\n+optional",
+      "description": "ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.\n+optional",
       "$ref": "#/definitions/v1.ISCSIVolumeSource"
      },
      "name": {
@@ -3238,7 +3157,7 @@
       "type": "string"
      },
      "persistentVolumeClaim": {
-      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nMade available to the vm as mounted block storage\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      },
      "registryDisk": {

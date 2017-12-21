@@ -59,10 +59,10 @@ type DomainSpec struct {
 }
 
 type ResourceRequirements struct {
-	// Initial is a description of the initial vm resources.
+	// Requests is a description of the initial vm resources.
 	// Valid resource keys are "memory" and "cpu".
 	// +optional
-	Initial v1.ResourceList `json:"initial,omitempty"`
+	Requests v1.ResourceList `json:"requests,omitempty"`
 }
 
 type Firmware struct {
@@ -72,9 +72,10 @@ type Firmware struct {
 }
 
 type Devices struct {
-	Disks      []Disk      `json:"disks,omitempty"`
-	Interfaces []Interface `json:"interfaces,omitempty"`
-	Watchdog   *Watchdog   `json:"watchdog,omitempty"`
+	// Disks describes disks, cdroms, floppy and luns which are connected to the vm
+	Disks []Disk `json:"disks,omitempty"`
+	// Watchdog describes a watchdog device which can be added to the vm
+	Watchdog *Watchdog `json:"watchdog,omitempty"`
 }
 
 type Disk struct {
@@ -175,13 +176,11 @@ type Volume struct {
 // Represents the source of a volume to mount.
 // Only one of its members may be specified.
 type VolumeSource struct {
-	// ISCSI represents an ISCSI Disk resource that is attached to a
-	// kubelet's host machine and then exposed to the pod.
-	// More info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md
+	// ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.
 	// +optional
 	ISCSI *v1.ISCSIVolumeSource `json:"iscsi,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
-	// Made available to the vm as mounted block storage
+	// Directly attached to the vm via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
 	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
@@ -201,62 +200,6 @@ type RegistryDiskSource struct {
 	// Image is the name of the image with the embedded disk
 	Image string `json:"image"`
 }
-
-// Represents a network interface inside the vm
-type Interface struct {
-	// Name of the interface
-	Name string `json:"name"`
-	// InterfaceDevice contains the guest details of the interface
-	// Defaults to rtl8139
-	InterfaceDevice `json:",inline"`
-}
-
-// Only one of its members may be specified.
-type InterfaceDevice struct {
-	// E1000 represents an e1000 network device
-	E1000 *E1000Interface `json:"e1000,omitempty"`
-	// VIRTIO represents a virtio network device
-	VIRTIO *VirtIOInterface `json:"virtio,omitempty"`
-	// RTL8139 represents a rtl8139 network device
-	RTL8139 *RTL8139Interface `json:"rtl8139,omitempty"`
-}
-
-// e1000 vm network interface
-type E1000Interface struct {
-	// InterfaceAttrs represents the basic network interface device properties of a vm
-	InterfaceAttrs `json:",inline"`
-}
-
-// virtio vm network interface
-type VirtIOInterface struct {
-	// InterfaceAttrs represents the basic network interface device properties of a vm
-	InterfaceAttrs `json:",inline"`
-}
-
-// rtl8139 vm network interface
-type RTL8139Interface struct {
-	// InterfaceAttrs represents the basic network interface device properties of a vm
-	InterfaceAttrs `json:",inline"`
-}
-
-// Represents the basic network interface device properties of a vm
-type InterfaceAttrs struct {
-	// MAC address of the vm network interface
-	// Defaults to a random generated mac
-	// +optional
-	MAC string `json:"mac,omitempty"`
-}
-
-// Only one of its members may be specified.
-type InterfaceSource struct {
-	// Name of the interface
-	Name string `json:"name"`
-	// PodNetwork indicates that the interface target device will be connected to the pod network
-	PodNetwork *PodNetworkSource `json:"podNetwork,omitempty"`
-}
-
-// Represents an interface source, connected to the pod network
-type PodNetworkSource struct{}
 
 // Exactly one of its members must be set.
 type ClockOffset struct {
@@ -530,7 +473,7 @@ type I6300ESBWatchdog struct {
 
 func NewMinimalDomainSpec() *DomainSpec {
 	domain := DomainSpec{}
-	domain.Resources.Initial = v1.ResourceList{
+	domain.Resources.Requests = v1.ResourceList{
 		v1.ResourceMemory: resource.MustParse("8192Ki"),
 	}
 	domain.Devices = Devices{}

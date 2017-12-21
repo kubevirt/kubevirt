@@ -15,7 +15,7 @@ spec:
     spec:
       domain:
         resources:
-          initial:
+          requests:
             memory: 64M
         devices:
           disks:

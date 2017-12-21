@@ -518,7 +518,7 @@ func NewRandomVMWithNS(namespace string) *v1.VirtualMachine {
 
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "vda",
 		VolumeName: "vda",
@@ -587,7 +587,7 @@ func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
 
 func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "vda",
@@ -621,7 +621,7 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 
 func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "vda",

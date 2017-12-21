@@ -107,10 +107,6 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				SetDefaults_CDRomTarget(a.DiskDevice.CDRom)
 			}
 		}
-		for i := range in.Spec.Domain.Devices.Interfaces {
-			a := &in.Spec.Domain.Devices.Interfaces[i]
-			SetDefaults_InterfaceDevice(&a.InterfaceDevice)
-		}
 		if in.Spec.Domain.Devices.Watchdog != nil {
 			SetDefaults_Watchdog(in.Spec.Domain.Devices.Watchdog)
 			if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
@@ -196,10 +192,6 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 				if a.DiskDevice.CDRom != nil {
 					SetDefaults_CDRomTarget(a.DiskDevice.CDRom)
 				}
-			}
-			for i := range in.Spec.Template.Spec.Domain.Devices.Interfaces {
-				a := &in.Spec.Template.Spec.Domain.Devices.Interfaces[i]
-				SetDefaults_InterfaceDevice(&a.InterfaceDevice)
 			}
 			if in.Spec.Template.Spec.Domain.Devices.Watchdog != nil {
 				SetDefaults_Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog)

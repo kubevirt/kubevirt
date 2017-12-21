@@ -271,7 +271,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		}
 	}
 
-	if v, ok := vm.Spec.Domain.Resources.Initial[k8sv1.ResourceMemory]; ok {
+	if v, ok := vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
 		domain.Spec.Memory = QuantityToMegaByte(v)
 	}
 

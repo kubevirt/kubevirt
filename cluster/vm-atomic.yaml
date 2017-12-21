@@ -6,7 +6,7 @@ spec:
   terminationGracePeriodSeconds: 0
   domain:
     resources:
-      initial:
+      requests:
         memory: 1024M
     devices:
       disks:

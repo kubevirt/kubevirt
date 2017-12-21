@@ -59,14 +59,6 @@ func SetDefaults_DiskDevice(obj *DiskDevice) {
 	}
 }
 
-func SetDefaults_InterfaceDevice(obj *InterfaceDevice) {
-	if obj.E1000 == nil &&
-		obj.VIRTIO == nil &&
-		obj.RTL8139 == nil {
-		obj.RTL8139 = &RTL8139Interface{}
-	}
-}
-
 func SetDefaults_Watchdog(obj *Watchdog) {
 	if obj.I6300ESB == nil {
 		obj.I6300ESB = &I6300ESBWatchdog{}

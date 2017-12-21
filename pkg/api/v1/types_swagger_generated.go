@@ -24,7 +24,6 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vm.",
-		"interfaces":                    "List of interfaces/networks which can be attached to an interface inside the vm.",
 	}
 }
 

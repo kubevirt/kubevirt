@@ -237,22 +237,4 @@ var _ = Describe("Defaults", func() {
 		Expect(*timer.RTC.Enabled).To(BeTrue())
 		Expect(*timer.Hyperv.Enabled).To(BeTrue())
 	})
-
-	It("should set default interface, if unspecified", func() {
-		vm := &VirtualMachine{
-			Spec: VirtualMachineSpec{
-				Domain: &DomainSpec{
-					Devices: Devices{
-						Interfaces: []Interface{
-							{
-								Name: "myinterface",
-							},
-						},
-					},
-				},
-			},
-		}
-		SetObjectDefaults_VirtualMachine(vm)
-		Expect(vm.Spec.Domain.Devices.Interfaces[0].RTL8139).ToNot(BeNil())
-	})
 })

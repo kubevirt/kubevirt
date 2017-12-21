@@ -39,7 +39,7 @@ var exampleJSON = `{
   "spec": {
     "domain": {
       "resources": {
-        "initial": {
+        "requests": {
           "memory": "8Mi"
         }
       },
