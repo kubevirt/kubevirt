@@ -23,19 +23,20 @@ import (
 	goerror "errors"
 	"fmt"
 	"net"
+	"os/exec"
 	"reflect"
 	"strings"
 	"time"
 
-	"github.com/jeevatkm/go-model"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/kubernetes/staging/src/k8s.io/apimachinery/pkg/util/sets"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
@@ -552,7 +553,51 @@ func MapPersistentVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClien
 }
 
 func mapPVToDisk(disk *v1.Disk, pv *k8sv1.PersistentVolume) (*v1.Disk, error) {
-	if pv.Spec.ISCSI != nil {
+	if pv.Spec.Glusterfs != nil {
+		newDisk := v1.Disk{}
+		newDisk.Type = "network"
+		newDisk.Device = "disk"
+		newDisk.Target = disk.Target
+		newDisk.Driver = new(v1.DiskDriver)
+		newDisk.Driver.Type = "raw"
+		newDisk.Driver.Name = "qemu"
+
+		//Set Gluster Connection and libgfapi URI.
+		// VM image file name should be formatted or fetched to accomodate the vmspec name or UUID.
+		glusterImagePath := fmt.Sprintf("%s/vm-%d", pv.Spec.Glusterfs.Path, uuid.NewUUID())
+		ipAddress := ""
+		addrHosts := pv.Spec.PersistentVolumeSource.Glusterfs.endpoints
+		var addrlist []string
+		if addrHosts == nil {
+			return nil, fmt.Errorf("glusterfs: endpoint is nil")
+		}
+		addr := sets.String{}
+		if addrHosts.Subsets != nil {
+			for _, s := range addrHosts.Subsets {
+				for _, a := range s.Addresses {
+					if !addr.Has(a.IP) {
+						addr.Insert(a.IP)
+						addrlist = append(addrlist, a.IP)
+					}
+				}
+			}
+		}
+		if (len(addrlist) > 0) && (addrlist[0] != "") {
+			ipAddress = addrlist[0]
+		}
+		glusterURI := fmt.Sprintf("%s://%s:24007/%s", "gluster", ipAddress, glusterImagePath)
+		//TODO: Check if the file is present.
+		cmd := exec.Command("qemu-img", "create", glusterURI, "5G")
+		output, cmdErr := cmd.CombinedOutput()
+		if cmdErr != nil {
+
+			return nil, fmt.Errorf("failed to create qcow2 image in gluster server:%v, err: %v, output: %v", glusterURI, cmdErr, string(output))
+		}
+
+		newDisk.Source.Protocol = "gluster"
+		newDisk.Source.Name = glusterImagePath
+		return &newDisk, nil
+	} else if pv.Spec.ISCSI != nil {
 		newDisk := v1.Disk{}
 
 		newDisk.Type = "network"
