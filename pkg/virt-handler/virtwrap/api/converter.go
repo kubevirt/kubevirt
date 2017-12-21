@@ -148,12 +148,6 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
 
-func Convert_v1_TimerAttrs_To_api_Timer(source *v1.TimerAttrs, timer *Timer, c *ConverterContext) error {
-	timer.TickPolicy = string(source.TickPolicy)
-	timer.Present = boolToYesNo(source.Enabled, true)
-	return nil
-}
-
 func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterContext) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
@@ -176,10 +170,8 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterC
 		}
 		if source.Timer.PIT != nil {
 			newTimer := Timer{Name: "pit"}
-			err := Convert_v1_TimerAttrs_To_api_Timer(source.Timer.PIT, &newTimer, c)
-			if err != nil {
-				return err
-			}
+			newTimer.Present = boolToYesNo(source.Timer.PIT.Enabled, true)
+			newTimer.TickPolicy = string(source.Timer.PIT.TickPolicy)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.KVM != nil {
@@ -189,10 +181,8 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterC
 		}
 		if source.Timer.HPET != nil {
 			newTimer := Timer{Name: "hpet"}
-			err := Convert_v1_TimerAttrs_To_api_Timer(source.Timer.HPET, &newTimer, c)
-			if err != nil {
-				return err
-			}
+			newTimer.Present = boolToYesNo(source.Timer.HPET.Enabled, true)
+			newTimer.TickPolicy = string(source.Timer.HPET.TickPolicy)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.Hyperv != nil {

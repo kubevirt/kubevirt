@@ -219,11 +219,11 @@ var _ = Describe("Defaults", func() {
 				Domain: &DomainSpec{
 					Clock: &Clock{
 						Timer: &Timer{
-							HPET:   &TimerAttrs{},
-							KVM:    &KVMTimerAttrs{},
-							PIT:    &TimerAttrs{},
-							RTC:    &RTCTimerAttrs{},
-							Hyperv: &HypervTimerAttrs{},
+							HPET:   &HPETTimer{},
+							KVM:    &KVMTimer{},
+							PIT:    &PITTimer{},
+							RTC:    &RTCTimer{},
+							Hyperv: &HypervTimer{},
 						},
 					},
 				},

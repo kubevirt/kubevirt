@@ -2175,7 +2175,19 @@
      }
     }
    },
-   "v1.HypervTimerAttrs": {
+   "v1.HPETTimer": {
+    "properties": {
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
+     },
+     "tickPolicy": {
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
+      "type": "string"
+     }
+    }
+   },
+   "v1.HypervTimer": {
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -2321,7 +2333,7 @@
      }
     }
    },
-   "v1.KVMTimerAttrs": {
+   "v1.KVMTimer": {
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -2663,6 +2675,18 @@
      }
     }
    },
+   "v1.PITTimer": {
+    "properties": {
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
+     },
+     "tickPolicy": {
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"discard\"",
+      "type": "string"
+     }
+    }
+   },
    "v1.PersistentVolumeClaimVolumeSource": {
     "description": "PersistentVolumeClaimVolumeSource references the user's PVC in the same namespace. This volume finds the bound PV and mounts that volume for the pod. A PersistentVolumeClaimVolumeSource is, essentially, a wrapper around another type of volume that is owned by someone else (the system).",
     "required": [
@@ -2709,14 +2733,14 @@
      }
     }
    },
-   "v1.RTCTimerAttrs": {
+   "v1.RTCTimer": {
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
       "type": "boolean"
      },
      "tickPolicy": {
-      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\"",
       "type": "string"
      },
      "track": {
@@ -2864,35 +2888,23 @@
     "properties": {
      "hpet": {
       "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
-      "$ref": "#/definitions/v1.TimerAttrs"
+      "$ref": "#/definitions/v1.HPETTimer"
      },
      "hyperv": {
       "description": "Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.",
-      "$ref": "#/definitions/v1.HypervTimerAttrs"
+      "$ref": "#/definitions/v1.HypervTimer"
      },
      "kvm": {
       "description": "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
-      "$ref": "#/definitions/v1.KVMTimerAttrs"
+      "$ref": "#/definitions/v1.KVMTimer"
      },
      "pit": {
       "description": "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
-      "$ref": "#/definitions/v1.TimerAttrs"
+      "$ref": "#/definitions/v1.PITTimer"
      },
      "rtc": {
       "description": "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
-      "$ref": "#/definitions/v1.RTCTimerAttrs"
-     }
-    }
-   },
-   "v1.TimerAttrs": {
-    "properties": {
-     "present": {
-      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
-      "type": "boolean"
-     },
-     "tickPolicy": {
-      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
-      "type": "string"
+      "$ref": "#/definitions/v1.RTCTimer"
      }
     }
    },

@@ -289,11 +289,11 @@ var _ = Describe("Schema", func() {
 			UTC: &ClockOffsetUTC{},
 		},
 		Timer: &Timer{
-			HPET:   &TimerAttrs{},
-			KVM:    &KVMTimerAttrs{},
-			PIT:    &TimerAttrs{},
-			RTC:    &RTCTimerAttrs{},
-			Hyperv: &HypervTimerAttrs{},
+			HPET:   &HPETTimer{},
+			KVM:    &KVMTimer{},
+			PIT:    &PITTimer{},
+			RTC:    &RTCTimer{},
+			Hyperv: &HypervTimer{},
 		},
 	}
 	exampleVM.Spec.Domain.Firmware = &Firmware{

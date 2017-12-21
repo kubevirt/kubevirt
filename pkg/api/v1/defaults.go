@@ -8,25 +8,31 @@ import (
 var _true = t(true)
 var _false = t(false)
 
-func SetDefaults_TimerAttrs(obj *TimerAttrs) {
+func SetDefaults_HPETTimer(obj *HPETTimer) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true
 	}
 }
 
-func SetDefaults_KVMTimerAttrs(obj *KVMTimerAttrs) {
+func SetDefaults_PITTimer(obj *PITTimer) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true
 	}
 }
 
-func SetDefaults_HypervTimerAttrs(obj *HypervTimerAttrs) {
+func SetDefaults_KVMTimer(obj *KVMTimer) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true
 	}
 }
 
-func SetDefaults_RTCTimerAttrs(obj *RTCTimerAttrs) {
+func SetDefaults_HypervTimer(obj *HypervTimer) {
+	if obj.Enabled == nil {
+		obj.Enabled = _true
+	}
+}
+
+func SetDefaults_RTCTimer(obj *RTCTimer) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true
 	}

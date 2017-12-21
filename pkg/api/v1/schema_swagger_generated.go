@@ -195,28 +195,35 @@ func (Timer) SwaggerDoc() map[string]string {
 	}
 }
 
-func (RTCTimerAttrs) SwaggerDoc() map[string]string {
+func (RTCTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
+		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\"",
 		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 		"track":      "Track the guest or the wall clock",
 	}
 }
 
-func (TimerAttrs) SwaggerDoc() map[string]string {
+func (HPETTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
 		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 	}
 }
 
-func (KVMTimerAttrs) SwaggerDoc() map[string]string {
+func (PITTimer) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"discard\"",
+		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+	}
+}
+
+func (KVMTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 	}
 }
 
-func (HypervTimerAttrs) SwaggerDoc() map[string]string {
+func (HypervTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 	}

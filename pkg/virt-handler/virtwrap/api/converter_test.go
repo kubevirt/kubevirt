@@ -61,23 +61,23 @@ var _ = Describe("Converter", func() {
 					UTC: &v1.ClockOffsetUTC{},
 				},
 				Timer: &v1.Timer{
-					HPET: &v1.TimerAttrs{
+					HPET: &v1.HPETTimer{
 						Enabled:    &_false,
-						TickPolicy: v1.TickPolicyDelay,
+						TickPolicy: v1.HPETTickPolicyDelay,
 					},
-					KVM: &v1.KVMTimerAttrs{
+					KVM: &v1.KVMTimer{
 						Enabled: &_true,
 					},
-					PIT: &v1.TimerAttrs{
+					PIT: &v1.PITTimer{
 						Enabled:    &_false,
-						TickPolicy: v1.TickPolicyDiscard,
+						TickPolicy: v1.PITTickPolicyDiscard,
 					},
-					RTC: &v1.RTCTimerAttrs{
+					RTC: &v1.RTCTimer{
 						Enabled:    &_true,
-						TickPolicy: v1.TickPolicyMerge,
+						TickPolicy: v1.RTCTickPolicyCatchup,
 						Track:      v1.TrackGuest,
 					},
-					Hyperv: &v1.HypervTimerAttrs{
+					Hyperv: &v1.HypervTimer{
 						Enabled: &_true,
 					},
 				},
@@ -344,7 +344,7 @@ var _ = Describe("Converter", func() {
     </watchdog>
   </devices>
   <clock offset="utc" adjustment="reset">
-    <timer name="rtc" tickpolicy="merge" present="yes" track="guest"></timer>
+    <timer name="rtc" tickpolicy="catchup" present="yes" track="guest"></timer>
     <timer name="pit" tickpolicy="discard" present="no"></timer>
     <timer name="kvmclock" present="yes"></timer>
     <timer name="hpet" tickpolicy="delay" present="no"></timer>

@@ -290,33 +290,55 @@ type Clock struct {
 // Represents all available timers in a vm
 type Timer struct {
 	// HPET (High Precision Event Timer) - multiple timers with periodic interrupts.
-	HPET *TimerAttrs `json:"hpet,omitempty"`
+	HPET *HPETTimer `json:"hpet,omitempty"`
 	// KVM 	(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.
-	KVM *KVMTimerAttrs `json:"kvm,omitempty"`
+	KVM *KVMTimer `json:"kvm,omitempty"`
 	// PIT (Programmable Interval Timer) - a timer with periodic interrupts.
-	PIT *TimerAttrs `json:"pit,omitempty"`
+	PIT *PITTimer `json:"pit,omitempty"`
 	// RTC (Real Time Clock) - a continuously running timer with periodic interrupts.
-	RTC *RTCTimerAttrs `json:"rtc,omitempty"`
+	RTC *RTCTimer `json:"rtc,omitempty"`
 	// Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.
-	Hyperv *HypervTimerAttrs `json:"hyperv,omitempty"`
+	Hyperv *HypervTimer `json:"hyperv,omitempty"`
 }
 
-// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
-type TickPolicy string
+// HPETTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+type HPETTickPolicy string
+
+// PITTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+type PITTickPolicy string
+
+// RTCTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+type RTCTickPolicy string
 
 const (
-	// TickPolicyDelay delivers ticks at a constant rate. The guest time will
+	// HPETTickPolicyDelay delivers ticks at a constant rate. The guest time will
 	// be delayed due to the late tick
-	TickPolicyDelay TickPolicy = "delay"
-	// TickPolicyCatchup Delivers ticks at a higher rate to catch up with the
+	HPETTickPolicyDelay HPETTickPolicy = "delay"
+	// HPETTickPolicyCatchup Delivers ticks at a higher rate to catch up with the
 	// missed tick. The guest time should not be delayed once catchup is complete
-	TickPolicyCatchup TickPolicy = "catchup"
-	// TickPolicyMerge merges the missed tick(s) into one tick and inject. The
+	HPETTickPolicyCatchup HPETTickPolicy = "catchup"
+	// HPETTickPolicyMerge merges the missed tick(s) into one tick and inject. The
 	// guest time may be delayed, depending on how the OS reacts to the merging
 	// of ticks
-	TickPolicyMerge TickPolicy = "merge"
-	// TickPolicyDiscard discards all missed ticks.
-	TickPolicyDiscard TickPolicy = "discard"
+	HPETTickPolicyMerge HPETTickPolicy = "merge"
+	// HPETTickPolicyDiscard discards all missed ticks.
+	HPETTickPolicyDiscard HPETTickPolicy = "discard"
+
+	// PITTickPolicyDelay delivers ticks at a constant rate. The guest time will
+	// be delayed due to the late tick
+	PITTickPolicyDelay PITTickPolicy = "delay"
+	// PITTickPolicyCatchup Delivers ticks at a higher rate to catch up with the
+	// missed tick. The guest time should not be delayed once catchup is complete
+	PITTickPolicyCatchup PITTickPolicy = "catchup"
+	// PITTickPolicyDiscard discards all missed ticks.
+	PITTickPolicyDiscard PITTickPolicy = "discard"
+
+	// RTCTickPolicyDelay delivers ticks at a constant rate. The guest time will
+	// be delayed due to the late tick
+	RTCTickPolicyDelay RTCTickPolicy = "delay"
+	// RTCTickPolicyCatchup Delivers ticks at a higher rate to catch up with the
+	// missed tick. The guest time should not be delayed once catchup is complete
+	RTCTickPolicyCatchup RTCTickPolicy = "catchup"
 )
 
 // RTCTimerTrack specifies from which source to track the time
@@ -329,10 +351,10 @@ const (
 	TrackWall RTCTimerTrack = "wall"
 )
 
-type RTCTimerAttrs struct {
+type RTCTimer struct {
 	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
-	// One of "delay", "catchup", "merge", "discard"
-	TickPolicy TickPolicy `json:"tickPolicy,omitempty"`
+	// One of "delay", "catchup"
+	TickPolicy RTCTickPolicy `json:"tickPolicy,omitempty"`
 	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
 	// Defaults to true
 	// +optional
@@ -341,24 +363,34 @@ type RTCTimerAttrs struct {
 	Track RTCTimerTrack `json:"track,omitempty"`
 }
 
-type TimerAttrs struct {
+type HPETTimer struct {
 	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
 	// One of "delay", "catchup", "merge", "discard"
-	TickPolicy TickPolicy `json:"tickPolicy,omitempty"`
+	TickPolicy HPETTickPolicy `json:"tickPolicy,omitempty"`
 	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
 	// Defaults to true
 	// +optional
 	Enabled *bool `json:"present,omitempty"`
 }
 
-type KVMTimerAttrs struct {
+type PITTimer struct {
+	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+	// One of "delay", "catchup", "discard"
+	TickPolicy PITTickPolicy `json:"tickPolicy,omitempty"`
 	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
 	// Defaults to true
 	// +optional
 	Enabled *bool `json:"present,omitempty"`
 }
 
-type HypervTimerAttrs struct {
+type KVMTimer struct {
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
+}
+
+type HypervTimer struct {
 	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
 	// Defaults to true
 	// +optional

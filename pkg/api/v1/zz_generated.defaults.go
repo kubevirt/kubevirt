@@ -46,19 +46,19 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 		if in.Spec.Domain.Clock != nil {
 			if in.Spec.Domain.Clock.Timer != nil {
 				if in.Spec.Domain.Clock.Timer.HPET != nil {
-					SetDefaults_TimerAttrs(in.Spec.Domain.Clock.Timer.HPET)
+					SetDefaults_HPETTimer(in.Spec.Domain.Clock.Timer.HPET)
 				}
 				if in.Spec.Domain.Clock.Timer.KVM != nil {
-					SetDefaults_KVMTimerAttrs(in.Spec.Domain.Clock.Timer.KVM)
+					SetDefaults_KVMTimer(in.Spec.Domain.Clock.Timer.KVM)
 				}
 				if in.Spec.Domain.Clock.Timer.PIT != nil {
-					SetDefaults_TimerAttrs(in.Spec.Domain.Clock.Timer.PIT)
+					SetDefaults_PITTimer(in.Spec.Domain.Clock.Timer.PIT)
 				}
 				if in.Spec.Domain.Clock.Timer.RTC != nil {
-					SetDefaults_RTCTimerAttrs(in.Spec.Domain.Clock.Timer.RTC)
+					SetDefaults_RTCTimer(in.Spec.Domain.Clock.Timer.RTC)
 				}
 				if in.Spec.Domain.Clock.Timer.Hyperv != nil {
-					SetDefaults_HypervTimerAttrs(in.Spec.Domain.Clock.Timer.Hyperv)
+					SetDefaults_HypervTimer(in.Spec.Domain.Clock.Timer.Hyperv)
 				}
 			}
 		}
@@ -136,19 +136,19 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 			if in.Spec.Template.Spec.Domain.Clock != nil {
 				if in.Spec.Template.Spec.Domain.Clock.Timer != nil {
 					if in.Spec.Template.Spec.Domain.Clock.Timer.HPET != nil {
-						SetDefaults_TimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.HPET)
+						SetDefaults_HPETTimer(in.Spec.Template.Spec.Domain.Clock.Timer.HPET)
 					}
 					if in.Spec.Template.Spec.Domain.Clock.Timer.KVM != nil {
-						SetDefaults_KVMTimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.KVM)
+						SetDefaults_KVMTimer(in.Spec.Template.Spec.Domain.Clock.Timer.KVM)
 					}
 					if in.Spec.Template.Spec.Domain.Clock.Timer.PIT != nil {
-						SetDefaults_TimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.PIT)
+						SetDefaults_PITTimer(in.Spec.Template.Spec.Domain.Clock.Timer.PIT)
 					}
 					if in.Spec.Template.Spec.Domain.Clock.Timer.RTC != nil {
-						SetDefaults_RTCTimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.RTC)
+						SetDefaults_RTCTimer(in.Spec.Template.Spec.Domain.Clock.Timer.RTC)
 					}
 					if in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv != nil {
-						SetDefaults_HypervTimerAttrs(in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv)
+						SetDefaults_HypervTimer(in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv)
 					}
 				}
 			}
