@@ -63,7 +63,7 @@ var _ = Describe("CloudInit UserData", func() {
 
 		_, err = expecter.ExpectBatch([]expect.Batcher{
 			&expect.BExp{R: magicStr},
-		}, 60*time.Second)
+		}, 120*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -80,7 +80,7 @@ var _ = Describe("CloudInit UserData", func() {
 			obj := LaunchVM(vm)
 			VerifyUserDataVM(vm, obj, magicStr)
 			close(done)
-		}, 90)
+		}, 180)
 
 		It("should launch ephemeral vm with cloud-init data source NoCloud", func(done Done) {
 			magicStr := "printed from cloud-init userdata"
@@ -90,7 +90,7 @@ var _ = Describe("CloudInit UserData", func() {
 			obj := LaunchVM(vm)
 			VerifyUserDataVM(vm, obj, magicStr)
 			close(done)
-		}, 90)
+		}, 180)
 
 		It("should launch VMs with user-data in k8s secret", func(done Done) {
 			magicStr := "printed from cloud-init userdata"
@@ -127,6 +127,6 @@ var _ = Describe("CloudInit UserData", func() {
 			VerifyUserDataVM(vm, obj, magicStr)
 
 			close(done)
-		}, 90)
+		}, 180)
 	})
 })
