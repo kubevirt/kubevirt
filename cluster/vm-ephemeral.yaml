@@ -1,31 +1,19 @@
-metadata:
-  name: testvm-ephemeral
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
+metadata:
+  name: testvm-ephemeral
 spec:
-  terminationGracePeriodSeconds: 0
   domain:
+    resources:
+      requests:
+        memory: 64M
     devices:
-      graphics:
-      - type: spice
       disks:
-      - type: RegistryDisk:v1alpha
-        source:
-          name: kubevirt/cirros-registry-disk-demo:devel
-        target:
+      - name: registrydisk
+        volumeName: registryvolume
+        disk:
           dev: vda
-      interfaces:
-      - source:
-          network: default
-        type: network
-      video:
-      - type: qxl
-      consoles:
-      - type: pty
-    memory:
-      unit: MB
-      value: 64
-    os:
-      type:
-        os: hvm
-    type: qemu
+  volumes:
+    - name: registryvolume
+      registryDisk:
+        image: kubevirt/cirros-registry-disk-demo:devel

@@ -172,21 +172,21 @@ var _ = Describe("ConfigDiskServer", func() {
 				domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
 				userData := "fake\nuser\ndata\n"
-				metaData := "fake\nmeta\ndata\n"
-				spec := &v1.CloudInitSpec{
-					NoCloudData: &v1.CloudInitDataSourceNoCloud{
-						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-						MetaDataBase64: base64.StdEncoding.EncodeToString([]byte(metaData)),
-					},
-				}
-				newDisk := v1.Disk{}
-				newDisk.Type = "file"
-				newDisk.Target = v1.DiskTarget{
-					Device: "vdb",
-				}
-				newDisk.CloudInit = spec
 
-				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "nocloud",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				})
+				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+					Name: "nocloud",
+					VolumeSource: v1.VolumeSource{
+						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+							UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+						},
+					},
+				})
 
 				i := 1
 				for ; i <= 10; i++ {

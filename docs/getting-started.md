@@ -140,6 +140,8 @@ go get -u github.com/golang/mock/gomock
 go get -u github.com/rmohr/mock/mockgen
 go get -u github.com/rmohr/go-swagger-utils/swagger-doc
 go get github.com/onsi/ginkgo/ginkgo
+go get -u k8s.io/code-generator/cmd/deepcopy-gen
+go get -u k8s.io/code-generator/cmd/defaulter-gen
 ```
 
 Then regenerate the code:

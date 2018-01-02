@@ -62,7 +62,7 @@ func newVirtualMachine(virtualmachineName string, label map[string]string, owner
 			Labels:    label,
 			Namespace: metav1.NamespaceDefault,
 		},
-		Spec: virtv1.VMSpec{},
+		Spec: virtv1.VirtualMachineSpec{},
 	}
 	if owner != nil {
 		vm.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}

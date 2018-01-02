@@ -4,7 +4,7 @@ package v1
 
 func (VirtualMachine) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+		"":       "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"spec":   "VM Spec contains the VM specification.",
 		"status": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
 	}
@@ -12,30 +12,31 @@ func (VirtualMachine) SwaggerDoc() map[string]string {
 
 func (VirtualMachineList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineList is a list of VirtualMachines",
+		"": "VirtualMachineList is a list of VirtualMachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 	}
 }
 
-func (VMSpec) SwaggerDoc() map[string]string {
+func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                              "VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.\nIt is expected that v1.DomainSpec will be merged into this structure.",
-		"domain":                        "Domain is the actual libvirt domain.",
-		"nodeSelector":                  "If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.",
+		"":                              "VirtualMachineSpec is a description of a VirtualMachine.",
+		"domain":                        "Specification of the desired behavior of the VirtualMachine on the host.",
+		"nodeSelector":                  "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
+		"volumes":                       "List of volumes that can be mounted by disks belonging to the vm.",
 	}
 }
 
 func (Affinity) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "Affinity groups all the affinity rules related to a VM",
-		"nodeAffinity": "Host affinity support",
+		"nodeAffinity": "Node affinity support",
 	}
 }
 
-func (VMStatus) SwaggerDoc() map[string]string {
+func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "VMStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
+		"":                  "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
 		"nodeName":          "NodeName is the name where the VM is currently running.",
 		"migrationNodeName": "MigrationNodeName is the node where the VM is live migrating to.",
 		"conditions":        "Conditions are specific points in VM's pod runtime.",
@@ -44,16 +45,18 @@ func (VMStatus) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VMGraphics) SwaggerDoc() map[string]string {
+func (VirtualMachineGraphics) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (VMCondition) SwaggerDoc() map[string]string {
+func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
 func (Spice) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
 }
 
 func (SpiceInfo) SwaggerDoc() map[string]string {
@@ -62,7 +65,7 @@ func (SpiceInfo) SwaggerDoc() map[string]string {
 
 func (Migration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "A Migration is a job that moves a Virtual Machine from one node to another",
+		"": "A Migration is a job that moves a Virtual Machine from one node to another\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 	}
 }
 
@@ -88,7 +91,7 @@ func (MigrationStatus) SwaggerDoc() map[string]string {
 
 func (MigrationList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "A list of Migrations",
+		"": "A list of Migrations\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 	}
 }
 
@@ -100,7 +103,7 @@ func (MigrationHostInfo) SwaggerDoc() map[string]string {
 
 func (VirtualMachineReplicaSet) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+		"":       "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"spec":   "VM Spec contains the VM specification.",
 		"status": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
 	}
@@ -108,7 +111,7 @@ func (VirtualMachineReplicaSet) SwaggerDoc() map[string]string {
 
 func (VirtualMachineReplicaSetList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VMList is a list of VMs",
+		"": "VMList is a list of VMs\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 	}
 }
 

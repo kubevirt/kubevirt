@@ -21,7 +21,6 @@ package tests
 
 import (
 	"encoding/base64"
-	goerrors "errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -46,6 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 )
 
@@ -168,10 +168,24 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
+			if event.Type == string(WarningEvent) {
+				log.Log.Reason(fmt.Errorf("Unexpected Warning event recieved.")).Error(event.Message)
+			} else {
+				log.Log.Infof(event.Message)
+			}
 			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event recieved.")
 			return processFunc(event)
 		}
 
+	} else {
+		f = func(event *k8sv1.Event) bool {
+			if event.Type == string(WarningEvent) {
+				log.Log.Reason(fmt.Errorf("Unexpected Warning event recieved.")).Error(event.Message)
+			} else {
+				log.Log.Infof(event.Message)
+			}
+			return processFunc(event)
+		}
 	}
 
 	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
@@ -239,7 +253,6 @@ func AfterTestSuitCleanup() {
 	deletePVC("cirros", true)
 	deletePV("cirros", true)
 
-	deleteIscsiSecrets()
 	removeNamespaces()
 }
 
@@ -249,6 +262,10 @@ func BeforeTestCleanup() {
 }
 
 func BeforeTestSuitSetup() {
+
+	log.InitializeLogging("tests")
+	log.Log.SetIOWriter(GinkgoWriter)
+
 	createNamespaces()
 	createIscsiSecrets()
 
@@ -350,11 +367,11 @@ func newPV(os string, lun int32, withAuth bool) *k8sv1.PersistentVolume {
 	PanicOnError(err)
 
 	name := fmt.Sprintf("iscsi-disk-%s-for-tests", os)
-	target := "iscsi-demo-target.kube-system.svc.cluster.local"
+	target := "iscsi-demo-target.kube-system"
 	label := os
 	if withAuth {
 		name = fmt.Sprintf("iscsi-auth-disk-%s-for-tests", os)
-		target = "iscsi-auth-demo-target.kube-system.svc.cluster.local"
+		target = "iscsi-auth-demo-target.kube-system"
 		label = fmt.Sprintf("%s-auth", os)
 	}
 
@@ -439,18 +456,6 @@ func removeNamespaces() {
 	}
 }
 
-func deleteIscsiSecrets() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	for _, namespace := range testNamespaces {
-		err = virtCli.CoreV1().Secrets(namespace).Delete("iscsi-demo-secret", nil)
-		if !errors.IsNotFound(err) {
-			PanicOnError(err)
-		}
-	}
-}
-
 func createIscsiSecrets() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -513,137 +518,128 @@ func NewRandomVMWithNS(namespace string) *v1.VirtualMachine {
 
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
-	vm.Spec.Domain.Memory.Value = 64
-	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Type:   "RegistryDisk:v1alpha",
-		Device: "disk",
-		Source: v1.DiskSource{
-			Name: containerImage,
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "vda",
+		VolumeName: "vda",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Device: "vda",
+			},
 		},
-		Target: v1.DiskTarget{
-			Device: "vda",
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: "vda",
+		VolumeSource: v1.VolumeSource{
+			RegistryDisk: &v1.RegistryDiskSource{
+				Image: containerImage,
+			},
 		},
-	}}
+	})
 	return vm
 }
 
-func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, cloudInitDataSource, userData string) (*v1.VirtualMachine, error) {
+func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachine {
 	vm := NewRandomVMWithEphemeralDisk(containerImage)
-	vm.Spec.Domain.Devices.Serials = []v1.Serial{
-		{
-			Type: "pty",
-			Target: &v1.SerialTarget{
-				Port: newUInt(0),
+
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "vdb",
+		VolumeName: "vdb",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Device: "vdb",
 			},
 		},
-	}
-	vm.Spec.Domain.Devices.Consoles = []v1.Console{
-		{
-			Type: "pty",
-			Target: &v1.ConsoleTarget{
-				Type: newString("serial"),
-				Port: newUInt(0),
-			},
-		},
-	}
-	switch cloudInitDataSource {
-	case "noCloud":
-		spec := &v1.CloudInitSpec{
-			NoCloudData: &v1.CloudInitDataSourceNoCloud{
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: "vdb",
+		VolumeSource: v1.VolumeSource{
+			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 			},
-		}
-		newDisk := v1.Disk{}
-		newDisk.Type = "file"
-		newDisk.Target = v1.DiskTarget{
-			Device: "vdb",
-		}
-		newDisk.CloudInit = spec
-
-		vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
-		return vm, nil
-	}
-
-	return nil, goerrors.New("Unknown cloud-init data source")
+		},
+	})
+	return vm
 }
 
-func NewRandomVMWithUserData(cloudInitDataSource string, userData string) (*v1.VirtualMachine, error) {
-	switch cloudInitDataSource {
-	case "noCloud":
-		vm := NewRandomVMWithSerialConsole()
-		spec := &v1.CloudInitSpec{
-			NoCloudData: &v1.CloudInitDataSourceNoCloud{
+func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
+	vm := NewRandomVMWithPVC("disk-cirros")
+
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "vdb",
+		VolumeName: "vdb",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Device: "vdb",
+			},
+		},
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: "vdb",
+		VolumeSource: v1.VolumeSource{
+			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 			},
-		}
-		newDisk := v1.Disk{}
-		newDisk.Type = "file"
-		newDisk.Target = v1.DiskTarget{
-			Device: "vdb",
-		}
-		newDisk.CloudInit = spec
-
-		vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, newDisk)
-		return vm, nil
-	}
-
-	return nil, goerrors.New("Unknown cloud-init data source")
+		},
+	})
+	return vm
 }
 
 func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
-	vm.Spec.Domain.Memory.Value = 64
-	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Type:     "network",
-		Snapshot: "external",
-		Device:   "disk",
-		Driver: &v1.DiskDriver{
-			Name: "qemu",
-			Type: "raw",
-		},
-		Target: v1.DiskTarget{
-			Device: "vda",
-		},
-		Source: v1.DiskSource{
-			Host: &v1.DiskSourceHost{
-				Name: "iscsi-demo-target.kube-system",
-				Port: "3260",
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "vda",
+		VolumeName: "vda",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Device: "vda",
 			},
-			Protocol: "iscsi",
-			Name:     fmt.Sprintf("iqn.2017-01.io.kubevirt:sn.42/%d", lun),
 		},
-	}}
+	})
+
+	volumeSource := v1.VolumeSource{
+		ISCSI: &k8sv1.ISCSIVolumeSource{
+			TargetPortal: "iscsi-demo-target.kube-system:3260",
+			IQN:          "iqn.2017-01.io.kubevirt:sn.42",
+			Lun:          int32(lun),
+		},
+	}
 
 	if withAuth {
-		vm.Spec.Domain.Devices.Disks[0].Auth = &v1.DiskAuth{
-			Username: "demouser",
-			Secret: &v1.DiskSecret{
-				Type:  "iscsi",
-				Usage: "iscsi-demo-secret",
-			},
-		}
-		vm.Spec.Domain.Devices.Disks[0].Source.Host.Name = "iscsi-auth-demo-target.kube-system"
+		volumeSource.ISCSI.TargetPortal = "iscsi-auth-demo-target.kube-system:3260"
+		volumeSource.ISCSI.SecretRef = &k8sv1.LocalObjectReference{Name: "iscsi-demo-secret"}
 	}
+
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name:         "vda",
+		VolumeSource: volumeSource,
+	})
 	return vm
 }
 
 func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	vm := NewRandomVM()
-	vm.Spec.Domain.Memory.Unit = "MB"
-	vm.Spec.Domain.Memory.Value = 64
-	vm.Spec.Domain.Devices.Disks = []v1.Disk{{
-		Type:     "PersistentVolumeClaim",
-		Snapshot: "external",
-		Device:   "disk",
-		Target: v1.DiskTarget{
-			Device: "vda",
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "vda",
+		VolumeName: "vda",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Device: "vda",
+			},
 		},
-		Source: v1.DiskSource{
-			Name: claimName,
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: "vda",
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			},
 		},
-	}}
+	})
 	return vm
 }
 
@@ -654,67 +650,13 @@ func NewRandomMigrationForVm(vm *v1.VirtualMachine) *v1.Migration {
 
 func NewRandomVMWithWatchdog() *v1.VirtualMachine {
 	vm := NewRandomVMWithDirectLun(2, false)
-	vm.Spec.Domain.Devices.Serials = []v1.Serial{
-		{
-			Type: "pty",
-			Target: &v1.SerialTarget{
-				Port: newUInt(0),
-			},
-		},
-	}
-	vm.Spec.Domain.Devices.Consoles = []v1.Console{
-		{
-			Type: "pty",
-			Target: &v1.ConsoleTarget{
-				Type: newString("serial"),
-				Port: newUInt(0),
-			},
-		},
-	}
+
 	vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
-		Model:  "i6300esb",
-		Action: "poweroff",
-	}
-
-	return vm
-}
-func NewRandomVMWithSerialConsole() *v1.VirtualMachine {
-	vm := NewRandomVMWithPVC("disk-cirros")
-	vm.Spec.Domain.Devices.Serials = []v1.Serial{
-		{
-			Type: "pty",
-			Target: &v1.SerialTarget{
-				Port: newUInt(0),
+		Name: "mywatchdog",
+		WatchdogDevice: v1.WatchdogDevice{
+			I6300ESB: &v1.I6300ESBWatchdog{
+				Action: v1.WatchdogActionPoweroff,
 			},
-		},
-	}
-	vm.Spec.Domain.Devices.Consoles = []v1.Console{
-		{
-			Type: "pty",
-			Target: &v1.ConsoleTarget{
-				Type: newString("serial"),
-				Port: newUInt(0),
-			},
-		},
-	}
-	return vm
-}
-
-func NewRandomVMWithSpice() *v1.VirtualMachine {
-	vm := NewRandomVM()
-	vm.Spec.Domain.Devices.Video = []v1.Video{
-		{
-			Type:   "qxl",
-			Heads:  newUInt(1),
-			Ram:    newUInt(65563),
-			VGAMem: newUInt(16384),
-			VRam:   newUInt(8192),
-		},
-	}
-	vm.Spec.Domain.Devices.Graphics = []v1.Graphics{
-		{
-			DefaultMode: "any",
-			Type:        "spice",
 		},
 	}
 	return vm
@@ -739,15 +681,8 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 		fetchedVM := obj.(*v1.VirtualMachine)
 		nodeName = fetchedVM.Status.NodeName
 
-		graphicDeviceCount := 0
-		for _, src := range fetchedVM.Spec.Domain.Devices.Graphics {
-			if src.Type == "spice" || src.Type == "vnc" {
-				graphicDeviceCount++
-			}
-		}
-
 		// wait on both phase and graphics
-		if len(fetchedVM.Status.Graphics) == graphicDeviceCount &&
+		if len(fetchedVM.Status.Graphics) == 1 &&
 			fetchedVM.Status.Phase == v1.Running {
 			return true
 		}
@@ -782,15 +717,7 @@ func GetReadyNodes() []k8sv1.Node {
 	return readyNodes
 }
 
-func newUInt(x uint) *uint {
-	return &x
-}
-
 func NewInt32(x int32) *int32 {
-	return &x
-}
-
-func newString(x string) *string {
 	return &x
 }
 

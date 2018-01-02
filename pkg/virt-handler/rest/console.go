@@ -26,13 +26,13 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	"github.com/libvirt/libvirt-go"
-	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/util"
 )
 
 var upgrader = websocket.Upgrader{
@@ -54,7 +54,7 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	namespace := request.PathParameter("namespace")
 	vm := v1.NewVMReferenceFromNameWithNS(namespace, vmName)
 	logger := log.Log.Object(vm)
-	domain, err := t.connection.LookupDomainByName(cache.VMNamespaceKeyFunc(vm))
+	domain, err := t.connection.LookupDomainByName(api.VMNamespaceKeyFunc(vm))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Reason(err).Error("Domain not found.")
@@ -68,13 +68,14 @@ func (t *Console) Console(request *restful.Request, response *restful.Response) 
 	}
 	defer domain.Free()
 
-	uid, err := domain.GetUUIDString()
+	// Fetch metadata to get the VM UID
+	spec, err := util.GetDomainSpecWithFlags(domain, libvirt.DOMAIN_XML_INACTIVE)
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
 		logger.Reason(err).Error("Failed to look up domain UID.")
 		return
 	}
-	vm.GetObjectMeta().SetUID(types.UID(uid))
+	vm.GetObjectMeta().SetUID(spec.Metadata.KubeVirt.UID)
 	logger = log.Log.Object(vm)
 
 	logger.Infof("Opening connection to console %s", console)

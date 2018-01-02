@@ -9,6 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 var testdnsmasq *DNSmasqInstance
@@ -55,6 +57,8 @@ func (o *MockOSHandler) killProcessIfExist(pid int) error {
 }
 
 var _ = Describe("DHCP", func() {
+
+	log.Log.SetIOWriter(GinkgoWriter)
 
 	var tempDir string
 

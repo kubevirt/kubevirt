@@ -20,6 +20,8 @@
 package v1
 
 //go:generate swagger-doc
+//go:generate deepcopy-gen -i . --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
+//go:generate defaulter-gen -i . --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
@@ -28,10 +30,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-
-	"github.com/jeevatkm/go-model"
-	"github.com/satori/go.uuid"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -73,12 +71,12 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineList{},
 		&metav1.ListOptions{},
 		&metav1.DeleteOptions{},
-		&Spice{},
 		&Migration{},
 		&MigrationList{},
 		&VirtualMachineReplicaSet{},
 		&VirtualMachineReplicaSetList{},
 		&metav1.GetOptions{},
+		&Spice{},
 	)
 	return nil
 }
@@ -96,118 +94,66 @@ func init() {
 	).Announce(groupFactoryRegistry).RegisterAndEnable(registry, scheme.Scheme); err != nil {
 		panic(err)
 	}
-
-	// TODO the whole mapping registration can be done be an automatic process with reflection
-	model.AddConversion((*uuid.UUID)(nil), (*string)(nil), func(in reflect.Value) (reflect.Value, error) {
-		return reflect.ValueOf(in.Interface().(uuid.UUID).String()), nil
-	})
-	model.AddConversion((*string)(nil), (*uuid.UUID)(nil), func(in reflect.Value) (reflect.Value, error) {
-		return reflect.ValueOf(uuid.FromStringOrNil(in.String())), nil
-	})
 }
 
 // VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VM Spec contains the VM specification.
-	Spec VMSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VM is doing. It contains information available to controllers and users.
-	Status VMStatus `json:"status,omitempty"`
-}
-
-func (in *VirtualMachine) DeepCopyInto(out *VirtualMachine) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *VirtualMachine) DeepCopy() *VirtualMachine {
-	if in == nil {
-		return nil
-	}
-	out := new(VirtualMachine)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *VirtualMachine) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
+	Status VirtualMachineStatus `json:"status,omitempty"`
 }
 
 // VirtualMachineList is a list of VirtualMachines
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	ListMeta        metav1.ListMeta  `json:"metadata,omitempty"`
 	Items           []VirtualMachine `json:"items"`
 }
 
-func (in *VirtualMachineList) DeepCopyInto(out *VirtualMachineList) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *VirtualMachineList) DeepCopy() *VirtualMachineList {
-	if in == nil {
-		return nil
-	}
-	out := new(VirtualMachineList)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *VirtualMachineList) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
-}
-
-// VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.
-// It is expected that v1.DomainSpec will be merged into this structure.
-type VMSpec struct {
-	// Domain is the actual libvirt domain.
-	Domain *DomainSpec `json:"domain,omitempty"`
-	// If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.
+// VirtualMachineSpec is a description of a VirtualMachine.
+type VirtualMachineSpec struct {
+	// Specification of the desired behavior of the VirtualMachine on the host.
+	Domain DomainSpec `json:"domain"`
+	// NodeSelector is a selector which must be true for the vm to fit on a node.
+	// Selector which must match a node's labels for the vm to be scheduled on that node.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// If affinity is specifies, obey all the affinity rules
 	Affinity *Affinity `json:"affinity,omitempty"`
 	// Grace period observed after signalling a VM to stop after which the VM is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+	// List of volumes that can be mounted by disks belonging to the vm.
+	Volumes []Volume `json:"volumes,omitempty"`
 }
 
 // Affinity groups all the affinity rules related to a VM
 type Affinity struct {
-	// Host affinity support
+	// Node affinity support
 	NodeAffinity *k8sv1.NodeAffinity `json:"nodeAffinity,omitempty"`
 }
 
-// VMStatus represents information about the status of a VM. Status may trail the actual
+// VirtualMachineStatus represents information about the status of a VM. Status may trail the actual
 // state of a system.
-type VMStatus struct {
+type VirtualMachineStatus struct {
 	// NodeName is the name where the VM is currently running.
 	NodeName string `json:"nodeName,omitempty"`
 	// MigrationNodeName is the node where the VM is live migrating to.
 	MigrationNodeName string `json:"migrationNodeName,omitempty"`
 	// Conditions are specific points in VM's pod runtime.
-	Conditions []VMCondition `json:"conditions,omitempty"`
+	Conditions []VirtualMachineCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
 	Phase VMPhase `json:"phase,omitempty"`
 	// Graphics represent the details of available graphical consoles.
-	Graphics []VMGraphics `json:"graphics" optional:"true"`
+	Graphics []VirtualMachineGraphics `json:"graphics" optional:"true"`
 }
 
-type VMGraphics struct {
+type VirtualMachineGraphics struct {
 	Type string `json:"type"`
 	Host string `json:"host"`
 	Port int32  `json:"port"`
@@ -283,7 +229,7 @@ const (
 	VirtualMachineSynchronized VirtualMachineConditionType = "Synchronized"
 )
 
-type VMCondition struct {
+type VirtualMachineCondition struct {
 	Type               VirtualMachineConditionType `json:"type"`
 	Status             k8sv1.ConditionStatus       `json:"status"`
 	LastProbeTime      metav1.Time                 `json:"lastProbeTime,omitempty"`
@@ -332,13 +278,13 @@ const (
 
 func NewVM(name string, uid types.UID) *VirtualMachine {
 	return &VirtualMachine{
-		Spec: VMSpec{},
+		Spec: VirtualMachineSpec{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			UID:       uid,
 			Namespace: k8sv1.NamespaceDefault,
 		},
-		Status: VMStatus{},
+		Status: VirtualMachineStatus{},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       VirtualMachineGroupVersionKind.Kind,
@@ -381,7 +327,7 @@ func NewMinimalVM(vmName string) *VirtualMachine {
 func NewMinimalVMWithNS(namespace string, vmName string) *VirtualMachine {
 	precond.CheckNotEmpty(vmName)
 	vm := NewVMReferenceFromNameWithNS(namespace, vmName)
-	vm.Spec = VMSpec{Domain: NewMinimalDomainSpec()}
+	vm.Spec = VirtualMachineSpec{Domain: NewMinimalDomainSpec()}
 	vm.TypeMeta = metav1.TypeMeta{
 		APIVersion: GroupVersion.String(),
 		Kind:       "VirtualMachine",
@@ -406,35 +352,11 @@ func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine
 	return vm
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Spice struct {
 	metav1.TypeMeta `json:",inline" ini:"-"`
 	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty" ini:"-"`
 	Info            SpiceInfo         `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
-}
-
-func (in *Spice) DeepCopyInto(out *Spice) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *Spice) DeepCopy() *Spice {
-	if in == nil {
-		return nil
-	}
-	out := new(Spice)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *Spice) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
 }
 
 type SpiceInfo struct {
@@ -490,36 +412,12 @@ func NewMigrationReferenceFromName(namespace string, name string) *Migration {
 }
 
 // A Migration is a job that moves a Virtual Machine from one node to another
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Migration struct {
 	metav1.TypeMeta `json:",inline"`
 	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec            MigrationSpec     `json:"spec,omitempty" valid:"required"`
 	Status          MigrationStatus   `json:"status,omitempty"`
-}
-
-func (in *Migration) DeepCopyInto(out *Migration) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *Migration) DeepCopy() *Migration {
-	if in == nil {
-		return nil
-	}
-	out := new(Migration)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *Migration) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
 }
 
 // MigrationSpec is a description of a VM Migration
@@ -593,35 +491,11 @@ func (m *Migration) UnmarshalJSON(data []byte) error {
 }
 
 //A list of Migrations
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type MigrationList struct {
 	metav1.TypeMeta `json:",inline"`
 	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Migration     `json:"items"`
-}
-
-func (in *MigrationList) DeepCopyInto(out *MigrationList) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *MigrationList) DeepCopy() *MigrationList {
-	if in == nil {
-		return nil
-	}
-	out := new(MigrationList)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *MigrationList) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
 }
 
 // Required to satisfy Object interface
@@ -700,6 +574,7 @@ func PrepareVMNodeAntiAffinitySelectorRequirement(vm *VirtualMachine) k8sv1.Node
 }
 
 // VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineReplicaSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -710,6 +585,7 @@ type VirtualMachineReplicaSet struct {
 }
 
 // VMList is a list of VMs
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineReplicaSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	ListMeta        metav1.ListMeta            `json:"metadata,omitempty"`
@@ -772,7 +648,7 @@ const (
 type VMTemplateSpec struct {
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VM Spec contains the VM specification.
-	Spec VMSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
 }
 
 // Required to satisfy Object interface
@@ -817,54 +693,4 @@ func (vl *VirtualMachineReplicaSetList) GetObjectKind() schema.ObjectKind {
 // Required to satisfy ListMetaAccessor interface
 func (vl *VirtualMachineReplicaSetList) GetListMeta() meta.List {
 	return &vl.ListMeta
-}
-
-func (in *VirtualMachineReplicaSet) DeepCopyInto(out *VirtualMachineReplicaSet) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *VirtualMachineReplicaSet) DeepCopy() *VirtualMachineReplicaSet {
-	if in == nil {
-		return nil
-	}
-	out := new(VirtualMachineReplicaSet)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *VirtualMachineReplicaSet) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
-}
-
-func (in *VirtualMachineReplicaSetList) DeepCopyInto(out *VirtualMachineReplicaSetList) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *VirtualMachineReplicaSetList) DeepCopy() *VirtualMachineReplicaSetList {
-	if in == nil {
-		return nil
-	}
-	out := new(VirtualMachineReplicaSetList)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *VirtualMachineReplicaSetList) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
 }

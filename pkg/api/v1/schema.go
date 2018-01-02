@@ -19,346 +19,462 @@
 
 package v1
 
+import (
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
+)
+
 //go:generate swagger-doc
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
-// http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
-type CloudInitDataSourceNoCloud struct {
-	// Reference to a k8s secret that contains NoCloud userdata
-	UserDataSecretRef string `json:"userDataSecretRef,omitempty"`
-	// The NoCloud cloud-init userdata as a base64 encoded string
-	UserDataBase64 string `json:"userDataBase64"`
-	// The NoCloud cloud-init metadata as a base64 encoded string
-	MetaDataBase64 string `json:"metaDataBase64,omitempty"`
-}
-
-// Only one of the fields in the CloudInitSpec can be set
-type CloudInitSpec struct {
-	// Nocloud DataSource
-	NoCloudData *CloudInitDataSourceNoCloud `json:"nocloud"`
-
-	// Add future cloud init datasource structures below.
+// Represents a cloud-init nocloud user data source
+// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
+type CloudInitNoCloudSource struct {
+	// UserDataSecretRef references a k8s secret that contains NoCloud userdata
+	// + optional
+	UserDataSecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
+	// UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string
+	// + optional
+	UserDataBase64 string `json:"userDataBase64,omitempty"`
 }
 
 type DomainSpec struct {
-	Memory  Memory   `json:"memory"`
-	Type    string   `json:"type"`
-	OS      OS       `json:"os"`
-	SysInfo *SysInfo `json:"sysInfo,omitempty"`
-	Devices Devices  `json:"devices"`
-	Clock   *Clock   `json:"clock,omitempty"`
+	// Resources describes the Compute Resources required by this vm.
+	Resources ResourceRequirements `json:"resources,omitempty"`
+	// Firmware
+	// +optional
+	Firmware *Firmware `json:"firmware,omitempty"`
+	// Clock sets the clock and timers of the vm.
+	// +optional
+	Clock *Clock `json:"clock,omitempty"`
+	// Features like acpi, apic, hyperv
+	// +optional
+	Features *Features `json:"features,omitempty"`
+	// Devices allows adding disks, network interfaces, ...
+	Devices Devices `json:"devices"`
 }
 
-type Memory struct {
-	Value uint   `json:"value"`
-	Unit  string `json:"unit"`
+type ResourceRequirements struct {
+	// Requests is a description of the initial vm resources.
+	// Valid resource keys are "memory" and "cpu".
+	// +optional
+	Requests v1.ResourceList `json:"requests,omitempty"`
+}
+
+type Firmware struct {
+	// UID reported by the vm bios
+	// Defaults to a random generated uid
+	UID types.UID `json:"uid,omitempty"`
 }
 
 type Devices struct {
-	Emulator   string      `json:"emulator,omitempty"`
-	Interfaces []Interface `json:"interfaces,omitempty"`
-	Channels   []Channel   `json:"channels,omitempty"`
-	Video      []Video     `json:"video,omitempty"`
-	Graphics   []Graphics  `json:"graphics,omitempty"`
-	Ballooning *Ballooning `json:"memballoon,omitempty"`
-	Disks      []Disk      `json:"disks,omitempty"`
-	Serials    []Serial    `json:"serials,omitempty"`
-	Consoles   []Console   `json:"consoles,omitempty"`
-	Watchdog   *Watchdog   `json:"watchdog,omitempty"`
+	// Disks describes disks, cdroms, floppy and luns which are connected to the vm
+	Disks []Disk `json:"disks,omitempty"`
+	// Watchdog describes a watchdog device which can be added to the vm
+	Watchdog *Watchdog `json:"watchdog,omitempty"`
 }
-
-// BEGIN Disk -----------------------------
 
 type Disk struct {
-	Device    string         `json:"device,omitempty"`
-	Snapshot  string         `json:"snapshot,omitempty"`
-	Type      string         `json:"type"`
-	Source    DiskSource     `json:"source,omitempty"`
-	Target    DiskTarget     `json:"target"`
-	Serial    string         `json:"serial,omitempty"`
-	Driver    *DiskDriver    `json:"driver,omitempty"`
-	ReadOnly  *ReadOnly      `json:"readOnly,omitempty"`
-	Auth      *DiskAuth      `json:"auth,omitempty"`
-	CloudInit *CloudInitSpec `json:"cloudinit,omitempty"`
+	// Name is the device name
+	Name string `json:"name"`
+	// Name of the volume which is referenced
+	// Must match the Name of a Volume.
+	VolumeName string `json:"volumeName"`
+	// DiskDevice specifies as which device the disk should be added to the guest
+	// Defaults to Disk
+	DiskDevice `json:",inline"`
 }
 
-type DiskAuth struct {
-	Username string      `json:"username"`
-	Secret   *DiskSecret `json:"secret,omitempty"`
-}
-
-type DiskSecret struct {
-	Type  string `json:"type"`
-	Usage string `json:"usage"`
-}
-
-type ReadOnly struct{}
-
-type DiskSource struct {
-	File          string          `json:"file,omitempty"`
-	StartupPolicy string          `json:"startupPolicy,omitempty"`
-	Protocol      string          `json:"protocol,omitempty"`
-	Name          string          `json:"name,omitempty"`
-	Host          *DiskSourceHost `json:"host,omitempty"`
+// Represents the target of a volume to mount.
+// Only one of its members may be specified.
+type DiskDevice struct {
+	// Attach a volume as a disk to the vm
+	Disk *DiskTarget `json:"disk,omitempty"`
+	// Attach a volume as a LUN to the vm
+	LUN *LunTarget `json:"lun,omitempty"`
+	// Attach a volume as a floppy to the vm
+	Floppy *FloppyTarget `json:"floppy,omitempty"`
+	// Attach a volume as a cdrom to the vm
+	CDRom *CDRomTarget `json:"cdrom,omitempty"`
 }
 
 type DiskTarget struct {
-	Bus    string `json:"bus,omitempty"`
-	Device string `json:"dev"`
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev,omitempty"`
+	// ReadOnly
+	// Defaults to false
+	ReadOnly bool `json:"readonly,omitempty"`
 }
 
-type DiskDriver struct {
-	Cache       string `json:"cache,omitempty"`
-	ErrorPolicy string `json:"errorPolicy,omitempty"`
-	IO          string `json:"io,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Type        string `json:"type,omitempty"`
+type LunTarget struct {
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev,omitempty"`
+	// ReadOnly
+	// Defaults to false
+	ReadOnly bool `json:"readonly,omitempty"`
 }
 
-type DiskSourceHost struct {
+type FloppyTarget struct {
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev,omitempty"`
+	// ReadOnly
+	// Defaults to false
+	ReadOnly bool `json:"readonly,omitempty"`
+	// Tray indicates if the tray of the device is open or closed.
+	// Allowed values are "open" and "closed"
+	// Defaults to closed
+	// +optional
+	Tray TrayState `json:"tray,omitempty"`
+}
+
+// TrayState indicates if a tray of a cdrom or floppy is open or closed
+type TrayState string
+
+const (
+	// TrayStateOpen indicates that the tray of a cdrom or floppy is open
+	TrayStateOpen TrayState = "open"
+	// TrayStateClosed indicates that the tray of a cdrom or floppy is closed
+	TrayStateClosed TrayState = "closed"
+)
+
+type CDRomTarget struct {
+	// Device indicates the "logical" device name. The actual device name
+	// specified is not guaranteed to map to the device name in the guest OS. Treat
+	// it as a device ordering hint.
+	Device string `json:"dev,omitempty"`
+	// ReadOnly
+	// Defaults to true
+	ReadOnly *bool `json:"readonly,omitempty"`
+	// Tray indicates if the tray of the device is open or closed.
+	// Allowed values are "open" and "closed"
+	// Defaults to closed
+	// +optional
+	Tray TrayState `json:"tray,omitempty"`
+}
+
+// Volume represents a named volume in a vm.
+type Volume struct {
+	// Volume's name.
+	// Must be a DNS_LABEL and unique within the vm.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
 	Name string `json:"name"`
-	Port string `json:"port,omitempty"`
+	// VolumeSource represents the location and type of the mounted volume.
+	// Defaults to Disk, if no type is specified
+	VolumeSource `json:",inline"`
 }
 
-// END Disk -----------------------------
-
-// BEGIN Serial -----------------------------
-
-type Serial struct {
-	Type   string        `json:"type"`
-	Target *SerialTarget `json:"target,omitempty"`
+// Represents the source of a volume to mount.
+// Only one of its members may be specified.
+type VolumeSource struct {
+	// ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.
+	// +optional
+	ISCSI *v1.ISCSIVolumeSource `json:"iscsi,omitempty"`
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the vm via qemu.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	// CloudInitNoCloud represents a cloud-init NoCloud user-data source.
+	// The NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.
+	// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
+	// +optional
+	CloudInitNoCloud *CloudInitNoCloudSource `json:"cloudInitNoCloud,omitempty"`
+	// RegistryDisk references a docker image, embedding a qcow or raw disk
+	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+	// +optional
+	RegistryDisk *RegistryDiskSource `json:"registryDisk,omitempty"`
 }
 
-type SerialTarget struct {
-	Port *uint `json:"port,omitempty"`
+// Represents a docker image with an embedded disk
+type RegistryDiskSource struct {
+	// Image is the name of the image with the embedded disk
+	Image string `json:"image"`
 }
 
-// END Serial -----------------------------
-
-// BEGIN Console -----------------------------
-
-type Console struct {
-	Type   string         `json:"type"`
-	Target *ConsoleTarget `json:"target,omitempty"`
+// Exactly one of its members must be set.
+type ClockOffset struct {
+	// UTC sets the guest clock to UTC on each boot. If an offset is specified,
+	// guest changes to the clock will be kept during reboots and are not reset.
+	UTC *ClockOffsetUTC `json:"utc,omitempty"`
+	// Timezone sets the guest clock to the specified timezone.
+	// Zone name follows the TZ environment variable format (e.g. 'America/New_York')
+	Timezone *ClockOffsetTimezone `json:"timezone,omitempty"`
 }
 
-type ConsoleTarget struct {
-	Type *string `json:"type,omitempty"`
-	Port *uint   `json:"port,omitempty"`
+// UTC sets the guest clock to UTC on each boot.
+type ClockOffsetUTC struct {
+	// OffsetSeconds specifies an offset in seconds, relative to UTC. If set,
+	// guest changes to the clock will be kept during reboots and not reset.
+	OffsetSeconds *int `json:"offsetSeconds,omitempty"`
 }
 
-// END Serial -----------------------------
+// ClockOffsetTimezone sets the guest clock to the specified timezone.
+// Zone name follows the TZ environment variable format (e.g. 'America/New_York')
+type ClockOffsetTimezone string
 
-// BEGIN Inteface -----------------------------
-
-type Interface struct {
-	Address   *Address         `json:"address,omitempty"`
-	Type      string           `json:"type"`
-	Source    InterfaceSource  `json:"source"`
-	Target    *InterfaceTarget `json:"target,omitempty"`
-	Model     *Model           `json:"model,omitempty"`
-	MAC       *MAC             `json:"mac,omitempty"`
-	BandWidth *BandWidth       `json:"bandwidth,omitempty"`
-	BootOrder *BootOrder       `json:"boot,omitempty"`
-	LinkState *LinkState       `json:"link,omitempty"`
-	FilterRef *FilterRef       `json:"filterRef,omitempty"`
-	Alias     *Alias           `json:"alias,omitempty"`
-}
-
-type LinkState struct {
-	State string `json:"state"`
-}
-
-type BandWidth struct {
-}
-
-type BootOrder struct {
-	Order uint `json:"order"`
-}
-
-type MAC struct {
-	MAC string `json:"address"`
-}
-
-type FilterRef struct {
-	Filter string `json:"filter"`
-}
-
-type InterfaceSource struct {
-	Network string `json:"network,omitempty"`
-	Device  string `json:"device,omitempty"`
-	Bridge  string `json:"bridge,omitempty"`
-}
-
-type Model struct {
-	Type string `json:"type"`
-}
-
-type InterfaceTarget struct {
-	Device string `json:"dev"`
-}
-
-type Alias struct {
-	Name string `json:"name"`
-}
-
-// END Inteface -----------------------------
-//BEGIN OS --------------------
-
-type OS struct {
-	Type      OSType    `json:"type"`
-	SMBios    *SMBios   `json:"smBIOS,omitempty"`
-	BootOrder []Boot    `json:"bootOrder,omitempty"`
-	BootMenu  *BootMenu `json:"bootMenu,omitempty"`
-	BIOS      *BIOS     `json:"bios,omitempty"`
-}
-
-type OSType struct {
-	OS      string `json:"os"`
-	Arch    string `json:"arch,omitempty"`
-	Machine string `json:"machine,omitempty"`
-}
-
-type SMBios struct {
-	Mode string `json:"mode"`
-}
-
-type NVRam struct {
-	NVRam    string `json:"nvRam,omitempty"`
-	Template string `json:"template,omitempty"`
-}
-
-type Boot struct {
-	Dev string `json:"dev"`
-}
-
-type BootMenu struct {
-	Enabled bool  `json:"enabled,omitempty"`
-	Timeout *uint `json:"timeout,omitempty"`
-}
-
-// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
-type BIOS struct {
-}
-
-// TODO <bios useserial='yes' rebootTimeout='0'/>
-type Loader struct {
-}
-
-type SysInfo struct {
-	Type      string  `json:"type"`
-	System    []Entry `json:"system"`
-	BIOS      []Entry `json:"bios"`
-	BaseBoard []Entry `json:"baseBoard"`
-}
-
-type Entry struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-//END OS --------------------
-
-//BEGIN Clock --------------------
-
+// Represents the clock and timers of a vm
 type Clock struct {
+	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock
+	ClockOffset `json:",inline"`
+	// Timer specifies whih timers are attached to the vm
+	Timer *Timer `json:"timer,inline"`
 }
 
+// Represents all available timers in a vm
 type Timer struct {
-	Name       string `json:"name"`
-	TickPolicy string `json:"tickPolicy,omitempty"`
-	Present    string `json:"present,omitempty"`
+	// HPET (High Precision Event Timer) - multiple timers with periodic interrupts.
+	HPET *HPETTimer `json:"hpet,omitempty"`
+	// KVM 	(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.
+	KVM *KVMTimer `json:"kvm,omitempty"`
+	// PIT (Programmable Interval Timer) - a timer with periodic interrupts.
+	PIT *PITTimer `json:"pit,omitempty"`
+	// RTC (Real Time Clock) - a continuously running timer with periodic interrupts.
+	RTC *RTCTimer `json:"rtc,omitempty"`
+	// Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.
+	Hyperv *HypervTimer `json:"hyperv,omitempty"`
 }
 
-//END Clock --------------------
+// HPETTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+type HPETTickPolicy string
 
-//BEGIN Channel --------------------
+// PITTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+type PITTickPolicy string
 
-type Channel struct {
-	Type   string         `json:"type"`
-	Source ChannelSource  `json:"source,omitempty"`
-	Target *ChannelTarget `json:"target,omitempty"`
+// RTCTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+type RTCTickPolicy string
+
+const (
+	// HPETTickPolicyDelay delivers ticks at a constant rate. The guest time will
+	// be delayed due to the late tick
+	HPETTickPolicyDelay HPETTickPolicy = "delay"
+	// HPETTickPolicyCatchup Delivers ticks at a higher rate to catch up with the
+	// missed tick. The guest time should not be delayed once catchup is complete
+	HPETTickPolicyCatchup HPETTickPolicy = "catchup"
+	// HPETTickPolicyMerge merges the missed tick(s) into one tick and inject. The
+	// guest time may be delayed, depending on how the OS reacts to the merging
+	// of ticks
+	HPETTickPolicyMerge HPETTickPolicy = "merge"
+	// HPETTickPolicyDiscard discards all missed ticks.
+	HPETTickPolicyDiscard HPETTickPolicy = "discard"
+
+	// PITTickPolicyDelay delivers ticks at a constant rate. The guest time will
+	// be delayed due to the late tick
+	PITTickPolicyDelay PITTickPolicy = "delay"
+	// PITTickPolicyCatchup Delivers ticks at a higher rate to catch up with the
+	// missed tick. The guest time should not be delayed once catchup is complete
+	PITTickPolicyCatchup PITTickPolicy = "catchup"
+	// PITTickPolicyDiscard discards all missed ticks.
+	PITTickPolicyDiscard PITTickPolicy = "discard"
+
+	// RTCTickPolicyDelay delivers ticks at a constant rate. The guest time will
+	// be delayed due to the late tick
+	RTCTickPolicyDelay RTCTickPolicy = "delay"
+	// RTCTickPolicyCatchup Delivers ticks at a higher rate to catch up with the
+	// missed tick. The guest time should not be delayed once catchup is complete
+	RTCTickPolicyCatchup RTCTickPolicy = "catchup"
+)
+
+// RTCTimerTrack specifies from which source to track the time
+type RTCTimerTrack string
+
+const (
+	// TrackGuest tracks the guest time
+	TrackGuest RTCTimerTrack = "guest"
+	// TrackWall tracks the host time
+	TrackWall RTCTimerTrack = "wall"
+)
+
+type RTCTimer struct {
+	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+	// One of "delay", "catchup"
+	TickPolicy RTCTickPolicy `json:"tickPolicy,omitempty"`
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
+	// Track the guest or the wall clock
+	Track RTCTimerTrack `json:"track,omitempty"`
 }
 
-type ChannelTarget struct {
-	Name    string `json:"name,omitempty"`
-	Type    string `json:"type"`
-	Address string `json:"address,omitempty"`
-	Port    uint   `json:"port,omitempty"`
+type HPETTimer struct {
+	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+	// One of "delay", "catchup", "merge", "discard"
+	TickPolicy HPETTickPolicy `json:"tickPolicy,omitempty"`
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
 }
 
-type ChannelSource struct {
-	Mode string `json:"mode"`
-	Path string `json:"path"`
+type PITTimer struct {
+	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest
+	// One of "delay", "catchup", "discard"
+	TickPolicy PITTickPolicy `json:"tickPolicy,omitempty"`
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
 }
 
-//END Channel --------------------
-
-//BEGIN Video -------------------
-/*
-<graphics autoport="yes" defaultMode="secure" listen="0" passwd="*****" passwdValidTo="1970-01-01T00:00:01" port="-1" tlsPort="-1" type="spice" />
-*/
-
-type Video struct {
-	Type   string `json:"type"`
-	Heads  *uint  `json:"heads,omitempty"`
-	Ram    *uint  `json:"ram,omitempty"`
-	VRam   *uint  `json:"vRam,omitempty"`
-	VGAMem *uint  `json:"vgaMem,omitempty"`
+type KVMTimer struct {
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
 }
 
-type Graphics struct {
-	AutoPort      string `json:"autoPort,omitempty"`
-	DefaultMode   string `json:"defaultMode,omitempty"`
-	Listen        Listen `json:"listen,omitempty"`
-	PasswdValidTo string `json:"passwdValidTo,omitempty"`
-	Port          int32  `json:"port,omitempty"`
-	TLSPort       int    `json:"tlsPort,omitempty"`
-	Type          string `json:"type"`
+type HypervTimer struct {
+	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"present,omitempty"`
 }
 
-type Listen struct {
-	Type    string `json:"type"`
-	Address string `json:"address,omitempty"`
-	Network string `json:"network,omitempty"`
+type Features struct {
+	// ACPI enables/disables ACPI insidejsondata guest
+	// Defaults to enabled
+	// +optional
+	ACPI FeatureState `json:"acpi,omitempty"`
+	// Defaults to the machine type setting
+	// +optional
+	APIC *FeatureState `json:"apic,omitempty"`
+	// Defaults to the machine type setting
+	// +optional
+	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
 }
 
-type Address struct {
-	Type     string `json:"type"`
-	Domain   string `json:"domain"`
-	Bus      string `json:"bus"`
-	Slot     string `json:"slot"`
-	Function string `json:"function"`
+// Represents if a feature is enabled or disabled
+type FeatureState struct {
+	// Enabled determines if the feature should be enabled or disabled on the guest
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
-//END Video -------------------
-
-type Ballooning struct {
-	Model string `json:"model"`
+type FeatureAPIC struct {
+	// Enabled determines if the feature should be enabled or disabled on the guest
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+	// EndOfInterrupt enables the end of interrupt notification in the guest
+	// Defaults to false
+	// +optional
+	EndOfInterrupt bool `json:"endOfInterrupt,omitempty"`
 }
 
-type RandomGenerator struct {
+type FeatureSpinlocks struct {
+	// Enabled determines if the feature should be enabled or disabled on the guest
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+	// Retries indicates the number of retries
+	// Must be a value greater or equal 4096
+	// Defaults to 4096
+	// +optional
+	Retries *uint32 `json:"spinlocks,omitempty"`
+}
+
+type FeatureVendorID struct {
+	// Enabled determines if the feature should be enabled or disabled on the guest
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+	// VendorID sets the hypervisor vendor id, visible to the vm
+	// String up to twelve characters
+	VendorID string `json:"vendorid, omitempty"`
+}
+
+// Hyperv specific features
+type FeatureHyperv struct {
+	// Relaxed relaxes constraints on timer
+	// Defaults to the machine type setting
+	// +optional
+	Relaxed *FeatureState `json:"relaxed,omitempty"`
+	// VAPIC indicates weather virtual APIC is enabled
+	// Defaults to the machine type setting
+	// +optional
+	VAPIC *FeatureState `json:"vapic,omitempty"`
+	// Spinlocks indicates if spinlocks should be made available to the guest
+	// +optional
+	Spinlocks *FeatureSpinlocks `json:"spinlocks,omitempty"`
+	// VPIndex enables the Virtual Processor Index to help windows identifying virtual processors
+	// Defaults to the machine type setting
+	// +optional
+	VPIndex *FeatureState `json:"vpindex,omitempty"`
+	// Runtime
+	// Defaults to the machine type setting
+	// +optional
+	Runtime *FeatureState `json:"runtime,omitempty"`
+	// SyNIC enable Synthetic Interrupt Controller
+	// Defaults to the machine type setting
+	// +optional
+	SyNIC *FeatureState `json:"synic,omitempty"`
+	// SyNICTimer enable Synthetic Interrupt Controller timer
+	// Defaults to the machine type setting
+	// +optional
+	SyNICTimer *FeatureState `json:"synictimer,omitempty"`
+	// Reset enables Hyperv reboot/reset for the vm
+	// Defaults to the machine type setting
+	// +optional
+	Reset *FeatureState `json:"reset,omitempty"`
+	// VendorID allows setting the hypervisor vendor id
+	// Defaults to the machine type setting
+	// +optional
+	VendorID *FeatureVendorID `json:"vendorid,omitempty"`
+}
+
+// WatchdogAction defines the watchdog action, if a watchdog gets triggered
+type WatchdogAction string
+
+const (
+	// WatchdogActionPoweroff will poweroff the vm if the watchdog gets triggered
+	WatchdogActionPoweroff WatchdogAction = "poweroff"
+	// WatchdogActionReset will reset the vm if the watchdog gets triggered
+	WatchdogActionReset WatchdogAction = "reset"
+	// WatchdogActionShutdown will shutdown the vm if the watchdog gets triggered
+	WatchdogActionShutdown WatchdogAction = "shutdown"
+)
+
+// Named watchdog device
+type Watchdog struct {
+	// Name of the watchdog
+	Name string `json:"name"`
+	// WatchdogDevice contains the watchdog type and actions
+	// Defaults to i6300esb
+	WatchdogDevice `json:",inline"`
 }
 
 // Hardware watchdog device
-type Watchdog struct {
-	// Defines what watchdog model to use, typically 'i6300esb'
-	Model string `json:"model"`
-	// The action to take. poweroff, reset, shutdown, pause, dump.
-	Action string `json:"action"`
+// Exactly one of its members must be set.
+type WatchdogDevice struct {
+	// i6300esb watchdog device
+	// +optional
+	I6300ESB *I6300ESBWatchdog `json:"i6300esb,omitempty"`
+}
+
+// i6300esb watchdog device
+type I6300ESBWatchdog struct {
+	// The action to take. Valid values are poweroff, reset, shutdown.
+	// Defaults to reset
+	Action WatchdogAction `json:"action,omitempty"`
 }
 
 // TODO ballooning, rng, cpu ...
 
-func NewMinimalDomainSpec() *DomainSpec {
-	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu"}
-	domain.Memory = Memory{Unit: "KiB", Value: 8192}
-	domain.Devices = Devices{}
-	domain.Devices.Interfaces = []Interface{
-		{Type: "network", Source: InterfaceSource{Network: "default"}},
+func NewMinimalDomainSpec() DomainSpec {
+	domain := DomainSpec{}
+	domain.Resources.Requests = v1.ResourceList{
+		v1.ResourceMemory: resource.MustParse("8192Ki"),
 	}
-	return &domain
+	return domain
 }

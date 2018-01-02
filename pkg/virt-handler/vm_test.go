@@ -138,7 +138,7 @@ var _ = Describe("VM", func() {
 
 	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachine, dom *api.Domain) {
 		vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
-		dom.Spec.Metadata.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
+		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 
 	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
@@ -212,8 +212,9 @@ var _ = Describe("VM", func() {
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vm, domain)
-			now := time.Unix(time.Now().UTC().Unix()-3, 0)
-			domain.Spec.Metadata.GracePeriod.DeletionTimestamp = &now
+			metav1.Now()
+			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
+			domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
 
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
@@ -262,13 +263,13 @@ var _ = Describe("VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
-			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Graphics = []v1.VirtualMachineGraphics{}
 
 			mockWatchdog.CreateFile(vm)
 			domain := api.NewMinimalDomain("testvm")
 			vmFeeder.Add(vm)
 
-			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, nil)
+			domainManager.EXPECT().SyncVM(vm, gomock.Any()).Return(&domain.Spec, nil)
 
 			controller.Execute()
 		})
@@ -277,7 +278,7 @@ var _ = Describe("VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
-			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Graphics = []v1.VirtualMachineGraphics{}
 
 			updatedVM := vm.DeepCopy()
 			updatedVM.Status.Phase = v1.Running
@@ -321,9 +322,9 @@ var _ = Describe("VM", func() {
 		It("should remove an error condition if a synchronization run succeeds", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
-			vm.Status.Graphics = []v1.VMGraphics{}
+			vm.Status.Graphics = []v1.VirtualMachineGraphics{}
 			vm.Status.Phase = v1.Scheduled
-			vm.Status.Conditions = []v1.VMCondition{
+			vm.Status.Conditions = []v1.VirtualMachineCondition{
 				{
 					Type:   v1.VirtualMachineSynchronized,
 					Status: k8sv1.ConditionFalse,
@@ -331,13 +332,13 @@ var _ = Describe("VM", func() {
 			}
 
 			updatedVM := vm.DeepCopy()
-			updatedVM.Status.Conditions = []v1.VMCondition{}
+			updatedVM.Status.Conditions = []v1.VirtualMachineCondition{}
 
 			mockWatchdog.CreateFile(vm)
 			domain := api.NewMinimalDomain("testvm")
 			vmFeeder.Add(vm)
 
-			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, nil)
+			domainManager.EXPECT().SyncVM(vm, gomock.Any()).Return(&domain.Spec, nil)
 			vmInterface.EXPECT().Update(updatedVM)
 
 			controller.Execute()
@@ -419,49 +420,39 @@ var _ = Describe("PVC", func() {
 
 	Context("Map Source Disks", func() {
 		It("looks up and applies PVC", func() {
-			vm := v1.VirtualMachine{}
-
-			disk := v1.Disk{
-				Type: "PersistentVolumeClaim",
-				Source: v1.DiskSource{
-					Name: "test-claim",
-				},
-				Target: v1.DiskTarget{
-					Device: "vda",
+			vm := v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Domain: v1.DomainSpec{},
+					Volumes: []v1.Volume{
+						{
+							Name: "test-pvc",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "test-claim",
+								},
+							},
+						},
+					},
 				},
 			}
-			disk.Type = "PersistentVolumeClaim"
 
-			domain := v1.DomainSpec{}
-			domain.Devices.Disks = []v1.Disk{disk}
-			vm.Spec.Domain = &domain
-
-			vmCopy, err := MapPersistentVolumes(&vm, virtClient, k8sv1.NamespaceDefault)
+			vmCopy, err := MapVolumes(&vm, virtClient, k8sv1.NamespaceDefault)
 			Expect(err).NotTo(HaveOccurred())
-
-			Expect(len(vmCopy.Spec.Domain.Devices.Disks)).To(Equal(1))
-			newDisk := vmCopy.Spec.Domain.Devices.Disks[0]
-			Expect(newDisk.Type).To(Equal("network"))
-			Expect(newDisk.Driver.Type).To(Equal("raw"))
-			Expect(newDisk.Driver.Name).To(Equal("qemu"))
-			Expect(newDisk.Device).To(Equal("disk"))
-			Expect(newDisk.Source.Protocol).To(Equal("iscsi"))
-			Expect(newDisk.Source.Name).To(Equal("iqn.2009-02.com.test:for.all/1"))
+			Expect(vmCopy.Spec.Volumes[0].ISCSI).To(Equal(expectedPV.Spec.ISCSI))
 		})
 		It("should fail on unsupported PV disk types", func() {
 			expectedPV.Spec.ISCSI = nil
 			expectedPV.Spec.CephFS = &k8sv1.CephFSPersistentVolumeSource{}
-			disk := v1.Disk{
-				Type: "PersistentVolumeClaim",
-				Source: v1.DiskSource{
-					Name: "test-claim",
-				},
-				Target: v1.DiskTarget{
-					Device: "vda",
+			volume := &v1.Volume{
+				Name: "test",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-claim",
+					},
 				},
 			}
-			disk.Type = "PersistentVolumeClaim"
-			_, err := mapPVToDisk(&disk, &expectedPV)
+
+			err := mapPVToDisk(volume, &expectedPV)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("unsupported"))
 		})

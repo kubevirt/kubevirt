@@ -30,6 +30,9 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -67,7 +70,7 @@ var _ = Describe("RegistryDisk", func() {
 				continue
 			}
 			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if strings.Contains(containerStatus.Name, "disk") == false {
+				if strings.HasPrefix(containerStatus.Name, "volume") == false {
 					// only check readiness of disk containers
 					continue
 				}
@@ -99,6 +102,8 @@ var _ = Describe("RegistryDisk", func() {
 			objs := make([]runtime.Object, 0, num)
 			for i := 0; i < num; i++ {
 				vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+				// FIXME if we give too much ram, the vms really boot and eat all our memory (cache?)
+				vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
 				obj := LaunchVM(vm)
 				vms = append(vms, vm)
 				objs = append(objs, obj)
@@ -113,6 +118,7 @@ var _ = Describe("RegistryDisk", func() {
 
 		It("should not modify the VM spec on status update", func() {
 			vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+			v1.SetObjectDefaults_VirtualMachine(vm)
 			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)

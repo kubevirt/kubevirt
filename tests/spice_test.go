@@ -96,7 +96,7 @@ var _ = Describe("Vmlifecycle", func() {
 	}
 
 	BeforeEach(func() {
-		vm = tests.NewRandomVMWithSpice()
+		vm = tests.NewRandomVM()
 		tests.BeforeTestCleanup()
 	})
 
@@ -174,7 +174,7 @@ var _ = Describe("Vmlifecycle", func() {
 			// Block until the VM is running
 			nodeName := tests.WaitForSuccessfulVMStart(obj)
 
-			vm1 := tests.NewRandomVMWithSpice()
+			vm1 := tests.NewRandomVM()
 			vm1.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 			result = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm1).Do()
 			obj1, err := result.Get()

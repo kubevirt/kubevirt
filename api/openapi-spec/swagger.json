@@ -1842,198 +1842,71 @@
      }
     }
    },
-   "v1.Address": {
-    "required": [
-     "type",
-     "domain",
-     "bus",
-     "slot",
-     "function"
-    ],
-    "properties": {
-     "bus": {
-      "type": "string"
-     },
-     "domain": {
-      "type": "string"
-     },
-     "function": {
-      "type": "string"
-     },
-     "slot": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
    "v1.Affinity": {
     "description": "Affinity groups all the affinity rules related to a VM",
     "properties": {
      "nodeAffinity": {
-      "description": "Host affinity support",
+      "description": "Node affinity support",
       "$ref": "#/definitions/v1.NodeAffinity"
      }
     }
    },
-   "v1.Alias": {
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.BIOS": {},
-   "v1.Ballooning": {
-    "required": [
-     "model"
-    ],
-    "properties": {
-     "model": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.BandWidth": {},
-   "v1.Boot": {
-    "required": [
-     "dev"
-    ],
+   "v1.CDRomTarget": {
     "properties": {
      "dev": {
+      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"
-     }
-    }
-   },
-   "v1.BootMenu": {
-    "properties": {
-     "enabled": {
+     },
+     "readonly": {
+      "description": "ReadOnly\nDefaults to true",
       "type": "boolean"
      },
-     "timeout": {
+     "tray": {
+      "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
+      "type": "string"
+     }
+    }
+   },
+   "v1.Clock": {
+    "description": "Represents the clock and timers of a vm",
+    "required": [
+     "timer"
+    ],
+    "properties": {
+     "timer": {
+      "description": "Timer specifies whih timers are attached to the vm",
+      "$ref": "#/definitions/v1.Timer"
+     },
+     "timezone": {
+      "description": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York')",
+      "$ref": "#/definitions/v1.ClockOffsetTimezone"
+     },
+     "utc": {
+      "description": "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and are not reset.",
+      "$ref": "#/definitions/v1.ClockOffsetUTC"
+     }
+    }
+   },
+   "v1.ClockOffsetTimezone": {},
+   "v1.ClockOffsetUTC": {
+    "description": "UTC sets the guest clock to UTC on each boot.",
+    "properties": {
+     "offsetSeconds": {
+      "description": "OffsetSeconds specifies an offset in seconds, relative to UTC. If set,\nguest changes to the clock will be kept during reboots and not reset.",
       "type": "integer",
-      "format": "integer"
+      "format": "int32"
      }
     }
    },
-   "v1.BootOrder": {
-    "required": [
-     "order"
-    ],
+   "v1.CloudInitNoCloudSource": {
+    "description": "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "properties": {
-     "order": {
-      "type": "integer",
-      "format": "integer"
-     }
-    }
-   },
-   "v1.Channel": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "source": {
-      "$ref": "#/definitions/v1.ChannelSource"
-     },
-     "target": {
-      "$ref": "#/definitions/v1.ChannelTarget"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.ChannelSource": {
-    "required": [
-     "mode",
-     "path"
-    ],
-    "properties": {
-     "mode": {
-      "type": "string"
-     },
-     "path": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.ChannelTarget": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "address": {
-      "type": "string"
-     },
-     "name": {
-      "type": "string"
-     },
-     "port": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.Clock": {},
-   "v1.CloudInitDataSourceNoCloud": {
-    "description": "http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
-    "required": [
-     "userDataBase64"
-    ],
-    "properties": {
-     "metaDataBase64": {
-      "description": "The NoCloud cloud-init metadata as a base64 encoded string",
-      "type": "string"
+     "secretRef": {
+      "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
+      "$ref": "#/definitions/v1.LocalObjectReference"
      },
      "userDataBase64": {
-      "description": "The NoCloud cloud-init userdata as a base64 encoded string",
-      "type": "string"
-     },
-     "userDataSecretRef": {
-      "description": "Reference to a k8s secret that contains NoCloud userdata",
-      "type": "string"
-     }
-    }
-   },
-   "v1.CloudInitSpec": {
-    "description": "Only one of the fields in the CloudInitSpec can be set",
-    "required": [
-     "nocloud"
-    ],
-    "properties": {
-     "nocloud": {
-      "description": "Nocloud DataSource",
-      "$ref": "#/definitions/v1.CloudInitDataSourceNoCloud"
-     }
-    }
-   },
-   "v1.Console": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "target": {
-      "$ref": "#/definitions/v1.ConsoleTarget"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.ConsoleTarget": {
-    "properties": {
-     "port": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "type": {
+      "description": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string\n+ optional",
       "type": "string"
      }
     }
@@ -2071,266 +1944,203 @@
    "v1.DeletionPropagation": {},
    "v1.Devices": {
     "properties": {
-     "channels": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Channel"
-      }
-     },
-     "consoles": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Console"
-      }
-     },
      "disks": {
+      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
       }
      },
-     "emulator": {
-      "type": "string"
-     },
-     "graphics": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Graphics"
-      }
-     },
-     "interfaces": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Interface"
-      }
-     },
-     "memballoon": {
-      "$ref": "#/definitions/v1.Ballooning"
-     },
-     "serials": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Serial"
-      }
-     },
-     "video": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Video"
-      }
-     },
      "watchdog": {
+      "description": "Watchdog describes a watchdog device which can be added to the vm",
       "$ref": "#/definitions/v1.Watchdog"
      }
     }
    },
    "v1.Disk": {
     "required": [
-     "type",
-     "target"
+     "name",
+     "volumeName"
     ],
     "properties": {
-     "auth": {
-      "$ref": "#/definitions/v1.DiskAuth"
+     "cdrom": {
+      "description": "Attach a volume as a cdrom to the vm",
+      "$ref": "#/definitions/v1.CDRomTarget"
      },
-     "cloudinit": {
-      "$ref": "#/definitions/v1.CloudInitSpec"
-     },
-     "device": {
-      "type": "string"
-     },
-     "driver": {
-      "$ref": "#/definitions/v1.DiskDriver"
-     },
-     "readOnly": {
-      "$ref": "#/definitions/v1.ReadOnly"
-     },
-     "serial": {
-      "type": "string"
-     },
-     "snapshot": {
-      "type": "string"
-     },
-     "source": {
-      "$ref": "#/definitions/v1.DiskSource"
-     },
-     "target": {
+     "disk": {
+      "description": "Attach a volume as a disk to the vm",
       "$ref": "#/definitions/v1.DiskTarget"
      },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.DiskAuth": {
-    "required": [
-     "username"
-    ],
-    "properties": {
-     "secret": {
-      "$ref": "#/definitions/v1.DiskSecret"
+     "floppy": {
+      "description": "Attach a volume as a floppy to the vm",
+      "$ref": "#/definitions/v1.FloppyTarget"
      },
-     "username": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.DiskDriver": {
-    "properties": {
-     "cache": {
-      "type": "string"
-     },
-     "errorPolicy": {
-      "type": "string"
-     },
-     "io": {
-      "type": "string"
+     "lun": {
+      "description": "Attach a volume as a LUN to the vm",
+      "$ref": "#/definitions/v1.LunTarget"
      },
      "name": {
+      "description": "Name is the device name",
       "type": "string"
      },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.DiskSecret": {
-    "required": [
-     "type",
-     "usage"
-    ],
-    "properties": {
-     "type": {
-      "type": "string"
-     },
-     "usage": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.DiskSource": {
-    "properties": {
-     "file": {
-      "type": "string"
-     },
-     "host": {
-      "$ref": "#/definitions/v1.DiskSourceHost"
-     },
-     "name": {
-      "type": "string"
-     },
-     "protocol": {
-      "type": "string"
-     },
-     "startupPolicy": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.DiskSourceHost": {
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "type": "string"
-     },
-     "port": {
+     "volumeName": {
+      "description": "Name of the volume which is referenced\nMust match the Name of a Volume.",
       "type": "string"
      }
     }
    },
    "v1.DiskTarget": {
-    "required": [
-     "dev"
-    ],
     "properties": {
-     "bus": {
+     "dev": {
+      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"
      },
-     "dev": {
-      "type": "string"
+     "readonly": {
+      "description": "ReadOnly\nDefaults to false",
+      "type": "boolean"
      }
     }
    },
    "v1.DomainSpec": {
     "required": [
-     "memory",
-     "type",
-     "os",
      "devices"
     ],
     "properties": {
      "clock": {
+      "description": "Clock sets the clock and timers of the vm.\n+optional",
       "$ref": "#/definitions/v1.Clock"
      },
      "devices": {
+      "description": "Devices allows adding disks, network interfaces, ...",
       "$ref": "#/definitions/v1.Devices"
      },
-     "memory": {
-      "$ref": "#/definitions/v1.Memory"
+     "features": {
+      "description": "Features like acpi, apic, hyperv\n+optional",
+      "$ref": "#/definitions/v1.Features"
      },
-     "os": {
-      "$ref": "#/definitions/v1.OS"
+     "firmware": {
+      "description": "Firmware\n+optional",
+      "$ref": "#/definitions/v1.Firmware"
      },
-     "sysInfo": {
-      "$ref": "#/definitions/v1.SysInfo"
+     "resources": {
+      "description": "Resources describes the Compute Resources required by this vm.",
+      "$ref": "#/definitions/v1.ResourceRequirements"
+     }
+    }
+   },
+   "v1.FeatureHyperv": {
+    "description": "Hyperv specific features",
+    "properties": {
+     "relaxed": {
+      "description": "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
      },
-     "type": {
+     "reset": {
+      "description": "Reset enables Hyperv reboot/reset for the vm\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "runtime": {
+      "description": "Runtime\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "spinlocks": {
+      "description": "Spinlocks indicates if spinlocks should be made available to the guest\n+optional",
+      "$ref": "#/definitions/v1.FeatureSpinlocks"
+     },
+     "synic": {
+      "description": "SyNIC enable Synthetic Interrupt Controller\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "synictimer": {
+      "description": "SyNICTimer enable Synthetic Interrupt Controller timer\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "vapic": {
+      "description": "VAPIC indicates weather virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "vendorid": {
+      "description": "VendorID allows setting the hypervisor vendor id\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureVendorID"
+     },
+     "vpindex": {
+      "description": "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors\nDefaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     }
+    }
+   },
+   "v1.FeatureSpinlocks": {
+    "properties": {
+     "enabled": {
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+      "type": "boolean"
+     },
+     "spinlocks": {
+      "description": "Retries indicates the number of retries\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
+      "type": "integer"
+     }
+    }
+   },
+   "v1.FeatureState": {
+    "description": "Represents if a feature is enabled or disabled",
+    "properties": {
+     "enabled": {
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+      "type": "boolean"
+     }
+    }
+   },
+   "v1.FeatureVendorID": {
+    "required": [
+     "vendorid"
+    ],
+    "properties": {
+     "enabled": {
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+      "type": "boolean"
+     },
+     "vendorid": {
+      "description": "VendorID sets the hypervisor vendor id, visible to the vm\nString up to twelve characters",
       "type": "string"
      }
     }
    },
-   "v1.Entry": {
-    "required": [
-     "name",
-     "value"
-    ],
+   "v1.Features": {
     "properties": {
-     "name": {
-      "type": "string"
+     "acpi": {
+      "description": "ACPI enables/disables ACPI insidejsondata guest\nDefaults to enabled\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
      },
-     "value": {
+     "apic": {
+      "description": "Defaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "hyperv": {
+      "description": "Defaults to the machine type setting\n+optional",
+      "$ref": "#/definitions/v1.FeatureHyperv"
+     }
+    }
+   },
+   "v1.Firmware": {
+    "properties": {
+     "uid": {
+      "description": "UID reported by the vm bios\nDefaults to a random generated uid",
       "type": "string"
      }
     }
    },
-   "v1.FilterRef": {
-    "required": [
-     "filter"
-    ],
+   "v1.FloppyTarget": {
     "properties": {
-     "filter": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.Graphics": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "autoPort": {
+     "dev": {
+      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"
      },
-     "defaultMode": {
-      "type": "string"
+     "readonly": {
+      "description": "ReadOnly\nDefaults to false",
+      "type": "boolean"
      },
-     "listen": {
-      "$ref": "#/definitions/v1.Listen"
-     },
-     "passwdValidTo": {
-      "type": "string"
-     },
-     "port": {
-      "type": "integer",
-      "format": "int32"
-     },
-     "tlsPort": {
-      "type": "integer",
-      "format": "int32"
-     },
-     "type": {
+     "tray": {
+      "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
       "type": "string"
      }
     }
@@ -2348,6 +2158,93 @@
      },
      "version": {
       "description": "version specifies the version in the form of \"version\". This is to save the clients the trouble of splitting the GroupVersion.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.HPETTimer": {
+    "properties": {
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
+     },
+     "tickPolicy": {
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
+      "type": "string"
+     }
+    }
+   },
+   "v1.HypervTimer": {
+    "properties": {
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
+     }
+    }
+   },
+   "v1.I6300ESBWatchdog": {
+    "description": "i6300esb watchdog device",
+    "properties": {
+     "action": {
+      "description": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
+      "type": "string"
+     }
+    }
+   },
+   "v1.ISCSIVolumeSource": {
+    "description": "Represents an ISCSI disk. ISCSI volumes can only be mounted as read/write once. ISCSI volumes support ownership management and SELinux relabeling.",
+    "required": [
+     "targetPortal",
+     "iqn",
+     "lun"
+    ],
+    "properties": {
+     "chapAuthDiscovery": {
+      "description": "whether support iSCSI Discovery CHAP authentication",
+      "type": "boolean"
+     },
+     "chapAuthSession": {
+      "description": "whether support iSCSI Session CHAP authentication",
+      "type": "boolean"
+     },
+     "fsType": {
+      "description": "Filesystem type of the volume that you want to mount. Tip: Ensure that the filesystem type is supported by the host operating system. Examples: \"ext4\", \"xfs\", \"ntfs\". Implicitly inferred to be \"ext4\" if unspecified. More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi",
+      "type": "string"
+     },
+     "initiatorName": {
+      "description": "Custom iSCSI initiator name. If initiatorName is specified with iscsiInterface simultaneously, new iSCSI interface \u003ctarget portal\u003e:\u003cvolume name\u003e will be created for the connection.",
+      "type": "string"
+     },
+     "iqn": {
+      "description": "Target iSCSI Qualified Name.",
+      "type": "string"
+     },
+     "iscsiInterface": {
+      "description": "Optional: Defaults to 'default' (tcp). iSCSI interface name that uses an iSCSI transport.",
+      "type": "string"
+     },
+     "lun": {
+      "description": "iSCSI target lun number.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "portals": {
+      "description": "iSCSI target portal List. The portal is either an IP or ip_addr:port if the port is other than default (typically TCP ports 860 and 3260).",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "readOnly": {
+      "description": "ReadOnly here will force the ReadOnly setting in VolumeMounts. Defaults to false.",
+      "type": "boolean"
+     },
+     "secretRef": {
+      "description": "CHAP secret for iSCSI target and initiator authentication",
+      "$ref": "#/definitions/v1.LocalObjectReference"
+     },
+     "targetPortal": {
+      "description": "iSCSI target portal. The portal is either an IP or ip_addr:port if the port is other than default (typically TCP ports 860 and 3260).",
       "type": "string"
      }
     }
@@ -2383,67 +2280,11 @@
      }
     }
    },
-   "v1.Interface": {
-    "required": [
-     "type",
-     "source"
-    ],
+   "v1.KVMTimer": {
     "properties": {
-     "address": {
-      "$ref": "#/definitions/v1.Address"
-     },
-     "alias": {
-      "$ref": "#/definitions/v1.Alias"
-     },
-     "bandwidth": {
-      "$ref": "#/definitions/v1.BandWidth"
-     },
-     "boot": {
-      "$ref": "#/definitions/v1.BootOrder"
-     },
-     "filterRef": {
-      "$ref": "#/definitions/v1.FilterRef"
-     },
-     "link": {
-      "$ref": "#/definitions/v1.LinkState"
-     },
-     "mac": {
-      "$ref": "#/definitions/v1.MAC"
-     },
-     "model": {
-      "$ref": "#/definitions/v1.Model"
-     },
-     "source": {
-      "$ref": "#/definitions/v1.InterfaceSource"
-     },
-     "target": {
-      "$ref": "#/definitions/v1.InterfaceTarget"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.InterfaceSource": {
-    "properties": {
-     "bridge": {
-      "type": "string"
-     },
-     "device": {
-      "type": "string"
-     },
-     "network": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.InterfaceTarget": {
-    "required": [
-     "dev"
-    ],
-    "properties": {
-     "dev": {
-      "type": "string"
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
      }
     }
    },
@@ -2487,16 +2328,6 @@
      }
     }
    },
-   "v1.LinkState": {
-    "required": [
-     "state"
-    ],
-    "properties": {
-     "state": {
-      "type": "string"
-     }
-    }
-   },
    "v1.ListMeta": {
     "description": "ListMeta describes metadata that synthetic resources must have, including lists and various status objects. A resource may have only one of {ObjectMeta, ListMeta}.",
     "properties": {
@@ -2514,49 +2345,29 @@
      }
     }
    },
-   "v1.Listen": {
-    "required": [
-     "type"
-    ],
+   "v1.LocalObjectReference": {
+    "description": "LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.",
     "properties": {
-     "address": {
-      "type": "string"
-     },
-     "network": {
-      "type": "string"
-     },
-     "type": {
+     "name": {
+      "description": "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
      }
     }
    },
-   "v1.MAC": {
-    "required": [
-     "address"
-    ],
+   "v1.LunTarget": {
     "properties": {
-     "address": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.Memory": {
-    "required": [
-     "value",
-     "unit"
-    ],
-    "properties": {
-     "unit": {
+     "dev": {
+      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"
      },
-     "value": {
-      "type": "integer",
-      "format": "integer"
+     "readonly": {
+      "description": "ReadOnly\nDefaults to false",
+      "type": "boolean"
      }
     }
    },
    "v1.Migration": {
-    "description": "A Migration is a job that moves a Virtual Machine from one node to another",
+    "description": "A Migration is a job that moves a Virtual Machine from one node to another\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -2578,7 +2389,7 @@
     }
    },
    "v1.MigrationList": {
-    "description": "A list of Migrations",
+    "description": "A list of Migrations\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
      "items"
     ],
@@ -2625,16 +2436,6 @@
       "$ref": "#/definitions/types.UID"
      },
      "phase": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.Model": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "type": {
       "type": "string"
      }
     }
@@ -2706,47 +2507,6 @@
       "items": {
        "$ref": "#/definitions/v1.NodeSelectorRequirement"
       }
-     }
-    }
-   },
-   "v1.OS": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "bios": {
-      "$ref": "#/definitions/v1.BIOS"
-     },
-     "bootMenu": {
-      "$ref": "#/definitions/v1.BootMenu"
-     },
-     "bootOrder": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Boot"
-      }
-     },
-     "smBIOS": {
-      "$ref": "#/definitions/v1.SMBios"
-     },
-     "type": {
-      "$ref": "#/definitions/v1.OSType"
-     }
-    }
-   },
-   "v1.OSType": {
-    "required": [
-     "os"
-    ],
-    "properties": {
-     "arch": {
-      "type": "string"
-     },
-     "machine": {
-      "type": "string"
-     },
-     "os": {
-      "type": "string"
      }
     }
    },
@@ -2862,6 +2622,34 @@
      }
     }
    },
+   "v1.PITTimer": {
+    "properties": {
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
+     },
+     "tickPolicy": {
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"discard\"",
+      "type": "string"
+     }
+    }
+   },
+   "v1.PersistentVolumeClaimVolumeSource": {
+    "description": "PersistentVolumeClaimVolumeSource references the user's PVC in the same namespace. This volume finds the bound PV and mounts that volume for the pod. A PersistentVolumeClaimVolumeSource is, essentially, a wrapper around another type of volume that is owned by someone else (the system).",
+    "required": [
+     "claimName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "type": "string"
+     },
+     "readOnly": {
+      "description": "Will force the ReadOnly setting in VolumeMounts. Default false.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",
     "properties": {
@@ -2889,35 +2677,39 @@
      }
     }
    },
-   "v1.ReadOnly": {},
-   "v1.SMBios": {
-    "required": [
-     "mode"
-    ],
+   "v1.RTCTimer": {
     "properties": {
-     "mode": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.Serial": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "target": {
-      "$ref": "#/definitions/v1.SerialTarget"
+     "present": {
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "type": "boolean"
      },
-     "type": {
+     "tickPolicy": {
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\"",
+      "type": "string"
+     },
+     "track": {
+      "description": "Track the guest or the wall clock",
       "type": "string"
      }
     }
    },
-   "v1.SerialTarget": {
+   "v1.RegistryDiskSource": {
+    "description": "Represents a docker image with an embedded disk",
+    "required": [
+     "image"
+    ],
     "properties": {
-     "port": {
-      "type": "integer",
-      "format": "integer"
+     "image": {
+      "description": "Image is the name of the image with the embedded disk",
+      "type": "string"
+     }
+    }
+   },
+   "v1.ResourceRequirements": {
+    "properties": {
+     "requests": {
+      "description": "Requests is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+      "type": "object"
      }
     }
    },
@@ -3026,79 +2818,28 @@
      }
     }
    },
-   "v1.SysInfo": {
-    "required": [
-     "type",
-     "system",
-     "bios",
-     "baseBoard"
-    ],
+   "v1.Timer": {
+    "description": "Represents all available timers in a vm",
     "properties": {
-     "baseBoard": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Entry"
-      }
+     "hpet": {
+      "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
+      "$ref": "#/definitions/v1.HPETTimer"
      },
-     "bios": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Entry"
-      }
+     "hyperv": {
+      "description": "Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.",
+      "$ref": "#/definitions/v1.HypervTimer"
      },
-     "system": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Entry"
-      }
+     "kvm": {
+      "description": "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
+      "$ref": "#/definitions/v1.KVMTimer"
      },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.VMCondition": {
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "type": "string"
+     "pit": {
+      "description": "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
+      "$ref": "#/definitions/v1.PITTimer"
      },
-     "lastTransitionTime": {
-      "type": "string"
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.VMGraphics": {
-    "required": [
-     "type",
-     "host",
-     "port"
-    ],
-    "properties": {
-     "host": {
-      "type": "string"
-     },
-     "port": {
-      "type": "integer",
-      "format": "int32"
-     },
-     "type": {
-      "type": "string"
+     "rtc": {
+      "description": "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
+      "$ref": "#/definitions/v1.RTCTimer"
      }
     }
    },
@@ -3183,59 +2924,6 @@
      }
     }
    },
-   "v1.VMSpec": {
-    "description": "VMSpec is a description of a VM. Not to be confused with api.DomainSpec in virt-handler.\nIt is expected that v1.DomainSpec will be merged into this structure.",
-    "properties": {
-     "affinity": {
-      "description": "If affinity is specifies, obey all the affinity rules",
-      "$ref": "#/definitions/v1.Affinity"
-     },
-     "domain": {
-      "description": "Domain is the actual libvirt domain.",
-      "$ref": "#/definitions/v1.DomainSpec"
-     },
-     "nodeSelector": {
-      "description": "If labels are specified, only nodes marked with all of these labels are considered when scheduling the VM.",
-      "type": "object"
-     },
-     "terminationGracePeriodSeconds": {
-      "description": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
-      "type": "integer",
-      "format": "int64"
-     }
-    }
-   },
-   "v1.VMStatus": {
-    "description": "VMStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
-    "properties": {
-     "conditions": {
-      "description": "Conditions are specific points in VM's pod runtime.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.VMCondition"
-      }
-     },
-     "graphics": {
-      "description": "Graphics represent the details of available graphical consoles.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.VMGraphics"
-      }
-     },
-     "migrationNodeName": {
-      "description": "MigrationNodeName is the node where the VM is live migrating to.",
-      "type": "string"
-     },
-     "nodeName": {
-      "description": "NodeName is the name where the VM is currently running.",
-      "type": "string"
-     },
-     "phase": {
-      "description": "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
-      "type": "string"
-     }
-    }
-   },
    "v1.VMTemplateSpec": {
     "properties": {
      "metadata": {
@@ -3243,38 +2931,12 @@
      },
      "spec": {
       "description": "VM Spec contains the VM specification.",
-      "$ref": "#/definitions/v1.VMSpec"
-     }
-    }
-   },
-   "v1.Video": {
-    "required": [
-     "type"
-    ],
-    "properties": {
-     "heads": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "ram": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "type": {
-      "type": "string"
-     },
-     "vRam": {
-      "type": "integer",
-      "format": "integer"
-     },
-     "vgaMem": {
-      "type": "integer",
-      "format": "integer"
+      "$ref": "#/definitions/v1.VirtualMachineSpec"
      }
     }
    },
    "v1.VirtualMachine": {
-    "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+    "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -3289,16 +2951,61 @@
      },
      "spec": {
       "description": "VM Spec contains the VM specification.",
-      "$ref": "#/definitions/v1.VMSpec"
+      "$ref": "#/definitions/v1.VirtualMachineSpec"
      },
      "status": {
       "description": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
-      "$ref": "#/definitions/v1.VMStatus"
+      "$ref": "#/definitions/v1.VirtualMachineStatus"
+     }
+    }
+   },
+   "v1.VirtualMachineCondition": {
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": "string"
+     },
+     "lastTransitionTime": {
+      "type": "string"
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineGraphics": {
+    "required": [
+     "type",
+     "host",
+     "port"
+    ],
+    "properties": {
+     "host": {
+      "type": "string"
+     },
+     "port": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "type": {
+      "type": "string"
      }
     }
    },
    "v1.VirtualMachineList": {
-    "description": "VirtualMachineList is a list of VirtualMachines",
+    "description": "VirtualMachineList is a list of VirtualMachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
      "items"
     ],
@@ -3323,7 +3030,7 @@
     }
    },
    "v1.VirtualMachineReplicaSet": {
-    "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+    "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -3347,7 +3054,7 @@
     }
    },
    "v1.VirtualMachineReplicaSetList": {
-    "description": "VMList is a list of VMs",
+    "description": "VMList is a list of VMs\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
      "items"
     ],
@@ -3371,19 +3078,109 @@
      }
     }
    },
-   "v1.Watchdog": {
-    "description": "Hardware watchdog device",
+   "v1.VirtualMachineSpec": {
+    "description": "VirtualMachineSpec is a description of a VirtualMachine.",
     "required": [
-     "model",
-     "action"
+     "domain"
     ],
     "properties": {
-     "action": {
-      "description": "The action to take. poweroff, reset, shutdown, pause, dump.",
+     "affinity": {
+      "description": "If affinity is specifies, obey all the affinity rules",
+      "$ref": "#/definitions/v1.Affinity"
+     },
+     "domain": {
+      "description": "Specification of the desired behavior of the VirtualMachine on the host.",
+      "$ref": "#/definitions/v1.DomainSpec"
+     },
+     "nodeSelector": {
+      "description": "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
+      "type": "object"
+     },
+     "terminationGracePeriodSeconds": {
+      "description": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "volumes": {
+      "description": "List of volumes that can be mounted by disks belonging to the vm.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Volume"
+      }
+     }
+    }
+   },
+   "v1.VirtualMachineStatus": {
+    "description": "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
+    "properties": {
+     "conditions": {
+      "description": "Conditions are specific points in VM's pod runtime.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineCondition"
+      }
+     },
+     "graphics": {
+      "description": "Graphics represent the details of available graphical consoles.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineGraphics"
+      }
+     },
+     "migrationNodeName": {
+      "description": "MigrationNodeName is the node where the VM is live migrating to.",
       "type": "string"
      },
-     "model": {
-      "description": "Defines what watchdog model to use, typically 'i6300esb'",
+     "nodeName": {
+      "description": "NodeName is the name where the VM is currently running.",
+      "type": "string"
+     },
+     "phase": {
+      "description": "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.Volume": {
+    "description": "Volume represents a named volume in a vm.",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "cloudInitNoCloud": {
+      "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
+      "$ref": "#/definitions/v1.CloudInitNoCloudSource"
+     },
+     "iscsi": {
+      "description": "ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.\n+optional",
+      "$ref": "#/definitions/v1.ISCSIVolumeSource"
+     },
+     "name": {
+      "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "type": "string"
+     },
+     "persistentVolumeClaim": {
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+      "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
+     },
+     "registryDisk": {
+      "description": "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
+      "$ref": "#/definitions/v1.RegistryDiskSource"
+     }
+    }
+   },
+   "v1.Watchdog": {
+    "description": "Named watchdog device",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "i6300esb": {
+      "description": "i6300esb watchdog device\n+optional",
+      "$ref": "#/definitions/v1.I6300ESBWatchdog"
+     },
+     "name": {
+      "description": "Name of the watchdog",
       "type": "string"
      }
     }

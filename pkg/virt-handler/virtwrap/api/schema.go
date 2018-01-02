@@ -17,90 +17,29 @@
  *
  */
 
+//go:generate deepcopy-gen -i . --go-header-file ../../../../hack/boilerplate/boilerplate.go.txt
+//go:generate defaulter-gen -i . --go-header-file ../../../../hack/boilerplate/boilerplate.go.txt
+
 package api
 
 import (
 	"encoding/xml"
-	"reflect"
-	"time"
 
-	"github.com/jeevatkm/go-model"
 	kubev1 "k8s.io/api/core/v1"
-	meta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/mapper"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 type LifeCycle string
 type StateChangeReason string
-
-func init() {
-	// TODO the whole mapping registration can be done be an automatic process with reflection
-	mapper.AddConversion(&Memory{}, &v1.Memory{})
-	mapper.AddConversion(&OS{}, &v1.OS{})
-	mapper.AddConversion(&Devices{}, &v1.Devices{})
-	mapper.AddPtrConversion((**Clock)(nil), (**v1.Clock)(nil))
-	mapper.AddPtrConversion((**SysInfo)(nil), (**v1.SysInfo)(nil))
-	mapper.AddConversion(&Channel{}, &v1.Channel{})
-	mapper.AddConversion(&Interface{}, &v1.Interface{})
-	mapper.AddConversion(&Graphics{}, &v1.Graphics{})
-	mapper.AddPtrConversion((**Ballooning)(nil), (**v1.Ballooning)(nil))
-	mapper.AddConversion(&Disk{}, &v1.Disk{})
-	mapper.AddConversion(&DiskSource{}, &v1.DiskSource{})
-	mapper.AddPtrConversion((**DiskSourceHost)(nil), (**v1.DiskSourceHost)(nil))
-	mapper.AddConversion(&DiskTarget{}, &v1.DiskTarget{})
-	mapper.AddPtrConversion((**DiskDriver)(nil), (**v1.DiskDriver)(nil))
-	mapper.AddPtrConversion((**ReadOnly)(nil), (**v1.ReadOnly)(nil))
-	mapper.AddPtrConversion((**Address)(nil), (**v1.Address)(nil))
-	mapper.AddConversion(&Serial{}, &v1.Serial{})
-	mapper.AddPtrConversion((**SerialTarget)(nil), (**v1.SerialTarget)(nil))
-	mapper.AddConversion(&Console{}, &v1.Console{})
-	mapper.AddPtrConversion((**ConsoleTarget)(nil), (**v1.ConsoleTarget)(nil))
-	mapper.AddConversion(&InterfaceSource{}, &v1.InterfaceSource{})
-	mapper.AddPtrConversion((**InterfaceTarget)(nil), (**v1.InterfaceTarget)(nil))
-	mapper.AddPtrConversion((**Model)(nil), (**v1.Model)(nil))
-	mapper.AddPtrConversion((**MAC)(nil), (**v1.MAC)(nil))
-	mapper.AddPtrConversion((**BandWidth)(nil), (**v1.BandWidth)(nil))
-	mapper.AddPtrConversion((**BootOrder)(nil), (**v1.BootOrder)(nil))
-	mapper.AddPtrConversion((**LinkState)(nil), (**v1.LinkState)(nil))
-	mapper.AddPtrConversion((**FilterRef)(nil), (**v1.FilterRef)(nil))
-	mapper.AddPtrConversion((**Alias)(nil), (**v1.Alias)(nil))
-	mapper.AddConversion(&OSType{}, &v1.OSType{})
-	mapper.AddPtrConversion((**SMBios)(nil), (**v1.SMBios)(nil))
-	mapper.AddConversion(&Boot{}, &v1.Boot{})
-	mapper.AddPtrConversion((**BootMenu)(nil), (**v1.BootMenu)(nil))
-	mapper.AddPtrConversion((**BIOS)(nil), (**v1.BIOS)(nil))
-	mapper.AddConversion(&Entry{}, &v1.Entry{})
-	mapper.AddConversion(&ChannelSource{}, &v1.ChannelSource{})
-	mapper.AddPtrConversion((**ChannelTarget)(nil), (**v1.ChannelTarget)(nil))
-	mapper.AddConversion(&VideoModel{}, &v1.Video{})
-	mapper.AddConversion(&Listen{}, &v1.Listen{})
-	mapper.AddPtrConversion((**DiskAuth)(nil), (**v1.DiskAuth)(nil))
-	mapper.AddPtrConversion((**DiskSecret)(nil), (**v1.DiskSecret)(nil))
-	mapper.AddPtrConversion((**Watchdog)(nil), (**v1.Watchdog)(nil))
-
-	model.AddConversion(&Video{}, &v1.Video{}, func(in reflect.Value) (reflect.Value, error) {
-		out := v1.Video{}
-		errs := model.Copy(&out, in.Interface().(Video).Model)
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-	model.AddConversion(&v1.Video{}, &Video{}, func(in reflect.Value) (reflect.Value, error) {
-		out := Video{}
-		errs := model.Copy(&out.Model, in.Interface())
-		if len(errs) > 0 {
-			return reflect.ValueOf(out), errs[0]
-		}
-		return reflect.ValueOf(out), nil
-	})
-}
 
 const (
 	NoState     LifeCycle = "NoState"
@@ -132,6 +71,7 @@ const (
 	ReasonNonExistent StateChangeReason = "NonExistent"
 )
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Domain struct {
 	metav1.TypeMeta
 	ObjectMeta kubev1.ObjectMeta
@@ -139,73 +79,16 @@ type Domain struct {
 	Status     DomainStatus
 }
 
-func (in *Domain) DeepCopyInto(out *Domain) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *Domain) DeepCopy() *Domain {
-	if in == nil {
-		return nil
-	}
-	out := new(Domain)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *Domain) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
-}
-
-func (in *Metadata) DeepCopyInto(out *Metadata) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
 type DomainStatus struct {
 	Status LifeCycle
 	Reason StateChangeReason
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type DomainList struct {
 	metav1.TypeMeta
 	ListMeta metav1.ListMeta
 	Items    []Domain
-}
-
-func (in *DomainList) DeepCopyInto(out *DomainList) {
-	err := model.Copy(out, in)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func (in *DomainList) DeepCopy() *DomainList {
-	if in == nil {
-		return nil
-	}
-	out := new(DomainList)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (in *DomainList) DeepCopyObject() runtime.Object {
-	if c := in.DeepCopy(); c != nil {
-		return c
-	} else {
-		return nil
-	}
 }
 
 // DomainSpec represents the actual conversion to libvirt XML. The fields must be
@@ -225,15 +108,58 @@ type DomainSpec struct {
 	Resource *Resource    `xml:"resource,omitempty"`
 	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
 	Metadata Metadata     `xml:"metadata,omitempty"`
+	Features *Features    `xml:"features,omitempty"`
+}
+
+type Features struct {
+	ACPI   *FeatureEnabled `xml:"acpi,omitempty"`
+	APIC   *FeatureEnabled `xml:"apic,omitempty"`
+	Hyperv *FeatureHyperv  `xml:"hyperv,omitempty"`
+}
+
+type FeatureHyperv struct {
+	Relaxed    *FeatureState     `xml:"relaxed,omitempty"`
+	VAPIC      *FeatureState     `xml:"vapic,omitempty"`
+	Spinlocks  *FeatureSpinlocks `xml:"spinlocks,omitempty"`
+	VPIndex    *FeatureState     `xml:"vpindex,omitempty"`
+	Runtime    *FeatureState     `xml:"runtime,omitempty"`
+	SyNIC      *FeatureState     `xml:"synic,omitempty"`
+	SyNICTimer *FeatureState     `xml:"stimer,omitempty"`
+	Reset      *FeatureState     `xml:"reset,omitempty"`
+	VendorID   *FeatureVendorID  `xml:"vendor_id,omitempty"`
+}
+
+type FeatureSpinlocks struct {
+	State   string  `xml:"state,attr,omitempty"`
+	Retries *uint32 `xml:"retries,attr,omitempty"`
+}
+
+type FeatureVendorID struct {
+	State string `xml:"state,attr,omitempty"`
+	Value string `xml:"value,attr,omitempty"`
+}
+
+type FeatureEnabled struct {
+}
+
+type FeatureState struct {
+	State string `xml:"state,attr,omitempty"`
 }
 
 type Metadata struct {
-	GracePeriod GracePeriodMetadata `xml:"http://kubevirt.io graceperiod,omitempty"`
+	// KubeVirt contains kubevirt related metadata
+	// Note: Libvirt only accept one element at metadata root with a specific namespace
+	KubeVirt KubeVirtMetadata `xml:"http://kubevirt.io kubevirt"`
+}
+
+type KubeVirtMetadata struct {
+	UID         types.UID           `xml:"uid"`
+	GracePeriod GracePeriodMetadata `xml:"graceperiod,omitempty"`
 }
 
 type GracePeriodMetadata struct {
-	DeletionGracePeriodSeconds int64      `xml:"deletionGracePeriodSeconds"`
-	DeletionTimestamp          *time.Time `xml:"deletionTimestamp,omitempty"`
+	DeletionGracePeriodSeconds int64        `xml:"deletionGracePeriodSeconds"`
+	DeletionTimestamp          *metav1.Time `xml:"deletionTimestamp,omitempty"`
 }
 
 type Commandline struct {
@@ -279,6 +205,7 @@ type Disk struct {
 	Driver   *DiskDriver `xml:"driver,omitempty"`
 	ReadOnly *ReadOnly   `xml:"readonly,omitempty"`
 	Auth     *DiskAuth   `xml:"auth,omitempty"`
+	Alias    *Alias      `xml:"alias,omitmepty"`
 }
 
 type DiskAuth struct {
@@ -303,7 +230,8 @@ type DiskSource struct {
 
 type DiskTarget struct {
 	Bus    string `xml:"bus,attr,omitempty"`
-	Device string `xml:"dev,attr"`
+	Device string `xml:"dev,attr,omitempty"`
+	Tray   string `xml:"tray,attr,omitempty"`
 }
 
 type DiskDriver struct {
@@ -455,7 +383,7 @@ type SysInfo struct {
 }
 
 type Entry struct {
-	Name  string `xml:"name"`
+	Name  string `xml:"name,attr"`
 	Value string `xml:",chardata"`
 }
 
@@ -464,12 +392,16 @@ type Entry struct {
 //BEGIN Clock --------------------
 
 type Clock struct {
+	Offset     string  `xml:"offset,attr,omitempty"`
+	Adjustment string  `xml:"adjustment,attr,omitempty"`
+	Timer      []Timer `xml:"timer,omitempty"`
 }
 
 type Timer struct {
 	Name       string `xml:"name,attr"`
 	TickPolicy string `xml:"tickpolicy,attr,omitempty"`
 	Present    string `xml:"present,attr,omitempty"`
+	Track      string `xml:"track,attr,omitempty"`
 }
 
 //END Clock --------------------
@@ -549,6 +481,7 @@ type RandomGenerator struct {
 type Watchdog struct {
 	Model  string `xml:"model,attr"`
 	Action string `xml:"action,attr"`
+	Alias  *Alias `xml:"alias,omitmepty"`
 }
 
 // TODO ballooning, rng, cpu ...
@@ -568,13 +501,14 @@ type SecretSpec struct {
 
 func NewMinimalDomainSpec(vmName string) *DomainSpec {
 	precond.MustNotBeEmpty(vmName)
-	domain := DomainSpec{OS: OS{Type: OSType{OS: "hvm"}}, Type: "qemu", Name: vmName}
-	domain.Memory = Memory{Unit: "KiB", Value: 8192}
+	domain := &DomainSpec{}
+	domain.Name = vmName
+	domain.Memory = Memory{Unit: "MB", Value: 9}
 	domain.Devices = Devices{}
 	domain.Devices.Interfaces = []Interface{
 		{Type: "network", Source: InterfaceSource{Network: "default"}},
 	}
-	return &domain
+	return domain
 }
 
 func NewMinimalDomain(name string) *Domain {
@@ -583,7 +517,7 @@ func NewMinimalDomain(name string) *Domain {
 
 func NewMinimalDomainWithNS(namespace string, name string) *Domain {
 	domain := NewDomainReferenceFromName(namespace, name)
-	domain.Spec = *NewMinimalDomainSpec(name)
+	domain.Spec = *NewMinimalDomainSpec(namespace + "_" + name)
 	return domain
 }
 
@@ -625,4 +559,11 @@ func (dl *DomainList) GetObjectKind() schema.ObjectKind {
 // Required to satisfy ListMetaAccessor interface
 func (dl *DomainList) GetListMeta() meta.List {
 	return &dl.ListMeta
+}
+
+// VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
+// namespace_name.
+func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
+	domName := fmt.Sprintf("%s_%s", vm.Namespace, vm.Name)
+	return domName
 }

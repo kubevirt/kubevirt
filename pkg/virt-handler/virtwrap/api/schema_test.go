@@ -22,55 +22,70 @@ package api
 import (
 	"encoding/xml"
 
-	"github.com/jeevatkm/go-model"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var exampleXML = `<domain type="qemu">
-  <name>testvm</name>
-  <memory unit="KiB">8192</memory>
+var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+  <name>mynamespace_testvm</name>
+  <memory unit="MB">9</memory>
   <os>
     <type>hvm</type>
   </os>
+  <sysinfo type="smbios">
+    <system>
+      <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
+    </system>
+    <bios></bios>
+    <baseBoard></baseBoard>
+  </sysinfo>
   <devices>
     <interface type="network">
       <source network="default"></source>
     </interface>
     <video>
-      <model type="vga"></model>
+      <model type="vga" heads="1" vram="16384"></model>
     </video>
-    <video>
-      <model type="qxl"></model>
-    </video>
+    <graphics port="-1" type="spice">
+      <listen type="address" address="0.0.0.0"></listen>
+    </graphics>
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
       <target dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
+      <alias name="mydisk"></alias>
     </disk>
-    <serial type="pty">
-      <target port="123"></target>
-    </serial>
-    <console type="pty">
-      <target type="serial" port="123"></target>
-    </console>
-    <watchdog model="i6300esb" action="poweroff"></watchdog>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso"></source>
+      <target dev="vdb"></target>
+      <driver name="qemu" type="raw"></driver>
+      <alias name="mydisk1"></alias>
+    </disk>
+    <console type="pty"></console>
+    <watchdog model="i6300esb" action="poweroff">
+      <alias name="mywatchdog"></alias>
+    </watchdog>
   </devices>
   <metadata>
-    <graceperiod xmlns="http://kubevirt.io">
-      <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
-    </graceperiod>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
+      <graceperiod>
+        <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
   </metadata>
+  <features>
+    <acpi></acpi>
+  </features>
 </domain>`
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the xml above
-	var exampleDomain = NewMinimalDomainSpec("testvm")
-	exampleDomain.Devices.Disks = []Disk{
+	var exampleDomain = NewMinimalDomainWithNS("mynamespace", "testvm")
+	SetObjectDefaults_Domain(exampleDomain)
+	exampleDomain.Spec.Devices.Disks = []Disk{
 		{Type: "network",
 			Device: "disk",
 			Driver: &DiskDriver{Name: "qemu",
@@ -79,26 +94,54 @@ var _ = Describe("Schema", func() {
 				Name: "iqn.2013-07.com.example:iscsi-nopool/2",
 				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
 			Target: DiskTarget{Device: "vda"},
+			Alias: &Alias{
+				Name: "mydisk",
+			},
+		},
+		{Type: "file",
+			Device: "disk",
+			Driver: &DiskDriver{Name: "qemu",
+				Type: "raw"},
+			Source: DiskSource{
+				File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso",
+			},
+			Target: DiskTarget{Device: "vdb"},
+			Alias: &Alias{
+				Name: "mydisk1",
+			},
 		},
 	}
-	exampleDomain.Devices.Video = []Video{
-		{Model: VideoModel{Type: "vga"}},
-		{Model: VideoModel{Type: "qxl"}},
+
+	var heads uint = 1
+	var vram uint = 16384
+	exampleDomain.Spec.Devices.Video = []Video{
+		{Model: VideoModel{Type: "vga", Heads: &heads, VRam: &vram}},
 	}
-	exampleDomain.Devices.Serials = []Serial{
-		{Type: "pty", Target: &SerialTarget{Port: newUInt(123)}},
+	exampleDomain.Spec.Devices.Consoles = []Console{
+		{Type: "pty"},
 	}
-	exampleDomain.Devices.Consoles = []Console{
-		{Type: "pty", Target: &ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
-	}
-	exampleDomain.Devices.Watchdog = &Watchdog{
+	exampleDomain.Spec.Devices.Watchdog = &Watchdog{
 		Model:  "i6300esb",
 		Action: "poweroff",
+		Alias: &Alias{
+			Name: "mywatchdog",
+		},
 	}
+	exampleDomain.Spec.Features = &Features{
+		ACPI: &FeatureEnabled{},
+	}
+	exampleDomain.Spec.SysInfo = &SysInfo{
+		Type: "smbios",
+		System: []Entry{
+			{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
+		},
+	}
+	exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
+	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
 
 	Context("With schema", func() {
 		It("Generate expected libvirt xml", func() {
-			domain := NewMinimalDomainSpec("testvm")
+			domain := NewMinimalDomainSpec("mynamespace_testvm")
 			buf, err := xml.Marshal(domain)
 			Expect(err).To(BeNil())
 
@@ -115,65 +158,16 @@ var _ = Describe("Schema", func() {
 			newDomain := DomainSpec{}
 			err := xml.Unmarshal([]byte(exampleXML), &newDomain)
 			newDomain.XMLName.Local = ""
+			newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 			Expect(err).To(BeNil())
 
-			Expect(newDomain).To(Equal(*exampleDomain))
+			Expect(newDomain).To(Equal(exampleDomain.Spec))
 		})
 		It("Marshal into xml", func() {
-			buf, err := xml.MarshalIndent(*exampleDomain, "", "  ")
+			buf, err := xml.MarshalIndent(exampleDomain.Spec, "", "  ")
 			Expect(err).To(BeNil())
 			Expect(string(buf)).To(Equal(exampleXML))
 		})
 
 	})
-	Context("With v1.DomainSpec", func() {
-		var v1DomainSpec = v1.NewMinimalDomainSpec()
-		v1DomainSpec.Devices.Disks = []v1.Disk{
-			{Type: "network",
-				Device: "disk",
-				Driver: &v1.DiskDriver{Name: "qemu",
-					Type: "raw"},
-				Source: v1.DiskSource{Protocol: "iscsi",
-					Name: "iqn.2013-07.com.example:iscsi-nopool/2",
-					Host: &v1.DiskSourceHost{Name: "example.com", Port: "3260"}},
-				Target: v1.DiskTarget{Device: "vda"},
-			},
-		}
-		v1DomainSpec.Devices.Video = []v1.Video{
-			{Type: "vga"},
-			{Type: "qxl"},
-		}
-		v1DomainSpec.Devices.Serials = []v1.Serial{
-			{Type: "pty", Target: &v1.SerialTarget{Port: newUInt(123)}},
-		}
-		v1DomainSpec.Devices.Consoles = []v1.Console{
-			{Type: "pty", Target: &v1.ConsoleTarget{Type: newString("serial"), Port: newUInt(123)}},
-		}
-		v1DomainSpec.Devices.Watchdog = &v1.Watchdog{
-			Model:  "i6300esb",
-			Action: "poweroff",
-		}
-
-		It("converts to libvirt.DomainSpec", func() {
-			virtDomainSpec := DomainSpec{}
-			errs := model.Copy(&virtDomainSpec, v1DomainSpec)
-			virtDomainSpec.Name = "testvm"
-			Expect(virtDomainSpec).To(Equal(*exampleDomain))
-			Expect(errs).To(BeEmpty())
-		})
-		It("converts to v1.DomainSpec", func() {
-			convertedDomainSpec := v1.DomainSpec{}
-			errs := model.Copy(&convertedDomainSpec, exampleDomain)
-			Expect(convertedDomainSpec).To(Equal(*v1DomainSpec))
-			Expect(errs).To(BeEmpty())
-		})
-	})
 })
-
-func newUInt(v uint) *uint {
-	return &v
-}
-
-func newString(v string) *string {
-	return &v
-}

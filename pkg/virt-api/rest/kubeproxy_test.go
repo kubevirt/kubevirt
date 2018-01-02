@@ -286,7 +286,7 @@ var _ = Describe("Kubeproxy", func() {
 			table.Entry("sending YAML and receiving YAML", rest2.MIME_YAML, rest2.MIME_YAML),
 		)
 		It("POST should fail on missing mandatory field with 400", func() {
-			sourceVM.Spec = v1.VMSpec{}
+			sourceVM.Spec = v1.VirtualMachineSpec{}
 			result := restClient.Post().Resource(vmResource).Namespace(k8sv1.NamespaceDefault).Body(sourceVM).Do()
 			Expect(result).To(HaveStatusCode(http.StatusBadRequest))
 		})

@@ -24,80 +24,294 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/api/core/v1"
 )
 
 var exampleJSON = `{
-  "memory": {
-    "value": 8192,
-    "unit": "KiB"
+  "kind": "VirtualMachine",
+  "apiVersion": "kubevirt.io/v1alpha1",
+  "metadata": {
+    "name": "testvm",
+    "namespace": "default",
+    "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
+    "creationTimestamp": null
   },
-  "type": "qemu",
-  "os": {
-    "type": {
-      "os": "hvm"
-    }
-  },
-  "devices": {
-    "interfaces": [
-      {
-        "type": "network",
-        "source": {
-          "network": "default"
+  "spec": {
+    "domain": {
+      "resources": {
+        "requests": {
+          "memory": "8Mi"
         }
-      }
-    ],
-    "disks": [
-      {
-        "device": "disk",
-        "type": "network",
-        "source": {
-          "protocol": "iscsi",
-          "name": "iqn.2013-07.com.example:iscsi-nopool/2",
-          "host": {
-            "name": "example.com",
-            "port": "3260"
+      },
+      "firmware": {
+        "uid": "28a42a60-44ef-4428-9c10-1a6aee94627f"
+      },
+      "clock": {
+        "utc": {},
+        "timer": {
+          "hpet": {
+            "present": true
+          },
+          "kvm": {
+            "present": true
+          },
+          "pit": {
+            "present": true
+          },
+          "rtc": {
+            "present": true
+          },
+          "hyperv": {
+            "present": true
           }
+        }
+      },
+      "features": {
+        "acpi": {
+          "enabled": false
         },
-        "target": {
-          "dev": "vda"
+        "apic": {
+          "enabled": true
         },
-        "driver": {
-          "name": "qemu",
-          "type": "raw"
+        "hyperv": {
+          "relaxed": {
+            "enabled": true
+          },
+          "vapic": {
+            "enabled": false
+          },
+          "spinlocks": {
+            "enabled": true,
+            "spinlocks": 4096
+          },
+          "vpindex": {
+            "enabled": false
+          },
+          "runtime": {
+            "enabled": true
+          },
+          "synic": {
+            "enabled": false
+          },
+          "synictimer": {
+            "enabled": true
+          },
+          "reset": {
+            "enabled": false
+          },
+          "vendorid": {
+            "enabled": true,
+            "vendorid": "vendor"
+          }
+        }
+      },
+      "devices": {
+        "disks": [
+          {
+            "name": "disk0",
+            "volumeName": "volume0",
+            "disk": {
+              "dev": "vda"
+            }
+          },
+          {
+            "name": "cdrom0",
+            "volumeName": "volume1",
+            "cdrom": {
+              "dev": "vdb",
+              "readonly": true,
+              "tray": "open"
+            }
+          },
+          {
+            "name": "floppy0",
+            "volumeName": "volume2",
+            "floppy": {
+              "dev": "vdc",
+              "readonly": true,
+              "tray": "open"
+            }
+          },
+          {
+            "name": "lun0",
+            "volumeName": "volume3",
+            "lun": {
+              "dev": "vdd",
+              "readonly": true
+            }
+          }
+        ]
+      }
+    },
+    "volumes": [
+      {
+        "name": "volume0",
+        "registryDisk": {
+          "image": "test/image"
+        }
+      },
+      {
+        "name": "volume1",
+        "cloudInitNoCloud": {
+          "secretRef": {
+            "name": "testsecret"
+          }
+        }
+      },
+      {
+        "name": "volume2",
+        "iscsi": {
+          "targetPortal": "1234",
+          "iqn": "",
+          "lun": 0,
+          "secretRef": {
+            "name": "testsecret"
+          }
+        }
+      },
+      {
+        "name": "volume3",
+        "persistentVolumeClaim": {
+          "claimName": "testclaim"
         }
       }
     ]
+  },
+  "status": {
+    "graphics": null
   }
 }`
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
-	var exampleVM = NewMinimalDomainSpec()
-	exampleVM.Devices.Disks = []Disk{
+	var exampleVM = NewMinimalVM("testvm")
+	exampleVM.Spec.Domain.Devices.Disks = []Disk{
 		{
-			Type:   "network",
-			Device: "disk",
-			Driver: &DiskDriver{Name: "qemu",
-				Type: "raw"},
-			Source: DiskSource{Protocol: "iscsi",
-				Name: "iqn.2013-07.com.example:iscsi-nopool/2",
-				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
-			Target: DiskTarget{Device: "vda"},
+			Name:       "disk0",
+			VolumeName: "volume0",
+			DiskDevice: DiskDevice{
+				Disk: &DiskTarget{
+					Device:   "vda",
+					ReadOnly: false,
+				},
+			},
+		},
+		{
+			Name:       "cdrom0",
+			VolumeName: "volume1",
+			DiskDevice: DiskDevice{
+				CDRom: &CDRomTarget{
+					Device:   "vdb",
+					ReadOnly: _true,
+					Tray:     "open",
+				},
+			},
+		},
+		{
+			Name:       "floppy0",
+			VolumeName: "volume2",
+			DiskDevice: DiskDevice{
+				Floppy: &FloppyTarget{
+					Device:   "vdc",
+					ReadOnly: true,
+					Tray:     "open",
+				},
+			},
+		},
+		{
+			Name:       "lun0",
+			VolumeName: "volume3",
+			DiskDevice: DiskDevice{
+				LUN: &LunTarget{
+					Device:   "vdd",
+					ReadOnly: true,
+				},
+			},
 		},
 	}
 
+	exampleVM.Spec.Volumes = []Volume{
+		{
+			Name: "volume0",
+			VolumeSource: VolumeSource{
+				RegistryDisk: &RegistryDiskSource{
+					Image: "test/image",
+				},
+			},
+		},
+		{
+			Name: "volume1",
+			VolumeSource: VolumeSource{
+				CloudInitNoCloud: &CloudInitNoCloudSource{
+					UserDataSecretRef: &v1.LocalObjectReference{
+						Name: "testsecret",
+					},
+				},
+			},
+		},
+		{
+			Name: "volume2",
+			VolumeSource: VolumeSource{
+				ISCSI: &v1.ISCSIVolumeSource{
+					TargetPortal: "1234",
+					SecretRef: &v1.LocalObjectReference{
+						Name: "testsecret",
+					},
+				},
+			},
+		},
+		{
+			Name: "volume3",
+			VolumeSource: VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "testclaim",
+				},
+			},
+		},
+	}
+	exampleVM.Spec.Domain.Features = &Features{
+		ACPI: FeatureState{Enabled: _false},
+		APIC: &FeatureState{Enabled: _true},
+		Hyperv: &FeatureHyperv{
+			Relaxed:    &FeatureState{Enabled: _true},
+			VAPIC:      &FeatureState{Enabled: _false},
+			Spinlocks:  &FeatureSpinlocks{Enabled: _true},
+			VPIndex:    &FeatureState{Enabled: _false},
+			Runtime:    &FeatureState{Enabled: _true},
+			SyNIC:      &FeatureState{Enabled: _false},
+			SyNICTimer: &FeatureState{Enabled: _true},
+			Reset:      &FeatureState{Enabled: _false},
+			VendorID:   &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
+		},
+	}
+	exampleVM.Spec.Domain.Clock = &Clock{
+		ClockOffset: ClockOffset{
+			UTC: &ClockOffsetUTC{},
+		},
+		Timer: &Timer{
+			HPET:   &HPETTimer{},
+			KVM:    &KVMTimer{},
+			PIT:    &PITTimer{},
+			RTC:    &RTCTimer{},
+			Hyperv: &HypervTimer{},
+		},
+	}
+	exampleVM.Spec.Domain.Firmware = &Firmware{
+		UID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
+	}
+	SetObjectDefaults_VirtualMachine(exampleVM)
+
 	Context("With example schema in json", func() {
 		It("Unmarshal json into struct", func() {
-			newDomain := DomainSpec{}
-			err := json.Unmarshal([]byte(exampleJSON), &newDomain)
+			newVM := &VirtualMachine{}
+			err := json.Unmarshal([]byte(exampleJSON), newVM)
 			Expect(err).To(BeNil())
 
-			Expect(newDomain).To(Equal(*exampleVM))
+			Expect(newVM).To(Equal(exampleVM))
 		})
 		It("Marshal struct into json", func() {
 			buf, err := json.MarshalIndent(*exampleVM, "", "  ")
 			Expect(err).To(BeNil())
-
 			Expect(string(buf)).To(Equal(exampleJSON))
 		})
 	})

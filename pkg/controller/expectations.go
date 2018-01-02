@@ -273,7 +273,7 @@ type UIDSet struct {
 // deletion. The desired behavior is to treat an update that sets the
 // DeletionTimestamp on an object as a delete. To do so consistently, one needs
 // to remember the expected deletes so they aren't double counted.
-// TODO: Track creates as well (#22599)
+// TODO: RTCTimerTrack creates as well (#22599)
 type UIDTrackingControllerExpectations struct {
 	ControllerExpectationsInterface
 	// TODO: There is a much nicer way to do this that involves a single store,

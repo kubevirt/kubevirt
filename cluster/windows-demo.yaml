@@ -1,0 +1,42 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: windows2012r2
+spec:
+  terminationGracePeriodSeconds: 0
+  domain:
+    features:
+      acpi: {}
+      apic: {}
+      hyperv:
+        relaxed: {}
+        vapic: {}
+        spinlocks:
+          spinlocks: 8191
+    clock:
+      utc: {}
+      timer:
+        hpet:
+          present: false
+        pit:
+          tickPolicy: delay
+        rtc:
+          tickPolicy: catchup
+        hyperv: {}
+    firmware:
+      uid: 5d307ca9-b3ef-428c-8861-06e72d69f223
+    resources:
+      requests:
+        memory: 512M
+    devices:
+      disks:
+      - name: server2012r2
+        volumeName: server2012r2
+        disk:
+          dev: vda
+  volumes:
+    - name: server2012r2
+      iscsi:
+        iqn: iqn.2017-01.io.kubevirt:sn.42
+        lun: 4
+        targetPortal: iscsi-demo-target.kube-system.svc.cluster.local

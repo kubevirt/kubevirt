@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jeevatkm/go-model"
-
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -36,7 +34,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
-const registryDiskV1Alpha = "RegistryDisk:v1alpha"
 const filePrefix = "disk-image"
 
 var registryDiskOwner = "qemu"
@@ -48,9 +45,9 @@ func generateVMBaseDir(vm *v1.VirtualMachine) string {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	return fmt.Sprintf("%s/%s/%s", mountBaseDir, namespace, domain)
 }
-func generateVolumeMountDir(vm *v1.VirtualMachine, diskCount int) string {
+func generateVolumeMountDir(vm *v1.VirtualMachine, volumeName string) string {
 	baseDir := generateVMBaseDir(vm)
-	return fmt.Sprintf("%s/disk%d", baseDir, diskCount)
+	return fmt.Sprintf("%s/disk_%s", baseDir, volumeName)
 }
 
 func SetLocalDirectory(dir string) error {
@@ -63,12 +60,13 @@ func SetLocalDataOwner(user string) {
 	registryDiskOwner = user
 }
 
-func getFilePath(basePath string) (string, string, error) {
+func GetFilePath(vm *v1.VirtualMachine, volumeName string) (string, string, error) {
 
+	volumeMountDir := generateVolumeMountDir(vm, volumeName)
 	suffixes := map[string]string{".raw": "raw", ".qcow2": "qcow2", ".raw.virt": "raw", ".qcow2.virt": "qcow2"}
 
 	for k, v := range suffixes {
-		path := basePath + "/" + filePrefix + k
+		path := volumeMountDir + "/" + filePrefix + k
 		exists, err := diskutils.FileExists(path)
 		if err != nil {
 			return "", "", err
@@ -77,7 +75,7 @@ func getFilePath(basePath string) (string, string, error) {
 		}
 	}
 
-	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", basePath))
+	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", volumeMountDir))
 }
 
 func CleanupOrphanedEphemeralDisks(indexer cache.Store) error {
@@ -121,20 +119,15 @@ func CleanupEphemeralDisks(vm *v1.VirtualMachine) error {
 	return err
 }
 
-// The virt-handler converts registry disks to their corresponding iscsi network
-// disks when the VM spec is being defined as a domain with libvirt.
-// The ports and host of the iscsi disks are already provided here by the controller.
-func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	vmCopy := &v1.VirtualMachine{}
-	model.Copy(vmCopy, vm)
+// The virt-handler renames all registry disks in order to indicate to virt-launcher
+// that it took the ownership of the image
+func TakeOverRegistryDisks(vm *v1.VirtualMachine) error {
 
-	for diskCount, disk := range vmCopy.Spec.Domain.Devices.Disks {
-		if disk.Type == registryDiskV1Alpha {
-			volumeMountDir := generateVolumeMountDir(vm, diskCount)
-
-			diskPath, diskType, err := getFilePath(volumeMountDir)
+	for _, volume := range vm.Spec.Volumes {
+		if volume.RegistryDisk != nil {
+			diskPath, _, err := GetFilePath(vm, volume.Name)
 			if err != nil {
-				return vm, err
+				return err
 			}
 
 			// Rename file to release management of it from container process.
@@ -143,29 +136,18 @@ func MapRegistryDisks(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 				diskPath = oldDiskPath + ".virt"
 				err = os.Rename(oldDiskPath, diskPath)
 				if err != nil {
-					return vm, err
+					return err
 				}
 			}
 
 			err = diskutils.SetFileOwnership(registryDiskOwner, diskPath)
 			if err != nil {
-				return vm, err
+				return err
 			}
-
-			newDisk := v1.Disk{}
-			newDisk.Type = "file"
-			newDisk.Device = "disk"
-			newDisk.Driver = &v1.DiskDriver{
-				Type: diskType,
-				Name: "qemu",
-			}
-			newDisk.Source.File = diskPath
-			newDisk.Target = disk.Target
-			vmCopy.Spec.Domain.Devices.Disks[diskCount] = newDisk
 		}
 	}
 
-	return vmCopy, nil
+	return nil
 }
 
 // The controller uses this function to generate the container
@@ -181,14 +163,13 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 	failureThreshold := 5
 
 	// Make VM Image Wrapper Containers
-	for diskCount, disk := range vm.Spec.Domain.Devices.Disks {
-		if disk.Type == registryDiskV1Alpha {
+	for _, volume := range vm.Spec.Volumes {
+		if volume.RegistryDisk != nil {
 
-			volumeMountDir := generateVolumeMountDir(vm, diskCount)
-			volumeName := fmt.Sprintf("disk%d-volume", diskCount)
-			diskContainerName := fmt.Sprintf("disk%d", diskCount)
-			// container image is disk.Source.Name
-			diskContainerImage := disk.Source.Name
+			volumeMountDir := generateVolumeMountDir(vm, volume.Name)
+			volumeName := fmt.Sprintf("volume%s-volume", volume.Name)
+			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
+			diskContainerImage := volume.RegistryDisk.Image
 
 			volumes = append(volumes, kubev1.Volume{
 				Name: volumeName,
@@ -204,7 +185,7 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 				ImagePullPolicy: kubev1.PullIfNotPresent,
 				Command:         []string{"/entry-point.sh"},
 				Env: []kubev1.EnvVar{
-					kubev1.EnvVar{
+					{
 						Name:  "COPY_PATH",
 						Value: volumeMountDir + "/" + filePrefix,
 					},
@@ -215,7 +196,7 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 						MountPath: volumeMountDir,
 					},
 				},
-				// The readiness probes ensure the disk coversion and copy finished
+				// The readiness probes ensure the volume coversion and copy finished
 				// before the container is marked as "Ready: True"
 				ReadinessProbe: &kubev1.Probe{
 					Handler: kubev1.Handler{

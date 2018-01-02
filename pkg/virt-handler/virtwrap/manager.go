@@ -29,15 +29,14 @@ import (
 	"encoding/xml"
 	goerrors "errors"
 	"fmt"
-	"time"
 
-	"github.com/jeevatkm/go-model"
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/record"
 
 	"strings"
+
+	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -46,12 +45,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/util"
 )
 
 type DomainManager interface {
 	SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error
 	RemoveVMSecrets(*v1.VirtualMachine) error
-	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
+	SyncVM(*v1.VirtualMachine, map[string]*kubev1.Secret) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
 	SignalShutdownVM(*v1.VirtualMachine) error
 }
@@ -119,7 +119,7 @@ func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRec
 
 func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error {
 
-	domName := cache.VMNamespaceKeyFunc(vm)
+	domName := api.VMNamespaceKeyFunc(vm)
 
 	switch usageType {
 	case "iscsi":
@@ -174,17 +174,23 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 	return nil
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, error) {
-	var wantedSpec api.DomainSpec
-	wantedSpec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-	wantedSpec.Type = "qemu"
-	mappingErrs := model.Copy(&wantedSpec, vm.Spec.Domain)
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]*kubev1.Secret) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
-	if len(mappingErrs) > 0 {
-		logger.Error("model copy failed.")
-		return nil, errors.NewAggregate(mappingErrs)
+	domain := &api.Domain{}
+
+	// Map the VirtualMachine to the Domain
+	c := &api.ConverterContext{
+		VirtualMachine: vm,
+		Secrets:        secrets,
 	}
+	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c); err != nil {
+		logger.Error("Conversion failed.")
+		return nil, err
+	}
+
+	// Set defaults which are not comming from the cluster
+	api.SetObjectDefaults_Domain(domain)
 
 	res, err := l.podIsolationDetector.Detect(vm)
 	if err != nil {
@@ -193,27 +199,20 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	}
 
 	logger.With("slice", res.Slice()).V(3).Info("Detected cgroup slice.")
-	wantedSpec.QEMUCmd = &api.Commandline{
+	domain.Spec.QEMUCmd = &api.Commandline{
 		QEMUEnv: []api.Env{
 			{Name: "SLICE", Value: res.Slice()},
 			{Name: "CONTROLLERS", Value: strings.Join(res.Controller(), ",")},
 		},
 	}
 
-	if vm.Spec.TerminationGracePeriodSeconds != nil {
-		wantedSpec.Metadata.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
-	}
-
-	domName := cache.VMNamespaceKeyFunc(vm)
-	wantedSpec.Name = domName
-	wantedSpec.UUID = string(vm.GetObjectMeta().GetUID())
-	dom, err := l.virConn.LookupDomainByName(domName)
+	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
-			dom, err = l.setDomainXML(vm, wantedSpec)
+			dom, err = util.SetDomainSpec(l.virConn, vm, domain.Spec)
 			if err != nil {
 				return nil, err
 			}
@@ -234,7 +233,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VM was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
-		dom, err = l.setDomainXML(vm, wantedSpec)
+		dom, err = util.SetDomainSpec(l.virConn, vm, domain.Spec)
 		if err != nil {
 			return nil, err
 		}
@@ -281,7 +280,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 }
 
 func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
-	domName := cache.VMNamespaceKeyFunc(vm)
+	domName := api.VMNamespaceKeyFunc(vm)
 
 	secretUUIDs, ok := l.secretCache[domName]
 	if ok == false {
@@ -310,7 +309,7 @@ func (l *LibvirtDomainManager) RemoveVMSecrets(vm *v1.VirtualMachine) error {
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
-	return cache.GetDomainSpec(dom)
+	return util.GetDomainSpec(dom)
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
@@ -340,7 +339,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 			return err
 		}
 
-		if domSpec.Metadata.GracePeriod.DeletionTimestamp == nil {
+		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
 			err = dom.Shutdown()
 			if err != nil {
 				log.Log.Object(vm).Reason(err).Error("Signalling graceful shutdown failed.")
@@ -348,9 +347,9 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 			}
 			log.Log.Object(vm).Infof("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())
 
-			now := time.Now()
-			domSpec.Metadata.GracePeriod.DeletionTimestamp = &now
-			_, err = l.setDomainXML(vm, *domSpec)
+			now := k8sv1.Now()
+			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
+			_, err = util.SetDomainSpec(l.virConn, vm, *domSpec)
 			if err != nil {
 				log.Log.Object(vm).Reason(err).Error("Unable to update grace period start time on domain xml")
 				return err
@@ -364,7 +363,7 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 }
 
 func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
-	domName := cache.VMNamespaceKeyFunc(vm)
+	domName := api.VMNamespaceKeyFunc(vm)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VM does not exist, we are done
@@ -401,19 +400,4 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	log.Log.Object(vm).Info("Domain undefined.")
 	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
-}
-
-func (l *LibvirtDomainManager) setDomainXML(vm *v1.VirtualMachine, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
-	xmlStr, err := xml.Marshal(&wantedSpec)
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Generating the domain XML failed.")
-		return nil, err
-	}
-	log.Log.Object(vm).V(3).With("xml", xmlStr).Info("Domain XML generated.")
-	dom, err := l.virConn.DomainDefineXML(string(xmlStr))
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Defining the VM failed.")
-		return nil, err
-	}
-	return dom, nil
 }

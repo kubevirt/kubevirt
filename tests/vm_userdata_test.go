@@ -63,7 +63,7 @@ var _ = Describe("CloudInit UserData", func() {
 
 		_, err = expecter.ExpectBatch([]expect.Batcher{
 			&expect.BExp{R: magicStr},
-		}, 60*time.Second)
+		}, 120*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -76,40 +76,37 @@ var _ = Describe("CloudInit UserData", func() {
 			magicStr := "printed from cloud-init userdata"
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
 
-			vm, err := tests.NewRandomVMWithUserData("noCloud", userData)
-			Expect(err).ToNot(HaveOccurred())
+			vm := tests.NewRandomVMWithUserData(userData)
 			obj := LaunchVM(vm)
 			VerifyUserDataVM(vm, obj, magicStr)
 			close(done)
-		}, 90)
+		}, 180)
 
 		It("should launch ephemeral vm with cloud-init data source NoCloud", func(done Done) {
 			magicStr := "printed from cloud-init userdata"
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
 
-			vm, err := tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", "noCloud", userData)
-			Expect(err).ToNot(HaveOccurred())
+			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
 			obj := LaunchVM(vm)
 			VerifyUserDataVM(vm, obj, magicStr)
 			close(done)
-		}, 90)
+		}, 180)
 
 		It("should launch VMs with user-data in k8s secret", func(done Done) {
 			magicStr := "printed from cloud-init userdata"
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
-			vm, err := tests.NewRandomVMWithUserData("noCloud", userData)
-			Expect(err).ToNot(HaveOccurred())
+			vm := tests.NewRandomVMWithUserData(userData)
 
-			for _, disk := range vm.Spec.Domain.Devices.Disks {
-				if disk.CloudInit == nil {
+			for _, volume := range vm.Spec.Volumes {
+				if volume.CloudInitNoCloud == nil {
 					continue
 				}
 
-				secretID := fmt.Sprintf("%s-test-secret", vm.GetObjectMeta().GetName())
-				spec := disk.CloudInit
-				spec.NoCloudData.UserDataSecretRef = secretID
-				userData64 := spec.NoCloudData.UserDataBase64
-				spec.NoCloudData.UserDataBase64 = ""
+				secretID := fmt.Sprintf("%s-test-secret", vm.Name)
+				spec := volume.CloudInitNoCloud
+				spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
+				userData64 := spec.UserDataBase64
+				spec.UserDataBase64 = ""
 
 				// Store userdata as k8s secret
 				secret := kubev1.Secret{
@@ -130,6 +127,6 @@ var _ = Describe("CloudInit UserData", func() {
 			VerifyUserDataVM(vm, obj, magicStr)
 
 			close(done)
-		}, 90)
+		}, 180)
 	})
 })

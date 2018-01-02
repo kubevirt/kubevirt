@@ -24,6 +24,8 @@ install:
  - go get -u github.com/rmohr/mock/mockgen
  - go get -u github.com/rmohr/go-swagger-utils/swagger-doc
  - go get -u github.com/onsi/ginkgo/ginkgo
+ - go get -u k8s.io/code-generator/cmd/deepcopy-gen
+ - go get -u k8s.io/code-generator/cmd/defaulter-gen
  - sudo apt-get install libvirt-dev make
  - make sync
 
@@ -42,7 +44,7 @@ script:
 - make check
 - make build
 - if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then $HOME/gopath/bin/goveralls
-  -service=travis-ci -package=./pkg/... -ignore=$(find -name generated_mock*.go -printf
+  -service=travis-ci -package=./pkg/... -ignore=$(find -regextype posix-egrep -regex ".*generated_mock.*\.go|.*swagger_generated\.go" -printf
   "%P\n" | paste -d, -s) ; else make test; fi
 - make apidocs
 - make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag

@@ -17,28 +17,23 @@
  *
  */
 
-package v1
+package cli
 
 import (
-	"encoding/json"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/satori/go.uuid"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+
+	"fmt"
+	"time"
 )
 
-var _ = Describe("Mapper", func() {
-	Context("With a VM supplied", func() {
-		It("should map to json and back with custom mapper", func() {
-			vm := VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", UID: types.UID(uuid.NewV4().String())}}
-			newVM := VirtualMachine{}
-			buf, err := json.Marshal(&vm)
-			Expect(err).To(BeNil())
-			err = json.Unmarshal(buf, &newVM)
-			Expect(err).To(BeNil())
-			Expect(newVM).To(Equal(vm))
+var _ = Describe("Libvirt Suite", func() {
+	Context("Upon attempt to connect to Libvirt", func() {
+		It("should time out while waiting for libvirt", func() {
+			_, err := NewConnection("http://", "", "", 1*time.Microsecond)
+			msg := fmt.Sprintf("%v", err)
+			Expect(err).To(HaveOccurred())
+			Expect(msg).To(Equal("cannot connect to libvirt daemon: timed out waiting for the condition"))
 		})
 	})
 })

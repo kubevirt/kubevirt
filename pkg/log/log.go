@@ -71,8 +71,11 @@ type FilteredLogger struct {
 	err                   error
 }
 
+var Log = DefaultLogger()
+
 func InitializeLogging(comp string) {
 	flag.StringVar(&defaultComponent, "component", comp, "Default component for logs")
+	Log = DefaultLogger()
 }
 
 // Wrap a go-kit logger in a FilteredLogger. Not cached
@@ -125,8 +128,6 @@ func Logger(component string) *FilteredLogger {
 func DefaultLogger() *FilteredLogger {
 	return Logger(defaultComponent)
 }
-
-var Log = DefaultLogger()
 
 func (l *FilteredLogger) SetIOWriter(w io.Writer) {
 	l.logContext = log.NewContext(log.NewLogfmtLogger(w))
