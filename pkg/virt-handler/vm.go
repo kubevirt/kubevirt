@@ -588,8 +588,21 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (map[st
 	return secrets, nil
 }
 
+func (d *VirtualMachineController) cleanupConsoleSockets(vm *v1.VirtualMachine) error {
+	// TODO this can go away once qemu is in the pods mount namespace.
+	namespace := vm.ObjectMeta.Namespace
+	name := vm.ObjectMeta.Name
+	unixPath := fmt.Sprintf("%s-private/%s/%s", d.virtShareDir, namespace, name)
+	return diskutils.RemoveFile(unixPath)
+}
+
 func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
 	err := d.domainManager.RemoveVMSecrets(vm)
+	if err != nil {
+		return err
+	}
+
+	err = d.cleanupConsoleSockets(vm)
 	if err != nil {
 		return err
 	}
