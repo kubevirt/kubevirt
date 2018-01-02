@@ -353,7 +353,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	// Add mandatory vnc device
 	domain.Spec.Devices.Graphics = []Graphics{
 		{
-			Listen: Listen{
+			Listen: &GraphicsListen{
 				Type:   "socket",
 				Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),
 			},
