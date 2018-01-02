@@ -37,8 +37,6 @@ var _ = Describe("Console", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
-	virtConfig, err := kubecli.GetKubevirtClientConfig()
-	tests.PanicOnError(err)
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
@@ -51,7 +49,7 @@ var _ = Describe("Console", func() {
 			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
 
-			expecter, _, err := tests.NewConsoleExpecter(virtConfig, vm, "serial0", 10*time.Second)
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
 

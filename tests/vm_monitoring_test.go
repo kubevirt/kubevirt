@@ -40,8 +40,6 @@ var _ = Describe("Health Monitoring", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
-	virtConfig, err := kubecli.GetKubevirtClientConfig()
-	tests.PanicOnError(err)
 
 	launchVM := func(vm *v1.VirtualMachine) {
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
@@ -60,7 +58,7 @@ var _ = Describe("Health Monitoring", func() {
 			Expect(err).ToNot(HaveOccurred())
 			launchVM(vm)
 
-			expecter, _, err := tests.NewConsoleExpecter(virtConfig, vm, "serial0", 10*time.Second)
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
