@@ -601,6 +601,16 @@ func (_mr *_MockVMInterfaceRecorder) SerialConsole(arg0, arg1, arg2, arg3 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SerialConsole", arg0, arg1, arg2, arg3)
 }
 
+func (_m *MockVMInterface) Vnc(name string, in io.Reader, out io.Writer) error {
+	ret := _m.ctrl.Call(_m, "Vnc", name, in, out)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVMInterfaceRecorder) Vnc(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Vnc", arg0, arg1, arg2)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller

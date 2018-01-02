@@ -465,6 +465,7 @@ type Listen struct {
 	Type    string `xml:"type,attr"`
 	Address string `xml:"address,attr,omitempty"`
 	Network string `xml:"newtork,attr,omitempty"`
+	Socket  string `xml:"socket,attr,omitempty"`
 }
 
 type Address struct {

@@ -80,6 +80,61 @@ func findPod(clientSet *kubernetes.Clientset, namespace string, name string) (st
 	return podList.Items[0].ObjectMeta.Name, nil
 }
 
+func (v *vms) Vnc(name string, in io.Reader, out io.Writer) error {
+	device := "vnc"
+	podName, err := findPod(v.clientSet, v.namespace, name)
+	if err != nil {
+		return err
+	}
+
+	config, err := clientcmd.BuildConfigFromFlags(v.master, v.kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	gv := k8sv1.SchemeGroupVersion
+	config.GroupVersion = &gv
+	config.APIPath = "/api"
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+
+	restClient, err := restclient.RESTClientFor(config)
+	if err != nil {
+		return err
+	}
+	cmd := []string{"/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", v.namespace, name, device)}
+	containerName := "compute"
+	req := restClient.Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(v.namespace).
+		SubResource("exec").
+		Param("container", containerName)
+
+	req = req.VersionedParams(&k8sv1.PodExecOptions{
+		Container: containerName,
+		Command:   cmd,
+		Stdin:     true,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       true,
+	}, scheme.ParameterCodec)
+
+	// execute request
+	method := "POST"
+	url := req.URL()
+	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
+	if err != nil {
+		return err
+	}
+
+	return exec.Stream(remotecommand.StreamOptions{
+		Stdin:             in,
+		Stdout:            out,
+		Stderr:            out,
+		Tty:               false,
+		TerminalSizeQueue: nil,
+	})
+}
 func (v *vms) SerialConsole(name string, device string, in io.Reader, out io.Writer) error {
 	podName, err := findPod(v.clientSet, v.namespace, name)
 	if err != nil {

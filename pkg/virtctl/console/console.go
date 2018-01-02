@@ -87,7 +87,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 
-	// in -> stdinWriter | stdoutReader -> console
+	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
 
 	resChan := make(chan error)

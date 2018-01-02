@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/spice"
+	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
 )
 
 func main() {
@@ -41,6 +42,7 @@ func main() {
 		"console": &console.Console{},
 		"options": &virtctl.Options{},
 		"spice":   &spice.Spice{},
+		"vnc":     &vnc.Vnc{},
 	}
 
 	if len(os.Args) > 1 {
