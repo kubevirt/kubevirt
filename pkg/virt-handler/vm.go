@@ -22,6 +22,8 @@ package virthandler
 import (
 	goerror "errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"time"
 
@@ -79,6 +81,7 @@ func NewController(
 		domainInformer:           domainInformer,
 		watchdogInformer:         watchdogInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
+		unixSockUser:             "qemu",
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -121,6 +124,14 @@ type VirtualMachineController struct {
 	domainInformer           cache.SharedInformer
 	watchdogInformer         cache.SharedIndexInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
+	// TODO Remove this once qemu process lives entirely in pod namespaces.
+	unixSockUser string
+}
+
+// TODO Remove this once qemu process lives in pod namespace
+// This function is only used by testing framework.
+func (d *VirtualMachineController) overrideUnixSockUser(user string) {
+	d.unixSockUser = user
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -589,12 +600,39 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (map[st
 	return secrets, nil
 }
 
-func (d *VirtualMachineController) cleanupConsoleSockets(vm *v1.VirtualMachine) error {
-	// TODO this can go away once qemu is in the pods mount namespace.
+// TODO this function should go away once qemu is in the pods mount namespace.
+func (d *VirtualMachineController) cleanupUnixSockets(vm *v1.VirtualMachine) error {
 	namespace := vm.ObjectMeta.Namespace
 	name := vm.ObjectMeta.Name
 	unixPath := fmt.Sprintf("%s-private/%s/%s", d.virtShareDir, namespace, name)
 	return diskutils.RemoveFile(unixPath)
+}
+
+// TODO this function should go away once qemu is in the pods mount namespace.
+func (d *VirtualMachineController) initializeUnixSockets(vm *v1.VirtualMachine) error {
+	namespace := vm.ObjectMeta.Namespace
+	name := vm.ObjectMeta.Name
+	unixPathVnc := fmt.Sprintf("%s-private/%s/%s/virt-vnc", d.virtShareDir, namespace, name)
+	unixPathConsole := fmt.Sprintf("%s-private/%s/%s/virt-serial0", d.virtShareDir, namespace, name)
+
+	err := os.MkdirAll(filepath.Dir(unixPathVnc), 0755)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Dir(unixPathConsole), 0755)
+	if err != nil {
+		return err
+	}
+	err = diskutils.SetFileOwnership(d.unixSockUser, filepath.Dir(unixPathVnc))
+	if err != nil {
+		return err
+	}
+	err = diskutils.SetFileOwnership(d.unixSockUser, filepath.Dir(unixPathConsole))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
@@ -603,7 +641,7 @@ func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error
 		return err
 	}
 
-	err = d.cleanupConsoleSockets(vm)
+	err = d.cleanupUnixSockets(vm)
 	if err != nil {
 		return err
 	}
@@ -687,6 +725,11 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	}
 
 	secrets, err := d.injectDiskAuth(vm)
+	if err != nil {
+		return err
+	}
+
+	err = d.initializeUnixSockets(vm)
 	if err != nil {
 		return err
 	}
