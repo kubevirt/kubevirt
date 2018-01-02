@@ -254,10 +254,16 @@ type DiskSourceHost struct {
 type Serial struct {
 	Type   string        `xml:"type,attr"`
 	Target *SerialTarget `xml:"target,omitempty"`
+	Source *SerialSource `xml:"source,omitempty"`
 }
 
 type SerialTarget struct {
 	Port *uint `xml:"port,attr,omitempty"`
+}
+
+type SerialSource struct {
+	Mode string `xml:"mode,attr,omitempty"`
+	Path string `xml:"path,attr,omitempty"`
 }
 
 // END Serial -----------------------------
