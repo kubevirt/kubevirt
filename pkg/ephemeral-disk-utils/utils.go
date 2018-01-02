@@ -34,11 +34,11 @@ import (
 )
 
 func RemoveFile(path string) error {
-	err := os.Remove(path)
+	err := os.RemoveAll(path)
 	if err != nil && os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
-		log.Log.Reason(err).Errorf("failed to remove cloud-init temporary data file %s", path)
+		log.Log.Reason(err).Errorf("failed to remove %s", path)
 		return err
 	}
 	return nil
