@@ -471,11 +471,10 @@ type I6300ESBWatchdog struct {
 
 // TODO ballooning, rng, cpu ...
 
-func NewMinimalDomainSpec() *DomainSpec {
+func NewMinimalDomainSpec() DomainSpec {
 	domain := DomainSpec{}
 	domain.Resources.Requests = v1.ResourceList{
 		v1.ResourceMemory: resource.MustParse("8192Ki"),
 	}
-	domain.Devices = Devices{}
-	return &domain
+	return domain
 }

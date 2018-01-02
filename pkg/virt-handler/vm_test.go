@@ -422,7 +422,7 @@ var _ = Describe("PVC", func() {
 		It("looks up and applies PVC", func() {
 			vm := v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Domain: &v1.DomainSpec{},
+					Domain: v1.DomainSpec{},
 					Volumes: []v1.Volume{
 						{
 							Name: "test-pvc",

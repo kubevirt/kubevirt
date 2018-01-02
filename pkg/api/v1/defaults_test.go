@@ -23,7 +23,7 @@ var _ = Describe("Defaults", func() {
 	It("should default to true to all defined features", func() {
 		vm := &VirtualMachine{
 			Spec: VirtualMachineSpec{
-				Domain: &DomainSpec{},
+				Domain: DomainSpec{},
 			},
 		}
 		vm.Spec.Domain.Features = &Features{
@@ -63,7 +63,7 @@ var _ = Describe("Defaults", func() {
 	It("should not override defined feature states", func() {
 		vm := &VirtualMachine{
 			Spec: VirtualMachineSpec{
-				Domain: &DomainSpec{},
+				Domain: DomainSpec{},
 			},
 		}
 		vm.Spec.Domain.Features = &Features{
@@ -136,7 +136,7 @@ var _ = Describe("Defaults", func() {
 	It("should set dis defaults", func() {
 		vm := &VirtualMachine{
 			Spec: VirtualMachineSpec{
-				Domain: &DomainSpec{
+				Domain: DomainSpec{
 					Devices: Devices{
 						Disks: []Disk{
 							{
@@ -194,7 +194,7 @@ var _ = Describe("Defaults", func() {
 	It("should set the default watchdog and the default watchdog action", func() {
 		vm := &VirtualMachine{
 			Spec: VirtualMachineSpec{
-				Domain: &DomainSpec{
+				Domain: DomainSpec{
 					Devices: Devices{
 						Watchdog: &Watchdog{
 							WatchdogDevice: WatchdogDevice{
@@ -216,7 +216,7 @@ var _ = Describe("Defaults", func() {
 	It("should set timer defaults", func() {
 		vm := &VirtualMachine{
 			Spec: VirtualMachineSpec{
-				Domain: &DomainSpec{
+				Domain: DomainSpec{
 					Clock: &Clock{
 						Timer: &Timer{
 							HPET:   &HPETTimer{},

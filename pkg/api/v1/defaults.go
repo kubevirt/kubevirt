@@ -2,6 +2,8 @@ package v1
 
 import (
 	"github.com/pborman/uuid"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -102,9 +104,11 @@ func SetDefaults_Firmware(obj *Firmware) {
 }
 
 func SetDefaults_VirtualMachine(obj *VirtualMachine) {
-	if obj.Spec.Domain == nil {
-		// FIXME we need proper validation instead of this
-		obj.Spec.Domain = NewMinimalDomainSpec()
+	// FIXME we need proper validation and configurable defaulting instead of this
+	if _, exists := obj.Spec.Domain.Resources.Requests[v1.ResourceMemory]; !exists {
+		obj.Spec.Domain.Resources.Requests = v1.ResourceList{
+			v1.ResourceMemory: resource.MustParse("8192Ki"),
+		}
 	}
 	if obj.Spec.Domain.Firmware == nil {
 		obj.Spec.Domain.Firmware = &Firmware{}
