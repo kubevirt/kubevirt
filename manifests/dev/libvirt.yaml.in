@@ -39,6 +39,8 @@ spec:
               mountPath: /var/run/libvirt
             - name: virt-share-dir
               mountPath: /var/run/kubevirt
+            - name: virt-private-dir
+              mountPath: /var/run/kubevirt-private
           command: ["/libvirtd.sh"]
         - name: virtlogd
           image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
@@ -58,6 +60,8 @@ spec:
               mountPath: /var/run/libvirt
             - name: virt-share-dir
               mountPath: /var/run/kubevirt
+            - name: virt-private-dir
+              mountPath: /var/run/kubevirt-private
           command: ["/virt-dhcp"]
       volumes:
         - name: libvirt-data
@@ -75,3 +79,6 @@ spec:
         - name: virt-share-dir
           hostPath:
             path: /var/run/kubevirt
+        - name: virt-private-dir
+          hostPath:
+            path: /var/run/kubevirt-private
