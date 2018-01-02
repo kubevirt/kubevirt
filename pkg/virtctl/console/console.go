@@ -38,7 +38,7 @@ type Console struct {
 
 func (c *Console) FlagSet() *flag.FlagSet {
 	cf := flag.NewFlagSet("console", flag.ExitOnError)
-	cf.StringP("device", "d", "", "Console to connect to")
+	cf.StringP("device", "d", "serial0", "Console to connect to")
 
 	return cf
 }
@@ -46,8 +46,8 @@ func (c *Console) FlagSet() *flag.FlagSet {
 func (c *Console) Usage() string {
 	usage := "Connect to a serial console on a VM:\n\n"
 	usage += "Examples:\n"
-	usage += "# Connect to the console 'serial0' on the VM 'myvm':\n"
-	usage += "virtctl console myvm --device serial0\n\n"
+	usage += "# Connect to the console on VM 'myvm':\n"
+	usage += "virtctl console myvm\n\n"
 	usage += "Options:\n"
 	usage += c.FlagSet().FlagUsages()
 	return usage
@@ -58,7 +58,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
 	namespace, _ := flags.GetString("namespace")
-	device, _ := flags.GetString("device")
+	device := "serial0"
 	if namespace == "" {
 		namespace = v1.NamespaceDefault
 	}
