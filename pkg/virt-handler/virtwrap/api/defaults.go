@@ -1,17 +1,6 @@
 package api
 
 func SetDefaults_Devices(devices *Devices) {
-	// Add mandatory spice device
-	devices.Graphics = []Graphics{
-		{
-			Port: -1,
-			Listen: Listen{
-				Type:    "address",
-				Address: "0.0.0.0",
-			},
-			Type: "spice",
-		},
-	}
 	// Use vga as video device, since it is better than cirrus
 	// and does not require guest drivers
 	var heads uint = 1
@@ -25,12 +14,7 @@ func SetDefaults_Devices(devices *Devices) {
 			},
 		},
 	}
-	// Add mandatory console device
-	devices.Consoles = []Console{
-		{
-			Type: "pty",
-		},
-	}
+
 	// For now connect every virtual machine to the default network
 	devices.Interfaces = []Interface{{
 		Type: "network",

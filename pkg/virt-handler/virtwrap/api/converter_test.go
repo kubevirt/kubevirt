@@ -270,8 +270,8 @@ var _ = Describe("Converter", func() {
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
-    <graphics port="-1" type="spice">
-      <listen type="address" address="0.0.0.0"></listen>
+    <graphics type="vnc">
+      <listen type="socket" socket="/var/run/kubevirt-private/mynamespace/testvm/virt-vnc"></listen>
     </graphics>
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
@@ -338,7 +338,13 @@ var _ = Describe("Converter", func() {
       </auth>
       <alias name="lun"></alias>
     </disk>
-    <console type="pty"></console>
+    <serial type="unix">
+      <target port="0"></target>
+      <source mode="bind" path="/var/run/kubevirt-private/mynamespace/testvm/virt-serial0"></source>
+    </serial>
+    <console type="pty">
+      <target type="serial" port="0"></target>
+    </console>
     <watchdog model="i6300esb" action="poweroff">
       <alias name="mywatchdog"></alias>
     </watchdog>

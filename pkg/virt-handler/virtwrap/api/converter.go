@@ -324,6 +324,43 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		}
 	}
 
+	// Add mandatory console device
+	var serialPort uint = 0
+	var serialType string = "serial"
+	domain.Spec.Devices.Consoles = []Console{
+		{
+			Type: "pty",
+			Target: &ConsoleTarget{
+				Type: &serialType,
+				Port: &serialPort,
+			},
+		},
+	}
+
+	domain.Spec.Devices.Serials = []Serial{
+		{
+			Type: "unix",
+			Target: &SerialTarget{
+				Port: &serialPort,
+			},
+			Source: &SerialSource{
+				Mode: "bind",
+				Path: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-serial%d", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name, serialPort),
+			},
+		},
+	}
+
+	// Add mandatory vnc device
+	domain.Spec.Devices.Graphics = []Graphics{
+		{
+			Listen: Listen{
+				Type:   "socket",
+				Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),
+			},
+			Type: "vnc",
+		},
+	}
+
 	return nil
 }
 
