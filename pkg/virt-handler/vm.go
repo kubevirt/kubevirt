@@ -566,6 +566,7 @@ func (d *VirtualMachineController) cleanupUnixSockets(vm *v1.VirtualMachine) err
 	namespace := vm.ObjectMeta.Namespace
 	name := vm.ObjectMeta.Name
 	unixPath := fmt.Sprintf("%s-private/%s/%s", d.virtShareDir, namespace, name)
+	// when this is removed, it will fix issue #626
 	return diskutils.RemoveFile(unixPath)
 }
 
