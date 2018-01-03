@@ -1,21 +1,7 @@
 # Debugging
 
-When debugging KubeVirt in the development environment, you have to be aware
-that we have a proxy for ThirdPartyResource related preprocessing in front of
-the apiserver. By default the `cluster/kubectl.sh` script assumes that you want
-to talk to the cluster through that proxy. So if
-
 ```bash
 cluster/kubectl.sh version
-```
-
-is run, `cluster/kubectl.sh` connects to the proxy. However when something is
-not right with the proxy, or KubeVirt is not even yet deployed, it is possible
-to connect to the apiserver directly by adding `--core` as the first argument.
-So
-
-```bash
-cluster/kubectl.sh --core version
 ```
 
 will try to connect to the apiserver.

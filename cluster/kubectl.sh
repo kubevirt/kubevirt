@@ -33,12 +33,8 @@ if [ "$1" == "--help" ]  || [ "$1" == "-h" ] ; then
 fi
 
 if [ -e  ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig ] &&
-   [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ] &&
-   [ "x$1" == "x--core" ]; then
-    shift
+   [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ]; then
     ${KUBEVIRT_PATH}cluster/vagrant/.kubectl --kubeconfig=${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig "$@"
-elif [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ];then
-    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl -s https://${master_ip}:${master_port} "$@"
 else
     echo "Did you already run '$SYNC_CONFIG' to deploy kubevirt?"
 fi

@@ -25,7 +25,7 @@
 
 set -ex
 
-kubectl() { cluster/kubectl.sh --core "$@"; }
+kubectl() { cluster/kubectl.sh "$@"; }
 
 if [ "$TARGET" = "vagrant-dev"  ]; then
 cat > hack/config-local.sh <<EOF
