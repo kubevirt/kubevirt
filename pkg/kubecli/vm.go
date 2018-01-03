@@ -84,12 +84,12 @@ func (v *vms) remoteExecHelper(name string, cmd []string, in io.Reader, out io.W
 
 	podName, err := findPod(v.clientSet, v.namespace, name)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to find matching pod for remote execution: %v", err)
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags(v.master, v.kubeconfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to build api config for remote execution: %v", err)
 	}
 
 	gv := k8sv1.SchemeGroupVersion
@@ -99,7 +99,7 @@ func (v *vms) remoteExecHelper(name string, cmd []string, in io.Reader, out io.W
 
 	restClient, err := restclient.RESTClientFor(config)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create restClient for remote execution: %v", err)
 	}
 	containerName := "compute"
 	req := restClient.Post().
@@ -123,7 +123,7 @@ func (v *vms) remoteExecHelper(name string, cmd []string, in io.Reader, out io.W
 	url := req.URL()
 	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
 	if err != nil {
-		return err
+		return fmt.Errorf("remote execution failed: %v", err)
 	}
 
 	return exec.Stream(remotecommand.StreamOptions{
