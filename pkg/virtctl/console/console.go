@@ -109,22 +109,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 
 	go func() {
 		defer close(readStop)
-		buf := make([]byte, 1024, 1024)
-		for {
-			// reading stdout from console
-			n, err := stdoutReader.Read(buf)
-			if err != nil && err != io.EOF {
-				return
-			}
-			if n == 0 && err == io.EOF {
-				return
-			}
-			// Writing to stdout
-			_, err = out.Write(buf[0:n])
-			if err == io.EOF {
-				return
-			}
-		}
+		io.Copy(out, stdoutReader)
 	}()
 
 	go func() {

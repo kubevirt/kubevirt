@@ -114,45 +114,13 @@ func (o *Vnc) Run(flags *flag.FlagSet) int {
 	// write to FD <- pipeOutReader
 	go func() {
 		defer close(readStop)
-		buf := make([]byte, 4096, 4096)
-		for {
-			// reading qemu vnc server
-			n, err := pipeOutReader.Read(buf)
-			if err != nil && err != io.EOF {
-				return
-			}
-			if n == 0 && err == io.EOF {
-				return
-			}
-
-			// Writing to remote viewer
-			_, err = fd.Write(buf[0:n])
-			if err == io.EOF {
-				return
-			}
-		}
+		io.Copy(fd, pipeOutReader)
 	}()
 
 	// read from FD -> pipeInWriter
 	go func() {
 		defer close(writeStop)
-		buf := make([]byte, 4096, 4096)
-		for {
-			// reading from remoteViewer
-			n, err := fd.Read(buf)
-			if err != nil && err != io.EOF {
-				return
-			}
-			if n == 0 && err == io.EOF {
-				return
-			}
-
-			// Writing out to the qemu vnc server
-			_, err = pipeInWriter.Write(buf[0:n])
-			if err == io.EOF {
-				return
-			}
-		}
+		io.Copy(pipeInWriter, fd)
 	}()
 
 	select {
