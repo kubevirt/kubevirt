@@ -206,37 +206,9 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	}
 
 	oldStatus := vm.DeepCopy().Status
-	// Make sure that we always deal with an empty instance for later equality checks
-	if oldStatus.Graphics == nil {
-		oldStatus.Graphics = []v1.VirtualMachineGraphics{}
-	}
 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
-
-	vm.Status.Graphics = []v1.VirtualMachineGraphics{}
-
-	// Update devices if device status changed
-	// TODO needs caching, better position or init fetch
-	if domain != nil {
-		nodeIP, err := d.getVMNodeAddress(vm)
-		if err != nil {
-			return err
-		}
-
-		vm.Status.Graphics = []v1.VirtualMachineGraphics{}
-		for _, src := range domain.Spec.Devices.Graphics {
-			if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
-				continue
-			}
-			dst := v1.VirtualMachineGraphics{
-				Type: src.Type,
-				Host: nodeIP,
-				Port: src.Port,
-			}
-			vm.Status.Graphics = append(vm.Status.Graphics, dst)
-		}
-	}
 
 	d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")
 

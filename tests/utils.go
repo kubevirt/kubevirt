@@ -680,8 +680,7 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 		nodeName = fetchedVM.Status.NodeName
 
 		// wait on both phase and graphics
-		if len(fetchedVM.Status.Graphics) == 1 &&
-			fetchedVM.Status.Phase == v1.Running {
+		if fetchedVM.Status.Phase == v1.Running {
 			return true
 		}
 		return false

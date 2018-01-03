@@ -2911,25 +2911,6 @@
      }
     }
    },
-   "v1.VirtualMachineGraphics": {
-    "required": [
-     "type",
-     "host",
-     "port"
-    ],
-    "properties": {
-     "host": {
-      "type": "string"
-     },
-     "port": {
-      "type": "integer",
-      "format": "int32"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
    "v1.VirtualMachineList": {
     "description": "VirtualMachineList is a list of VirtualMachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
@@ -3044,13 +3025,6 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineCondition"
-      }
-     },
-     "graphics": {
-      "description": "Graphics represent the details of available graphical consoles.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.VirtualMachineGraphics"
       }
      },
      "migrationNodeName": {

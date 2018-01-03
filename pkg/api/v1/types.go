@@ -149,14 +149,6 @@ type VirtualMachineStatus struct {
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
 	Phase VMPhase `json:"phase,omitempty"`
-	// Graphics represent the details of available graphical consoles.
-	Graphics []VirtualMachineGraphics `json:"graphics" optional:"true"`
-}
-
-type VirtualMachineGraphics struct {
-	Type string `json:"type"`
-	Host string `json:"host"`
-	Port int32  `json:"port"`
 }
 
 // Required to satisfy Object interface
