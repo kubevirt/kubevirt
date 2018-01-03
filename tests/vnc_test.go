@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -66,9 +67,11 @@ var _ = Describe("Vmlifecycle", func() {
 				// reading qemu vnc server
 				n, err := pipeOutReader.Read(buf)
 				if err != nil && err != io.EOF {
+					log.Log.Reason(err).Error("error while reading from vnc socket.")
 					return
 				}
 				if n == 0 && err == io.EOF {
+					log.Log.Error("zero bytes read from vnc socket.")
 					return
 				}
 				readStop <- strings.TrimSpace(string(buf[0:n]))
@@ -81,6 +84,9 @@ var _ = Describe("Vmlifecycle", func() {
 			case err = <-k8ResChan:
 			}
 
+			// This is the response capture by wireshark when the VNC server is contacted.
+			// This verifies that the test is able to establish a connection with VNC and
+			// communicate.
 			Expect(response).To(Equal("RFB 003.008"))
 			Expect(err).To(BeNil())
 			close(done)

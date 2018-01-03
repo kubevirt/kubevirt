@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 func (k *kubevirt) VM(namespace string) VMInterface {
