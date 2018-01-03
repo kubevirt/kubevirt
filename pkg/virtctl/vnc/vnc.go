@@ -36,9 +36,9 @@ import (
 
 const FLAG = "vnc"
 
-type Vnc struct{}
+type VNC struct{}
 
-func (o *Vnc) Run(flags *flag.FlagSet) int {
+func (o *VNC) Run(flags *flag.FlagSet) int {
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
 	namespace, _ := flags.GetString("namespace")
@@ -81,7 +81,7 @@ func (o *Vnc) Run(flags *flag.FlagSet) int {
 
 	// setup connection with VM
 	go func() {
-		err := virtCli.VM(namespace).Vnc(vm, pipeInReader, pipeOutWriter)
+		err := virtCli.VM(namespace).VNC(vm, pipeInReader, pipeOutWriter)
 		k8ResChan <- err
 	}()
 
@@ -138,13 +138,13 @@ func (o *Vnc) Run(flags *flag.FlagSet) int {
 	return 0
 }
 
-func (o *Vnc) Usage() string {
+func (o *VNC) Usage() string {
 	usage := "virtctl can connect via remote-viewer to a VM\n\n"
 	usage += "Examples:\n"
 	usage += "# Connect to testvm via remote-viewer\n"
 	usage += "./virtctl vnc testvm\n\n"
 	return usage
 }
-func (o *Vnc) FlagSet() *flag.FlagSet {
+func (o *VNC) FlagSet() *flag.FlagSet {
 	return flag.NewFlagSet(FLAG, flag.ExitOnError)
 }

@@ -57,7 +57,7 @@ var _ = Describe("Vmlifecycle", func() {
 			readStop := make(chan string)
 
 			go func() {
-				err := virtClient.VM(vm.ObjectMeta.Namespace).Vnc(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
+				err := virtClient.VM(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
 				k8ResChan <- err
 			}()
 			// write to FD <- pipeOutReader

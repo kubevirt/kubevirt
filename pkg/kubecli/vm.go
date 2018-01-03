@@ -135,7 +135,7 @@ func (v *vms) remoteExecHelper(name string, cmd []string, in io.Reader, out io.W
 	})
 }
 
-func (v *vms) Vnc(name string, in io.Reader, out io.Writer) error {
+func (v *vms) VNC(name string, in io.Reader, out io.Writer) error {
 	cmd := []string{"/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", v.namespace, name)}
 	return v.remoteExecHelper(name, cmd, in, out)
 }

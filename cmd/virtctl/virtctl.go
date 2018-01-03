@@ -40,7 +40,7 @@ func main() {
 	registry := map[string]virtctl.App{
 		"console": &console.Console{},
 		"options": &virtctl.Options{},
-		"vnc":     &vnc.Vnc{},
+		"vnc":     &vnc.VNC{},
 	}
 
 	if len(os.Args) > 1 {
