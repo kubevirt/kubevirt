@@ -278,7 +278,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target dev="vda"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
@@ -299,7 +299,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target tray="open"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="cdrom_tray_open"></alias>
     </disk>
     <disk device="floppy" type="network">
@@ -307,7 +307,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target tray="closed"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="floppy_tray_unspecified"></alias>
     </disk>
     <disk device="floppy" type="network">
@@ -315,7 +315,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target tray="open"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <readonly></readonly>
       <alias name="floppy_tray_open"></alias>
     </disk>
@@ -324,7 +324,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="should_default_to_disk"></alias>
     </disk>
     <disk device="lun" type="network">
@@ -332,7 +332,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <auth username="admin">
         <secret type="iscsi" usage="mysecret-mynamespace-testvm---"></secret>
       </auth>

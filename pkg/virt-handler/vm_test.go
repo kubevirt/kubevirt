@@ -22,7 +22,6 @@ package virthandler
 import (
 	"io/ioutil"
 	"os"
-	"os/user"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -118,11 +117,6 @@ var _ = Describe("VM", func() {
 			watchdogInformer,
 			gracefulShutdownInformer)
 
-		owner, err := user.Current()
-		if err != nil {
-			panic(err)
-		}
-		controller.overrideUnixSockUser(owner.Username)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 

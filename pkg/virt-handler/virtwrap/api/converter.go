@@ -75,6 +75,7 @@ func Convert_v1_ISCSIVolumeSource_To_api_Disk(source *k8sv1.ISCSIVolumeSource, d
 
 	disk.Type = "network"
 	disk.Driver.Type = "raw"
+	disk.Driver.Cache = "none"
 
 	disk.Source.Name = fmt.Sprintf("%s/%d", source.IQN, source.Lun)
 	disk.Source.Protocol = "iscsi"

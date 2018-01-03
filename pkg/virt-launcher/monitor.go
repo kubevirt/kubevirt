@@ -106,6 +106,30 @@ func GracefulShutdownTriggerInitiate(triggerFile string) error {
 	return nil
 }
 
+func InitializePrivateDirectories(baseDir string) error {
+	unixPathVnc := filepath.Join(baseDir, "virt-vnc")
+	unixPathConsole := filepath.Join(baseDir, "virt-serial0")
+
+	err := os.MkdirAll(filepath.Dir(unixPathVnc), 0755)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Dir(unixPathConsole), 0755)
+	if err != nil {
+		return err
+	}
+	err = diskutils.SetFileOwnership("qemu", filepath.Dir(unixPathVnc))
+	if err != nil {
+		return err
+	}
+	err = diskutils.SetFileOwnership("qemu", filepath.Dir(unixPathConsole))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func InitializeSharedDirectories(baseDir string) error {
 	err := os.MkdirAll(watchdog.WatchdogFileDirectory(baseDir), 0755)
 	if err != nil {
