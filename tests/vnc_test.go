@@ -43,7 +43,7 @@ var _ = Describe("Vmlifecycle", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Context("New VM with a spice connection given", func() {
+	Context("New VM with a vnc connection given", func() {
 		It("should allow accessing the vnc device on the VM", func(done Done) {
 			vm := tests.NewRandomVM()
 			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
