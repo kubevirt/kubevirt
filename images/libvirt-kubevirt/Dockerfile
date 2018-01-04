@@ -30,7 +30,9 @@ RUN dnf install -y \
   test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
 COPY qemu-kube /usr/local/bin/qemu-system-x86_64
-RUN chmod a+x /usr/local/bin/qemu-system-x86_64
+RUN chmod a+x /usr/local/bin/qemu-system-x86_64 && \
+  semanage fcontext -a -t qemu_exec_t /usr/local/bin/qemu-system-x86_64 && \
+  restorecon -v /usr/local/bin/qemu-system-x86_64
 ENV PATH /usr/local/bin:/bin:/sbin
 
 COPY kubevirt-sudo /etc/sudoers.d/kubevirt
