@@ -229,6 +229,8 @@ spec:
               mountPath: /var/run/libvirt
             - name: virt-share-dir
               mountPath: /var/run/kubevirt
+            - name: virt-private-dir
+              mountPath: /var/run/kubevirt-private
           env:
             - name: NODE_NAME
               valueFrom:
@@ -241,6 +243,9 @@ spec:
         - name: virt-share-dir
           hostPath:
             path: /var/run/kubevirt
+        - name: virt-private-dir
+          hostPath:
+            path: /var/run/kubevirt-private
 ---
 # libvirt daemon set
 apiVersion: extensions/v1beta1
@@ -284,6 +289,8 @@ spec:
               mountPath: /var/run/libvirt
             - name: virt-share-dir
               mountPath: /var/run/kubevirt
+            - name: virt-private-dir
+              mountPath: /var/run/kubevirt-private
           command: ["/libvirtd.sh"]
         - name: virtlogd
           image: {{ docker_prefix }}/libvirt-kubevirt:{{ docker_tag }}
@@ -308,3 +315,6 @@ spec:
         - name: virt-share-dir
           hostPath:
             path: /var/run/kubevirt
+        - name: virt-private-dir
+          hostPath:
+            path: /var/run/kubevirt-private
