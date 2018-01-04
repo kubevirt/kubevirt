@@ -18,26 +18,11 @@
 #
 
 PROVIDER=${PROVIDER:-vagrant}
-source cluster/$PROVIDER/provider.sh
+source ${KUBEVIRT_PATH}cluster/$PROVIDER/provider.sh
 source ${KUBEVIRT_PATH}hack/config.sh
 
-if [ "$1" == "console" ] || [ "$1" == "spice" ]; then
-    cmd/virtctl/virtctl "$@" -s http://${master_ip}:8184
-    exit
-fi
-
-# Print usage from virtctl and kubectl
-if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
-    cmd/virtctl/virtctl "$@"
-fi
-
-if [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig ] &&
-    [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ] &&
-    [ "x$1" == "x--core" ]; then
-    shift
-    _kubectl "$@"
-elif [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ]; then
-    _kubectl -s http://${master_ip}:8184 "$@"
+if [ "$1" == "console" ] || [ "$1" == "vnc" ]; then
+    cmd/virtctl/virtctl "$@" --kubeconfig=${kubeconfig}
 else
-    echo "Did you already run 'cluster/up.sh' to deploy kubevirt?"
+    _kubectl "$@"
 fi

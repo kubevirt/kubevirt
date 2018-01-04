@@ -1,6 +1,14 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+if ARGV.first == "up" && ENV['USING_KUBE_SCRIPTS'] != 'true'
+  raise Vagrant::Errors::VagrantError.new, <<END
+Calling 'vagrant up' directly is not supported.  Instead, please run the following:
+
+  export PROVIDER=vagrant
+  make cluster-up
+END
+end
 
 $use_nfs = ENV['VAGRANT_USE_NFS'] == 'true'
 $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'

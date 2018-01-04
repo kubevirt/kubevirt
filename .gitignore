@@ -28,6 +28,8 @@ tags
 hack/gen-swagger-doc/*.adoc
 hack/gen-swagger-doc/*.md
 hack/gen-swagger-doc/html5
+hack/config-provider-local.sh
+hack/config-provider-vagrant.sh
 cluster/local/certs
 **.swp
 **.pem

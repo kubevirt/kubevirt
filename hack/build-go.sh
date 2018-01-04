@@ -43,7 +43,10 @@ if [ $# -eq 0 ]; then
             go ${target} -v ./...
         )
     elif [ "${target}" = "functest" ]; then
-        (cd tests; go test -kubeconfig=../cluster/vagrant/.kubeconfig -timeout 30m ${FUNC_TEST_ARGS})
+        (
+            cd tests
+            go test -kubeconfig=${kubeconfig} -timeout 30m ${FUNC_TEST_ARGS}
+        )
         exit
     else
         (

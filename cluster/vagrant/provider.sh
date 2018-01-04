@@ -5,6 +5,7 @@ function _main_ip() {
 }
 
 function up() {
+    export USING_KUBE_SCRIPTS=true
     # Make sure that the vagrant environment is up and running
     vagrant up --provider=libvirt
     # Synchronize kubectl config
@@ -20,12 +21,17 @@ function up() {
     chmod u+x cluster/vagrant/.kubectl
 
     vagrant ssh master -c "sudo cat /etc/kubernetes/admin.conf" >${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig
+
+    # Make sure that local config is correct
+    prepare_config
 }
 
 function prepare_config() {
-    cat >hack/config-local.sh <<EOF
+    BASE_PATH=${KUBEVIRT_PATH:-$PWD}
+    cat >hack/config-provider-vagrant.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
+kubeconfig=${BASE_PATH}/cluster/vagrant/.kubeconfig
 EOF
 }
 
@@ -33,7 +39,7 @@ function build() {
     make build manifests
     for VM in $(vagrant status | grep -v "^The Libvirt domain is running." | grep running | cut -d " " -f1); do
         vagrant rsync $VM # if you do not use NFS
-        vagrant ssh $VM -c "cd /vagrant && export DOCKER_TAG=devel && sudo -E hack/build-docker.sh build optional"
+        vagrant ssh $VM -c "cd /vagrant && export DOCKER_TAG=${docker_tag} && sudo -E hack/build-docker.sh build &&  sudo -E hack/build-docker.sh build optional"
     done
 }
 
@@ -45,6 +51,3 @@ function _kubectl() {
 function down() {
     vagrant halt
 }
-
-# Make sure that local config is correct
-prepare_config

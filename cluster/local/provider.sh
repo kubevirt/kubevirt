@@ -11,6 +11,9 @@ function _main_ip() {
 }
 
 function up() {
+    # Make sure that local config is correct
+    prepare_config
+
     go get -d k8s.io/kubernetes
 
     export API_HOST_IP=$(_main_ip)
@@ -29,9 +32,10 @@ function up() {
 }
 
 function prepare_config() {
-    cat >hack/config-local.sh <<EOF
+    cat >hack/config-provider-local.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
+kubeconfig=$(_cert_dir)/admin.kubeconfig
 EOF
 }
 
@@ -45,8 +49,5 @@ function _kubectl() {
 }
 
 function down() {
-    true
+    echo "Not supported by this provider. Please kill the running script manually."
 }
-
-# Make sure that local config is correct
-prepare_config
