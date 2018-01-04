@@ -87,7 +87,7 @@ export no_proxy="${APISERVER%:*}"
 # Wait for nodes to become ready
 while [ -n "$(kubectl get nodes --no-headers | grep -v Ready)" ]; do
    echo "Waiting for all nodes to become ready ..."
-   kubectl get nodes --no-headers | >&2 grep -v Ready
+   kubectl get nodes --no-headers | >&2 grep -v Ready || true
    sleep 10
 done
 echo "Nodes are ready:"
@@ -97,7 +97,7 @@ kubectl get nodes
 sleep 10
 while [ -n "$(kubectl get pods -n kube-system -l '!kubevirt.io' --no-headers | grep -v Running)" ]; do
     echo "Waiting for kubernetes pods to become ready ..."
-    kubectl get pods -n kube-system --no-headers | >&2 grep -v Running
+    kubectl get pods -n kube-system --no-headers | >&2 grep -v Running || true
     sleep 10
 done
 
