@@ -92,8 +92,8 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 
 	resChan := make(chan error)
 	stopChan := make(chan struct{}, 1)
-	writeStop := make(chan struct{})
-	readStop := make(chan struct{})
+	writeStop := make(chan error)
+	readStop := make(chan error)
 
 	go func() {
 		err := virtCli.VM(namespace).SerialConsole(vm, device, stdinReader, stdoutWriter)
@@ -108,8 +108,8 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	}()
 
 	go func() {
-		defer close(readStop)
-		io.Copy(out, stdoutReader)
+		_, err := io.Copy(out, stdoutReader)
+		readStop <- err
 	}()
 
 	go func() {
@@ -119,6 +119,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 			// reading from stdin
 			n, err := in.Read(buf)
 			if err != nil && err != io.EOF {
+				writeStop <- err
 				return
 			}
 			if n == 0 && err == io.EOF {
@@ -139,8 +140,8 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 
 	select {
 	case <-stopChan:
-	case <-readStop:
-	case <-writeStop:
+	case err = <-readStop:
+	case err = <-writeStop:
 	case err = <-resChan:
 	}
 

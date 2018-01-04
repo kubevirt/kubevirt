@@ -67,8 +67,8 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 	k8ResChan := make(chan error)
 	viewResChan := make(chan error)
 	stopChan := make(chan struct{}, 1)
-	writeStop := make(chan struct{})
-	readStop := make(chan struct{})
+	writeStop := make(chan error)
+	readStop := make(chan error)
 
 	// The local tcp server is used to proxy the podExec websock connection to remote-viewer
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -113,20 +113,20 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 
 	// write to FD <- pipeOutReader
 	go func() {
-		defer close(readStop)
-		io.Copy(fd, pipeOutReader)
+		_, err := io.Copy(fd, pipeOutReader)
+		readStop <- err
 	}()
 
 	// read from FD -> pipeInWriter
 	go func() {
-		defer close(writeStop)
-		io.Copy(pipeInWriter, fd)
+		_, err := io.Copy(pipeInWriter, fd)
+		writeStop <- err
 	}()
 
 	select {
 	case <-stopChan:
-	case <-readStop:
-	case <-writeStop:
+	case err = <-readStop:
+	case err = <-writeStop:
 	case err = <-k8ResChan:
 	case err = <-viewResChan:
 	}
