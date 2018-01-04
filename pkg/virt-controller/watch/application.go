@@ -4,10 +4,15 @@ import (
 	golog "log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/emicklei/go-restful"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
@@ -17,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -37,6 +43,8 @@ const (
 	virtShareDir = "/var/run/kubevirt"
 
 	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
+
+	resyncPeriod = 30 * time.Second
 )
 
 type VirtControllerApp struct {
@@ -53,6 +61,12 @@ type VirtControllerApp struct {
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 	vmQueue      workqueue.RateLimitingInterface
+
+	vmInitCache      cache.Store
+	vmInitController *VMInitializer
+	// This is distinct from vmInformer -- it handles uninitialized VMs
+	vmInitInformer cache.Controller
+	vmInitQueue    workqueue.RateLimitingInterface
 
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
@@ -103,12 +117,40 @@ func Execute() {
 	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
 	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
 
+	watchlist := cache.NewListWatchFromClient(app.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
+
+	//FIXME: Would it be cleaner to implement this in a helper function?
+	// Wrap the returned watchlist to workaround the inability to include
+	// the `IncludeUninitialized` list option when setting up watch clients.
+	includeUninitializedWatchlist := &cache.ListWatch{
+		ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
+			options.IncludeUninitialized = true
+			return watchlist.List(options)
+		},
+		WatchFunc: func(options k8smetav1.ListOptions) (watch.Interface, error) {
+			options.IncludeUninitialized = true
+			return watchlist.Watch(options)
+		},
+	}
+
+	app.vmInitQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	app.vmInitCache, app.vmInitInformer = cache.NewInformer(includeUninitializedWatchlist, &v1.VirtualMachine{}, resyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				err := app.vmInitController.initializeVM(obj.(*v1.VirtualMachine))
+				if err != nil {
+					log.Log.Errorf("error initializing virtual machine: %v", err)
+				}
+			},
+		})
+
 	app.rsInformer = app.informerFactory.VMReplicaSet()
 
 	app.initCommon()
 	app.initReplicaSet()
 	app.Run()
 }
+
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
 	stop := make(chan struct{})
@@ -151,6 +193,7 @@ func (vca *VirtControllerApp) Run() {
 					vca.informerFactory.Start(stop)
 					go vca.vmController.Run(3, stop)
 					go vca.rsController.Run(3, stop)
+					go vca.vmInitInformer.Run(stop)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -185,6 +228,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
+	vca.vmInitController = NewVMInitializer(vca.restClient, vca.vmInitQueue, vca.vmInitCache, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

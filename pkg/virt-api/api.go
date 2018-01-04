@@ -37,6 +37,7 @@ func (app *VirtAPIApp) Compose() {
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
+	vmpGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinepresets"}
 
 	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
 	if err != nil {
@@ -49,6 +50,11 @@ func (app *VirtAPIApp) Compose() {
 	}
 
 	ws, err = rest.GenericResourceProxy(ws, ctx, vmrsGVR, &v1.VirtualMachineReplicaSet{}, v1.VMReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineReplicaSetList{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachinePreset{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachinePresetList{})
 	if err != nil {
 		log.Fatal(err)
 	}

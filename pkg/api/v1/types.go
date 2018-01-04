@@ -57,6 +57,8 @@ var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, V
 
 var VMReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineReplicaSet"}
 
+var VirtualMachinePresetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachinePreset"}
+
 var (
 	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
 	registry             = registered.NewOrDie(GroupVersion.String())
@@ -71,6 +73,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&metav1.DeleteOptions{},
 		&VirtualMachineReplicaSet{},
 		&VirtualMachineReplicaSetList{},
+		&VirtualMachinePreset{},
+		&VirtualMachinePresetList{},
 		&metav1.GetOptions{},
 		&Spice{},
 	)
@@ -540,4 +544,42 @@ func (vl *VirtualMachineReplicaSetList) GetObjectKind() schema.ObjectKind {
 // Required to satisfy ListMetaAccessor interface
 func (vl *VirtualMachineReplicaSetList) GetListMeta() meta.List {
 	return &vl.ListMeta
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachinePreset struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// VM Spec contains the VM specification.
+	Spec VMPresetSpec `json:"spec,omitempty" valid:"required"`
+}
+
+// VirtualMachinePresetList is a list of VirtualMachinePresets
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachinePresetList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta        `json:"metadata,omitempty"`
+	Items           []VirtualMachinePreset `json:"items"`
+}
+
+type VMPresetSpec struct {
+	Selector metav1.LabelSelector
+	// Domain is the actual libvirt domain.
+	Domain *DomainSpec `json:"domain,omitempty"`
+}
+
+func NewVMPreset(name string, selector metav1.LabelSelector) *VirtualMachinePreset {
+	return &VirtualMachinePreset{
+		Spec: VMPresetSpec{
+			Selector: selector,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: k8sv1.NamespaceDefault,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       VirtualMachinePresetGroupVersionKind.Kind,
+		},
+	}
 }
