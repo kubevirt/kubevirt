@@ -1,5 +1,4 @@
 #!/bin/sh
-alias docker="sudo /usr/bin/docker"
 alias log='echo "[$(date)] "'
 
 ARGS="$@"
