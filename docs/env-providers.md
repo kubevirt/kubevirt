@@ -2,15 +2,16 @@
 
 All following providers allow a common workflow:
 
- * `cluster/up.sh` to create the environment
- * `cluster/down.sh` to stop the environment
- * `cluster/sync.sh` to build the code and deploy it
- * `cluster/deploy.sh` to (re)deploy the code (no provider support needed)
- * `make functests` to run the functional tests against a KubeVirt
+ * `make cluster-up` to create the environment
+ * `make cluster-down` to stop the environment
+ * `make cluster-build` to build
+ * `make cluster-deploy` to (re)deploy the code (no provider support needed)
+ * `make cluster-sync` to build and (re)deploy the code
+ * `make functests` to run the functional tests against KubeVirt
  * `cluster/kubectl.sh` to talk to the k8s installation
 
-It is recommended to export the `PROVIDER` vagirable as part of your .bashrc.
-
+It is recommended to export the `PROVIDER` vagirable as part of your `.bashrc`
+file.
 ## Vagrant
 
 Allows provisioning k8s cluster based on kubeadm. Supports an arbitrary amount
@@ -26,7 +27,7 @@ Usage:
 ```bash
 export PROVIDER=vagrant # choose this provider
 export VAGRANT_NUM_NODES=2 # master + two nodes
-cluser/up.sh
+make cluster-up
 ```
 
 ## Local
@@ -42,11 +43,12 @@ Usage:
 
 ```bash
 export PROVIDER=local # choose this provider
-cluser/up.sh
+make cluster-up
 ```
 
 ## New Providers
 
  * Create a `cluster/$POVIDER` directory
  * Create a `cluster/$PROVIDER/provider.sh` files
- * This file should containe the functions `up`, `build`, `down` and `_kubectl`
+ * This file has to contain the functions `up`, `build`, `down` and `_kubectl`
+ * Have a look at `cluster/vagrant/provider.sh` for a reference implementation

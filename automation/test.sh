@@ -57,16 +57,16 @@ curl -LO https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
 export VAGRANT_DOTFILE_PATH="${VAGRANT_DOTFILE_PATH:-$WORKSPACE/.vagrant}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ cluster/down.sh; }' EXIT
+trap '{ make cluster-down; }' EXIT
 
 set +e
 
 # TODO handle complete workspace removal on CI
-cluster/up.sh
+make cluster-up
 if [ $? -ne 0 ]; then
   vagrant destroy
   set -e
-  cluster/up.sh
+  make cluster-up
 fi
 set -e
 
@@ -133,9 +133,9 @@ for i in ${namespaces[@]}; do
 done
 
 if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
-    cluster/sync.sh
+    make cluster-sync
 elif [ "$TARGET" = "vagrant-release"  ]; then
-    cluster/sync.sh
+    make cluster-sync
 fi
 
 # Wait until kubevirt pods are running

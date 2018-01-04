@@ -91,4 +91,18 @@ check-bash:
 release-announce: .release-functest
 	./hack/release-announce.sh $(RELREF) $(PREREF)
 
-.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest release-announce fmt-bash
+cluster-up:
+	./cluster/up.sh
+
+cluster-down:
+	./cluster/down.sh
+
+cluster-build:
+	./cluster/build.sh
+
+cluster-deploy:
+	./cluster/deploy.sh
+
+cluster-sync: cluster-build cluster-deploy
+
+.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish functest release-announce fmt-bash cluster-up cluster-down cluster-deploy cluster-sync

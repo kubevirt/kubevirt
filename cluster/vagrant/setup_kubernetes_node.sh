@@ -26,8 +26,8 @@ echo 'Trying to register myself...'
 # Skipping preflight checks because of https://github.com/kubernetes/kubeadm/issues/6
 kubeadm join --token abcdef.1234567890123456 $ADVERTISED_MASTER_IP:6443 --ignore-preflight-errors=all --discovery-token-unsafe-skip-ca-verification=true
 while [ $? -ne 0 ]; do
-  sleep 30
-  echo 'Trying to register myself...'
-  # Skipping preflight checks because of https://github.com/kubernetes/kubeadm/issues/6
-  kubeadm join --token abcdef.1234567890123456 $ADVERTISED_MASTER_IP:6443 --ignore-preflight-errors=all --discovery-token-unsafe-skip-ca-verification=true
+    sleep 30
+    echo 'Trying to register myself...'
+    # Skipping preflight checks because of https://github.com/kubernetes/kubeadm/issues/6
+    kubeadm join --token abcdef.1234567890123456 $ADVERTISED_MASTER_IP:6443 --ignore-preflight-errors=all --discovery-token-unsafe-skip-ca-verification=true
 done

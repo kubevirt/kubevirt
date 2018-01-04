@@ -25,15 +25,15 @@ mkdir /dev.container && {
     mount --rbind /dev /dev.container
     mount --rbind /host-dev /dev
 
-  # Keep some devices from the containerinal /dev
-  keep() { mount --rbind /dev.container/$1 /dev/$1 ; }
-  keep shm || :
-  keep mqueue
-  # Keep ptmx/pts for pty creation
-  keep pts
-  mount --rbind /dev/pts/ptmx /dev/ptmx
-  # Use the container /dev/kvm if available
-  [[ -e /dev.container/kvm ]] && keep kvm
+    # Keep some devices from the containerinal /dev
+    keep() { mount --rbind /dev.container/$1 /dev/$1; }
+    keep shm || :
+    keep mqueue
+    # Keep ptmx/pts for pty creation
+    keep pts
+    mount --rbind /dev/pts/ptmx /dev/ptmx
+    # Use the container /dev/kvm if available
+    [[ -e /dev.container/kvm ]] && keep kvm
 }
 
 mkdir /sys.net.container && {

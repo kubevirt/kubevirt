@@ -25,4 +25,3 @@ PROVIDER=${PROVIDER:-vagrant}
 source cluster/$PROVIDER/provider.sh
 
 build
-cluster/deploy.sh

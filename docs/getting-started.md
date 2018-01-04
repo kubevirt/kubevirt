@@ -93,17 +93,17 @@ Vagrant environment:
 
 ```bash
     # Building and deploying kubevirt in Vagrant
-    cluster/up.sh
-    cluster/deploy.sh
+    make cluster-up
+    make cluster-sync
 ```
 
 This will create a VM called `master` which acts as Kubernetes master and then
 deploy Kubevirt there. To create one or more nodes which will register
 themselves on master, you can use the `VAGRANT_NUM_NODES` environment variable.
-This would create a master and two nodes:
+This would create a master and one node:
 
 ```bash
-    VAGRANT_NUM_NODES=2 vagrant up
+    VAGRANT_NUM_NODES=1 vagrant up
 ```
 
 If you decide to use separate nodes, pass `VAGRANT_NUM_NODES` variable to all
@@ -207,12 +207,6 @@ Finally start a VM called `testvm`:
 
 This will start a VM on master or one of the running nodes with a macvtap and a
 tap networking device attached.
-
-Basic verification is possible by running
-
-```bash
-    bash cluster/vm-isolation-check.sh
-```
 
 #### Example
 
