@@ -4,6 +4,8 @@
 package kubecli
 
 import (
+	io "io"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -587,6 +589,26 @@ func (_m *MockVMInterface) Patch(name string, pt types.PatchType, data []byte, s
 func (_mr *_MockVMInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
+}
+
+func (_m *MockVMInterface) SerialConsole(name string, device string, in io.Reader, out io.Writer) error {
+	ret := _m.ctrl.Call(_m, "SerialConsole", name, device, in, out)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVMInterfaceRecorder) SerialConsole(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SerialConsole", arg0, arg1, arg2, arg3)
+}
+
+func (_m *MockVMInterface) VNC(name string, in io.Reader, out io.Writer) error {
+	ret := _m.ctrl.Call(_m, "VNC", name, in, out)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVMInterfaceRecorder) VNC(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VNC", arg0, arg1, arg2)
 }
 
 // Mock of ReplicaSetInterface interface

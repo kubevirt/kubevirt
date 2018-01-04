@@ -20,6 +20,12 @@ FROM fedora:26
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
+RUN dnf -y install socat && \
+    groupadd --gid 107 qemu && \
+    useradd --uid 107 --gid 107 qemu && \
+    dnf -y clean all
+
+COPY sock-connector /sock-connector
 COPY virt-launcher /virt-launcher
 
 ENTRYPOINT [ "/virt-launcher" ]

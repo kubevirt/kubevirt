@@ -6,7 +6,6 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
-	kithttp "github.com/go-kit/kit/transport/http"
 	openapispec "github.com/go-openapi/spec"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
@@ -14,9 +13,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	mime "kubevirt.io/kubevirt/pkg/rest"
-	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -62,38 +58,6 @@ func (app *VirtAPIApp) Compose() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//  TODO, allow Encoder and Decoders per type and combine the endpoint logic
-	spice := endpoints.MakeGoRestfulWrapper(endpoints.NewHandlerBuilder().Get().
-		Endpoint(rest.NewSpiceEndpoint(virtCli.RestClient(), vmGVR)).Encoder(
-		endpoints.NewMimeTypeAwareEncoder(endpoints.NewEncodeINIResponse(http.StatusOK),
-			map[string]kithttp.EncodeResponseFunc{
-				mime.MIME_INI:  endpoints.NewEncodeINIResponse(http.StatusOK),
-				mime.MIME_JSON: endpoints.NewEncodeJsonResponse(http.StatusOK),
-				mime.MIME_YAML: endpoints.NewEncodeYamlResponse(http.StatusOK),
-			})).Build(ctx))
-
-	ws.Route(ws.GET(rest.ResourcePath(vmGVR)+rest.SubResourcePath("spice")).
-		To(spice).Produces(mime.MIME_INI, mime.MIME_JSON, mime.MIME_YAML).
-		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
-		Operation("spice").
-		Doc("Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format.").
-		Returns(http.StatusOK, "remote-viewer configuration file" /*os.File{}*/, nil))
-	// TODO: That os.File doesn't work as I expect.
-	// I need end up with response_type="file", but I am getting response_type="os.File"
-
-	ws.Route(ws.GET(rest.ResourcePath(vmGVR) + rest.SubResourcePath("console")).
-		To(rest.NewConsoleResource(virtCli, virtCli.CoreV1()).Console).
-		Param(restful.QueryParameter("console", "Name of the serial console to connect to")).
-		Param(rest.NamespaceParam(ws)).Param(rest.NameParam(ws)).
-		Operation("console").
-		Doc("Open a websocket connection to a serial console on the specified VM."))
-	// TODO: Add 'Returns', but I don't know what return type to put there.
 
 	restful.Add(ws)
 

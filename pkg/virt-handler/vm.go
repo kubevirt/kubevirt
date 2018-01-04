@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
@@ -205,37 +206,9 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	}
 
 	oldStatus := vm.DeepCopy().Status
-	// Make sure that we always deal with an empty instance for later equality checks
-	if oldStatus.Graphics == nil {
-		oldStatus.Graphics = []v1.VirtualMachineGraphics{}
-	}
 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
-
-	vm.Status.Graphics = []v1.VirtualMachineGraphics{}
-
-	// Update devices if device status changed
-	// TODO needs caching, better position or init fetch
-	if domain != nil {
-		nodeIP, err := d.getVMNodeAddress(vm)
-		if err != nil {
-			return err
-		}
-
-		vm.Status.Graphics = []v1.VirtualMachineGraphics{}
-		for _, src := range domain.Spec.Devices.Graphics {
-			if (src.Type != "spice" && src.Type != "vnc") || src.Port == -1 {
-				continue
-			}
-			dst := v1.VirtualMachineGraphics{
-				Type: src.Type,
-				Host: nodeIP,
-				Port: src.Port,
-			}
-			vm.Status.Graphics = append(vm.Status.Graphics, dst)
-		}
-	}
 
 	d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")
 
@@ -588,8 +561,22 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (map[st
 	return secrets, nil
 }
 
+// TODO this function should go away once qemu is in the pods mount namespace.
+func (d *VirtualMachineController) cleanupUnixSockets(vm *v1.VirtualMachine) error {
+	namespace := vm.ObjectMeta.Namespace
+	name := vm.ObjectMeta.Name
+	unixPath := fmt.Sprintf("%s-private/%s/%s", d.virtShareDir, namespace, name)
+	// when this is removed, it will fix issue #626
+	return diskutils.RemoveFile(unixPath)
+}
+
 func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
 	err := d.domainManager.RemoveVMSecrets(vm)
+	if err != nil {
+		return err
+	}
+
+	err = d.cleanupUnixSockets(vm)
 	if err != nil {
 		return err
 	}

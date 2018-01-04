@@ -254,10 +254,17 @@ type DiskSourceHost struct {
 type Serial struct {
 	Type   string        `xml:"type,attr"`
 	Target *SerialTarget `xml:"target,omitempty"`
+	Source *SerialSource `xml:"source,omitempty"`
+	Alias  *Alias        `xml:"alias,omitmepty"`
 }
 
 type SerialTarget struct {
 	Port *uint `xml:"port,attr,omitempty"`
+}
+
+type SerialSource struct {
+	Mode string `xml:"mode,attr,omitempty"`
+	Path string `xml:"path,attr,omitempty"`
 }
 
 // END Serial -----------------------------
@@ -267,11 +274,18 @@ type SerialTarget struct {
 type Console struct {
 	Type   string         `xml:"type,attr"`
 	Target *ConsoleTarget `xml:"target,omitempty"`
+	Source *ConsoleSource `xml:"source,omitempty"`
+	Alias  *Alias         `xml:"alias,omitmepty"`
 }
 
 type ConsoleTarget struct {
 	Type *string `xml:"type,attr,omitempty"`
 	Port *uint   `xml:"port,attr,omitempty"`
+}
+
+type ConsoleSource struct {
+	Mode string `xml:"mode,attr,omitempty"`
+	Path string `xml:"path,attr,omitempty"`
 }
 
 // END Serial -----------------------------
@@ -446,19 +460,20 @@ type VideoModel struct {
 }
 
 type Graphics struct {
-	AutoPort      string `xml:"autoPort,attr,omitempty"`
-	DefaultMode   string `xml:"defaultMode,attr,omitempty"`
-	Listen        Listen `xml:"listen,omitempty"`
-	PasswdValidTo string `xml:"passwdValidTo,attr,omitempty"`
-	Port          int32  `xml:"port,attr,omitempty"`
-	TLSPort       int    `xml:"tlsPort,attr,omitempty"`
-	Type          string `xml:"type,attr"`
+	AutoPort      string          `xml:"autoPort,attr,omitempty"`
+	DefaultMode   string          `xml:"defaultMode,attr,omitempty"`
+	Listen        *GraphicsListen `xml:"listen,omitempty"`
+	PasswdValidTo string          `xml:"passwdValidTo,attr,omitempty"`
+	Port          int32           `xml:"port,attr,omitempty"`
+	TLSPort       int             `xml:"tlsPort,attr,omitempty"`
+	Type          string          `xml:"type,attr"`
 }
 
-type Listen struct {
+type GraphicsListen struct {
 	Type    string `xml:"type,attr"`
 	Address string `xml:"address,attr,omitempty"`
 	Network string `xml:"newtork,attr,omitempty"`
+	Socket  string `xml:"socket,attr,omitempty"`
 }
 
 type Address struct {

@@ -202,11 +202,8 @@ func (app *virtHandlerApp) Run() {
 
 	// TODO add a http handler which provides health check
 
-	// Add websocket route to access consoles remotely
-	console := rest.NewConsoleResource(domainConn)
 	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.VirtShareDir))
 	ws := new(restful.WebService)
-	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/console").To(console.Console))
 	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{Addr: app.Address(), Handler: restful.DefaultContainer}

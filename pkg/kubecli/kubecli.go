@@ -63,7 +63,7 @@ func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClien
 		return nil, err
 	}
 
-	return &kubevirt{restClient, coreClient}, nil
+	return &kubevirt{master, kubeconfig, restClient, coreClient}, nil
 }
 
 func GetKubevirtClient() (KubevirtClient, error) {

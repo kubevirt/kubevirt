@@ -27,23 +27,14 @@ then
     exit
 fi
 
-if [ "$1" == "console" ] || [ "$1" == "spice" ]; then
-    cmd/virtctl/virtctl "$@" -s http://${master_ip}:8184 
-    exit
-fi
-
 # Print usage from virtctl and kubectl
 if [ "$1" == "--help" ]  || [ "$1" == "-h" ] ; then
     cmd/virtctl/virtctl "$@"
 fi
 
 if [ -e  ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig ] &&
-   [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ] &&
-   [ "x$1" == "x--core" ]; then
-    shift
+   [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ]; then
     ${KUBEVIRT_PATH}cluster/vagrant/.kubectl --kubeconfig=${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig "$@"
-elif [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ];then
-    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl -s http://${master_ip}:8184 "$@"
 else
     echo "Did you already run '$SYNC_CONFIG' to deploy kubevirt?"
 fi

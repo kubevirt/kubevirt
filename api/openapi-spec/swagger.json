@@ -1176,80 +1176,6 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}/console": {
-    "get": {
-     "description": "Open a websocket connection to a serial console on the specified VM.",
-     "summary": "Open a websocket connection to a serial console on the specified VM.",
-     "operationId": "console",
-     "parameters": [
-      {
-       "type": "string",
-       "description": "Name of the serial console to connect to",
-       "name": "console",
-       "in": "query"
-      },
-      {
-       "pattern": "[a-z0-9][a-z0-9\\-]*",
-       "type": "string",
-       "description": "Object name and auth scope, such as for teams and projects",
-       "name": "namespace",
-       "in": "path",
-       "required": true
-      },
-      {
-       "pattern": "[a-z0-9][a-z0-9\\-]*",
-       "type": "string",
-       "description": "Name of the resource",
-       "name": "name",
-       "in": "path",
-       "required": true
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "OK"
-      }
-     }
-    }
-   },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}/spice": {
-    "get": {
-     "description": "Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format.",
-     "produces": [
-      "text/plain",
-      "application/json",
-      "application/yaml"
-     ],
-     "summary": "Returns a remote-viewer configuration file. Run `man 1 remote-viewer` to learn more about the configuration format.",
-     "operationId": "spice",
-     "parameters": [
-      {
-       "pattern": "[a-z0-9][a-z0-9\\-]*",
-       "type": "string",
-       "description": "Object name and auth scope, such as for teams and projects",
-       "name": "namespace",
-       "in": "path",
-       "required": true
-      },
-      {
-       "pattern": "[a-z0-9][a-z0-9\\-]*",
-       "type": "string",
-       "description": "Name of the resource",
-       "name": "name",
-       "in": "path",
-       "required": true
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "remote-viewer configuration file"
-      },
-      "default": {
-       "description": "remote-viewer configuration file"
-      }
-     }
-    }
-   },
    "/apis/kubevirt.io/v1alpha1/virtualmachinereplicasets": {
     "get": {
      "description": "Get a list of all VirtualMachineReplicaSet objects.",
@@ -2985,25 +2911,6 @@
      }
     }
    },
-   "v1.VirtualMachineGraphics": {
-    "required": [
-     "type",
-     "host",
-     "port"
-    ],
-    "properties": {
-     "host": {
-      "type": "string"
-     },
-     "port": {
-      "type": "integer",
-      "format": "int32"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
    "v1.VirtualMachineList": {
     "description": "VirtualMachineList is a list of VirtualMachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
@@ -3118,13 +3025,6 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineCondition"
-      }
-     },
-     "graphics": {
-      "description": "Graphics represent the details of available graphical consoles.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.VirtualMachineGraphics"
       }
      },
      "migrationNodeName": {

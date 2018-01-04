@@ -46,9 +46,6 @@ var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/dom
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
-    <graphics port="-1" type="spice">
-      <listen type="address" address="0.0.0.0"></listen>
-    </graphics>
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>

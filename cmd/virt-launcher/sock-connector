@@ -1,0 +1,4 @@
+#!/bin/bash
+stty -echo
+SOCKET=$1
+socat unix-connect:/$SOCKET stdio,cfmakeraw

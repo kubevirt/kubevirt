@@ -41,12 +41,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"migrationNodeName": "MigrationNodeName is the node where the VM is live migrating to.",
 		"conditions":        "Conditions are specific points in VM's pod runtime.",
 		"phase":             "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
-		"graphics":          "Graphics represent the details of available graphical consoles.",
 	}
-}
-
-func (VirtualMachineGraphics) SwaggerDoc() map[string]string {
-	return map[string]string{}
 }
 
 func (VirtualMachineCondition) SwaggerDoc() map[string]string {

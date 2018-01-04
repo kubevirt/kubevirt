@@ -41,12 +41,10 @@ import (
 	"io"
 
 	"github.com/google/goexpect"
-	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virtctl/console"
 )
 
 type EventType string
@@ -682,8 +680,7 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 		nodeName = fetchedVM.Status.NodeName
 
 		// wait on both phase and graphics
-		if len(fetchedVM.Status.Graphics) == 1 &&
-			fetchedVM.Status.Phase == v1.Running {
+		if fetchedVM.Status.Phase == v1.Running {
 			return true
 		}
 		return false
@@ -742,13 +739,13 @@ func NewRandomReplicaSetFromVM(vm *v1.VirtualMachine, replicas int32) *v1.Virtua
 	return rs
 }
 
-func NewConsoleExpecter(config *rest.Config, vm *v1.VirtualMachine, consoleName string, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
+func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, consoleName string, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
 	vmReader, vmWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 	stopChan := make(chan struct{})
 	go func() {
-		err := console.ConnectToConsole(config, vm.ObjectMeta.Namespace, vm.ObjectMeta.Name, consoleName, console.NewWebsocketCallback(vmReader, expecterWriter, stopChan))
+		err := virtCli.VM(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, consoleName, vmReader, expecterWriter)
 		resCh <- err
 	}()
 

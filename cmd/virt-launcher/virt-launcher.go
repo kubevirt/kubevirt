@@ -89,6 +89,11 @@ func main() {
 		panic(err)
 	}
 
+	err = virtlauncher.InitializePrivateDirectories(filepath.Join("/var/run/kubevirt-private", *namespace, *name))
+	if err != nil {
+		panic(err)
+	}
+
 	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir, *namespace, *name)
 	err = watchdog.WatchdogFileUpdate(watchdogFile)
 	if err != nil {

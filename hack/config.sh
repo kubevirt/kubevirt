@@ -1,5 +1,5 @@
 unset binaries docker_images docker_prefix docker_tag manifest_templates \
-      master_ip master_port network_provider
+      master_ip network_provider
 
 source ${KUBEVIRT_PATH}hack/config-default.sh
 
@@ -8,4 +8,4 @@ source ${KUBEVIRT_PATH}hack/config-default.sh
 test -f "hack/config-local.sh" && source hack/config-local.sh
 
 export binaries docker_images docker_prefix docker_tag manifest_templates \
-       master_ip master_port network_provider
+       master_ip network_provider

@@ -72,7 +72,7 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&Video{},
 			&VideoModel{},
 			&Graphics{},
-			&Listen{},
+			&GraphicsListen{},
 			&Address{},
 			&Ballooning{},
 			&RandomGenerator{},

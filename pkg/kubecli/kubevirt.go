@@ -26,6 +26,8 @@ package kubecli
 */
 
 import (
+	"io"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -44,6 +46,8 @@ type KubevirtClient interface {
 }
 
 type kubevirt struct {
+	master     string
+	kubeconfig string
 	restClient *rest.RESTClient
 	*kubernetes.Clientset
 }
@@ -59,6 +63,8 @@ type VMInterface interface {
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
+	SerialConsole(name string, device string, in io.Reader, out io.Writer) error
+	VNC(name string, in io.Reader, out io.Writer) error
 }
 
 type ReplicaSetInterface interface {

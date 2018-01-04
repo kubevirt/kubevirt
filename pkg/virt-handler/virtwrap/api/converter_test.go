@@ -270,15 +270,15 @@ var _ = Describe("Converter", func() {
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
-    <graphics port="-1" type="spice">
-      <listen type="address" address="0.0.0.0"></listen>
+    <graphics type="vnc">
+      <listen type="socket" socket="/var/run/kubevirt-private/mynamespace/testvm/virt-vnc"></listen>
     </graphics>
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
       <target dev="vda"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
@@ -299,7 +299,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target tray="open"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="cdrom_tray_open"></alias>
     </disk>
     <disk device="floppy" type="network">
@@ -307,7 +307,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target tray="closed"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="floppy_tray_unspecified"></alias>
     </disk>
     <disk device="floppy" type="network">
@@ -315,7 +315,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target tray="open"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <readonly></readonly>
       <alias name="floppy_tray_open"></alias>
     </disk>
@@ -324,7 +324,7 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="should_default_to_disk"></alias>
     </disk>
     <disk device="lun" type="network">
@@ -332,13 +332,19 @@ var _ = Describe("Converter", func() {
         <host name="example.com" port="3260"></host>
       </source>
       <target></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver cache="none" name="qemu" type="raw"></driver>
       <auth username="admin">
         <secret type="iscsi" usage="mysecret-mynamespace-testvm---"></secret>
       </auth>
       <alias name="lun"></alias>
     </disk>
-    <console type="pty"></console>
+    <serial type="unix">
+      <target port="0"></target>
+      <source mode="bind" path="/var/run/kubevirt-private/mynamespace/testvm/virt-serial0"></source>
+    </serial>
+    <console type="pty">
+      <target type="serial" port="0"></target>
+    </console>
     <watchdog model="i6300esb" action="poweroff">
       <alias name="mywatchdog"></alias>
     </watchdog>
