@@ -7,6 +7,7 @@ bin/*
 .vagrant
 cluster/vagrant/.kubeconfig
 cluster/vagrant/.kubectl
+cluster/vagrant/.oc
 cluster/.console.vv
 build-tools/desc/desc
 hack/config-local.sh

@@ -16,9 +16,11 @@
 #
 # Copyright 2017 Red Hat, Inc.
 #
+master_ip=$1
+network_provider=$3
 
 export KUBERNETES_MASTER=true
-bash ./setup_kubernetes_common.sh
+bash /vagrant/cluster/vagrant/setup_kubernetes_common.sh
 
 # Cockpit with kubernetes plugin
 yum install -y cockpit cockpit-kubernetes
@@ -44,11 +46,11 @@ done
 
 set -e
 
-if [ "$NETWORK_PROVIDER" == "weave" ]; then
+if [ "$network_provider" == "weave" ]; then
     kubever=$(kubectl version | base64 | tr -d '\n')
     kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$kubever"
 else
-    kubectl create -f kube-$NETWORK_PROVIDER.yaml
+    kubectl create -f kube-$network_provider.yaml
 fi
 
 # Allow scheduling pods on master
@@ -63,3 +65,7 @@ chown 36:36 /exports/share1
 echo "/exports/share1  *(rw,anonuid=36,anongid=36,all_squash,sync,no_subtree_check)" >/etc/exports
 
 systemctl enable nfs-server && systemctl start nfs-server
+
+echo -e "\033[0;32m Deployment was successful!"
+echo -e "Cockpit is accessible at https://$master_ip:9090."
+echo -e "Credentials for Cockpit are 'root:vagrant'.\033[0m"
