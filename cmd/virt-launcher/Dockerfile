@@ -16,10 +16,11 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+FROM centos:7 
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+WORKDIR /usr/local/bin
 
-COPY virt-launcher /virt-launcher
+COPY virt-launcher .
 
-ENTRYPOINT [ "/virt-launcher" ]
+ENTRYPOINT [ "./virt-launcher" ]

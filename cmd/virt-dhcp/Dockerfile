@@ -16,12 +16,13 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+FROM centos:7 
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+RUN yum -y install dnsmasq
 
-RUN dnf -y install dnsmasq
+WORKDIR /usr/local/bin
 
-COPY virt-dhcp /virt-dhcp
+COPY virt-dhcp .
 
-ENTRYPOINT [ "/virt-dhcp" ]
+ENTRYPOINT [ "./virt-dhcp" ]

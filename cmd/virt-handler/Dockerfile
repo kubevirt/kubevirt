@@ -16,15 +16,16 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+FROM centos:7 
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
-
-RUN dnf -y install libvirt-client genisoimage && \
+RUN yum -y install libvirt-client genisoimage && \
     groupadd --gid 107 qemu && \
     useradd --uid 107 --gid 107 qemu && \
-    dnf -y clean all
+    yum -y clean all
 
-COPY virt-handler /virt-handler
+WORKDIR /usr/local/bin
 
-ENTRYPOINT [ "/virt-handler" ]
+COPY virt-handler .
+
+ENTRYPOINT [ "./virt-handler" ]
