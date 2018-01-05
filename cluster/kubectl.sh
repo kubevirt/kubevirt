@@ -17,24 +17,12 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+PROVIDER=${PROVIDER:-vagrant}
+source ${KUBEVIRT_PATH}cluster/$PROVIDER/provider.sh
 source ${KUBEVIRT_PATH}hack/config.sh
 
-SYNC_CONFIG=${KUBEVIRT_PATH}cluster/vagrant/sync_config.sh
-
-if [ "$1" == "--init" ]
-then
-    exec $SYNC_CONFIG
-    exit
-fi
-
-# Print usage from virtctl and kubectl
-if [ "$1" == "--help" ]  || [ "$1" == "-h" ] ; then
-    cmd/virtctl/virtctl "$@"
-fi
-
-if [ -e  ${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig ] &&
-   [ -e ${KUBEVIRT_PATH}cluster/vagrant/.kubectl ]; then
-    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl --kubeconfig=${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig "$@"
+if [ "$1" == "console" ] || [ "$1" == "vnc" ]; then
+    cmd/virtctl/virtctl "$@" --kubeconfig=${kubeconfig}
 else
-    echo "Did you already run '$SYNC_CONFIG' to deploy kubevirt?"
+    _kubectl "$@"
 fi

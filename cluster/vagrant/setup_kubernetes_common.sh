@@ -37,26 +37,26 @@ yum -y install jq sshpass
 yum -y install bind-utils net-tools
 
 # if there is a second disk, use it for docker
-if ls /dev/*db ; then
-# We use the loopback docker dm support, and not a VG for now
-  mkdir -p /var/lib/docker/
-  restorecon -r /var/lib/docker
-  mount LABEL=dockerdata /var/lib/docker/ || {
-    mkfs.xfs -L dockerdata -f /dev/?db
-  }
-  # FAILS because of vdsms multpoath stuff
-  #echo -e "\nLABEL=dockerdata /var/lib/docker/ xfs defaults 0 0" >> /etc/fstab
-  mkdir -p /etc/systemd/system/docker.service.d/
-  cat > /etc/systemd/system/docker.service.d/mount.conf <<EOT
+if ls /dev/*db; then
+    # We use the loopback docker dm support, and not a VG for now
+    mkdir -p /var/lib/docker/
+    restorecon -r /var/lib/docker
+    mount LABEL=dockerdata /var/lib/docker/ || {
+        mkfs.xfs -L dockerdata -f /dev/?db
+    }
+    # FAILS because of vdsms multpoath stuff
+    #echo -e "\nLABEL=dockerdata /var/lib/docker/ xfs defaults 0 0" >> /etc/fstab
+    mkdir -p /etc/systemd/system/docker.service.d/
+    cat >/etc/systemd/system/docker.service.d/mount.conf <<EOT
 [Service]
 ExecStartPre=/usr/bin/sleep 5
 ExecStartPre=-/usr/bin/mount LABEL=dockerdata /var/lib/docker
 MountFlags=shared
 EOT
-  mount LABEL=dockerdata /var/lib/docker/
+    mount LABEL=dockerdata /var/lib/docker/
 fi
 
-cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+cat <<EOF >/etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
 baseurl=http://yum.kubernetes.io/repos/kubernetes-el7-x86_64
@@ -71,17 +71,15 @@ yum install -y docker
 # Log to json files instead of journald
 sed -i 's/--log-driver=journald //g' /etc/sysconfig/docker
 
-# Use hard coded versions until https://github.com/kubernetes/kubeadm/issues/212 is resolved.
-# Currently older versions of kubeadm are no longer available in the rpm repos.
-# See https://github.com/kubernetes/kubeadm/issues/220 for context.
-yum install -y \
-      kubeadm \
-      kubelet \
-      kubectl \
-      kubernetes-cni
+# Omit pgp checks until https://github.com/kubernetes/kubeadm/issues/643 is resolved.
+yum install --nogpgcheck -y \
+    kubeadm \
+    kubelet \
+    kubectl \
+    kubernetes-cni
 
 # Latest docker on CentOS uses systemd for cgroup management
-cat << EOT >>/etc/systemd/system/kubelet.service.d/09-kubeadm.conf
+cat <<EOT >>/etc/systemd/system/kubelet.service.d/09-kubeadm.conf
 [Service]
 Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --runtime-cgroups=/systemd/system.slice --kubelet-cgroups=/systemd/system.slice"
 EOT

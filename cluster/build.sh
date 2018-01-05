@@ -20,4 +20,8 @@
 # This logic moved into the Makefile.
 # We're leaving this file around for people who still reference this
 # specific script in their development workflow.
-make vagrant-deploy
+
+PROVIDER=${PROVIDER:-vagrant}
+source cluster/$PROVIDER/provider.sh
+
+build

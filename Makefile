@@ -35,6 +35,9 @@ vet:
 fmt:
 	goimports -w -local kubevirt.io cmd/ pkg/ tests/
 
+fmt-bash:
+	shfmt -i 4 -w cluster/ hack/ images/
+
 test: build
 	./hack/build-go.sh test ${WHAT}
 
@@ -66,7 +69,6 @@ checksync:
 sync:
 	glide install --strip-vendor
 	${HASH} glide.lock > .glide.lock.hash
- 
 
 docker: build
 	./hack/build-docker.sh build ${WHAT}
@@ -83,22 +85,24 @@ check: check-bash vet
 check-bash:
 	find . -name \*.sh -exec bash -n \{\} \;
 
-vagrant-sync-config:
-	./cluster/vagrant/sync_config.sh
-
-vagrant-sync-build: build
-	./cluster/vagrant/sync_build.sh
-
-vagrant-sync-optional:
-	./cluster/vagrant/sync_build.sh 'build optional'
-
-vagrant-deploy: vagrant-sync-config vagrant-sync-build
-	export KUBECTL="cluster/kubectl.sh" && ./cluster/deploy.sh
-
 .release-functest:
 	make functest > .release-functest 2>&1
 
 release-announce: .release-functest
 	./hack/release-announce.sh $(RELREF) $(PREREF)
 
-.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish vagrant-sync-config vagrant-sync-build vagrant-deploy functest release-announce
+cluster-up:
+	./cluster/up.sh
+
+cluster-down:
+	./cluster/down.sh
+
+cluster-build:
+	./cluster/build.sh
+
+cluster-deploy:
+	./cluster/deploy.sh
+
+cluster-sync: cluster-build cluster-deploy
+
+.PHONY: build fmt test clean distclean checksync sync docker manifests vet publish functest release-announce fmt-bash cluster-up cluster-down cluster-deploy cluster-sync

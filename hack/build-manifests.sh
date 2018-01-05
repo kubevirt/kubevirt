@@ -35,5 +35,5 @@ for arg in $args; do
     sed -e "s/{{ master_ip }}/$master_ip/g" \
         -e "s/{{ docker_tag }}/$docker_tag/g" \
         -e "s/{{ docker_prefix }}/$docker_prefix/g" \
-        $arg > ${arg%%.in}
+        $arg >${arg%%.in}
 done

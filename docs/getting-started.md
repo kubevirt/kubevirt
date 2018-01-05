@@ -73,6 +73,8 @@ to install a few build requirements:
     go get golang.org/x/tools/cmd/goimports
     # Setup glide which is used to track dependencies
     go get github.com/Masterminds/glide
+    # Shell script formatter
+    go get -u mvdan.cc/sh/cmd/shfmt
 ```
 
 ### Sources
@@ -91,17 +93,17 @@ Vagrant environment:
 
 ```bash
     # Building and deploying kubevirt in Vagrant
-    vagrant up
-    make vagrant-deploy
+    make cluster-up
+    make cluster-sync
 ```
 
 This will create a VM called `master` which acts as Kubernetes master and then
 deploy Kubevirt there. To create one or more nodes which will register
 themselves on master, you can use the `VAGRANT_NUM_NODES` environment variable.
-This would create a master and two nodes:
+This would create a master and one node:
 
 ```bash
-    VAGRANT_NUM_NODES=2 vagrant up
+    VAGRANT_NUM_NODES=1 vagrant up
 ```
 
 If you decide to use separate nodes, pass `VAGRANT_NUM_NODES` variable to all
@@ -162,7 +164,7 @@ They don't require vagrant. To run the *functional tests*, make sure you have se
 up [Vagrant](#vagrant). Then run
 
 ```bash
-    make vagrant-deploy # synchronize with your code, if necessary
+    cluster/sync.sh # synchronize with your code, if necessary
     make functest # run the functional tests against the Vagrant VMs
 ```
 
@@ -205,12 +207,6 @@ Finally start a VM called `testvm`:
 
 This will start a VM on master or one of the running nodes with a macvtap and a
 tap networking device attached.
-
-Basic verification is possible by running
-
-```bash
-    bash cluster/vm-isolation-check.sh
-```
 
 #### Example
 

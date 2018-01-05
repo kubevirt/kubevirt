@@ -57,16 +57,16 @@ curl -LO https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
 export VAGRANT_DOTFILE_PATH="${VAGRANT_DOTFILE_PATH:-$WORKSPACE/.vagrant}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ vagrant halt; }' EXIT
+trap '{ make cluster-down; }' EXIT
 
 set +e
 
 # TODO handle complete workspace removal on CI
-vagrant up --provider=libvirt
+make cluster-up
 if [ $? -ne 0 ]; then
   vagrant destroy
   set -e
-  vagrant up --provider=libvirt
+  make cluster-up
 fi
 set -e
 
@@ -74,9 +74,6 @@ set -e
 go get golang.org/x/tools/cmd/goimports
 go get -u github.com/Masterminds/glide
 make
-
-# Copy connection details for kubernetes
-cluster/kubectl.sh --init
 
 # Make sure we can connect to kubernetes
 export APISERVER=$(cat cluster/vagrant/.kubeconfig | grep server | sed -e 's# \+server: https://##' | sed -e 's/\r//')
@@ -136,9 +133,9 @@ for i in ${namespaces[@]}; do
 done
 
 if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
-    cluster/sync.sh
+    make cluster-sync
 elif [ "$TARGET" = "vagrant-release"  ]; then
-    cluster/sync.sh
+    make cluster-sync
 fi
 
 # Wait until kubevirt pods are running
