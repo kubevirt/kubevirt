@@ -8,7 +8,7 @@ function serial_cleanup() {
 	# if this is a serial connection, see if there is a previous
 	# connection that must be cleaned up before starting a new one.
 	if [[ $file_name =~ .*serial.* ]]; then
-		local pid=$(cat ${SOCKET}.pid 2>/dev/null)
+		local pid=$(cat $pid_file 2>/dev/null)
 		local my_pid=$$
 		if [ -n "$pid" ] && [ -f "/proc/$pid/cmdline" ]; then
 			local cmdline=$(cat /proc/$pid/cmdline 2>/dev/null | tr -d '\0')
