@@ -281,59 +281,49 @@ be taken into account:
  5. KubeVirt also delivers specialized device types (mostly for network and
     storage), which need to be fit into the existing structure.
 
-**Note**: Point **4** is still under debate.
+## Devices
 
-## General mapping rules
+### All devices need to be ordered the same way libvirt internally orders them
 
-### All devices need to live directly under *devices*
+Libvirt sorts devices into buckets based on their types. This means that if no
+PCI addresses are specified by hand, libvirt will always assign lower PCI
+addresses to disks than to video devices. No matter in which order they appear
+in the XML. The order within devices of the same type is kept.
 
-In order to allow arbitrary ordering of devices, they all need directly live
-under `devices`.
+The buckets are arranged in the following order:
 
-This is OK:
-
-```yaml
-devices:
-  lun:
-    my: data
-  video:
-    qxl:
-      my: data
-  lun:
-    my: data1
-  video:
-    qxl:
-      my: data1
+```
+emulator
+disk
+controller
+lease
+filesystem
+interface
+smartcard
+serial
+parallel
+console
+channel
+input
+tpm
+graphics
+sound
+video
+hostdev
+redirdev
+redirfilter
+hub
+watchdog
+memballoon
+rng
+nvram
+panic
+shmem
+memory
+iommu
 ```
 
-This is **not** OK:
-
-```yaml
-devices:
-  disks:
-    lun:
-      my: data
-    lun:
-      my: data1
-  videos:
-    qxl:
-      my: data
-    qxl:
-      my: data1
-```
-
-### Add clear extension points where KubeVirt provides specializations
-
-Disks and network interfaces are good examples where KubeVirt provides
-specializations. See the mapping decisions for them below to get an impression
-on how clear extension points can be added. In general allowing to choose
-between different optional source or target structs is the preferred mechanism,
-to cleanly separate between KubeVirt extensions and libvirt source or target
-types.
-
-For device types where no KubeVirt specific extensions are expected, creating
-sub-structs is not required. Even differentiating based on `type` fields is OK
-there. Examples are `smartcard`, `input` and `controller`.
+In order to avoid surprises we need to keep that order also on the API level.
 
 ### Use optional structs to represent different sources or targets
 
@@ -370,123 +360,84 @@ disk:
       blub: bla
 ```
 
+### Device Naming
+
+Every device has a mandatory name field. Amongst other benefits, this allows
+easy tracking of the devices for management applications and users, simplifies
+declarative hotplug and allows VirtualMachinePresets to detect conflicts based
+on device names.
+
+### Specification changes
+
+Only the user changes the specification `spec` of a VirtualMachine. There
+exists no back-propagation of any defaults or devices which are added by
+libvirt on the node. A specification reflects the requirement from the user and
+will only be changed by the system by the apiserver on creation time or by
+initializers. After the VirtualMachine is accepted by the system and was
+processed by all initializers, controllers will ever only change `status` and
+`metadata` fields. VirtualMachinePresets are an example of an initializer which
+can manipulate the spec, before the VirtualMachine is fully accepted by the
+system.
+
+### Devices inherited from the machine type
+They are normally not visible on the VirtualMachine specification. If there
+will be the need to represent them, then they need to be represented in the
+status.
+
 ## Mapping decisions for specific device types
 
 ### Disks
 
-`disk`, `lun`, `floppy` and `cdrom` are top level entries in the `devices`
-array. Based on them, the `*.target` section can therefore be specialized based
-on the top level struct. Further, the `*.source` section can be specialized and
-can contain structs for traditional sources like `iscsi` or KubeVirt specific
-structs like `noCloud`:
-
-```yaml
-devices:
-- disk:
-    target:
-      readOnly: true
-    source:
-      noCloud:
-        secretRef:
-          name: mysecret
-- cdrom:
-    target:
-      readOnly: true
-      tray: "open"
-    source:
-      image:
-        name:"mydisk:latest"
-- floppy:
-    target:
-      readOnly: true
-      tray: "open"
-    source:
-      image:
-        name:"mydisk:latest"
-- lun:
-    target:
-      readOnly: false
-    source:
-      iscsi:
-        targetPortal: 10.0.2.15:3260
-        portals: ['10.0.2.16:3260', '10.0.2.17:3260']
-        iqn: iqn.2001-04.com.example:storage.kube.sys1.xyz
-        lun: 0
-```
-
-### Network
-
-Every network interface is wrapped into a `interface` struct. The `model`
-attribute and all other guest specific attributes are part of this `interface`
-struct. A wrapping `interface.source` struct can contain different source
-structs. They can be traditional interface sources like `bridge`, `direct` or
-`hostedev`, or KubeVirt specializations like `hostNetwork` or `podNetwork`:
-
-```yaml
-devices:
-  interface:
-    source:
-      bridge:
-        dev: mybridge
-    model: virtio
-  interface:
-    source:
-      podNetwork: {}
-    model: virtio
-```
-
-### Video
-
-Mapping of the three important video devices `qxl`, `vga` and `virtio` is
-planned at the moment. They are wrapped by a `video` struct:
-
-```yaml
-devices:
-  video:
-    qxl:
-      blub: bla
-  video:
-    vga:
-      blub: bla
-  video:
-    virtio:
-      blub: bla
-```
-
-### Spice and VNC
-
-Spice and VNC need specific devices on the VirtualMachine, but are not devices
-themselves. They tell libvirt/qemu to start servers to allow attaching to the
-VirtualMachine, but have no influence on the VirtualMachine itself. Therefore
-they are moved out of the devices section:
+`disk`, `lun`, `floppy` and `cdrom` are different structs within
+`devices.disks` array. They soley contain the guest side information of the
+disk. Each `devices.disks` entry continas one of them and `volumeName`
+attribute, which references a named entry in  `spec.volumes`:
 
 ```yaml
 spec:
-  spice:
-    blub: ba
-  vnc:
-    blub: ba
-  devices:
-    video:
-      qxl:
-        blub: bla
-```
-
-They will contain almost no fields, since it is expected that the KubeVirt
-infrastructure will handle almost all connection aspects.
-
-### Controller
-
-Controller setup is complex and since it does not seem very likely that
-KubeVirt will ever have to provide specializations in that area. Therefore
-working with a generic blob-like struct should be sufficient:
-
-```yaml
-devices:
-- controller:
-    type: ide
-    blub: bla
-- controller:
-    type: sata
-    blub: bla
+  domain:
+    resources:
+      initial:
+        memory: 8Mi
+    devices:
+      disks:
+      - name: disk0
+        disk:
+          dev: vda
+        volumeName: volume0
+      - name: cdrom0
+        cdrom:
+          dev: vdb
+          readonly: true
+          tray: open
+        volumeName: volume1
+      - name: floppy0
+        floppy:
+          dev: vdc
+          readonly: true
+          tray: open
+        volumeName: volume2
+      - name: lun0
+        lun:
+          dev: vdd
+          readonly: true
+        volumeName: volume3
+  volumes:
+  - name: volume0
+    registryDisk:
+      image: test/image
+  - name: volume1
+    cloudInitNoCloud:
+      secretRef:
+        name: testsecret
+  - name: volume2
+    iscsi:
+      targetPortal: '1234'
+      iqn: ''
+      lun: 0
+      secretRef:
+        name: testsecret
+  - name: volume3
+    persistentVolumeClaim:
+      claimName: testclaim
 ```
