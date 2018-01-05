@@ -71,10 +71,8 @@ yum install -y docker
 # Log to json files instead of journald
 sed -i 's/--log-driver=journald //g' /etc/sysconfig/docker
 
-# Use hard coded versions until https://github.com/kubernetes/kubeadm/issues/212 is resolved.
-# Currently older versions of kubeadm are no longer available in the rpm repos.
-# See https://github.com/kubernetes/kubeadm/issues/220 for context.
-yum install -y \
+# Omit pgp checks until https://github.com/kubernetes/kubeadm/issues/643 is resolved.
+yum install --nogpgcheck -y \
     kubeadm \
     kubelet \
     kubectl \
