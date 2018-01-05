@@ -1,4 +1,28 @@
 #!/bin/bash
-stty -echo
+
 SOCKET=$1
+function serial_cleanup() {
+	local pid_file=${SOCKET}.pid
+	local file_name=$(basename $SOCKET)
+
+	# if this is a serial connection, see if there is a previous
+	# connection that must be cleaned up before starting a new one.
+	if [[ $file_name =~ .*serial.* ]]; then
+		local pid=$(cat ${SOCKET}.pid 2>/dev/null)
+		local my_pid=$$
+		if [ -n "$pid" ] && [ -f "/proc/$pid/cmdline" ]; then
+			local cmdline=$(cat /proc/$pid/cmdline 2>/dev/null | tr -d '\0')
+			local my_cmdline=$(cat /proc/$my_pid/cmdline 2>/dev/null | tr -d '\0')
+			if [ "$cmdline" = "$my_cmdline" ]; then
+				kill $pid > /dev/null 2>&1
+			fi
+		fi
+		echo "$$" > $pid_file
+	fi
+}
+
+# only one serial connection can exist at a time.
+serial_cleanup
+
+stty -echo
 socat unix-connect:/$SOCKET stdio,cfmakeraw
