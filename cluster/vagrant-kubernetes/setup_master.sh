@@ -20,7 +20,7 @@ master_ip=$1
 network_provider=$3
 
 export KUBERNETES_MASTER=true
-bash /vagrant/cluster/vagrant/setup_kubernetes_common.sh
+bash /vagrant/cluster/vagrant-kubernetes/setup_common.sh
 
 # Cockpit with kubernetes plugin
 yum install -y cockpit cockpit-kubernetes

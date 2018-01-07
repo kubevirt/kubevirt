@@ -26,6 +26,7 @@ RUN dnf install -y \
   util-linux \
   libcgroup-tools \
   ethtool \
+  policycoreutils-python-utils \
   sudo && dnf -y clean all && \
   test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 

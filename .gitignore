@@ -5,9 +5,10 @@ tools/openapispec/openapispec
 **/bin
 bin/*
 .vagrant
-cluster/vagrant/.kubeconfig
-cluster/vagrant/.kubectl
-cluster/vagrant/.oc
+cluster/vagrant-kubernetes/.kubeconfig
+cluster/vagrant-kubernetes/.kubectl
+cluster/vagrant-openshift/.kubeconfig
+cluster/vagrant-openshift/.oc
 cluster/.console.vv
 build-tools/desc/desc
 hack/config-local.sh
@@ -19,7 +20,8 @@ hack/gen-swagger-doc/*.adoc
 hack/gen-swagger-doc/*.md
 hack/gen-swagger-doc/html5
 hack/config-provider-local.sh
-hack/config-provider-vagrant.sh
+hack/config-provider-vagrant-kubernetes.sh
+hack/config-provider-vagrant-openshift.sh
 cluster/local/certs
 **.swp
 **.pem

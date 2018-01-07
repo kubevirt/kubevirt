@@ -18,7 +18,7 @@
 #
 master_ip=$1
 
-bash /vagrant/cluster/vagrant/setup_kubernetes_common.sh
+bash /vagrant/cluster/vagrant-kubernetes/setup_common.sh
 
 ADVERTISED_MASTER_IP=$(sshpass -p vagrant ssh -oStrictHostKeyChecking=no vagrant@$master_ip hostname -I | cut -d " " -f1)
 set +e

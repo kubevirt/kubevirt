@@ -17,10 +17,10 @@ function up() {
 
     OPTIONS=$(vagrant ssh-config master | grep -v '^Host ' | awk -v ORS=' ' 'NF{print "-o " $1 "=" $2}')
 
-    scp $OPTIONS master:/usr/bin/kubectl ${KUBEVIRT_PATH}cluster/vagrant/.kubectl
-    chmod u+x cluster/vagrant/.kubectl
+    scp $OPTIONS master:/usr/bin/kubectl ${KUBEVIRT_PATH}cluster/vagrant-kubernetes/.kubectl
+    chmod u+x cluster/vagrant-kubernetes/.kubectl
 
-    vagrant ssh master -c "sudo cat /etc/kubernetes/admin.conf" >${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig
+    vagrant ssh master -c "sudo cat /etc/kubernetes/admin.conf" >${KUBEVIRT_PATH}cluster/vagrant-kubernetes/.kubeconfig
 
     # Make sure that local config is correct
     prepare_config
@@ -28,10 +28,10 @@ function up() {
 
 function prepare_config() {
     BASE_PATH=${KUBEVIRT_PATH:-$PWD}
-    cat >hack/config-provider-vagrant.sh <<EOF
+    cat >hack/config-provider-vagrant-kubernetes.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
-kubeconfig=${BASE_PATH}/cluster/vagrant/.kubeconfig
+kubeconfig=${BASE_PATH}/cluster/vagrant-kubernetes/.kubeconfig
 EOF
 }
 
@@ -44,8 +44,8 @@ function build() {
 }
 
 function _kubectl() {
-    export KUBECONFIG=${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl "$@"
+    export KUBECONFIG=${KUBEVIRT_PATH}cluster/vagrant-kubernetes/.kubeconfig
+    ${KUBEVIRT_PATH}cluster/vagrant-kubernetes/.kubectl "$@"
 }
 
 function down() {

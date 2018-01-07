@@ -1,17 +1,40 @@
-#!/bin/bash
+#/bin/bash -xe
+#
+# This file is part of the KubeVirt project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Copyright 2017 Red Hat, Inc.
+#
+
 master_ip=$1
 nodes=$2
 
-bash /vagrant/cluster/vagrant/setup_openshift_common.sh
+bash /vagrant/cluster/vagrant-openshift/setup_common.sh $master_ip $nodes
 
+# Disable host key checking under ansible.cfg file
 sed -i '/host_key_checking/s/^#//g' /etc/ansible/ansible.cfg
+
+# Save nodes to add it under ansible inventory file
+inv_nodes=""
 IFS=. read ip1 ip2 ip3 ip4 <<< "$master_ip"
-nodes=""
-for node in $(seq 0 $(($2 - 1))); do
+for node in $(seq 0 $(($nodes - 1))); do
   node_ip="$ip1.$ip2.$ip3.$(($ip4 + node + 1))"
   node_hostname="node$node openshift_node_labels=\"{'region': 'infra','zone': 'default'}\" openshift_ip=$node_ip"
-  nodes="$nodes$node_hostname\n"
+  inv_nodes="$inv_nodes$node_hostname\n"
 done
+
+# Create ansible inventory file
 cat > inventory <<EOF
 [OSEv3:children]
 masters
@@ -34,10 +57,11 @@ master openshift_ip=$master_ip
 
 [nodes]
 master openshift_node_labels="{'region': 'infra','zone': 'default'}" openshift_schedulable=true openshift_ip=$master_ip
-$nodes
+$inv_nodes
 
 EOF
 
+# Run OpenShift ansible playbook
 ansible-playbook -i inventory /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml
 
 # Create OpenShift user

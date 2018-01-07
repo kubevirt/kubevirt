@@ -10,7 +10,7 @@ Calling 'vagrant up' directly is not supported.  Instead, please run the followi
 END
 end
 
-$deploy_openshift = ENV['DEPLOY_OPENSHIFT'] == 'true'
+$provider = ENV['PROVIDER'] || "vagrant-kubernetes"
 $use_nfs = ENV['VAGRANT_USE_NFS'] == 'true'
 $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'
 $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
@@ -30,6 +30,15 @@ end
 
 $master_ip = $config["master_ip"]
 $network_provider = $config["network_provider"]
+
+$common_setup = <<SCRIPT
+#!/bin/bash
+set -xe
+sed -i -e "s/PasswordAuthentication no/PasswordAuthentication yes/" /etc/ssh/sshd_config
+systemctl restart sshd
+# FIXME, sometimes eth1 does not come up on Vagrant on latest fc26
+sudo ifup eth1
+SCRIPT
 
 Vagrant.configure(2) do |config|
   config.vm.box = "centos7"
@@ -71,10 +80,7 @@ Vagrant.configure(2) do |config|
       rsync__args: ["--archive", "--delete"]
   end
 
-  config.vm.provision "shell" do |s|
-    s.path = "cluster/vagrant/setup_common.sh"
-    s.args = ["#{$master_ip}", "#{$nodes}"]
-  end
+  config.vm.provision "shell", inline: $common_setup
 
   config.vm.define "master" do |master|
       master.vm.hostname = "master"
@@ -87,11 +93,7 @@ Vagrant.configure(2) do |config|
       end
 
       master.vm.provision "shell" do |s|
-        if $deploy_openshift then
-          s.path = "cluster/vagrant/setup_openshift_master.sh"
-        else
-          s.path = "cluster/vagrant/setup_kubernetes_master.sh"
-        end
+        s.path = "cluster/#{$provider}/setup_master.sh"
         s.args = ["#{$master_ip}", "#{$nodes}", "#{$network_provider}"]
       end
   end
@@ -110,12 +112,8 @@ Vagrant.configure(2) do |config|
       end
 
       node.vm.provision "shell" do |s|
-        if $deploy_openshift then
-          s.path = "cluster/vagrant/setup_openshift_common.sh"
-        else
-          s.path = "cluster/vagrant/setup_kubernetes_node.sh"
-        end
-        s.args = ["#{$master_ip}"]
+        s.path = "cluster/#{$provider}/setup_node.sh"
+        s.args = ["#{$master_ip}", "#{$nodes}"]
       end
     end
   end

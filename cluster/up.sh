@@ -1,5 +1,5 @@
 #!/bin/bash
 
-PROVIDER=${PROVIDER:-vagrant}
+PROVIDER=${PROVIDER:-vagrant-kubernetes}
 source cluster/$PROVIDER/provider.sh
 up
