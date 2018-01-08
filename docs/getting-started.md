@@ -6,8 +6,24 @@ A quick start guide to get KubeVirt up and running inside Vagrant.
 
 **Note:** Fedora 24 is known to have a bug which affects our vagrant setup.
 
-
 ## Building
+
+### Dockerized building and code generating
+
+All go-related make targets can be invoked in an included container. To build
+the project within the builder-container, run
+
+```bash
+./hack/dockerized make fmt fmt-bash build
+```
+
+To generate code, run
+
+```bash
+./hack/dockerized make generate
+```
+
+If you want to build KubeVirt without docker, read on.
 
 ### Go (1.8 or higher)
 
