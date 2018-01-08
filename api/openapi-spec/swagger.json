@@ -1793,6 +1793,15 @@
      }
     }
    },
+   "v1.CPU": {
+    "description": "CPU allow specifying the CPU topology",
+    "properties": {
+     "cores": {
+      "description": "Cores specifies the number of cores inside the vm.\nMust be a value greater or equal 1.",
+      "type": "integer"
+     }
+    }
+   },
    "v1.Clock": {
     "description": "Represents the clock and timers of a vm",
     "required": [
@@ -1935,6 +1944,10 @@
      "clock": {
       "description": "Clock sets the clock and timers of the vm.\n+optional",
       "$ref": "#/definitions/v1.Clock"
+     },
+     "cpu": {
+      "description": "CPU allow specified the detailed CPU topology inside the vm.\n+optional",
+      "$ref": "#/definitions/v1.CPU"
      },
      "devices": {
       "description": "Devices allows adding disks, network interfaces, ...",

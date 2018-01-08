@@ -43,6 +43,9 @@ var exampleJSON = `{
           "memory": "8Mi"
         }
       },
+      "cpu": {
+        "cores": 3
+      },
       "firmware": {
         "uid": "28a42a60-44ef-4428-9c10-1a6aee94627f"
       },
@@ -182,123 +185,129 @@ var exampleJSON = `{
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
-	var exampleVM = NewMinimalVM("testvm")
-	exampleVM.Spec.Domain.Devices.Disks = []Disk{
-		{
-			Name:       "disk0",
-			VolumeName: "volume0",
-			DiskDevice: DiskDevice{
-				Disk: &DiskTarget{
-					Device:   "vda",
-					ReadOnly: false,
-				},
-			},
-		},
-		{
-			Name:       "cdrom0",
-			VolumeName: "volume1",
-			DiskDevice: DiskDevice{
-				CDRom: &CDRomTarget{
-					Device:   "vdb",
-					ReadOnly: _true,
-					Tray:     "open",
-				},
-			},
-		},
-		{
-			Name:       "floppy0",
-			VolumeName: "volume2",
-			DiskDevice: DiskDevice{
-				Floppy: &FloppyTarget{
-					Device:   "vdc",
-					ReadOnly: true,
-					Tray:     "open",
-				},
-			},
-		},
-		{
-			Name:       "lun0",
-			VolumeName: "volume3",
-			DiskDevice: DiskDevice{
-				LUN: &LunTarget{
-					Device:   "vdd",
-					ReadOnly: true,
-				},
-			},
-		},
-	}
+	var exampleVM *VirtualMachine
 
-	exampleVM.Spec.Volumes = []Volume{
-		{
-			Name: "volume0",
-			VolumeSource: VolumeSource{
-				RegistryDisk: &RegistryDiskSource{
-					Image: "test/image",
-				},
-			},
-		},
-		{
-			Name: "volume1",
-			VolumeSource: VolumeSource{
-				CloudInitNoCloud: &CloudInitNoCloudSource{
-					UserDataSecretRef: &v1.LocalObjectReference{
-						Name: "testsecret",
+	BeforeEach(func() {
+		exampleVM = NewMinimalVM("testvm")
+		exampleVM.Spec.Domain.Devices.Disks = []Disk{
+			{
+				Name:       "disk0",
+				VolumeName: "volume0",
+				DiskDevice: DiskDevice{
+					Disk: &DiskTarget{
+						Device:   "vda",
+						ReadOnly: false,
 					},
 				},
 			},
-		},
-		{
-			Name: "volume2",
-			VolumeSource: VolumeSource{
-				ISCSI: &v1.ISCSIVolumeSource{
-					TargetPortal: "1234",
-					SecretRef: &v1.LocalObjectReference{
-						Name: "testsecret",
+			{
+				Name:       "cdrom0",
+				VolumeName: "volume1",
+				DiskDevice: DiskDevice{
+					CDRom: &CDRomTarget{
+						Device:   "vdb",
+						ReadOnly: _true,
+						Tray:     "open",
 					},
 				},
 			},
-		},
-		{
-			Name: "volume3",
-			VolumeSource: VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "testclaim",
+			{
+				Name:       "floppy0",
+				VolumeName: "volume2",
+				DiskDevice: DiskDevice{
+					Floppy: &FloppyTarget{
+						Device:   "vdc",
+						ReadOnly: true,
+						Tray:     "open",
+					},
 				},
 			},
-		},
-	}
-	exampleVM.Spec.Domain.Features = &Features{
-		ACPI: FeatureState{Enabled: _false},
-		APIC: &FeatureState{Enabled: _true},
-		Hyperv: &FeatureHyperv{
-			Relaxed:    &FeatureState{Enabled: _true},
-			VAPIC:      &FeatureState{Enabled: _false},
-			Spinlocks:  &FeatureSpinlocks{Enabled: _true},
-			VPIndex:    &FeatureState{Enabled: _false},
-			Runtime:    &FeatureState{Enabled: _true},
-			SyNIC:      &FeatureState{Enabled: _false},
-			SyNICTimer: &FeatureState{Enabled: _true},
-			Reset:      &FeatureState{Enabled: _false},
-			VendorID:   &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
-		},
-	}
-	exampleVM.Spec.Domain.Clock = &Clock{
-		ClockOffset: ClockOffset{
-			UTC: &ClockOffsetUTC{},
-		},
-		Timer: &Timer{
-			HPET:   &HPETTimer{},
-			KVM:    &KVMTimer{},
-			PIT:    &PITTimer{},
-			RTC:    &RTCTimer{},
-			Hyperv: &HypervTimer{},
-		},
-	}
-	exampleVM.Spec.Domain.Firmware = &Firmware{
-		UID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
-	}
-	SetObjectDefaults_VirtualMachine(exampleVM)
+			{
+				Name:       "lun0",
+				VolumeName: "volume3",
+				DiskDevice: DiskDevice{
+					LUN: &LunTarget{
+						Device:   "vdd",
+						ReadOnly: true,
+					},
+				},
+			},
+		}
 
+		exampleVM.Spec.Volumes = []Volume{
+			{
+				Name: "volume0",
+				VolumeSource: VolumeSource{
+					RegistryDisk: &RegistryDiskSource{
+						Image: "test/image",
+					},
+				},
+			},
+			{
+				Name: "volume1",
+				VolumeSource: VolumeSource{
+					CloudInitNoCloud: &CloudInitNoCloudSource{
+						UserDataSecretRef: &v1.LocalObjectReference{
+							Name: "testsecret",
+						},
+					},
+				},
+			},
+			{
+				Name: "volume2",
+				VolumeSource: VolumeSource{
+					ISCSI: &v1.ISCSIVolumeSource{
+						TargetPortal: "1234",
+						SecretRef: &v1.LocalObjectReference{
+							Name: "testsecret",
+						},
+					},
+				},
+			},
+			{
+				Name: "volume3",
+				VolumeSource: VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testclaim",
+					},
+				},
+			},
+		}
+		exampleVM.Spec.Domain.Features = &Features{
+			ACPI: FeatureState{Enabled: _false},
+			APIC: &FeatureState{Enabled: _true},
+			Hyperv: &FeatureHyperv{
+				Relaxed:    &FeatureState{Enabled: _true},
+				VAPIC:      &FeatureState{Enabled: _false},
+				Spinlocks:  &FeatureSpinlocks{Enabled: _true},
+				VPIndex:    &FeatureState{Enabled: _false},
+				Runtime:    &FeatureState{Enabled: _true},
+				SyNIC:      &FeatureState{Enabled: _false},
+				SyNICTimer: &FeatureState{Enabled: _true},
+				Reset:      &FeatureState{Enabled: _false},
+				VendorID:   &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
+			},
+		}
+		exampleVM.Spec.Domain.Clock = &Clock{
+			ClockOffset: ClockOffset{
+				UTC: &ClockOffsetUTC{},
+			},
+			Timer: &Timer{
+				HPET:   &HPETTimer{},
+				KVM:    &KVMTimer{},
+				PIT:    &PITTimer{},
+				RTC:    &RTCTimer{},
+				Hyperv: &HypervTimer{},
+			},
+		}
+		exampleVM.Spec.Domain.Firmware = &Firmware{
+			UID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
+		}
+		exampleVM.Spec.Domain.CPU = &CPU{
+			Cores: 3,
+		}
+		SetObjectDefaults_VirtualMachine(exampleVM)
+	})
 	Context("With example schema in json", func() {
 		It("Unmarshal json into struct", func() {
 			newVM := &VirtualMachine{}

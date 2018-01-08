@@ -379,11 +379,13 @@ var _ = Describe("Converter", func() {
       <vendor_id state="off" value="myvendor"></vendor_id>
     </hyperv>
   </features>
+  <cpu mode="host-model"></cpu>
 </domain>`
 
-		It("should be converted to a libvirt Domain with vm defaults set", func() {
-			domain := &Domain{}
-			c := &ConverterContext{
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			c = &ConverterContext{
 				VirtualMachine: vm,
 				Secrets: map[string]*k8sv1.Secret{
 					"mysecret": {
@@ -393,12 +395,49 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
+		})
+
+		It("should be converted to a libvirt Domain with vm defaults set", func() {
 			v1.SetObjectDefaults_VirtualMachine(vm)
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())
-			SetObjectDefaults_Domain(domain)
-			data, err := xml.MarshalIndent(domain.Spec, "", "  ")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(data)).To(Equal(convertedDomain))
+			Expect(vmToDomainXML(vm, c)).To(Equal(convertedDomain))
+		})
+		It("should convert CPU cores", func() {
+			v1.SetObjectDefaults_VirtualMachine(vm)
+			vm.Spec.Domain.CPU = &v1.CPU{
+				Cores: 3,
+			}
+			Expect(vmToDomainXMLToDomainSpec(vm, c).CPU.Topology.Cores).To(Equal(uint32(3)))
+			Expect(vmToDomainXMLToDomainSpec(vm, c).CPU.Topology.Sockets).To(Equal(uint32(1)))
+			Expect(vmToDomainXMLToDomainSpec(vm, c).CPU.Topology.Threads).To(Equal(uint32(1)))
+			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.Placement).To(Equal("static"))
+			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.CPUs).To(Equal(uint32(3)))
 		})
 	})
 })
+
+func vmToDomainXML(vm *v1.VirtualMachine, c *ConverterContext) string {
+	domain := vmToDomain(vm, c)
+	data, err := xml.MarshalIndent(domain.Spec, "", "  ")
+	Expect(err).ToNot(HaveOccurred())
+	return string(data)
+}
+
+func vmToDomain(vm *v1.VirtualMachine, c *ConverterContext) *Domain {
+	domain := &Domain{}
+	Expect(Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())
+	SetObjectDefaults_Domain(domain)
+	return domain
+}
+
+func xmlToDomainSpec(data string) *DomainSpec {
+	newDomain := &DomainSpec{}
+	err := xml.Unmarshal([]byte(data), newDomain)
+	newDomain.XMLName.Local = ""
+	newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
+	Expect(err).To(BeNil())
+	return newDomain
+}
+
+func vmToDomainXMLToDomainSpec(vm *v1.VirtualMachine, c *ConverterContext) *DomainSpec {
+	return xmlToDomainSpec(vmToDomainXML(vm, c))
+}

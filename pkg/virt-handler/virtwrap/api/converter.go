@@ -325,6 +325,18 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		}
 	}
 
+	if vm.Spec.Domain.CPU != nil {
+		domain.Spec.CPU.Topology = &CPUTopology{
+			Sockets: 1,
+			Cores:   vm.Spec.Domain.CPU.Cores,
+			Threads: 1,
+		}
+		domain.Spec.VCPU = &VCPU{
+			Placement: "static",
+			CPUs:      vm.Spec.Domain.CPU.Cores,
+		}
+	}
+
 	// Add mandatory console device
 	var serialPort uint = 0
 	var serialType string = "serial"

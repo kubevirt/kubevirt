@@ -43,6 +43,7 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&FeatureSpinlocks{},
 			&FeatureVendorID{},
 			&FeatureHyperv{},
+			&CPU{},
 			&Watchdog{},
 			&WatchdogDevice{},
 			&I6300ESBWatchdog{},

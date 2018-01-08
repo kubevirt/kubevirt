@@ -109,6 +109,24 @@ type DomainSpec struct {
 	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
 	Metadata Metadata     `xml:"metadata,omitempty"`
 	Features *Features    `xml:"features,omitempty"`
+	CPU      CPU          `xml:"cpu"`
+	VCPU     *VCPU        `xml:"vcpu"`
+}
+
+type VCPU struct {
+	Placement string `xml:"placement,attr"`
+	CPUs      uint32 `xml:",chardata"`
+}
+
+type CPU struct {
+	Mode     string       `xml:"mode,attr"`
+	Topology *CPUTopology `xml:"topology"`
+}
+
+type CPUTopology struct {
+	Sockets uint32 `xml:"sockets,attr,omitempty"`
+	Cores   uint32 `xml:"cores,attr,omitempty"`
+	Threads uint32 `xml:"threads,attr,omitempty"`
 }
 
 type Features struct {
