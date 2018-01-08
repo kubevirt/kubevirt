@@ -62,6 +62,9 @@ mkdir -p /var/log/kubevirt
 touch /var/log/kubevirt/qemu-kube.log
 chown qemu:qemu /var/log/kubevirt/qemu-kube.log
 
+# Restore correct SELinux context for qemu-system-x86_64
+restorecon -v /usr/local/bin/qemu-system-x86_64
+
 # If no main interface is specified, take the first non-loopback device
 if [[ -z "$LIBVIRTD_DEFAULT_NETWORK_DEVICE" ]]; then
     LIBVIRTD_DEFAULT_NETWORK_DEVICE=$(ip -o -4 a | tr -s ' ' | cut -d' ' -f 2 | grep -v -e '^lo[0-9:]*$' | head -1)
