@@ -12,7 +12,7 @@ spec:
       labels:
         kubevirt.io: libvirt
     spec:
-      serviceAccountName: kubevirt-infra
+      serviceAccountName: kubevirt-privileged
       hostNetwork: true
       hostPID: true
       hostIPC: true
