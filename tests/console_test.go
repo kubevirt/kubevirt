@@ -58,5 +58,23 @@ var _ = Describe("Console", func() {
 			}, 60*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 		})
+		It("should be able to reconnect to console multiple times", func() {
+			vm := tests.NewRandomVMWithPVC("disk-alpine")
+
+			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
+			tests.WaitForSuccessfulVMStart(vm)
+
+			for i := 0; i < 5; i++ {
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				defer expecter.Close()
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login"},
+				}, 100*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}, 140)
 	})
 })
