@@ -216,7 +216,6 @@ vm "testvm" created
 
 $ ./cluster/kubectl.sh get pods
 NAME                        READY     STATUS    RESTARTS   AGE
-haproxy                     1/1       Running   4          10h
 virt-api                    1/1       Running   1          10h
 virt-controller             1/1       Running   1          10h
 virt-handler-z90mp          1/1       Running   1          10h
