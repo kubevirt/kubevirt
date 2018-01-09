@@ -70,4 +70,8 @@ oc create identity allow_all_auth:admin
 oc create useridentitymapping allow_all_auth:admin admin
 oadm policy add-cluster-role-to-user cluster-admin admin
 
+# Set SELinux to permessive mode
+setenforce 0
+sed -i "s/^SELINUX=.*/SELINUX=permissive/" /etc/selinux/config
+
 echo -e "\033[0;32m Deployment was successful!\033[0m"

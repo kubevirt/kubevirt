@@ -21,3 +21,9 @@ master_ip=$1
 nodes=$2
 
 bash /vagrant/cluster/vagrant-openshift/setup_common.sh $master_ip $nodes
+
+# Set SELinux to permessive mode
+setenforce 0
+sed -i "s/^SELINUX=.*/SELINUX=permissive/" /etc/selinux/config
+
+echo -e "\033[0;32m Deployment was successful!\033[0m"
