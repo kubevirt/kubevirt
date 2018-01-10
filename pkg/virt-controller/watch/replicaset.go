@@ -741,7 +741,7 @@ func OwnerRef(rs *virtv1.VirtualMachineReplicaSet) v1.OwnerReference {
 	t := true
 	gvk := virtv1.VMReplicaSetGroupVersionKind
 	return v1.OwnerReference{
-		APIVersion:         gvk.Version,
+		APIVersion:         gvk.GroupVersion().String(),
 		Kind:               gvk.Kind,
 		Name:               rs.ObjectMeta.Name,
 		UID:                rs.ObjectMeta.UID,
