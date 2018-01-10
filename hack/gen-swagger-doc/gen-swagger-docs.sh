@@ -68,6 +68,9 @@ if [ "$OUTPUT_FORMAT" = "html" ]; then
     # $$ has special meaning in asciidoc, we need to escape it
     sed -i 's|\$\$|+++$$+++|g' "$WORKDIR/definitions.adoc"
     sed -i '1 i\:last-update-label!:' "$WORKDIR/"*.adoc
+    sed -i -e "/KubeVirt API\$/a\\:revnumber: $(git rev-parse HEAD || echo no-revision)" \
+            -e "/__Terms of service__ :/a\\__Version__ : {revnumber}" \
+            "$WORKDIR/overview.adoc"
 
     # Generate *.html files from *.adoc
     gradle -b $GRADLE_BUILD_FILE asciidoctor --info
