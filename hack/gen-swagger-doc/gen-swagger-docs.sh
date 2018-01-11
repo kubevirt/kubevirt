@@ -15,6 +15,7 @@ KUBEVIRT_DIR="$(
 
 VERSION="${1:-v1}"
 OUTPUT_FORMAT="${2:-html}"
+GIT_REPO_LINK="https://github.com/kubevirt/kubevirt"
 if [ "$OUTPUT_FORMAT" = "html" ]; then
     SUFFIX="adoc"
     HEADER="="
@@ -68,9 +69,18 @@ if [ "$OUTPUT_FORMAT" = "html" ]; then
     # $$ has special meaning in asciidoc, we need to escape it
     sed -i 's|\$\$|+++$$+++|g' "$WORKDIR/definitions.adoc"
     sed -i '1 i\:last-update-label!:' "$WORKDIR/"*.adoc
-    gitcommithash="$(git rev-parse HEAD || echo no-revision)"
+
+    # Determine version of KubeVirt, as a commit hash or tag in case of tagged commit.
+    gittagmatch="$(git describe --exact-match 2> /dev/null || true)"
+    if [ "$gittagmatch" -n ] ; then
+        gitcommithash="${gittagmatch}"
+        gitlink="${GIT_REPO_LINK}/releases/tag"
+    else
+        gitcommithash="$(git rev-parse HEAD || echo no-revision)"
+        gitlink="${GIT_REPO_LINK}/commit"
+    fi
     sed -i -e "/KubeVirt API\$/a\\:revnumber: ${gitcommithash}" \
-            -e "/__Terms of service__ :/a\\__Version__ : https://github.com/kubevirt/kubevirt/commit/{revnumber}[{revnumber}]" \
+            -e "/__Terms of service__ :/a\\__Version__ : ${gitlink}/{revnumber}[{revnumber}]" \
             "$WORKDIR/overview.adoc"
 
     # Generate *.html files from *.adoc
