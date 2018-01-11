@@ -73,6 +73,7 @@ set -e
 # Build kubevirt
 go get golang.org/x/tools/cmd/goimports
 go get -u github.com/Masterminds/glide
+go get -u github.com/onsi/ginkgo/ginkgo
 make
 
 # Make sure we can connect to kubernetes
