@@ -16,11 +16,13 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:26
+FROM fedora:27
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-RUN dnf -y install libvirt-client genisoimage && \
+ENV LIBVIRT_VERSION 3.7.0
+
+RUN dnf -y install libvirt-client-${LIBVIRT_VERSION} genisoimage && \
     groupadd --gid 107 qemu && \
     useradd --uid 107 --gid 107 qemu && \
     dnf -y clean all

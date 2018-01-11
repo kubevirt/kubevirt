@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # This file is part of the KubeVirt project
 #
@@ -16,10 +17,12 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:27
+set -e
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
-ENV container docker
+source hack/config.sh
+KUBEVIRT_DIR="$(
+    cd "$(dirname "$0")/../"
+    pwd
+)"
 
-RUN dnf -y install procps-ng \
-    && dnf -y clean all
+${KUBEVIRT_DIR}/_out/tests/tests.test -kubeconfig=${kubeconfig} -test.timeout 30m ${FUNC_TEST_ARGS}

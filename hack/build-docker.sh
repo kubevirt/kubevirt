@@ -20,6 +20,11 @@
 set -e
 
 source hack/config.sh
+KUBEVIRT_DIR="$(
+    cd "$(dirname "$0")/../"
+    pwd
+)"
+OUT_DIR=$KUBEVIRT_DIR/_out/cmd/
 
 if [ -z "$1" ]; then
     target="build"
@@ -38,21 +43,22 @@ fi
 
 for arg in $args; do
     if [ "${target}" = "build" ]; then
+        BIN_NAME=$(basename $arg)
+        rsync -avz --exclude "**/*.md" --exclude "**/*.go" --exclude "**/.*" $arg/ ${OUT_DIR}/${BIN_NAME}/
         # TODO the version of docker we're using in our vagrant dev environment
         # does not support using ARGS in FROM field.
         # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
         # Because of this we have to manipulate the Dockerfile for kubevirt containers
         # that depend on other kubevirt containers.
-        cat $arg/Dockerfile | sed s/registry-disk-v1alpha/registry-disk-v1alpha\:$docker_tag/g >$arg/.GeneratedDockerfile
+        cat $arg/Dockerfile | sed s/registry-disk-v1alpha/registry-disk-v1alpha\:$docker_tag/g >${OUT_DIR}/${BIN_NAME}/Dockerfile
         (
-            cd $arg
-            docker $target -t ${docker_prefix}/$(basename $arg):${docker_tag} -f .GeneratedDockerfile .
+            cd ${OUT_DIR}/${BIN_NAME}/
+            docker $target -t ${docker_prefix}/${BIN_NAME}:${docker_tag} .
         )
-        rm $arg/.GeneratedDockerfile
     elif [ "${target}" = "push" ]; then
         (
-            cd $arg
-            docker $target ${docker_prefix}/$(basename $arg):${docker_tag}
+            cd ${OUT_DIR}/${BIN_NAME}/
+            docker $target ${docker_prefix}/${BIN_NAME}:${docker_tag}
         )
     fi
 done

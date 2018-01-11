@@ -11,43 +11,28 @@ go:
 - 1.8
 - 1.9
 
-before_install:
-- sudo add-apt-repository ppa:jacob/virtualisation -y
-- sudo apt-get update -q
+env:
+- BUILDER_NAME="kubevirt/${TRAVIS_JOB_ID}builder"
 
 install:
- - git reset --hard # we are caching the vendor folder, make sure we see the new vendor.json file
- - go get github.com/mattn/goveralls
- - go get -u github.com/Masterminds/glide
- - go get golang.org/x/tools/cmd/goimports
- - go get -u mvdan.cc/sh/cmd/shfmt
- - go get -u github.com/golang/mock/gomock
- - go get -u github.com/rmohr/mock/mockgen
- - go get -u github.com/rmohr/go-swagger-utils/swagger-doc
- - go get -u github.com/onsi/ginkgo/ginkgo
- - go get -u k8s.io/code-generator/cmd/deepcopy-gen
- - go get -u k8s.io/code-generator/cmd/defaulter-gen
- - sudo apt-get install libvirt-dev make
- - make sync
+ - git reset --hard
+ - ./hack/dockerized make sync
 
 script:
-- make fmt fmt-bash
+- ./hack/dockerized make fmt fmt-bash
 - if git diff --name-only | grep '.*.go'; then echo "It seems like you did not run
   `make fmt fmt-bash`. Please run it and commit the changes"; false; fi
-- make generate
-- make fmt
+- ./hack/dockerized make generate fmt
 - if git diff --name-only | grep 'generated.*.go'; then echo "Content of generated
   files changed. Please regenerate and commit them."; false; fi
 - if git diff --name-only | grep 'swagger.json' ; then echo "Content of generated
   files changed. Please regenerate and commit them." ; false ; fi
 - if diff <(git grep -c '') <(git grep -cI '') | egrep -v 'docs/.*\.png|swagger-ui'
   | grep '^<'; then echo "Binary files are present in git repostory."; false; fi
-- make check
-- make build
-- if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then $HOME/gopath/bin/goveralls
-  -service=travis-ci -package=./pkg/... -ignore=$(find -regextype posix-egrep -regex ".*generated_mock.*\.go|.*swagger_generated\.go" -printf
-  "%P\n" | paste -d, -s) ; else make test; fi
-- make apidocs
+- ./hack/dockerized make check
+- ./hack/dockerized make build
+- if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then ./hack/dockerized make goveralls TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH}; else ./hack/dockerized make test; fi
+- ./hack/dockerized make apidocs
 - make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
 
 cache:
@@ -74,9 +59,8 @@ deploy:
     secure: dy3AlSki7p9sRjItOiWoPv4s28+hZ9wMcuvtZv0bWHbEZ7y/EvzXcwWmn+/Tjjk4Np59LImUjJw1E5Yv2Q16ViuNwKbX7TA7fu+wAcTz4DF4wFLIrJBcCRetiud4175aJ1ylOvmtHOuWHfo6Wx5HRxRT0fLcMFdSoagpe4Dh7BJYfI4Sgu/jghMMJ4wcDsMLZqi6RRM6jywFXQXMmBY87E57/ZLlXZ5Nud5RoWXJxfFfc/vTn/frCBu7r+JW8ayGeGVPEkEMtWX1huWnIvVjNu1twuZnL3zWmLNmpFXfk3j/gLbdIwLn3jgtariNz/Rvigqaj18F0Fa/QNL6VcruqgXd6ryWxmGm9sD6MYC3kk0HoqwSI7WBf88tlfz27FR+cHFZtjTBXnZHBtM5skuzUpT4kUKhLkwcfgA5PmoW/7NcmnN0eKvOQuQYq/8pREwdmYAvYsGPWJZjNYHBCv9KRT1lDRN5jRLMi5wn7NWFMR1p+mbdHyd7i43zM8gnumqvGF/chZ9PEH38hnm835RZAwnzdJ3EQ4YFAaOE2AaUBe9Yw1FP6f22MOC8+N9CY+a1AlGQBmovPjaf+x4f+Jx6y9jjxahJpoXxEKgeFvfSVUoKbkMPMOHxMAb0UL9Rqq3BhlLnPQIjcwdCZU/+wTcV/sFHdcnIqdl9/wb/L+mMjOs=
   file_glob: true
   file:
-  - cmd/virtctl/virtctl-*
+  - _out/cmd/virtctl/virtctl-*
   - manifests/release/kubevirt.yaml
-  - manifests/release/spice-proxy.yaml
   prerelease: true
   on:
     tags: true

@@ -20,6 +20,11 @@
 set -e
 
 source hack/config.sh
+KUBEVIRT_DIR="$(
+    cd "$(dirname "$0")/../"
+    pwd
+)"
+OUT_DIR=$KUBEVIRT_DIR/_out/cmd
 
 if [ -z "$1" ]; then
     target="install"
@@ -30,6 +35,7 @@ fi
 
 if [ $# -eq 0 ]; then
     args=$binaries
+    build_tests="true"
 else
     args=$@
 fi
@@ -42,12 +48,6 @@ if [ $# -eq 0 ]; then
             cd pkg
             go ${target} -v ./...
         )
-    elif [ "${target}" = "functest" ]; then
-        (
-            cd tests
-            go test -kubeconfig=${kubeconfig} -timeout 30m ${FUNC_TEST_ARGS}
-        )
-        exit
     else
         (
             cd pkg
@@ -61,6 +61,11 @@ if [ $# -eq 0 ]; then
 fi
 
 # handle binaries
+
+if [ "${target}" = "install" ]; then
+    rm -rf ${OUT_DIR}
+fi
+
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (
@@ -69,16 +74,14 @@ for arg in $args; do
         )
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
-        ARCHBIN=$(basename $arg)-$(git describe --always)-$GOHOSTOS-$GOHOSTARCH
-        ALIASLNK=$(basename $arg)
-        rm $arg/$ALIASLNK $arg/$(basename $arg)-*-$GOHOSTOS-$GOHOSTARCH || :
+        BIN_NAME=$(basename $arg)
+        ARCHBIN=${BIN_NAME}-$(git describe --always)-${GOHOSTOS}-${GOHOSTARCH}
+        mkdir -p ${OUT_DIR}/${BIN_NAME}
         (
             cd $arg
-            GOBIN=$PWD go build -o $ARCHBIN
+            go build -o ${OUT_DIR}/${BIN_NAME}/${ARCHBIN}
+            (cd ${OUT_DIR}/${BIN_NAME} && ln -sf ${ARCHBIN} ${BIN_NAME})
         )
-        mkdir -p bin
-        ln -sf $ARCHBIN $arg/$ALIASLNK
-        ln -sf ../$arg/$ARCHBIN bin/$ALIASLNK
     else
         (
             cd $arg
@@ -86,3 +89,9 @@ for arg in $args; do
         )
     fi
 done
+
+if [[ "${target}" == "install" && "${build_tests}" == "true" ]]; then
+    mkdir -p ${KUBEVIRT_DIR}/_out/tests/
+    ginkgo build ${KUBEVIRT_DIR}/tests
+    mv ${KUBEVIRT_DIR}/tests/tests.test ${KUBEVIRT_DIR}/_out/tests/
+fi

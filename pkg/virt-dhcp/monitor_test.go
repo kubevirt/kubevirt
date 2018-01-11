@@ -62,7 +62,7 @@ var _ = Describe("Virt-DHCP Monitor test", func() {
 	dir := os.Getenv("PWD")
 	dir = strings.TrimSuffix(dir, "pkg/virt-dhcp")
 	processName := "fake-dnsmasq-process"
-	processPath := dir + "/cmd/fake-dnsmasq-process/" + processName
+	processPath := dir + "/_out/cmd/fake-dnsmasq-process/" + processName
 	processArgs := []string{"-k", "-d", "--strict-order", "--bind-dynamic"}
 
 	StartProcess := func() {

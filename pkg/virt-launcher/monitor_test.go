@@ -45,7 +45,7 @@ var _ = Describe("VirtLauncher", func() {
 	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
 
 	processName := "fake-qemu-process"
-	processPath := dir + "/cmd/fake-qemu-process/" + processName
+	processPath := dir + "/_out/cmd/fake-qemu-process/" + processName
 
 	processStarted := false
 

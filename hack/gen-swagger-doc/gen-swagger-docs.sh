@@ -8,6 +8,11 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+KUBEVIRT_DIR="$(
+    cd "$(dirname "$0")/../../"
+    pwd
+)"
+
 VERSION="${1:-v1}"
 OUTPUT_FORMAT="${2:-html}"
 if [ "$OUTPUT_FORMAT" = "html" ]; then
@@ -79,4 +84,7 @@ elif [ "$OUTPUT_FORMAT" = "markdown" ]; then
     cd -
 fi
 
+mkdir -p ${KUBEVIRT_DIR}/_out/apidocs/html
+mv ${WORKDIR}/html5/content/* ${KUBEVIRT_DIR}/_out/apidocs/html
+mv ${WORKDIR}/*.adoc ${KUBEVIRT_DIR}/_out/apidocs/
 echo "SUCCESS"

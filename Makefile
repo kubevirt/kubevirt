@@ -18,13 +18,12 @@ generate: sync
 	tools/openapispec/openapispec --dump-api-spec-path api/openapi-spec/swagger.json
 
 apidocs: generate
-	docker run -u `stat -c "%u" hack/gen-swagger-doc/` --rm \
-		-v ${PWD}:/home/gradle/kubevirt:rw,z \
-		-w /home/gradle/kubevirt \
-		gradle \
-		bash hack/gen-swagger-doc/gen-swagger-docs.sh v1 html
+	./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html
 
 build: checksync fmt vet compile
+
+goveralls:
+	./hack/goveralls.sh
 
 compile:
 	./hack/build-go.sh install ${WHAT}
@@ -42,11 +41,11 @@ test: build
 	./hack/build-go.sh test ${WHAT}
 
 functest:
-	./hack/build-go.sh functest ${WHAT}
+	./hack/functests.sh
 
 clean:
 	./hack/build-go.sh clean ${WHAT}
-	rm ./bin -rf
+	rm _out/ -rf
 	rm tools/openapispec/openapispec -rf
 
 distclean: clean
@@ -56,8 +55,8 @@ distclean: clean
 	glide cc
 
 checksync:
-	test -f .glide.yaml.hash || ${HASH} glide.yaml > .glide.yaml.hash
-	if [ "`${HASH} glide.yaml`" != "`cat .glide.yaml.hash`" ]; then \
+	@test -f .glide.yaml.hash || ${HASH} glide.yaml > .glide.yaml.hash
+	@if [ "`${HASH} glide.yaml`" != "`cat .glide.yaml.hash`" ]; then \
 		glide cc; \
 		glide update --strip-vendor; \
 		${HASH} glide.yaml > .glide.yaml.hash; \
@@ -70,7 +69,8 @@ sync:
 	glide install --strip-vendor
 	${HASH} glide.lock > .glide.lock.hash
 
-docker: build
+docker:
+	hack/dockerized make build
 	./hack/build-docker.sh build ${WHAT}
 
 publish: docker
