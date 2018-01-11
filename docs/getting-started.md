@@ -192,13 +192,13 @@ Finally start a VM called `testvm`:
     # You might want to watch the Cockpit Cluster topology while running these commands
 
     # Create a VM
-    ./cluster/kubectl.sh create -f cluster/vm.json
+    ./cluster/kubectl.sh create -f cluster/vm.yaml
 
     # Sure? Let's list all created VMs
     ./cluster/kubectl.sh get vms
 
     # Enough, let's get rid of it
-    ./cluster/kubectl.sh delete -f cluster/vm.json
+    ./cluster/kubectl.sh delete -f cluster/vm.yaml
 
 
     # You can actually use kubelet.sh to introspect the cluster in general
@@ -260,28 +260,12 @@ dnf install virt-viewer
 Then, after you made sure that the VM `testvm` is running, type
 
 ```
-cluster/kubectl.sh spice testvm
+cluster/kubectl.sh vnc testvm
 ```
 
 to start a remote session with `remote-viewer`.
 
-To print the connection details to stdout, run
+### Accessing the Domain via the VNC primary resource
 
-```bash
-cluster/kubectl.sh spice testvm --details
-```
+Since `kubectl` does not support TPR subresources yet, the above `cluster/kubectl.sh vnc` magic is just a wrapper.
 
-To directly query the config, do
-
-```bash
-curl 192.168.200.2:8184/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm/spice -H"Accept:text/plain"
-```
-
-### Accessing the Domain via the SPICE primary resource
-
-Since `kubectl` does not support TPR subresources yet, the above `cluster/kubectl.sh spice` magic is just a wrapper.
-
-## API Documentation
-
-The combined swagger documentation of Kubernetes and KubeVirt can be accessed under [/swaggerapi](http://192.168.200.2:8184/swaggerapi).
-There is also an embedded swagger-ui instance running inside the cluster. It can be accessed via [/swagger-ui](http://192.168.200.2:8184/swaggerapi).
