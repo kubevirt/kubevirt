@@ -16,7 +16,7 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM kubevirt/libvirt
+FROM kubevirt/libvirt:3.7.0
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
