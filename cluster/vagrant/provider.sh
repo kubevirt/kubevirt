@@ -39,7 +39,7 @@ function build() {
     make build manifests
     for VM in $(vagrant status | grep -v "^The Libvirt domain is running." | grep running | cut -d " " -f1); do
         vagrant rsync $VM # if you do not use NFS
-        vagrant ssh $VM -c "cd /vagrant && export DOCKER_TAG=${docker_tag} && sudo -E hack/build-docker.sh build &&  sudo -E hack/build-docker.sh build optional"
+        vagrant ssh $VM -c "cd /vagrant && export DOCKER_TAG=${docker_tag} && sudo -E hack/build-docker.sh build"
     done
 }
 
