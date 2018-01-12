@@ -41,16 +41,16 @@ fi
 if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (
-            cd pkg
+            cd ${KUBEVIRT_DIR}/pkg
             go ${target} -v ./...
         )
     else
         (
-            cd pkg
+            cd ${KUBEVIRT_DIR}/pkg
             go $target ./...
         )
         (
-            cd tests
+            cd ${KUBEVIRT_DIR}/tests
             go $target ./...
         )
     fi
@@ -75,6 +75,7 @@ for arg in $args; do
         mkdir -p ${CMD_OUT_DIR}/${BIN_NAME}
         (
             cd $arg
+            go vet ./...
             go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCHBIN}
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCHBIN} ${BIN_NAME})
         )

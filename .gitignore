@@ -1,5 +1,4 @@
 vendor/*
-!vendor/vendor.json
 .idea
 *.iml
 tools/openapispec/openapispec
