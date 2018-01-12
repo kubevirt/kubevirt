@@ -49,7 +49,6 @@ clean:
 	rm tools/openapispec/openapispec -rf
 
 distclean: clean
-	find manifests -name "*.yaml" -type f -delete
 	rm -rf vendor/
 	rm -f .glide.*.hash
 	glide cc

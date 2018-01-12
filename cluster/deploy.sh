@@ -21,6 +21,7 @@ set -ex
 
 PROVIDER=${PROVIDER:-vagrant}
 
+source hack/common.sh
 source cluster/$PROVIDER/provider.sh
 source hack/config.sh
 
@@ -31,7 +32,7 @@ _kubectl delete pods -n kube-system -l="kubevirt.io=libvirt" --force --grace-per
 _kubectl delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
 
 # Delete everything, no matter if release, devel or infra
-_kubectl delete -f manifests -R --grace-period 1 2>/dev/null || :
+_kubectl delete -f ${MANIFESTS_OUT_DIR}/ -R --grace-period 1 2>/dev/null || :
 
 # Delete exposures
 _kubectl delete services -l "kubevirt.io" -n kube-system
@@ -42,12 +43,12 @@ echo "Deploying ..."
 
 # Deploy the right manifests for the right target
 if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev" ]; then
-    _kubectl create -f manifests/dev -R $i
+    _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
 elif [ "$TARGET" = "vagrant-release" ]; then
-    _kubectl create -f manifests/release -R $i
+    _kubectl create -f ${MANIFESTS_OUT_DIR}/release -R $i
 fi
 
 # Deploy additional infra for testing
-_kubectl create -f manifests/testing -R $i
+_kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
 echo "Done"

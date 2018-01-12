@@ -3,7 +3,6 @@ vendor/*
 .idea
 *.iml
 tools/openapispec/openapispec
-manifests/**/*.yaml
 **/bin
 bin/*
 .vagrant

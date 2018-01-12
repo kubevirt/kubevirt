@@ -60,7 +60,7 @@ deploy:
   file_glob: true
   file:
   - _out/cmd/virtctl/virtctl-*
-  - manifests/release/kubevirt.yaml
+  - _out/manifests/release/kubevirt.yaml
   prerelease: true
   on:
     tags: true

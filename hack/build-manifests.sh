@@ -20,20 +20,18 @@
 set -e
 
 source hack/config.sh
+source hack/common.sh
 
-if [ $# -eq 0 ]; then
-    args=$(find manifests -type f -name "*.yaml.in")
-else
-    args=$@
-fi
+args=$(cd ${KUBEVIRT_DIR}/manifests && find * -type f -name "*.yaml.in")
 
-# Delete all generated manifests in case an input file was deleted or renamed
-find manifests -name "*.yaml" -type f -delete
+rm -rf ${MANIFESTS_OUT_DIR}
 
-# Render kubernetes manifests
 for arg in $args; do
+    final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
+    mkdir -p ${final_out_dir}
+    manifest=$(basename -s .in ${arg})
     sed -e "s/{{ master_ip }}/$master_ip/g" \
         -e "s/{{ docker_tag }}/$docker_tag/g" \
         -e "s/{{ docker_prefix }}/$docker_prefix/g" \
-        $arg >${arg%%.in}
+        ${KUBEVIRT_DIR}/manifests/$arg >${final_out_dir}/${manifest}
 done
