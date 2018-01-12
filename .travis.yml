@@ -69,6 +69,7 @@ deploy:
   skip_cleanup: true
   script: bash hack/gen-swagger-doc/deploy.sh
   on:
+    tags: true
     branch: master
     go: 1.8.3
 
