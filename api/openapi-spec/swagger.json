@@ -1961,6 +1961,10 @@
       "description": "Firmware\n+optional",
       "$ref": "#/definitions/v1.Firmware"
      },
+     "machine": {
+      "description": "Machine type\n+optional",
+      "$ref": "#/definitions/v1.Machine"
+     },
      "resources": {
       "description": "Resources describes the Compute Resources required by this vm.",
       "$ref": "#/definitions/v1.ResourceRequirements"
@@ -2302,6 +2306,17 @@
      "readonly": {
       "description": "ReadOnly\nDefaults to false",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.Machine": {
+    "required": [
+     "type"
+    ],
+    "properties": {
+     "type": {
+      "description": "QEMU machine type is the actual chipset of the VM.",
+      "type": "string"
      }
     }
    },

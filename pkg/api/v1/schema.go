@@ -48,6 +48,9 @@ type DomainSpec struct {
 	// CPU allow specified the detailed CPU topology inside the vm.
 	// +optional
 	CPU *CPU `json:"cpu,omitempty"`
+	// Machine type
+	// +optional
+	Machine *Machine `json:"machine,omitempty"`
 	// Firmware
 	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`
@@ -73,6 +76,11 @@ type CPU struct {
 	// Cores specifies the number of cores inside the vm.
 	// Must be a value greater or equal 1.
 	Cores uint32 `json:"cores,omitempty"`
+}
+
+type Machine struct {
+	// QEMU machine type is the actual chipset of the VM.
+	Type string `json:"type"`
 }
 
 type Firmware struct {

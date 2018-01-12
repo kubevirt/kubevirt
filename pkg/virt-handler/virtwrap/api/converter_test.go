@@ -48,6 +48,9 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			v1.SetObjectDefaults_VirtualMachine(vm)
+			vm.Spec.Domain.Machine = &v1.Machine{
+				Type: "pc",
+			}
 			vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 				Name: "mywatchdog",
 				WatchdogDevice: v1.WatchdogDevice{
@@ -254,7 +257,7 @@ var _ = Describe("Converter", func() {
   <name>mynamespace_testvm</name>
   <memory unit="MB">9</memory>
   <os>
-    <type machine="q35">hvm</type>
+    <type machine="pc">hvm</type>
   </os>
   <sysinfo type="smbios">
     <system>
