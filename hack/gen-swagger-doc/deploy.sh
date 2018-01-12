@@ -29,7 +29,7 @@ Content of this repository is generated from OpenAPI specification of
 
 ## KubeVirt API References
 
-* [master](${GITHUB_IO_FQDN}/index.html)
+* [master](${GITHUB_IO_FQDN}/master/index.html)
 __EOF__
 find * -type d -regex  "^v[0-9.]*" \
     -exec echo "* [{}](${GITHUB_IO_FQDN}/{}/index.html)" >> README.md \;
