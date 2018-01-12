@@ -57,8 +57,9 @@ for arg in $args; do
         )
     elif [ "${target}" = "push" ]; then
         (
+            BIN_NAME=$(basename $arg)
             cd ${OUT_DIR}/${BIN_NAME}/
-            docker $target ${docker_prefix}/${BIN_NAME}:${docker_tag}
+            docker push ${docker_prefix}/${BIN_NAME}:${docker_tag}
         )
     fi
 done
