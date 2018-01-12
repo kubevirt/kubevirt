@@ -16,6 +16,7 @@ git clone \
     "https://${API_REFERENCE_PUSH_TOKEN}@${GITHUB_FQDN}/${API_REF_REPO}.git" \
     "${API_REF_DIR}" >/dev/null 2>&1
 rm -rf "${API_REF_DIR}/${TARGET_DIR:?}/"*
+mkdir -p ${API_REF_DIR}/${TARGET_DIR}
 cp -f _out/apidocs/html/*.html "${API_REF_DIR}/${TARGET_DIR}/"
 
 cd "${API_REF_DIR}"
