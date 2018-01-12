@@ -254,7 +254,7 @@ var _ = Describe("Converter", func() {
   <name>mynamespace_testvm</name>
   <memory unit="MB">9</memory>
   <os>
-    <type>hvm</type>
+    <type machine="q35">hvm</type>
   </os>
   <sysinfo type="smbios">
     <system>
