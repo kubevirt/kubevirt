@@ -25,28 +25,28 @@
 
 set -ex
 
+export WORKSPACE="${WORKSPACE:-$PWD}"
+
 kubectl() { cluster/kubectl.sh "$@"; }
+
+export BUILDER_NAME=$TARGET
 
 if [ "$TARGET" = "vagrant-dev"  ]; then
 cat > hack/config-local.sh <<EOF
 master_ip=192.168.1.2
 EOF
+export RSYNCD_PORT=${RSYNCD_PORT:-10874}
 elif [ "$TARGET" = "vagrant-release"  ]; then
 cat > hack/config-local.sh <<EOF
 master_ip=192.168.2.2
 EOF
+export RSYNCD_PORT=${RSYNCD_PORT:-10875}
 fi
 
-VAGRANT_PREFIX=${VARIABLE:-kubevirt}
-
-# Install GO
-export GIMME_GO_VERSION=1.9.2
-eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | bash)"
-export WORKSPACE="${WORKSPACE:-$PWD}"
-export GOPATH="${GOPATH:-$WORKSPACE/go}"
-export GOBIN="${GOBIN:-$GOPATH/bin}"
-export PATH="$GOPATH/bin:$PATH"
+export VAGRANT_PREFIX=${VARIABLE:-kubevirt}
 export VAGRANT_NUM_NODES="${VAGRANT_NUM_NODES:-1}"
+# Keep .vagrant files between builds
+export VAGRANT_DOTFILE_PATH="${VAGRANT_DOTFILE_PATH:-$WORKSPACE/.vagrant}"
 
 # Install dockerize
 export DOCKERIZE_VERSION=v0.3.0
@@ -54,15 +54,11 @@ curl -LO https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
     && tar -C $WORKSPACE -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
     && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
-# Keep .vagrant files between builds
-export VAGRANT_DOTFILE_PATH="${VAGRANT_DOTFILE_PATH:-$WORKSPACE/.vagrant}"
-
 # Make sure that the VM is properly shut down on exit
 trap '{ make cluster-down; }' EXIT
 
-set +e
-
 # TODO handle complete workspace removal on CI
+set +e
 make cluster-up
 if [ $? -ne 0 ]; then
   vagrant destroy
@@ -71,10 +67,7 @@ if [ $? -ne 0 ]; then
 fi
 set -e
 
-# Build kubevirt
-go get golang.org/x/tools/cmd/goimports
-go get -u github.com/Masterminds/glide
-go get -u github.com/onsi/ginkgo/ginkgo
+# Build KubeVirt
 make
 
 # Make sure we can connect to kubernetes
