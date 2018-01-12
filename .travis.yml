@@ -24,7 +24,7 @@ script:
   `make generate`. Please run it and commit the changes"; false; fi
 - if diff <(git grep -c '') <(git grep -cI '') | egrep -v 'docs/.*\.png|swagger-ui'
   | grep '^<'; then echo "Binary files are present in git repostory."; false; fi
-- if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then make goveralls TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH}; else make test; fi
+- if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then make goveralls; else make test; fi
 - make apidocs
 - make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
 
