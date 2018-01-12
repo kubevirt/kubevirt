@@ -35,6 +35,20 @@ type App interface {
 type Options struct {
 }
 
+func GetKubeConfig(flags *flag.FlagSet) string {
+	kubeConfig, err := flags.GetString("kubeconfig")
+	if kubeConfig == "" || err != nil {
+		kubeConfig := os.Getenv("kubeconfig")
+		if kubeConfig == "" {
+			kubeConfig = os.Getenv("KUBECONFIG")
+		}
+		if kubeConfig == "" {
+			kubeConfig = os.Getenv("HOME") + "./kube/config"
+		}
+	}
+	return kubeConfig
+}
+
 func (o *Options) FlagSet() *flag.FlagSet {
 
 	cf := flag.NewFlagSet("options", flag.ExitOnError)
