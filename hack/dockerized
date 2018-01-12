@@ -1,15 +1,9 @@
 #!/bin/bash
 set -e
 
-DIR="$(
-    cd "$(dirname "$0")"
-    pwd
-)"
-DOCKER_DIR=${DIR}/docker-builder
-KUBEVIRT_DIR="$(
-    cd "$DIR/../"
-    pwd
-)"
+source $(dirname "$0")/common.sh
+
+DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
 
 BUILDER=${BUILDER_NAME:-kubevirtbuilder}
 RSYNCD_PORT=${RSYNCD_PORT:-10873}
@@ -53,4 +47,4 @@ docker run --rm -v "${BUILDER}:/root:rw,z" -w "/root/go/src/kubevirt.io/kubevirt
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync --exclude '.glide*' --exclude "vendor" --exclude "_out" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/
 # Copy the build output out of the container, make sure that _out exactly matches the build result
-_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" $KUBEVIRT_DIR/_out
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}

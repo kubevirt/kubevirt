@@ -8,10 +8,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KUBEVIRT_DIR="$(
-    cd "$(dirname "$0")/../../"
-    pwd
-)"
+source $(dirname "$0")/../../hack/common.sh
 
 VERSION="${1:-v1}"
 OUTPUT_FORMAT="${2:-html}"
@@ -98,7 +95,7 @@ elif [ "$OUTPUT_FORMAT" = "markdown" ]; then
     cd -
 fi
 
-mkdir -p ${KUBEVIRT_DIR}/_out/apidocs/html
-mv ${WORKDIR}/html5/content/* ${KUBEVIRT_DIR}/_out/apidocs/html
-mv ${WORKDIR}/*.adoc ${KUBEVIRT_DIR}/_out/apidocs/
+mkdir -p ${APIDOCS_OUT_DIR}/html
+mv ${WORKDIR}/html5/content/* ${APIDOCS_OUT_DIR}/html
+mv ${WORKDIR}/*.adoc ${APIDOCS_OUT_DIR}/
 echo "SUCCESS"
