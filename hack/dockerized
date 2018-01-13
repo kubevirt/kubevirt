@@ -19,7 +19,7 @@ if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
 fi
 
 # Make sure that the output directory exists
-docker run -v "${BUILDER}:/root:rw,z" --rm -it ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+docker run -v "${BUILDER}:/root:rw,z" --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
 RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" -p 127.0.0.1:${RSYNCD_PORT}:873 ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
@@ -42,7 +42,8 @@ _rsync() {
 _rsync --delete --exclude '.glide*' --exclude "cluster/vagrant/.kubeconfig" --exclude "cluster/vagrant/.kubectl" --exclude "vendor" --exclude "_out" --exclude ".vagrant" ${KUBEVIRT_DIR}/ "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
 # Run the command
-docker run --rm -v "${BUILDER}:/root:rw,z" -w "/root/go/src/kubevirt.io/kubevirt" -it ${BUILDER} "$@"
+test -t 1 && USE_TTY="-it"
+docker run --rm -v "${BUILDER}:/root:rw,z" ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync --exclude '.glide*' --exclude "_out" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/
