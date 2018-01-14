@@ -72,7 +72,7 @@ var _ = Describe("Health Monitoring", func() {
 				&expect.BExp{R: "#"},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: "0"},
-			}, 150*time.Second)
+			}, 250*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
 			namespace := vm.ObjectMeta.Namespace
@@ -86,6 +86,6 @@ var _ = Describe("Health Monitoring", func() {
 			}, 40*time.Second).Should(Equal(v1.Failed))
 
 			close(done)
-		}, 200)
+		}, 300)
 	})
 })
