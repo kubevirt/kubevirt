@@ -22,6 +22,7 @@ package tests
 import (
 	"encoding/base64"
 	"fmt"
+	"os"
 	"reflect"
 	"time"
 
@@ -761,4 +762,13 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, c
 		},
 		Check: func() bool { return true },
 	}, timeout, opts...)
+}
+
+// SkipBecauseOfVersion will skip the test if current k8s version is less than expected one
+func SkipBecauseOfVersion(version string, reason string) {
+	if v, exists := os.LookupEnv("KUBE_VERSION"); exists {
+		if v < version {
+			Skip(fmt.Sprintf("Skip the test because of the problem in the earlier version of kubernetes %s, %s", v, reason))
+		}
+	}
 }
