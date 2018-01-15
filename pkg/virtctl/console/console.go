@@ -31,6 +31,7 @@ import (
 	"k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
 type Console struct {
@@ -67,6 +68,10 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 		return 1
 	}
 	vm := flags.Arg(1)
+
+	if kubeconfig == "" {
+		kubeconfig = virtctl.DefaultKubeconfig()
+	}
 
 	virtCli, err := kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
 	if err != nil {

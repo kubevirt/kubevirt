@@ -35,8 +35,18 @@ type App interface {
 type Options struct {
 }
 
-func (o *Options) FlagSet() *flag.FlagSet {
+func DefaultKubeconfig() string {
+	kubeConfig := os.Getenv("kubeconfig")
+	if kubeConfig == "" {
+		kubeConfig = os.Getenv("KUBECONFIG")
+	}
+	if kubeConfig == "" {
+		kubeConfig = "~/.kube/config"
+	}
+	return kubeConfig
+}
 
+func (o *Options) FlagSet() *flag.FlagSet {
 	cf := flag.NewFlagSet("options", flag.ExitOnError)
 	cf.StringP("server", "s", "", "The address and port of the Kubernetes API server")
 	cf.StringP("namespace", "n", "default", "If present, the namespace scope for this CLI request")
