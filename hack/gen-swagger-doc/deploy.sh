@@ -8,7 +8,7 @@ API_REF_DIR=/tmp/api-reference
 GITHUB_IO_FQDN="https://kubevirt-incubator.github.io/api-reference"
 
 TARGET_DIR="$TRAVIS_BRANCH"
-if [ -n "${TRAVIS_TAG}" ] ; then
+if [ -n "${TRAVIS_TAG}" ]; then
     TARGET_DIR="$TRAVIS_TAG"
 fi
 
@@ -22,7 +22,7 @@ cp -f _out/apidocs/html/*.html "${API_REF_DIR}/${TARGET_DIR}/"
 cd "${API_REF_DIR}"
 
 # Generate README.md file
-cat > README.md << __EOF__
+cat >README.md <<__EOF__
 # KubeVirt API Reference
 
 Content of this repository is generated from OpenAPI specification of
@@ -32,8 +32,8 @@ Content of this repository is generated from OpenAPI specification of
 
 * [master](${GITHUB_IO_FQDN}/master/index.html)
 __EOF__
-find * -type d -regex  "^v[0-9.]*" \
-    -exec echo "* [{}](${GITHUB_IO_FQDN}/{}/index.html)" >> README.md \;
+find * -type d -regex "^v[0-9.]*" \
+    -exec echo "* [{}](${GITHUB_IO_FQDN}/{}/index.html)" \; >>README.md
 
 git config --global user.email "travis@travis-ci.org"
 git config --global user.name "Travis CI"
