@@ -119,7 +119,7 @@ themselves on master, you can use the `VAGRANT_NUM_NODES` environment variable.
 This would create a master and one node:
 
 ```bash
-    VAGRANT_NUM_NODES=1 vagrant up
+    VAGRANT_NUM_NODES=1 make cluster-up
 ```
 
 If you decide to use separate nodes, pass `VAGRANT_NUM_NODES` variable to all
