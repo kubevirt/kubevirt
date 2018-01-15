@@ -14,6 +14,8 @@ KUBEVIRT_DIR="$(
 BUILDER=${BUILDER_NAME:-kubevirtbuilder}
 RSYNCD_PORT=${RSYNCD_PORT:-10873}
 
+TEMPFILE=".rsynctemp"
+
 # Build the build container
 (cd ${DOCKER_DIR} && docker build . -q -t ${BUILDER})
 
@@ -32,8 +34,11 @@ function finish() {
     docker rm ${RSYNC_CID}
 }
 trap finish EXIT
-# TODO really check if rsyncd comes up. For now just give it some time to come up
-sleep 1
+
+while ! rsync ${KUBEVIRT_DIR}/${RSYNCTEMP} "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/${RSYNCTEMP}"; do
+    echo "Waiting for rsyncd to be ready"
+    sleep .1
+done
 
 _rsync() {
     rsync -avl "$@"
