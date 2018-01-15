@@ -1,15 +1,9 @@
 #!/bin/bash
 set -e
 
-DIR="$(
-    cd "$(dirname "$0")"
-    pwd
-)"
-DOCKER_DIR=${DIR}/docker-builder
-KUBEVIRT_DIR="$(
-    cd "$DIR/../"
-    pwd
-)"
+source $(dirname "$0")/common.sh
+
+DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
 
 BUILDER=${BUILDER_NAME:-kubevirtbuilder}
 RSYNCD_PORT=${RSYNCD_PORT:-10873}
@@ -25,7 +19,7 @@ if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
 fi
 
 # Make sure that the output directory exists
-docker run -v "${BUILDER}:/root:rw,z" --rm -it ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+docker run -v "${BUILDER}:/root:rw,z" --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
 RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" -p 127.0.0.1:${RSYNCD_PORT}:873 ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
@@ -41,16 +35,17 @@ while ! rsync ${KUBEVIRT_DIR}/${RSYNCTEMP} "rsync://root@127.0.0.1:${RSYNCD_PORT
 done
 
 _rsync() {
-    rsync -avl "$@"
+    rsync -al "$@"
 }
 
 # Copy kubevirt into the persistent docker volume
 _rsync --delete --exclude '.glide*' --exclude "cluster/vagrant/.kubeconfig" --exclude "cluster/vagrant/.kubectl" --exclude "vendor" --exclude "_out" --exclude ".vagrant" ${KUBEVIRT_DIR}/ "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
 # Run the command
-docker run --rm -v "${BUILDER}:/root:rw,z" -w "/root/go/src/kubevirt.io/kubevirt" -it ${BUILDER} "$@"
+test -t 1 && USE_TTY="-it"
+docker run --rm -v "${BUILDER}:/root:rw,z" ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
-_rsync --exclude '.glide*' --exclude "vendor" --exclude "_out" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/
+_rsync --exclude '.glide*' --exclude "_out" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/
 # Copy the build output out of the container, make sure that _out exactly matches the build result
-_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" $KUBEVIRT_DIR/_out
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}

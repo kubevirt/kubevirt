@@ -1,38 +1,28 @@
-language: go
-go_import_path: kubevirt.io/kubevirt
+language: generic
 sudo: required
 dist: trusty
 
 services:
 - docker
 
-go:
-- 1.8.3
-- 1.8
-- 1.9
-
 env:
 - BUILDER_NAME="kubevirt/${TRAVIS_JOB_ID}builder"
 
 install:
  - git reset --hard
- - ./hack/dockerized make sync
+ - make sync
 
 script:
-- ./hack/dockerized make fmt fmt-bash
-- if git diff --name-only | grep '.*.go'; then echo "It seems like you did not run
-  `make fmt fmt-bash`. Please run it and commit the changes"; false; fi
-- ./hack/dockerized make generate fmt
-- if git diff --name-only | grep 'generated.*.go'; then echo "Content of generated
-  files changed. Please regenerate and commit them."; false; fi
-- if git diff --name-only | grep 'swagger.json' ; then echo "Content of generated
-  files changed. Please regenerate and commit them." ; false ; fi
+- make generate
+- if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
+  `make generate`. Please run it and commit the changes"; false; fi
 - if diff <(git grep -c '') <(git grep -cI '') | egrep -v 'docs/.*\.png|swagger-ui'
   | grep '^<'; then echo "Binary files are present in git repostory."; false; fi
-- ./hack/dockerized make check
-- ./hack/dockerized make build
-- if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then ./hack/dockerized make goveralls TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH}; else ./hack/dockerized make test; fi
-- ./hack/dockerized make apidocs
+- make build
+- if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
+  `make`. Please run it and commit the changes"; false; fi
+- if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then make goveralls; else make test; fi
+- make apidocs
 - make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
 
 cache:
@@ -45,14 +35,12 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
-    go: 1.8.3
 - provider: script
   script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish DOCKER_TAG=$TRAVIS_TAG
   skip_cleanup: true
   file:
   on:
     tags: true
-    go: 1.8.3
 - provider: releases
   skip_cleanup: true
   api_key:
@@ -60,7 +48,7 @@ deploy:
   file_glob: true
   file:
   - _out/cmd/virtctl/virtctl-*
-  - manifests/release/kubevirt.yaml
+  - _out/manifests/release/kubevirt.yaml
   prerelease: true
   on:
     tags: true

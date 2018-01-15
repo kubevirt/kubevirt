@@ -8,10 +8,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KUBEVIRT_DIR="$(
-    cd "$(dirname "$0")/../../"
-    pwd
-)"
+source $(dirname "$0")/../../hack/common.sh
 
 VERSION="${1:-v1}"
 OUTPUT_FORMAT="${2:-html}"
@@ -71,8 +68,8 @@ if [ "$OUTPUT_FORMAT" = "html" ]; then
     sed -i '1 i\:last-update-label!:' "$WORKDIR/"*.adoc
 
     # Determine version of KubeVirt, as a commit hash or tag in case of tagged commit.
-    gittagmatch="$(git describe --exact-match 2> /dev/null || true)"
-    if [ "$gittagmatch" -n ] ; then
+    gittagmatch="$(git describe --exact-match 2>/dev/null || true)"
+    if [ "$gittagmatch" -n ]; then
         gitcommithash="${gittagmatch}"
         gitlink="${GIT_REPO_LINK}/releases/tag"
     else
@@ -80,8 +77,8 @@ if [ "$OUTPUT_FORMAT" = "html" ]; then
         gitlink="${GIT_REPO_LINK}/commit"
     fi
     sed -i -e "/KubeVirt API\$/a\\:revnumber: ${gitcommithash}" \
-            -e "/__Terms of service__ :/a\\__Version__ : ${gitlink}/{revnumber}[{revnumber}]" \
-            "$WORKDIR/overview.adoc"
+        -e "/__Terms of service__ :/a\\__Version__ : ${gitlink}/{revnumber}[{revnumber}]" \
+        "$WORKDIR/overview.adoc"
 
     # Generate *.html files from *.adoc
     gradle -b $GRADLE_BUILD_FILE asciidoctor --info
@@ -98,7 +95,7 @@ elif [ "$OUTPUT_FORMAT" = "markdown" ]; then
     cd -
 fi
 
-mkdir -p ${KUBEVIRT_DIR}/_out/apidocs/html
-mv ${WORKDIR}/html5/content/* ${KUBEVIRT_DIR}/_out/apidocs/html
-mv ${WORKDIR}/*.adoc ${KUBEVIRT_DIR}/_out/apidocs/
+mkdir -p ${APIDOCS_OUT_DIR}/html
+mv ${WORKDIR}/html5/content/* ${APIDOCS_OUT_DIR}/html
+mv ${WORKDIR}/*.adoc ${APIDOCS_OUT_DIR}/
 echo "SUCCESS"

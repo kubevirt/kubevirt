@@ -19,10 +19,7 @@
 
 set -e
 
+source hack/common.sh
 source hack/config.sh
-KUBEVIRT_DIR="$(
-    cd "$(dirname "$0")/../"
-    pwd
-)"
 
-${KUBEVIRT_DIR}/_out/tests/tests.test -kubeconfig=${kubeconfig} -test.timeout 30m ${FUNC_TEST_ARGS}
+${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -test.timeout 30m ${FUNC_TEST_ARGS}

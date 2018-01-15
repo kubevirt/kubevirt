@@ -8,3 +8,4 @@ ruby-devel
 gcc
 rsync
 openssh-clients
+docker

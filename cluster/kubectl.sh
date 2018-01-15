@@ -17,12 +17,16 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+set -e
+
+source $(dirname "$0")/../hack/common.sh
+
 PROVIDER=${PROVIDER:-vagrant}
-source ${KUBEVIRT_PATH}cluster/$PROVIDER/provider.sh
-source ${KUBEVIRT_PATH}hack/config.sh
+source ${KUBEVIRT_DIR}/cluster/$PROVIDER/provider.sh
+source ${KUBEVIRT_DIR}/hack/config.sh
 
 if [ "$1" == "console" ] || [ "$1" == "vnc" ]; then
-    cmd/virtctl/virtctl "$@" --kubeconfig=${kubeconfig}
+    ${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl "$@" --kubeconfig=${kubeconfig}
 else
     _kubectl "$@"
 fi

@@ -75,6 +75,6 @@ var _ = Describe("Console", func() {
 				}, 100*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}
-		}, 140)
+		}, 500)
 	})
 })

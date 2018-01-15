@@ -8,46 +8,8 @@ A quick start guide to get KubeVirt up and running inside Vagrant.
 
 ## Building
 
-### Dockerized building and code generating
-
-All go-related make targets can be invoked in an included container. To build
-the project within the builder-container, run
-
-```bash
-./hack/dockerized make fmt fmt-bash build
-```
-
-To generate code, run
-
-```bash
-./hack/dockerized make generate
-```
-
-If you want to build KubeVirt without docker, read on.
-
-### Go (1.8 or higher)
-
-[Go](https://golang.org) needs to be setup to be able to compile the sources.
-
-**Note:** Go is pretty picky about paths, thus use the suggested ones.
-
-```bash
-    # If you haven't set it already, set a GOPATH
-    echo "export GOPATH=~/go" >> ~/.bashrc
-    echo "export PATH=\$GOPATH/bin:\$PATH" >> ~/.bashrc
-    source ~/.bashrc
-
-    mkdir -p ~/go
-
-    sudo dnf install golang
-    sudo dnf install mercurial
-```
-
-**Note:** Some code within k8s.io/client-go and k8s.io/apimachinery uses
-features from the Go standard libaries introduced in version 1.8.
-
-If needed, a helpful tool to dynamically manage multiple versions of Go is
-[gimme](https://github.com/travis-ci/gimme)
+The KubeVirt build system runs completely inside docker. In order to build
+KubeVirt you need to have `docker` and `rsync` installed.
 
 ### Vagrant
 
@@ -75,36 +37,9 @@ On CentOS/RHEL 7 you might also need to change the libvirt connection string to 
 export LIBVIRT_DEFAULT_URI=qemu:///system
 ```
 
-### Build dependencies
-
-Now we can finally get to the sources, before building KubeVirt we'll need
-to install a few build requirements:
-
-```bash
-    # We are interfacing with libvirt
-    sudo dnf install libvirt-devel
-
-    cd $GOPATH
-    # Use goimports for package import ordering
-    go get golang.org/x/tools/cmd/goimports
-    # Setup glide which is used to track dependencies
-    go get github.com/Masterminds/glide
-    # Shell script formatter
-    go get -u mvdan.cc/sh/cmd/shfmt
-```
-
-### Sources
-
-Now we can clone the project into your `$GOPATH`:
-
-```bash
-    git clone https://github.com/kubevirt/kubevirt.git $GOPATH/src/kubevirt.io/kubevirt
-    cd $GOPATH/src/kubevirt.io/kubevirt
-```
-
 ### Compile and run it
 
-And finally build all required artifacts and launch the
+Build all required artifacts and launch the
 Vagrant environment:
 
 ```bash
@@ -143,26 +78,7 @@ You could also run some build steps individually:
 
 **Note:** This is only important if you plan to modify sources, you don't need code generators just for building
 
-Currently we use code generators for two purposes:
-
- * Generating swagger documentation out of struct and field comments for [go-restful](https://github.com/emicklei/go-restful)
- * Generating mock interfaces for [gomock](https://github.com/golang/mock)
-
-So if you add or modify comments on structs in `pkg/api/v1` or if you change
-interface definitions, you need to rerun the code generator.
-
-First install the generator tools:
-
-```bash
-go get -u github.com/golang/mock/gomock
-go get -u github.com/rmohr/mock/mockgen
-go get -u github.com/rmohr/go-swagger-utils/swagger-doc
-go get github.com/onsi/ginkgo/ginkgo
-go get -u k8s.io/code-generator/cmd/deepcopy-gen
-go get -u k8s.io/code-generator/cmd/defaulter-gen
-```
-
-Then regenerate the code:
+To invoke all code-generators and regenerate generated code, run:
 
 ```bash
 make generate
@@ -180,7 +96,7 @@ They don't require vagrant. To run the *functional tests*, make sure you have se
 up [Vagrant](#vagrant). Then run
 
 ```bash
-    cluster/sync.sh # synchronize with your code, if necessary
+    make cluster-sync # synchronize with your code, if necessary
     make functest # run the functional tests against the Vagrant VMs
 ```
 
@@ -205,7 +121,6 @@ Finally start a VM called `testvm`:
 
 ```bash
     # This can be done from your GIT repo, no need to log into a vagrant VM
-    # You might want to watch the Cockpit Cluster topology while running these commands
 
     # Create a VM
     ./cluster/kubectl.sh create -f cluster/vm.yaml
@@ -265,7 +180,7 @@ $ ./cluster/kubectl.sh get vms -o json
     ...
 ```
 
-### Accessing the Domain via the VMs SPICE subresource
+### Accessing the Domain via VNC
 
 First make sure you have `remote-viewer` installed. On Fedora run
 
@@ -281,7 +196,4 @@ cluster/kubectl.sh vnc testvm
 
 to start a remote session with `remote-viewer`.
 
-### Accessing the Domain via the VNC primary resource
-
 Since `kubectl` does not support TPR subresources yet, the above `cluster/kubectl.sh vnc` magic is just a wrapper.
-
