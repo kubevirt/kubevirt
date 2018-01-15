@@ -68,7 +68,7 @@ ansible-playbook -i inventory /usr/share/ansible/openshift-ansible/playbooks/byo
 oc create user admin
 oc create identity allow_all_auth:admin
 oc create useridentitymapping allow_all_auth:admin admin
-oadm policy add-cluster-role-to-user cluster-admin admin
+oc adm policy add-cluster-role-to-user cluster-admin admin
 
 # Set SELinux to permessive mode
 setenforce 0

@@ -22,6 +22,9 @@ function up() {
 
     vagrant ssh master -c "sudo cat /etc/origin/master/openshift-master.kubeconfig" >${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubeconfig
 
+    # Login to OpenShift
+    cluster/vagrant-openshift/.oc login $(_main_ip):8443 --insecure-skip-tls-verify=true -u admin -p admin
+
     # Make sure that local config is correct
     prepare_config
 }
