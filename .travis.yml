@@ -1,15 +1,9 @@
-language: go
-go_import_path: kubevirt.io/kubevirt
+language: generic
 sudo: required
 dist: trusty
 
 services:
 - docker
-
-go:
-- 1.8.3
-- 1.8
-- 1.9
 
 env:
 - BUILDER_NAME="kubevirt/${TRAVIS_JOB_ID}builder"
@@ -24,6 +18,9 @@ script:
   `make generate`. Please run it and commit the changes"; false; fi
 - if diff <(git grep -c '') <(git grep -cI '') | egrep -v 'docs/.*\.png|swagger-ui'
   | grep '^<'; then echo "Binary files are present in git repostory."; false; fi
+- make build
+- if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
+  `make`. Please run it and commit the changes"; false; fi
 - if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then make goveralls; else make test; fi
 - make apidocs
 - make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
@@ -38,14 +35,12 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
-    go: 1.8.3
 - provider: script
   script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish DOCKER_TAG=$TRAVIS_TAG
   skip_cleanup: true
   file:
   on:
     tags: true
-    go: 1.8.3
 - provider: releases
   skip_cleanup: true
   api_key:
