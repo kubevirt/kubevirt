@@ -40,7 +40,8 @@ fi
 VAGRANT_PREFIX=${VARIABLE:-kubevirt}
 
 # Install GO
-eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=stable bash)"
+export GIMME_GO_VERSION=1.9.2
+eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | bash)"
 export WORKSPACE="${WORKSPACE:-$PWD}"
 export GOPATH="${GOPATH:-$WORKSPACE/go}"
 export GOBIN="${GOBIN:-$GOPATH/bin}"
