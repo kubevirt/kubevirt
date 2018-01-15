@@ -5,6 +5,8 @@ metadata:
 spec:
   terminationGracePeriodSeconds: 0
   domain:
+    cpu:
+      cores: 2
     features:
       acpi: {}
       apic: {}

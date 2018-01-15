@@ -45,6 +45,9 @@ type CloudInitNoCloudSource struct {
 type DomainSpec struct {
 	// Resources describes the Compute Resources required by this vm.
 	Resources ResourceRequirements `json:"resources,omitempty"`
+	// CPU allow specified the detailed CPU topology inside the vm.
+	// +optional
+	CPU *CPU `json:"cpu,omitempty"`
 	// Firmware
 	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`
@@ -63,6 +66,13 @@ type ResourceRequirements struct {
 	// Valid resource keys are "memory" and "cpu".
 	// +optional
 	Requests v1.ResourceList `json:"requests,omitempty"`
+}
+
+// CPU allow specifying the CPU topology
+type CPU struct {
+	// Cores specifies the number of cores inside the vm.
+	// Must be a value greater or equal 1.
+	Cores uint32 `json:"cores,omitempty"`
 }
 
 type Firmware struct {

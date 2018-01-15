@@ -79,6 +79,9 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&Watchdog{},
 			&SecretUsage{},
 			&SecretSpec{},
+			&CPU{},
+			&CPUTopology{},
+			&VCPU{},
 		}
 	})
 
