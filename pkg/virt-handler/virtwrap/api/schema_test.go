@@ -76,7 +76,7 @@ var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/dom
   <features>
     <acpi></acpi>
   </features>
-  <cpu mode="host-model">
+  <cpu>
     <topology sockets="1" cores="2" threads="1"></topology>
   </cpu>
   <vcpu placement="static">2</vcpu>

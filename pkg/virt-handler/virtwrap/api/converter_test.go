@@ -379,7 +379,7 @@ var _ = Describe("Converter", func() {
       <vendor_id state="off" value="myvendor"></vendor_id>
     </hyperv>
   </features>
-  <cpu mode="host-model"></cpu>
+  <cpu></cpu>
 </domain>`
 
 		var c *ConverterContext

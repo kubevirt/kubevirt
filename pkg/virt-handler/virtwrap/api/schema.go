@@ -119,7 +119,7 @@ type VCPU struct {
 }
 
 type CPU struct {
-	Mode     string       `xml:"mode,attr"`
+	Mode     string       `xml:"mode,attr,omitempty"`
 	Topology *CPUTopology `xml:"topology"`
 }
 
