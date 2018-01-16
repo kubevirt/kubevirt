@@ -19,12 +19,12 @@
 
 # Enter master and nodes to /etc/hosts
 sed -i "/$(hostname)/d" /etc/hosts
-grep 'master' /etc/hosts || echo "$1 master" >> /etc/hosts
-IFS=. read ip1 ip2 ip3 ip4 <<< "$1"
+grep 'master' /etc/hosts || echo "$1 master" >>/etc/hosts
+IFS=. read ip1 ip2 ip3 ip4 <<<"$1"
 for node in $(seq 0 $(($2 - 1))); do
-  node_hostname="node$node"
-  node_ip="$ip1.$ip2.$ip3.$(($ip4 + node + 1))"
-  grep $node_hostname /etc/hosts || echo "$node_ip $node_hostname" >> /etc/hosts
+    node_hostname="node$node"
+    node_ip="$ip1.$ip2.$ip3.$(($ip4 + node + 1))"
+    grep $node_hostname /etc/hosts || echo "$node_ip $node_hostname" >>/etc/hosts
 done
 
 # Install OpenShift packages

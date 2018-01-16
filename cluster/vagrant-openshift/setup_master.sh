@@ -27,15 +27,15 @@ sed -i '/host_key_checking/s/^#//g' /etc/ansible/ansible.cfg
 
 # Save nodes to add it under ansible inventory file
 inv_nodes=""
-IFS=. read ip1 ip2 ip3 ip4 <<< "$master_ip"
+IFS=. read ip1 ip2 ip3 ip4 <<<"$master_ip"
 for node in $(seq 0 $(($nodes - 1))); do
-  node_ip="$ip1.$ip2.$ip3.$(($ip4 + node + 1))"
-  node_hostname="node$node openshift_node_labels=\"{'region': 'infra','zone': 'default'}\" openshift_ip=$node_ip"
-  inv_nodes="$inv_nodes$node_hostname\n"
+    node_ip="$ip1.$ip2.$ip3.$(($ip4 + node + 1))"
+    node_hostname="node$node openshift_node_labels=\"{'region': 'infra','zone': 'default'}\" openshift_ip=$node_ip"
+    inv_nodes="$inv_nodes$node_hostname\n"
 done
 
 # Create ansible inventory file
-cat > inventory <<EOF
+cat >inventory <<EOF
 [OSEv3:children]
 masters
 nodes

@@ -52,7 +52,7 @@ fi
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
 if [ "$PROVIDER" = "vagrant-openshift" ]; then
-	_kubectl adm policy add-scc-to-user privileged -z kubevirt-infra -n kube-system
+    _kubectl adm policy add-scc-to-user privileged -z kubevirt-infra -n kube-system
 fi
 
 echo "Done"
