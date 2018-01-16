@@ -38,7 +38,8 @@ find * -type d -regex "^v[0-9.]*" \
 git config --global user.email "travis@travis-ci.org"
 git config --global user.name "Travis CI"
 
-if git status --porcelain | grep --quiet "^ [AM]"; then
+# NOTE: exclude index.html from match, becasue it is static except commit hash.
+if git status --porcelain | grep -v "index[.]html" | grep --quiet "^ [AM]"; then
     git add -A README.md "${TARGET_DIR}"/*.html
     git commit --message "API Reference update by Travis Build ${TRAVIS_BUILD_NUMBER}"
 
