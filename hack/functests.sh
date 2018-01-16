@@ -19,18 +19,7 @@
 
 set -e
 
-PROVIDER=${PROVIDER:-vagrant-kubernetes}
-
 source hack/common.sh
 source hack/config.sh
-
-# Get k8s version and set environment variable KUBE_VERSION
-if [ "$PROVIDER" = "vagrant-openshift" ]; then
-    KUBE_VERSION=$(./cluster/kubectl.sh version | grep kubernetes | head -n 1 | cut -f 2 -d ' ')
-else
-    KUBE_VERSION=$(./cluster/kubectl.sh version | head -n 1 | cut -f 3 -d ',' | cut -f 2 -d ':')
-fi
-KUBE_VERSION=$(echo $KUBE_VERSION | cut -f 1 -d '+' | cut -f 2 -d 'v')
-export KUBE_VERSION
 
 ${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -test.timeout 30m ${FUNC_TEST_ARGS}

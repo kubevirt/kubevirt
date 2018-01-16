@@ -21,8 +21,8 @@ package tests
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"time"
 
@@ -765,10 +765,18 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, c
 }
 
 // SkipBecauseOfVersion will skip the test if current k8s version is less than expected one
-func SkipBecauseOfVersion(version string, reason string) {
-	if v, exists := os.LookupEnv("KUBE_VERSION"); exists {
-		if v < version {
-			Skip(fmt.Sprintf("Skip the test because of the problem in the earlier version of kubernetes %s, %s", v, reason))
-		}
+func SkipBecauseOfVersion(virtClient kubecli.KubevirtClient, version string, reason string) {
+	b, err := virtClient.RestClient().Get().AbsPath("/version").Do().Raw()
+	if err != nil {
+		log.Log.Error(err.Error())
+	}
+	var v map[string]string
+	err = json.Unmarshal(b, &v)
+	if err != nil {
+		log.Log.Error(err.Error())
+	}
+	vString := fmt.Sprintf("%s.%s", v["major"], v["minor"])
+	if vString < version {
+		Skip(fmt.Sprintf("Skip the test because of the problem in the earlier version of kubernetes %s, %s", vString, reason))
 	}
 }

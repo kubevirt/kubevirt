@@ -38,8 +38,8 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-const SkipVersion string = "1.8.0"
-const SkipReason string = "possible issue https://github.com/kubernetes/kubernetes/issues/50793"
+const SkipVersion = "1.8"
+const SkipReason = "possible issue https://github.com/kubernetes/kubernetes/issues/50793"
 
 var _ = Describe("VirtualMachineReplicaSet", func() {
 
@@ -112,7 +112,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		})
 
 		It("should remove replicas once the VM is marked for deletion", func() {
-			tests.SkipBecauseOfVersion(SkipVersion, SkipReason)
+			tests.SkipBecauseOfVersion(virtClient, SkipVersion, SkipReason)
 			newRS := newReplicaSet()
 			// Create a replicaset with two replicas
 			doScale(newRS.ObjectMeta.Name, 2)
@@ -127,7 +127,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		})
 
 		It("should remove owner references on the VM if it is orphan deleted", func() {
-			tests.SkipBecauseOfVersion(SkipVersion, SkipReason)
+			tests.SkipBecauseOfVersion(virtClient, SkipVersion, SkipReason)
 			newRS := newReplicaSet()
 			// Create a replicaset with two replicas
 			doScale(newRS.ObjectMeta.Name, 2)
