@@ -147,11 +147,11 @@ func (e LogError) Error() string {
 }
 
 func (l FilteredLogger) Msg(msg interface{}) {
-	l.log(2, "msg", msg)
+	l.log(3, "msg", msg)
 }
 
 func (l FilteredLogger) Msgf(msg string, args ...interface{}) {
-	l.log(2, "msg", fmt.Sprintf(msg, args...))
+	l.log(3, "msg", fmt.Sprintf(msg, args...))
 }
 
 func (l FilteredLogger) Log(params ...interface{}) error {
