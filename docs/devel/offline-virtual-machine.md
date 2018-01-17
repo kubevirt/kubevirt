@@ -191,10 +191,12 @@ documentation.
 ## OfflineVirtualMachine behaviour
 
 The OfflineVirtualMachine has to be in sync with its VirtualMachine. This means
-that the OfflineVirtualMachine has to observe both, the OfflineVirtualMachine
+that the OfflineVirtualMachine controller has to observe both, the OfflineVirtualMachine
 and created VirtualMachine. When the [link](#ownerreference) is established the config changes
 are translated to the VirtualMachine, and coresponding status changes are
 translated back to OfflineVirtualMachine.
+
+TBD this needs to be more specific
 
 ### Status
 
