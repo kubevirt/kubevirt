@@ -1,0 +1,26 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: testvm-fedora
+spec:
+  terminationGracePeriodSeconds: 5
+  domain:
+    resources:
+      requests:
+        memory: 1024M
+    devices:
+      disks:
+      - name: root
+        volumeName: fedora
+      - name: cloudinitdisk
+        volumeName: cloudinitvolume
+  volumes:
+    - name: fedora
+      iscsi:
+        iqn: iqn.2017-01.io.kubevirt:sn.42
+        lun: 4
+        targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
+    - name: cloudinitvolume
+      cloudInitNoCloud:
+        # Password: atomic
+        userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
