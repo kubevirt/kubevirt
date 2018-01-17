@@ -142,7 +142,7 @@ tap networking device attached.
 #### Example
 
 ```bash
-$ ./cluster/kubectl.sh create -f cluster/vm.json
+$ ./cluster/kubectl.sh create -f cluster/vm.yaml
 vm "testvm" created
 
 $ ./cluster/kubectl.sh get pods
