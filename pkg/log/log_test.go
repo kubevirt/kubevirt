@@ -322,17 +322,17 @@ func TestError(t *testing.T) {
 	assert(t, logCalled, "Error was not logged via .Log()")
 
 	logCalled = false
-	log.Msg(err)
-	assert(t, logCalled, "Error was not logged via .Msg()")
+	log.msg(err)
+	assert(t, logCalled, "Error was not logged via .msg()")
 
 	logCalled = false
 	// using more than one parameter in format string
-	log.Msgf("[%d] %s", 1, err)
-	assert(t, logCalled, "Error was not logged via .Msgf()")
+	log.msgf("[%d] %s", 1, err)
+	assert(t, logCalled, "Error was not logged via .msgf()")
 
 	logCalled = false
-	log.Msgf("%s", err)
-	assert(t, logCalled, "Error was not logged via .Msgf()")
+	log.msgf("%s", err)
+	assert(t, logCalled, "Error was not logged via .msgf()")
 	tearDown()
 }
 
@@ -341,7 +341,7 @@ func TestMultipleLevels(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
 	// change levels more than once
-	log.Level(INFO).Level(DEBUG).Level(INFO).Msg("test")
+	log.Level(INFO).Level(DEBUG).Level(INFO).msg("test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
@@ -373,11 +373,10 @@ func TestMsgVerbosity(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
 	log.SetVerbosityLevel(2)
-	log.V(2).Msg("test")
+	log.V(2).msg("test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[5].(string), "log_test.go"), "Logged line referenced wrong module")
 	tearDown()
 }
 
@@ -386,18 +385,17 @@ func TestMsgfVerbosity(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(DEBUG)
 	log.SetVerbosityLevel(2)
-	log.V(2).Msgf("%s", "test")
+	log.V(2).msgf("%s", "test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[5].(string), "log_test.go"), "Logged line referenced wrong module")
 	tearDown()
 }
 
 func TestErrWithMsgf(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.Reason(fmt.Errorf("testerror")).Msgf("%s", "test")
+	log.Reason(fmt.Errorf("testerror")).msgf("%s", "test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[8].(string) == "reason", "Logged line did not contain message header")

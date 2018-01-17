@@ -146,12 +146,12 @@ func (e LogError) Error() string {
 	return e.message
 }
 
-func (l FilteredLogger) Msg(msg interface{}) {
-	l.log(2, "msg", msg)
+func (l FilteredLogger) msg(msg interface{}) {
+	l.log(3, "msg", msg)
 }
 
-func (l FilteredLogger) Msgf(msg string, args ...interface{}) {
-	l.log(2, "msg", fmt.Sprintf(msg, args...))
+func (l FilteredLogger) msgf(msg string, args ...interface{}) {
+	l.log(3, "msg", fmt.Sprintf(msg, args...))
 }
 
 func (l FilteredLogger) Log(params ...interface{}) error {
@@ -250,41 +250,41 @@ func (l FilteredLogger) Level(level logLevel) *FilteredLogger {
 }
 
 func (l FilteredLogger) Debug(msg string) {
-	l.Level(DEBUG).Msg(msg)
+	l.Level(DEBUG).msg(msg)
 }
 
 func (l FilteredLogger) Debugf(msg string, args ...interface{}) {
-	l.Level(DEBUG).Msgf(msg, args...)
+	l.Level(DEBUG).msgf(msg, args...)
 }
 
 func (l FilteredLogger) Info(msg string) {
-	l.Level(INFO).Msg(msg)
+	l.Level(INFO).msg(msg)
 }
 
 func (l FilteredLogger) Infof(msg string, args ...interface{}) {
-	l.Level(INFO).Msgf(msg, args...)
+	l.Level(INFO).msgf(msg, args...)
 }
 
 func (l FilteredLogger) Warning(msg string) {
-	l.Level(WARNING).Msg(msg)
+	l.Level(WARNING).msg(msg)
 }
 
 func (l FilteredLogger) Warningf(msg string, args ...interface{}) {
-	l.Level(WARNING).Msgf(msg, args...)
+	l.Level(WARNING).msgf(msg, args...)
 }
 
 func (l FilteredLogger) Error(msg string) {
-	l.Level(ERROR).Msg(msg)
+	l.Level(ERROR).msg(msg)
 }
 
 func (l FilteredLogger) Errorf(msg string, args ...interface{}) {
-	l.Level(ERROR).Msgf(msg, args...)
+	l.Level(ERROR).msgf(msg, args...)
 }
 
 func (l FilteredLogger) Critical(msg string) {
-	l.Level(CRITICAL).Msg(msg)
+	l.Level(CRITICAL).msg(msg)
 }
 
 func (l FilteredLogger) Criticalf(msg string, args ...interface{}) {
-	l.Level(CRITICAL).Msgf(msg, args...)
+	l.Level(CRITICAL).msgf(msg, args...)
 }
