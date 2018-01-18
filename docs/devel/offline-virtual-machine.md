@@ -200,11 +200,36 @@ TBD this needs to be more specific
 
 ### Status
 
-The status of the VirtualMachine is watched and is reflected in OfflineVirtualMachine status.
-The status contains the current state of the VirtualMachine (running/not running)
-and whether it is ready.
+Shows the information about current OfflineVirtualMachine. The example status
+is shown below.
 
-More detailed information is queried directly from the status of the VirtualMachine.
+```yaml
+status:
+  observedGeneration: 124 # current observed revision
+  virtualMachine: my-vm
+  running: true # is the attached VirtualMachine running
+  ready: true # based on http readiness check libvirt info
+  conditions: [] # additional possible states
+```
+
+The status of the VirtualMachine is watched and is reflected in the
+OfflineVirtualMachine status. The info propagated from the VirtualMachine is:
+
+* running state
+* readiness of the VM
+* name of the VirtualMachine
+
+For more information, user have to check the VirtualMachine object itself.
+
+The conditions can show additional information about state of VirtualMachine.
+One possible case would be to show how VirtualMachine was stopped, e.g.:
+
+```yaml
+status:
+  conditions:
+    - lastShutdown: 12.12.2018 00:00:00
+      Reason: error
+```
 
 ### OwnerReference
 
@@ -260,6 +285,8 @@ The first implementation of the OfflineVirtualMachine kind has two parts:
 1) The OfflineVirtualMachine custom resource definition,
 2) The controller watching for the changes and updating the state.
 
+### Custom resource definition
+
 The OfflineVirtualMachine custom resource is straightforward and is shown bellow:
 
 ```yaml
@@ -283,9 +310,16 @@ spec:
 Part of the definition of custom resource is a API specification used for
 autogenerating the Kubernetes resources: client, lister and watcher.
 
+### Controller
+
 The controller is responsible for watching the change in the registered
 offline virtual machines and update the state of the system. It is also
 responsible for creating new VirtualMachine when the `running` is set to `true`.
 Moreover the controller attaches the `metadata.OwnerReference` to the created
 VirtualMachine. With this mechanism it can link the OfflineVirtualMachine to the
 VirtualMachine and show combined status.
+
+The controller is designed to be a standalone service running in its own pod.
+Since the whole KubeVirt is designed to be modular, this approach allows for
+a more flexbility and less codebase in the core. Moreover it can be scaled
+up separately if the need arise.
