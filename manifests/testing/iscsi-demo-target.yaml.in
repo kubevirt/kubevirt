@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -132,7 +133,7 @@ spec:
         kubevirt.io: iscsi-demo-target
       name: iscsi-demo-target-tgtd
     spec:
-      serviceAccountName: kubevirt-infra
+      serviceAccountName: kubevirt-testing
       containers:
         - name: target
           image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}

@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: kubevirt-infra
+  name: kubevirt-controller
   namespace: kube-system
   labels:
     kubevirt.io: ""
@@ -45,7 +45,7 @@ rules:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kubevirt-infra
+  name: kubevirt-controller
   namespace: kube-system
   labels:
     kubevirt.io: ""
@@ -53,7 +53,7 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kubevirt-admin
+  name: kubevirt-privileged
   namespace: kube-system
   labels:
     kubevirt.io: ""
@@ -61,23 +61,23 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: kubevirt-infra
+  name: kubevirt-controller
   namespace: kube-system
   labels:
     kubevirt.io: ""
 roleRef:
   kind: ClusterRole
-  name: kubevirt-infra
+  name: kubevirt-controller
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
-    name: kubevirt-infra
+    name: kubevirt-controller
     namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: kubevirt-infra-cluster-admin
+  name: kubevirt-controller-cluster-admin
   namespace: kube-system
   labels:
     kubevirt.io: ""
@@ -87,7 +87,23 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
-    name: kubevirt-infra
+    name: kubevirt-controller
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-privileged-cluster-admin
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-privileged
     namespace: kube-system
 ---
 # custom resource definitions
@@ -157,7 +173,7 @@ spec:
       labels:
         kubevirt.io: virt-controller
     spec:
-      serviceAccountName: kubevirt-infra
+      serviceAccountName: kubevirt-controller
       containers:
         - name: virt-controller
           image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
@@ -205,7 +221,7 @@ spec:
       labels:
         kubevirt.io: virt-handler
     spec:
-      serviceAccountName: kubevirt-infra
+      serviceAccountName: kubevirt-privileged
       hostPID: true
       containers:
         - name: virt-handler
@@ -262,7 +278,7 @@ spec:
       labels:
         kubevirt.io: libvirt
     spec:
-      serviceAccountName: kubevirt-infra
+      serviceAccountName: kubevirt-privileged
       hostNetwork: true
       hostPID: true
       hostIPC: true
