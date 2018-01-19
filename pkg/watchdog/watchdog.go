@@ -37,7 +37,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 func NewWatchdogListWatchFromClient(virtShareDir string, watchdogTimeout int) cache.ListerWatcher {

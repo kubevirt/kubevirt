@@ -39,19 +39,18 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 var _ = Describe("VM", func() {
-	var domainManager *virtwrap.MockDomainManager
+	var client *cmdclient.MockLauncherClient
 	var vmInterface *kubecli.MockVMInterface
 	var virtClient *kubecli.MockKubevirtClient
 
@@ -98,24 +97,24 @@ var _ = Describe("VM", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmInterface = kubecli.NewMockVMInterface(ctrl)
-		domainManager = virtwrap.NewMockDomainManager(ctrl)
 		virtClient.EXPECT().VM(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 
-		configDiskClient := configdisk.NewConfigDiskClient(virtClient)
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
 
-		controller = NewController(domainManager,
-			recorder,
+		controller = NewController(recorder,
 			virtClient,
 			host,
-			configDiskClient,
 			shareDir,
 			10,
 			vmInformer,
 			domainInformer,
 			watchdogInformer,
 			gracefulShutdownInformer)
+
+		client = cmdclient.NewMockLauncherClient(ctrl)
+		sockFile := cmdclient.SocketFromNamespaceName(shareDir, "default", "testvm")
+		controller.addLauncherClient(client, sockFile)
 
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
@@ -148,28 +147,29 @@ var _ = Describe("VM", func() {
 			domainFeeder.Add(domain)
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 
-			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
-			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
-
+			client.EXPECT().Ping()
+			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Close()
 			controller.Execute()
 		})
 
-		It("should delete running Domains if no cluster wide equivalent existsi and no grace period info exists", func() {
+		It("should delete running Domains if no cluster wide equivalent exists and no grace period info exists", func() {
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 
-			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
-			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Ping()
+			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Close()
 
 			controller.Execute()
 		})
 
 		It("should perform cleanup of local ephemeral data if domain and vm are deleted", func() {
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
-			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			mockQueue.Add("default/testvm")
+			client.EXPECT().Close()
 			controller.Execute()
 		})
 
@@ -185,7 +185,8 @@ var _ = Describe("VM", func() {
 			mockGracefulShutdown.TriggerShutdown(vm)
 
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
-			domainManager.EXPECT().SignalShutdownVM(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Ping()
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMReferenceFromName("testvm"))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -200,7 +201,8 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
-			domainManager.EXPECT().SignalShutdownVM(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Ping()
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMReferenceFromName("testvm"))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -219,9 +221,10 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
 
-			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Ping()
+			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Close()
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
-			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -236,9 +239,10 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
 
-			domainManager.EXPECT().KillVM(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Ping()
+			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().Close()
 			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
-			domainManager.EXPECT().RemoveVMSecrets(v1.NewVMReferenceFromName("testvm")).Return(nil)
 			domainFeeder.Add(domain)
 			controller.Execute()
 		}, 3)
@@ -265,10 +269,10 @@ var _ = Describe("VM", func() {
 			vm.Status.Phase = v1.Scheduled
 
 			mockWatchdog.CreateFile(vm)
-			domain := api.NewMinimalDomain("testvm")
 			vmFeeder.Add(vm)
 
-			domainManager.EXPECT().SyncVM(vm, gomock.Any()).Return(&domain.Spec, nil)
+			secrets := map[string]*k8sv1.Secret{}
+			client.EXPECT().StartVirtualMachine(vm, secrets)
 
 			controller.Execute()
 		})
@@ -332,10 +336,10 @@ var _ = Describe("VM", func() {
 			updatedVM.Status.Conditions = []v1.VirtualMachineCondition{}
 
 			mockWatchdog.CreateFile(vm)
-			domain := api.NewMinimalDomain("testvm")
 			vmFeeder.Add(vm)
 
-			domainManager.EXPECT().SyncVM(vm, gomock.Any()).Return(&domain.Spec, nil)
+			secrets := map[string]*k8sv1.Secret{}
+			client.EXPECT().StartVirtualMachine(vm, secrets)
 			vmInterface.EXPECT().Update(updatedVM)
 
 			controller.Execute()

@@ -21,13 +21,10 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 
 	"time"
 
-	"github.com/emicklei/go-restful"
-	"github.com/libvirt/libvirt-go"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -38,27 +35,20 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	configdisk "kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
-	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	virt_api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
-	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
-	virtcli "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	virtcache "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cache"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const (
-	defaultWatchdogTimeout = 30 * time.Second
+	defaultWatchdogTimeout = 15 * time.Second
 
 	// Default port that virt-handler listens on.
 	defaultPort = 8185
@@ -66,22 +56,15 @@ const (
 	// Default address that virt-handler listens on.
 	defaultHost = "0.0.0.0"
 
-	// The URI connection string supplied to libvirt. By default, we connect to system-mode daemon of QEMU.
-	libvirtUri = "qemu:///system"
-
 	hostOverride = ""
 
 	virtShareDir = "/var/run/kubevirt"
-
-	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
 )
 
 type virtHandlerApp struct {
 	service.ServiceListen
-	service.ServiceLibvirt
 	HostOverride            string
 	VirtShareDir            string
-	EphemeralDiskDir        string
 	WatchdogTimeoutDuration time.Duration
 }
 
@@ -100,29 +83,6 @@ func (app *virtHandlerApp) Run() {
 	logger := log.Log
 	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
 
-	err := cloudinit.SetLocalDirectory(app.EphemeralDiskDir + "/cloud-init-data")
-	if err != nil {
-		panic(err)
-	}
-	err = registrydisk.SetLocalDirectory(app.EphemeralDiskDir + "/registry-disk-data")
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-		for {
-			if res := libvirt.EventRunDefaultImpl(); res != nil {
-				// Report the error somehow or break the loop.
-				logger.Reason(res).Error("Listening to libvirt events failed.")
-			}
-		}
-	}()
-	domainConn, err := virtcli.NewConnection(app.LibvirtUri, "", "", 10*time.Second)
-	if err != nil {
-		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
-	}
-	defer domainConn.Close()
-
 	// Create event recorder
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
@@ -133,10 +93,6 @@ func (app *virtHandlerApp) Run() {
 	// TODO what is scheme used for in Recorder?
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn,
-		recorder,
-		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
-	)
 	if err != nil {
 		panic(err)
 	}
@@ -146,12 +102,10 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	configDiskClient := configdisk.NewConfigDiskClient(virtCli)
-
 	// Wire VM controller
 
 	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(domainConn)
+	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir)
 	if err != nil {
 		panic(err)
 	}
@@ -181,11 +135,9 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	vmController := virthandler.NewController(
-		domainManager,
 		recorder,
 		virtCli,
 		app.HostOverride,
-		configDiskClient,
 		app.VirtShareDir,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		vmSharedInformer,
@@ -198,16 +150,7 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	go vmController.Run(3, stop)
-
-	// TODO add a http handler which provides health check
-
-	migrationHostInfo := rest.NewMigrationHostInfo(isolation.NewSocketBasedIsolationDetector(app.VirtShareDir))
-	ws := new(restful.WebService)
-	ws.Route(ws.GET("/api/v1/namespaces/{namespace}/virtualmachines/{name}/migrationHostInfo").To(migrationHostInfo.MigrationHostInfo))
-	restful.DefaultContainer.Add(ws)
-	server := &http.Server{Addr: app.Address(), Handler: restful.DefaultContainer}
-	server.ListenAndServe()
+	vmController.Run(3, stop)
 }
 
 func (app *virtHandlerApp) AddFlags() {
@@ -215,10 +158,8 @@ func (app *virtHandlerApp) AddFlags() {
 
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
-	app.LibvirtUri = libvirtUri
 
 	app.AddCommonFlags()
-	app.AddLibvirtFlags()
 
 	flag.StringVar(&app.HostOverride, "hostname-override", hostOverride,
 		"Name under which the node is registered in kubernetes, where this virt-handler instance is running on")
@@ -226,15 +167,11 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
 
-	flag.StringVar(&app.EphemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
-		"Base directory for ephemeral disk data")
-
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
 }
 
 func main() {
-	libvirt.EventRegisterDefaultImpl()
 	app := &virtHandlerApp{}
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")

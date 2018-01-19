@@ -8,7 +8,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	v10 "kubevirt.io/kubevirt/pkg/api/v1"
-	api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // Mock of DomainManager interface

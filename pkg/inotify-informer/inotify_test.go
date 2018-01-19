@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Inotify", func() {

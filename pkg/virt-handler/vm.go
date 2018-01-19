@@ -23,6 +23,7 @@ import (
 	goerror "errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -38,24 +39,22 @@ import (
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/config-disk"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/registry-disk"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/precond"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 func NewController(
-	domainManager virtwrap.DomainManager,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	host string,
-	configDiskClient configdisk.ConfigDiskClient,
 	virtShareDir string,
 	watchdogTimeoutSeconds int,
 	vmInformer cache.SharedIndexInformer,
@@ -68,11 +67,9 @@ func NewController(
 
 	c := &VirtualMachineController{
 		Queue:                    queue,
-		domainManager:            domainManager,
 		recorder:                 recorder,
 		clientset:                clientset,
 		host:                     host,
-		configDisk:               configDiskClient,
 		virtShareDir:             virtShareDir,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		vmInformer:               vmInformer,
@@ -105,15 +102,15 @@ func NewController(
 		UpdateFunc: c.updateFunc,
 	})
 
+	c.launcherClients = make(map[string]cmdclient.LauncherClient)
+
 	return c
 }
 
 type VirtualMachineController struct {
-	domainManager            virtwrap.DomainManager
 	recorder                 record.EventRecorder
 	clientset                kubecli.KubevirtClient
 	host                     string
-	configDisk               configdisk.ConfigDiskClient
 	virtShareDir             string
 	watchdogTimeoutSeconds   int
 	Queue                    workqueue.RateLimitingInterface
@@ -121,6 +118,8 @@ type VirtualMachineController struct {
 	domainInformer           cache.SharedInformer
 	watchdogInformer         cache.SharedIndexInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
+	launcherClients          map[string]cmdclient.LauncherClient
+	launcherClientLock       sync.Mutex
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -221,6 +220,8 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 
 	if oldStatus.Phase != vm.Status.Phase {
 		switch vm.Status.Phase {
+		case v1.Running:
+			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Started.String(), "VM started.")
 		case v1.Succeeded:
 			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Stopped.String(), "The VM was shut down.")
 		case v1.Failed:
@@ -243,18 +244,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	for _, domain := range c.domainInformer.GetStore().List() {
 		d := domain.(*api.Domain)
 		c.vmInformer.GetStore().Add(v1.NewVMReferenceFromNameWithNS(d.ObjectMeta.Namespace, d.ObjectMeta.Name))
-	}
-
-	// Clean up left over config disks
-	err := c.configDisk.UndefineUnseen(c.vmInformer.GetStore())
-	if err != nil {
-		panic(err)
-	}
-
-	// Clean up left over registry disks
-	err = registrydisk.CleanupOrphanedEphemeralDisks(c.vmInformer.GetStore())
-	if err != nil {
-		panic(err)
 	}
 
 	go c.vmInformer.Run(stopCh)
@@ -353,8 +342,18 @@ func (d *VirtualMachineController) execute(key string) error {
 	if err != nil {
 		return err
 	} else if watchdogExpired && vm.IsRunning() {
-		log.Log.Object(vm).V(3).Info("Shutting down due to expired watchdog.")
+		log.Log.Object(vm).Info("Shutting down due to expired watchdog.")
 		shouldShutdownAndDelete = true
+		if domainExists {
+			// Virt-launcher provids domain state. If virt-launcher
+			// is down, the domain needs to be deleted from the cache.
+			err = d.domainInformer.GetStore().Delete(domain)
+			if err != nil {
+				return err
+			}
+		}
+		domainExists = false
+		domain = nil
 	}
 
 	// Determine if gracefulShutdown has been triggered by virt-launcher
@@ -525,6 +524,20 @@ func mapPVToDisk(volume *v1.Volume, pv *k8sv1.PersistentVolume) error {
 	return fmt.Errorf("referenced PV %s is backed by an unsupported storage type", pv.ObjectMeta.Name)
 }
 
+func (d *VirtualMachineController) injectCloudInitSecrets(vm *v1.VirtualMachine) error {
+	cloudInitSpec := cloudinit.GetCloudInitNoCloudSource(vm)
+	if cloudInitSpec == nil {
+		return nil
+	}
+	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+
+	err := cloudinit.ResolveSecrets(cloudInitSpec, namespace, d.clientset)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // injectDiskAuth takes a virtual machine, extracts secrets, synchronizes them with libvirt and returns a map
 // of all extrated secrets, for later use when converting from v1.VirtualMachine to api.Domain
 func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (map[string]*k8sv1.Secret, error) {
@@ -550,7 +563,12 @@ func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (map[st
 				return nil, fmt.Errorf("No password value found in k8s secret %s %v", secretID, err)
 			}
 
-			err = d.domainManager.SyncVMSecret(vm, usageType, usageID, string(secretValue))
+			client, err := d.getLauncherClient(vm)
+			if err != nil {
+				return nil, err
+			}
+
+			err = client.SyncSecret(vm, usageType, usageID, string(secretValue))
 			if err != nil {
 				return nil, err
 			}
@@ -571,17 +589,7 @@ func (d *VirtualMachineController) cleanupUnixSockets(vm *v1.VirtualMachine) err
 }
 
 func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
-	err := d.domainManager.RemoveVMSecrets(vm)
-	if err != nil {
-		return err
-	}
-
-	err = d.cleanupUnixSockets(vm)
-	if err != nil {
-		return err
-	}
-
-	err = registrydisk.CleanupEphemeralDisks(vm)
+	err := d.cleanupUnixSockets(vm)
 	if err != nil {
 		return err
 	}
@@ -596,29 +604,116 @@ func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error
 		return err
 	}
 
-	return d.configDisk.Undefine(vm)
+	d.closeLauncherClient(vm)
+	return nil
+}
+
+func (d *VirtualMachineController) closeLauncherClient(vm *v1.VirtualMachine) {
+	// maps require locks for concurrent access
+	d.launcherClientLock.Lock()
+	defer d.launcherClientLock.Unlock()
+
+	namespace := vm.ObjectMeta.Namespace
+	name := vm.ObjectMeta.Name
+	sockFile := cmdclient.SocketFromNamespaceName(d.virtShareDir, namespace, name)
+
+	client, ok := d.launcherClients[sockFile]
+	if ok == false {
+		return
+	}
+
+	client.Close()
+	delete(d.launcherClients, sockFile)
+}
+
+// used by unit tests to add mock clients
+func (d *VirtualMachineController) addLauncherClient(client cmdclient.LauncherClient, sockFile string) error {
+	// maps require locks for concurrent access
+	d.launcherClientLock.Lock()
+	defer d.launcherClientLock.Unlock()
+
+	d.launcherClients[sockFile] = client
+
+	return nil
+}
+
+func (d *VirtualMachineController) getLauncherClient(vm *v1.VirtualMachine) (cmdclient.LauncherClient, error) {
+	// maps require locks for concurrent access
+	d.launcherClientLock.Lock()
+	defer d.launcherClientLock.Unlock()
+
+	namespace := vm.ObjectMeta.Namespace
+	name := vm.ObjectMeta.Name
+	sockFile := cmdclient.SocketFromNamespaceName(d.virtShareDir, namespace, name)
+
+	client, ok := d.launcherClients[sockFile]
+	if ok {
+		return client, nil
+	}
+
+	client, err := cmdclient.GetClient(sockFile)
+	if err != nil {
+		return nil, err
+	}
+
+	d.launcherClients[sockFile] = client
+
+	return client, nil
 }
 
 func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachine, domain *api.Domain) error {
 
-	expired, timeLeft := d.hasGracePeriodExpired(domain)
+	clientDisconnected := false
 
-	if expired == false {
-		err := d.domainManager.SignalShutdownVM(vm)
-		if err != nil {
+	client, err := d.getLauncherClient(vm)
+	if err != nil {
+		clientDisconnected = true
+	}
+
+	// verify connectivity before processing shutdown.
+	// It's possible the pod has already been torn down along with the VM.
+	if clientDisconnected == false {
+		err := client.Ping()
+		if cmdclient.IsDisconnected(err) {
+			clientDisconnected = true
+		} else if err != nil {
 			return err
 		}
-		// pending graceful shutdown.
-		d.Queue.AddAfter(controller.VirtualMachineKey(vm), time.Duration(timeLeft)*time.Second)
-		return nil
 	}
 
-	log.Log.Object(vm).Infof("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())
+	// Only attempt to gracefully terminate if we still have a
+	// connection established with the pod.
+	// If the pod has been torn down, we know the VM has been destroyed.
+	if clientDisconnected == false {
+		expired, timeLeft := d.hasGracePeriodExpired(domain)
+		if expired == false {
+			err = client.ShutdownVirtualMachine(vm)
+			if err != nil && !cmdclient.IsDisconnected(err) {
+				// Only report err if it wasn't the result of a disconnect.
+				return err
+			}
 
-	err := d.domainManager.KillVM(vm)
-	if err != nil {
-		return err
+			log.Log.Object(vm).Infof("Signaled graceful shutdown for %s", vm.GetObjectMeta().GetName())
+			// pending graceful shutdown.
+			d.Queue.AddAfter(controller.VirtualMachineKey(vm), time.Duration(timeLeft)*time.Second)
+			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
+			return nil
+		}
+
+		log.Log.Object(vm).Infof("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())
+
+		err = client.KillVirtualMachine(vm)
+		if err != nil && !cmdclient.IsDisconnected(err) {
+			// Only report err if it wasn't the result of a disconnect.
+			//
+			// Both virt-launcher and virt-handler are trying to destroy
+			// the VM at the same time. It's possible the client may get
+			// disconnected during the kill request, which shouldn't be
+			// considered an error.
+			return err
+		}
 	}
+	d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Deleted.String(), "VM stopping")
 
 	return d.processVmCleanup(vm)
 
@@ -636,25 +731,13 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 		return goerror.New(fmt.Sprintf("No watchdog file found for vm"))
 	}
 
-	isPending, err := d.configDisk.Define(vm)
-	if err != nil {
-		return err
-	}
-
-	if isPending {
-		log.Log.Object(vm).V(3).Info("Synchronizing is in a pending state.")
-		d.Queue.AddAfter(controller.VirtualMachineKey(vm), 1*time.Second)
-		return nil
-	}
-
 	// Synchronize the VM state
 	vm, err = MapVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
 	if err != nil {
 		return err
 	}
 
-	// Map Container Registry Disks to block devices Libvirt can consume
-	err = registrydisk.TakeOverRegistryDisks(vm)
+	err = d.injectCloudInitSecrets(vm)
 	if err != nil {
 		return err
 	}
@@ -673,8 +756,17 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	}
 
 	// TODO check if found VM has the same UID like the domain,
-	// if not, delete the Domain first
-	_, err = d.domainManager.SyncVM(vm, secrets)
+	// if not, delete the Domain firs
+	client, err := d.getLauncherClient(vm)
+	if err != nil {
+		return err
+	}
+	err = client.StartVirtualMachine(vm, secrets)
+	if err != nil {
+		return err
+	}
+	d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Created.String(), "VM defined.")
+
 	return err
 }
 
@@ -791,7 +883,20 @@ func (d *VirtualMachineController) addDomainFunc(obj interface{}) {
 	}
 }
 func (d *VirtualMachineController) deleteDomainFunc(obj interface{}) {
-	domain := obj.(*api.Domain)
+	domain, ok := obj.(*api.Domain)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			return
+		}
+		domain, ok = tombstone.Obj.(*api.Domain)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a domain %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+		return
+	}
 	log.Log.Object(domain).Info("Domain deleted")
 	key, err := controller.KeyFunc(obj)
 	if err == nil {

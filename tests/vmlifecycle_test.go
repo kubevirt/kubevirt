@@ -103,7 +103,7 @@ var _ = Describe("Vmlifecycle", func() {
 				500*time.Millisecond).
 				Should(ContainSubstring("Found PID for qemu"))
 			close(done)
-		}, 30)
+		}, 50)
 
 		It("if grace period greater than 0, graceful shutdown should be attempted on delete", func(done Done) {
 			nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -270,7 +270,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}()).To(Equal(v1.Failed))
 
 				close(done)
-			}, 50)
+			}, 90)
 		})
 		Context("When virt-handler crashes", func() {
 			It("should recover and continue management of existing VMs.", func(done Done) {

@@ -34,9 +34,11 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
+
+type OnShutdownCallback func(pid int)
 
 type monitor struct {
 	timeout                     time.Duration
@@ -47,6 +49,7 @@ type monitor struct {
 	gracePeriod                 int
 	gracePeriodStartTime        int64
 	gracefulShutdownTriggerFile string
+	shutdownCallback            OnShutdownCallback
 }
 
 type ProcessMonitor interface {
@@ -140,45 +143,23 @@ func InitializeSharedDirectories(baseDir string) error {
 	if err != nil {
 		return err
 	}
+	err = os.MkdirAll(cmdclient.SocketsDirectory(baseDir), 0755)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func NewProcessMonitor(commandPrefix string, gracefulShutdownTriggerFile string, gracePeriod int) ProcessMonitor {
+func NewProcessMonitor(commandPrefix string,
+	gracefulShutdownTriggerFile string,
+	gracePeriod int,
+	shutdownCallback OnShutdownCallback) ProcessMonitor {
 	return &monitor{
 		commandPrefix:               commandPrefix,
 		gracePeriod:                 gracePeriod,
 		gracefulShutdownTriggerFile: gracefulShutdownTriggerFile,
+		shutdownCallback:            shutdownCallback,
 	}
-}
-
-func getMyCgroupSlice() (string, error) {
-	myPid := os.Getpid()
-
-	_, mySlice, err := isolation.GetDefaultSlice(myPid)
-	if err != nil {
-		return "", err
-	}
-
-	return mySlice, nil
-}
-
-func matchPidCgroupSlice(pid int) (bool, error) {
-
-	_, pidSlice, err := isolation.GetDefaultSlice(pid)
-	if err != nil {
-		return false, err
-	}
-
-	mySlice, err := getMyCgroupSlice()
-	if err != nil {
-		return false, err
-	}
-
-	if pidSlice != mySlice {
-		return false, nil
-	}
-
-	return true, nil
 }
 
 func (mon *monitor) refresh() {
@@ -193,7 +174,7 @@ func (mon *monitor) refresh() {
 	if mon.pid == 0 {
 		var err error
 
-		mon.pid, err = findPidInMyCgroup(mon.commandPrefix)
+		mon.pid, err = findPid(mon.commandPrefix)
 		if err != nil {
 
 			log.Log.Infof("Still missing PID for %s, %v", mon.commandPrefix, err)
@@ -209,7 +190,7 @@ func (mon *monitor) refresh() {
 		log.Log.Infof("Found PID for %s: %d", mon.commandPrefix, mon.pid)
 	}
 
-	exists, err := pidExistsInMyCgroup(mon.pid)
+	exists, err := pidExists(mon.pid)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Error detecting pid (%d) status.", mon.pid)
 		return
@@ -224,8 +205,8 @@ func (mon *monitor) refresh() {
 	if mon.gracePeriodStartTime != 0 {
 		now := time.Now().UTC().Unix()
 		if (now - mon.gracePeriodStartTime) > int64(mon.gracePeriod) {
-			log.Log.Infof("Grace Period expired, sending sig term.")
-			syscall.Kill(mon.pid, syscall.SIGTERM)
+			log.Log.Infof("Grace Period expired, shutting down.")
+			mon.shutdownCallback(mon.pid)
 		}
 	}
 
@@ -271,7 +252,6 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 	}
 
 	ticker.Stop()
-	log.Log.Info("Exiting...")
 }
 
 func (mon *monitor) RunForever(startTimeout time.Duration) {
@@ -295,7 +275,7 @@ func readProcCmdline(pathname string) ([]string, error) {
 	return strings.Split(string(content), "\x00"), nil
 }
 
-func pidExistsInMyCgroup(pid int) (bool, error) {
+func pidExists(pid int) (bool, error) {
 	path := fmt.Sprintf("/proc/%d/cmdline", pid)
 
 	exists, err := diskutils.FileExists(path)
@@ -306,17 +286,10 @@ func pidExistsInMyCgroup(pid int) (bool, error) {
 		return false, nil
 	}
 
-	cgroupMatch, err := matchPidCgroupSlice(pid)
-	if err != nil {
-		return false, err
-	}
-	if cgroupMatch == false {
-		return false, nil
-	}
 	return true, nil
 }
 
-func findPidInMyCgroup(commandNamePrefix string) (int, error) {
+func findPid(commandNamePrefix string) (int, error) {
 	entries, err := filepath.Glob("/proc/*/cmdline")
 	if err != nil {
 		return 0, err
@@ -340,15 +313,6 @@ func findPidInMyCgroup(commandNamePrefix string) (int, error) {
 		pid, err := strconv.Atoi(items[2])
 		if err != nil {
 			return 0, err
-		}
-
-		cgroupsMatch, err := matchPidCgroupSlice(pid)
-		if err != nil {
-			return 0, err
-		}
-
-		if cgroupsMatch == false {
-			continue
 		}
 
 		// everything matched, hooray!

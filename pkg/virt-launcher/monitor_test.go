@@ -98,10 +98,14 @@ var _ = Describe("VirtLauncher", func() {
 	BeforeEach(func() {
 		InitializeSharedDirectories(tmpDir)
 		triggerFile := GracefulShutdownTriggerFromNamespaceName(tmpDir, "fakenamespace", "fakedomain")
+		shutdownCallback := func(pid int) {
+			syscall.Kill(pid, syscall.SIGTERM)
+		}
 		mon = &monitor{
 			commandPrefix:               "fake-qemu",
 			gracePeriod:                 30,
 			gracefulShutdownTriggerFile: triggerFile,
+			shutdownCallback:            shutdownCallback,
 		}
 	})
 

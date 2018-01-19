@@ -33,6 +33,7 @@ fi
 IMAGE_PATH=/disk/$IMAGE_NAME
 IMAGE_EXTENSION=$(echo $IMAGE_NAME | sed  -n -e 's/^.*\.\(.*\)$/\1/p')
 
+mkdir -p $COPY_PATH
 echo $IMAGE_NAME | grep -q -e "raw" -e "qcow2"
 if [ $? -ne 0 ]; then
 	IMAGE_EXTENSION="raw"
@@ -49,8 +50,6 @@ else
 	fi
 fi
 echo "copied $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
-
-trap "rm -f ${COPY_PATH}.${IMAGE_EXTENSION}" TERM INT HUP QUIT EXIT ERR
 
 touch /tmp/healthy
 while [ -f "${COPY_PATH}.${IMAGE_EXTENSION}" ]; do

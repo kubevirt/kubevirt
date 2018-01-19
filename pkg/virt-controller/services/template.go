@@ -57,6 +57,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	successThreshold := 1
 	failureThreshold := 5
 
+	var volumes []kubev1.Volume
+	var userId int64 = 0
+	var privileged bool = true
+
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
 		gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
@@ -78,7 +82,13 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: kubev1.PullIfNotPresent,
-		Command: []string{"/virt-launcher",
+		// Privileged mode is required for /dev/kvm and the
+		// ability to create macvtap devices
+		SecurityContext: &kubev1.SecurityContext{
+			RunAsUser:  &userId,
+			Privileged: &privileged,
+		},
+		Command: []string{"/entrypoint.sh",
 			"--qemu-timeout", "5m",
 			"--name", domain,
 			"--namespace", namespace,
@@ -94,6 +104,19 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			{
 				Name:      "virt-private-dir",
 				MountPath: privateDir,
+			},
+			{
+				// shared with registry disks on Pod shared volume
+				Name:      "libvirt-runtime",
+				MountPath: "/var/run/libvirt",
+			},
+			{
+				Name:      "host-dev",
+				MountPath: "/host-dev",
+			},
+			{
+				Name:      "host-sys",
+				MountPath: "/host-sys",
 			},
 		},
 		ReadinessProbe: &kubev1.Probe{
@@ -113,7 +136,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		},
 	}
 
-	containers, volumes, err := registrydisk.GenerateContainers(vm)
+	containers, err := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +152,30 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	volumes = append(volumes, kubev1.Volume{
 		Name: "virt-private-dir",
 		VolumeSource: kubev1.VolumeSource{
+			EmptyDir: &kubev1.EmptyDirVolumeSource{},
+		},
+	})
+
+	volumes = append(volumes, kubev1.Volume{
+		Name: "libvirt-runtime",
+		VolumeSource: kubev1.VolumeSource{
+			EmptyDir: &kubev1.EmptyDirVolumeSource{},
+		},
+	})
+
+	volumes = append(volumes, kubev1.Volume{
+		Name: "host-dev",
+		VolumeSource: kubev1.VolumeSource{
 			HostPath: &kubev1.HostPathVolumeSource{
-				Path: privateDir,
+				Path: "/dev",
+			},
+		},
+	})
+	volumes = append(volumes, kubev1.Volume{
+		Name: "host-sys",
+		VolumeSource: kubev1.VolumeSource{
+			HostPath: &kubev1.HostPathVolumeSource{
+				Path: "/sys",
 			},
 		},
 	})
@@ -147,7 +192,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			},
 		},
 		Spec: kubev1.PodSpec{
-			HostPID: true,
+			HostNetwork: true,
+			SecurityContext: &kubev1.PodSecurityContext{
+				RunAsUser: &userId,
+			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 kubev1.RestartPolicyNever,
 			Containers:                    containers,

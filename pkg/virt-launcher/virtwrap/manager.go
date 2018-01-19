@@ -32,20 +32,18 @@ import (
 
 	"github.com/libvirt/libvirt-go"
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/record"
-
-	"strings"
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cache"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/cli"
-	domainerrors "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/isolation"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cache"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 type DomainManager interface {
@@ -57,10 +55,8 @@ type DomainManager interface {
 }
 
 type LibvirtDomainManager struct {
-	virConn              cli.Connection
-	recorder             record.EventRecorder
-	secretCache          map[string][]string
-	podIsolationDetector isolation.PodIsolationDetector
+	virConn     cli.Connection
+	secretCache map[string][]string
 }
 
 func (l *LibvirtDomainManager) initiateSecretCache() error {
@@ -102,12 +98,10 @@ func (l *LibvirtDomainManager) initiateSecretCache() error {
 	return nil
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, recorder record.EventRecorder, isolationDetector isolation.PodIsolationDetector) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
 	manager := LibvirtDomainManager{
-		virConn:              connection,
-		recorder:             recorder,
-		secretCache:          make(map[string][]string),
-		podIsolationDetector: isolationDetector,
+		virConn:     connection,
+		secretCache: make(map[string][]string),
 	}
 
 	err := manager.initiateSecretCache()
@@ -174,6 +168,32 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 	return nil
 }
 
+// All local environment setup that needs to occur before VM starts
+// can be done in this function. This includes things like...
+//
+// - storage prep
+// - network prep
+// - cloud-init
+func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.Domain) error {
+
+	// ensure registry disk files have correct ownership privileges
+	err := registrydisk.SetFilePermissions(vm)
+	if err != nil {
+		return err
+	}
+
+	// generate cloud-init data
+	cloudInitData := cloudinit.GetCloudInitNoCloudSource(vm)
+	if cloudInitData != nil {
+		err := cloudinit.GenerateLocalData(vm.Name, vm.Namespace, cloudInitData)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]*kubev1.Secret) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
@@ -192,20 +212,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 	// Set defaults which are not comming from the cluster
 	api.SetObjectDefaults_Domain(domain)
 
-	res, err := l.podIsolationDetector.Detect(vm)
-	if err != nil {
-		logger.V(3).Reason(err).Error("Could not detect virt-launcher cgroups.")
-		return nil, err
-	}
-
-	logger.With("slice", res.Slice()).V(3).Info("Detected cgroup slice.")
-	domain.Spec.QEMUCmd = &api.Commandline{
-		QEMUEnv: []api.Env{
-			{Name: "SLICE", Value: res.Slice()},
-			{Name: "CONTROLLERS", Value: strings.Join(res.Controller(), ",")},
-		},
-	}
-
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false
 	if err != nil {
@@ -217,7 +223,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 				return nil, err
 			}
 			logger.Info("Domain defined.")
-			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Created.String(), "VM defined.")
 		} else {
 			logger.Reason(err).Error("Getting the domain failed.")
 			return nil, err
@@ -243,13 +248,17 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) {
-		err := dom.Create()
+		err = l.preStartHook(vm, domain)
+		if err != nil {
+			logger.Reason(err).Error("pre start setup for VM failed.")
+			return nil, err
+		}
+		err = dom.Create()
 		if err != nil {
 			logger.Reason(err).Error("Starting the VM failed.")
 			return nil, err
 		}
 		logger.Info("Domain started.")
-		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Started.String(), "VM started.")
 	} else if cli.IsPaused(domState) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
@@ -258,7 +267,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 			return nil, err
 		}
 		logger.Info("Domain resumed.")
-		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Resumed.String(), "VM resumed")
 	} else {
 		// Nothing to do
 	}
@@ -354,8 +362,6 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
 				log.Log.Object(vm).Reason(err).Error("Unable to update grace period start time on domain xml")
 				return err
 			}
-
-			l.recorder.Event(vm, kubev1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
 		}
 	}
 
@@ -389,7 +395,6 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 			return err
 		}
 		log.Log.Object(vm).Info("Domain stopped.")
-		l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Stopped.String(), "VM stopped")
 	}
 
 	err = dom.Undefine()
@@ -398,6 +403,5 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 		return err
 	}
 	log.Log.Object(vm).Info("Domain undefined.")
-	l.recorder.Event(vm, kubev1.EventTypeNormal, v1.Deleted.String(), "VM undefined")
 	return nil
 }

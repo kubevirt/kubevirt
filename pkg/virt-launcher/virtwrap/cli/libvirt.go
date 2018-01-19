@@ -31,7 +31,7 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
 
 const ConnectionTimeout = 15 * time.Second
@@ -112,7 +112,7 @@ func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error)
 
 func (l *LibvirtConnection) Close() (int, error) {
 	close(l.stop)
-	return l.Close()
+	return l.Connect.Close()
 }
 
 func (l *LibvirtConnection) ListSecrets() (secrets []string, err error) {
@@ -345,6 +345,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 		Connect: virConn, user: user, pass: pass, uri: uri, alive: true,
 		callbacks:     make([]libvirt.DomainEventLifecycleCallback, 0),
 		reconnectLock: &sync.Mutex{},
+		stop:          make(chan struct{}),
 	}
 	lvConn.installWatchdog(checkInterval)
 
