@@ -4,9 +4,11 @@ import (
 	"encoding/xml"
 	"os/exec"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/libvirt/libvirt-go"
+	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -184,4 +186,27 @@ func StartVirtlog(stopChan chan struct{}) {
 			time.Sleep(time.Second)
 		}
 	}()
+}
+
+// returns the namespace and name that is encoded in the
+// domain name.
+func SplitVMNamespaceKey(domainName string) (namespace, name string) {
+	splitName := strings.SplitN(domainName, "_", 2)
+	if len(splitName) == 1 {
+		return k8sv1.NamespaceDefault, splitName[0]
+	}
+	return splitName[0], splitName[1]
+}
+
+func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
+
+	name, err := dom.GetName()
+	if err != nil {
+		return nil, err
+	}
+	namespace, name := SplitVMNamespaceKey(name)
+
+	domain := api.NewDomainReferenceFromName(namespace, name)
+	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
+	return domain, nil
 }

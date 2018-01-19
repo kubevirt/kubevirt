@@ -52,6 +52,7 @@ type DomainManager interface {
 	SyncVM(*v1.VirtualMachine, map[string]*kubev1.Secret) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
 	SignalShutdownVM(*v1.VirtualMachine) error
+	ListAllDomains() ([]*api.Domain, error)
 }
 
 type LibvirtDomainManager struct {
@@ -404,4 +405,42 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	}
 	log.Log.Object(vm).Info("Domain undefined.")
 	return nil
+}
+
+func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
+
+	doms, err := l.virConn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	if err != nil {
+		return nil, err
+	}
+
+	var list []*api.Domain
+	for _, dom := range doms {
+		domain, err := util.NewDomain(dom)
+		if err != nil {
+			if domainerrors.IsNotFound(err) {
+				continue
+			}
+			return list, err
+		}
+		spec, err := util.GetDomainSpec(dom)
+		if err != nil {
+			if domainerrors.IsNotFound(err) {
+				continue
+			}
+			return list, err
+		}
+		domain.Spec = *spec
+		status, reason, err := dom.GetState()
+		if err != nil {
+			if domainerrors.IsNotFound(err) {
+				continue
+			}
+			return list, err
+		}
+		domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
+		list = append(list, domain)
+	}
+
+	return list, nil
 }

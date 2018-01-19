@@ -25,20 +25,14 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"strings"
-
-	libvirt "github.com/libvirt/libvirt-go"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 type Launcher struct {
@@ -165,70 +159,13 @@ func (s *Launcher) Shutdown(args *cmdclient.Args, reply *cmdclient.Reply) error 
 	return nil
 }
 
-// returns the namespace and name that is encoded in the
-// domain name.
-func splitVMNamespaceKey(domainName string) (namespace, name string) {
-	splitName := strings.SplitN(domainName, "_", 2)
-	if len(splitName) == 1 {
-		return k8sv1.NamespaceDefault, splitName[0]
-	}
-	return splitName[0], splitName[1]
-}
-
-func newDomain(dom virtcli.VirDomain) (*api.Domain, error) {
-
-	name, err := dom.GetName()
-	if err != nil {
-		return nil, err
-	}
-	namespace, name := splitVMNamespaceKey(name)
-
-	domain := api.NewDomainReferenceFromName(namespace, name)
-	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
-	return domain, nil
-}
-
 func (s *Launcher) ListDomains(args *cmdclient.Args, reply *cmdclient.Reply) error {
 
-	doms, err := s.domainConn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	list, err := s.domainManager.ListAllDomains()
 	if err != nil {
 		reply.Success = false
 		reply.Message = err.Error()
 		return nil
-	}
-
-	var list []*api.Domain
-	for _, dom := range doms {
-		domain, err := newDomain(dom)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			reply.Success = false
-			reply.Message = err.Error()
-			return nil
-		}
-		spec, err := util.GetDomainSpec(dom)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			reply.Success = false
-			reply.Message = err.Error()
-			return nil
-		}
-		domain.Spec = *spec
-		status, reason, err := dom.GetState()
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			reply.Success = false
-			reply.Message = err.Error()
-			return nil
-		}
-		domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
-		list = append(list, domain)
 	}
 
 	domainListJSON, err := json.Marshal(list)
