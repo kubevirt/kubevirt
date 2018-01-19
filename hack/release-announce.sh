@@ -101,8 +101,10 @@ EOF
 #
 # Let's get the party started
 #
-RELREF=${1:-$(git describe --abbrev=0 --tags)}
-PREREF=${2:-$(git describe --abbrev=0 --tags $RELREF^)}
+RELREF="$1"
+PREREF="$2"
+RELREF=${RELREF:-$(git describe --abbrev=0 --tags)}
+PREREF=${PREREF:-$(git describe --abbrev=0 --tags $RELREF^)}
 RELSPANREF=$PREREF..$RELREF
 
 main

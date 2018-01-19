@@ -10,8 +10,11 @@ set -o pipefail
 
 source $(dirname "$0")/../../hack/common.sh
 
-VERSION="${1:-v1}"
-OUTPUT_FORMAT="${2:-html}"
+VERSION="$1"
+OUTPUT_FORMAT="$2"
+
+VERSION="${VERSION:-v1}"
+OUTPUT_FORMAT="${OUTPUT_FORMAT:-html}"
 GIT_REPO_LINK="https://github.com/kubevirt/kubevirt"
 if [ "$OUTPUT_FORMAT" = "html" ]; then
     SUFFIX="adoc"
