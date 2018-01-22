@@ -24,6 +24,7 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk) error {
 
 	if diskDevice.Disk != nil {
 		disk.Device = "disk"
+		disk.Target.Bus = diskDevice.Disk.Bus
 		disk.Target.Device = diskDevice.Disk.Device
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 	} else if diskDevice.LUN != nil {

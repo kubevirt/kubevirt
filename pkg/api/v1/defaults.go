@@ -82,6 +82,24 @@ func SetDefaults_FloppyTarget(obj *FloppyTarget) {
 	}
 }
 
+func SetDefaults_DiskTarget(obj *DiskTarget) {
+	if obj.Bus == "" {
+		obj.Bus = "virtio"
+	}
+	if obj.Device == "" {
+		switch obj.Bus {
+		case "ide":
+			obj.Device = "hda"
+		case "sata", "scsi":
+			obj.Device = "sda"
+		case "virtio":
+			fallthrough
+		default:
+			obj.Device = "vda"
+		}
+	}
+}
+
 func SetDefaults_FeatureSpinlocks(obj *FeatureSpinlocks) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true

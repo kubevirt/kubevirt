@@ -1773,7 +1773,14 @@
     }
    },
    "v1.DiskTarget": {
+    "required": [
+     "bus"
+    ],
     "properties": {
+     "bus": {
+      "description": "Bus indicates specifies the type of disk device to emulate.",
+      "type": "string"
+     },
      "dev": {
       "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
       "type": "string"

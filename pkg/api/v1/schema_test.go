@@ -114,7 +114,8 @@ var exampleJSON = `{
             "name": "disk0",
             "volumeName": "volume0",
             "disk": {
-              "dev": "vda"
+              "dev": "vda",
+              "bus": "virtio"
             }
           },
           {
@@ -195,6 +196,7 @@ var _ = Describe("Schema", func() {
 				VolumeName: "volume0",
 				DiskDevice: DiskDevice{
 					Disk: &DiskTarget{
+						Bus:      "virtio",
 						Device:   "vda",
 						ReadOnly: false,
 					},

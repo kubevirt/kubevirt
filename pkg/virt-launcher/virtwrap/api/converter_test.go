@@ -21,6 +21,7 @@ package api
 
 import (
 	"encoding/xml"
+	"log"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -105,6 +106,7 @@ var _ = Describe("Converter", func() {
 					VolumeName: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
+							Bus:    "virtio",
 							Device: "vda",
 						},
 					},
@@ -114,6 +116,7 @@ var _ = Describe("Converter", func() {
 					VolumeName: "nocloud",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
+							Bus:    "virtio",
 							Device: "vdb",
 						},
 					},
@@ -281,13 +284,13 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target dev="vda"></target>
+      <target bus="virtio" dev="vda"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso"></source>
-      <target dev="vdb"></target>
+      <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="mydisk1"></alias>
     </disk>
@@ -327,7 +330,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target></target>
+      <target bus="virtio" dev="vda"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="should_default_to_disk"></alias>
     </disk>
@@ -403,6 +406,8 @@ var _ = Describe("Converter", func() {
 
 		It("should be converted to a libvirt Domain with vm defaults set", func() {
 			v1.SetObjectDefaults_VirtualMachine(vm)
+			log.Printf(vmToDomainXML(vm, c))
+			log.Printf(convertedDomain)
 			Expect(vmToDomainXML(vm, c)).To(Equal(convertedDomain))
 		})
 		It("should convert CPU cores", func() {

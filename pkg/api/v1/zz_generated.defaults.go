@@ -99,6 +99,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 	for i := range in.Spec.Domain.Devices.Disks {
 		a := &in.Spec.Domain.Devices.Disks[i]
 		SetDefaults_DiskDevice(&a.DiskDevice)
+		if a.DiskDevice.Disk != nil {
+			SetDefaults_DiskTarget(a.DiskDevice.Disk)
+		}
 		if a.DiskDevice.Floppy != nil {
 			SetDefaults_FloppyTarget(a.DiskDevice.Floppy)
 		}
@@ -183,6 +186,9 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 		for i := range in.Spec.Template.Spec.Domain.Devices.Disks {
 			a := &in.Spec.Template.Spec.Domain.Devices.Disks[i]
 			SetDefaults_DiskDevice(&a.DiskDevice)
+			if a.DiskDevice.Disk != nil {
+				SetDefaults_DiskTarget(a.DiskDevice.Disk)
+			}
 			if a.DiskDevice.Floppy != nil {
 				SetDefaults_FloppyTarget(a.DiskDevice.Floppy)
 			}
