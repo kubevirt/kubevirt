@@ -75,4 +75,43 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}, 300)
 	})
+
+	Context("New VM with explicitly set VirtIO drives", func() {
+
+		var vm *v1.VirtualMachine
+		var diskDev v1.DiskDevice
+
+		BeforeEach(func() {
+			diskDev = v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Device: "vda",
+					Bus:    "virtio",
+				},
+			}
+			vm = tests.NewRandomVMWithDirectLunAndDevice(2, false, diskDev)
+		})
+		It("should have /dev/vda node", func() {
+			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMStart(vm)
+
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				&expect.BExp{R: "Welcome to Alpine"},
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "login"},
+				&expect.BSnd{S: "root\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "ls /dev/vda\n"},
+				&expect.BExp{R: "/dev/vda"},
+			}, 150*time.Second)
+
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	// TODO: add the same test for SATA bus -> /dev/sda. Requires Q35 chipset.
+
 })

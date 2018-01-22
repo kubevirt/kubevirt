@@ -588,18 +588,14 @@ func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
 	return vm
 }
 
-func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
+func NewRandomVMWithDirectLunAndDevice(lun int, withAuth bool, diskDev v1.DiskDevice) *v1.VirtualMachine {
 	vm := NewRandomVM()
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "vda",
-		VolumeName: "vda",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Device: "vda",
-			},
-		},
+		Name:       diskDev.Disk.Device,
+		VolumeName: diskDev.Disk.Device,
+		DiskDevice: diskDev,
 	})
 
 	volumeSource := v1.VolumeSource{
@@ -616,10 +612,19 @@ func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
 	}
 
 	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-		Name:         "vda",
+		Name:         diskDev.Disk.Device,
 		VolumeSource: volumeSource,
 	})
 	return vm
+}
+
+func NewRandomVMWithDirectLun(lun int, withAuth bool) *v1.VirtualMachine {
+	diskDev := v1.DiskDevice{
+		Disk: &v1.DiskTarget{
+			Device: "vda",
+		},
+	}
+	return NewRandomVMWithDirectLunAndDevice(lun, withAuth, diskDev)
 }
 
 func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
