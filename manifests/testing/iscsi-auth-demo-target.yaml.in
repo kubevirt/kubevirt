@@ -5,7 +5,7 @@ metadata:
   namespace: kube-system
   labels:
     kubevirt.io: ""
-type: "kubernetes.io/iscsi-chap"  
+type: "kubernetes.io/iscsi-chap"
 data:
   node.session.auth.username: ZGVtb3VzZXI=
   node.session.auth.password: ZGVtb3Bhc3N3b3Jk
@@ -40,6 +40,7 @@ spec:
         kubevirt.io: iscsi-auth-demo-target
       name: iscsi-auth-demo-target-tgtd
     spec:
+      serviceAccountName: kubevirt-testing
       containers:
         - name: target
           image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}
