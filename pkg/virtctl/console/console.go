@@ -31,6 +31,7 @@ import (
 	"k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
 type Console struct {
@@ -56,7 +57,7 @@ func (c *Console) Usage() string {
 func (c *Console) Run(flags *flag.FlagSet) int {
 
 	server, _ := flags.GetString("server")
-	kubeconfig, _ := flags.GetString("kubeconfig")
+	kubeconfig := virtctl.GetKubeConfig(flags)
 	namespace, _ := flags.GetString("namespace")
 	device := "serial0"
 	if namespace == "" {
