@@ -214,16 +214,27 @@ type Devices struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
-	Device   string      `xml:"device,attr"`
-	Snapshot string      `xml:"snapshot,attr,omitempty"`
-	Type     string      `xml:"type,attr"`
-	Source   DiskSource  `xml:"source"`
-	Target   DiskTarget  `xml:"target"`
-	Serial   string      `xml:"serial,omitempty"`
-	Driver   *DiskDriver `xml:"driver,omitempty"`
-	ReadOnly *ReadOnly   `xml:"readonly,omitempty"`
-	Auth     *DiskAuth   `xml:"auth,omitempty"`
-	Alias    *Alias      `xml:"alias,omitmepty"`
+	Device       string        `xml:"device,attr"`
+	Snapshot     string        `xml:"snapshot,attr,omitempty"`
+	Type         string        `xml:"type,attr"`
+	Source       DiskSource    `xml:"source"`
+	Target       DiskTarget    `xml:"target"`
+	Serial       string        `xml:"serial,omitempty"`
+	Driver       *DiskDriver   `xml:"driver,omitempty"`
+	ReadOnly     *ReadOnly     `xml:"readonly,omitempty"`
+	Auth         *DiskAuth     `xml:"auth,omitempty"`
+	Alias        *Alias        `xml:"alias,omitempty"`
+	BackingStore *BackingStore `xml:"backingStore,omitempty"`
+}
+
+type BackingStore struct {
+	Type   string             `xml:"type,attr"`
+	Format BackingStoreFormat `xml:"format"`
+	Source DiskSource         `xml:"source"`
+}
+
+type BackingStoreFormat struct {
+	Type string `xml:"type,attr"`
 }
 
 type DiskAuth struct {
