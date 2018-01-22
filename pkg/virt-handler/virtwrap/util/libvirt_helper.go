@@ -14,6 +14,7 @@ import (
 
 func SetDomainSpec(virConn cli.Connection, vm *v1.VirtualMachine, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
 	xmlStr, err := xml.Marshal(&wantedSpec)
+	log.Log.Warning(string(xmlStr))
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Generating the domain XML failed.")
 		return nil, err

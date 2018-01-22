@@ -71,6 +71,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
+
 func Convert_v1_ISCSIVolumeSource_To_api_Disk(source *k8sv1.ISCSIVolumeSource, disk *Disk, c *ConverterContext) error {
 
 	disk.Type = "network"
@@ -134,6 +135,29 @@ func Convert_v1_RegistryDiskSource_To_api_Disk(volumeName string, _ *v1.Registry
 	}
 	disk.Driver.Type = diskType
 	disk.Source.File = diskPath
+	return nil
+}
+
+func Convert_v1_BackedEphemeralVolumeSource_To_api_Disk(source *v1.Volume, disk *Disk, _ *ConverterContext) error {
+	if source.BackedEphemeral == nil {
+		return nil
+	}
+	if source.BackedEphemeral.ISCSI == nil {
+		return fmt.Errorf("disk %s backingStore references an unsupported source", disk.Alias.Name)
+	}
+	disk.BackingStore = &BackingStore{}
+	disk.BackingStore.Type = "network"
+	disk.BackingStore.Format.Type = "raw"
+	disk.BackingStore.Source.Name = fmt.Sprintf("%s/%d", source.BackedEphemeral.ISCSI.IQN, source.BackedEphemeral.ISCSI.Lun)
+	disk.BackingStore.Source.Protocol = "iscsi"
+
+	hostPort := strings.Split(source.BackedEphemeral.ISCSI.TargetPortal, ":")
+
+	disk.BackingStore.Source.Host = &DiskSourceHost{}
+	disk.BackingStore.Source.Host.Name = hostPort[0]
+	if len(hostPort) > 1 {
+		disk.BackingStore.Source.Host.Port = hostPort[1]
+	}
 	return nil
 }
 
@@ -292,6 +316,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 			return fmt.Errorf("No matching volume with name %s found", disk.VolumeName)
 		}
 		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c)
+		if err != nil {
+			return err
+		}
+		err = Convert_v1_BackedEphemeralVolumeSource_To_api_Disk(volume, &newDisk, c)
 		if err != nil {
 			return err
 		}

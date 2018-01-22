@@ -203,6 +203,21 @@ type VolumeSource struct {
 	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
 	// +optional
 	RegistryDisk *RegistryDiskSource `json:"registryDisk,omitempty"`
+	// BackedEphemeral allows sharing a common pre-baked image across
+	// multiple ephemeral vms. Writes of the guest will
+	// not modify the configured volume source and are bound to the vm lifecycle.
+	// +optional
+	BackedEphemeral *BackedEphemeralVolumeSource `json:"backedEphemeral,omitempty"`
+}
+
+type BackedEphemeralVolumeSource struct {
+	// ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.
+	// +optional
+	ISCSI *v1.ISCSIVolumeSource `json:"iscsi,omitempty"`
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 }
 
 // Represents a docker image with an embedded disk

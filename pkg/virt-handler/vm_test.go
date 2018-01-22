@@ -418,6 +418,9 @@ var _ = Describe("PVC", func() {
 	Context("Map Source Disks", func() {
 		It("looks up and applies PVC", func() {
 			vm := v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: k8sv1.NamespaceDefault,
+				},
 				Spec: v1.VirtualMachineSpec{
 					Domain: v1.DomainSpec{},
 					Volumes: []v1.Volume{
@@ -433,23 +436,14 @@ var _ = Describe("PVC", func() {
 				},
 			}
 
-			vmCopy, err := MapVolumes(&vm, virtClient, k8sv1.NamespaceDefault)
+			vmCopy, err := MapVolumes(&vm, virtClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmCopy.Spec.Volumes[0].ISCSI).To(Equal(expectedPV.Spec.ISCSI))
 		})
 		It("should fail on unsupported PV disk types", func() {
 			expectedPV.Spec.ISCSI = nil
 			expectedPV.Spec.CephFS = &k8sv1.CephFSPersistentVolumeSource{}
-			volume := &v1.Volume{
-				Name: "test",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-claim",
-					},
-				},
-			}
-
-			err := mapPVToDisk(volume, &expectedPV)
+			_, err := mapPVToISCSI(&expectedPV)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("unsupported"))
 		})
