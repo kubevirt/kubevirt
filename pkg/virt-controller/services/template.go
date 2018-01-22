@@ -97,6 +97,12 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
+	// Consider CPU and memory requests and limits for pod scheduling
+	resources := kubev1.ResourceRequirements{}
+	vmResources := vm.Spec.Domain.Resources
+	resources.Requests = vmResources.Requests
+	resources.Limits = vmResources.Limits
+
 	// VM target container
 	container := kubev1.Container{
 		Name:            "compute",
@@ -132,6 +138,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			SuccessThreshold:    int32(successThreshold),
 			FailureThreshold:    int32(failureThreshold),
 		},
+		Resources: resources,
 	}
 
 	containers, err := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")

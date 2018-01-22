@@ -70,7 +70,7 @@ type ResourceRequirements struct {
 	// +optional
 	Requests v1.ResourceList `json:"requests,omitempty"`
 	// Limits describes the maximum amount of compute resources allowed.
-	// Valid resource keys are "cpu".
+	// Valid resource keys are "memory" and "cpu".
 	// +optional
 	Limits v1.ResourceList `json:"limits,omitempty"`
 }

@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -123,6 +124,68 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity).To(BeNil())
 			})
 		})
+		Context("with cpu and memory constraints", func() {
+			It("should add cpu and memory constraints to a template", func() {
+
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvm",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("1m"),
+									kubev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("2m"),
+									kubev1.ResourceMemory: resource.MustParse("2Gi"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+
+				Expect(err).To(BeNil())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("2m"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1Gi"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2Gi"))
+			})
+			It("should not add unset resources", func() {
+
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvm",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("1m"),
+									kubev1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+
+				Expect(err).To(BeNil())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1Gi"))
+				Expect(pod.Spec.Containers[0].Resources.Limits).To(BeNil())
+			})
+		})
+	})
 
 		Context("with pvc source", func() {
 			It("should add pvc to template", func() {
