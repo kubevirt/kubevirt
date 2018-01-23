@@ -45,12 +45,13 @@ func dumpOpenApiSpec(dumppath *string) {
 }
 
 func main() {
-	klog.InitializeLogging("openapispec")
 	dumpapispecpath := flag.String("dump-api-spec-path", "openapi.json", "Path to OpenApi dump.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	// client-go requires a config or a master to be set in order to configure a client
 	pflag.Set("master", "http://127.0.0.1:4321")
 	pflag.Parse()
+
+	klog.InitializeLogging("openapispec")
 
 	// arguments for NewVirtAPIApp have no influence on the generated spec
 	app := virt_api.VirtAPIApp{}
