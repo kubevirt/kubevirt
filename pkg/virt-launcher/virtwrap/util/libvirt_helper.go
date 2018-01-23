@@ -2,6 +2,7 @@ package util
 
 import (
 	"encoding/xml"
+	"fmt"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -196,6 +197,13 @@ func SplitVMNamespaceKey(domainName string) (namespace, name string) {
 		return k8sv1.NamespaceDefault, splitName[0]
 	}
 	return splitName[0], splitName[1]
+}
+
+// VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
+// namespace_name.
+func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
+	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
+	return domName
 }
 
 func NewDomain(dom cli.VirDomain) (*api.Domain, error) {

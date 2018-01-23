@@ -20,7 +20,6 @@
 package cache
 
 import (
-	"fmt"
 	"sync"
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
@@ -88,25 +86,18 @@ func (d *DomainWatcher) startBackground() error {
 	return nil
 }
 
-func (d *DomainWatcher) List(options k8sv1.ListOptions) (runtime.Object, error) {
-
-	log.Log.V(3).Info("Synchronizing domains")
-	err := d.startBackground()
-	if err != nil {
-		return nil, err
-	}
-
-	list := api.DomainList{
-		Items: []api.Domain{},
-	}
+func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
+	var domains []*api.Domain
 
 	socketFiles, err := cmdclient.ListAllSockets(d.virtShareDir)
 	if err != nil {
 		return nil, err
 	}
 	for _, socketFile := range socketFiles {
+		log.Log.V(3).Infof("List domains from sock %s", socketFile)
 		client, err := cmdclient.GetClient(socketFile)
 		if err != nil {
+			log.Log.Reason(err).Error("failed to connect to cmd client socket")
 			// Ignore failure to connect to client.
 			// These are all local connections via unix socket.
 			// A failure to connect means there's nothing on the other
@@ -115,17 +106,39 @@ func (d *DomainWatcher) List(options k8sv1.ListOptions) (runtime.Object, error) 
 		}
 		defer client.Close()
 
-		domains, err := client.ListDomains()
+		foundDomains, err := client.ListDomains()
 		if err != nil {
+			log.Log.Reason(err).Error("failed to list domains on cmd client socket")
 			// Failure to get domain list means that client
 			// was unable to contact libvirt. As soon as the connection
 			// is restored on the client's end, a domain notification will
 			// be sent.
 			continue
 		}
-		for _, domain := range domains {
-			list.Items = append(list.Items, *domain)
-		}
+		domains = append(domains, foundDomains...)
+	}
+	return domains, nil
+}
+
+func (d *DomainWatcher) List(options k8sv1.ListOptions) (runtime.Object, error) {
+
+	log.Log.V(3).Info("Synchronizing domains")
+	err := d.startBackground()
+	if err != nil {
+		return nil, err
+	}
+
+	domains, err := d.listAllKnownDomains()
+	if err != nil {
+		return nil, err
+	}
+
+	list := api.DomainList{
+		Items: []api.Domain{},
+	}
+
+	for _, domain := range domains {
+		list.Items = append(list.Items, *domain)
 	}
 	return &list, nil
 }
@@ -149,13 +162,6 @@ func (d *DomainWatcher) Stop() {
 
 func (d *DomainWatcher) ResultChan() <-chan watch.Event {
 	return d.eventChan
-}
-
-// VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
-// namespace_name.
-func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
-	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
-	return domName
 }
 
 func NewSharedInformer(virtShareDir string) (cache.SharedInformer, error) {

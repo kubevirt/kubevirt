@@ -89,7 +89,7 @@ func ListAllSockets(baseDir string) ([]string, error) {
 		return nil, err
 	}
 	for _, file := range files {
-		socketFiles = append(socketFiles, file.Name())
+		socketFiles = append(socketFiles, filepath.Join(fileDir, file.Name()))
 	}
 	return socketFiles, nil
 }

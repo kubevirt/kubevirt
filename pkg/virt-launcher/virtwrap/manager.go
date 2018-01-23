@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cache"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -322,7 +321,7 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachine) error {
-	domName := cache.VMNamespaceKeyFunc(vm)
+	domName := util.VMNamespaceKeyFunc(vm)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VM does not exist, we are done
