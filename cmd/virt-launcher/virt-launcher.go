@@ -58,8 +58,8 @@ func markReady(readinessFile string) {
 }
 
 func startCmdServer(socketPath string,
-	domainConn virtcli.Connection,
-	domainManager virtwrap.DomainManager) {
+	domainManager virtwrap.DomainManager,
+	stopChan chan struct{}) {
 
 	err := os.RemoveAll(socketPath)
 	if err != nil {
@@ -73,13 +73,11 @@ func startCmdServer(socketPath string,
 		panic(err)
 	}
 
-	go func() {
-		err := cmdserver.RunServer(socketPath, domainConn, domainManager)
-		if err != nil {
-			log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
-			panic(err)
-		}
-	}()
+	err = cmdserver.RunServer(socketPath, domainManager, stopChan)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
+		panic(err)
+	}
 
 }
 
@@ -226,7 +224,7 @@ func main() {
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
 	socketPath := cmdclient.SocketFromNamespaceName(*virtShareDir, *namespace, *name)
-	startCmdServer(socketPath, domainConn, domainManager)
+	startCmdServer(socketPath, domainManager, stopChan)
 
 	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
 		*namespace,

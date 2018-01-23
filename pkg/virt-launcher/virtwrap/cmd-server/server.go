@@ -31,12 +31,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
-	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 )
 
 type Launcher struct {
-	domainConn    virtcli.Connection
 	domainManager virtwrap.DomainManager
 }
 
@@ -197,26 +195,31 @@ func createSocket(socketPath string) (net.Listener, error) {
 	return socket, nil
 }
 
-func RunServer(socket string,
-	domainConn virtcli.Connection,
-	domainManager virtwrap.DomainManager) error {
+func RunServer(socketPath string,
+	domainManager virtwrap.DomainManager,
+	stopChan chan struct{}) error {
 
 	rpcServer := rpc.NewServer()
 	server := &Launcher{
-		domainConn:    domainConn,
 		domainManager: domainManager,
 	}
 	rpcServer.Register(server)
-	sock, err := createSocket(socket)
+	sock, err := createSocket(socketPath)
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		sock.Close()
-		os.Remove(socket)
+	go func() {
+		select {
+		case <-stopChan:
+			sock.Close()
+			os.Remove(socketPath)
+		}
 	}()
-	rpcServer.Accept(sock)
+
+	go func() {
+		rpcServer.Accept(sock)
+	}()
 
 	return nil
 }
