@@ -80,7 +80,7 @@ func (s *Launcher) SyncSecret(args *cmdclient.Args, reply *cmdclient.Reply) erro
 		return nil
 	}
 
-	log.Log.Object(vm).Info("Synced vm")
+	log.Log.Object(vm).Info("Synced vm secrets")
 	return nil
 }
 
@@ -159,6 +159,8 @@ func (s *Launcher) Shutdown(args *cmdclient.Args, reply *cmdclient.Reply) error 
 
 func (s *Launcher) ListDomains(args *cmdclient.Args, reply *cmdclient.Reply) error {
 
+	reply.Success = true
+
 	list, err := s.domainManager.ListAllDomains()
 	if err != nil {
 		reply.Success = false
@@ -214,6 +216,7 @@ func RunServer(socketPath string,
 		case <-stopChan:
 			sock.Close()
 			os.Remove(socketPath)
+			log.Log.Info("closing cmd server socket")
 		}
 	}()
 
