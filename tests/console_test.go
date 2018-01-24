@@ -91,9 +91,9 @@ var _ = Describe("Console", func() {
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "login"},
-				}, 100*time.Second)
+				}, 130*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}
-		}, 500)
+		}, 220)
 	})
 })
