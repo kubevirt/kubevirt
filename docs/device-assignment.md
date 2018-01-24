@@ -6,7 +6,7 @@ For the first version of the document, the scope is reduced PCI device assignmen
 
 ## Introduction
 
-Device assignment is a feature that allows virtual machines (VMs) to take advantage of hardware capabilities and performance available on the hypervisor (host/node). Unlike traditional VM resources such as virtual CPUs (vCPUs) or memory, assignment-capable hardware devices are limited resource that cannot be overcommitted.
+Device assignment is a feature that allows virtual machines (VMs) to take advantage of hardware capabilities and performance available on the hypervisor (host/node). Unlike traditional VM resources such as virtual CPUs (vCPUs) or memory, assignment-capable hardware devices are limited resources that cannot be overcommitted.
 
 ### Device Assignment in Kubernetes
 
