@@ -26,6 +26,11 @@ func SetDefaults_Devices(devices *Devices) {
 
 func SetDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
+	// q35 is an alias of the newest q35 machine type.
+	// TODO: we probably want to select concrete type in the future for "future-backwards" compatibility.
+	if ostype.Machine == "" {
+		ostype.Machine = "q35"
+	}
 }
 
 func SetDefaults_DomainSpec(spec *DomainSpec) {

@@ -14,6 +14,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"resources": "Resources describes the Compute Resources required by this vm.",
 		"cpu":       "CPU allow specified the detailed CPU topology inside the vm.\n+optional",
+		"machine":   "Machine type\n+optional",
 		"firmware":  "Firmware\n+optional",
 		"clock":     "Clock sets the clock and timers of the vm.\n+optional",
 		"features":  "Features like acpi, apic, hyperv\n+optional",
@@ -31,6 +32,12 @@ func (CPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "CPU allow specifying the CPU topology",
 		"cores": "Cores specifies the number of cores inside the vm.\nMust be a value greater or equal 1.",
+	}
+}
+
+func (Machine) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"type": "QEMU machine type is the actual chipset of the VM.",
 	}
 }
 

@@ -224,6 +224,12 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features
 	return nil
 }
 
+func Convert_v1_Machine_To_api_OSType(source *v1.Machine, ost *OSType, c *ConverterContext) error {
+	ost.Machine = source.Type
+
+	return nil
+}
+
 func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *FeatureHyperv, c *ConverterContext) error {
 	if source.Spinlocks != nil {
 		hyperv.Spinlocks = &FeatureSpinlocks{
@@ -320,6 +326,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	if vm.Spec.Domain.Features != nil {
 		domain.Spec.Features = &Features{}
 		err := Convert_v1_Features_To_api_Features(vm.Spec.Domain.Features, domain.Spec.Features, c)
+		if err != nil {
+			return err
+		}
+	}
+	if vm.Spec.Domain.Machine != nil {
+		apiOst := vm.Spec.Domain.Machine
+		err := Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
 		if err != nil {
 			return err
 		}
