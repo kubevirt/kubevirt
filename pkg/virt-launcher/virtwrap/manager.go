@@ -439,6 +439,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 		}
 		domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
 		list = append(list, domain)
+		dom.Free()
 	}
 
 	return list, nil

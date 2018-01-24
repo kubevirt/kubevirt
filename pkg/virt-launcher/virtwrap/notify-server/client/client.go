@@ -83,19 +83,6 @@ func SplitVMNamespaceKey(domainName string) (namespace, name string) {
 	return splitName[0], splitName[1]
 }
 
-func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
-
-	name, err := dom.GetName()
-	if err != nil {
-		return nil, err
-	}
-	namespace, name := SplitVMNamespaceKey(name)
-
-	domain := api.NewDomainReferenceFromName(namespace, name)
-	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
-	return domain, nil
-}
-
 func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
@@ -108,7 +95,7 @@ func libvirtEventCallback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, 
 		return
 	}
 
-	domain, err := NewDomain(d)
+	domain, err := util.NewDomain(d)
 	if err != nil {
 		log.Log.Reason(err).Error("Could not create the Domain.")
 		client.SendDomainEvent(newWatchEventError(err))

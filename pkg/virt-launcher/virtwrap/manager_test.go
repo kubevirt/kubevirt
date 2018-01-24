@@ -168,6 +168,36 @@ var _ = Describe("Manager", func() {
 		)
 	})
 
+	table.DescribeTable("on successful list all domains",
+		func(state libvirt.DomainState, kubevirtState api.LifeCycle) {
+
+			mockDomain.EXPECT().GetState().Return(state, -1, nil)
+			mockDomain.EXPECT().GetName().Return("test", nil)
+			x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
+			Expect(err).To(BeNil())
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
+			mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
+			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn)
+			doms, err := manager.ListAllDomains()
+
+			Expect(len(doms)).To(Equal(1))
+
+			domain := doms[0]
+			domain.Spec.XMLName = xml.Name{}
+
+			Expect(&domain.Spec).To(Equal(api.NewMinimalDomainSpec("test")))
+			Expect(domain.Status.Status).To(Equal(kubevirtState))
+		},
+		table.Entry("crashed", libvirt.DOMAIN_CRASHED, api.Crashed),
+		table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF, api.Shutoff),
+		table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN, api.Shutdown),
+		table.Entry("unknown", libvirt.DOMAIN_NOSTATE, api.NoState),
+		table.Entry("running", libvirt.DOMAIN_RUNNING, api.Running),
+	)
+
 	// TODO: test error reporting on non successful VM syncs and kill attempts
 
 	AfterEach(func() {
