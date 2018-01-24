@@ -17,7 +17,7 @@ function up() {
 
     OPTIONS=$(vagrant ssh-config master | grep -v '^Host ' | awk -v ORS=' ' 'NF{print "-o " $1 "=" $2}')
 
-    scp $OPTIONS master:/bin/oc ${KUBEVIRT_PATH}cluster/vagrant-openshift/.oc
+    scp $OPTIONS master:/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/vagrant-openshift/.oc
     chmod u+x cluster/vagrant-openshift/.oc
 
     vagrant ssh master -c "sudo cat /etc/origin/master/openshift-master.kubeconfig" >${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubeconfig

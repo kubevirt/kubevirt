@@ -34,8 +34,15 @@ for node in $(seq 0 $(($nodes - 1))); do
     inv_nodes="$inv_nodes$node_hostname\n"
 done
 
+openshift_ansible_dir="/root/openshift-ansible"
+inventory_file="/root/inventory"
+
+# Clone openshift-ansible repository and apply fix for https://github.com/openshift/openshift-ansible/issues/6756
+mkdir -p /root/openshift-ansible
+git clone https://github.com/openshift/openshift-ansible.git $openshift_ansible_dir
+
 # Create ansible inventory file
-cat >inventory <<EOF
+cat >$inventory_file <<EOF
 [OSEv3:children]
 masters
 nodes
@@ -43,11 +50,15 @@ nodes
 [OSEv3:vars]
 ansible_ssh_user=root
 ansible_ssh_pass=vagrant
+deployment_type=origin
 openshift_deployment_type=origin
 openshift_clock_enabled=true
 openshift_master_identity_providers=[{'name': 'allow_all_auth', 'login': 'true', 'challenge': 'true', 'kind': 'AllowAllPasswordIdentityProvider'}]
-openshift_disable_check=memory_availability,disk_availability,docker_storage
+openshift_disable_check=memory_availability,disk_availability,docker_storage,package_availability,docker_image_availability
 openshift_repos_enable_testing=True
+openshift_image_tag=latest
+containerized=true
+enable_excluders=false
 
 [masters]
 master openshift_ip=$master_ip
@@ -58,17 +69,16 @@ master openshift_ip=$master_ip
 [nodes]
 master openshift_node_labels="{'region': 'infra','zone': 'default'}" openshift_schedulable=true openshift_ip=$master_ip
 $inv_nodes
-
 EOF
 
 # Run OpenShift ansible playbook
-ansible-playbook -i inventory /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml
+ansible-playbook -i $inventory_file $openshift_ansible_dir/playbooks/deploy_cluster.yml
 
 # Create OpenShift user
-oc create user admin
-oc create identity allow_all_auth:admin
-oc create useridentitymapping allow_all_auth:admin admin
-oc adm policy add-cluster-role-to-user cluster-admin admin
+/usr/local/bin/oc create user admin
+/usr/local/bin/oc create identity allow_all_auth:admin
+/usr/local/bin/oc create useridentitymapping allow_all_auth:admin admin
+/usr/local/bin/oc adm policy add-cluster-role-to-user cluster-admin admin
 
 # Set SELinux to permessive mode
 setenforce 0
