@@ -11,6 +11,7 @@ Available LUNs:
 1. Empty image - for your data
 2. Alpine
 3. CirrOS
+4. Fedora
 
 
 # Build

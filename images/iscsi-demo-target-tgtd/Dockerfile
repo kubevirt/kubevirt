@@ -26,17 +26,27 @@ RUN dnf -y update && dnf -y install scsi-target-utils bzip2 qemu-img \
 
 RUN mkdir -p /volume
 
-# Add alpine image
+# LUNs:
+# 0. is an internal lun
+# 1. Empty image - for your data
+
+# 2. Add alpine image
 RUN curl \
       https://nl.alpinelinux.org/alpine/v3.5/releases/x86_64/alpine-virt-3.5.1-x86_64.iso \
       > /volume/alpine.iso
 
-# Add cirros
+# 3. Add cirros
 RUN curl \
       http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img \
       > /volume/cirros.img \
       && qemu-img convert -O raw /volume/cirros.img /volume/cirros.rawa \
       && rm volume/cirros.img
+
+# 4. Add fedora
+# needs cloud init for login
+RUN curl -L \
+      https://download.fedoraproject.org/pub/fedora/linux/releases/27/CloudImages/x86_64/images/Fedora-Cloud-Base-27-1.6.x86_64.raw.xz \
+      | xz -d > /volume/fedora.img
 
 ADD run-tgt.sh /
 
