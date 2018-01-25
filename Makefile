@@ -18,6 +18,7 @@ test:
 	hack/dockerized "hack/glide-checksync.sh && ./hack/check.sh && ./hack/build-go.sh install ${WHAT} && ./hack/build-go.sh test ${WHAT}"
 
 functest:
+	hack/dockerized "hack/build-func-tests.sh"
 	hack/functests.sh
 
 clean:

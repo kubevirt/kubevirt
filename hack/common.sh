@@ -9,3 +9,9 @@ CMD_OUT_DIR=$KUBEVIRT_DIR/_out/cmd/
 TESTS_OUT_DIR=$KUBEVIRT_DIR/_out/tests/
 APIDOCS_OUT_DIR=$KUBEVIRT_DIR/_out/apidocs
 MANIFESTS_OUT_DIR=$KUBEVIRT_DIR/_out/manifests
+
+function build_func_tests() {
+    mkdir -p ${TESTS_OUT_DIR}/
+    ginkgo build ${KUBEVIRT_DIR}/tests
+    mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
+}

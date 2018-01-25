@@ -88,7 +88,5 @@ for arg in $args; do
 done
 
 if [[ "${target}" == "install" && "${build_tests}" == "true" ]]; then
-    mkdir -p ${TESTS_OUT_DIR}/
-    ginkgo build ${KUBEVIRT_DIR}/tests
-    mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
+    build_func_tests
 fi
