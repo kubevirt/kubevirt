@@ -58,7 +58,6 @@ deploy:
   script: bash hack/gen-swagger-doc/deploy.sh
   on:
     branch: master
-    go: 1.8.3
 
 env:
   global:
