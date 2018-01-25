@@ -1,7 +1,7 @@
 #!/bin/bash
 
 KUBEVIRT_DIR="$(
-    cd "$(dirname "$0")/../"
+    cd "$(dirname "$BASH_SOURCE[0]")/../"
     pwd
 )"
 OUT_DIR=$KUBEVIRT_DIR/_out/
