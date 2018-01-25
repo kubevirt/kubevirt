@@ -1,0 +1,23 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: OfflineVirtualMachine
+metadata:
+  name: my-vm
+spec:
+  running: false # equivalent to replicas 0
+  template:
+    metadata:
+      labels: 
+        my: label
+    spec:
+      domain:
+        resources:
+          requests:
+            memory: 8Mi
+        devices:
+          disks:
+          - name: disk0
+            volumeName: mypcv
+      volumes:
+        - name: mypvc
+          persistentVolumeClaim:
+            claimName: myclaim
