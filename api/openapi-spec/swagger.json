@@ -1773,12 +1773,9 @@
     }
    },
    "v1.DiskTarget": {
-    "required": [
-     "bus"
-    ],
     "properties": {
      "bus": {
-      "description": "Bus indicates specifies the type of disk device to emulate.",
+      "description": "Bus indicates the type of disk device to emulate.",
       "type": "string"
      },
      "dev": {

@@ -128,8 +128,8 @@ type DiskTarget struct {
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
-	// Bus indicates specifies the type of disk device to emulate.
-	Bus string `json:"bus"`
+	// Bus indicates the type of disk device to emulate.
+	Bus string `json:"bus,omitempty"`
 }
 
 type LunTarget struct {

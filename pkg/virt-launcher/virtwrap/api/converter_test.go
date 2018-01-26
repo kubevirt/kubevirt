@@ -330,7 +330,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target bus="virtio" dev="vda"></target>
+      <target bus="ide" dev="hdg"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="should_default_to_disk"></alias>
     </disk>

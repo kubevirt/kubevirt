@@ -20,12 +20,12 @@ type ConverterContext struct {
 	VirtualMachine *v1.VirtualMachine
 }
 
-func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk) error {
+func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, machine string, index int) error {
 
 	if diskDevice.Disk != nil {
 		disk.Device = "disk"
-		disk.Target.Bus = diskDevice.Disk.Bus
-		disk.Target.Device = diskDevice.Disk.Device
+		disk.Target.Bus = diskBusFromMachine(diskDevice.Disk.Bus, machine)
+		disk.Target.Device = diskDeviceFromBusAndIndex(diskDevice.Disk.Device, disk.Target.Bus, index)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
@@ -47,6 +47,51 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk) error {
 	}
 	disk.Alias = &Alias{Name: diskDevice.Name}
 	return nil
+}
+
+func diskBusFromMachine(bus, machine string) string {
+	if bus != "" {
+		// use what it was explicitely selected
+		return bus
+	}
+	// catches: "q35", "pc-q35-*"
+	// see /path/to/qemu-kvm -machine help
+	if strings.HasPrefix(machine, "pc-q35") || strings.HasPrefix(machine, "q35") {
+		return "sata"
+	}
+	// safe fallback for x86_64, but very slow
+	return "ide"
+}
+
+func diskDeviceFromBusAndIndex(deviceName, bus string, index int) string {
+	if deviceName != "" {
+		return deviceName
+	}
+	prefix := ""
+	switch bus {
+	case "virtio":
+		prefix = "vd"
+	case "sata", "scsi":
+		prefix = "sd"
+	case "ide":
+		prefix = "hd"
+	default:
+		// we should never get there
+		return ""
+	}
+	return formatDeviceName(prefix, index)
+}
+
+// port of http://elixir.free-electrons.com/linux/v4.15/source/drivers/scsi/sd.c#L3211
+func formatDeviceName(prefix string, index int) string {
+	base := int('z' - 'a' + 1)
+	name := prefix
+
+	for index >= 0 {
+		name += string('a' + (index % base))
+		index = (index / base) - 1
+	}
+	return name
 }
 
 func toApiReadOnly(src bool) *ReadOnly {
@@ -288,9 +333,32 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
-	for _, disk := range vm.Spec.Domain.Devices.Disks {
+	machine := "pc" // QEMU default
+	if vm.Spec.Domain.Machine != nil {
+		machine = vm.Spec.Domain.Machine.Type
+	}
+	for index, disk := range vm.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk)
+
+		// TODO: using the index like we do now is incorrect.
+		// It will lead to *valid* but unexpected device names.
+		// The cause is we are using the same counter for all the
+		// busses, but we should use one counter per bus.
+		//
+		// Example:
+		// User specifies:
+		// - no machine (defaults to machine=pc bus=ide)
+		// - disk #0: bus=virtio, name=vda
+		// - disk #1: N/A, will use defaults
+		//
+		// if we use the right counters, we need to add the
+		// hda <- bus='ide' index=0 (first disk on IDE)
+		// instead we add
+		// hdb <- bus='ide' index=1 (second disk *on the VM*_
+		//
+		// The proper way is to track the bus on which all the storage drives are
+		// attached, including cdroms, floppies and so forth, and use counters per-bus.
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, machine, index)
 		if err != nil {
 			return err
 		}

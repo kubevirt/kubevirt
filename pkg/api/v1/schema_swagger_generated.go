@@ -75,7 +75,7 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
 		"readonly": "ReadOnly\nDefaults to false",
-		"bus":      "Bus indicates specifies the type of disk device to emulate.",
+		"bus":      "Bus indicates the type of disk device to emulate.",
 	}
 }
 
