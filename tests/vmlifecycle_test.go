@@ -272,6 +272,39 @@ var _ = Describe("Vmlifecycle", func() {
 				close(done)
 			}, 50)
 		})
+		Context("When virt-handler crashes", func() {
+			It("should recover and continue management of existing VMs.", func(done Done) {
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				Expect(err).To(BeNil())
+
+				// Start a VM
+				nodeName := tests.WaitForSuccessfulVMStart(obj)
+				_, ok := obj.(*v1.VirtualMachine)
+				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+				Expect(err).ToNot(HaveOccurred())
+
+				// Kill virt-handler on the node the VM is active on.
+				time.Sleep(5 * time.Second)
+				err = pkillAllHandlers(virtClient, nodeName, dockerTag)
+				Expect(err).To(BeNil())
+
+				// Crash the VM and verify a recovered version of virt-handler processes the crash
+				time.Sleep(5 * time.Second)
+				err = pkillAllVms(virtClient, nodeName, dockerTag)
+				Expect(err).To(BeNil())
+
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
+
+				Expect(func() v1.VMPhase {
+					vm := &v1.VirtualMachine{}
+					err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(obj.(*v1.VirtualMachine).ObjectMeta.Name).Do().Into(vm)
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.Phase
+				}()).To(Equal(v1.Failed))
+
+				close(done)
+			}, 120)
+		})
 
 		Context("in a non-default namespace", func() {
 			table.DescribeTable("Should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
@@ -395,6 +428,22 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) 
 	return string(logsRaw)
 }
 
+func pkillAllHandlers(virtCli kubecli.KubevirtClient, node, dockerTag string) error {
+	job := renderPkillAllJob(dockerTag, "virt-handler")
+	job.Spec.NodeName = node
+	pod, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
+	Expect(err).ToNot(HaveOccurred())
+
+	getStatus := func() k8sv1.PodPhase {
+		pod, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return pod.Status.Phase
+	}
+
+	Eventually(getStatus, 30, 0.5).Should(Equal(k8sv1.PodSucceeded))
+
+	return err
+}
 func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node, dockerTag string) error {
 	job := renderPkillAllJob(dockerTag, "virt-launcher")
 	job.Spec.NodeName = node
