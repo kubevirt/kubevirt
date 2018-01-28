@@ -21,7 +21,6 @@ package log
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -30,6 +29,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/go-kit/kit/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,7 +75,7 @@ type FilteredLogger struct {
 var Log = DefaultLogger()
 
 func InitializeLogging(comp string) {
-	flag.StringVar(&defaultComponent, "component", comp, "Default component for logs")
+	defaultComponent = comp
 	Log = DefaultLogger()
 }
 

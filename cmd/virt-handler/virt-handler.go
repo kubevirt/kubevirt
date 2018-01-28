@@ -234,9 +234,9 @@ func (app *virtHandlerApp) AddFlags() {
 }
 
 func main() {
-	log.InitializeLogging("virt-handler")
 	libvirt.EventRegisterDefaultImpl()
 	app := &virtHandlerApp{}
 	service.Setup(app)
+	log.InitializeLogging("virt-handler")
 	app.Run()
 }

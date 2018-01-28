@@ -70,7 +70,6 @@ func createSocket(virtShareDir string, namespace string, name string) net.Listen
 }
 
 func main() {
-	log.InitializeLogging("virt-launcher")
 	qemuTimeout := flag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	name := flag.String("name", "", "Name of the VM")
@@ -80,6 +79,8 @@ func main() {
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
+
+	log.InitializeLogging("virt-launcher")
 
 	socket := createSocket(*virtShareDir, *namespace, *name)
 	defer socket.Close()
