@@ -43,6 +43,7 @@ var _ = Describe("Console", func() {
 	})
 
 	Context("New VM with a serial console given", func() {
+
 		It("should be returned that we are running cirros", func() {
 			vm := tests.NewRandomVMWithPVC("disk-cirros")
 
@@ -58,6 +59,24 @@ var _ = Describe("Console", func() {
 			}, 60*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		It("should be returned that we are running fedora", func() {
+
+			vm := tests.NewRandomVMWithEphemeralDiskHighMemory("kubevirt/fedora-cloud-registry-disk-demo:devel")
+
+			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
+			tests.WaitForSuccessfulVMStart(vm)
+
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+			defer expecter.Close()
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				&expect.BExp{R: "Welcome to"},
+			}, 120*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+		}, 140)
+
 		It("should be able to reconnect to console multiple times", func() {
 			vm := tests.NewRandomVMWithPVC("disk-alpine")
 
