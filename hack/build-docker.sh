@@ -31,8 +31,6 @@ fi
 
 if [ $# -eq 0 ]; then
     args=$docker_images
-elif [ "$1" = "optional" ]; then
-    args=$optional_docker_images
 else
     args=$@
 fi
