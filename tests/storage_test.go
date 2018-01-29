@@ -42,6 +42,7 @@ var _ = Describe("Storage", func() {
 	tests.PanicOnError(err)
 
 	BeforeEach(func() {
+		Skip("Direct ISCSI storage access is not supported at the moment.")
 		tests.BeforeTestCleanup()
 	})
 
