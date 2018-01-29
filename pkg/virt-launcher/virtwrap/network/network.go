@@ -25,7 +25,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -164,15 +163,17 @@ func SetupDefaultPodNetwork(domain *api.Domain) error {
 	}
 
 	// Start DHCP
-	go dhcp.SingleClientDHCPServer(
-		nic.MAC,
-		nic.IP.IP,
-		nic.IP.Mask,
-		macVlanIfaceName,
-		fakeaddr.IP,
-		nic.Gateway,
-		net.ParseIP(guestDNS),
-	)
+	go func() {
+		dhcp.SingleClientDHCPServer(
+			nic.MAC,
+			nic.IP.IP,
+			nic.IP.Mask,
+			macVlanIfaceName,
+			fakeaddr.IP,
+			nic.Gateway,
+			net.ParseIP(guestDNS),
+		)
+	}()
 
 	if err := plugNetworkDevice(domain, nic); err != nil {
 		return err
@@ -218,15 +219,18 @@ func ChangeMacAddr(iface string) (net.HardwareAddr, error) {
 
 func plugNetworkDevice(domain *api.Domain, vif *VIF) error {
 
-	//TODO:(vladikr) Currently we support only one interface per vm. Improve this once we'll start supporting more.
-	for idx, inter := range domain.Spec.Devices.Interfaces {
+	// get VIF config
+	ifconf, err := decorateInterfaceConfig(vif)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to get VIF config.")
+		return err
+	}
 
-		// Add VIF to VM config
-		ifconf, err := decorateInterfaceConfig(vif)
-		if err != nil {
-			log.Log.Reason(err).Error("failed to get VIF config.")
-			return err
-		}
+	//TODO:(vladikr) Currently we support only one interface per vm. Improve this once we'll start supporting more.
+	if len(domain.Spec.Devices.Interfaces) == 0 {
+		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, *ifconf)
+	}
+	for idx, _ := range domain.Spec.Devices.Interfaces {
 		domain.Spec.Devices.Interfaces[idx] = *ifconf
 	}
 
@@ -239,9 +243,8 @@ func decorateInterfaceConfig(vif *VIF) (*api.Interface, error) {
 	inter.Type = "direct"
 	inter.TrustGuestRxFilters = "yes"
 	inter.Source = api.InterfaceSource{Device: vif.Name, Mode: "bridge"}
-	inter.MAC = sd
-	inter.MAC = &v1.MAC{MAC: vif.MAC.String()}
-	inter.Model = &v1.Model{Type: "virtio"}
+	inter.MAC = &api.MAC{MAC: vif.MAC.String()}
+	inter.Model = &api.Model{Type: "virtio"}
 
 	return &inter, nil
 }

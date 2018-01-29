@@ -195,9 +195,9 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	}
 
 	// setup networking
-	mac, err := network.SetupDefaultPodNetwork(domain)
+	err = network.SetupDefaultPodNetwork(domain)
 	if err != nil {
-		return err
+		return domain, err
 	}
 
 	return domain, err
