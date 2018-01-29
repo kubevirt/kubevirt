@@ -647,7 +647,7 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 }
 
 func NewRandomVMWithWatchdog() *v1.VirtualMachine {
-	vm := NewRandomVMWithDirectLun(2, false)
+	vm := NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
 
 	vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",

@@ -45,7 +45,7 @@ var _ = Describe("Console", func() {
 	Context("New VM with a serial console given", func() {
 
 		It("should be returned that we are running cirros", func() {
-			vm := tests.NewRandomVMWithPVC("disk-cirros")
+			vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
 
 			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
@@ -78,7 +78,7 @@ var _ = Describe("Console", func() {
 		}, 140)
 
 		It("should be able to reconnect to console multiple times", func() {
-			vm := tests.NewRandomVMWithPVC("disk-alpine")
+			vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
 
 			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)

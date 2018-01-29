@@ -49,8 +49,6 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 			tests.WaitForSuccessfulVMStart(vm)
 
-			tests.WaitForSuccessfulVMStart(vm)
-
 			pipeInReader, _ := io.Pipe()
 			pipeOutReader, pipeOutWriter := io.Pipe()
 

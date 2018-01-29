@@ -54,7 +54,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vm = tests.NewRandomVMWithDirectLun(2, true)
+		vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
 	})
 
 	Context("New VM given", func() {
