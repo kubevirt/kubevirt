@@ -22,6 +22,7 @@ package virthandler
 import (
 	goerror "errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sync"
 	"time"
@@ -609,6 +610,8 @@ func (d *VirtualMachineController) closeLauncherClient(vm *v1.VirtualMachine) {
 
 	client.Close()
 	delete(d.launcherClients, sockFile)
+
+	os.RemoveAll(sockFile)
 }
 
 // used by unit tests to add mock clients
