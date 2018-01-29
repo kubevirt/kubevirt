@@ -174,12 +174,15 @@ func (l *LibvirtDomainManager) SyncVMSecret(vm *v1.VirtualMachine, usageType str
 // - storage prep
 // - network prep
 // - cloud-init
-func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.Domain) error {
+//
+// The Domain.Spec can be alterned in this function and any changes
+// made to the domain will get set in libvirt after this function exits.
+func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.Domain) (*api.Domain, error) {
 
 	// ensure registry disk files have correct ownership privileges
 	err := registrydisk.SetFilePermissions(vm)
 	if err != nil {
-		return err
+		return domain, err
 	}
 
 	// generate cloud-init data
@@ -187,11 +190,11 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	if cloudInitData != nil {
 		err := cloudinit.GenerateLocalData(vm.Name, vm.Namespace, cloudInitData)
 		if err != nil {
-			return err
+			return domain, err
 		}
 	}
 
-	return nil
+	return domain, err
 }
 
 func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]*kubev1.Secret) (*api.DomainSpec, error) {
@@ -218,6 +221,11 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
+			domain, err = l.preStartHook(vm, domain)
+			if err != nil {
+				logger.Reason(err).Error("pre start setup for VM failed.")
+				return nil, err
+			}
 			dom, err = util.SetDomainSpec(l.virConn, vm, domain.Spec)
 			if err != nil {
 				return nil, err
@@ -248,11 +256,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) {
-		err = l.preStartHook(vm, domain)
-		if err != nil {
-			logger.Reason(err).Error("pre start setup for VM failed.")
-			return nil, err
-		}
 		err = dom.Create()
 		if err != nil {
 			logger.Reason(err).Error("Starting the VM failed.")
