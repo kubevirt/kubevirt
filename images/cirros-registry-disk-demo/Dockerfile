@@ -21,4 +21,4 @@ FROM kubevirt/registry-disk-v1alpha
 MAINTAINER "David Vossel" \<dvossel@redhat.com\>
 
 # Add cirros
-RUN curl http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img > /disk/cirros.img
+RUN curl https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img > /disk/cirros.img
