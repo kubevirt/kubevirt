@@ -54,3 +54,6 @@ testImport:
 - package: github.com/google/goexpect
 - package: github.com/google/goterm
 - package: google.golang.org/grpc
+- package: github.com/krolaw/dhcp4
+- package: github.com/subgraph/libmacouflage
+- package: github.com/vishvananda/netlink
