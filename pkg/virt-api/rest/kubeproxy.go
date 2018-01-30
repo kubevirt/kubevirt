@@ -95,8 +95,10 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Operation("createNamespaced"+objKind).
 			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample).
 			Doc("Create a "+objKind+" object.").
+			Returns(http.StatusOK, "OK", objExample).
 			Returns(http.StatusCreated, "Created", objExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusAccepted, "Accepted", objExample).
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	ws.Route(addPutParams(
@@ -106,8 +108,9 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Operation("replaceNamespaced"+objKind).
 			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).
 			Doc("Update a "+objKind+" object.").
-			Returns(http.StatusOK, "Replaced", objExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusCreated, "Create", objExample).
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	ws.Route(addDeleteParams(
@@ -115,10 +118,11 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("deleteNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(delete)).Reads(metav1.DeleteOptions{}).
+			To(endpoints.MakeGoRestfulWrapper(delete)).
+			Reads(metav1.DeleteOptions{}).Writes(metav1.Status{}).
 			Doc("Delete a "+objKind+" object.").
-			Returns(http.StatusOK, "Deleted", objExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusOK, "OK", metav1.Status{}).
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	ws.Route(addGetParams(
@@ -128,7 +132,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).
 			Doc("Get a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", objExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	ws.Route(addGetAllNamespacesListParams(
@@ -138,17 +142,19 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).
 			Doc("Get a list of all "+objKind+" objects.").
 			Returns(http.StatusOK, "OK", listExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	ws.Route(
 		ws.PATCH(ResourcePath(gvr)).
-			Produces(mime.MIME_JSON_PATCH).
-			Operation("updateNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(patch)).Writes(objExample).
+			Consumes(mime.MIME_JSON_PATCH, mime.MIME_MERGE_PATCH).
+			Produces(mime.MIME_JSON).
+			Operation("patchNamespaced"+objKind).
+			To(endpoints.MakeGoRestfulWrapper(patch)).
+			Writes(objExample).Reads(metav1.Patch{}).
 			Doc("Patch a "+objKind+" object.").
-			Returns(http.StatusOK, "Patched", objExample).
-			Returns(http.StatusNotFound, "Not Found", nil),
+			Returns(http.StatusOK, "OK", objExample).
+			Returns(http.StatusUnauthorized, "Unauthorized", nil),
 	)
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
@@ -156,10 +162,10 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET("/watch/"+gvr.Resource).
 			Produces(mime.MIME_JSON).
 			Operation("watch"+objKind+"ListForAllNamespaces").
-			To(NotImplementedYet).Writes(listExample).
+			To(NotImplementedYet).Writes(metav1.WatchEvent{}).
 			Doc("Watch a "+objKind+"List object.").
-			Returns(http.StatusOK, "OK", listExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
@@ -167,10 +173,10 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET("/watch"+ResourceBasePath(gvr)).
 			Operation("watchNamespaced"+objKind).
 			Produces(mime.MIME_JSON).
-			To(NotImplementedYet).Writes(objExample).
+			To(NotImplementedYet).Writes(metav1.WatchEvent{}).
 			Doc("Watch a "+objKind+" object.").
-			Returns(http.StatusOK, "OK", objExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	ws.Route(addGetNamespacedListParams(
@@ -181,17 +187,17 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(endpoints.MakeGoRestfulWrapper(getList)).
 			Doc("Get a list of "+objKind+" objects.").
 			Returns(http.StatusOK, "OK", listExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	ws.Route(addDeleteListParams(
 		ws.DELETE(ResourceBasePath(gvr)).
-			Operation("deletecollectionNamespaced"+objKind).
+			Operation("deleteCollectionNamespaced"+objKind).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(listExample).
+			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(metav1.Status{}).
 			Doc("Delete a collection of "+objKind+" objects.").
-			Returns(http.StatusOK, "Deleted", listExample).
-			Returns(http.StatusNotFound, "Not Found", nil), ws,
+			Returns(http.StatusOK, "OK", metav1.Status{}).
+			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
 	))
 
 	return ws, nil
@@ -214,10 +220,19 @@ func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionReso
 	return ws, nil
 }
 
+func addCollectionParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(continueParam(ws)).
+		Param(fieldSelectorParam(ws)).
+		Param(includeUninitializedParam(ws)).
+		Param(labelSelectorParam(ws)).
+		Param(limitParam(ws)).
+		Param(resourceVersionParam(ws)).
+		Param(timeoutSecondsParam(ws)).
+		Param(watchParam(ws))
+}
+
 func addWatchGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
-		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
-		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("integer"))
+	return addCollectionParams(builder, ws)
 }
 
 func addWatchNamespacedGetListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
@@ -225,25 +240,22 @@ func addWatchNamespacedGetListParams(builder *restful.RouteBuilder, ws *restful.
 }
 
 func addGetAllNamespacesListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws)).
-		Param(ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")).
-		Param(ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("integer")).
-		Param(ws.QueryParameter("watch", "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.").DataType("boolean"))
+	return addCollectionParams(builder, ws)
 }
 
 func addDeleteListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(fieldSelectorParam(ws)).Param(labelSelectorParam(ws))
+	return addCollectionParams(builder, ws)
 }
 
 func addGetParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return addGetNamespacedListParams(builder.Param(NameParam(ws)), ws)
+	return builder.Param(NameParam(ws)).
+		Param(NamespaceParam(ws)).
+		Param(exactParam(ws)).
+		Param(exportParam(ws))
 }
 
 func addGetNamespacedListParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
-	return builder.Param(NamespaceParam(ws)).
-		Param(ws.QueryParameter("export", "Should this value be exported. Export strips fields that a user can not specify.").DataType("boolean")).
-		Param(ws.QueryParameter("exact", "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'").DataType("boolean")).
-		Param(ws.QueryParameter("watch", "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.").DataType("boolean"))
+	return addCollectionParams(builder.Param(NamespaceParam(ws)), ws)
 }
 
 func addPostParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
@@ -255,6 +267,13 @@ func addPutParams(builder *restful.RouteBuilder, ws *restful.WebService) *restfu
 }
 
 func addDeleteParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
+	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws)).
+		Param(gracePeriodSecondsParam(ws)).
+		Param(orphanDependentsParam(ws)).
+		Param(propagationPolicyParam(ws))
+}
+
+func addPatchParams(builder *restful.RouteBuilder, ws *restful.WebService) *restful.RouteBuilder {
 	return builder.Param(NamespaceParam(ws)).Param(NameParam(ws))
 }
 
@@ -272,6 +291,50 @@ func labelSelectorParam(ws *restful.WebService) *restful.Parameter {
 
 func fieldSelectorParam(ws *restful.WebService) *restful.Parameter {
 	return ws.QueryParameter("fieldSelector", "A selector to restrict the list of returned objects by their fields. Defaults to everything.")
+}
+
+func resourceVersionParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("resourceVersion", "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.")
+}
+
+func timeoutSecondsParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("timeoutSeconds", "TimeoutSeconds for the list/watch call.").DataType("integer")
+}
+
+func includeUninitializedParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("includeUninitialized", "If true, partially initialized resources are included in the response.").DataType("boolean")
+}
+
+func watchParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("watch", "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.").DataType("boolean")
+}
+
+func limitParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("limit", "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.").DataType("integer")
+}
+
+func continueParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("continue", "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.")
+}
+
+func exactParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("exact", "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'.").DataType("boolean")
+}
+
+func exportParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("export", "Should this value be exported. Export strips fields that a user can not specify.").DataType("boolean")
+}
+
+func gracePeriodSecondsParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("gracePeriodSeconds", "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.").DataType("integer")
+}
+
+func orphanDependentsParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("orphanDependents", "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.").DataType("boolean")
+}
+
+func propagationPolicyParam(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter("propagationPolicy", "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.")
 }
 
 func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
