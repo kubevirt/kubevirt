@@ -46,18 +46,6 @@ mkdir -p /sys.devices.container && {
     mount --rbind /host-sys/devices /sys/devices
 }
 
-# If no cpuacct,cpu is present, symlink it to cpu,cpuacct
-# Otherwise libvirt and our emulator get confused
-#if [ ! -d "/host-sys/fs/cgroup/cpuacct,cpu" ]; then
-#    echo "Creating cpuacct,cpu cgroup symlink"
-#    mount -o remount,rw /host-sys/fs/cgroup
-#    cd /host-sys/fs/cgroup
-#    ln -s cpu,cpuacct cpuacct,cpu
-#    mount -o remount,ro /host-sys/fs/cgroup
-#fi
-
-#mount --rbind /host-sys/fs/cgroup /sys/fs/cgroup
-
 mkdir -p /var/log/kubevirt
 touch /var/log/kubevirt/qemu-kube.log
 chown qemu:qemu /var/log/kubevirt/qemu-kube.log
