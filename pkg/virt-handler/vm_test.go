@@ -60,8 +60,6 @@ var _ = Describe("VM", func() {
 	var vmInformer cache.SharedIndexInformer
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
-	var watchdogSource *framework.FakeControllerSource
-	var watchdogInformer cache.SharedIndexInformer
 	var gracefulShutdownSource *framework.FakeControllerSource
 	var gracefulShutdownInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
@@ -90,7 +88,6 @@ var _ = Describe("VM", func() {
 
 		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
-		watchdogInformer, watchdogSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, gracefulShutdownSource = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 
@@ -106,10 +103,8 @@ var _ = Describe("VM", func() {
 			virtClient,
 			host,
 			shareDir,
-			10,
 			vmInformer,
 			domainInformer,
-			watchdogInformer,
 			gracefulShutdownInformer)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
@@ -124,9 +119,8 @@ var _ = Describe("VM", func() {
 
 		go vmInformer.Run(stop)
 		go domainInformer.Run(stop)
-		go watchdogInformer.Run(stop)
 		go gracefulShutdownInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, domainInformer.HasSynced, watchdogInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
+		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 	})
 
 	AfterEach(func() {

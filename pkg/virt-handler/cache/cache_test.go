@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -38,6 +39,7 @@ import (
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/notify-server/client"
+	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 var _ = Describe("Domain informer", func() {
@@ -58,7 +60,7 @@ var _ = Describe("Domain informer", func() {
 		socketsDir = filepath.Join(shareDir, "sockets")
 		os.Mkdir(socketsDir, 0755)
 
-		informer, err = NewSharedInformer(shareDir)
+		informer, err = NewSharedInformer(shareDir, 10)
 		Expect(err).ToNot(HaveOccurred())
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -134,6 +136,40 @@ var _ = Describe("Domain informer", func() {
 
 			verifyObj("default/test", domain)
 		})
+
+		It("should detect expired watchdog file.", func() {
+			socketPath := filepath.Join(socketsDir, "default_test_sock")
+			f, err := os.Create(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			d := &DomainWatcher{
+				backgroundWatcherStarted: false,
+				virtShareDir:             shareDir,
+				watchdogTimeout:          1,
+			}
+
+			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
+			os.MkdirAll(filepath.Dir(watchdogFile), 0755)
+			watchdog.WatchdogFileUpdate(watchdogFile)
+
+			err = d.startBackground()
+			Expect(err).ToNot(HaveOccurred())
+			defer d.Stop()
+
+			timedOut := false
+			timeout := time.After(3 * time.Second)
+			select {
+			case event := <-d.eventChan:
+				Expect(event.Type).To(Equal(watch.Deleted))
+			case <-timeout:
+				timedOut = true
+			}
+
+			Expect(timedOut).To(Equal(false))
+
+		}, 5)
+
 		It("should not return errors when encountering disconnected clients at startup.", func() {
 			var list []*api.Domain
 

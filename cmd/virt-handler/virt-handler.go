@@ -44,7 +44,6 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const (
@@ -105,7 +104,7 @@ func (app *virtHandlerApp) Run() {
 	// Wire VM controller
 
 	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir)
+	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()))
 	if err != nil {
 		panic(err)
 	}
@@ -119,14 +118,6 @@ func (app *virtHandlerApp) Run() {
 
 	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
 
-	watchdogInformer := cache.NewSharedIndexInformer(
-		watchdog.NewWatchdogListWatchFromClient(
-			app.VirtShareDir,
-			int(app.WatchdogTimeoutDuration.Seconds())),
-		&virt_api.Domain{},
-		0,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
 		inotifyinformer.NewFileListWatchFromClient(
 			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
@@ -139,10 +130,8 @@ func (app *virtHandlerApp) Run() {
 		virtCli,
 		app.HostOverride,
 		app.VirtShareDir,
-		int(app.WatchdogTimeoutDuration.Seconds()),
 		vmSharedInformer,
 		domainSharedInformer,
-		watchdogInformer,
 		gracefulShutdownInformer,
 	)
 

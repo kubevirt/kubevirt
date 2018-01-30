@@ -21,6 +21,7 @@ package cache
 
 import (
 	"sync"
+	"time"
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,12 +32,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/notify-server"
+	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-func newListWatchFromNotify(virtShareDir string) cache.ListerWatcher {
+func newListWatchFromNotify(virtShareDir string, watchdogTimeout int) cache.ListerWatcher {
 	d := &DomainWatcher{
 		backgroundWatcherStarted: false,
 		virtShareDir:             virtShareDir,
+		watchdogTimeout:          watchdogTimeout,
 	}
 
 	return d
@@ -49,6 +52,7 @@ type DomainWatcher struct {
 	eventChan                chan watch.Event
 	backgroundWatcherStarted bool
 	virtShareDir             string
+	watchdogTimeout          int
 }
 
 func (d *DomainWatcher) startBackground() error {
@@ -66,6 +70,7 @@ func (d *DomainWatcher) startBackground() error {
 	go func() {
 		defer d.wg.Done()
 
+		expiredWatchdogTicker := time.NewTicker(time.Duration(d.watchdogTimeout) * time.Second).C
 		srvErr := make(chan error)
 		go func() {
 			defer close(srvErr)
@@ -73,16 +78,35 @@ func (d *DomainWatcher) startBackground() error {
 			srvErr <- err
 		}()
 
-		// wait for server to exit.
-		select {
-		case err := <-srvErr:
-			if err != nil {
-				log.Log.Reason(err).Errorf("Unexpeted err encountered with Domain Notify aggregation server")
+		for {
+			select {
+			case <-expiredWatchdogTicker:
+				d.handleStaleWatchdogFiles()
+			case err := <-srvErr:
+				if err != nil {
+					log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
+				}
+
+				// server exitted so this goroutine is done.
+				return
 			}
 		}
 	}()
 
 	d.backgroundWatcherStarted = true
+	return nil
+}
+
+func (d *DomainWatcher) handleStaleWatchdogFiles() error {
+	domains, err := watchdog.GetExpiredDomains(d.watchdogTimeout, d.virtShareDir)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to detect expired watchdog files in domain informer")
+		return err
+	}
+
+	for _, domain := range domains {
+		d.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
+	}
 	return nil
 }
 
@@ -156,18 +180,18 @@ func (d *DomainWatcher) Stop() {
 	if d.backgroundWatcherStarted == false {
 		return
 	}
-	close(d.eventChan)
 	close(d.stopChan)
 	d.wg.Wait()
 	d.backgroundWatcherStarted = false
+	close(d.eventChan)
 }
 
 func (d *DomainWatcher) ResultChan() <-chan watch.Event {
 	return d.eventChan
 }
 
-func NewSharedInformer(virtShareDir string) (cache.SharedInformer, error) {
-	lw := newListWatchFromNotify(virtShareDir)
+func NewSharedInformer(virtShareDir string, watchdogTimeout int) (cache.SharedInformer, error) {
+	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout)
 	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
 	return informer, nil
 }

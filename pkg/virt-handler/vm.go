@@ -56,10 +56,8 @@ func NewController(
 	clientset kubecli.KubevirtClient,
 	host string,
 	virtShareDir string,
-	watchdogTimeoutSeconds int,
 	vmInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
-	watchdogInformer cache.SharedIndexInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
 ) *VirtualMachineController {
 
@@ -71,10 +69,8 @@ func NewController(
 		clientset:                clientset,
 		host:                     host,
 		virtShareDir:             virtShareDir,
-		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		vmInformer:               vmInformer,
 		domainInformer:           domainInformer,
-		watchdogInformer:         watchdogInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
 	}
 
@@ -88,12 +84,6 @@ func NewController(
 		AddFunc:    c.addDomainFunc,
 		DeleteFunc: c.deleteDomainFunc,
 		UpdateFunc: c.updateDomainFunc,
-	})
-
-	watchdogInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addFunc,
-		DeleteFunc: c.deleteFunc,
-		UpdateFunc: c.updateFunc,
 	})
 
 	gracefulShutdownInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -112,11 +102,9 @@ type VirtualMachineController struct {
 	clientset                kubecli.KubevirtClient
 	host                     string
 	virtShareDir             string
-	watchdogTimeoutSeconds   int
 	Queue                    workqueue.RateLimitingInterface
 	vmInformer               cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
-	watchdogInformer         cache.SharedIndexInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
 	launcherClients          map[string]cmdclient.LauncherClient
 	launcherClientLock       sync.Mutex
@@ -247,9 +235,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	go c.vmInformer.Run(stopCh)
-	go c.watchdogInformer.Run(stopCh)
 	go c.gracefulShutdownInformer.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.watchdogInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -337,25 +324,6 @@ func (d *VirtualMachineController) execute(key string) error {
 		return err
 	}
 
-	// Determine if VM's watchdog has expired
-	watchdogExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
-	if err != nil {
-		return err
-	} else if watchdogExpired && vm.IsRunning() {
-		log.Log.Object(vm).Info("Shutting down due to expired watchdog.")
-		shouldShutdownAndDelete = true
-		if domainExists {
-			// Virt-launcher provids domain state. If virt-launcher
-			// is down, the domain needs to be deleted from the cache.
-			err = d.domainInformer.GetStore().Delete(domain)
-			if err != nil {
-				return err
-			}
-		}
-		domainExists = false
-		domain = nil
-	}
-
 	// Determine if gracefulShutdown has been triggered by virt-launcher
 	gracefulShutdown, err := virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vm)
 	if err != nil {
@@ -418,7 +386,7 @@ func (d *VirtualMachineController) execute(key string) error {
 	var syncErr error
 
 	// Process the VM update in this order.
-	// * Shutdown and Deletion due to VM deletion, process stopping, graceful shutdown trigger, expired watchdog, etc...
+	// * Shutdown and Deletion due to VM deletion, process stopping, graceful shutdown trigger, etc...
 	// * Cleanup of already shutdown and Deleted VMs
 	// * Update due to spec change and initial start flow.
 	if shouldShutdownAndDelete {
