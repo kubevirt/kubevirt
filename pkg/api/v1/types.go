@@ -620,3 +620,49 @@ func (vl *VirtualMachinePresetList) GetObjectKind() schema.ObjectKind {
 func (vl *VirtualMachinePresetList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
+
+// OfflineVirtualMachine handles the VirtualMachines that are not running
+// or are in a stopped state
+// The OfflineVirtualMachine contains the template to create the
+// VirtualMachine. It also mirrors the running state of the created
+// VirtualMachine in its status.
+type OfflineVirtualMachine struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   OfflineVirtualMachineSpec   `json:"spec,omitempty"`
+	Status OfflineVirtualMachineStatus `json:"status,omitempty"`
+}
+
+// OfflineVirtualMachineList is a list of offlinevirtualmachines
+type OfflineVirtualMachineList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []OfflineVirtualMachine `json:"items"`
+}
+
+// OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine
+// should look like
+type OfflineVirtualMachineSpec struct {
+	Running  bool                `json:"Running"`
+	Template *VirtualMachineSpec `json:"Template"`
+}
+
+// OfflineVirtualMachineStatus represents the status returned by the
+// controller to describe how the OfflineVirtualMachine is doing
+type OfflineVirtualMachineStatus struct {
+	VirtualMachineName string `json:"VMname,omitempty"`
+	Running            bool   `json:"Running,ommitempty"`
+	Ready              bool   `json:"Ready,ommitempty"`
+}
+
+// GetObjectKind is required to satisfy Object interface
+func (v *OfflineVirtualMachine) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// GetObjectMeta is required to satisfy ObjectMetaAccessor interface
+func (v *OfflineVirtualMachine) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
