@@ -110,16 +110,14 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should list domains", func() {
 			var list []*api.Domain
-
 			list = append(list, api.NewMinimalDomain("testvm1"))
-			list = append(list, api.NewMinimalDomain("testvm2"))
-			list = append(list, api.NewMinimalDomain("testvm3"))
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
-			returnList, err := client.ListDomains()
+			domain, exists, err := client.GetDomain()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(len(returnList)).To(Equal(3))
+			Expect(exists).To(Equal(true))
+			Expect(domain).ToNot(Equal(nil))
 		})
 
 		It("client should return disconnected after server stops", func() {

@@ -106,7 +106,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 		}
 		defer client.Close()
 
-		foundDomains, err := client.ListDomains()
+		domain, exists, err := client.GetDomain()
 		if err != nil {
 			log.Log.Reason(err).Error("failed to list domains on cmd client socket")
 			// Failure to get domain list means that client
@@ -115,7 +115,9 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 			// be sent.
 			continue
 		}
-		domains = append(domains, foundDomains...)
+		if exists == true {
+			domains = append(domains, domain)
+		}
 	}
 	return domains, nil
 }

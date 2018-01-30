@@ -41,9 +41,9 @@ import (
 )
 
 type Reply struct {
-	Success        bool
-	Message        string
-	DomainListJSON string
+	Success    bool
+	Message    string
+	DomainJSON string
 }
 
 type Args struct {
@@ -62,7 +62,7 @@ type LauncherClient interface {
 	ShutdownVirtualMachine(vm *v1.VirtualMachine) error
 	KillVirtualMachine(vm *v1.VirtualMachine) error
 	SyncSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error
-	ListDomains() ([]*api.Domain, error)
+	GetDomain() (*api.Domain, bool, error)
 	Ping() error
 	Close()
 }
@@ -162,23 +162,26 @@ func (c *VirtLauncherClient) KillVirtualMachine(vm *v1.VirtualMachine) error {
 	return err
 }
 
-func (c *VirtLauncherClient) ListDomains() ([]*api.Domain, error) {
-	var list []*api.Domain
-	cmd := "Launcher.ListDomains"
+func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
+	domain := &api.Domain{}
+	cmd := "Launcher.GetDomain"
+	exists := false
 
 	args := &Args{}
 
 	reply, err := c.genericSendCmd(args, cmd)
 	if err != nil {
-		return list, err
+		return nil, exists, err
 	}
 
-	err = json.Unmarshal([]byte(reply.DomainListJSON), &list)
-
-	if err != nil {
-		return list, err
+	if reply.DomainJSON != "" {
+		err = json.Unmarshal([]byte(reply.DomainJSON), domain)
+		if err != nil {
+			return nil, exists, err
+		}
+		exists = true
 	}
-	return list, nil
+	return domain, exists, nil
 
 }
 func (c *VirtLauncherClient) StartVirtualMachine(vm *v1.VirtualMachine, secrets map[string]*k8sv1.Secret) error {

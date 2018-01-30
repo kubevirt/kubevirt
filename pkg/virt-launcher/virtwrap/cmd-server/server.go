@@ -157,7 +157,7 @@ func (s *Launcher) Shutdown(args *cmdclient.Args, reply *cmdclient.Reply) error 
 	return nil
 }
 
-func (s *Launcher) ListDomains(args *cmdclient.Args, reply *cmdclient.Reply) error {
+func (s *Launcher) GetDomain(args *cmdclient.Args, reply *cmdclient.Reply) error {
 
 	reply.Success = true
 
@@ -168,13 +168,17 @@ func (s *Launcher) ListDomains(args *cmdclient.Args, reply *cmdclient.Reply) err
 		return nil
 	}
 
-	domainListJSON, err := json.Marshal(list)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+	if len(list) == 0 {
+		reply.DomainJSON = ""
+	} else {
+		domainJSON, err := json.Marshal(list[0])
+		if err != nil {
+			reply.Success = false
+			reply.Message = err.Error()
+			return nil
+		}
+		reply.DomainJSON = string(domainJSON)
 	}
-	reply.DomainListJSON = string(domainListJSON)
 
 	return nil
 }

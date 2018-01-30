@@ -72,15 +72,16 @@ func (_mr *_MockLauncherClientRecorder) SyncSecret(arg0, arg1, arg2, arg3 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncSecret", arg0, arg1, arg2, arg3)
 }
 
-func (_m *MockLauncherClient) ListDomains() ([]*api.Domain, error) {
-	ret := _m.ctrl.Call(_m, "ListDomains")
-	ret0, _ := ret[0].([]*api.Domain)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+func (_m *MockLauncherClient) GetDomain() (*api.Domain, bool, error) {
+	ret := _m.ctrl.Call(_m, "GetDomain")
+	ret0, _ := ret[0].(*api.Domain)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-func (_mr *_MockLauncherClientRecorder) ListDomains() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListDomains")
+func (_mr *_MockLauncherClientRecorder) GetDomain() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomain")
 }
 
 func (_m *MockLauncherClient) Ping() error {

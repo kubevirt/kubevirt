@@ -92,8 +92,6 @@ var _ = Describe("Domain informer", func() {
 			var list []*api.Domain
 
 			list = append(list, api.NewMinimalDomain("testvm1"))
-			list = append(list, api.NewMinimalDomain("testvm2"))
-			list = append(list, api.NewMinimalDomain("testvm3"))
 
 			socketPath := filepath.Join(socketsDir, "default_testvm1_sock")
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
@@ -113,7 +111,7 @@ var _ = Describe("Domain informer", func() {
 			listResults, err := d.listAllKnownDomains()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(len(listResults)).To(Equal(3))
+			Expect(len(listResults)).To(Equal(1))
 		})
 		It("should detect active domains at startup.", func() {
 			var list []*api.Domain
