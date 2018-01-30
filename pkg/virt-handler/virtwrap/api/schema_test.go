@@ -42,6 +42,7 @@ var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/dom
   <devices>
     <interface type="network">
       <source network="default"></source>
+      <model type="e1000"></model>
     </interface>
     <video>
       <model type="vga" heads="1" vram="16384"></model>

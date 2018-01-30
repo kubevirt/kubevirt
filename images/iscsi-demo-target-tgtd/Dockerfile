@@ -28,12 +28,12 @@ RUN mkdir -p /volume
 
 # Add alpine image
 RUN curl \
-      https://nl.alpinelinux.org/alpine/v3.5/releases/x86_64/alpine-virt-3.5.1-x86_64.iso \
+      http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso \
       > /volume/alpine.iso
 
 # Add cirros
 RUN curl \
-      http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img \
+      https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img \
       > /volume/cirros.img \
       && qemu-img convert -O raw /volume/cirros.img /volume/cirros.rawa \
       && rm volume/cirros.img
