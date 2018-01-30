@@ -72,7 +72,7 @@ if [ "$OUTPUT_FORMAT" = "html" ]; then
 
     # Determine version of KubeVirt, as a commit hash or tag in case of tagged commit.
     gittagmatch="$(git describe --exact-match 2>/dev/null || true)"
-    if [ "$gittagmatch" -n ]; then
+    if [ -n "$gittagmatch" ]; then
         gitcommithash="${gittagmatch}"
         gitlink="${GIT_REPO_LINK}/releases/tag"
     else
