@@ -43,7 +43,7 @@ func (Machine) SwaggerDoc() map[string]string {
 
 func (Firmware) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"uid": "UID reported by the vm bios\nDefaults to a random generated uid",
+		"uuid": "UUID reported by the vm bios\nDefaults to a random generated uid",
 	}
 }
 

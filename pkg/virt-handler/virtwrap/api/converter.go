@@ -273,7 +273,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		domain.Spec.SysInfo.System = []Entry{
 			{
 				Name:  "uuid",
-				Value: string(vm.Spec.Domain.Firmware.UID),
+				Value: string(vm.Spec.Domain.Firmware.UUID),
 			},
 		}
 	}

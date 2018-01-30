@@ -2612,8 +2612,8 @@
    },
    "v1.Firmware": {
     "properties": {
-     "uid": {
-      "description": "UID reported by the vm bios\nDefaults to a random generated uid",
+     "uuid": {
+      "description": "UUID reported by the vm bios\nDefaults to a random generated uid",
       "type": "string"
      }
     }
