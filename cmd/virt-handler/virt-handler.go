@@ -41,9 +41,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
+	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	virtcache "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cache"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
