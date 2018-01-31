@@ -85,13 +85,13 @@ func diskDeviceFromBusAndIndex(deviceName, bus string, index int) string {
 // port of http://elixir.free-electrons.com/linux/v4.15/source/drivers/scsi/sd.c#L3211
 func formatDeviceName(prefix string, index int) string {
 	base := int('z' - 'a' + 1)
-	name := prefix
+	name := ""
 
 	for index >= 0 {
-		name += string('a' + (index % base))
+		name = string('a'+(index%base)) + name
 		index = (index / base) - 1
 	}
-	return name
+	return prefix + name
 }
 
 func toApiReadOnly(src bool) *ReadOnly {
