@@ -17,10 +17,13 @@ function up() {
 
     OPTIONS=$(vagrant ssh-config master | grep -v '^Host ' | awk -v ORS=' ' 'NF{print "-o " $1 "=" $2}')
 
-    scp $OPTIONS master:/usr/bin/kubectl ${KUBEVIRT_PATH}cluster/vagrant/.kubectl
-    chmod u+x cluster/vagrant/.kubectl
+    scp $OPTIONS master:/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/vagrant-openshift/.oc
+    chmod u+x cluster/vagrant-openshift/.oc
 
-    vagrant ssh master -c "sudo cat /etc/kubernetes/admin.conf" >${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig
+    vagrant ssh master -c "sudo cat /etc/origin/master/openshift-master.kubeconfig" >${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubeconfig
+
+    # Login to OpenShift
+    cluster/vagrant-openshift/.oc login $(_main_ip):8443 --insecure-skip-tls-verify=true -u admin -p admin
 
     # Make sure that local config is correct
     prepare_config
@@ -28,10 +31,10 @@ function up() {
 
 function prepare_config() {
     BASE_PATH=${KUBEVIRT_PATH:-$PWD}
-    cat >hack/config-provider-vagrant.sh <<EOF
+    cat >hack/config-provider-vagrant-openshift.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
-kubeconfig=${BASE_PATH}/cluster/vagrant/.kubeconfig
+kubeconfig=${BASE_PATH}/cluster/vagrant-openshift/.kubeconfig
 EOF
 }
 
@@ -39,13 +42,13 @@ function build() {
     make build manifests
     for VM in $(vagrant status | grep -v "^The Libvirt domain is running." | grep running | cut -d " " -f1); do
         vagrant rsync $VM # if you do not use NFS
-        vagrant ssh $VM -c "cd /vagrant && export DOCKER_TAG=${docker_tag} && sudo -E hack/build-docker.sh build"
+        vagrant ssh $VM -c "cd /vagrant && export DOCKER_TAG=${docker_tag} && sudo -E hack/build-docker.sh build &&  sudo -E hack/build-docker.sh build optional"
     done
 }
 
 function _kubectl() {
-    export KUBECONFIG=${KUBEVIRT_PATH}cluster/vagrant/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/vagrant/.kubectl "$@"
+    export KUBECONFIG=${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubeconfig
+    ${KUBEVIRT_PATH}cluster/vagrant-openshift/.oc "$@"
 }
 
 function down() {

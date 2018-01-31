@@ -21,7 +21,7 @@
 # We're leaving this file around for people who still reference this
 # specific script in their development workflow.
 
-PROVIDER=${PROVIDER:-vagrant}
+PROVIDER=${PROVIDER:-vagrant-kubernetes}
 source cluster/$PROVIDER/provider.sh
 
 build

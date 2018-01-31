@@ -71,7 +71,7 @@ set -e
 make
 
 # Make sure we can connect to kubernetes
-export APISERVER=$(cat cluster/vagrant/.kubeconfig | grep server | sed -e 's# \+server: https://##' | sed -e 's/\r//')
+export APISERVER=$(cat cluster/vagrant-kubernetes/.kubeconfig | grep server | sed -e 's# \+server: https://##' | sed -e 's/\r//')
 $WORKSPACE/dockerize -wait tcp://$APISERVER -timeout 300s
 # Make sure we don't try to talk to Vagrant host via a proxy
 export no_proxy="${APISERVER%:*}"

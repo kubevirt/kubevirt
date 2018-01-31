@@ -1,4 +1,4 @@
-#!/bin/bash
+#/bin/bash -xe
 #
 # This file is part of the KubeVirt project
 #
@@ -17,16 +17,13 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-set -e
+master_ip=$1
+nodes=$2
 
-source $(dirname "$0")/../hack/common.sh
+bash /vagrant/cluster/vagrant-openshift/setup_common.sh $master_ip $nodes
 
-PROVIDER=${PROVIDER:-vagrant-kubernetes}
-source ${KUBEVIRT_DIR}/cluster/$PROVIDER/provider.sh
-source ${KUBEVIRT_DIR}/hack/config.sh
+# Set SELinux to permessive mode
+setenforce 0
+sed -i "s/^SELINUX=.*/SELINUX=permissive/" /etc/selinux/config
 
-if [ "$1" == "console" ] || [ "$1" == "vnc" ]; then
-    ${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl "$@" --kubeconfig=${kubeconfig}
-else
-    _kubectl "$@"
-fi
+echo -e "\033[0;32m Deployment was successful!\033[0m"
