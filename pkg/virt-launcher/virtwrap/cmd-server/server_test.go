@@ -79,7 +79,7 @@ var _ = Describe("Virt remote commands", func() {
 			domainManager.EXPECT().SyncVM(vm, gomock.Any()).Return(&domain.Spec, nil)
 
 			var secrets map[string]*k8sv1.Secret
-			err := client.StartVirtualMachine(vm, secrets)
+			err := client.SyncVirtualMachine(vm, secrets)
 			Expect(err).ToNot(HaveOccurred())
 		})
 

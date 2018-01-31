@@ -717,7 +717,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	if err != nil {
 		return err
 	}
-	err = client.StartVirtualMachine(vm, secrets)
+	err = client.SyncVirtualMachine(vm, secrets)
 	if err != nil {
 		return err
 	}

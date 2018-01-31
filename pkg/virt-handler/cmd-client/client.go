@@ -60,7 +60,7 @@ type Args struct {
 }
 
 type LauncherClient interface {
-	StartVirtualMachine(vm *v1.VirtualMachine, secrets map[string]*k8sv1.Secret) error
+	SyncVirtualMachine(vm *v1.VirtualMachine, secrets map[string]*k8sv1.Secret) error
 	ShutdownVirtualMachine(vm *v1.VirtualMachine) error
 	KillVirtualMachine(vm *v1.VirtualMachine) error
 	SyncSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error
@@ -198,9 +198,9 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	return domain, exists, nil
 
 }
-func (c *VirtLauncherClient) StartVirtualMachine(vm *v1.VirtualMachine, secrets map[string]*k8sv1.Secret) error {
+func (c *VirtLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachine, secrets map[string]*k8sv1.Secret) error {
 
-	cmd := "Launcher.Start"
+	cmd := "Launcher.Sync"
 
 	vmJSON, err := json.Marshal(*vm)
 	if err != nil {

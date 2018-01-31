@@ -84,7 +84,7 @@ func (s *Launcher) SyncSecret(args *cmdclient.Args, reply *cmdclient.Reply) erro
 	return nil
 }
 
-func (s *Launcher) Start(args *cmdclient.Args, reply *cmdclient.Reply) error {
+func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	reply.Success = true
 
 	vm, err := getVmfromClientArgs(args)

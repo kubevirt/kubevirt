@@ -266,7 +266,7 @@ var _ = Describe("VM", func() {
 			vmFeeder.Add(vm)
 
 			secrets := map[string]*k8sv1.Secret{}
-			client.EXPECT().StartVirtualMachine(vm, secrets)
+			client.EXPECT().SyncVirtualMachine(vm, secrets)
 
 			controller.Execute()
 		})
@@ -333,7 +333,7 @@ var _ = Describe("VM", func() {
 			vmFeeder.Add(vm)
 
 			secrets := map[string]*k8sv1.Secret{}
-			client.EXPECT().StartVirtualMachine(vm, secrets)
+			client.EXPECT().SyncVirtualMachine(vm, secrets)
 			vmInterface.EXPECT().Update(updatedVM)
 
 			controller.Execute()

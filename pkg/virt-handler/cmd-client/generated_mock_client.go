@@ -32,14 +32,14 @@ func (_m *MockLauncherClient) EXPECT() *_MockLauncherClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockLauncherClient) StartVirtualMachine(vm *v10.VirtualMachine, secrets map[string]*v1.Secret) error {
-	ret := _m.ctrl.Call(_m, "StartVirtualMachine", vm, secrets)
+func (_m *MockLauncherClient) SyncVirtualMachine(vm *v10.VirtualMachine, secrets map[string]*v1.Secret) error {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachine", vm, secrets)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) StartVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartVirtualMachine", arg0, arg1)
+func (_mr *_MockLauncherClientRecorder) SyncVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachine", arg0, arg1)
 }
 
 func (_m *MockLauncherClient) ShutdownVirtualMachine(vm *v10.VirtualMachine) error {
