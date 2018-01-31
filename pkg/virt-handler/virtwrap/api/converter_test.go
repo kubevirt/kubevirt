@@ -244,7 +244,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			vm.Spec.Domain.Firmware = &v1.Firmware{
-				UID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
+				UUID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
 			}
 
 			gracePerod := int64(5)

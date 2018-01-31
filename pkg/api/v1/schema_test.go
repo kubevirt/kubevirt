@@ -47,7 +47,7 @@ var exampleJSON = `{
         "cores": 3
       },
       "firmware": {
-        "uid": "28a42a60-44ef-4428-9c10-1a6aee94627f"
+        "uuid": "28a42a60-44ef-4428-9c10-1a6aee94627f"
       },
       "clock": {
         "utc": {},
@@ -301,7 +301,7 @@ var _ = Describe("Schema", func() {
 			},
 		}
 		exampleVM.Spec.Domain.Firmware = &Firmware{
-			UID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
+			UUID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
 		}
 		exampleVM.Spec.Domain.CPU = &CPU{
 			Cores: 3,

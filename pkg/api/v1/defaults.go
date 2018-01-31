@@ -98,8 +98,8 @@ func SetDefaults_I6300ESBWatchdog(obj *I6300ESBWatchdog) {
 }
 
 func SetDefaults_Firmware(obj *Firmware) {
-	if obj.UID == "" {
-		obj.UID = types.UID(uuid.NewRandom().String())
+	if obj.UUID == "" {
+		obj.UUID = types.UID(uuid.NewRandom().String())
 	}
 }
 

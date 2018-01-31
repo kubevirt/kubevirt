@@ -84,9 +84,9 @@ type Machine struct {
 }
 
 type Firmware struct {
-	// UID reported by the vm bios
+	// UUID reported by the vm bios
 	// Defaults to a random generated uid
-	UID types.UID `json:"uid,omitempty"`
+	UUID types.UID `json:"uuid,omitempty"`
 }
 
 type Devices struct {
