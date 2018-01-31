@@ -45,9 +45,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 

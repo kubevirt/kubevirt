@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/log"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/notify-server"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )

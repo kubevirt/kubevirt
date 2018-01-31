@@ -32,9 +32,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
 )
 
 var _ = Describe("Virt remote commands", func() {

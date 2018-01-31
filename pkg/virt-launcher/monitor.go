@@ -34,7 +34,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server/client"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
