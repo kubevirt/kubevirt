@@ -30,8 +30,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/notify-server"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 

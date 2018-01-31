@@ -34,9 +34,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/watch"
 
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/notify-server"
 )
 
 var _ = Describe("Domain notify", func() {

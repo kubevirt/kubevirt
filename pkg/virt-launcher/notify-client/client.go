@@ -13,10 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	"kubevirt.io/kubevirt/pkg/log"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
