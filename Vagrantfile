@@ -97,6 +97,7 @@ Vagrant.configure(2) do |config|
         export NETWORK_PROVIDER=#{$network_provider}
         cd /vagrant/cluster/vagrant
         bash setup_kubernetes_master.sh
+        bash setup_gluster.sh
         set +x
         echo -e "\033[0;32m Deployment was successful!"
         echo -e "Cockpit is accessible at https://#{$master_ip}:9090."
