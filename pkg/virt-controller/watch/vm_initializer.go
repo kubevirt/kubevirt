@@ -2,6 +2,7 @@ package watch
 
 import (
 	"fmt"
+	"strings"
 
 	"k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,7 @@ type VMInitializer struct {
 }
 
 const initializerMarking = "virtualmachines.kubevirt.io"
+const annotationPrefix = "virtualmachinepreset.admission.kubernetes.io/virtualmachinepreset"
 
 // FIXME: Both the restClient and clientSet are probably not needed.
 func NewVMInitializer(restClient *rest.RESTClient, queue workqueue.RateLimitingInterface, vmCache cache.Store, clientset kubecli.KubevirtClient) *VMInitializer {
@@ -45,25 +47,25 @@ func (c *VMInitializer) initializeVM(vm *kubev1.VirtualMachine) error {
 
 	logger.Object(vm).Info("Initializing VM")
 
-	list, err := listPresets(c.restClient, vm.GetNamespace(), labels.Everything())
+	allPresets, err := listPresets(c.restClient, vm.GetNamespace(), labels.Everything())
 	//list, err := c.clientset.VirtualMachinePresets(a.GetNamespace()).List(labels.Everything())
 
-	presets, err := filterPresets(list, vm)
+	matchingPresets, err := filterPresets(allPresets, vm)
 
 	if err != nil {
 		logger.Object(vm).Reason(err).Errorf("Error while matching presets to VirtualMachine")
 		errors = append(errors, err)
 	}
 
-	if len(presets) != 0 {
-		err = checkPresetMergeConflicts(vm, presets)
+	if len(matchingPresets) != 0 {
+		err = checkPresetMergeConflicts(vm, matchingPresets)
 
 		if err != nil {
 			logger.Reason(err).Errorf("Conflicting VM Presets")
 			errors = append(errors, fmt.Errorf("conflicting vm presets"))
 		}
 
-		err = applyPresets(vm, presets)
+		err = applyPresets(vm, matchingPresets)
 		if err != nil {
 			// A more specific error should have been logged during the applyPresets call.
 			// We don't know *which* preset in the list was problematic at this level.
@@ -161,11 +163,17 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) e
 	if presetSpec.Devices.Watchdog != nil {
 		presetSpec.Devices.Watchdog.DeepCopyInto(vmSpec.Devices.Watchdog)
 
-		// FIXME: this is slightly wrong. There can exist exact duplicates
-		// in the destination list which must be weeded out.
-		// We do not need to worry about conflicting devices here
-		// checkPresetMergeConflicts would have already raised an error
-		vmSpec.Devices.Disks = append(vmSpec.Devices.Disks, presetSpec.Devices.Disks...)
+		// Devices in the VM should appear first (for mount point ordering)
+		// Append all devices from preset, but ignore duplicates.
+		deviceSet := make(map[string]bool)
+		for _, vmDev := range vmSpec.Devices.Disks {
+			deviceSet[vmDev.Name] = true
+		}
+		for _, presetDev := range presetSpec.Devices.Disks {
+			if !deviceSet[presetDev.Name] {
+				vmSpec.Devices.Disks = append(vmSpec.Devices.Disks, presetDev)
+			}
+		}
 	}
 	return nil
 }
@@ -196,6 +204,14 @@ func removeInitializer(vm *kubev1.VirtualMachine) {
 }
 
 func annotateVM(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset) error {
-	//FIXME: implement
+	if vm.Annotations == nil {
+		vm.Annotations = map[string]string{}
+	}
+	for _, preset := range presets {
+		kind := strings.ToLower(preset.Kind)
+		annotationKey := fmt.Sprintf("%s.%s/%s", kind, kubev1.GroupName, preset.Name)
+		vm.Annotations[annotationKey] = preset.APIVersion
+	}
+
 	return nil
 }
