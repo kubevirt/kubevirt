@@ -208,6 +208,14 @@ func (vl *VirtualMachineList) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (v *VirtualMachine) MarshalBinary() (data []byte, err error) {
+	return json.Marshal(*v)
+}
+
+func (v *VirtualMachine) UnmarshalBinary(data []byte) error {
+	return v.UnmarshalJSON(data)
+}
+
 type VirtualMachineConditionType string
 
 // These are valid conditions of VMs.

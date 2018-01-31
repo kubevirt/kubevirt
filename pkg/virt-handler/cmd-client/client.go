@@ -26,7 +26,6 @@ package cmdclient
 */
 
 import (
-	"encoding/json"
 	goerror "errors"
 	"fmt"
 	"io"
@@ -43,15 +42,15 @@ import (
 )
 
 type Reply struct {
-	Success    bool
-	Message    string
-	DomainJSON string
+	Success bool
+	Message string
+	Domain  *api.Domain
 }
 
 type Args struct {
 	// used for domain management
-	VMJSON          string
-	K8SecretMapJSON string
+	VM        *v1.VirtualMachine
+	K8Secrets map[string]*k8sv1.Secret
 
 	// used for syncing secrets
 	SecretUsageType string
@@ -149,14 +148,10 @@ func (c *VirtLauncherClient) genericSendCmd(args *Args, cmd string) (*Reply, err
 func (c *VirtLauncherClient) ShutdownVirtualMachine(vm *v1.VirtualMachine) error {
 	cmd := "Launcher.Shutdown"
 
-	vmJSON, err := json.Marshal(*vm)
-	if err != nil {
-		return err
-	}
 	args := &Args{
-		VMJSON: string(vmJSON),
+		VM: vm,
 	}
-	_, err = c.genericSendCmd(args, cmd)
+	_, err := c.genericSendCmd(args, cmd)
 
 	return err
 }
@@ -164,14 +159,10 @@ func (c *VirtLauncherClient) ShutdownVirtualMachine(vm *v1.VirtualMachine) error
 func (c *VirtLauncherClient) KillVirtualMachine(vm *v1.VirtualMachine) error {
 	cmd := "Launcher.Kill"
 
-	vmJSON, err := json.Marshal(*vm)
-	if err != nil {
-		return err
-	}
 	args := &Args{
-		VMJSON: string(vmJSON),
+		VM: vm,
 	}
-	_, err = c.genericSendCmd(args, cmd)
+	_, err := c.genericSendCmd(args, cmd)
 
 	return err
 }
@@ -188,11 +179,8 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 		return nil, exists, err
 	}
 
-	if reply.DomainJSON != "" {
-		err = json.Unmarshal([]byte(reply.DomainJSON), domain)
-		if err != nil {
-			return nil, exists, err
-		}
+	if reply.Domain != nil {
+		domain = reply.Domain
 		exists = true
 	}
 	return domain, exists, nil
@@ -202,21 +190,12 @@ func (c *VirtLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachine, secrets m
 
 	cmd := "Launcher.Sync"
 
-	vmJSON, err := json.Marshal(*vm)
-	if err != nil {
-		return err
-	}
-	secretJSON, err := json.Marshal(secrets)
-	if err != nil {
-		return err
-	}
-
 	args := &Args{
-		VMJSON:          string(vmJSON),
-		K8SecretMapJSON: string(secretJSON),
+		VM:        vm,
+		K8Secrets: secrets,
 	}
 
-	_, err = c.genericSendCmd(args, cmd)
+	_, err := c.genericSendCmd(args, cmd)
 
 	return err
 }
@@ -224,18 +203,14 @@ func (c *VirtLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachine, secrets m
 func (c *VirtLauncherClient) SyncSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error {
 	cmd := "Launcher.SyncSecret"
 
-	vmJSON, err := json.Marshal(*vm)
-	if err != nil {
-		return err
-	}
 	args := &Args{
-		VMJSON:          string(vmJSON),
+		VM:              vm,
 		SecretUsageType: usageType,
 		SecretUsageID:   usageID,
 		SecretValue:     secretValue,
 	}
 
-	_, err = c.genericSendCmd(args, cmd)
+	_, err := c.genericSendCmd(args, cmd)
 	return err
 }
 

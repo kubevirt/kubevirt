@@ -20,13 +20,12 @@
 package cmdserver
 
 import (
-	"encoding/json"
+	goerror "errors"
+	"fmt"
 	"net"
 	"net/rpc"
 	"os"
 	"path/filepath"
-
-	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -38,24 +37,11 @@ type Launcher struct {
 	domainManager virtwrap.DomainManager
 }
 
-func getK8SecretsfromClientArgs(args *cmdclient.Args) (map[string]*k8sv1.Secret, error) {
-	var secrets map[string]*k8sv1.Secret
-	err := json.Unmarshal([]byte(args.K8SecretMapJSON), &secrets)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal k8 secrents json object")
-		return nil, err
-	}
-	return secrets, nil
-}
-
 func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachine, error) {
-	vm := &v1.VirtualMachine{}
-	err := json.Unmarshal([]byte(args.VMJSON), vm)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal vm json object")
-		return nil, err
+	if args.VM == nil {
+		return nil, goerror.New(fmt.Sprintf("vm object not present in command server args"))
 	}
-	return vm, nil
+	return args.VM, nil
 }
 
 func (s *Launcher) SyncSecret(args *cmdclient.Args, reply *cmdclient.Reply) error {
@@ -94,14 +80,7 @@ func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	secrets, err := getK8SecretsfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
-	}
-
-	_, err = s.domainManager.SyncVM(vm, secrets)
+	_, err = s.domainManager.SyncVM(vm, args.K8Secrets)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Failed to sync vm")
 		reply.Success = false
@@ -169,15 +148,9 @@ func (s *Launcher) GetDomain(args *cmdclient.Args, reply *cmdclient.Reply) error
 	}
 
 	if len(list) == 0 {
-		reply.DomainJSON = ""
+		reply.Domain = nil
 	} else {
-		domainJSON, err := json.Marshal(list[0])
-		if err != nil {
-			reply.Success = false
-			reply.Message = err.Error()
-			return nil
-		}
-		reply.DomainJSON = string(domainJSON)
+		reply.Domain = list[0]
 	}
 
 	return nil
