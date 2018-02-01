@@ -3,9 +3,9 @@
 set -e
 
 GITHUB_FQDN=github.com
-API_REF_REPO=kubevirt-incubator/api-reference
+API_REF_REPO=kubevirt/api-reference
 API_REF_DIR=/tmp/api-reference
-GITHUB_IO_FQDN="https://kubevirt-incubator.github.io/api-reference"
+GITHUB_IO_FQDN="https://kubevirt.github.io/api-reference"
 
 TARGET_DIR="$TRAVIS_BRANCH"
 if [ -n "${TRAVIS_TAG}" ]; then

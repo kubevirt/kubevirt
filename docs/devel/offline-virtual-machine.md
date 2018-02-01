@@ -100,7 +100,7 @@ get the list of all OfflineVirtualMachines or get the concrete one. **DELETE**
 removes the object from etcd and all its resources. If you want to update the
 existing OfflineVirtualMachine object use **PUT** and if you want to change
 an item inside the object use **PATCH**.
-More details on the API are in the [documentation](https://kubevirt-incubator.github.io/api-reference/master/operations.html).
+More details on the API are in the [documentation](https://kubevirt.github.io/api-reference/master/operations.html).
 
 To data format used when communicating with the API is the JSON. The format is
 set up the usual way by setting the Content-Type header to 'application/json'.
@@ -323,4 +323,4 @@ Since the whole KubeVirt is designed to be modular, this approach allows for
 a more flexbility and less codebase in the core. Moreover it can be scaled
 up separately if the need arise.
 
-[VirtualMachine]: https://kubevirt-incubator.github.io/api-reference/master/definitions.html#_v1_virtualmachine
+[VirtualMachine]: https://kubevirt.github.io/api-reference/master/definitions.html#_v1_virtualmachine
