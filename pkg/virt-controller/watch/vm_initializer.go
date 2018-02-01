@@ -2,53 +2,43 @@ package watch
 
 import (
 	"fmt"
-	"strings"
 
 	"k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-type VMInitializer struct {
-	clientset  kubecli.KubevirtClient
-	restClient *rest.RESTClient
-	queue      workqueue.RateLimitingInterface
-	store      cache.Store
+type VirtualMachineInitializer struct {
+	vmPresetInformer cache.SharedIndexInformer
+	clientset        kubecli.KubevirtClient
 }
 
-const initializerMarking = "virtualmachines.kubevirt.io"
-const annotationPrefix = "virtualmachinepreset.admission.kubernetes.io/virtualmachinepreset"
+const initializerMarking = "presets.virtualmachines.kubevirt.io"
 
 // FIXME: Both the restClient and clientSet are probably not needed.
-func NewVMInitializer(restClient *rest.RESTClient, queue workqueue.RateLimitingInterface, vmCache cache.Store, clientset kubecli.KubevirtClient) *VMInitializer {
-	vmi := VMInitializer{
-		restClient: restClient,
-		clientset:  clientset,
-		store:      vmCache,
-		queue:      queue,
+func NewVMInitializer(vmPresetInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient) *VirtualMachineInitializer {
+	vmi := VirtualMachineInitializer{
+		vmPresetInformer: vmPresetInformer,
+		clientset:        clientset,
 	}
 	return &vmi
 }
 
-func (c *VMInitializer) initializeVM(vm *kubev1.VirtualMachine) error {
+func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualMachine) error {
 	// All VM's must be marked as initialized or they are held in limbo forever
 	// Collect all errors and defer returning until after the update
 	logger := log.Log
 	errors := []error{}
 
-	logger.Object(vm).Info("Initializing VM")
+	logger.Object(vm).Info("Initializing VirtualMachine")
 
-	allPresets, err := listPresets(c.restClient, vm.GetNamespace(), labels.Everything())
-	//list, err := c.clientset.VirtualMachinePresets(a.GetNamespace()).List(labels.Everything())
+	allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
 
 	matchingPresets, err := filterPresets(allPresets, vm)
 
@@ -58,13 +48,6 @@ func (c *VMInitializer) initializeVM(vm *kubev1.VirtualMachine) error {
 	}
 
 	if len(matchingPresets) != 0 {
-		err = checkPresetMergeConflicts(vm, matchingPresets)
-
-		if err != nil {
-			logger.Reason(err).Errorf("Conflicting VM Presets")
-			errors = append(errors, fmt.Errorf("conflicting vm presets"))
-		}
-
 		err = applyPresets(vm, matchingPresets)
 		if err != nil {
 			// A more specific error should have been logged during the applyPresets call.
@@ -76,31 +59,30 @@ func (c *VMInitializer) initializeVM(vm *kubev1.VirtualMachine) error {
 
 	logger.Object(vm).Info("Marking VM as initialized and updating")
 	removeInitializer(vm)
-	c.clientset.VM(vm.Namespace).Update(vm)
+	_, err = c.clientset.VM(vm.Namespace).Update(vm)
+	if err != nil {
+		logger.Object(vm).Errorf("Could not update VM. VM will not appear in the cluster: %v", err)
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
-		utilerrors.NewAggregate(errors)
+		return utilerrors.NewAggregate(errors)
 	}
 	return nil
 }
 
-// FIXME: this should be integrated into the KubeVirt clientset
-func listPresets(restClient *rest.RESTClient, namespace string, selector labels.Selector) ([]kubev1.VirtualMachinePreset, error) {
-	options := k8smetav1.ListOptions{LabelSelector: selector.String()}
-	presetList := &kubev1.VirtualMachinePresetList{}
-	if err := restClient.Get().
-		Resource("virtualmachinepresets").
-		Namespace(namespace).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
-		Into(presetList); err != nil {
-		return nil, err
+// FIXME: There is probably a way to set up the vmPresetInformer such that
+// items are already partitioned into namespaces (and can just be listed)
+func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachinePreset, error) {
+	result := []kubev1.VirtualMachinePreset{}
+	for _, obj := range vmPresetInformer.GetStore().List() {
+		preset := kubev1.VirtualMachinePreset{}
+		obj.(*kubev1.VirtualMachinePreset).DeepCopyInto(&preset)
+		if preset.Namespace == namespace {
+			result = append(result, preset)
+		}
 	}
-	for _, preset := range presetList.Items {
-		preset.SetGroupVersionKind(kubev1.VirtualMachinePresetGroupVersionKind)
-	}
-
-	return presetList.Items, nil
+	return result, nil
 }
 
 // filterPresets returns list of VirtualMachinePresets which match given VirtualMachine.
@@ -126,19 +108,99 @@ func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine
 	return matchingPresets, nil
 }
 
-func checkPresetMergeConflicts(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset) error {
-	//FIXME: implement
+func diskDeviceToDeviceName(dev kubev1.DiskDevice) string {
+	if dev.Disk != nil {
+		return dev.Disk.Device
+	}
+	if dev.LUN != nil {
+		return dev.LUN.Device
+	}
+	if dev.Floppy != nil {
+		return dev.Floppy.Device
+	}
+	if dev.CDRom != nil {
+		return dev.CDRom.Device
+	}
+	return ""
+}
+
+func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) error {
+	errors := []error{}
+	if len(presetSpec.Resources.Requests) > 0 {
+		for key, presetReq := range presetSpec.Resources.Requests {
+			if vmReq, ok := vmSpec.Resources.Requests[key]; ok {
+				if presetReq != vmReq {
+					errors = append(errors, fmt.Errorf("spec.resources.requests[%s]: %v != %v", key, presetReq, vmReq))
+				}
+			}
+		}
+	}
+	if presetSpec.CPU != nil && vmSpec.CPU != nil {
+		if presetSpec.CPU != vmSpec.CPU {
+			errors = append(errors, fmt.Errorf("spec.cpu: %v != %v", presetSpec.CPU, vmSpec.CPU))
+		}
+	}
+	if presetSpec.Firmware != nil && vmSpec.Firmware != nil {
+		if presetSpec.Firmware != vmSpec.Firmware {
+			errors = append(errors, fmt.Errorf("spec.firmware: %v != %v", presetSpec.Firmware, vmSpec.Firmware))
+		}
+	}
+	if presetSpec.Clock != nil && vmSpec.Clock != nil {
+		if presetSpec.Clock.ClockOffset != vmSpec.Clock.ClockOffset {
+			errors = append(errors, fmt.Errorf("spec.clock.clockoffset: %v != %v", presetSpec.Clock.ClockOffset, vmSpec.Clock.ClockOffset))
+		}
+		if presetSpec.Clock.Timer != nil && vmSpec.Clock.Timer != nil {
+			if presetSpec.Clock.Timer != vmSpec.Clock.Timer {
+				errors = append(errors, fmt.Errorf("spec.clock.timer: %v != %v", presetSpec.Clock.Timer, vmSpec.Clock.Timer))
+			}
+		}
+	}
+	if presetSpec.Features != nil && vmSpec.Features != nil {
+		if presetSpec.Features != vmSpec.Features {
+			errors = append(errors, fmt.Errorf("spec.features: %v != %v", presetSpec.Features, vmSpec.Features))
+		}
+	}
+	if presetSpec.Devices.Watchdog != nil && vmSpec.Devices.Watchdog != nil {
+		if presetSpec.Devices.Watchdog != vmSpec.Devices.Watchdog {
+			errors = append(errors, fmt.Errorf("spec.devices.watchdog: %v != %v", presetSpec.Devices.Watchdog, vmSpec.Devices.Watchdog))
+		}
+	}
+	nameMap := make(map[string]kubev1.Disk)
+	volumeNameMap := make(map[string]kubev1.Disk)
+	diskDeviceMap := make(map[string]kubev1.Disk)
+
+	for _, vmDev := range vmSpec.Devices.Disks {
+		nameMap[vmDev.Name] = vmDev
+		volumeNameMap[vmDev.VolumeName] = vmDev
+		diskDeviceMap[diskDeviceToDeviceName(vmDev.DiskDevice)] = vmDev
+	}
+	for _, presetDev := range presetSpec.Devices.Disks {
+		if _, conflict := nameMap[presetDev.Name]; conflict {
+			errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same name", presetDev.Name))
+		}
+		if _, conflict := volumeNameMap[presetDev.VolumeName]; conflict {
+			errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same volume name", presetDev.Name))
+		}
+		if _, conflict := diskDeviceMap[diskDeviceToDeviceName(presetDev.DiskDevice)]; conflict {
+			errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting device", presetDev.Name))
+		}
+	}
+	if len(errors) > 0 {
+		return utilerrors.NewAggregate(errors)
+	}
 	return nil
 }
 
 func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) error {
+	err := checkPresetMergeConflicts(presetSpec, vmSpec)
+	if err != nil {
+		return err
+	}
 	if len(presetSpec.Resources.Requests) > 0 {
 		if vmSpec.Resources.Requests == nil {
 			vmSpec.Resources.Requests = v1.ResourceList{}
 		}
 		for key, val := range presetSpec.Resources.Requests {
-			if vmSpec.Resources.Requests[key] != val {
-			}
 			vmSpec.Resources.Requests[key] = val
 		}
 	}
@@ -162,17 +224,16 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) e
 	}
 	if presetSpec.Devices.Watchdog != nil {
 		presetSpec.Devices.Watchdog.DeepCopyInto(vmSpec.Devices.Watchdog)
-
-		// Devices in the VM should appear first (for mount point ordering)
-		// Append all devices from preset, but ignore duplicates.
-		deviceSet := make(map[string]bool)
-		for _, vmDev := range vmSpec.Devices.Disks {
-			deviceSet[vmDev.Name] = true
-		}
-		for _, presetDev := range presetSpec.Devices.Disks {
-			if !deviceSet[presetDev.Name] {
-				vmSpec.Devices.Disks = append(vmSpec.Devices.Disks, presetDev)
-			}
+	}
+	// Devices in the VM should appear first (for mount point ordering)
+	// Append all devices from preset, but ignore duplicates.
+	deviceSet := make(map[string]bool)
+	for _, vmDev := range vmSpec.Devices.Disks {
+		deviceSet[vmDev.Name] = true
+	}
+	for _, presetDev := range presetSpec.Devices.Disks {
+		if !deviceSet[presetDev.Name] {
+			vmSpec.Devices.Disks = append(vmSpec.Devices.Disks, presetDev)
 		}
 	}
 	return nil
@@ -182,7 +243,7 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 	for _, preset := range presets {
 		err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to apply preset '%s' to virtual machine '%s': %v", preset.Name, vm.Name, err)
 		}
 	}
 
@@ -208,10 +269,8 @@ func annotateVM(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset
 		vm.Annotations = map[string]string{}
 	}
 	for _, preset := range presets {
-		kind := strings.ToLower(preset.Kind)
-		annotationKey := fmt.Sprintf("%s.%s/%s", kind, kubev1.GroupName, preset.Name)
-		vm.Annotations[annotationKey] = preset.APIVersion
+		annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", kubev1.GroupName, preset.Name)
+		vm.Annotations[annotationKey] = kubev1.GroupVersion.String()
 	}
-
 	return nil
 }

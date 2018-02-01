@@ -583,3 +583,25 @@ func NewVMPreset(name string, selector metav1.LabelSelector) *VirtualMachinePres
 		},
 	}
 }
+
+func (vl *VirtualMachinePresetList) UnmarshalJSON(data []byte) error {
+	type VirtualMachinePresetListCopy VirtualMachinePresetList
+	tmp := VirtualMachinePresetListCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := VirtualMachinePresetList(tmp)
+	*vl = tmp2
+	return nil
+}
+
+// Required to satisfy Object interface
+func (vl *VirtualMachinePresetList) GetObjectKind() schema.ObjectKind {
+	return &vl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (vl *VirtualMachinePresetList) GetListMeta() meta.List {
+	return &vl.ListMeta
+}

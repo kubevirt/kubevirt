@@ -63,10 +63,11 @@ type VirtControllerApp struct {
 	vmQueue      workqueue.RateLimitingInterface
 
 	vmInitCache      cache.Store
-	vmInitController *VMInitializer
+	vmInitController *VirtualMachineInitializer
 	// This is distinct from vmInformer -- it handles uninitialized VMs
-	vmInitInformer cache.Controller
-	vmInitQueue    workqueue.RateLimitingInterface
+	vmInitInformer   cache.Controller
+	vmInitQueue      workqueue.RateLimitingInterface
+	vmPresetInformer cache.SharedIndexInformer
 
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
@@ -137,12 +138,13 @@ func Execute() {
 	app.vmInitCache, app.vmInitInformer = cache.NewInformer(includeUninitializedWatchlist, &v1.VirtualMachine{}, resyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				err := app.vmInitController.initializeVM(obj.(*v1.VirtualMachine))
+				err := app.vmInitController.initializeVirtualMachine(obj.(*v1.VirtualMachine))
 				if err != nil {
 					log.Log.Errorf("error initializing virtual machine: %v", err)
 				}
 			},
 		})
+	app.vmPresetInformer = app.informerFactory.VirtualMachinePreset()
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
 
@@ -228,7 +230,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
-	vca.vmInitController = NewVMInitializer(vca.restClient, vca.vmInitQueue, vca.vmInitCache, vca.clientSet)
+	vca.vmInitController = NewVMInitializer(vca.vmPresetInformer, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
