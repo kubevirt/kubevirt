@@ -2,7 +2,7 @@ package api
 
 import (
 	"fmt"
-	"strings"
+	"path/filepath"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -104,48 +104,25 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	}
 
 	if source.ISCSI != nil {
-		return Convert_v1_ISCSIVolumeSource_To_api_Disk(source.ISCSI, disk, c)
+		return Covert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
+	}
+
+	if source.PersistentVolumeClaim != nil {
+		return Covert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
-func Convert_v1_ISCSIVolumeSource_To_api_Disk(source *k8sv1.ISCSIVolumeSource, disk *Disk, c *ConverterContext) error {
 
-	disk.Type = "network"
+func Covert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
+
+	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Driver.Cache = "none"
-
-	disk.Source.Name = fmt.Sprintf("%s/%d", source.IQN, source.Lun)
-	disk.Source.Protocol = "iscsi"
-
-	hostPort := strings.Split(source.TargetPortal, ":")
-
-	disk.Source.Host = &DiskSourceHost{}
-	disk.Source.Host.Name = hostPort[0]
-	if len(hostPort) > 1 {
-		disk.Source.Host.Port = hostPort[1]
-	}
-
-	// This iscsi device has auth associated with it.
-	if source.SecretRef != nil && source.SecretRef.Name != "" {
-
-		secret := c.Secrets[source.SecretRef.Name]
-		if secret == nil {
-			return fmt.Errorf("failed to find secret for disk auth %s", source.SecretRef.Name)
-		}
-		userValue, ok := secret.Data["node.session.auth.username"]
-		if ok == false {
-			return fmt.Errorf("failed to find username for disk auth %s", source.SecretRef.Name)
-		}
-
-		disk.Auth = &DiskAuth{
-			Secret: &DiskSecret{
-				Type:  "iscsi",
-				Usage: SecretToLibvirtSecret(c.VirtualMachine, source.SecretRef.Name),
-			},
-			Username: string(userValue),
-		}
-	}
+	disk.Source.File = filepath.Join(
+		"/var/run/kubevirt-private",
+		"vm-disks",
+		volumeName,
+		"disk.img")
 	return nil
 }
 
