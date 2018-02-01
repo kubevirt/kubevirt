@@ -159,6 +159,11 @@ func initializeDirs(virtShareDir string,
 	if err != nil {
 		panic(err)
 	}
+
+	err = virtlauncher.InitializePVCDisksDirectories(filepath.Join("/var/run/kubevirt-private", "vm-disks"))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func waitForFinalNotify(deleteNotificationSent chan watch.Event,
