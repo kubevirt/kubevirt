@@ -7,19 +7,19 @@ Make sure to check out the [Glossary](glossary.md) before continuing.
 KubeVirt consists of a set of services:
 
                 |
-        Cluster | (virt-api)  (virt-controller)
+        Cluster | (virt-controller)
                 |
     ------------+---------------------------------------
                 |
-     Kubernetes | (VM TPR)
+     Kubernetes | (VM CRD)
                 |
     ------------+---------------------------------------
                 |
-      DaemonSet | (libvirtd) (virt-handler) (vm-pod M)
+      DaemonSet | (virt-handler) (vm-pod M)
                 |
 
     M: Managed by KubeVirt
-    TPR: Third Party Resource
+    CRD: Custom Resource Definition
 
 ## Example flow: Create and Delete a VM
 
@@ -30,7 +30,7 @@ choreography, where all components act by themselves to realize the state
 provided by the `VM` objects.
 
 ```
-Client                     K8s API     VM TPR  Virt Controller         VM Handler
+Client                     K8s API     VM CRD  Virt Controller         VM Handler
 -------------------------- ----------- ------- ----------------------- ----------
 
                            listen <----------- WATCH /virtualmachines
@@ -62,8 +62,8 @@ there are _temporary workarounds_ in place to avoid bugs and address some
 other stuff.
 
 1. A client posts a new VM definition to the K8s API Server.
-2. The K8s API Server validates the input and creates a `VM` 3rd party
-   resource (TPR) object.
+2. The K8s API Server validates the input and creates a `VM` custom resource
+   definition (CRD) object.
 3. The `virt-controller` observes the creation of the new `VM` object
    and creates a corrsponding pod.
 4. Kubernetes is scheduling the pod on a host.
@@ -73,8 +73,8 @@ other stuff.
    `virt-handler` for any further action.
 6. The `virt-handler` (_DaemonSet_) observes that a `VM` got assigned to the
    host where it is running on.
-6. The `virt-handler` is using the _VM Specification_ and creates a
-   corresponding domain using the local `libvirtd` instance.
+6. The `virt-handler` is using the _VM Specification_ and signals the creation
+   of the corresponding domain using a `libvirtd` instance in the VM's pod.
 7. A client deletes the `VM` object through the `virt-api-server`.
 8. The `virt-handler` observes the deletion and turns off the domain.
 
@@ -83,14 +83,14 @@ other stuff.
 HTTP API server which serves as the entry point for all virtualization related
 flows.
 
-The API Server is taking care to update the virtualization related third party
-resources (see below).
+The API Server is taking care to update the virtualization related custom
+resource definition (see below).
 
-As the main entrypoint to KubeVirt it is responsible for defaulting and validation of the provided VM TPRs.
+As the main entrypoint to KubeVirt it is responsible for defaulting and validation of the provided VM CRDs.
 
-## `VM` (TPR)
+## `VM` (CRD)
 
-VM definitions are kept as third party resources inside the Kubernetes API
+VM definitions are kept as custom resource definitions inside the Kubernetes API
 server.
 
 The VM definition is defining all properties of the Virtual machine itself,
@@ -107,30 +107,35 @@ for example
 From a high-level perspective the virt-controller has all the _cluster wide_
 virtualization functionality.
 
-This controller is responsible for monitoring the VM (TPRs) and managing the
+This controller is responsible for monitoring the VM (CRDs) and managing the
 associated pods. Currently the controller will make sure to create and manage
 the life-cycle of the pods associated to the VM objects.
 
 A VM object will always be associated to a pod during it's life-time, however,
 due to i.e. migration of a VM the pod instance might change over time.
 
-## `vm-launcher`
+## `virt-launcher`
 
 For every VM object one pod is created. This pod's primary container runs the
-`vm-launcher`.
+`virt-launcher` KubeVirt component.
 
 Kubernetes or the kubelet is not running the VMs itself. Instead a daemon on
 every host in the cluster will take care to launch a VM process for every
-pod which is associated to a VM object whenever it is getting scheduled on a host.
+pod which is associated to a VM object whenever it is getting scheduled on a
+host.
 
-The main purpose of the `vm-launcher` is to provide the cgroups and namespaces,
-which will be used to host the VM process.
-Once a VM process appears in the container, `vm-handler` binds itself to this process and will exit whenever the VM process terminates.
-Finally `vm-handler` forwards signals from Kubernetes to the VM process.
-With this functionality it is ensured that a pod will never outlive it's VM
-process and vice versa.
+The main purpose of the `virt-launcher` Pod is to provide the cgroups and
+namespaces, which will be used to host the VM process.
 
-As of now, a VM process
+`virt-handler` signals `virt-launcher` to start a VM by passing the VM's CRD object
+to `virt-launcher`. `virt-launcher` then uses a local libvirtd instance within its
+container to start the VM. From there `virt-launcher` monitors the VM process and
+terminates once the VM has exited.
+
+If the Kubernetes runtime attempts to shutdown the `virt-launcher` pod before the
+VM has exited, `virt-launcher` forwards signals from Kubernetes to the VM
+process and attempts to hold off the termination of the pod until the VM has
+shutdown successfully.
 
 ## `virt-handler`
 
@@ -145,18 +150,15 @@ and the kubelet.
 
 The main areas which `virt-handler` has to cover are:
 
-1. Keep a cluster-level VM spec in sync with a libvirt domain on its host.
+1. Keep a cluster-level VM spec in sync with a corresponding libvirt domain.
 2. Report domain state and spec changes to the cluster.
 3. Invoke node-centric plugins which can fulfill networking and storage requirements defined in VM specs.
 
-Metrics collection for VMs is not part of `virt-handler`s responsibilities.
 
 ## `libvirtd`
 
-On the host an instance of libvirtd is responsible for actually managing the
-VM processes.
-
-To integrate the libvirt-managed VM into kubernetes, on startup, the VM is started in the corresponding `vm-launcher` container.
+An instance of `libvirtd` is present in every VM pod. `virt-launcher` uses libvirtd
+to manage the life-cycle of the VM process.
 
 # Additional components
 
@@ -181,7 +183,7 @@ Investigations are still in progress.
 
 Such a controller will not be part of KubeVirt itself.
 
-However KubeVirt might define a Storage TPR along side with a flow description which will allow such a controller seamless integration into KubeVirt.
+However KubeVirt might define a Storage CRD along side with a flow description which will allow such a controller seamless integration into KubeVirt.
 
 ## Networking
 
@@ -196,4 +198,4 @@ Investigations are still in progress.
 
 Such a controller will not be part of KubeVirt itself.
 
-However KubeVirt might define a Networking TPR along side with a flow description which will allow such a controller seamless integration into KubeVirt.
+However KubeVirt might define a Networking CRD along side with a flow description which will allow such a controller seamless integration into KubeVirt.
