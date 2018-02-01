@@ -13,6 +13,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -113,6 +114,9 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	if source.Ephemeral != nil {
 		return Convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, source.Ephemeral, disk, c)
 	}
+	if source.EmptyDisk != nil {
+		return Convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk, c)
+	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
@@ -137,6 +141,18 @@ func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSo
 	disk.Source.File = fmt.Sprintf("%s/%s", cloudinit.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), cloudinit.NoCloudFile)
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
+	return nil
+}
+
+func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSource, disk *Disk, c *ConverterContext) error {
+	if disk.Type == "lun" {
+		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
+	}
+
+	disk.Type = "file"
+	disk.Driver.Type = "qcow2"
+	disk.Source.File = emptydisk.FilePathForVolumeName(volumeName)
+
 	return nil
 }
 

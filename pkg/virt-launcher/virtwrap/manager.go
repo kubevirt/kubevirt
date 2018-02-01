@@ -27,6 +27,7 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	"fmt"
 
 	"github.com/libvirt/libvirt-go"
 
@@ -34,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
@@ -99,6 +101,10 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	err = ephemeraldisk.CreateEphemeralImages(vm)
 	if err != nil {
 		return domain, err
+	}
+	// create empty disks if they exist
+	if err := emptydisk.CreateTemporaryDisks(vm); err != nil {
+		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
 
 	return domain, err

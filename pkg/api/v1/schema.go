@@ -211,6 +211,10 @@ type VolumeSource struct {
 	// Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
 	// +optional
 	Ephemeral *EphemeralVolumeSource `json:"ephemeral,omitempty"`
+	// EmptyDisk represents a temporary disk which shares the vms lifecycle
+	// More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
+	// +optional
+	EmptyDisk *EmptyDiskSource `json:"emptyDisk,omitempty"`
 }
 
 type EphemeralVolumeSource struct {
@@ -219,6 +223,12 @@ type EphemeralVolumeSource struct {
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
 	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+}
+
+// EmptyDisk represents a temporary disk which shares the vms lifecycle
+type EmptyDiskSource struct {
+	// Capacity of the sparse disk.
+	Capacity resource.Quantity `json:"capacity"`
 }
 
 // Represents a docker image with an embedded disk

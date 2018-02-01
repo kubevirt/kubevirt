@@ -942,6 +942,6 @@ func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: "$"}})
 	res, err := expecter.ExpectBatch(b, 300*time.Second)
-	log.DefaultLogger().Object(vm).Infof("%v", res)
+	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
 	return expecter, err
 }
