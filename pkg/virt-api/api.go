@@ -36,7 +36,6 @@ var _ service.Service = &VirtAPIApp{}
 func (app *VirtAPIApp) Compose() {
 	ctx := context.Background()
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
-	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "migrations"}
 	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
 
 	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
@@ -45,11 +44,6 @@ func (app *VirtAPIApp) Compose() {
 	}
 
 	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ws, err = rest.GenericResourceProxy(ws, ctx, migrationGVR, &v1.Migration{}, v1.MigrationGroupVersionKind.Kind, &v1.MigrationList{})
 	if err != nil {
 		log.Fatal(err)
 	}

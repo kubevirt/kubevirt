@@ -28,9 +28,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
@@ -139,7 +137,6 @@ var _ = Describe("VM", func() {
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomain("testvm")
 			domainFeeder.Add(domain)
-			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
@@ -151,7 +148,6 @@ var _ = Describe("VM", func() {
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
-			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
@@ -161,7 +157,6 @@ var _ = Describe("VM", func() {
 		})
 
 		It("should perform cleanup of local ephemeral data if domain and vm are deleted", func() {
-			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 			mockQueue.Add("default/testvm")
 			client.EXPECT().Close()
 			controller.Execute()
@@ -178,7 +173,6 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
 
-			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 			client.EXPECT().Ping()
 			client.EXPECT().ShutdownVirtualMachine(v1.NewVMReferenceFromName("testvm"))
 			domainFeeder.Add(domain)
@@ -194,7 +188,6 @@ var _ = Describe("VM", func() {
 			initGracePeriodHelper(1, vm, domain)
 			mockWatchdog.CreateFile(vm)
 
-			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 			client.EXPECT().Ping()
 			client.EXPECT().ShutdownVirtualMachine(v1.NewVMReferenceFromName("testvm"))
 			domainFeeder.Add(domain)
@@ -218,7 +211,6 @@ var _ = Describe("VM", func() {
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
 			client.EXPECT().Close()
-			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -236,19 +228,9 @@ var _ = Describe("VM", func() {
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
 			client.EXPECT().Close()
-			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(nil, errors.NewNotFound(schema.GroupResource{}, ""))
 			domainFeeder.Add(domain)
 			controller.Execute()
 		}, 3)
-
-		It("should leave the Domain alone if the VM is migrating to its host", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Status.MigrationNodeName = "master"
-
-			vmInterface.EXPECT().Get("testvm", gomock.Any()).Return(vm, nil)
-			mockQueue.Add("default/testvm")
-			controller.Execute()
-		})
 
 		It("should re-enqueue if the Key is unparseable", func() {
 			Expect(mockQueue.Len()).Should(Equal(0))

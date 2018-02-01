@@ -34,8 +34,6 @@ const (
 
 	launcherImage = "virt-launcher"
 
-	migratorImage = "virt-handler"
-
 	virtShareDir = "/var/run/kubevirt"
 
 	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
@@ -51,12 +49,6 @@ type VirtControllerApp struct {
 	informerFactory controller.KubeInformerFactory
 	podInformer     cache.SharedIndexInformer
 
-	migrationCache      cache.Store
-	migrationController *MigrationController
-	migrationInformer   cache.SharedIndexInformer
-	migrationQueue      workqueue.RateLimitingInterface
-	migrationRecorder   record.EventRecorder
-
 	vmCache      cache.Store
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
@@ -68,7 +60,6 @@ type VirtControllerApp struct {
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
-	migratorImage    string
 	virtShareDir     string
 	ephemeralDiskDir string
 	readyChan        chan bool
@@ -105,21 +96,12 @@ func Execute() {
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet)
 
 	app.vmInformer = app.informerFactory.VM()
-	app.migrationInformer = app.informerFactory.Migration()
 	app.podInformer = app.informerFactory.KubeVirtPod()
 
 	app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmCache = app.vmInformer.GetStore()
 	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
 	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
-
-	app.migrationQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	app.migrationInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.migrationQueue))
-	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(migrationJobLabelHandler(app.migrationQueue)))
-	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(migrationPodLabelHandler(app.migrationQueue)))
-	app.migrationCache = app.migrationInformer.GetStore()
-
-	app.migrationRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-migration-controller")
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
 
@@ -168,7 +150,6 @@ func (vca *VirtControllerApp) Run() {
 				OnStartedLeading: func(stopCh <-chan struct{}) {
 					vca.informerFactory.Start(stop)
 					go vca.vmController.Run(3, stop)
-					go vca.migrationController.Run(3, stop)
 					go vca.rsController.Run(3, stop)
 					close(vca.readyChan)
 				},
@@ -198,13 +179,12 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.migratorImage, vca.virtShareDir)
+	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.virtShareDir)
 	if err != nil {
 		golog.Fatal(err)
 	}
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
-	vca.migrationController = NewMigrationController(vca.restClient, vca.vmService, vca.clientSet, vca.migrationQueue, vca.migrationInformer, vca.podInformer, vca.migrationCache, vca.migrationRecorder)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -240,9 +220,6 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.launcherImage, "launcher-image", launcherImage,
 		"Shim container for containerized VMs")
-
-	flag.StringVar(&vca.migratorImage, "migrator-image", migratorImage,
-		"Container which orchestrates a VM migration")
 
 	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")

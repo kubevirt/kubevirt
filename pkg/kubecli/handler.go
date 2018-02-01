@@ -1,7 +1,6 @@
 package kubecli
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -9,9 +8,6 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-
-	"io/ioutil"
-	"net/http"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -25,7 +21,6 @@ type VirtHandlerClient interface {
 }
 
 type VirtHandlerConn interface {
-	NodeMigrationDetails(vm *virtv1.VirtualMachine) (*virtv1.MigrationHostInfo, error)
 	ConnectionDetails() (ip string, port string, err error)
 	ConsoleURI(vm *virtv1.VirtualMachine) (*url.URL, error)
 	Pod() (pod *v1.Pod, err error)
@@ -77,34 +72,6 @@ func (v *virtHandler) getVirtHandler(nodeName string) (*v1.Pod, bool, error) {
 		return nil, false, nil
 	}
 	return &pods.Items[0], true, nil
-}
-
-func (v *virtHandlerConn) NodeMigrationDetails(vm *virtv1.VirtualMachine) (*virtv1.MigrationHostInfo, error) {
-	ip, port, err := v.ConnectionDetails()
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := http.Get(fmt.Sprintf("http://%s:%s/api/v1/namespaces/%s/virtualmachines/%s/migrationHostInfo",
-		ip,
-		port,
-		vm.ObjectMeta.Namespace,
-		vm.ObjectMeta.Name,
-	))
-
-	if err != nil {
-		return nil, err
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	migrationHostInfo := &virtv1.MigrationHostInfo{}
-	err = json.Unmarshal(body, migrationHostInfo)
-	if err != nil {
-		return nil, err
-	}
-	return migrationHostInfo, nil
 }
 
 func (v *virtHandlerConn) ConnectionDetails() (ip string, port string, err error) {

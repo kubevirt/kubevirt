@@ -55,8 +55,6 @@ var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 // GroupVersionKind
 var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 
-var MigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "Migration"}
-
 var VMReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineReplicaSet"}
 
 var (
@@ -71,8 +69,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineList{},
 		&metav1.ListOptions{},
 		&metav1.DeleteOptions{},
-		&Migration{},
-		&MigrationList{},
 		&VirtualMachineReplicaSet{},
 		&VirtualMachineReplicaSetList{},
 		&metav1.GetOptions{},
@@ -143,8 +139,6 @@ type Affinity struct {
 type VirtualMachineStatus struct {
 	// NodeName is the name where the VM is currently running.
 	NodeName string `json:"nodeName,omitempty"`
-	// MigrationNodeName is the node where the VM is live migrating to.
-	MigrationNodeName string `json:"migrationNodeName,omitempty"`
 	// Conditions are specific points in VM's pod runtime.
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
@@ -268,12 +262,10 @@ const (
 )
 
 const (
-	AppLabel          string = "kubevirt.io"
-	DomainLabel       string = "kubevirt.io/domain"
-	VMUIDLabel        string = "kubevirt.io/vmUID"
-	NodeNameLabel     string = "kubevirt.io/nodeName"
-	MigrationUIDLabel string = "kubevirt.io/migrationUID"
-	MigrationLabel    string = "kubevirt.io/migration"
+	AppLabel      string = "kubevirt.io"
+	DomainLabel   string = "kubevirt.io/domain"
+	VMUIDLabel    string = "kubevirt.io/vmUID"
+	NodeNameLabel string = "kubevirt.io/nodeName"
 )
 
 func NewVM(name string, uid types.UID) *VirtualMachine {
@@ -290,18 +282,6 @@ func NewVM(name string, uid types.UID) *VirtualMachine {
 			Kind:       VirtualMachineGroupVersionKind.Kind,
 		},
 	}
-}
-
-type MigrationEvent string
-
-const (
-	StartedVirtualMachineMigration   MigrationEvent = "MigrationStarted"
-	SucceededVirtualMachineMigration MigrationEvent = "MigrationSucceeded"
-	FailedVirtualMachineMigration    MigrationEvent = "MigrationFailed"
-)
-
-func (s MigrationEvent) String() string {
-	return string(s)
 }
 
 type SyncEvent string
@@ -380,151 +360,9 @@ func NewSpice(namespace string, vmName string) *Spice {
 	}
 }
 
-//TODO validate that this is correct
-func NewMinimalMigration(name string, vmName string) *Migration {
-	return NewMinimalMigrationWithNS(k8sv1.NamespaceDefault, name, vmName)
-}
-
-func NewMinimalMigrationWithNS(namespace string, name string, vmName string) *Migration {
-	migration := NewMigrationReferenceFromName(namespace, name)
-	migration.Spec = MigrationSpec{
-		Selector: VMSelector{vmName},
-	}
-	return migration
-}
-
-func NewMigrationReferenceFromName(namespace string, name string) *Migration {
-	migration := &Migration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/%s", GroupVersion.String(), namespace, name),
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: GroupVersion.String(),
-			Kind:       "Migration",
-		},
-		Status: MigrationStatus{
-			Phase: MigrationUnknown,
-		},
-	}
-	return migration
-}
-
-// A Migration is a job that moves a Virtual Machine from one node to another
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type Migration struct {
-	metav1.TypeMeta `json:",inline"`
-	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec            MigrationSpec     `json:"spec,omitempty" valid:"required"`
-	Status          MigrationStatus   `json:"status,omitempty"`
-}
-
-// MigrationSpec is a description of a VM Migration
-// For example "destinationNodeName": "testvm" will migrate a VM called "testvm" in the namespace "default"
-type MigrationSpec struct {
-	// Criterias for selecting the VM to migrate.
-	// For example
-	// selector:
-	//   name: testvm
-	// will select the VM `testvm` for migration
-	Selector VMSelector `json:"selector"`
-	// Criteria to use when selecting the destination for the migration
-	// for example, to select by the hostname, specify `kubernetes.io/hostname: master`
-	// other possible choices include the hardware required to run the vm or
-	// or lableing of the nodes to indicate their roles in larger applications.
-	// examples:
-	// disktype: ssd,
-	// randomGenerator: /dev/random,
-	// randomGenerator: superfastdevice,
-	// app: mysql,
-	// licensedForServiceX: true
-	// Note that these selectors are additions to the node selectors on the VM itself and they must not exist on the VM.
-	// If they are conflicting with the VM, no migration will be started.
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-}
-
 type VMSelector struct {
 	// Name of the VM to migrate
 	Name string `json:"name" valid:"required"`
-}
-
-type MigrationPhase string
-
-const (
-	// Create Migration has been called but nothing has been done with it
-	MigrationUnknown MigrationPhase = ""
-
-	// Migration has been scheduled but no update on the status has been recorded
-	MigrationRunning MigrationPhase = "Running"
-
-	// Migration has completed successfully
-	MigrationSucceeded MigrationPhase = "Succeeded"
-
-	// Migration has failed.  The Status structure of the associated Virtual Machine
-	// Will indicate whether if the error was fatal.
-	MigrationFailed MigrationPhase = "Failed"
-)
-
-// MigrationStatus is the last reported status of a VM Migratrion. Status may trail the actual
-// state of a migration.
-type MigrationStatus struct {
-	Phase    MigrationPhase `json:"phase,omitempty"`
-	Instance *types.UID     `json:"instance,omitempty"`
-}
-
-// Required to satisfy ObjectMetaAccessor interface
-func (m *Migration) GetObjectMeta() metav1.Object {
-	return &m.ObjectMeta
-}
-
-func (m *Migration) UnmarshalJSON(data []byte) error {
-	type MigrationCopy Migration
-	tmp := MigrationCopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := Migration(tmp)
-	*m = tmp2
-	return nil
-}
-
-//A list of Migrations
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type MigrationList struct {
-	metav1.TypeMeta `json:",inline"`
-	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Migration     `json:"items"`
-}
-
-// Required to satisfy Object interface
-func (ml *MigrationList) GetObjectKind() schema.ObjectKind {
-	return &ml.TypeMeta
-}
-
-// Required to satisfy ListMetaAccessor interface
-func (ml *MigrationList) GetListMeta() meta.List {
-	return &ml.ListMeta
-}
-
-func (ml *MigrationList) UnmarshalJSON(data []byte) error {
-	type MigrationListCopy MigrationList
-	tmp := MigrationListCopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := MigrationList(tmp)
-	*ml = tmp2
-	return nil
-}
-
-// Host specific data, used by the migration controller to fetch host specific migration information from the target host
-type MigrationHostInfo struct {
-	Slice      string   `json:"slice"`
-	Controller []string `json:"controller"`
-	PidNS      string   `json:"pidns"`
 }
 
 // Given a VM, update all NodeSelectorTerms with anti-affinity for that VM's node.

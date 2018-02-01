@@ -257,17 +257,13 @@ func vmLabelHandler(vmQueue workqueue.RateLimitingInterface) func(obj interface{
 		namespace := obj.(*k8sv1.Pod).ObjectMeta.Namespace
 		appLabel, hasAppLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.AppLabel]
 		domainLabel, hasDomainLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.DomainLabel]
-		_, hasMigrationLabel := obj.(*k8sv1.Pod).ObjectMeta.Labels[kubev1.MigrationLabel]
 
 		deleted := false
 		if obj.(*k8sv1.Pod).GetObjectMeta().GetDeletionTimestamp() != nil {
 			deleted = true
 		}
 
-		if hasMigrationLabel {
-			// Filter out migration target pods
-			return
-		} else if hasDomainLabel == false || hasAppLabel == false {
+		if hasDomainLabel == false || hasAppLabel == false {
 			// missing required labels
 			return
 		} else if appLabel != "virt-launcher" {

@@ -30,7 +30,6 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - migrations  
       - virtualmachinereplicasets  
     verbs:
       - get

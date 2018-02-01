@@ -70,16 +70,6 @@ func (_mr *_MockKubevirtClientRecorder) VM(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VM", arg0)
 }
 
-func (_m *MockKubevirtClient) Migration(namespace string) MigrationInterface {
-	ret := _m.ctrl.Call(_m, "Migration", namespace)
-	ret0, _ := ret[0].(MigrationInterface)
-	return ret0
-}
-
-func (_mr *_MockKubevirtClientRecorder) Migration(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migration", arg0)
-}
-
 func (_m *MockKubevirtClient) ReplicaSet(namespace string) ReplicaSetInterface {
 	ret := _m.ctrl.Call(_m, "ReplicaSet", namespace)
 	ret0, _ := ret[0].(ReplicaSetInterface)
@@ -683,80 +673,5 @@ func (_m *MockReplicaSetInterface) Delete(name string, options *v1.DeleteOptions
 }
 
 func (_mr *_MockReplicaSetInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
-}
-
-// Mock of MigrationInterface interface
-type MockMigrationInterface struct {
-	ctrl     *gomock.Controller
-	recorder *_MockMigrationInterfaceRecorder
-}
-
-// Recorder for MockMigrationInterface (not exported)
-type _MockMigrationInterfaceRecorder struct {
-	mock *MockMigrationInterface
-}
-
-func NewMockMigrationInterface(ctrl *gomock.Controller) *MockMigrationInterface {
-	mock := &MockMigrationInterface{ctrl: ctrl}
-	mock.recorder = &_MockMigrationInterfaceRecorder{mock}
-	return mock
-}
-
-func (_m *MockMigrationInterface) EXPECT() *_MockMigrationInterfaceRecorder {
-	return _m.recorder
-}
-
-func (_m *MockMigrationInterface) Get(name string, options v1.GetOptions) (*v18.Migration, error) {
-	ret := _m.ctrl.Call(_m, "Get", name, options)
-	ret0, _ := ret[0].(*v18.Migration)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockMigrationInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
-}
-
-func (_m *MockMigrationInterface) List(opts v1.ListOptions) (*v18.MigrationList, error) {
-	ret := _m.ctrl.Call(_m, "List", opts)
-	ret0, _ := ret[0].(*v18.MigrationList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockMigrationInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
-}
-
-func (_m *MockMigrationInterface) Create(_param0 *v18.Migration) (*v18.Migration, error) {
-	ret := _m.ctrl.Call(_m, "Create", _param0)
-	ret0, _ := ret[0].(*v18.Migration)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockMigrationInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
-}
-
-func (_m *MockMigrationInterface) Update(_param0 *v18.Migration) (*v18.Migration, error) {
-	ret := _m.ctrl.Call(_m, "Update", _param0)
-	ret0, _ := ret[0].(*v18.Migration)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockMigrationInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
-}
-
-func (_m *MockMigrationInterface) Delete(name string, options *v1.DeleteOptions) error {
-	ret := _m.ctrl.Call(_m, "Delete", name, options)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockMigrationInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
 }
