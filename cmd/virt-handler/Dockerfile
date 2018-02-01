@@ -20,13 +20,6 @@ FROM fedora:27
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-ENV LIBVIRT_VERSION 3.7.0
-
-RUN dnf -y install libvirt-client-${LIBVIRT_VERSION} genisoimage && \
-    groupadd --gid 107 qemu && \
-    useradd --uid 107 --gid 107 qemu && \
-    dnf -y clean all
-
 COPY virt-handler /virt-handler
 
 ENTRYPOINT [ "/virt-handler" ]

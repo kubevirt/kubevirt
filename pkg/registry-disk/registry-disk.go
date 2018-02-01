@@ -25,9 +25,6 @@ import (
 	"os"
 
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
-
-	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -52,7 +49,7 @@ func generateVolumeMountDir(vm *v1.VirtualMachine, volumeName string) string {
 
 func SetLocalDirectory(dir string) error {
 	mountBaseDir = dir
-	return nil
+	return os.MkdirAll(dir, 0755)
 }
 
 // The unit test suite uses this function
@@ -78,66 +75,12 @@ func GetFilePath(vm *v1.VirtualMachine, volumeName string) (string, string, erro
 	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", volumeMountDir))
 }
 
-func CleanupOrphanedEphemeralDisks(indexer cache.Store) error {
-	vms, err := diskutils.ListVmWithEphemeralDisk(mountBaseDir)
-	if err != nil {
-		return err
-	}
-
-	for _, vm := range vms {
-		cleanup := false
-		key, err := cache.MetaNamespaceKeyFunc(vm)
-		if err != nil {
-			return err
-		}
-		obj, exists, _ := indexer.GetByKey(key)
-		if exists == false {
-			cleanup = true
-		} else {
-			vm := obj.(*v1.VirtualMachine)
-			if vm.IsFinal() {
-				cleanup = true
-			}
-		}
-
-		if cleanup {
-			err := CleanupEphemeralDisks(vm)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func CleanupEphemeralDisks(vm *v1.VirtualMachine) error {
-	volumeMountDir := generateVMBaseDir(vm)
-	err := os.RemoveAll(volumeMountDir)
-	if err != nil && os.IsNotExist(err) {
-		return nil
-	}
-	return err
-}
-
-// The virt-handler renames all registry disks in order to indicate to virt-launcher
-// that it took the ownership of the image
-func TakeOverRegistryDisks(vm *v1.VirtualMachine) error {
-
+func SetFilePermissions(vm *v1.VirtualMachine) error {
 	for _, volume := range vm.Spec.Volumes {
 		if volume.RegistryDisk != nil {
 			diskPath, _, err := GetFilePath(vm, volume.Name)
 			if err != nil {
 				return err
-			}
-
-			// Rename file to release management of it from container process.
-			if !strings.HasSuffix(diskPath, ".virt") {
-				oldDiskPath := diskPath
-				diskPath = oldDiskPath + ".virt"
-				err = os.Rename(oldDiskPath, diskPath)
-				if err != nil {
-					return err
-				}
 			}
 
 			err = diskutils.SetFileOwnership(registryDiskOwner, diskPath)
@@ -152,9 +95,8 @@ func TakeOverRegistryDisks(vm *v1.VirtualMachine) error {
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Volume, error) {
+func GenerateContainers(vm *v1.VirtualMachine, podVolumeName string, podVolumeMountDir string) ([]kubev1.Container, error) {
 	var containers []kubev1.Container
-	var volumes []kubev1.Volume
 
 	initialDelaySeconds := 2
 	timeoutSeconds := 5
@@ -167,18 +109,9 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 		if volume.RegistryDisk != nil {
 
 			volumeMountDir := generateVolumeMountDir(vm, volume.Name)
-			volumeName := fmt.Sprintf("volume%s-volume", volume.Name)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.RegistryDisk.Image
 
-			volumes = append(volumes, kubev1.Volume{
-				Name: volumeName,
-				VolumeSource: kubev1.VolumeSource{
-					HostPath: &kubev1.HostPathVolumeSource{
-						Path: volumeMountDir,
-					},
-				},
-			})
 			containers = append(containers, kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
@@ -192,8 +125,8 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 				},
 				VolumeMounts: []kubev1.VolumeMount{
 					{
-						Name:      volumeName,
-						MountPath: volumeMountDir,
+						Name:      podVolumeName,
+						MountPath: podVolumeMountDir,
 					},
 				},
 				// The readiness probes ensure the volume coversion and copy finished
@@ -216,5 +149,5 @@ func GenerateContainers(vm *v1.VirtualMachine) ([]kubev1.Container, []kubev1.Vol
 			})
 		}
 	}
-	return containers, volumes, nil
+	return containers, nil
 }

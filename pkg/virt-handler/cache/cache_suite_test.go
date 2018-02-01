@@ -1,13 +1,13 @@
-package isolation
+package cache_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"testing"
 )
 
-func TestIsolation(t *testing.T) {
+func TestCache(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Isolation Suite")
+	RunSpecs(t, "Cache Suite")
 }

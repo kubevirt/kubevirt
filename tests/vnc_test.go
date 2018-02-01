@@ -90,6 +90,6 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(response).To(Equal("RFB 003.008"))
 			Expect(err).To(BeNil())
 			close(done)
-		}, 30)
+		}, 45)
 	})
 })

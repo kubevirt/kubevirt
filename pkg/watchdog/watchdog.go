@@ -25,30 +25,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
-
-	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
-
-func NewWatchdogListWatchFromClient(virtShareDir string, watchdogTimeout int) cache.ListerWatcher {
-
-	d := &WatchdogListWatcher{
-		fileDir:                  WatchdogFileDirectory(virtShareDir),
-		backgroundWatcherStarted: false,
-		watchdogTimeout:          watchdogTimeout,
-	}
-	return d
-}
 
 func WatchdogFileDirectory(baseDir string) string {
 	return filepath.Join(baseDir, "watchdog-files")
@@ -127,8 +111,11 @@ func isExpired(now int64, timeoutSeconds int, stat os.FileInfo) bool {
 	return false
 }
 
-func detectExpiredFiles(timeoutSeconds int, fileDir string) ([]string, error) {
-	var expiredFiles []string
+func GetExpiredDomains(timeoutSeconds int, virtShareDir string) ([]*api.Domain, error) {
+
+	fileDir := WatchdogFileDirectory(virtShareDir)
+
+	var domains []*api.Domain
 	files, err := ioutil.ReadDir(fileDir)
 	if err != nil {
 		return nil, err
@@ -136,21 +123,18 @@ func detectExpiredFiles(timeoutSeconds int, fileDir string) ([]string, error) {
 	now := time.Now().UTC().Unix()
 	for _, file := range files {
 		if isExpired(now, timeoutSeconds, file) == true {
-			expiredFiles = append(expiredFiles, file.Name())
+			key := file.Name()
+			namespace, name, err := splitFileNamespaceName(key)
+			if err != nil {
+				log.Log.Reason(err).Errorf("Invalid key (%s) detected during watchdog tick, ignoring and continuing.", key)
+				continue
+			}
+			domain := api.NewMinimalDomainWithNS(namespace, name)
+			domains = append(domains, domain)
 		}
 	}
-	return expiredFiles, nil
-}
 
-type WatchdogListWatcher struct {
-	lock                     sync.Mutex
-	wg                       sync.WaitGroup
-	fileDir                  string
-	stopChan                 chan struct{}
-	eventChan                chan watch.Event
-	watchDogTicker           <-chan time.Time
-	backgroundWatcherStarted bool
-	watchdogTimeout          int
+	return domains, nil
 }
 
 func splitFileNamespaceName(fullPath string) (namespace string, domain string, err error) {
@@ -163,94 +147,4 @@ func splitFileNamespaceName(fullPath string) (namespace string, domain string, e
 	namespace = namespaceName[0]
 	domain = namespaceName[1]
 	return namespace, domain, nil
-}
-
-func (d *WatchdogListWatcher) startBackground() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if d.backgroundWatcherStarted == true {
-		return nil
-	}
-
-	d.stopChan = make(chan struct{}, 1)
-	d.eventChan = make(chan watch.Event, 100)
-
-	tickRate := 1
-
-	if d.watchdogTimeout > 1 {
-		tickRate = d.watchdogTimeout / 2
-	}
-	d.watchDogTicker = time.NewTicker(time.Duration(tickRate) * time.Second).C
-
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
-		for {
-			select {
-			case <-d.stopChan:
-				return
-			case <-d.watchDogTicker:
-				expiredKeys, err := detectExpiredFiles(d.watchdogTimeout, d.fileDir)
-				if err != nil {
-					log.Log.Reason(err).Error("Invalid content detected during watchdog tick, ignoring and continuing.")
-					continue
-				}
-
-				for _, key := range expiredKeys {
-					namespace, name, err := splitFileNamespaceName(key)
-					if err != nil {
-						log.Log.Reason(err).Errorf("Invalid key (%s) detected during watchdog tick, ignoring and continuing.", key)
-						continue
-					}
-					d.eventChan <- watch.Event{Type: watch.Modified, Object: api.NewMinimalDomainWithNS(namespace, name)}
-				}
-			}
-		}
-	}()
-
-	d.backgroundWatcherStarted = true
-	return nil
-}
-
-func (d *WatchdogListWatcher) List(options k8sv1.ListOptions) (runtime.Object, error) {
-	err := d.startBackground()
-	if err != nil {
-		return nil, err
-	}
-
-	files, err := detectExpiredFiles(d.watchdogTimeout, d.fileDir)
-	domainList := &api.DomainList{
-		Items: []api.Domain{},
-	}
-	for _, file := range files {
-		namespace, name, err := splitFileNamespaceName(file)
-		if err != nil {
-			log.Log.Reason(err).Error("Invalid content detected, ignoring and continuing.")
-			continue
-		}
-		domainList.Items = append(domainList.Items, *api.NewMinimalDomainWithNS(namespace, name))
-
-	}
-	return domainList, nil
-}
-
-func (d *WatchdogListWatcher) Watch(options k8sv1.ListOptions) (watch.Interface, error) {
-	return d, nil
-}
-
-func (d *WatchdogListWatcher) Stop() {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if d.backgroundWatcherStarted == false {
-		return
-	}
-	close(d.stopChan)
-	d.wg.Wait()
-	d.backgroundWatcherStarted = false
-}
-
-func (d *WatchdogListWatcher) ResultChan() <-chan watch.Event {
-	return d.eventChan
 }

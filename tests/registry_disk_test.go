@@ -56,10 +56,14 @@ var _ = Describe("RegistryDisk", func() {
 		return obj
 	}
 
-	VerifyRegistryDiskVM := func(vm *v1.VirtualMachine, obj runtime.Object) {
+	VerifyRegistryDiskVM := func(vm *v1.VirtualMachine, obj runtime.Object, ignoreWarnings bool) {
 		_, ok := obj.(*v1.VirtualMachine)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
-		tests.WaitForSuccessfulVMStart(obj)
+		if ignoreWarnings == true {
+			tests.WaitForSuccessfulVMStartIgnoreWarnings(obj)
+		} else {
+			tests.WaitForSuccessfulVMStart(obj)
+		}
 
 		// Verify Registry Disks are Online
 		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
@@ -110,7 +114,14 @@ var _ = Describe("RegistryDisk", func() {
 			}
 
 			for idx, vm := range vms {
-				VerifyRegistryDiskVM(vm, objs[idx])
+				// TODO once networking is implemented properly set ignoreWarnings == false here.
+				// We have to ignore warnings because VMs started in parallel
+				// may cause libvirt to fail to create the macvtap device in
+				// the host network.
+				// The new network implementation we're working on should resolve this.
+				// NOTE the VM still starts successfully regardless of this warning.
+				// It just requires virt-handler to retry the Start command at the moment.
+				VerifyRegistryDiskVM(vm, objs[idx], true)
 			}
 
 			close(done)

@@ -16,16 +16,30 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:27
+FROM kubevirt/libvirt
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-RUN dnf -y install socat && \
-    groupadd --gid 107 qemu && \
-    useradd --uid 107 --gid 107 qemu && \
-    dnf -y clean all
+RUN dnf -y install \
+  socat \
+  genisoimage \
+  util-linux \
+  libcgroup-tools \
+  ethtool \
+  sudo && dnf -y clean all && \
+  test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
 COPY sock-connector /sock-connector
 COPY virt-launcher /virt-launcher
 
-ENTRYPOINT [ "/virt-launcher" ]
+COPY kubevirt-sudo /etc/sudoers.d/kubevirt
+RUN chmod 0640 /etc/sudoers.d/kubevirt
+
+# libvirtd.sh in this image differs from upstream
+RUN rm -f /libvirtd.sh
+COPY libvirtd.sh /libvirtd.sh
+RUN chmod a+x /libvirtd.sh
+
+COPY entrypoint.sh /entrypoint.sh
+
+ENTRYPOINT [ "/entrypoint.sh" ]

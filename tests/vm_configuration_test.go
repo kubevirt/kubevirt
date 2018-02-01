@@ -70,9 +70,9 @@ var _ = Describe("Configurations", func() {
 				&expect.BExp{R: "#"},
 				&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 				&expect.BExp{R: "3"},
-			}, 150*time.Second)
+			}, 250*time.Second)
 
 			Expect(err).ToNot(HaveOccurred())
-		})
+		}, 300)
 	})
 })

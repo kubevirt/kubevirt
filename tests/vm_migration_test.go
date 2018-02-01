@@ -49,6 +49,7 @@ var _ = Describe("VmMigration", func() {
 	var POLLING_INTERVAL float64 = 0.1
 
 	BeforeEach(func() {
+		Skip("Migration Support is not supported at the moment.")
 		if len(tests.GetReadyNodes()) < 2 {
 			Skip("To test migrations, at least two nodes need to be active")
 		}

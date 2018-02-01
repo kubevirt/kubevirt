@@ -8,7 +8,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	v10 "kubevirt.io/kubevirt/pkg/api/v1"
-	api "kubevirt.io/kubevirt/pkg/virt-handler/virtwrap/api"
+	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // Mock of DomainManager interface
@@ -81,4 +81,15 @@ func (_m *MockDomainManager) SignalShutdownVM(_param0 *v10.VirtualMachine) error
 
 func (_mr *_MockDomainManagerRecorder) SignalShutdownVM(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SignalShutdownVM", arg0)
+}
+
+func (_m *MockDomainManager) ListAllDomains() ([]*api.Domain, error) {
+	ret := _m.ctrl.Call(_m, "ListAllDomains")
+	ret0, _ := ret[0].([]*api.Domain)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) ListAllDomains() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDomains")
 }

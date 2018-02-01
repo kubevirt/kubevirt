@@ -669,7 +669,7 @@ func NewRandomVMWithWatchdog() *v1.VirtualMachine {
 }
 
 // Block until the specified VM started and return the target node name.
-func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeName string) {
+func waitForVmStart(vm runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	_, ok := vm.(*v1.VirtualMachine)
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -678,8 +678,13 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
 	vmMeta := vm.(*v1.VirtualMachine).ObjectMeta
 	obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
-	NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
 
+	if ignoreWarnings == true {
+		NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(NormalEvent, v1.Started)
+	} else {
+		NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
+
+	}
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() bool {
 		obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
@@ -697,8 +702,16 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 	return
 }
 
+func WaitForSuccessfulVMStartIgnoreWarnings(vm runtime.Object) string {
+	return waitForVmStart(vm, 30, true)
+}
+
+func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeName string) {
+	return waitForVmStart(vm, seconds, false)
+}
+
 func WaitForSuccessfulVMStart(vm runtime.Object) string {
-	return WaitForSuccessfulVMStartWithTimeout(vm, 30)
+	return waitForVmStart(vm, 30, false)
 }
 
 func GetReadyNodes() []k8sv1.Node {

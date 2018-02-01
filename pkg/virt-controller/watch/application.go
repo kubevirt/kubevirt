@@ -194,7 +194,7 @@ func (vca *VirtControllerApp) getNewRecorder(namespace string, componentName str
 func (vca *VirtControllerApp) initCommon() {
 	var err error
 
-	err = registrydisk.SetLocalDirectory(vca.ephemeralDiskDir + "/registry-disk-data")
+	registrydisk.SetLocalDirectory(vca.ephemeralDiskDir + "/registry-disk-data")
 	if err != nil {
 		golog.Fatal(err)
 	}
