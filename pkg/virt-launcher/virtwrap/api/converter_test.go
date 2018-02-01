@@ -21,7 +21,6 @@ package api
 
 import (
 	"encoding/xml"
-	"log"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -49,9 +48,6 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm.Spec.Domain.Machine = &v1.Machine{
-				Type: "pc",
-			}
 			vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 				Name: "mywatchdog",
 				WatchdogDevice: v1.WatchdogDevice{
@@ -106,8 +102,7 @@ var _ = Describe("Converter", func() {
 					VolumeName: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus:    "virtio",
-							Device: "vda",
+							Bus: "virtio",
 						},
 					},
 				},
@@ -116,8 +111,7 @@ var _ = Describe("Converter", func() {
 					VolumeName: "nocloud",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
-							Bus:    "virtio",
-							Device: "vdb",
+							Bus: "virtio",
 						},
 					},
 				},
@@ -260,7 +254,7 @@ var _ = Describe("Converter", func() {
   <name>mynamespace_testvm</name>
   <memory unit="MB">9</memory>
   <os>
-    <type machine="pc">hvm</type>
+    <type machine="q35">hvm</type>
   </os>
   <sysinfo type="smbios">
     <system>
@@ -296,7 +290,7 @@ var _ = Describe("Converter", func() {
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso"></source>
-      <target tray="closed"></target>
+      <target bus="sata" dev="sda" tray="closed"></target>
       <driver name="qemu" type="raw"></driver>
       <readonly></readonly>
       <alias name="cdrom_tray_unspecified"></alias>
@@ -305,7 +299,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target tray="open"></target>
+      <target bus="sata" dev="sdb" tray="open"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="cdrom_tray_open"></alias>
     </disk>
@@ -313,7 +307,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target tray="closed"></target>
+      <target bus="fd" dev="fda" tray="closed"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="floppy_tray_unspecified"></alias>
     </disk>
@@ -321,7 +315,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target tray="open"></target>
+      <target bus="fd" dev="fdb" tray="open"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <readonly></readonly>
       <alias name="floppy_tray_open"></alias>
@@ -330,7 +324,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target bus="ide" dev="hdg"></target>
+      <target bus="sata" dev="sdc"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="should_default_to_disk"></alias>
     </disk>
@@ -338,7 +332,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target></target>
+      <target bus="sata" dev="sdd"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <auth username="admin">
         <secret type="iscsi" usage="mysecret-mynamespace-testvm---"></secret>
@@ -406,8 +400,6 @@ var _ = Describe("Converter", func() {
 
 		It("should be converted to a libvirt Domain with vm defaults set", func() {
 			v1.SetObjectDefaults_VirtualMachine(vm)
-			log.Printf(vmToDomainXML(vm, c))
-			log.Printf(convertedDomain)
 			Expect(vmToDomainXML(vm, c)).To(Equal(convertedDomain))
 		})
 		It("should convert CPU cores", func() {

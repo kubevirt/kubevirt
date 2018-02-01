@@ -121,32 +121,24 @@ type DiskDevice struct {
 }
 
 type DiskTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
-	// Bus indicates the type of disk device to emulate.
-	Bus string `json:"bus,omitempty"`
 }
 
 type LunTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type FloppyTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -168,10 +160,8 @@ const (
 )
 
 type CDRomTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to true
 	ReadOnly *bool `json:"readonly,omitempty"`

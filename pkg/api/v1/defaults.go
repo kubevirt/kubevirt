@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"strings"
+
 	"github.com/pborman/uuid"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -117,6 +119,46 @@ func SetDefaults_VirtualMachine(obj *VirtualMachine) {
 	if obj.Spec.Domain.Features == nil {
 		obj.Spec.Domain.Features = &Features{}
 	}
+	// TODO: not fond of this code, suggestions welcome
+	if obj.Spec.Domain.Machine == nil {
+		obj.Spec.Domain.Machine = &Machine{}
+	}
+	obj.Spec.Domain.Machine.Type = "q35"
+	setDefaults_DiskFromMachineType(obj)
+}
+
+func setDefaults_DiskFromMachineType(obj *VirtualMachine) {
+	bus := diskBusFromMachine(obj.Spec.Domain.Machine.Type)
+
+	for i := range obj.Spec.Domain.Devices.Disks {
+		disk := &obj.Spec.Domain.Devices.Disks[i].DiskDevice
+
+		SetDefaults_DiskDevice(disk)
+
+		if disk.Disk != nil && disk.Disk.Bus == "" {
+			disk.Disk.Bus = bus
+		}
+		if disk.CDRom != nil && disk.CDRom.Bus == "" {
+			disk.CDRom.Bus = bus
+		}
+		if disk.LUN != nil && disk.LUN.Bus == "" {
+			disk.LUN.Bus = bus
+		}
+		if disk.Floppy != nil && disk.Floppy.Bus == "" {
+			// no real choice here
+			disk.Floppy.Bus = "fd"
+		}
+	}
+}
+
+func diskBusFromMachine(machine string) string {
+	// catches: "q35", "pc-q35-*"
+	// see /path/to/qemu-kvm -machine help
+	if strings.HasPrefix(machine, "pc-q35") || strings.HasPrefix(machine, "q35") {
+		return "sata"
+	}
+	// safe fallback for x86_64, but very slow
+	return "ide"
 }
 
 func t(v bool) *bool {

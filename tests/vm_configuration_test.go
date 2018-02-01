@@ -84,8 +84,7 @@ var _ = Describe("Configurations", func() {
 		BeforeEach(func() {
 			diskDev = v1.DiskDevice{
 				Disk: &v1.DiskTarget{
-					Device: "vda",
-					Bus:    "virtio",
+					Bus: "virtio",
 				},
 			}
 			vm = tests.NewRandomVMWithDirectLunAndDevice(2, false, diskDev)

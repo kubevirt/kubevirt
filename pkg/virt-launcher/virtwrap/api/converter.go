@@ -11,6 +11,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
@@ -20,27 +21,30 @@ type ConverterContext struct {
 	VirtualMachine *v1.VirtualMachine
 }
 
-func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, machine string, index int) error {
+func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
 
 	if diskDevice.Disk != nil {
 		disk.Device = "disk"
-		disk.Target.Bus = diskBusFromMachine(diskDevice.Disk.Bus, machine)
-		disk.Target.Device = diskDeviceFromBusAndIndex(diskDevice.Disk.Device, disk.Target.Bus, index)
+		disk.Target.Bus = diskDevice.Disk.Bus
+		disk.Target.Device = makeDeviceName(diskDevice.Disk.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
+		disk.Target.Bus = diskDevice.LUN.Bus
+		disk.Target.Device = makeDeviceName(diskDevice.LUN.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
-		disk.Target.Device = diskDevice.LUN.Device
 	} else if diskDevice.Floppy != nil {
 		disk.Device = "floppy"
 		disk.Target.Tray = string(diskDevice.Floppy.Tray)
+		disk.Target.Bus = diskDevice.Floppy.Bus
+		disk.Target.Device = makeDeviceName(diskDevice.Floppy.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
-		disk.Target.Device = diskDevice.Floppy.Device
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
+		disk.Target.Bus = diskDevice.CDRom.Bus
+		disk.Target.Device = makeDeviceName(diskDevice.CDRom.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
-		disk.Target.Device = diskDevice.CDRom.Device
 	}
 	disk.Driver = &DiskDriver{
 		Name: "qemu",
@@ -49,24 +53,10 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, machine string
 	return nil
 }
 
-func diskBusFromMachine(bus, machine string) string {
-	if bus != "" {
-		// use what it was explicitely selected
-		return bus
-	}
-	// catches: "q35", "pc-q35-*"
-	// see /path/to/qemu-kvm -machine help
-	if strings.HasPrefix(machine, "pc-q35") || strings.HasPrefix(machine, "q35") {
-		return "sata"
-	}
-	// safe fallback for x86_64, but very slow
-	return "ide"
-}
+func makeDeviceName(bus string, devicePerBus map[string]int) string {
+	index := devicePerBus[bus]
+	devicePerBus[bus] += 1
 
-func diskDeviceFromBusAndIndex(deviceName, bus string, index int) string {
-	if deviceName != "" {
-		return deviceName
-	}
 	prefix := ""
 	switch bus {
 	case "virtio":
@@ -75,8 +65,10 @@ func diskDeviceFromBusAndIndex(deviceName, bus string, index int) string {
 		prefix = "sd"
 	case "ide":
 		prefix = "hd"
+	case "fd":
+		prefix = "fd"
 	default:
-		// we should never get there
+		log.Log.Errorf("Unrecognized bus '%s'", bus)
 		return ""
 	}
 	return formatDeviceName(prefix, index)
@@ -333,32 +325,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
-	machine := "pc" // QEMU default
-	if vm.Spec.Domain.Machine != nil {
-		machine = vm.Spec.Domain.Machine.Type
-	}
-	for index, disk := range vm.Spec.Domain.Devices.Disks {
+	devicePerBus := make(map[string]int)
+	for _, disk := range vm.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
-		// TODO: using the index like we do now is incorrect.
-		// It will lead to *valid* but unexpected device names.
-		// The cause is we are using the same counter for all the
-		// busses, but we should use one counter per bus.
-		//
-		// Example:
-		// User specifies:
-		// - no machine (defaults to machine=pc bus=ide)
-		// - disk #0: bus=virtio, name=vda
-		// - disk #1: N/A, will use defaults
-		//
-		// if we use the right counters, we need to add the
-		// hda <- bus='ide' index=0 (first disk on IDE)
-		// instead we add
-		// hdb <- bus='ide' index=1 (second disk *on the VM*_
-		//
-		// The proper way is to track the bus on which all the storage drives are
-		// attached, including cdroms, floppies and so forth, and use counters per-bus.
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, machine, index)
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus)
 		if err != nil {
 			return err
 		}
