@@ -26,8 +26,34 @@
 set -ex
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
+# How long to wait for containers to start up and become ready
+# (Specified in duplicates of START_WAIT_DELAY)
+export START_WAIT_TIMEOUT=${START_WAIT_TIMEOUT:-60}
+# How long to wait between checks for container readiness (In seconds)
+export START_WAIT_DELAY=10
 
 kubectl() { cluster/kubectl.sh "$@"; }
+
+kubectl_or_die() {
+    if ! kubectl "$@"; then
+        echo "kubectl invocation failed, did the cluster crash?"
+        exit 1
+    fi
+}
+
+retry_check() {
+    local attempt
+
+    let attempt=START_WAIT_TIMEOUT
+    while true; do
+        "$@" && break
+        if (( --attempt <= 0 )); then
+            echo "Timed out waiting"
+            exit 1
+        fi
+        sleep $START_WAIT_DELAY
+    done
+}
 
 export BUILDER_NAME=$TARGET
 
@@ -76,25 +102,43 @@ $WORKSPACE/dockerize -wait tcp://$APISERVER -timeout 300s
 # Make sure we don't try to talk to Vagrant host via a proxy
 export no_proxy="${APISERVER%:*}"
 
+nodes_ready() {
+    local kctl_out
+
+    echo "Waiting for all nodes to become ready ..."
+    kctl_out="$(kubectl_or_die get nodes --no-headers)" || exit 128
+    grep -v Ready <<<"$kctl_out" && return 1
+    return 0
+}
+
+pods_up() {
+    local description="${1:?}"
+    local filter
+    local kctl_out
+    if [[ $# -ge 2 ]]; then
+        filter=(-l "$2")
+    else
+        filter=()
+    fi
+
+    echo "Waiting for $description pods to enter the Running state ..."
+    kctl_out="$(
+        kubectl_or_die get pods -n kube-system --no-headers "${filter[@]}"
+    )" || exit 128
+    grep -v Running <<<"$kctl_out" && return 1
+    return 0
+}
+
 # Wait for nodes to become ready
-while [ -n "$(kubectl get nodes --no-headers | grep -v Ready)" ]; do
-   echo "Waiting for all nodes to become ready ..."
-   kubectl get nodes --no-headers | >&2 grep -v Ready || true
-   sleep 10
-done
+retry_check nodes_ready
 echo "Nodes are ready:"
-kubectl get nodes
+kubectl_or_die get nodes
 
 # Wait for all kubernetes pods to become ready (dont't wait for kubevirt pods from previous deployments)
-sleep 10
-while [ -n "$(kubectl get pods -n kube-system -l '!kubevirt.io' --no-headers | grep -v Running)" ]; do
-    echo "Waiting for kubernetes pods to become ready ..."
-    kubectl get pods -n kube-system --no-headers | >&2 grep -v Running || true
-    sleep 10
-done
+retry_check pods_up 'kubernetes' '!kubevirt.io'
 
 echo "Kubernetes is ready:"
-kubectl get pods -n kube-system -l '!kubevirt.io'
+kubectl_or_die get pods -n kube-system -l '!kubevirt.io'
 echo ""
 echo ""
 
@@ -133,28 +177,39 @@ elif [ "$TARGET" = "vagrant-release"  ]; then
     make cluster-sync
 fi
 
+containers_ready() {
+    local description="${1:?}"
+    local mode="${2:?}"
+    shift 2
+    local grep_args=("${@}")
+    local kctl_out
+
+    echo "Waiting for $description to become ready ..."
+    kctl_out="$(
+        kubectl_or_die get pods -n kube-system \
+            -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' \
+            --no-headers
+    )" || exit 128
+    grep "${grep_args[@]}" <<<"$kctl_out" \
+    | if [[ "$mode" == all ]]; then
+        grep 'false' && return 1
+        return 0
+    else
+        grep 'true' && return 0
+        return 1
+    fi
+}
+
 # Wait until kubevirt pods are running
-while [ -n "$(kubectl get pods -n kube-system --no-headers | grep -v Running)" ]; do
-    echo "Waiting for kubevirt pods to enter the Running state ..."
-    kubectl get pods -n kube-system --no-headers | >&2 grep -v Running || true
-    sleep 10
-done
+retry_check pods_up 'KubeVirt'
 
 # Make sure all containers except virt-controller are ready
-while [ -n "$(kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/')" ]; do
-    echo "Waiting for KubeVirt containers to become ready ..."
-    kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/' || true
-    sleep 10
-done
+retry_check containers_ready 'KubeVirt containers' all -v 'virt-controller'
 
 # Make sure that at least one virt-controller container is ready
-while [ "$(kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l)" -lt "1" ]; do
-    echo "Waiting for KubeVirt virt-controller container to become ready ..."
-    kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l
-    sleep 10
-done
+retry_check containers_ready 'KubeVirt virt-controller container' any 'virt-controller'
 
-kubectl get pods -n kube-system
+kubectl_or_die get pods -n kube-system
 kubectl version
 
 # Disable proxy configuration since it causes test issues
