@@ -626,6 +626,7 @@ func (vl *VirtualMachinePresetList) GetListMeta() meta.List {
 // The OfflineVirtualMachine contains the template to create the
 // VirtualMachine. It also mirrors the running state of the created
 // VirtualMachine in its status.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type OfflineVirtualMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -635,6 +636,7 @@ type OfflineVirtualMachine struct {
 }
 
 // OfflineVirtualMachineList is a list of offlinevirtualmachines
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type OfflineVirtualMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

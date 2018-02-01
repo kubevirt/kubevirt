@@ -130,3 +130,27 @@ func (VirtualMachinePresetSpec) SwaggerDoc() map[string]string {
 		"domain":   "Domain is the same object type as contained in VirtualMachineSpec",
 	}
 }
+
+func (OfflineVirtualMachine) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}
+
+func (OfflineVirtualMachineList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "OfflineVirtualMachineList is a list of offlinevirtualmachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}
+
+func (OfflineVirtualMachineSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
+	}
+}
+
+func (OfflineVirtualMachineStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
+	}
+}
