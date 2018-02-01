@@ -5,7 +5,7 @@ if ARGV.first == "up" && ENV['USING_KUBE_SCRIPTS'] != 'true'
   raise Vagrant::Errors::VagrantError.new, <<END
 Calling 'vagrant up' directly is not supported.  Instead, please run the following:
 
-  export PROVIDER=vagrant
+  export PROVIDER=vagrant-kubernetes
   make cluster-up
 END
 end
