@@ -40,6 +40,7 @@ import (
 type KubevirtClient interface {
 	VM(namespace string) VMInterface
 	ReplicaSet(namespace string) ReplicaSetInterface
+	OfflineVirtualMachine(namespace string) OfflineVirtualMachineInterface
 	RestClient() *rest.RESTClient
 	kubernetes.Interface
 }
@@ -81,4 +82,14 @@ type VMPresetInterface interface {
 	Update(*v1.VirtualMachinePreset) (*v1.VirtualMachinePreset, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachinePreset, err error)
+}
+
+// OfflineVirtualMachineInterface provides convenience methods to work with
+// offline virtual machines inside the cluster
+type OfflineVirtualMachineInterface interface {
+	Get(name string, options *k8smetav1.GetOptions) (*v1.OfflineVirtualMachine, error)
+	List(opts *k8smetav1.ListOptions) (*v1.OfflineVirtualMachineList, error)
+	Create(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
+	Update(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
+	Delete(name string, options *k8smetav1.DeleteOptions) error
 }

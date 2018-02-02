@@ -80,6 +80,16 @@ func (_mr *_MockKubevirtClientRecorder) ReplicaSet(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReplicaSet", arg0)
 }
 
+func (_m *MockKubevirtClient) OfflineVirtualMachine(namespace string) OfflineVirtualMachineInterface {
+	ret := _m.ctrl.Call(_m, "OfflineVirtualMachine", namespace)
+	ret0, _ := ret[0].(OfflineVirtualMachineInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) OfflineVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "OfflineVirtualMachine", arg0)
+}
+
 func (_m *MockKubevirtClient) RestClient() *rest.RESTClient {
 	ret := _m.ctrl.Call(_m, "RestClient")
 	ret0, _ := ret[0].(*rest.RESTClient)
@@ -765,4 +775,51 @@ func (_m *MockVMPresetInterface) Patch(name string, pt types.PatchType, data []b
 func (_mr *_MockVMPresetInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
+}
+
+func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+}
+
+func (_m *MockOfflineVirtualMachineInterface) List(opts *v1.ListOptions) (*v18.OfflineVirtualMachineList, error) {
+	ret := _m.ctrl.Call(_m, "List", opts)
+	ret0, _ := ret[0].(*v18.OfflineVirtualMachineList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
+}
+
+func (_m *MockOfflineVirtualMachineInterface) Create(_param0 *v18.OfflineVirtualMachine) (*v18.OfflineVirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "Create", _param0)
+	ret0, _ := ret[0].(*v18.OfflineVirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+}
+
+func (_m *MockOfflineVirtualMachineInterface) Update(_param0 *v18.OfflineVirtualMachine) (*v18.OfflineVirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "Update", _param0)
+	ret0, _ := ret[0].(*v18.OfflineVirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
+}
+
+func (_m *MockOfflineVirtualMachineInterface) Delete(name string, options *v1.DeleteOptions) error {
+	ret := _m.ctrl.Call(_m, "Delete", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
 }

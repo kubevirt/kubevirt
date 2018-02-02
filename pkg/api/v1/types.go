@@ -59,6 +59,8 @@ var VMReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Ver
 
 var VirtualMachinePresetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachinePreset"}
 
+var OfflineVirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "OfflineVirtualMachine"}
+
 var (
 	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
 	registry             = registered.NewOrDie(GroupVersion.String())
@@ -77,6 +79,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachinePresetList{},
 		&metav1.GetOptions{},
 		&Spice{},
+		&OfflineVirtualMachine{},
+		&OfflineVirtualMachineList{},
 	)
 	return nil
 }
@@ -647,8 +651,14 @@ type OfflineVirtualMachineList struct {
 // OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine
 // should look like
 type OfflineVirtualMachineSpec struct {
-	Running  bool                `json:"Running"`
-	Template *VirtualMachineSpec `json:"Template"`
+	Running bool `json:"Running"`
+
+	// Label selector for VirtualMachine. VirtualMachine with labels
+	// selected by this selector is the VirtualMachine influenced.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty" valid:"required"`
+
+	Template *VMTemplateSpec `json:"Template"`
 }
 
 // OfflineVirtualMachineStatus represents the status returned by the

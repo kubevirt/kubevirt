@@ -43,65 +43,65 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 
 func SetObjectDefaults_OfflineVirtualMachine(in *OfflineVirtualMachine) {
 	if in.Spec.Template != nil {
-		if in.Spec.Template.Domain.Firmware != nil {
-			SetDefaults_Firmware(in.Spec.Template.Domain.Firmware)
+		if in.Spec.Template.Spec.Domain.Firmware != nil {
+			SetDefaults_Firmware(in.Spec.Template.Spec.Domain.Firmware)
 		}
-		if in.Spec.Template.Domain.Clock != nil {
-			if in.Spec.Template.Domain.Clock.Timer != nil {
-				if in.Spec.Template.Domain.Clock.Timer.HPET != nil {
-					SetDefaults_HPETTimer(in.Spec.Template.Domain.Clock.Timer.HPET)
+		if in.Spec.Template.Spec.Domain.Clock != nil {
+			if in.Spec.Template.Spec.Domain.Clock.Timer != nil {
+				if in.Spec.Template.Spec.Domain.Clock.Timer.HPET != nil {
+					SetDefaults_HPETTimer(in.Spec.Template.Spec.Domain.Clock.Timer.HPET)
 				}
-				if in.Spec.Template.Domain.Clock.Timer.KVM != nil {
-					SetDefaults_KVMTimer(in.Spec.Template.Domain.Clock.Timer.KVM)
+				if in.Spec.Template.Spec.Domain.Clock.Timer.KVM != nil {
+					SetDefaults_KVMTimer(in.Spec.Template.Spec.Domain.Clock.Timer.KVM)
 				}
-				if in.Spec.Template.Domain.Clock.Timer.PIT != nil {
-					SetDefaults_PITTimer(in.Spec.Template.Domain.Clock.Timer.PIT)
+				if in.Spec.Template.Spec.Domain.Clock.Timer.PIT != nil {
+					SetDefaults_PITTimer(in.Spec.Template.Spec.Domain.Clock.Timer.PIT)
 				}
-				if in.Spec.Template.Domain.Clock.Timer.RTC != nil {
-					SetDefaults_RTCTimer(in.Spec.Template.Domain.Clock.Timer.RTC)
+				if in.Spec.Template.Spec.Domain.Clock.Timer.RTC != nil {
+					SetDefaults_RTCTimer(in.Spec.Template.Spec.Domain.Clock.Timer.RTC)
 				}
-				if in.Spec.Template.Domain.Clock.Timer.Hyperv != nil {
-					SetDefaults_HypervTimer(in.Spec.Template.Domain.Clock.Timer.Hyperv)
+				if in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv != nil {
+					SetDefaults_HypervTimer(in.Spec.Template.Spec.Domain.Clock.Timer.Hyperv)
 				}
 			}
 		}
-		if in.Spec.Template.Domain.Features != nil {
-			SetDefaults_FeatureState(&in.Spec.Template.Domain.Features.ACPI)
-			if in.Spec.Template.Domain.Features.APIC != nil {
-				SetDefaults_FeatureState(in.Spec.Template.Domain.Features.APIC)
+		if in.Spec.Template.Spec.Domain.Features != nil {
+			SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.ACPI)
+			if in.Spec.Template.Spec.Domain.Features.APIC != nil {
+				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.APIC)
 			}
-			if in.Spec.Template.Domain.Features.Hyperv != nil {
-				if in.Spec.Template.Domain.Features.Hyperv.Relaxed != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Domain.Features.Hyperv.Relaxed)
+			if in.Spec.Template.Spec.Domain.Features.Hyperv != nil {
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed)
 				}
-				if in.Spec.Template.Domain.Features.Hyperv.VAPIC != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Domain.Features.Hyperv.VAPIC)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.VAPIC != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VAPIC)
 				}
-				if in.Spec.Template.Domain.Features.Hyperv.Spinlocks != nil {
-					SetDefaults_FeatureSpinlocks(in.Spec.Template.Domain.Features.Hyperv.Spinlocks)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks != nil {
+					SetDefaults_FeatureSpinlocks(in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks)
 				}
-				if in.Spec.Template.Domain.Features.Hyperv.VPIndex != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Domain.Features.Hyperv.VPIndex)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex)
 				}
-				if in.Spec.Template.Domain.Features.Hyperv.Runtime != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Domain.Features.Hyperv.Runtime)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.Runtime != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Runtime)
 				}
-				if in.Spec.Template.Domain.Features.Hyperv.SyNIC != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Domain.Features.Hyperv.SyNIC)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC)
 				}
-				if in.Spec.Template.Domain.Features.Hyperv.SyNICTimer != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Domain.Features.Hyperv.SyNICTimer)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer)
 				}
-				if in.Spec.Template.Domain.Features.Hyperv.Reset != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Domain.Features.Hyperv.Reset)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.Reset != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Reset)
 				}
-				if in.Spec.Template.Domain.Features.Hyperv.VendorID != nil {
-					SetDefaults_FeatureVendorID(in.Spec.Template.Domain.Features.Hyperv.VendorID)
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID != nil {
+					SetDefaults_FeatureVendorID(in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID)
 				}
 			}
 		}
-		for i := range in.Spec.Template.Domain.Devices.Disks {
-			a := &in.Spec.Template.Domain.Devices.Disks[i]
+		for i := range in.Spec.Template.Spec.Domain.Devices.Disks {
+			a := &in.Spec.Template.Spec.Domain.Devices.Disks[i]
 			SetDefaults_DiskDevice(&a.DiskDevice)
 			if a.DiskDevice.Floppy != nil {
 				SetDefaults_FloppyTarget(a.DiskDevice.Floppy)
@@ -110,10 +110,10 @@ func SetObjectDefaults_OfflineVirtualMachine(in *OfflineVirtualMachine) {
 				SetDefaults_CDRomTarget(a.DiskDevice.CDRom)
 			}
 		}
-		if in.Spec.Template.Domain.Devices.Watchdog != nil {
-			SetDefaults_Watchdog(in.Spec.Template.Domain.Devices.Watchdog)
-			if in.Spec.Template.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
-				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
+		if in.Spec.Template.Spec.Domain.Devices.Watchdog != nil {
+			SetDefaults_Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog)
+			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
+				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
 		}
 	}
