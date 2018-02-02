@@ -1,0 +1,6 @@
+{
+"packageName": "kubevirt",
+"projectName": "kubevirt-py",
+"packageUrl": "https://github.com/kubevirt/client-python",
+"packageVersion": "$VERSION"
+}

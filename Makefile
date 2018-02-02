@@ -8,6 +8,9 @@ generate:
 apidocs:
 	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
 
+client-python:
+	hack/dockerized "hack/glide-checksync.sh && ./hack/generate.sh && TRAVIS_TAG=${TRAVIS_TAG} ./hack/gen-client-python/generate.sh"
+
 build:
 	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install ${WHAT}"
 
