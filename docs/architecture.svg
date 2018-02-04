@@ -542,7 +542,7 @@
          id="tspan4287"
          x="233.81734"
          y="200.92172"
-         style="stroke-width:0.26458332px">Pod</tspan></text>
+         style="stroke-width:0.26458332px">Pod (DaemonSet)</tspan></text>
     <rect
        y="193.58818"
        x="365.85104"
@@ -639,7 +639,7 @@
          y="200.92172"
          x="297.98318"
          id="tspan4402"
-         sodipodi:role="line">Pod</tspan></text>
+         sodipodi:role="line">Pod (per VM)</tspan></text>
     <path
        style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.5291667;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-start:url(#Arrow2Mstart);marker-end:url(#Arrow2Mend)"
        d="m 315.36369,221.77116 v 8.39809"
