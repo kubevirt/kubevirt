@@ -36,7 +36,7 @@ java -jar "$SWAGGER_CODEGEN_CLI" generate \
 
 # Replace token name
 sed -i \
-    -e 's/GIT_TOKEN/CLIENT_PYTHON_PUSH_TOKEN/' \
+    -e 's/GIT_TOKEN/API_REFERENCE_PUSH_TOKEN/' \
     "$PYTHON_CLIENT_OUT_DIR"/git_push.sh
 
 # If it is taggged commit create tag in client-python as well.
