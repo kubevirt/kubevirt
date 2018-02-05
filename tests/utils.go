@@ -523,8 +523,8 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "vda",
-		VolumeName: "vda",
+		Name:       "disk0",
+		VolumeName: "disk0",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",
@@ -532,7 +532,7 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 		},
 	})
 	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-		Name: "vda",
+		Name: "disk0",
 		VolumeSource: v1.VolumeSource{
 			RegistryDisk: &v1.RegistryDiskSource{
 				Image: containerImage,
@@ -546,8 +546,8 @@ func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData str
 	vm := NewRandomVMWithEphemeralDisk(containerImage)
 
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "vdb",
-		VolumeName: "vdb",
+		Name:       "disk1",
+		VolumeName: "disk1",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",
@@ -555,7 +555,7 @@ func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData str
 		},
 	})
 	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-		Name: "vdb",
+		Name: "disk1",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
@@ -569,8 +569,8 @@ func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
 	vm := NewRandomVMWithPVC("disk-cirros")
 
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "vdb",
-		VolumeName: "vdb",
+		Name:       "disk1",
+		VolumeName: "disk1",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",
@@ -578,7 +578,7 @@ func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
 		},
 	})
 	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-		Name: "vdb",
+		Name: "disk1",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
@@ -593,8 +593,8 @@ func NewRandomVMWithDirectLunAndDevice(lun int, withAuth bool, diskDev v1.DiskDe
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "vda",
-		VolumeName: "vda",
+		Name:       "disk0",
+		VolumeName: "disk0",
 		DiskDevice: diskDev,
 	})
 
@@ -612,7 +612,7 @@ func NewRandomVMWithDirectLunAndDevice(lun int, withAuth bool, diskDev v1.DiskDe
 	}
 
 	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-		Name:         "vdb",
+		Name:         "disk0",
 		VolumeSource: volumeSource,
 	})
 	return vm
@@ -632,8 +632,8 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "vda",
-		VolumeName: "vda",
+		Name:       "disk0",
+		VolumeName: "disk0",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",
@@ -641,7 +641,7 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 		},
 	})
 	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-		Name: "vda",
+		Name: "disk0",
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
