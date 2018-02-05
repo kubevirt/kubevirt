@@ -46,12 +46,18 @@ done
 
 set -e
 
-if [ "$network_provider" == "weave" ]; then
+# Additional network providers are available from
+# https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/#pod-network
+case "$network_provider" in
+"weave")
     kubever=$(kubectl version | base64 | tr -d '\n')
     kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$kubever"
-else
-    kubectl create -f kube-$network_provider.yaml
-fi
+    ;;
+
+"flannel")
+    kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml
+    ;;
+esac
 
 # Allow scheduling pods on master
 # Ignore retval because it might not be dedicated already

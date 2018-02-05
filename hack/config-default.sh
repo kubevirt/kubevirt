@@ -3,5 +3,5 @@ docker_images="cmd/virt-controller cmd/virt-launcher cmd/virt-handler images/isc
 docker_prefix=kubevirt
 docker_tag=${DOCKER_TAG:-latest}
 master_ip=192.168.200.2
-network_provider=weave
+network_provider=flannel
 kubeconfig=cluster/vagrant/.kubeconfig
