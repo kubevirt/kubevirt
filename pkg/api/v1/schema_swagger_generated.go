@@ -96,7 +96,6 @@ func (FloppyTarget) SwaggerDoc() map[string]string {
 func (CDRomTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"bus":      "Bus indicates the type of disk device to emulate.",
-		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
 		"readonly": "ReadOnly\nDefaults to true",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
 	}

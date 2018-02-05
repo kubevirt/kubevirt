@@ -370,12 +370,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 			return err
 		}
 	}
-	if vm.Spec.Domain.Machine != nil {
-		apiOst := vm.Spec.Domain.Machine
-		err := Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
-		if err != nil {
-			return err
-		}
+	apiOst := &vm.Spec.Domain.Machine
+	err = Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
+	if err != nil {
+		return err
 	}
 
 	if vm.Spec.Domain.CPU != nil {

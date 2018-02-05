@@ -50,7 +50,7 @@ type DomainSpec struct {
 	CPU *CPU `json:"cpu,omitempty"`
 	// Machine type
 	// +optional
-	Machine *Machine `json:"machine,omitempty"`
+	Machine Machine `json:"machine,omitempty"`
 	// Firmware
 	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`

@@ -119,10 +119,6 @@ func SetDefaults_VirtualMachine(obj *VirtualMachine) {
 	if obj.Spec.Domain.Features == nil {
 		obj.Spec.Domain.Features = &Features{}
 	}
-	// TODO: not fond of this code, suggestions welcome
-	if obj.Spec.Domain.Machine == nil {
-		obj.Spec.Domain.Machine = &Machine{}
-	}
 	obj.Spec.Domain.Machine.Type = "q35"
 	setDefaults_DiskFromMachineType(obj)
 }
