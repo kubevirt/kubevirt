@@ -22,7 +22,7 @@ spec:
           - name: registrydisk
             volumeName: registryvolume
             disk:
-              dev: vda
+              bus: virtio
       volumes:
         - name: registryvolume
           registryDisk:

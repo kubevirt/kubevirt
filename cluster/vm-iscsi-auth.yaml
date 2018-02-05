@@ -13,7 +13,7 @@ spec:
       - name: mydisk
         volumeName: myvolume
         disk:
-          dev: vda
+          bus: virtio
   volumes:
     - name: myvolume
       iscsi:
