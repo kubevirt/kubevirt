@@ -448,8 +448,10 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) 
 	var tailLines int64 = 100
 	logsRaw, err := virtCli.CoreV1().
 		Pods(namespace).
-		GetLogs(podName,
-			&k8sv1.PodLogOptions{TailLines: &tailLines}).
+		GetLogs(podName, &k8sv1.PodLogOptions{
+			TailLines: &tailLines,
+			Container: "compute",
+		}).
 		DoRaw()
 	Expect(err).To(BeNil())
 
