@@ -217,5 +217,5 @@ func newVM(namespace string, name string) *v1.VirtualMachine {
 }
 
 func StubOutNetworkForTest() {
-	network.SetupPodNetwork = func(domain *api.Domain) error { return nil }
+	network.SetupPodNetwork = func(vm *v1.VirtualMachine, domain *api.Domain) error { return nil }
 }

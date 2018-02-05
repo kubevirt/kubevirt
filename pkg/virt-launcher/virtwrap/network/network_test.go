@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -48,6 +49,9 @@ var _ = Describe("Network", func() {
 
 			Handler = mockNetwork
 			domain := &api.Domain{}
+			vm := &v1.VirtualMachine{
+				Status: v1.VirtualMachineStatus{},
+			}
 
 			api.SetObjectDefaults_Domain(domain)
 			testMac := "12:34:56:78:9A:BC"
@@ -90,13 +94,12 @@ var _ = Describe("Network", func() {
 			mockNetwork.EXPECT().AddrAdd(macvlanTest, macvlanAddr).Return(nil)
 			mockNetwork.EXPECT().StartDHCP(testNic, macvlanAddr)
 
-			err := SetupPodNetwork(domain)
+			err := SetupPodNetwork(vm, domain)
+			Expect(err).To(BeNil())
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 			xml, err := xml.Marshal(domain.Spec.Devices.Interfaces)
 			Expect(string(xml)).To(Equal(string(interfaceXml)))
-
 			Expect(err).To(BeNil())
-
 		})
 	})
 

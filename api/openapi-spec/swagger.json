@@ -2668,6 +2668,18 @@
      }
     }
    },
+   "v1.VirtualMachineNetworkInterface": {
+    "properties": {
+     "ipAddress": {
+      "description": "IP address of a Virtual Machine interface",
+      "type": "string"
+     },
+     "mac": {
+      "description": "Hardware address of a Virtual Machine interface",
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineReplicaSet": {
     "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "properties": {
@@ -2757,6 +2769,13 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineCondition"
+      }
+     },
+     "interfaces": {
+      "description": "Interfaces represent the details of available network interfaces.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineNetworkInterface"
       }
      },
      "nodeName": {
