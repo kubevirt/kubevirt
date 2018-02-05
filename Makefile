@@ -31,7 +31,7 @@ distclean: clean
 
 checksync:
 	hack/dockerized	hack/glide-checksync.sh
- 
+
 sync:
 	hack/dockerized "glide install --strip-vendor && md5sum glide.lock > .glide.lock.hash"
 
@@ -59,7 +59,10 @@ cluster-down:
 cluster-build:
 	./cluster/build.sh
 
-cluster-deploy:
+cluster-clean:
+	./cluster/clean.sh
+
+cluster-deploy: cluster-clean
 	./cluster/deploy.sh
 
 cluster-sync: cluster-build cluster-deploy
