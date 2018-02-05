@@ -154,7 +154,17 @@ var _ = Describe("Vmlifecycle", func() {
 		Context("New VM which can't be started", func() {
 
 			It("Should retry starting the VM", func(done Done) {
-				vm.Spec.Volumes[0].ISCSI.SecretRef.Name = "nonexistent"
+				userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
+				vm = tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
+
+				for _, volume := range vm.Spec.Volumes {
+					if volume.CloudInitNoCloud != nil {
+						spec := volume.CloudInitNoCloud
+						spec.UserDataBase64 = ""
+						spec.UserDataSecretRef = &k8sv1.LocalObjectReference{Name: "nonexistent"}
+						break
+					}
+				}
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 
@@ -173,7 +183,19 @@ var _ = Describe("Vmlifecycle", func() {
 			}, 30)
 
 			It("Should log warning if secret is not present, and proceed once the secret is there", func(done Done) {
-				vm.Spec.Volumes[0].ISCSI.SecretRef.Name = "nonexistent"
+				userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
+				userData64 := ""
+				vm = tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
+
+				for _, volume := range vm.Spec.Volumes {
+					if volume.CloudInitNoCloud != nil {
+						spec := volume.CloudInitNoCloud
+						userData64 = spec.UserDataBase64
+						spec.UserDataBase64 = ""
+						spec.UserDataSecretRef = &k8sv1.LocalObjectReference{Name: "nonexistent"}
+						break
+					}
+				}
 				createdVM, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).To(BeNil())
 
@@ -182,11 +204,17 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(event.Message).To(ContainSubstring("nonexistent"))
 
 				// Creat nonexistent secret, so that the VM can recover
-				secret, err := virtClient.CoreV1().Secrets(vm.Namespace).Get("iscsi-demo-secret", metav1.GetOptions{})
-				secret.ObjectMeta = metav1.ObjectMeta{
-					Name: "nonexistent",
+				secret := k8sv1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "nonexistent",
+						Namespace: vm.GetObjectMeta().GetNamespace(),
+					},
+					Type: "Opaque",
+					Data: map[string][]byte{
+						"userdata": []byte(userData64),
+					},
 				}
-				_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(secret)
+				_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(&secret)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Wait for the VM to be started, allow warning events to occur
