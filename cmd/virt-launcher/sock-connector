@@ -24,5 +24,10 @@ function serial_cleanup() {
 # only one serial connection can exist at a time.
 serial_cleanup
 
+if ! [ -S "$SOCKET" ]; then
+	echo "Virtual Machine's $SOCKET socket is currently unavailable"
+	exit 1
+fi
+
 stty -echo
 socat unix-connect:/$SOCKET stdio,cfmakeraw
