@@ -1,4 +1,3 @@
-vendor/*
 .idea
 *.iml
 tools/openapispec/openapispec
@@ -13,7 +12,6 @@ cluster/.console.vv
 build-tools/desc/desc
 hack/config-local.sh
 tags
-.glide.*
 .GeneratedDockerfile
 .gradle
 hack/gen-swagger-doc/*.adoc

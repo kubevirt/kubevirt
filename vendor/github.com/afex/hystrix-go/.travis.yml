@@ -1,0 +1,13 @@
+sudo: false
+language: go
+script:
+  - cd hystrix
+  - go test -race
+go:
+  - 1.6.x
+  - 1.7.x
+  - 1.8.x
+  - tip
+env:
+  global:
+    - GORACE="halt_on_error=1"
