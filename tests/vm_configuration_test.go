@@ -124,7 +124,7 @@ var _ = Describe("Configurations", func() {
 			}
 			vm = tests.NewRandomVMWithDirectLunAndDevice(2, false, diskDev)
 		})
-		It("should have /dev/vda node", func() {
+		It("should have /dev/sda node", func() {
 			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMStart(vm)
