@@ -10,7 +10,6 @@ env:
 
 install:
  - git reset --hard
- - make sync
 
 script:
 - make generate
