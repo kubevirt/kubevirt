@@ -133,7 +133,6 @@ var exampleJSON = `{
             "name": "floppy0",
             "volumeName": "volume2",
             "floppy": {
-              "bus": "fd",
               "readonly": true,
               "tray": "open"
             }

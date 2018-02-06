@@ -122,6 +122,9 @@ type DiskDevice struct {
 
 type DiskTarget struct {
 	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	// see libvirt schema here:
+	// https://github.com/libvirt/libvirt/blob/v3.7-maint/docs/schemas/domaincommon.rng#L1693
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
@@ -130,6 +133,9 @@ type DiskTarget struct {
 
 type LunTarget struct {
 	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	// see libvirt schema here:
+	// https://github.com/libvirt/libvirt/blob/v3.7-maint/docs/schemas/domaincommon.rng#L1693
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
@@ -161,6 +167,9 @@ const (
 
 type CDRomTarget struct {
 	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	// see libvirt schema here:
+	// https://github.com/libvirt/libvirt/blob/v3.7-maint/docs/schemas/domaincommon.rng#L1693
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to true

@@ -307,7 +307,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target bus="fd" dev="fda" tray="closed"></target>
+      <target bus="fdc" dev="fda" tray="closed"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <alias name="floppy_tray_unspecified"></alias>
     </disk>
@@ -315,7 +315,7 @@ var _ = Describe("Converter", func() {
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
       </source>
-      <target bus="fd" dev="fdb" tray="open"></target>
+      <target bus="fdc" dev="fdb" tray="open"></target>
       <driver cache="none" name="qemu" type="raw"></driver>
       <readonly></readonly>
       <alias name="floppy_tray_open"></alias>

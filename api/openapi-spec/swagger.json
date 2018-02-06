@@ -1628,7 +1628,7 @@
    "v1.CDRomTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide\nsee libvirt schema here:\nhttps://github.com/libvirt/libvirt/blob/v3.7-maint/docs/schemas/domaincommon.rng#L1693",
       "type": "string"
      },
      "readonly": {
@@ -1775,7 +1775,7 @@
    "v1.DiskTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide\nsee libvirt schema here:\nhttps://github.com/libvirt/libvirt/blob/v3.7-maint/docs/schemas/domaincommon.rng#L1693",
       "type": "string"
      },
      "readonly": {
@@ -2148,7 +2148,7 @@
    "v1.LunTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide\nsee libvirt schema here:\nhttps://github.com/libvirt/libvirt/blob/v3.7-maint/docs/schemas/domaincommon.rng#L1693",
       "type": "string"
      },
      "readonly": {

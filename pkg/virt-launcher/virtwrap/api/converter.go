@@ -35,9 +35,9 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
 	} else if diskDevice.Floppy != nil {
 		disk.Device = "floppy"
+		disk.Target.Bus = "fdc"
 		disk.Target.Tray = string(diskDevice.Floppy.Tray)
-		disk.Target.Bus = diskDevice.Floppy.Bus
-		disk.Target.Device = makeDeviceName(diskDevice.Floppy.Bus, devicePerBus)
+		disk.Target.Device = makeDeviceName(disk.Target.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
@@ -65,7 +65,7 @@ func makeDeviceName(bus string, devicePerBus map[string]int) string {
 		prefix = "sd"
 	case "ide":
 		prefix = "hd"
-	case "fd":
+	case "fdc":
 		prefix = "fd"
 	default:
 		log.Log.Errorf("Unrecognized bus '%s'", bus)

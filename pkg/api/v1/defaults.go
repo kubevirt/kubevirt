@@ -140,10 +140,6 @@ func setDefaults_DiskFromMachineType(obj *VirtualMachine) {
 		if disk.LUN != nil && disk.LUN.Bus == "" {
 			disk.LUN.Bus = bus
 		}
-		if disk.Floppy != nil && disk.Floppy.Bus == "" {
-			// no real choice here
-			disk.Floppy.Bus = "fd"
-		}
 	}
 }
 
