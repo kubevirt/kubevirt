@@ -66,7 +66,7 @@ type NetworkHandler interface {
 	ParseAddr(s string) (*netlink.Addr, error)
 	ChangeMacAddr(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
-	StartDHCP(nic *VIF, serverAddr *netlink.Addr)
+	StartDHCP(vm *v1.VirtualMachine, nic *VIF, serverAddr *netlink.Addr)
 }
 
 type NetworkUtilsHandler struct{}
@@ -136,23 +136,26 @@ func (h *NetworkUtilsHandler) ChangeMacAddr(iface string) (net.HardwareAddr, err
 	return currentMac, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
-	// Start DHCP
-	go func() {
-		dhcp.SingleClientDHCPServer(
-			nic.MAC,
-			nic.IP.IP,
-			nic.IP.Mask,
-			macVlanIfaceName,
-			serverAddr.IP,
-			nic.Gateway,
-			net.ParseIP(guestDNS),
-		)
-	}()
+func (h *NetworkUtilsHandler) StartDHCP(vm *v1.VirtualMachine, nic *VIF, serverAddr *netlink.Addr) {
+	// panic in case the DHCP server failed during the vm creation
+	// but ignore dhcp errors when the vm is destroyed or shutting down
+	if err := DHCPServer(
+		nic.MAC,
+		nic.IP.IP,
+		nic.IP.Mask,
+		macVlanIfaceName,
+		serverAddr.IP,
+		nic.Gateway,
+		net.ParseIP(guestDNS),
+	); err != nil && !vm.IsFinal() {
+		log.Log.Errorf("failed to run DHCP: %v", err)
+		panic(err)
+	}
 }
 
 // Allow mocking for tests
 var SetupPodNetwork = SetupDefaultPodNetwork
+var DHCPServer = dhcp.SingleClientDHCPServer
 
 func initHandler() {
 	if Handler == nil {
@@ -273,7 +276,7 @@ func SetupDefaultPodNetwork(vm *v1.VirtualMachine, domain *api.Domain) error {
 	}
 
 	// Start DHCP Server
-	Handler.StartDHCP(nic, fakeaddr)
+	go Handler.StartDHCP(vm, nic, fakeaddr)
 
 	if err := plugNetworkDevice(vm, domain, nic); err != nil {
 		return err

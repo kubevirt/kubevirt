@@ -8,6 +8,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	netlink "github.com/vishvananda/netlink"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 // Mock of NetworkHandler interface
@@ -147,10 +149,10 @@ func (_mr *_MockNetworkHandlerRecorder) GetMacDetails(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMacDetails", arg0)
 }
 
-func (_m *MockNetworkHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
-	_m.ctrl.Call(_m, "StartDHCP", nic, serverAddr)
+func (_m *MockNetworkHandler) StartDHCP(vm *v1.VirtualMachine, nic *VIF, serverAddr *netlink.Addr) {
+	_m.ctrl.Call(_m, "StartDHCP", vm, nic, serverAddr)
 }
 
-func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1)
+func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2)
 }

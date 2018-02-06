@@ -21,6 +21,7 @@ package network
 
 import (
 	"encoding/xml"
+	"errors"
 	"net"
 
 	"github.com/golang/mock/gomock"
@@ -36,12 +37,46 @@ import (
 var _ = Describe("Network", func() {
 	var mockNetwork *MockNetworkHandler
 	var ctrl *gomock.Controller
-
+	var dummy *netlink.Dummy
+	var addrList []netlink.Addr
+	var routeList []netlink.Route
+	var routeAddr netlink.Route
+	var fakeMac net.HardwareAddr
+	var fakeAddr netlink.Addr
+	var updateFakeMac net.HardwareAddr
+	var macvlanTest *netlink.Macvlan
+	var macvlanAddr *netlink.Addr
+	var testNic *VIF
+	var interfaceXml []byte
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = NewMockNetworkHandler(ctrl)
+		testMac := "12:34:56:78:9A:BC"
+		updateTestMac := "AF:B3:1F:78:2A:CA"
+		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1}}
+		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
+		gw := net.IPv4(10, 35, 0, 1)
+		fakeMac, _ = net.ParseMAC(testMac)
+		updateFakeMac, _ = net.ParseMAC(updateTestMac)
+		fakeAddr = netlink.Addr{IPNet: address}
+		addrList = []netlink.Addr{fakeAddr}
+		routeAddr = netlink.Route{Gw: gw}
+		routeList = []netlink.Route{routeAddr}
+		macvlanTest = &netlink.Macvlan{
+			LinkAttrs: netlink.LinkAttrs{
+				Name:        macVlanIfaceName,
+				ParentIndex: 1,
+			},
+			Mode: netlink.MACVLAN_MODE_BRIDGE,
+		}
+		macvlanAddr, _ = netlink.ParseAddr(macVlanFakeIP)
+		testNic = &VIF{Name: podInterface,
+			IP:      fakeAddr,
+			MAC:     fakeMac,
+			Gateway: gw}
+		interfaceXml = []byte(`<Interface type="direct" trustGuestRxFilters="yes"><source dev="eth0" mode="bridge"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
 	})
 
 	Context("on successful Network setup", func() {
@@ -54,30 +89,6 @@ var _ = Describe("Network", func() {
 			}
 
 			api.SetObjectDefaults_Domain(domain)
-			testMac := "12:34:56:78:9A:BC"
-			updateTestMac := "AF:B3:1F:78:2A:CA"
-			dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1}}
-			address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
-			gw := net.IPv4(10, 35, 0, 1)
-			fakeMac, _ := net.ParseMAC(testMac)
-			updateFakeMac, _ := net.ParseMAC(updateTestMac)
-			fakeAddr := netlink.Addr{IPNet: address}
-			addrList := []netlink.Addr{fakeAddr}
-			routeAddr := netlink.Route{Gw: gw}
-			routeList := []netlink.Route{routeAddr}
-			macvlanTest := &netlink.Macvlan{
-				LinkAttrs: netlink.LinkAttrs{
-					Name:        macVlanIfaceName,
-					ParentIndex: 1,
-				},
-				Mode: netlink.MACVLAN_MODE_BRIDGE,
-			}
-			macvlanAddr, _ := netlink.ParseAddr(macVlanFakeIP)
-			testNic := &VIF{Name: podInterface,
-				IP:      fakeAddr,
-				MAC:     fakeMac,
-				Gateway: gw}
-			var interfaceXml = []byte(`<Interface type="direct" trustGuestRxFilters="yes"><source dev="eth0" mode="bridge"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
 
 			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
@@ -92,7 +103,7 @@ var _ = Describe("Network", func() {
 			mockNetwork.EXPECT().LinkSetUp(macvlanTest).Return(nil)
 			mockNetwork.EXPECT().ParseAddr(macVlanFakeIP).Return(macvlanAddr, nil)
 			mockNetwork.EXPECT().AddrAdd(macvlanTest, macvlanAddr).Return(nil)
-			mockNetwork.EXPECT().StartDHCP(testNic, macvlanAddr)
+			mockNetwork.EXPECT().StartDHCP(vm, testNic, macvlanAddr)
 
 			err := SetupPodNetwork(vm, domain)
 			Expect(err).To(BeNil())
@@ -102,8 +113,45 @@ var _ = Describe("Network", func() {
 			Expect(err).To(BeNil())
 		})
 	})
+	Context("on DHCP execution", func() {
+		It("should panic if vm is running", func() {
+			netInterface := &NetworkUtilsHandler{}
+			dhcpTestFunc := func() {
+				vm := &v1.VirtualMachine{
+					Status: v1.VirtualMachineStatus{Phase: v1.Running},
+				}
 
-	AfterEach(func() {
-		ctrl.Finish()
+				DHCPServer = func(clientMAC net.HardwareAddr,
+					clientIP net.IP,
+					clientMask net.IPMask,
+					serverIface string,
+					serverIP net.IP,
+					routerIP net.IP,
+					dnsIP net.IP) error {
+					return errors.New("DHCP exception: VM is Running")
+				}
+				netInterface.StartDHCP(vm, testNic, &fakeAddr)
+			}
+			Expect(dhcpTestFunc).To(Panic())
+		})
+		It("should not panic if vm is shutting down", func() {
+			netInterface := &NetworkUtilsHandler{}
+			dhcpTestFunc := func() {
+				vm := &v1.VirtualMachine{
+					Status: v1.VirtualMachineStatus{Phase: v1.Succeeded},
+				}
+				DHCPServer = func(clientMAC net.HardwareAddr,
+					clientIP net.IP,
+					clientMask net.IPMask,
+					serverIface string,
+					serverIP net.IP,
+					routerIP net.IP,
+					dnsIP net.IP) error {
+					return errors.New("DHCP exception: VM is destroyed")
+				}
+				netInterface.StartDHCP(vm, testNic, &fakeAddr)
+			}
+			Expect(dhcpTestFunc).ShouldNot(Panic())
+		})
 	})
 })
