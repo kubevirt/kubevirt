@@ -56,7 +56,7 @@ var _ = Describe("Console", func() {
 
 			_, err = expecter.ExpectBatch([]expect.Batcher{
 				&expect.BExp{R: "checking http://169.254.169.254/2009-04-04/instance-id"},
-			}, 60*time.Second)
+			}, 120*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -91,7 +91,7 @@ var _ = Describe("Console", func() {
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "login"},
-				}, 130*time.Second)
+				}, 160*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		}, 220)
