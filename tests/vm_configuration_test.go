@@ -146,4 +146,44 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
+	Context("New VM with all supported drives", func() {
+
+		var vm *v1.VirtualMachine
+
+		BeforeEach(func() {
+			// ordering:
+			// virtio - added by NewRandomVMWithEphemeralDisk
+			containerImage := "kubevirt/cirros-registry-disk-demo:devel"
+			vm = tests.NewRandomVMWithEphemeralDisk(containerImage)
+			// sata
+			tests.AddEphemeralDisk(vm, "disk1", "sata", containerImage)
+			// ide
+			tests.AddEphemeralDisk(vm, "disk2", "ide", containerImage)
+			// floppy
+			tests.AddEphemeralDisk(vm, "disk3", "floppy", containerImage)
+			// NOTE: we have one disk per bus, so we expect vda, sda, hda, fda
+		})
+		It("should have all the device nodes", func() {
+			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMStart(vm)
+
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				&expect.BExp{R: "Welcome to Alpine"},
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "login"},
+				&expect.BSnd{S: "root\n"},
+				&expect.BExp{R: "#"},
+				// keep the ordering!
+				&expect.BSnd{S: "ls /dev/fda /dev/hda /dev/sda /dev/vda\n"},
+				&expect.BExp{R: "/dev/fda /dev/hda /dev/sda /dev/vda"},
+			}, 150*time.Second)
+
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
 })

@@ -522,23 +522,29 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	AddEphemeralDisk(vm, "disk0", "virtio", containerImage)
+	return vm
+}
+
+func AddEphemeralDisk(vm *v1.VirtualMachine, name string, bus string, image string) *v1.VirtualMachine {
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "disk0",
-		VolumeName: "disk0",
+		Name:       name,
+		VolumeName: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: "virtio",
+				Bus: bus,
 			},
 		},
 	})
 	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-		Name: "disk0",
+		Name: name,
 		VolumeSource: v1.VolumeSource{
 			RegistryDisk: &v1.RegistryDiskSource{
-				Image: containerImage,
+				Image: image,
 			},
 		},
 	})
+
 	return vm
 }
 
