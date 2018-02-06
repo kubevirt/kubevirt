@@ -784,6 +784,42 @@ func NewRandomReplicaSetFromVM(vm *v1.VirtualMachine, replicas int32) *v1.Virtua
 	return rs
 }
 
+func NewBool(x bool) *bool {
+	return &x
+}
+
+func RenderJob(name string, dockerTag string, cmd []string, args []string) *k8sv1.Pod {
+	job := k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: name,
+			Labels: map[string]string{
+				v1.AppLabel: "test",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
+				{
+					Name:    name,
+					Image:   "kubevirt/vm-killer:" + dockerTag,
+					Command: cmd,
+					Args:    args,
+					SecurityContext: &k8sv1.SecurityContext{
+						Privileged: NewBool(true),
+						RunAsUser:  new(int64),
+					},
+				},
+			},
+			HostPID: true,
+			SecurityContext: &k8sv1.PodSecurityContext{
+				RunAsUser: new(int64),
+			},
+		},
+	}
+
+	return &job
+}
+
 func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, consoleName string, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
 	vmReader, vmWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
