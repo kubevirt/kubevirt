@@ -36,11 +36,10 @@ func (Affinity) SwaggerDoc() map[string]string {
 
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
-		"nodeName":          "NodeName is the name where the VM is currently running.",
-		"migrationNodeName": "MigrationNodeName is the node where the VM is live migrating to.",
-		"conditions":        "Conditions are specific points in VM's pod runtime.",
-		"phase":             "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
+		"":           "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
+		"nodeName":   "NodeName is the name where the VM is currently running.",
+		"conditions": "Conditions are specific points in VM's pod runtime.",
+		"phase":      "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
 	}
 }
 
@@ -58,41 +57,9 @@ func (SpiceInfo) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (Migration) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "A Migration is a job that moves a Virtual Machine from one node to another\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-	}
-}
-
-func (MigrationSpec) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":             "MigrationSpec is a description of a VM Migration\nFor example \"destinationNodeName\": \"testvm\" will migrate a VM called \"testvm\" in the namespace \"default\"",
-		"selector":     "Criterias for selecting the VM to migrate.\nFor example\nselector:\n  name: testvm\nwill select the VM `testvm` for migration",
-		"nodeSelector": "Criteria to use when selecting the destination for the migration\nfor example, to select by the hostname, specify `kubernetes.io/hostname: master`\nother possible choices include the hardware required to run the vm or\nor lableing of the nodes to indicate their roles in larger applications.\nexamples:\ndisktype: ssd,\nrandomGenerator: /dev/random,\nrandomGenerator: superfastdevice,\napp: mysql,\nlicensedForServiceX: true\nNote that these selectors are additions to the node selectors on the VM itself and they must not exist on the VM.\nIf they are conflicting with the VM, no migration will be started.",
-	}
-}
-
 func (VMSelector) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "Name of the VM to migrate",
-	}
-}
-
-func (MigrationStatus) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "MigrationStatus is the last reported status of a VM Migratrion. Status may trail the actual\nstate of a migration.",
-	}
-}
-
-func (MigrationList) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "A list of Migrations\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-	}
-}
-
-func (MigrationHostInfo) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "Host specific data, used by the migration controller to fetch host specific migration information from the target host",
 	}
 }
 

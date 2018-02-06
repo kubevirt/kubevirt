@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -35,7 +34,7 @@ import (
 var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
-	svc, err := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler", "/var/run/kubevirt")
+	svc, err := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt")
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
@@ -122,94 +121,6 @@ var _ = Describe("Template", func() {
 
 				Expect(err).To(BeNil())
 				Expect(pod.Spec.Affinity).To(BeNil())
-			})
-		})
-		Context("migration", func() {
-			var (
-				srcIp      = kubev1.NodeAddress{}
-				destIp     = kubev1.NodeAddress{}
-				srcNodeIp  = kubev1.Node{}
-				destNodeIp = kubev1.Node{}
-				srcNode    kubev1.Node
-				targetNode kubev1.Node
-			)
-
-			BeforeEach(func() {
-				srcIp = kubev1.NodeAddress{
-					Type:    kubev1.NodeInternalIP,
-					Address: "127.0.0.2",
-				}
-				destIp = kubev1.NodeAddress{
-					Type:    kubev1.NodeInternalIP,
-					Address: "127.0.0.3",
-				}
-				srcNodeIp = kubev1.Node{
-					Status: kubev1.NodeStatus{
-						Addresses: []kubev1.NodeAddress{srcIp},
-					},
-				}
-				destNodeIp = kubev1.Node{
-					Status: kubev1.NodeStatus{
-						Addresses: []kubev1.NodeAddress{destIp},
-					},
-				}
-				srcNode = kubev1.Node{
-					Status: kubev1.NodeStatus{
-						Addresses: []kubev1.NodeAddress{srcIp, destIp},
-					},
-				}
-				targetNode = kubev1.Node{
-					Status: kubev1.NodeStatus{
-						Addresses: []kubev1.NodeAddress{destIp, srcIp},
-					},
-				}
-			})
-
-			Context("migration template", func() {
-				var vm *v1.VirtualMachine
-				var destPod *kubev1.Pod
-				var hostInfo *v1.MigrationHostInfo
-				BeforeEach(func() {
-					vm = v1.NewMinimalVM("testvm")
-					vm.GetObjectMeta().SetUID(uuid.NewUUID())
-					destPod, err = svc.RenderLaunchManifest(vm)
-					Expect(err).ToNot(HaveOccurred())
-					destPod.Status.PodIP = "127.0.0.1"
-					hostInfo = &v1.MigrationHostInfo{PidNS: "pidns", Controller: []string{"cpu", "memory"}, Slice: "slice"}
-				})
-				Context("with correct parameters", func() {
-
-					It("should never restart", func() {
-						job, err := svc.RenderMigrationJob(vm, &srcNodeIp, &destNodeIp, destPod, hostInfo)
-						Expect(err).ToNot(HaveOccurred())
-						Expect(job.Spec.RestartPolicy).To(Equal(kubev1.RestartPolicyNever))
-					})
-					It("should use the first ip it finds", func() {
-						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod, hostInfo)
-						Expect(err).ToNot(HaveOccurred())
-						refCommand := []string{
-							"/migrate", "testvm", "--source", "qemu+tcp://127.0.0.2/system",
-							"--dest", "qemu+tcp://127.0.0.3/system",
-							"--node-ip", "127.0.0.3", "--namespace", "default",
-							"--slice", "slice", "--controller", "cpu,memory",
-						}
-						Expect(job.Spec.Containers[0].Command).To(Equal(refCommand))
-					})
-				})
-				Context("with incorrect parameters", func() {
-					It("should error on missing source address", func() {
-						srcNode.Status.Addresses = []kubev1.NodeAddress{}
-						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod, hostInfo)
-						Expect(err).To(HaveOccurred())
-						Expect(job).To(BeNil())
-					})
-					It("should error on missing destination address", func() {
-						targetNode.Status.Addresses = []kubev1.NodeAddress{}
-						job, err := svc.RenderMigrationJob(vm, &srcNode, &targetNode, destPod, hostInfo)
-						Expect(err).To(HaveOccurred())
-						Expect(job).To(BeNil())
-					})
-				})
 			})
 		})
 	})

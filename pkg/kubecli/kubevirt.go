@@ -39,7 +39,6 @@ import (
 
 type KubevirtClient interface {
 	VM(namespace string) VMInterface
-	Migration(namespace string) MigrationInterface
 	ReplicaSet(namespace string) ReplicaSetInterface
 	RestClient() *rest.RESTClient
 	kubernetes.Interface
@@ -72,13 +71,5 @@ type ReplicaSetInterface interface {
 	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineReplicaSetList, error)
 	Create(*v1.VirtualMachineReplicaSet) (*v1.VirtualMachineReplicaSet, error)
 	Update(*v1.VirtualMachineReplicaSet) (*v1.VirtualMachineReplicaSet, error)
-	Delete(name string, options *k8smetav1.DeleteOptions) error
-}
-
-type MigrationInterface interface {
-	Get(name string, options k8smetav1.GetOptions) (*v1.Migration, error)
-	List(opts k8smetav1.ListOptions) (*v1.MigrationList, error)
-	Create(*v1.Migration) (*v1.Migration, error)
-	Update(*v1.Migration) (*v1.Migration, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 }

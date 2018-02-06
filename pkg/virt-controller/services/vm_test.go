@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -47,40 +46,10 @@ var _ = Describe("VM", func() {
 		flag.Parse()
 		server = ghttp.NewServer()
 		virtClient, _ := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-		templateService, _ := NewTemplateService("kubevirt/virt-launcher", "kubevirt/virt-handler", "/var/run/libvirt")
+		templateService, _ := NewTemplateService("kubevirt/virt-launcher", "/var/run/libvirt")
 		restClient = virtClient.RestClient()
 		vmService = NewVMService(virtClient, restClient, templateService)
 
-	})
-	Context("calling Setup Migration ", func() {
-		It("should work", func() {
-
-			vm := v1.NewMinimalVM("test-vm")
-			var migration, expected_migration *v1.Migration
-			migration = v1.NewMinimalMigration(vm.ObjectMeta.Name+"-migration", vm.ObjectMeta.Name)
-			expected_migration = &v1.Migration{}
-			*expected_migration = *migration
-			expected_migration.Status.Phase = v1.MigrationRunning
-
-			vm.ObjectMeta.UID = "testUID"
-			vm.ObjectMeta.SetUID(uuid.NewUUID())
-			vm.Status.NodeName = "master"
-
-			pod := corev1.Pod{}
-
-			server.AppendHandlers(
-
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
-					VerifyAffinity(v1.UpdateAntiAffinityFromVMNode(&pod, vm)),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
-				),
-			)
-			err := vmService.CreateMigrationTargetPod(migration, vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
-
-		})
 	})
 
 	Context("calling StartVM Pod for a pod that does not exists", func() {

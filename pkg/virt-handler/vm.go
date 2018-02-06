@@ -28,7 +28,6 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -187,11 +186,6 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 		return nil
 	}
 
-	// While the VM is migrating, don't do anything, the Migration Controller is in charge
-	if vm.Status.MigrationNodeName != "" {
-		return nil
-	}
-
 	oldStatus := vm.DeepCopy().Status
 
 	// Calculate the new VM state based on what libvirt reported
@@ -335,16 +329,6 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// Determine removal of VM from cache should result in deletion.
 	if !vmExists {
-		// If we don't have the VM in the cache, it could be that it is currently migrating to us
-		isDestination, err := d.isMigrationDestination(vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
-		if err != nil {
-			// unable to determine migration status, we'll try again later.
-			return err
-		} else if isDestination {
-			// OK, this VM is migrating to us, don't interrupt it.
-			return nil
-		}
-
 		if domainExists {
 			// The VM is deleted on the cluster,
 			// then continue with processing the deletion on the host.
@@ -703,14 +687,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 		return err
 	}
 
-	// TODO MigrationNodeName should be a pointer
-	if vm.Status.MigrationNodeName != "" {
-		// Only sync if the VM is not marked as migrating.
-		// Everything except shutting down the VM is not
-		// permitted when it is migrating.
-		return nil
-	}
-
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain firs
 	client, err := d.getLauncherClient(vm)
@@ -724,25 +700,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Created.String(), "VM defined.")
 
 	return err
-}
-
-func (d *VirtualMachineController) isMigrationDestination(namespace string, vmName string) (bool, error) {
-
-	// If we don't have the VM in the cache, it could be that it is currently migrating to us
-	fetchedVM, err := d.clientset.VM(namespace).Get(vmName, metav1.GetOptions{})
-	if err == nil {
-		// So the VM still seems to exist
-
-		if fetchedVM.Status.MigrationNodeName == d.host {
-			return true, nil
-		}
-	} else if !errors.IsNotFound(err) {
-		// Something went wrong, let's try again later
-		return false, err
-	}
-
-	// VM object was not found.
-	return false, nil
 }
 
 func (d *VirtualMachineController) checkFailure(vm *v1.VirtualMachine, syncErr error, reason string) (changed bool) {

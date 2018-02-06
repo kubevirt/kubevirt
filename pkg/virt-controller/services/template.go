@@ -20,28 +20,22 @@
 package services
 
 import (
-	"fmt"
 	"strconv"
 
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"strings"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachine) (*kubev1.Pod, error)
-	RenderMigrationJob(*v1.VirtualMachine, *kubev1.Node, *kubev1.Node, *kubev1.Pod, *v1.MigrationHostInfo) (*kubev1.Pod, error)
 }
 
 type templateService struct {
 	launcherImage string
-	migratorImage string
 	virtShareDir  string
 }
 
@@ -200,72 +194,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	return &pod, nil
 }
 
-func (t *templateService) RenderMigrationJob(vm *v1.VirtualMachine, sourceNode *kubev1.Node, targetNode *kubev1.Node, targetPod *kubev1.Pod, targetHostInfo *v1.MigrationHostInfo) (*kubev1.Pod, error) {
-	srcAddr := ""
-	dstAddr := ""
-	for _, addr := range sourceNode.Status.Addresses {
-		if (addr.Type == kubev1.NodeInternalIP) && (srcAddr == "") {
-			srcAddr = addr.Address
-			break
-		}
-	}
-	if srcAddr == "" {
-		err := fmt.Errorf("migration source node is unreachable")
-		log.Log.Error("migration target node is unreachable")
-		return nil, err
-	}
-	srcUri := fmt.Sprintf("qemu+tcp://%s/system", srcAddr)
-
-	for _, addr := range targetNode.Status.Addresses {
-		if (addr.Type == kubev1.NodeInternalIP) && (dstAddr == "") {
-			dstAddr = addr.Address
-			break
-		}
-	}
-	if dstAddr == "" {
-		err := fmt.Errorf("migration target node is unreachable")
-		log.Log.Error("migration target node is unreachable")
-		return nil, err
-	}
-	destUri := fmt.Sprintf("qemu+tcp://%s/system", dstAddr)
-
-	job := kubev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "virt-migration",
-			Labels: map[string]string{
-				v1.DomainLabel: vm.GetObjectMeta().GetName(),
-				v1.AppLabel:    "migration",
-			},
-		},
-		Spec: kubev1.PodSpec{
-			RestartPolicy: kubev1.RestartPolicyNever,
-			Containers: []kubev1.Container{
-				{
-					Name:  "virt-migration",
-					Image: t.migratorImage,
-					Command: []string{
-						"/migrate", vm.ObjectMeta.Name,
-						"--source", srcUri,
-						"--dest", destUri,
-						"--node-ip", dstAddr,
-						"--namespace", vm.ObjectMeta.Namespace,
-						"--slice", targetHostInfo.Slice,
-						"--controller", strings.Join(targetHostInfo.Controller, ","),
-					},
-				},
-			},
-		},
-	}
-
-	return &job, nil
-}
-
-func NewTemplateService(launcherImage string, migratorImage string, virtShareDir string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, virtShareDir string) (TemplateService, error) {
 	precond.MustNotBeEmpty(launcherImage)
-	precond.MustNotBeEmpty(migratorImage)
 	svc := templateService{
 		launcherImage: launcherImage,
-		migratorImage: migratorImage,
 		virtShareDir:  virtShareDir,
 	}
 	return &svc, nil

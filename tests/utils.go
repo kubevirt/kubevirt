@@ -419,9 +419,6 @@ func cleanNamespaces() {
 		// Remove all VirtualMachineReplicaSets
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachinereplicasets").Do().Error())
 
-		// Remove all Migrations
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("migrations").Do().Error())
-
 		// Remove all VMs
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
 
@@ -647,11 +644,6 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 		},
 	})
 	return vm
-}
-
-func NewRandomMigrationForVm(vm *v1.VirtualMachine) *v1.Migration {
-	ns := vm.GetObjectMeta().GetNamespace()
-	return v1.NewMinimalMigrationWithNS(ns, vm.ObjectMeta.Name+"migrate"+rand.String(5), vm.ObjectMeta.Name)
 }
 
 func NewRandomVMWithWatchdog() *v1.VirtualMachine {

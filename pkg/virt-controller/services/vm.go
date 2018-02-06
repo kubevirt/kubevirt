@@ -45,14 +45,7 @@ type VMService interface {
 	StartVMPod(*corev1.VirtualMachine) error
 	DeleteVMPod(*corev1.VirtualMachine) error
 	GetRunningVMPods(*corev1.VirtualMachine) (*v1.PodList, error)
-	DeleteMigrationTargetPods(*corev1.Migration) error
-	GetRunningMigrationPods(*corev1.Migration) (*v1.PodList, error)
-	CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VirtualMachine) error
-	UpdateMigration(migration *corev1.Migration) error
 	FetchVM(namespace string, vmName string) (*corev1.VirtualMachine, bool, error)
-	FetchMigration(namespace string, migrationName string) (*corev1.Migration, bool, error)
-	StartMigration(migration *corev1.Migration, vm *corev1.VirtualMachine, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error
-	GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error)
 	PutVm(vm *corev1.VirtualMachine) (*corev1.VirtualMachine, error)
 }
 
@@ -111,12 +104,6 @@ func (v *vmService) GetRunningVMPods(vm *corev1.VirtualMachine) (*v1.PodList, er
 	return podList, nil
 }
 
-func (v *vmService) UpdateMigration(migration *corev1.Migration) error {
-	migrationName := migration.ObjectMeta.Name
-	_, err := v.RestClient.Put().Namespace(migration.ObjectMeta.Namespace).Resource("migrations").Body(migration).Name(migrationName).Do().Get()
-	return err
-}
-
 func (v *vmService) FetchVM(namespace string, vmName string) (*corev1.VirtualMachine, bool, error) {
 	resp, err := v.RestClient.Get().Namespace(namespace).Resource("virtualmachines").Name(vmName).Do().Get()
 	if err != nil {
@@ -127,18 +114,6 @@ func (v *vmService) FetchVM(namespace string, vmName string) (*corev1.VirtualMac
 	}
 	vm := resp.(*corev1.VirtualMachine)
 	return vm, true, nil
-}
-
-func (v *vmService) FetchMigration(namespace string, migrationName string) (*corev1.Migration, bool, error) {
-	resp, err := v.RestClient.Get().Namespace(namespace).Resource("migrations").Name(migrationName).Do().Get()
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, false, nil
-		}
-		return nil, false, err
-	}
-	migration := resp.(*corev1.Migration)
-	return migration, true, nil
 }
 
 func NewVMService(KubeCli kubecli.KubevirtClient,
@@ -161,90 +136,4 @@ func UnfinishedVMPodSelector(vm *corev1.VirtualMachine) metav1.ListOptions {
 		panic(err)
 	}
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-}
-
-func (v *vmService) CreateMigrationTargetPod(migration *corev1.Migration, vm *corev1.VirtualMachine) error {
-	pod, err := v.TemplateService.RenderLaunchManifest(vm)
-	migrationLabel := migration.GetObjectMeta().GetName()
-
-	pod.ObjectMeta.Labels[corev1.MigrationLabel] = migrationLabel
-	pod.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
-
-	pod.Spec.Affinity = corev1.UpdateAntiAffinityFromVMNode(pod, vm)
-
-	if err == nil {
-		_, err = v.KubeCli.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).Create(pod)
-	}
-	return err
-}
-
-func (v *vmService) DeleteMigrationTargetPods(migration *corev1.Migration) error {
-	precond.MustNotBeNil(migration)
-	precond.MustNotBeEmpty(migration.GetObjectMeta().GetName())
-
-	if err := v.KubeCli.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).DeleteCollection(nil, unfinishedMigrationTargetPodSelector(migration)); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (v *vmService) GetRunningMigrationPods(migration *corev1.Migration) (*v1.PodList, error) {
-	podList, err := v.KubeCli.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).List(unfinishedMigrationTargetPodSelector(migration))
-	if err != nil {
-		return nil, err
-	}
-	return podList, nil
-}
-
-func (v *vmService) StartMigration(migration *corev1.Migration, vm *corev1.VirtualMachine, sourceNode *v1.Node, targetNode *v1.Node, targetPod *v1.Pod) error {
-
-	// Look up node migration details
-	nodeDetails, err := kubecli.NewVirtHandlerClient(v.KubeCli).ForNode(targetNode.Name).NodeMigrationDetails(vm)
-	if err != nil {
-		return err
-	}
-
-	job, err := v.TemplateService.RenderMigrationJob(vm, sourceNode, targetNode, targetPod, nodeDetails)
-	job.ObjectMeta.Labels[corev1.MigrationLabel] = migration.GetObjectMeta().GetName()
-	job.ObjectMeta.Labels[corev1.MigrationUIDLabel] = string(migration.GetObjectMeta().GetUID())
-	if err != nil {
-		return err
-	}
-	_, err = v.KubeCli.CoreV1().Pods(migration.GetObjectMeta().GetNamespace()).Create(job)
-	return err
-}
-
-func (v *vmService) GetMigrationJob(migration *corev1.Migration) (*v1.Pod, bool, error) {
-	selector := migrationJobSelector(migration)
-	podList, err := v.KubeCli.CoreV1().Pods(migration.ObjectMeta.Namespace).List(selector)
-	if err != nil {
-		return nil, false, err
-	}
-	if len(podList.Items) == 0 {
-		return nil, false, nil
-	}
-
-	return &podList.Items[0], true, nil
-}
-
-func unfinishedMigrationTargetPodSelector(migration *corev1.Migration) metav1.ListOptions {
-	fieldSelector := fields.ParseSelectorOrDie(
-		"status.phase!=" + string(v1.PodFailed) +
-			",status.phase!=" + string(v1.PodSucceeded))
-	labelSelector, err := labels.Parse(
-		fmt.Sprintf(corev1.AppLabel+"=virt-launcher,"+corev1.DomainLabel+","+corev1.MigrationUIDLabel+" in (%s)", migration.GetObjectMeta().GetUID()))
-	if err != nil {
-		panic(err)
-	}
-	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-}
-
-func migrationJobSelector(migration *corev1.Migration) metav1.ListOptions {
-	labelSelector, err := labels.Parse(corev1.DomainLabel + "," + corev1.AppLabel + "=migration" +
-		"," + corev1.MigrationUIDLabel + "=" + string(migration.GetObjectMeta().GetUID()),
-	)
-	if err != nil {
-		panic(err)
-	}
-	return metav1.ListOptions{LabelSelector: labelSelector.String()}
 }
