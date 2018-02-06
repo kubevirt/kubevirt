@@ -2,6 +2,7 @@ package watch
 
 import (
 	"fmt"
+	"reflect"
 
 	"k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,32 +137,32 @@ func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.Dom
 		}
 	}
 	if presetSpec.CPU != nil && vmSpec.CPU != nil {
-		if presetSpec.CPU != vmSpec.CPU {
+		if !reflect.DeepEqual(presetSpec.CPU, vmSpec.CPU) {
 			errors = append(errors, fmt.Errorf("spec.cpu: %v != %v", presetSpec.CPU, vmSpec.CPU))
 		}
 	}
 	if presetSpec.Firmware != nil && vmSpec.Firmware != nil {
-		if presetSpec.Firmware != vmSpec.Firmware {
+		if !reflect.DeepEqual(presetSpec.Firmware, vmSpec.Firmware) {
 			errors = append(errors, fmt.Errorf("spec.firmware: %v != %v", presetSpec.Firmware, vmSpec.Firmware))
 		}
 	}
 	if presetSpec.Clock != nil && vmSpec.Clock != nil {
-		if presetSpec.Clock.ClockOffset != vmSpec.Clock.ClockOffset {
+		if !reflect.DeepEqual(presetSpec.Clock.ClockOffset, vmSpec.Clock.ClockOffset) {
 			errors = append(errors, fmt.Errorf("spec.clock.clockoffset: %v != %v", presetSpec.Clock.ClockOffset, vmSpec.Clock.ClockOffset))
 		}
 		if presetSpec.Clock.Timer != nil && vmSpec.Clock.Timer != nil {
-			if presetSpec.Clock.Timer != vmSpec.Clock.Timer {
+			if !reflect.DeepEqual(presetSpec.Clock.Timer, vmSpec.Clock.Timer) {
 				errors = append(errors, fmt.Errorf("spec.clock.timer: %v != %v", presetSpec.Clock.Timer, vmSpec.Clock.Timer))
 			}
 		}
 	}
 	if presetSpec.Features != nil && vmSpec.Features != nil {
-		if presetSpec.Features != vmSpec.Features {
+		if !reflect.DeepEqual(presetSpec.Features, vmSpec.Features) {
 			errors = append(errors, fmt.Errorf("spec.features: %v != %v", presetSpec.Features, vmSpec.Features))
 		}
 	}
 	if presetSpec.Devices.Watchdog != nil && vmSpec.Devices.Watchdog != nil {
-		if presetSpec.Devices.Watchdog != vmSpec.Devices.Watchdog {
+		if !reflect.DeepEqual(presetSpec.Devices.Watchdog, vmSpec.Devices.Watchdog) {
 			errors = append(errors, fmt.Errorf("spec.devices.watchdog: %v != %v", presetSpec.Devices.Watchdog, vmSpec.Devices.Watchdog))
 		}
 	}
@@ -175,14 +176,20 @@ func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.Dom
 		diskDeviceMap[diskDeviceToDeviceName(vmDev.DiskDevice)] = vmDev
 	}
 	for _, presetDev := range presetSpec.Devices.Disks {
-		if _, conflict := nameMap[presetDev.Name]; conflict {
-			errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same name", presetDev.Name))
+		if vmDev, conflict := nameMap[presetDev.Name]; conflict {
+			if !reflect.DeepEqual(presetDev, vmDev) {
+				errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same name", presetDev.Name))
+			}
 		}
-		if _, conflict := volumeNameMap[presetDev.VolumeName]; conflict {
-			errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same volume name", presetDev.Name))
+		if vmDev, conflict := volumeNameMap[presetDev.VolumeName]; conflict {
+			if !reflect.DeepEqual(presetDev, vmDev) {
+				errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same volume name", presetDev.Name))
+			}
 		}
-		if _, conflict := diskDeviceMap[diskDeviceToDeviceName(presetDev.DiskDevice)]; conflict {
-			errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting device", presetDev.Name))
+		if vmDev, conflict := diskDeviceMap[diskDeviceToDeviceName(presetDev.DiskDevice)]; conflict {
+			if !reflect.DeepEqual(presetDev, vmDev) {
+				errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting device", presetDev.Name))
+			}
 		}
 	}
 	if len(errors) > 0 {
@@ -205,24 +212,39 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) e
 		}
 	}
 	if presetSpec.CPU != nil {
+		if vmSpec.CPU == nil {
+			vmSpec.CPU = &kubev1.CPU{}
+		}
 		presetSpec.CPU.DeepCopyInto(vmSpec.CPU)
 	}
 	if presetSpec.Firmware != nil {
+		if vmSpec.Firmware == nil {
+			vmSpec.Firmware = &kubev1.Firmware{}
+		}
 		presetSpec.Firmware.DeepCopyInto(vmSpec.Firmware)
 	}
 	if presetSpec.Clock != nil {
 		if vmSpec.Clock == nil {
-			vmSpec.Clock = new(kubev1.Clock)
+			vmSpec.Clock = &kubev1.Clock{}
 		}
 		vmSpec.Clock.ClockOffset = presetSpec.Clock.ClockOffset
 		if presetSpec.Clock.Timer != nil {
+			if vmSpec.Clock.Timer == nil {
+				vmSpec.Clock.Timer = &kubev1.Timer{}
+			}
 			presetSpec.Clock.Timer.DeepCopyInto(vmSpec.Clock.Timer)
 		}
 	}
 	if presetSpec.Features != nil {
+		if vmSpec.Features == nil {
+			vmSpec.Features = &kubev1.Features{}
+		}
 		presetSpec.Features.DeepCopyInto(vmSpec.Features)
 	}
 	if presetSpec.Devices.Watchdog != nil {
+		if vmSpec.Devices.Watchdog == nil {
+			vmSpec.Devices.Watchdog = &kubev1.Watchdog{}
+		}
 		presetSpec.Devices.Watchdog.DeepCopyInto(vmSpec.Devices.Watchdog)
 	}
 	// Devices in the VM should appear first (for mount point ordering)
@@ -255,6 +277,10 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 }
 
 func removeInitializer(vm *kubev1.VirtualMachine) {
+	if vm.Initializers == nil {
+		// If Initializers is nil, there's nothing to remove.
+		return
+	}
 	newInitilizers := []k8smetav1.Initializer{}
 	for _, i := range vm.Initializers.Pending {
 		if i.Name != initializerMarking {
