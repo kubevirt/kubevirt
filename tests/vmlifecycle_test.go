@@ -90,7 +90,7 @@ var _ = Describe("Vmlifecycle", func() {
 			tests.WaitForSuccessfulVMStart(obj)
 
 			close(done)
-		}, 30)
+		}, 45)
 
 		It("Virt-launcher should attach to a started VM", func(done Done) {
 			obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
@@ -180,7 +180,7 @@ var _ = Describe("Vmlifecycle", func() {
 					return false
 				})
 				close(done)
-			}, 30)
+			}, 45)
 
 			It("Should log warning if secret is not present, and proceed once the secret is there", func(done Done) {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
@@ -249,7 +249,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}()).To(Equal(v1.Failed))
 
 				close(done)
-			}, 50)
+			}, 60)
 			It("should be left alone by virt-handler", func(done Done) {
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
