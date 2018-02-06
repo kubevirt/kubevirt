@@ -1,0 +1,20 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: vm-pvc
+spec:
+  terminationGracePeriodSeconds: 0
+  domain:
+    resources:
+      requests:
+        memory: 64M
+    devices:
+      disks:
+      - name: mydisk
+        volumeName: pvcvolume
+        disk:
+          dev: vda
+  volumes:
+    - name: pvcvolume
+      persistentVolumeClaim:
+        claimName: alpine-nfs-pvc

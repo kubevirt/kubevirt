@@ -1,0 +1,130 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: alpine-nfs-pvc
+  labels:
+    kubevirt.io: ""
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+  selector:
+    matchLabels:
+      os: "alpine-nfs"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cirros-nfs-pvc
+  labels:
+    kubevirt.io: ""
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      os: "cirros-nfs"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: alpine-nfs-pv
+  labels:
+    kubevirt.io: ""
+    os: "alpine-nfs"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    path: /volumes/alpine
+    server: nfs-server-demo.kube-system.svc.cluster.local
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: cirros-nfs-pv
+  labels:
+    kubevirt.io: ""
+    os: "cirros-nfs"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    path: /volumes/cirros
+    server: nfs-server-demo.kube-system.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nfs-server-demo
+  namespace: kube-system
+  labels:
+    kubevirt.io: ""
+spec:
+  ports:
+    - name: nfs-server-tcp
+      port: 2049
+      targetPort: 2049
+      protocol: TCP
+    - name: nfs-server-udp
+      port: 2049
+      targetPort: 2049
+      protocol: UDP
+    - name: rpcbind-tcp
+      port: 111
+      targetPort: 111
+      protocol: TCP
+    - name: rpcbind-udp
+      port: 111
+      targetPort: 111
+      protocol: UDP
+  selector:
+    kubevirt.io: nfs-server-demo
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nfs-server-demo
+  namespace: kube-system
+  labels:
+    kubevirt.io: "nfs-server-demo"
+spec:
+  template:
+    metadata:
+      labels:
+        name: nfs-server-demo
+        kubevirt.io: nfs-server-demo
+      name: nfs-server-demo
+    spec:
+      serviceAccountName: kubevirt-testing
+      containers:
+        - name: nfs-server
+          image: {{ docker_prefix }}/nfs-server-demo:{{ docker_tag }}
+          ports:
+            - containerPort: 111
+            - containerPort: 2049
+          volumeMounts:
+          - name: host
+            mountPath: /host
+          env:
+            - name: EXPORT_HOST_PATHS
+              value:
+          securityContext:
+            privileged: true
+      volumes:
+        - name: host
+          hostPath:
+            path: /
