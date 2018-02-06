@@ -112,6 +112,26 @@ var _ = Describe("Network", func() {
 			Expect(string(xml)).To(Equal(string(interfaceXml)))
 			Expect(err).To(BeNil())
 		})
+		It("should panic if pod networking fails to setup", func() {
+			testNetworkPanic := func() {
+				Handler = mockNetwork
+				domain := &api.Domain{}
+				vm := &v1.VirtualMachine{
+					Status: v1.VirtualMachineStatus{},
+				}
+
+				api.SetObjectDefaults_Domain(domain)
+
+				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+				mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
+				mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
+				mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
+				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
+
+				SetupPodNetwork(vm, domain)
+			}
+			Expect(testNetworkPanic).To(Panic())
+		})
 	})
 	Context("on DHCP execution", func() {
 		It("should panic if vm is running", func() {

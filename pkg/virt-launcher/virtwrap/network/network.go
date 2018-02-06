@@ -171,23 +171,42 @@ func initHandler() {
 func SetupDefaultPodNetwork(vm *v1.VirtualMachine, domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
 	initHandler()
+	vif := &VIF{Name: podInterface}
 
-	nic := &VIF{Name: podInterface}
+	podNicLink, err := discoverPodNetworkInterface(vif)
+	if err != nil {
+		return err
+	}
+	if err := plugNetworkDevice(vm, domain, vif); err != nil {
+		return err
+	}
+	if err := preparePodNetworkInterfaces(vif, podNicLink); err != nil {
+		log.Log.Reason(err).Critical("failed to prepared pod networking")
+		panic(err)
+	}
 
+	// Start DHCP Server
+	fakeServerAddr, _ := netlink.ParseAddr(macVlanFakeIP)
+	go Handler.StartDHCP(vm, vif, fakeServerAddr)
+
+	return nil
+}
+
+func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 	nicLink, err := Handler.LinkByName(podInterface)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterface)
-		return err
+		return nil, err
 	}
 
 	// get IP address
 	addrList, err := Handler.AddrList(nicLink, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get an ip address for %s", podInterface)
-		return err
+		return nil, err
 	}
 	if len(addrList) == 0 {
-		return fmt.Errorf("No IP address found on %s", podInterface)
+		return nil, fmt.Errorf("No IP address found on %s", podInterface)
 	}
 	nic.IP = addrList[0]
 
@@ -195,10 +214,10 @@ func SetupDefaultPodNetwork(vm *v1.VirtualMachine, domain *api.Domain) error {
 	routes, err := Handler.RouteList(nicLink, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get routes for %s", podInterface)
-		return err
+		return nil, err
 	}
 	if len(routes) == 0 {
-		return fmt.Errorf("No gateway address found in routes for %s", podInterface)
+		return nil, fmt.Errorf("No gateway address found in routes for %s", podInterface)
 	}
 	nic.Gateway = routes[0].Gw
 
@@ -206,12 +225,15 @@ func SetupDefaultPodNetwork(vm *v1.VirtualMachine, domain *api.Domain) error {
 	mac, err := Handler.GetMacDetails(podInterface)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get MAC for %s", podInterface)
-		return err
+		return nil, err
 	}
 	nic.MAC = mac
+	return nicLink, nil
+}
 
+func preparePodNetworkInterfaces(nic *VIF, nicLink netlink.Link) error {
 	// Remove IP from POD interface
-	err = Handler.AddrDel(nicLink, &nic.IP)
+	err := Handler.AddrDel(nicLink, &nic.IP)
 
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to delete link for interface: %s", podInterface)
@@ -272,13 +294,6 @@ func SetupDefaultPodNetwork(vm *v1.VirtualMachine, domain *api.Domain) error {
 
 	if err := Handler.AddrAdd(macvlink, fakeaddr); err != nil {
 		log.Log.Reason(err).Errorf("failed to set macvlan IP")
-		return err
-	}
-
-	// Start DHCP Server
-	go Handler.StartDHCP(vm, nic, fakeaddr)
-
-	if err := plugNetworkDevice(vm, domain, nic); err != nil {
 		return err
 	}
 
