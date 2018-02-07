@@ -72,7 +72,7 @@ func SetDomainSpec(virConn cli.Connection, vm *v1.VirtualMachine, wantedSpec api
 		log.Log.Object(vm).Reason(err).Error("Generating the domain XML failed.")
 		return nil, err
 	}
-	log.Log.Object(vm).V(3).With("xml", xmlStr).Info("Domain XML generated.")
+	log.Log.Object(vm).V(3).With("xml", string(xmlStr)).Info("Domain XML generated.")
 	dom, err := virConn.DomainDefineXML(string(xmlStr))
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Defining the VM failed.")

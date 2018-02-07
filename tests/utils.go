@@ -548,6 +548,26 @@ func AddEphemeralDisk(vm *v1.VirtualMachine, name string, bus string, image stri
 	return vm
 }
 
+func AddEphemeralFloppy(vm *v1.VirtualMachine, name string, image string) *v1.VirtualMachine {
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       name,
+		VolumeName: name,
+		DiskDevice: v1.DiskDevice{
+			Floppy: &v1.FloppyTarget{},
+		},
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			RegistryDisk: &v1.RegistryDiskSource{
+				Image: image,
+			},
+		},
+	})
+
+	return vm
+}
+
 func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachine {
 	vm := NewRandomVMWithEphemeralDisk(containerImage)
 
