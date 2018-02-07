@@ -38,8 +38,12 @@ _rsync() {
     rsync -al "$@"
 }
 
+# For backward compatibility. If vendorless branches are used we need to make sure
+# that they can sync again.
+rm ${KUBEVIRT_DIR}/.glide*.hash -f
+
 # Copy kubevirt into the persistent docker volume
-_rsync --delete --exclude '.glide*' --exclude "cluster/vagrant/.kubeconfig" --exclude "cluster/vagrant/.kubectl" --exclude "vendor" --exclude "_out" --exclude ".vagrant" ${KUBEVIRT_DIR}/ "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
+_rsync --delete --exclude "cluster/vagrant/.kubeconfig" --exclude "cluster/vagrant/.kubectl" --exclude "_out" --exclude ".vagrant" ${KUBEVIRT_DIR}/ "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
 # Run the command
 test -t 1 && USE_TTY="-it"

@@ -3,19 +3,19 @@ export GO15VENDOREXPERIMENT := 1
 all: build manifests
 
 generate:
-	hack/dockerized "hack/glide-checksync.sh && ./hack/generate.sh"
+	hack/dockerized "./hack/generate.sh"
 
 apidocs:
-	hack/dockerized "hack/glide-checksync.sh && ./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
+	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
 
 build:
-	hack/dockerized "hack/glide-checksync.sh && ./hack/check.sh && ./hack/build-go.sh install ${WHAT}"
+	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install ${WHAT}"
 
 goveralls:
-	hack/dockerized "hack/glide-checksync.sh && ./hack/check.sh && ./hack/build-go.sh install && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
+	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
 
 test:
-	hack/dockerized "hack/glide-checksync.sh && ./hack/check.sh && ./hack/build-go.sh install ${WHAT} && ./hack/build-go.sh test ${WHAT}"
+	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install ${WHAT} && ./hack/build-go.sh test ${WHAT}"
 
 functest:
 	hack/dockerized "hack/build-func-tests.sh"
@@ -29,11 +29,11 @@ distclean: clean
 	hack/dockerized "rm -rf vendor/ && rm -f .glide.*.hash && glide cc"
 	rm -rf vendor/
 
-checksync:
-	hack/dockerized	hack/glide-checksync.sh
-
-sync:
-	hack/dockerized "glide install --strip-vendor && md5sum glide.lock > .glide.lock.hash"
+deps-install:
+	hack/dockerized "glide install --strip-vendor"
+ 
+deps-update:
+	hack/dockerized "glide cc && glide update --strip-vendor"
 
 docker: build
 	hack/build-docker.sh build ${WHAT}
