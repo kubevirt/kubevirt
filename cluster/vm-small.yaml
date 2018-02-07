@@ -1,0 +1,21 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: testvm
+  label:
+    flavor: small
+spec:
+  terminationGracePeriodSeconds: 0
+  domain:
+    devices:
+      disks:
+      - name: mydisk
+        volumeName: myvolume
+        disk:
+          dev: vda
+  volumes:
+    - name: myvolume
+      iscsi:
+        iqn: iqn.2017-01.io.kubevirt:sn.42
+        lun: 2
+        targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
