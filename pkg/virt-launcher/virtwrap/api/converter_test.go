@@ -86,7 +86,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			vm.Spec.Domain.Features = &v1.Features{
-				APIC: &v1.FeatureState{},
+				APIC: &v1.FeatureAPIC{},
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:    &v1.FeatureState{Enabled: &_false},
 					VAPIC:      &v1.FeatureState{Enabled: &_true},

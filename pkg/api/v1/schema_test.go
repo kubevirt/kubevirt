@@ -275,7 +275,7 @@ var _ = Describe("Schema", func() {
 		}
 		exampleVM.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _false},
-			APIC: &FeatureState{Enabled: _true},
+			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
 				Relaxed:    &FeatureState{Enabled: _true},
 				VAPIC:      &FeatureState{Enabled: _false},

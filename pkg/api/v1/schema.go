@@ -365,7 +365,7 @@ type Features struct {
 	ACPI FeatureState `json:"acpi,omitempty"`
 	// Defaults to the machine type setting
 	// +optional
-	APIC *FeatureState `json:"apic,omitempty"`
+	APIC *FeatureAPIC `json:"apic,omitempty"`
 	// Defaults to the machine type setting
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`

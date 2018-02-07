@@ -46,6 +46,12 @@ func SetDefaults_FeatureState(obj *FeatureState) {
 	}
 }
 
+func SetDefaults_FeatureAPIC(obj *FeatureAPIC) {
+	if obj.Enabled == nil {
+		obj.Enabled = _true
+	}
+}
+
 func SetDefaults_FeatureVendorID(obj *FeatureVendorID) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true

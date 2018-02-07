@@ -1819,6 +1819,18 @@
      }
     }
    },
+   "v1.FeatureAPIC": {
+    "properties": {
+     "enabled": {
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+      "type": "boolean"
+     },
+     "endOfInterrupt": {
+      "description": "EndOfInterrupt enables the end of interrupt notification in the guest\nDefaults to false\n+optional",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.FeatureHyperv": {
     "description": "Hyperv specific features",
     "properties": {
@@ -1904,7 +1916,7 @@
      },
      "apic": {
       "description": "Defaults to the machine type setting\n+optional",
-      "$ref": "#/definitions/v1.FeatureState"
+      "$ref": "#/definitions/v1.FeatureAPIC"
      },
      "hyperv": {
       "description": "Defaults to the machine type setting\n+optional",

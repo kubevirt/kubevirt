@@ -64,7 +64,7 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 	if in.Spec.Domain.Features != nil {
 		SetDefaults_FeatureState(&in.Spec.Domain.Features.ACPI)
 		if in.Spec.Domain.Features.APIC != nil {
-			SetDefaults_FeatureState(in.Spec.Domain.Features.APIC)
+			SetDefaults_FeatureAPIC(in.Spec.Domain.Features.APIC)
 		}
 		if in.Spec.Domain.Features.Hyperv != nil {
 			if in.Spec.Domain.Features.Hyperv.Relaxed != nil {
@@ -148,7 +148,7 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 		if in.Spec.Template.Spec.Domain.Features != nil {
 			SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.ACPI)
 			if in.Spec.Template.Spec.Domain.Features.APIC != nil {
-				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.APIC)
+				SetDefaults_FeatureAPIC(in.Spec.Template.Spec.Domain.Features.APIC)
 			}
 			if in.Spec.Template.Spec.Domain.Features.Hyperv != nil {
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed != nil {
