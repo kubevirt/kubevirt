@@ -25,22 +25,18 @@ source hack/common.sh
 source cluster/$PROVIDER/provider.sh
 source hack/config.sh
 
-echo "Deploying ..."
+echo "Cleaning up ..."
+# Work around https://github.com/kubernetes/kubernetes/issues/33517
+_kubectl delete ds -l "kubevirt.io" -n kube-system --cascade=false --grace-period 0 2>/dev/null || :
+_kubectl delete pods -n kube-system -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
+_kubectl delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
 
-# Deploy the right manifests for the right target
-if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev" ]; then
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
-elif [ "$TARGET" = "vagrant-release" ]; then
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/release -R $i
-fi
+# Delete everything, no matter if release, devel or infra
+_kubectl delete -f ${MANIFESTS_OUT_DIR}/ -R --grace-period 1 2>/dev/null || :
 
-# Deploy additional infra for testing
-_kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
+# Delete exposures
+_kubectl delete services -l "kubevirt.io" -n kube-system
 
-if [ "$PROVIDER" = "vagrant-openshift" ]; then
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n kube-system
-    _kubectl adm policy add-scc-to-user hostmount-anyuid -z kubevirt-testing -n kube-system
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n kube-system
-fi
+sleep 2
 
 echo "Done"
