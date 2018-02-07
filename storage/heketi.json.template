@@ -1,0 +1,13 @@
+{
+	"port" : "8080",
+	"use_auth" : false,
+	"glusterfs" : {
+
+		"executor" : "${HEKETI_EXECUTOR}",
+		"db" : "/var/lib/heketi/heketi.db",
+		"kubeexec" : {
+			"rebalance_on_expansion": true
+		}
+	},
+	"backup_db_to_kube_secret": false
+}
