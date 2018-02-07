@@ -23,7 +23,7 @@ type VirtualMachineInitializer struct {
 const initializerMarking = "presets.virtualmachines.kubevirt.io"
 
 // FIXME: Both the restClient and clientSet are probably not needed.
-func NewVMInitializer(vmPresetInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient) *VirtualMachineInitializer {
+func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient) *VirtualMachineInitializer {
 	vmi := VirtualMachineInitializer{
 		vmPresetInformer: vmPresetInformer,
 		clientset:        clientset,

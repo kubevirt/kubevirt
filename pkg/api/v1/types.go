@@ -564,7 +564,7 @@ type VirtualMachinePresetList struct {
 
 type VMPresetSpec struct {
 	Selector metav1.LabelSelector
-	// Domain is the actual libvirt domain.
+	// Domain is the same object type as contained in VirtualMachineSpec
 	Domain *DomainSpec `json:"domain,omitempty"`
 }
 
