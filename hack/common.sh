@@ -6,11 +6,11 @@ KUBEVIRT_DIR="$(
 )"
 OUT_DIR=$KUBEVIRT_DIR/_out/
 VENDOR_DIR=$KUBEVIRT_DIR/vendor/
-CMD_OUT_DIR=$KUBEVIRT_DIR/_out/cmd/
-TESTS_OUT_DIR=$KUBEVIRT_DIR/_out/tests/
-APIDOCS_OUT_DIR=$KUBEVIRT_DIR/_out/apidocs
-MANIFESTS_OUT_DIR=$KUBEVIRT_DIR/_out/manifests
-PYTHON_CLIENT_OUT_DIR=$KUBEVIRT_DIR/_out/client-python
+CMD_OUT_DIR=$OUT_DIR/cmd/
+TESTS_OUT_DIR=$OUT_DIR/tests/
+APIDOCS_OUT_DIR=$OUT_DIR/apidocs
+MANIFESTS_OUT_DIR=$OUT_DIR/manifests
+PYTHON_CLIENT_OUT_DIR=$OUT_DIR/client-python
 
 function build_func_tests() {
     mkdir -p ${TESTS_OUT_DIR}/
