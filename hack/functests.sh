@@ -22,4 +22,4 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -test.timeout 30m ${FUNC_TEST_ARGS}
+${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -test.timeout 40m ${FUNC_TEST_ARGS}
