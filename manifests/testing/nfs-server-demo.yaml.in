@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: alpine-nfs-pvc
+  name: disk-alpine-nfs
   labels:
     kubevirt.io: ""
 spec:
@@ -20,7 +20,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: cirros-nfs-pvc
+  name: disk-cirros-nfs
   labels:
     kubevirt.io: ""
 spec:
@@ -37,7 +37,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: alpine-nfs-pv
+  name: nfs-disk-alpine
   labels:
     kubevirt.io: ""
     os: "alpine-nfs"
@@ -53,7 +53,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: cirros-nfs-pv
+  name: nfs-disk-cirros
   labels:
     kubevirt.io: ""
     os: "cirros-nfs"
@@ -72,7 +72,7 @@ metadata:
   name: nfs-server-demo
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "nfs-server-demo"
 spec:
   ports:
     - name: nfs-server-tcp
