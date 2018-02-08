@@ -48,7 +48,7 @@ var _ = Describe("Configurations", func() {
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			vm = tests.NewRandomVMWithDirectLun(2, false)
+			vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
 		})
 		It("should report 3 cpu cores", func() {
 			vm.Spec.Domain.CPU = &v1.CPU{

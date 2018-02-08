@@ -1,4 +1,3 @@
-#!/bin/bash
 #
 # This file is part of the KubeVirt project
 #
@@ -17,9 +16,9 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-set -e
+FROM kubevirt/registry-disk-v1alpha
 
-source hack/common.sh
-source hack/config.sh
+MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -test.timeout 40m ${FUNC_TEST_ARGS}
+# Add alpine image
+RUN curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /disk/alpine.iso
