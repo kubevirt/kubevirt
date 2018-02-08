@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source $(dirname "$0")/../../hack/common.sh
+source $(dirname "$0")/../common.sh
 
 SWAGGER_CODEGEN_CLI_SRC=http://central.maven.org/maven2/io/swagger/swagger-codegen-cli/2.2.3/swagger-codegen-cli-2.2.3.jar
 SWAGGER_CODEGEN_CLI="/tmp/swagger-codegen-cli.jar"
