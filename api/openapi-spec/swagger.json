@@ -1847,7 +1847,7 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "vapic": {
-      "description": "VAPIC indicates weather virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
+      "description": "VAPIC indicates whether virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "vendorid": {
