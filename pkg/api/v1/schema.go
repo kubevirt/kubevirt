@@ -418,7 +418,7 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting
 	// +optional
 	Relaxed *FeatureState `json:"relaxed,omitempty"`
-	// VAPIC indicates weather virtual APIC is enabled
+	// VAPIC indicates whether virtual APIC is enabled
 	// Defaults to the machine type setting
 	// +optional
 	VAPIC *FeatureState `json:"vapic,omitempty"`

@@ -232,7 +232,7 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "Hyperv specific features",
 		"relaxed":    "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
-		"vapic":      "VAPIC indicates weather virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
+		"vapic":      "VAPIC indicates whether virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
 		"spinlocks":  "Spinlocks indicates if spinlocks should be made available to the guest\n+optional",
 		"vpindex":    "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors\nDefaults to the machine type setting\n+optional",
 		"runtime":    "Runtime\nDefaults to the machine type setting\n+optional",
