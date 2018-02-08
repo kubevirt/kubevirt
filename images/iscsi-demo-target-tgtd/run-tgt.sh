@@ -24,7 +24,10 @@ set -e
 SIZE=${SIZE:-1GB}
 WWN=${WWN:-iqn.2017-01.io.kubevirt:sn.42}
 
-[[ -f /volume/0-custom.img ]] || truncate -s ${SIZE} /volume/0-custom.img
+mkdir -p /volumes
+mkdir -p /mnt/disk
+
+[[ -f /volumes/0-custom.img ]] || truncate -s ${SIZE} /volumes/0-custom.img
 
 echo "Starting tgtd"
 tgtd -f &
@@ -40,6 +43,25 @@ if [ -n "$PASSWORD" ] && [ -n "$USERNAME" ]; then
 fi
 
 LUNID=1
+
+convert_to_filesystem() {
+    local FN=$1
+    local DISK_NAME="/tmp/$(basename $FN)"
+    dd if=/dev/zero of=$DISK_NAME bs=1M count=1024
+    mkfs.ext4 $DISK_NAME
+    sleep 10
+    mount -o loop,rw,sync $DISK_NAME /mnt/disk
+    mv $FN /mnt/disk/disk.img
+    umount /mnt/disk
+    mv $DISK_NAME /volumes
+}
+
+echo "Convert every file in /images to filesystem disk"
+for F in $(ls -1 /images/* | sort); do
+    echo "- Convert file '$F'"
+    convert_to_filesystem $F
+done
+
 add_lun_for_file() {
     local FN=$1
     tgtadm --lld iscsi --mode logicalunit --op new --tid=1 --lun=$LUNID -b $FN
@@ -48,7 +70,7 @@ add_lun_for_file() {
 }
 
 echo "Adding every file in /volume as a LUN"
-for F in $(ls -1 /volume/* | sort); do
+for F in $(ls -1 /volumes/* | sort); do
     echo "- Adding LUN ID $LUNID for file '$F'"
     add_lun_for_file $F
 done
@@ -61,14 +83,14 @@ for P in $EXPORT_HOST_PATHS; do
 done
 
 echo "Start monitoring"
-touch previous_state
+touch /tmp/previous_state
 while true; do
     tgtadm --lld iscsi --mode target --op show >current_state
-    diff -q previous_state current_state || (
+    diff -q /tmp/previous_state current_state || (
         date
         cat current_state
     )
-    mv -f current_state previous_state
+    mv -f current_state /tmp/previous_state
     sleep 3
 done
 

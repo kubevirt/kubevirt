@@ -93,8 +93,8 @@ const (
 )
 
 const (
-	labelISCSIPod         = "iscsi-demo-target-tgtd"
-	labelISCSIWithAuthPod = "iscsi-auth-demo-target-tgtd"
+	labelISCSIPod         = "iscsi-demo-target"
+	labelISCSIWithAuthPod = "iscsi-auth-demo-target"
 	labelNFSPod           = "nfs-server-demo"
 )
 
@@ -104,8 +104,8 @@ const (
 )
 
 const (
-	nfsPathAlpine = "/volumes/alpine"
-	nfsPathCirros = "/volumes/cirros"
+	nfsPathAlpine = "/nfsshare/alpine"
+	nfsPathCirros = "/nfsshare/cirros"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -429,7 +429,7 @@ func createPvNFS(os string, path string) {
 
 	nfsServer := getPodIpByLabel(labelNFSPod)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPvNFS(nfsServer, os, path))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPvNFS(os, nfsServer, path))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
@@ -497,15 +497,36 @@ func deletePV(os string, withAuth bool) {
 
 func getPodIpByLabel(label string) string {
 	virtCli, err := kubecli.GetKubevirtClient()
-	labelSelector := fmt.Sprintf("%s=%s", v1.AppLabel, label)
-	pods, err := virtCli.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: labelSelector})
 	PanicOnError(err)
 
-	if len(pods.Items) != 1 {
+	labelSelector := fmt.Sprintf("%s=%s", v1.AppLabel, label)
+	fieldSelector := fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
+	pods, err := virtCli.CoreV1().Pods(metav1.NamespaceSystem).List(
+		metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
+	)
+	PanicOnError(err)
+
+	if len(pods.Items) == 0 {
 		PanicOnError(fmt.Errorf("failed to find pod with the label %s", label))
 	}
 
-	return pods.Items[0].Status.PodIP
+	var readyPod *k8sv1.Pod
+	for _, pod := range pods.Items {
+		ready := true
+		for _, status := range pod.Status.ContainerStatuses {
+			if !status.Ready {
+				ready = false
+			}
+		}
+		if ready {
+			readyPod = &pod
+			break
+		}
+	}
+	if readyPod == nil {
+		PanicOnError(fmt.Errorf("no ready pods with the label %s", label))
+	}
+	return readyPod.Status.PodIP
 }
 
 func cleanNamespaces() {
@@ -742,6 +763,7 @@ func NewRandomVMWithDirectLunAndDevice(lun int, withAuth bool, diskDev v1.DiskDe
 	}
 
 	if withAuth {
+		volumeSource.ISCSI.SessionCHAPAuth = true
 		volumeSource.ISCSI.SecretRef = &k8sv1.LocalObjectReference{Name: iscsiSecretName}
 	}
 

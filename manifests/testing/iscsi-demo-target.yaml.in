@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: disk-custom
+  name: disk-custom-iscsi
   labels:
     kubevirt.io: ""
 spec:
@@ -20,7 +20,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: disk-alpine
+  name: disk-alpine-iscsi
   labels:
     kubevirt.io: ""
 spec:
@@ -38,7 +38,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: disk-cirros
+  name: disk-cirros-iscsi
   labels:
     kubevirt.io: ""
 spec:
@@ -109,7 +109,7 @@ metadata:
   name: iscsi-demo-target
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "iscsi-demo-target"
 spec:
   ports:
     - name: iscsi
@@ -145,6 +145,15 @@ spec:
           env:
             - name: EXPORT_HOST_PATHS
               value:
+          securityContext:
+            privileged: true
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/previous_state
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: host
           hostPath:

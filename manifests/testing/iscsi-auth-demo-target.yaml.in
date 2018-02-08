@@ -16,7 +16,7 @@ metadata:
   name: iscsi-auth-demo-target
   namespace: kube-system
   labels:
-    kubevirt.io: ""
+    kubevirt.io: "iscsi-auth-demo-target"
 spec:
   ports:
     - name: iscsi
@@ -56,6 +56,15 @@ spec:
               value: demopassword
             - name: USERNAME
               value: demouser
+          securityContext:
+            privileged: true
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/previous_state
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: host
           hostPath:
