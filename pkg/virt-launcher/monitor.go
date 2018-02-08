@@ -133,8 +133,13 @@ func InitializePrivateDirectories(baseDir string) error {
 	return nil
 }
 
-func InitializePVCDisksDirectories(baseDir string) error {
-	err := os.Chmod(baseDir, 755)
+func InitializeDisksDirectories(baseDir string) error {
+	err := os.MkdirAll(baseDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	err = os.Chmod(baseDir, 0755)
 	if err != nil {
 		return err
 	}
