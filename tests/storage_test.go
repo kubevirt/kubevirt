@@ -136,7 +136,7 @@ var _ = Describe("Storage", func() {
 	Context("Given a VM and an Alpine PVC", func() {
 		It("should be successfully started by libvirt", func(done Done) {
 			// Start the VM with the PVC attached
-			vm := tests.NewRandomVMWithPVC("disk-alpine")
+			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 			RunVMAndExpectLaunch(vm, false)
 			close(done)
 		}, 30)
@@ -145,13 +145,13 @@ var _ = Describe("Storage", func() {
 	Context("Given a VM and an Alpine PVC with CHAP auth", func() {
 		It("should be successfully started by libvirt", func(done Done) {
 			// Start the VM with the PVC attached
-			vm := tests.NewRandomVMWithPVC("disk-auth-alpine")
+			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
 			RunVMAndExpectLaunch(vm, true)
 			close(done)
 		}, 30)
 
 		It("should not modify the VM spec on status update", func() {
-			vm := tests.NewRandomVMWithPVC("disk-auth-alpine")
+			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
 			v1.SetObjectDefaults_VirtualMachine(vm)
 			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).To(BeNil())
