@@ -22,14 +22,15 @@ package network
 import (
 	"encoding/xml"
 	"errors"
+	"io/ioutil"
 	"net"
+	"os"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -48,9 +49,13 @@ var _ = Describe("Network", func() {
 	var macvlanAddr *netlink.Addr
 	var testNic *VIF
 	var interfaceXml []byte
+	var tmpDir string
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
+		tmpDir, _ := ioutil.TempDir("", "networktest")
+		setInterfaceCacheFile(tmpDir + "/cache.json")
+
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = NewMockNetworkHandler(ctrl)
 		testMac := "12:34:56:78:9A:BC"
@@ -79,14 +84,15 @@ var _ = Describe("Network", func() {
 		interfaceXml = []byte(`<Interface type="direct" trustGuestRxFilters="yes"><source dev="eth0" mode="bridge"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
 	})
 
+	AfterEach(func() {
+		os.RemoveAll(tmpDir)
+	})
+
 	Context("on successful Network setup", func() {
 		It("define a new VIF", func() {
 
 			Handler = mockNetwork
 			domain := &api.Domain{}
-			vm := &v1.VirtualMachine{
-				Status: v1.VirtualMachineStatus{},
-			}
 
 			api.SetObjectDefaults_Domain(domain)
 
@@ -103,22 +109,30 @@ var _ = Describe("Network", func() {
 			mockNetwork.EXPECT().LinkSetUp(macvlanTest).Return(nil)
 			mockNetwork.EXPECT().ParseAddr(macVlanFakeIP).Return(macvlanAddr, nil)
 			mockNetwork.EXPECT().AddrAdd(macvlanTest, macvlanAddr).Return(nil)
-			mockNetwork.EXPECT().StartDHCP(vm, testNic, macvlanAddr)
+			mockNetwork.EXPECT().StartDHCP(testNic, macvlanAddr)
 
-			err := SetupPodNetwork(vm, domain)
+			err := SetupPodNetwork(domain)
 			Expect(err).To(BeNil())
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
-			xml, err := xml.Marshal(domain.Spec.Devices.Interfaces)
-			Expect(string(xml)).To(Equal(string(interfaceXml)))
+			xmlStr, err := xml.Marshal(domain.Spec.Devices.Interfaces)
+			Expect(string(xmlStr)).To(Equal(string(interfaceXml)))
 			Expect(err).To(BeNil())
+
+			// Calling SetupPodNetwork a second time should result in no
+			// mockNetwork function calls and interface should be identical
+			err = SetupPodNetwork(domain)
+
+			Expect(err).To(BeNil())
+			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
+			xmlStr, err = xml.Marshal(domain.Spec.Devices.Interfaces)
+			Expect(string(xmlStr)).To(Equal(string(interfaceXml)))
+			Expect(err).To(BeNil())
+
 		})
 		It("should panic if pod networking fails to setup", func() {
 			testNetworkPanic := func() {
 				Handler = mockNetwork
 				domain := &api.Domain{}
-				vm := &v1.VirtualMachine{
-					Status: v1.VirtualMachineStatus{},
-				}
 
 				api.SetObjectDefaults_Domain(domain)
 
@@ -128,50 +142,9 @@ var _ = Describe("Network", func() {
 				mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 
-				SetupPodNetwork(vm, domain)
+				SetupPodNetwork(domain)
 			}
 			Expect(testNetworkPanic).To(Panic())
-		})
-	})
-	Context("on DHCP execution", func() {
-		It("should panic if vm is running", func() {
-			netInterface := &NetworkUtilsHandler{}
-			dhcpTestFunc := func() {
-				vm := &v1.VirtualMachine{
-					Status: v1.VirtualMachineStatus{Phase: v1.Running},
-				}
-
-				DHCPServer = func(clientMAC net.HardwareAddr,
-					clientIP net.IP,
-					clientMask net.IPMask,
-					serverIface string,
-					serverIP net.IP,
-					routerIP net.IP,
-					dnsIP net.IP) error {
-					return errors.New("DHCP exception: VM is Running")
-				}
-				netInterface.StartDHCP(vm, testNic, &fakeAddr)
-			}
-			Expect(dhcpTestFunc).To(Panic())
-		})
-		It("should not panic if vm is shutting down", func() {
-			netInterface := &NetworkUtilsHandler{}
-			dhcpTestFunc := func() {
-				vm := &v1.VirtualMachine{
-					Status: v1.VirtualMachineStatus{Phase: v1.Succeeded},
-				}
-				DHCPServer = func(clientMAC net.HardwareAddr,
-					clientIP net.IP,
-					clientMask net.IPMask,
-					serverIface string,
-					serverIP net.IP,
-					routerIP net.IP,
-					dnsIP net.IP) error {
-					return errors.New("DHCP exception: VM is destroyed")
-				}
-				netInterface.StartDHCP(vm, testNic, &fakeAddr)
-			}
-			Expect(dhcpTestFunc).ShouldNot(Panic())
 		})
 	})
 })
