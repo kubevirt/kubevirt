@@ -25,6 +25,7 @@ import (
 	"io"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -81,6 +82,19 @@ func findPod(clientSet *kubernetes.Clientset, namespace string, name string) (st
 }
 
 func (v *vms) remoteExecHelper(name string, cmd []string, in io.Reader, out io.Writer) error {
+
+	// ensure VM is in running phase before attempting to connect.
+	vm, err := v.Get(name, k8smetav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return goerror.New(fmt.Sprintf("Unable to connect to VM %s in namespace %s does not exist.", name, v.namespace))
+		}
+		return err
+	}
+
+	if vm.IsRunning() == false {
+		return goerror.New(fmt.Sprintf("Unable to connect to VM because phase is %s instead of %s", vm.Status.Phase, v1.Running))
+	}
 
 	podName, err := findPod(v.clientSet, v.namespace, name)
 	if err != nil {
