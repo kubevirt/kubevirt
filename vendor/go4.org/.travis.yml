@@ -1,0 +1,10 @@
+go_import_path: go4.org
+language: go
+go:
+  - 1.7
+  - tip
+before_install:
+  - go get -u cloud.google.com/go/storage
+  - cd $HOME/gopath/src/cloud.google.com/go
+  - git reset --hard 5aca3b7200b228d4b47e9e511f1d77ac270855ff
+  - cd $HOME/gopath/src/go4.org
