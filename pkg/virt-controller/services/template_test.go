@@ -124,7 +124,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		Context("with pvs source", func() {
+		Context("with pvc source", func() {
 			It("should add pvc to template", func() {
 				volumes := []v1.Volume{
 					{
