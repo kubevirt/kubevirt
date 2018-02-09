@@ -31,11 +31,11 @@ distclean: clean
 
 deps-install:
 	hack/dockerized "glide install --strip-vendor"
-	for file in $(find vendor/ -name "*_test.go"); do git rm ${file}; done
+	hack/dep-prune.sh
  
 deps-update:
 	hack/dockerized "glide cc && glide update --strip-vendor"
-	for file in $(find vendor/ -name "*_test.go"); do git rm ${file}; done
+	hack/dep-prune.sh
 
 docker: build
 	hack/build-docker.sh build ${WHAT}
