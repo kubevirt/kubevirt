@@ -27,7 +27,7 @@ WWN=${WWN:-iqn.2017-01.io.kubevirt:sn.42}
 mkdir -p /volumes
 mkdir -p /mnt/disk
 
-[[ -f /volumes/0-custom.img ]] || truncate -s ${SIZE} /volumes/0-custom.img
+[[ -f /images/0-custom.img ]] || truncate -s ${SIZE} /images/0-custom.img
 
 echo "Starting tgtd"
 tgtd -f &

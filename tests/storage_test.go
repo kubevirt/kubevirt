@@ -42,7 +42,6 @@ var _ = Describe("Storage", func() {
 	tests.PanicOnError(err)
 
 	BeforeEach(func() {
-		Skip("Direct ISCSI storage access is not supported at the moment.")
 		tests.BeforeTestCleanup()
 	})
 
@@ -74,8 +73,8 @@ var _ = Describe("Storage", func() {
 		// Wait until there is no connection
 		logs := func() string { return getTargetLogs(70) }
 		Eventually(logs,
-			11*time.Second,
-			500*time.Millisecond).
+			60*time.Second,
+			5*time.Second).
 			Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
 	})
 
@@ -120,7 +119,7 @@ var _ = Describe("Storage", func() {
 			vm := tests.NewRandomVMWithDirectLun(2, false)
 			RunVMAndExpectLaunch(vm, false)
 			close(done)
-		}, 30)
+		}, 60)
 	})
 
 	Context("Given a VM and a directly connected Alpine LUN with CHAP auth", func() {
@@ -130,7 +129,7 @@ var _ = Describe("Storage", func() {
 			vm := tests.NewRandomVMWithDirectLun(2, true)
 			RunVMAndExpectLaunch(vm, true)
 			close(done)
-		}, 30)
+		}, 60)
 	})
 
 	Context("Given a VM and an Alpine PVC", func() {
@@ -139,7 +138,7 @@ var _ = Describe("Storage", func() {
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 			RunVMAndExpectLaunch(vm, false)
 			close(done)
-		}, 30)
+		}, 60)
 	})
 
 	Context("Given a VM and an Alpine PVC with CHAP auth", func() {
@@ -148,7 +147,7 @@ var _ = Describe("Storage", func() {
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
 			RunVMAndExpectLaunch(vm, true)
 			close(done)
-		}, 30)
+		}, 60)
 
 		It("should not modify the VM spec on status update", func() {
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
