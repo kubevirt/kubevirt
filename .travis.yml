@@ -24,10 +24,6 @@ script:
 - make apidocs
 - make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
 
-cache:
-  directories:
-  - vendor
-
 deploy:
 - provider: script
   script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish
