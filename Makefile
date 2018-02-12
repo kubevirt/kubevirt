@@ -9,7 +9,7 @@ apidocs:
 	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
 
 client-python:
-	hack/dockerized "hack/glide-checksync.sh && ./hack/generate.sh && TRAVIS_TAG=${TRAVIS_TAG} ./hack/gen-client-python/generate.sh"
+	hack/dockerized "./hack/generate.sh && TRAVIS_TAG=${TRAVIS_TAG} ./hack/gen-client-python/generate.sh"
 
 build:
 	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install ${WHAT}"
@@ -35,7 +35,7 @@ distclean: clean
 deps-install:
 	hack/dockerized "glide install --strip-vendor"
 	hack/dep-prune.sh
- 
+
 deps-update:
 	hack/dockerized "glide cc && glide update --strip-vendor"
 	hack/dep-prune.sh
