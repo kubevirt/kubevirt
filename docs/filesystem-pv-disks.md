@@ -33,10 +33,6 @@ virtual disks.
 
 ## Design Overview
 
-Currently KubeVirt only supports [direct PV disks](direct-pv-disks.md).
-This feature works, by assigning PVCs backed by network block storage (currently
-only iSCSI) to a VM.
-
 The mechanism proposed in this proposal is leveraging Kubernetes to attach
 the remote storage as a file-system to a container, to use this file-system to
 store a disk image to act as a backend storage to the VM's disk.
@@ -81,7 +77,8 @@ VM.
 
 The system needs to know if the referenced volume needs to be treated as a
 block or file-system volume.
-This information can be infered from the existing PV metadata.
+Since Kubernetes 1.9 this information can be infered from the existing PV
+metadata.
 
 
 ## Implementation
@@ -104,39 +101,10 @@ of a single image file per volume must not be changed.
 
 ## Additional Notes
 
-### Introduction of a `driver` field
-
-In future we might want to introduce a `driver` field for disks to
-differentiate between (up to now) qemu's built-in drivers or using kubelet's
-file-system and ([in close future](https://github.com/kubernetes/community/pull/805))
-raw block storage support, i.e.:
-```yaml
-      - type: PersistentVolumeClaim
-        driver:
-          name: qemu-built-in
-        source:
-          name: vm-01-disks
----
-      - type: PersistentVolumeClaim
-        driver:
-          name: kubelet
-        source:
-          name: vm-01-disks
-```
-
-### Snapshots
-
-Also something for a different proposal, but to be considered are snapshots.
-A general approach to snapshots which works with the existing direct PV and
-this proposal is, to either use intermediate transparent qcow2 files, or improve
-qemu to have a cow subsystem, which is agnostic to the backing store type.
-Both solutions however would be independent of the storage type and don't
-contradict with our designs.
-
 ### Virtfs
 
 Virtfs might allow us to directly use file-systems as a backing store for
 virtual machines.
 This API design should not contradict with this use-case, but it will probably
 depend on the `driver` field mentioned above to signal the system how the PV has
-to beconsumed (mounted).
+to be consumed (mounted).
