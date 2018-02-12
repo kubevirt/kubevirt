@@ -43,37 +43,42 @@ var _ = Describe("Configurations", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Context("New VM with different cpu topologies give", func() {
+	Describe("VM definition", func() {
+		Context("with 3 CPU cores", func() {
+			var vm *v1.VirtualMachine
 
-		var vm *v1.VirtualMachine
+			BeforeEach(func() {
+				vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+			})
+			It("should report 3 cpu cores under guest OS", func() {
+				vm.Spec.Domain.CPU = &v1.CPU{
+					Cores: 3,
+				}
 
-		BeforeEach(func() {
-			vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+				By("Starting a VM")
+				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMStart(vm)
+
+				By("Expecting the VM console")
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the number of CPU cores under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login"},
+					&expect.BSnd{S: "root\n"},
+					&expect.BExp{R: "#"},
+					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
+					&expect.BExp{R: "3"},
+				}, 250*time.Second)
+
+				Expect(err).ToNot(HaveOccurred())
+			}, 300)
 		})
-		It("should report 3 cpu cores", func() {
-			vm.Spec.Domain.CPU = &v1.CPU{
-				Cores: 3,
-			}
-
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStart(vm)
-
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-			_, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BExp{R: "Welcome to Alpine"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "login"},
-				&expect.BSnd{S: "root\n"},
-				&expect.BExp{R: "#"},
-				&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
-				&expect.BExp{R: "3"},
-			}, 250*time.Second)
-
-			Expect(err).ToNot(HaveOccurred())
-		}, 300)
 	})
 
 	Context("New VM with all supported drives", func() {
