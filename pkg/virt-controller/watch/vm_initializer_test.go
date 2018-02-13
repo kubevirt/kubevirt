@@ -149,7 +149,7 @@ var _ = Describe("VM Initializer", func() {
 						VolumeName: "testvolume",
 						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vda", ReadOnly: true}}}}},
 			}}}
-			preset = v1.VirtualMachinePreset{Spec: v1.VMPresetSpec{Domain: &v1.DomainSpec{}}}
+			preset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 		})
 
 		It("Should detect CPU conflicts", func() {
@@ -277,7 +277,7 @@ var _ = Describe("VM Initializer", func() {
 		BeforeEach(func() {
 			vm = v1.VirtualMachine{Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}}
 			vm.ObjectMeta.Name = "testvm"
-			preset = v1.VirtualMachinePreset{Spec: v1.VMPresetSpec{Domain: &v1.DomainSpec{}}}
+			preset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 			preset.ObjectMeta.Name = "test-preset"
 		})
 
@@ -404,15 +404,15 @@ var _ = Describe("VM Initializer", func() {
 			vm.ObjectMeta.Name = "testvm"
 			vm.ObjectMeta.Labels = map[string]string{"flavor": "matching"}
 
-			matchingPreset = v1.VirtualMachinePreset{Spec: v1.VMPresetSpec{Domain: &v1.DomainSpec{}}}
+			matchingPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 			matchingPreset.ObjectMeta.Name = "test-preset"
 			matchingPreset.Spec.Selector = matchingLabel
 
-			nonmatchingPreset = v1.VirtualMachinePreset{Spec: v1.VMPresetSpec{Domain: &v1.DomainSpec{}}}
+			nonmatchingPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 			nonmatchingPreset.ObjectMeta.Name = "unrelated-preset"
 			nonmatchingPreset.Spec.Selector = mismatchLabel
 
-			errorPreset = v1.VirtualMachinePreset{Spec: v1.VMPresetSpec{Domain: &v1.DomainSpec{}}}
+			errorPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 			errorPreset.ObjectMeta.Name = "broken-preset"
 			errorPreset.Spec.Selector = errorLabel
 		})

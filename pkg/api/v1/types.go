@@ -551,7 +551,7 @@ type VirtualMachinePreset struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VM Spec contains the VM specification.
-	Spec VMPresetSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachinePresetSpec `json:"spec,omitempty" valid:"required"`
 }
 
 // VirtualMachinePresetList is a list of VirtualMachinePresets
@@ -562,15 +562,15 @@ type VirtualMachinePresetList struct {
 	Items           []VirtualMachinePreset `json:"items"`
 }
 
-type VMPresetSpec struct {
+type VirtualMachinePresetSpec struct {
 	Selector metav1.LabelSelector
 	// Domain is the same object type as contained in VirtualMachineSpec
 	Domain *DomainSpec `json:"domain,omitempty"`
 }
 
-func NewVMPreset(name string, selector metav1.LabelSelector) *VirtualMachinePreset {
+func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *VirtualMachinePreset {
 	return &VirtualMachinePreset{
-		Spec: VMPresetSpec{
+		Spec: VirtualMachinePresetSpec{
 			Selector: selector,
 		},
 		ObjectMeta: metav1.ObjectMeta{

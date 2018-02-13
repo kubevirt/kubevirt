@@ -120,6 +120,12 @@ func (c *VMController) execute(key string) error {
 	} else {
 		vm = obj.(*kubev1.VirtualMachine)
 	}
+
+	// don't process VM's that aren't fully initialized
+	if vm.Initializers != nil && len(vm.Initializers.Pending) > 0 {
+		return nil
+	}
+
 	logger := log.Log.Object(vm)
 
 	if !exists {

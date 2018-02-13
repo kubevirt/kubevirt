@@ -124,8 +124,8 @@ func (VirtualMachinePresetList) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VMPresetSpec) SwaggerDoc() map[string]string {
+func (VirtualMachinePresetSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"domain": "Domain is the actual libvirt domain.",
+		"domain": "Domain is the same object type as contained in VirtualMachineSpec",
 	}
 }

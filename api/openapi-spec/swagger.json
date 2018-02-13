@@ -3189,20 +3189,6 @@
      }
     }
    },
-   "v1.VMPresetSpec": {
-    "required": [
-     "Selector"
-    ],
-    "properties": {
-     "Selector": {
-      "$ref": "#/definitions/v1.LabelSelector"
-     },
-     "domain": {
-      "description": "Domain is the actual libvirt domain.",
-      "$ref": "#/definitions/v1.DomainSpec"
-     }
-    }
-   },
    "v1.VMReplicaSetCondition": {
     "required": [
      "type",
@@ -3387,7 +3373,7 @@
      },
      "spec": {
       "description": "VM Spec contains the VM specification.",
-      "$ref": "#/definitions/v1.VMPresetSpec"
+      "$ref": "#/definitions/v1.VirtualMachinePresetSpec"
      }
     }
    },
@@ -3413,6 +3399,20 @@
      },
      "metadata": {
       "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1.VirtualMachinePresetSpec": {
+    "required": [
+     "Selector"
+    ],
+    "properties": {
+     "Selector": {
+      "$ref": "#/definitions/v1.LabelSelector"
+     },
+     "domain": {
+      "description": "Domain is the same object type as contained in VirtualMachineSpec",
+      "$ref": "#/definitions/v1.DomainSpec"
      }
     }
    },

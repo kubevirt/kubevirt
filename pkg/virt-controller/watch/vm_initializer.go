@@ -3,14 +3,20 @@ package watch
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"k8s.io/api/core/v1"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -18,17 +24,89 @@ import (
 type VirtualMachineInitializer struct {
 	vmPresetInformer cache.SharedIndexInformer
 	clientset        kubecli.KubevirtClient
+	queue            workqueue.RateLimitingInterface
+	store            cache.Store
 }
 
 const initializerMarking = "presets.virtualmachines.kubevirt.io"
 
-// FIXME: Both the restClient and clientSet are probably not needed.
-func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient) *VirtualMachineInitializer {
+func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient) *VirtualMachineInitializer {
 	vmi := VirtualMachineInitializer{
 		vmPresetInformer: vmPresetInformer,
 		clientset:        clientset,
+		queue:            queue,
+		store:            vmInitCache,
 	}
 	return &vmi
+}
+
+func (c *VirtualMachineInitializer) Run(threadiness int, stopCh chan struct{}) {
+	defer controller.HandlePanic()
+	defer c.queue.ShutDown()
+	log.Log.Info("Starting Virtual Machine Initializer.")
+
+	// Wait for cache sync before we start the pod controller
+	cache.WaitForCacheSync(stopCh, c.vmPresetInformer.HasSynced)
+
+	// Start the actual work
+	for i := 0; i < threadiness; i++ {
+		go wait.Until(c.runWorker, time.Second, stopCh)
+	}
+
+	<-stopCh
+	log.Log.Info("Stopping controller.")
+}
+
+func (c *VirtualMachineInitializer) runWorker() {
+	for c.Execute() {
+	}
+}
+
+func (c *VirtualMachineInitializer) Execute() bool {
+	key, quit := c.queue.Get()
+	if quit {
+		return false
+	}
+	defer c.queue.Done(key)
+	err := c.execute(key.(string))
+
+	if err != nil {
+		log.Log.Reason(err).Infof("reenqueuing VM %v", key)
+		c.queue.AddRateLimited(key)
+	} else {
+		log.Log.V(4).Infof("processed VM %v", key)
+		c.queue.Forget(key)
+	}
+	return true
+}
+
+func (c *VirtualMachineInitializer) execute(key string) error {
+
+	// Fetch the latest Vm state from cache
+	obj, exists, err := c.store.GetByKey(key)
+
+	if err != nil {
+		return err
+	}
+
+	// Retrieve the VM
+	var vm *kubev1.VirtualMachine
+	if !exists {
+		namespace, name, err := cache.SplitMetaNamespaceKey(key)
+		if err != nil {
+			return err
+		}
+		vm = kubev1.NewVMReferenceFromNameWithNS(namespace, name)
+	} else {
+		vm = obj.(*kubev1.VirtualMachine)
+	}
+
+	// only process VM's that aren't initialized by this controller yet
+	if !isInitialized(vm) {
+		return c.initializeVirtualMachine(vm)
+	}
+	// Ignore fully initialized Virtual Machines
+	return nil
 }
 
 func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualMachine) error {
@@ -274,6 +352,20 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 		return err
 	}
 	return nil
+}
+
+// isInitialized checks if *this* module has initialized the VM,
+// which is distinct from "has the VM been initialized by all controllers?"
+func isInitialized(vm *kubev1.VirtualMachine) bool {
+	// if initializers is nil/empty then this resource is initialized
+	if vm.Initializers != nil && len(vm.Initializers.Pending) > 0 {
+		for _, i := range vm.Initializers.Pending {
+			if i.Name == initializerMarking {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func removeInitializer(vm *kubev1.VirtualMachine) {
