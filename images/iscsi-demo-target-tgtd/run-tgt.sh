@@ -33,6 +33,9 @@ echo "Starting tgtd"
 tgtd -f &
 sleep 5
 
+# ensure tgtd is bound to port 3260
+lsof -Pan -p $(pgrep tgtd) -i | grep 3260 -q
+
 echo "Adding target and exposing it"
 tgtadm --lld iscsi --mode target --op new --tid=1 --targetname $WWN
 tgtadm --lld iscsi --mode target --op bind --tid=1 -I ALL
