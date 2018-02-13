@@ -1,0 +1,5 @@
+#!/usr/bin/execlineb -P
+
+foreground { rpc.nfsd -N 2 -N 3 }
+
+rpc.mountd -F -N 2 -N 3

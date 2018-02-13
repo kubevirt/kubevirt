@@ -16,20 +16,27 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:27
+FROM alpine:latest
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
 
-RUN dnf -y install scsi-target-utils bzip2 e2fsprogs
+RUN apk add --no-cache nfs-utils
 
-RUN mkdir -p /images
+ADD https://github.com/just-containers/s6-overlay/releases/download/v1.21.2.2/s6-overlay-amd64.tar.gz /tmp/
+RUN tar xzf /tmp/s6-overlay-amd64.tar.gz -C /
 
-# Add alpine image
-ADD http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso /images/1-alpine.img
+COPY s6/config.init /etc/cont-init.d/00-config
+COPY s6/rpcbind.run /etc/services.d/rpcbind/run
+COPY s6/mountd.run /etc/services.d/mountd/run
 
-ADD run-tgt.sh /
+RUN mkdir -p /nfsshare/alpine \
+    && chmod -R 777 /nfsshare \
+    && echo "/nfsshare *(rw,sync,no_root_squash,no_all_squash)" >> /etc/exports
 
-EXPOSE 3260
+# Fill NFS share with images
+ADD http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso /nfsshare/alpine/disk.img
 
-CMD ["/run-tgt.sh"]
+EXPOSE 111/tcp 111/udp 2049/tcp 2049/udp
+
+CMD ["/init"]

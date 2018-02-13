@@ -20,4 +20,6 @@ spec:
         iqn: iqn.2017-01.io.kubevirt:sn.42
         lun: 2
         targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
-        secretRef: iscsi-auth-demo-secret
+        chapAuthSession: true
+        secretRef:
+          name: iscsi-auth-demo-secret
