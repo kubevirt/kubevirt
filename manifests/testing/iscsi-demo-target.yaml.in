@@ -1,18 +1,38 @@
 ---
 apiVersion: v1
-kind: Service
+kind: PersistentVolumeClaim
 metadata:
-  name: iscsi-demo-target
-  namespace: kube-system
+  name: disk-alpine
   labels:
-    kubevirt.io: "iscsi-demo-target"
+    kubevirt.io: ""
 spec:
-  ports:
-    - name: iscsi
-      port: 3260
-      targetPort: 3260
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
   selector:
-    kubevirt.io: iscsi-demo-target
+    matchLabels:
+      os: "alpine"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: iscsi-disk-alpine
+  labels:
+    kubevirt.io: ""
+    os: "alpine"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  iscsi:
+    iqn: iqn.2017-01.io.kubevirt:sn.42
+    lun: 2
+    targetPortal: "127.0.0.1"
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -29,12 +49,11 @@ spec:
         kubevirt.io: iscsi-demo-target
       name: iscsi-demo-target-tgtd
     spec:
+      hostNetwork: true
       serviceAccountName: kubevirt-testing
       containers:
         - name: target
           image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}
-          ports:
-            - containerPort: 3260
           volumeMounts:
           - name: host
             mountPath: /host
@@ -48,7 +67,7 @@ spec:
               command:
               - cat
               - /tmp/previous_state
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 5
       volumes:
         - name: host

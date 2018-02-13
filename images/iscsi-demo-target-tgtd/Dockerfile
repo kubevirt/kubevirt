@@ -26,10 +26,12 @@ RUN dnf -y install scsi-target-utils bzip2 e2fsprogs
 RUN mkdir -p /images
 
 # Add alpine image
-ADD http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso /images/1-alpine.img
+RUN curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /images/1-alpine.img
 
-# Add cirros
-ADD https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img /images/2-cirros.img
+# Cirros has been removed from the demo target for now.
+# Uncomment this line if we need to add the cirros image back
+# in for testing purposes.
+# ADD https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img /images/2-cirros.img
 
 ADD run-tgt.sh /
 

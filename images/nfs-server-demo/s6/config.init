@@ -1,3 +1,0 @@
-#!/usr/bin/with-contenv sh
-
-exportfs -r

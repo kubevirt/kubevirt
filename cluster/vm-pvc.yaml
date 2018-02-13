@@ -17,4 +17,4 @@ spec:
   volumes:
     - name: pvcvolume
       persistentVolumeClaim:
-        claimName: disk-alpine-nfs
+        claimName: disk-alpine

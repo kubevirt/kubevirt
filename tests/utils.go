@@ -81,15 +81,10 @@ const (
 
 const (
 	osAlpineISCSI = "alpine-iscsi"
-	osCirrosISCSI = "cirros-iscsi"
-	osAlpineNFS   = "alpine-nfs"
-	osCirrosNFS   = "cirros-nfs"
 )
 
 const (
-	DiskAlpineISCSI         = "disk-alpine-iscsi"
-	DiskAlpineISCSIWithAuth = "disk-auth-alpine-iscsi"
-	DiskCirrosISCSI         = "disk-cirros-iscsi"
+	DiskAlpineISCSI = "disk-alpine-iscsi"
 )
 
 const (
@@ -268,23 +263,8 @@ func AfterTestSuitCleanup() {
 	createNamespaces()
 	cleanNamespaces()
 
-	deletePVC(osCirrosNFS, false)
-	deletePV(osCirrosNFS, false)
-
-	deletePVC(osAlpineNFS, false)
-	deletePV(osAlpineNFS, false)
-
 	deletePVC(osAlpineISCSI, false)
 	deletePV(osAlpineISCSI, false)
-
-	deletePVC(osAlpineISCSI, true)
-	deletePV(osAlpineISCSI, true)
-
-	deletePVC(osCirrosISCSI, false)
-	deletePV(osCirrosISCSI, false)
-
-	deletePVC(osCirrosISCSI, true)
-	deletePV(osCirrosISCSI, true)
 
 	removeNamespaces()
 }
@@ -302,23 +282,8 @@ func BeforeTestSuitSetup() {
 	createNamespaces()
 	createIscsiSecrets()
 
-	createPvISCSI(osCirrosISCSI, 3, true)
-	createPVC(osCirrosISCSI, true)
-
-	createPvISCSI(osCirrosISCSI, 3, false)
-	createPVC(osCirrosISCSI, false)
-
-	createPvISCSI(osAlpineISCSI, 2, true)
-	createPVC(osAlpineISCSI, true)
-
 	createPvISCSI(osAlpineISCSI, 2, false)
 	createPVC(osAlpineISCSI, false)
-
-	createPvNFS(osAlpineNFS, nfsPathAlpine)
-	createPVC(osAlpineNFS, false)
-
-	createPvNFS(osCirrosNFS, nfsPathCirros)
-	createPVC(osCirrosNFS, false)
 }
 
 func createPVC(os string, withAuth bool) {
@@ -366,12 +331,7 @@ func createPvISCSI(os string, lun int32, withAuth bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	label := labelISCSIPod
-	if withAuth {
-		label = labelISCSIWithAuthPod
-	}
-
-	targetIp := getPodIpByLabel(label)
+	targetIp := "127.0.0.1" // getPodIpByLabel(label)
 
 	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPvISCSI(os, targetIp, lun, withAuth))
 	if !errors.IsAlreadyExists(err) {

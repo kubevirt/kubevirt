@@ -21,8 +21,6 @@ package tests_test
 
 import (
 	"flag"
-	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,6 +34,8 @@ import (
 
 var _ = Describe("Storage", func() {
 
+	nodeName := ""
+	nodeIp := ""
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -43,6 +43,18 @@ var _ = Describe("Storage", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+
+		nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(nodes.Items).ToNot(BeEmpty())
+		nodeName = nodes.Items[0].Name
+		for _, addr := range nodes.Items[0].Status.Addresses {
+			if addr.Type == k8sv1.NodeInternalIP {
+				nodeIp = addr.Address
+				break
+			}
+		}
+		Expect(nodeIp).ToNot(Equal(""))
 	})
 
 	getTargetLogs := func(tailLines int64) string {
@@ -53,8 +65,10 @@ var _ = Describe("Storage", func() {
 		podName := ""
 		for _, pod := range pods.Items {
 			if pod.ObjectMeta.DeletionTimestamp == nil {
-				podName = pod.ObjectMeta.Name
-				break
+				if pod.Status.HostIP == nodeIp {
+					podName = pod.ObjectMeta.Name
+					break
+				}
 			}
 		}
 		Expect(podName).ToNot(BeEmpty())
@@ -69,95 +83,28 @@ var _ = Describe("Storage", func() {
 		return string(logsRaw)
 	}
 
-	BeforeEach(func() {
-		// Wait until there is no connection
-		logs := func() string { return getTargetLogs(70) }
-		Eventually(logs,
-			60*time.Second,
-			5*time.Second).
-			Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
-	})
-
 	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool) {
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStart(obj)
-
-		if withAuth == false {
-			// Periodically check if we now have a connection on the target
-			// We don't check against the actual IP, since depending on the kubernetes proxy mode, and the network provider
-			// we will see different IPs here. The BeforeEach function makes sure that no other connections exist.
-			Eventually(func() string { return getTargetLogs(70) },
-				11*time.Second,
-				500*time.Millisecond).
-				Should(
-					MatchRegexp(fmt.Sprintf("IP Address: [0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")),
-				)
-		}
 	}
 
 	Context("Given a fresh iSCSI target", func() {
-
-		It("should be available and ready", func() {
+		FIt("should be available and ready", func() {
 			logs := getTargetLogs(75)
 			Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
 			Expect(logs).To(ContainSubstring("Driver: iscsi"))
 			Expect(logs).To(ContainSubstring("State: ready"))
 		})
-
-		It("should not have any connections", func() {
-			logs := getTargetLogs(70)
-			// Ensure that no connections are listed
-			Expect(logs).To(ContainSubstring("I_T nexus information:\n    LUN information:"))
-		})
-	})
-
-	Context("Given a VM and a directly connected Alpine LUN", func() {
-
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the LUN attached
-			vm := tests.NewRandomVMWithDirectLun(2, false)
-			RunVMAndExpectLaunch(vm, false)
-			close(done)
-		}, 60)
-	})
-
-	Context("Given a VM and a directly connected Alpine LUN with CHAP auth", func() {
-
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the LUN attached
-			vm := tests.NewRandomVMWithDirectLun(2, true)
-			RunVMAndExpectLaunch(vm, true)
-			close(done)
-		}, 60)
 	})
 
 	Context("Given a VM and an Alpine PVC", func() {
-		It("should be successfully started by libvirt", func(done Done) {
+		FIt("should be successfully started", func(done Done) {
 			// Start the VM with the PVC attached
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 			RunVMAndExpectLaunch(vm, false)
 			close(done)
 		}, 60)
-	})
-
-	Context("Given a VM and an Alpine PVC with CHAP auth", func() {
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the PVC attached
-			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
-			RunVMAndExpectLaunch(vm, true)
-			close(done)
-		}, 60)
-
-		It("should not modify the VM spec on status update", func() {
-			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
-			startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
-			Expect(err).To(BeNil())
-			Expect(startedVM.Spec).To(Equal(vm.Spec))
-		})
 	})
 })
