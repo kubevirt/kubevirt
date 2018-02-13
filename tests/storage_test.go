@@ -107,7 +107,7 @@ var _ = Describe("Storage", func() {
 			// Start the VM with the PVC attached
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-			RunVMAndExpectLaunch(vm, false, 30)
+			RunVMAndExpectLaunch(vm, false, 45)
 
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
 			defer expecter.Close()

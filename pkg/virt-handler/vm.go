@@ -419,47 +419,6 @@ func (d *VirtualMachineController) injectCloudInitSecrets(vm *v1.VirtualMachine)
 	return nil
 }
 
-// injectDiskAuth takes a virtual machine, extracts secrets, synchronizes them with libvirt and returns a map
-// of all extrated secrets, for later use when converting from v1.VirtualMachine to api.Domain
-func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (map[string]*k8sv1.Secret, error) {
-	secrets := map[string]*k8sv1.Secret{}
-	for _, volume := range vm.Spec.Volumes {
-		if volume.ISCSI != nil {
-			if volume.ISCSI.SecretRef == nil || volume.ISCSI.SecretRef.Name == "" {
-				continue
-			}
-
-			usageType := "iscsi"
-			secretID := volume.ISCSI.SecretRef.Name
-			usageID := api.SecretToLibvirtSecret(vm, volume.ISCSI.SecretRef.Name)
-
-			secret, err := d.clientset.CoreV1().Secrets(vm.Namespace).Get(secretID, metav1.GetOptions{})
-			if err != nil {
-				log.Log.Reason(err).Error("Defining the VM secret failed unable to pull corresponding k8s secret value")
-				return nil, err
-			}
-
-			secretValue, ok := secret.Data["node.session.auth.password"]
-			if ok == false {
-				return nil, fmt.Errorf("No password value found in k8s secret %s %v", secretID, err)
-			}
-
-			client, err := d.getLauncherClient(vm)
-			if err != nil {
-				return nil, err
-			}
-
-			err = client.SyncSecret(vm, usageType, usageID, string(secretValue))
-			if err != nil {
-				return nil, err
-			}
-			secrets[secretID] = secret
-		}
-	}
-
-	return secrets, nil
-}
-
 func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
 	err := watchdog.WatchdogFileRemove(d.virtShareDir, vm)
 	if err != nil {
@@ -605,18 +564,13 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 		return err
 	}
 
-	secrets, err := d.injectDiskAuth(vm)
-	if err != nil {
-		return err
-	}
-
 	// TODO check if found VM has the same UID like the domain,
 	// if not, delete the Domain firs
 	client, err := d.getLauncherClient(vm)
 	if err != nil {
 		return err
 	}
-	err = client.SyncVirtualMachine(vm, secrets)
+	err = client.SyncVirtualMachine(vm)
 	if err != nil {
 		return err
 	}

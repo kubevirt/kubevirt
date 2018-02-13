@@ -103,10 +103,6 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_CloudInitNoCloudSource_To_api_Disk(source.CloudInitNoCloud, disk, c)
 	}
 
-	if source.ISCSI != nil {
-		return Covert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
-	}
-
 	if source.PersistentVolumeClaim != nil {
 		return Covert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}

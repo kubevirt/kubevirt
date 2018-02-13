@@ -91,14 +91,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 					PersistentVolumeClaim: volume.PersistentVolumeClaim,
 				},
 			})
-		} else if volume.ISCSI != nil {
-			volumesMounts = append(volumesMounts, volumeMount)
-			volumes = append(volumes, kubev1.Volume{
-				Name: volume.Name,
-				VolumeSource: kubev1.VolumeSource{
-					ISCSI: volume.ISCSI,
-				},
-			})
 		}
 	}
 

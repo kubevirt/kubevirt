@@ -31,7 +31,6 @@ import (
 	"fmt"
 
 	"github.com/libvirt/libvirt-go"
-	kubev1 "k8s.io/api/core/v1"
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -48,7 +47,7 @@ import (
 type DomainManager interface {
 	SyncVMSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error
 	RemoveVMSecrets(*v1.VirtualMachine) error
-	SyncVM(*v1.VirtualMachine, map[string]*kubev1.Secret) (*api.DomainSpec, error)
+	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
 	SignalShutdownVM(*v1.VirtualMachine) error
 	ListAllDomains() ([]*api.Domain, error)
@@ -197,7 +196,7 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	return domain, err
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]*kubev1.Secret) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
 	domain := &api.Domain{}
@@ -205,7 +204,6 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, secrets map[string]
 	// Map the VirtualMachine to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vm,
-		Secrets:        secrets,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c); err != nil {
 		logger.Error("Conversion failed.")

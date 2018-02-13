@@ -187,9 +187,6 @@ type Volume struct {
 // Represents the source of a volume to mount.
 // Only one of its members may be specified.
 type VolumeSource struct {
-	// ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.
-	// +optional
-	ISCSI *v1.ISCSIVolumeSource `json:"iscsi,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the vm via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims

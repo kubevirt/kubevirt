@@ -150,37 +150,5 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
 			})
 		})
-
-		Context("with ISCSI source", func() {
-			It("should add ISCSI source to template", func() {
-				volumes := []v1.Volume{
-					v1.Volume{
-						Name: "iscsi-volume",
-						VolumeSource: v1.VolumeSource{
-							ISCSI: &kubev1.ISCSIVolumeSource{
-								TargetPortal: "127.0.0.1:6543",
-								IQN:          "iqn.2009-02.com.test:for.all",
-								Lun:          1,
-							},
-						},
-					},
-				}
-				vm := v1.VirtualMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvm", Namespace: "default", UID: "1234",
-					},
-					Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
-				}
-
-				pod, err := svc.RenderLaunchManifest(&vm)
-				Expect(err).To(BeNil())
-
-				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(5))
-				Expect(pod.Spec.Volumes[0].ISCSI).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[0].ISCSI.TargetPortal).To(Equal("127.0.0.1:6543"))
-				Expect(pod.Spec.Volumes[0].ISCSI.Lun).To(Equal(int32(1)))
-			})
-		})
 	})
 })

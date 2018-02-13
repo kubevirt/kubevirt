@@ -165,17 +165,6 @@ var exampleJSON = `{
       },
       {
         "name": "volume2",
-        "iscsi": {
-          "targetPortal": "1234",
-          "iqn": "",
-          "lun": 0,
-          "secretRef": {
-            "name": "testsecret"
-          }
-        }
-      },
-      {
-        "name": "volume3",
         "persistentVolumeClaim": {
           "claimName": "testclaim"
         }
@@ -256,17 +245,6 @@ var _ = Describe("Schema", func() {
 			},
 			{
 				Name: "volume2",
-				VolumeSource: VolumeSource{
-					ISCSI: &v1.ISCSIVolumeSource{
-						TargetPortal: "1234",
-						SecretRef: &v1.LocalObjectReference{
-							Name: "testsecret",
-						},
-					},
-				},
-			},
-			{
-				Name: "volume3",
 				VolumeSource: VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "testclaim",

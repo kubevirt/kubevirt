@@ -28,8 +28,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -76,10 +74,9 @@ var _ = Describe("Virt remote commands", func() {
 		It("should start a vm", func() {
 			vm := v1.NewVMReferenceFromName("testvm")
 			domain := api.NewMinimalDomain("testvm")
-			domainManager.EXPECT().SyncVM(vm, gomock.Any()).Return(&domain.Spec, nil)
+			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, nil)
 
-			var secrets map[string]*k8sv1.Secret
-			err := client.SyncVirtualMachine(vm, secrets)
+			err := client.SyncVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -95,16 +92,6 @@ var _ = Describe("Virt remote commands", func() {
 			vm := v1.NewVMReferenceFromName("testvm")
 			domainManager.EXPECT().SignalShutdownVM(vm)
 			err := client.ShutdownVirtualMachine(vm)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should Sync Secrets", func() {
-			vm := v1.NewVMReferenceFromName("testvm")
-			usage := "fakeusage"
-			usageId := "fakeusageid"
-			secretValue := "fakesecretval"
-			domainManager.EXPECT().SyncVMSecret(vm, usage, usageId, secretValue)
-			err := client.SyncSecret(vm, usage, usageId, secretValue)
 			Expect(err).ToNot(HaveOccurred())
 		})
 

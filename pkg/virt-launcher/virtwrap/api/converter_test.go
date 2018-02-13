@@ -158,10 +158,8 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "myvolume",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
@@ -184,40 +182,32 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "volume1",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
 				{
 					Name: "volume2",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
 				{
 					Name: "volume3",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
 				{
 					Name: "volume4",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},

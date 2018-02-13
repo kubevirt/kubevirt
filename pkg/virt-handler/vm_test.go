@@ -247,8 +247,7 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)
 
-			secrets := map[string]*k8sv1.Secret{}
-			client.EXPECT().SyncVirtualMachine(vm, secrets)
+			client.EXPECT().SyncVirtualMachine(vm)
 
 			controller.Execute()
 		})
@@ -314,8 +313,7 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)
 
-			secrets := map[string]*k8sv1.Secret{}
-			client.EXPECT().SyncVirtualMachine(vm, secrets)
+			client.EXPECT().SyncVirtualMachine(vm)
 			vmInterface.EXPECT().Update(updatedVM)
 
 			controller.Execute()
