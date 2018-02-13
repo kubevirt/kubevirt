@@ -34,6 +34,13 @@ _kubectl delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grac
 # Delete everything, no matter if release, devel or infra
 _kubectl delete -f ${MANIFESTS_OUT_DIR}/ -R --grace-period 1 2>/dev/null || :
 
+# Delete any remaining deployments, ds, or pods
+_kubectl delete deployment -n kube-system -l "kubevirt.io" || :
+_kubectl delete ds -n kube-system -l "kubevirt.io" || :
+_kubectl delete pods -n kube-system -l "kubevirt.io" || :
+_kubectl delete pvc -n default -l "kubevirt.io" || :
+_kubectl delete pv -n default -l "kubevirt.io" || :
+
 # Delete exposures
 _kubectl delete services -l "kubevirt.io" -n kube-system
 
