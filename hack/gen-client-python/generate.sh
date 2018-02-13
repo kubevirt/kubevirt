@@ -12,6 +12,7 @@ KUBEVIRT_SPEC="${KUBEVIRT_DIR}/api/openapi-spec/swagger.json"
 CODEGEN_CONFIG_SRC="${KUBEVIRT_DIR}/hack/gen-client-python/swagger-codegen-config.json.in"
 CODEGEN_CONFIG="${PYTHON_CLIENT_OUT_DIR}/swagger-codegen-config.json"
 
+# Define version of client
 if [ -n "${TRAVIS_TAG:-}" ]; then
     CLIENT_PYTHON_VERSION="$TRAVIS_TAG"
 else
@@ -20,11 +21,14 @@ fi
 
 mkdir -p "${PYTHON_CLIENT_OUT_DIR}"
 
+# Download swagger code generator
 curl "$SWAGGER_CODEGEN_CLI_SRC" -o "$SWAGGER_CODEGEN_CLI"
 
+# Generate config file for swagger code generator
 sed -e "s/[\$]VERSION/${CLIENT_PYTHON_VERSION}/" \
     "${CODEGEN_CONFIG_SRC}" >"${CODEGEN_CONFIG}"
 
+# Generate python client
 java -jar "$SWAGGER_CODEGEN_CLI" generate \
     -i "$KUBEVIRT_SPEC" \
     -l python \

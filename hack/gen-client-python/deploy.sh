@@ -13,8 +13,8 @@ git clone \
     "https://${API_REFERENCE_PUSH_TOKEN}@${GITHUB_FQDN}/${CLIENT_PYTHON_REPO}.git" \
     "${CLIENT_PYTHON_DIR}" >/dev/null 2>&1
 
-# Remove content under kubevirt, docs and tests directories
-rm -rf "${CLIENT_PYTHON_DIR}"/{kubevirt,docs,tests}
+# Remove content under kubevirt, docs and test directories
+rm -rf "${CLIENT_PYTHON_DIR}"/{kubevirt,docs,test}
 # Copy client-python into repository
 cp -rf "${PYTHON_CLIENT_OUT_DIR}"/* "${CLIENT_PYTHON_DIR}/"
 
