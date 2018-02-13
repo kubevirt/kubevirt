@@ -21,11 +21,14 @@ package tests_test
 
 import (
 	"flag"
+	"time"
 
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -83,10 +86,11 @@ var _ = Describe("Storage", func() {
 		return string(logsRaw)
 	}
 
-	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool) {
+	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) runtime.Object {
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulVMStart(obj)
+		tests.WaitForSuccessfulVMStartWithTimeout(obj, timeout)
+		return obj
 	}
 
 	Context("Given a fresh iSCSI target", func() {
@@ -103,8 +107,45 @@ var _ = Describe("Storage", func() {
 			// Start the VM with the PVC attached
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-			RunVMAndExpectLaunch(vm, false)
+			RunVMAndExpectLaunch(vm, false, 30)
+
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+			defer expecter.Close()
+			Expect(err).To(BeNil())
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				&expect.BExp{R: "Welcome to Alpine"},
+			}, 90*time.Second)
+			Expect(err).To(BeNil())
+
 			close(done)
-		}, 60)
+		}, 110)
+
+		FIt("should be successfully started and stopped multiple times", func(done Done) {
+			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+
+			num := 3
+			for i := 1; i <= num; i++ {
+				obj := RunVMAndExpectLaunch(vm, false, 60)
+
+				// Verify console on last iteration to verify the VM is still booting properly
+				// after being restarted multiple times
+				if i == num {
+					expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+					defer expecter.Close()
+					Expect(err).To(BeNil())
+					_, err = expecter.ExpectBatch([]expect.Batcher{
+						&expect.BExp{R: "Welcome to Alpine"},
+					}, 90*time.Second)
+					Expect(err).To(BeNil())
+				}
+
+				err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+			}
+			close(done)
+		}, 200)
 	})
 })
