@@ -94,7 +94,7 @@ var _ = Describe("Storage", func() {
 	}
 
 	Context("Given a fresh iSCSI target", func() {
-		FIt("should be available and ready", func() {
+		It("should be available and ready", func() {
 			logs := getTargetLogs(75)
 			Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
 			Expect(logs).To(ContainSubstring("Driver: iscsi"))
@@ -103,7 +103,7 @@ var _ = Describe("Storage", func() {
 	})
 
 	Context("Given a VM and an Alpine PVC", func() {
-		FIt("should be successfully started", func(done Done) {
+		It("should be successfully started", func(done Done) {
 			// Start the VM with the PVC attached
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
@@ -120,7 +120,7 @@ var _ = Describe("Storage", func() {
 			close(done)
 		}, 110)
 
-		FIt("should be successfully started and stopped multiple times", func(done Done) {
+		It("should be successfully started and stopped multiple times", func(done Done) {
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 

@@ -35,7 +35,7 @@ spec:
     targetPortal: "127.0.0.1"
 ---
 apiVersion: extensions/v1beta1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: iscsi-demo-target-tgtd
   namespace: kube-system
