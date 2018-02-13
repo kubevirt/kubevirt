@@ -81,15 +81,13 @@ const (
 
 const (
 	osAlpineISCSI = "alpine-iscsi"
-	osCirrosISCSI = "cirros-iscsi"
 	osAlpineNFS   = "alpine-nfs"
-	osCirrosNFS   = "cirros-nfs"
 )
 
 const (
 	DiskAlpineISCSI         = "disk-alpine-iscsi"
 	DiskAlpineISCSIWithAuth = "disk-auth-alpine-iscsi"
-	DiskCirrosISCSI         = "disk-cirros-iscsi"
+	DiskAlpineNFS           = "disk-alpine-nfs"
 )
 
 const (
@@ -105,7 +103,6 @@ const (
 
 const (
 	nfsPathAlpine = "/nfsshare/alpine"
-	nfsPathCirros = "/nfsshare/cirros"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -268,9 +265,6 @@ func AfterTestSuitCleanup() {
 	createNamespaces()
 	cleanNamespaces()
 
-	deletePVC(osCirrosNFS, false)
-	deletePV(osCirrosNFS, false)
-
 	deletePVC(osAlpineNFS, false)
 	deletePV(osAlpineNFS, false)
 
@@ -279,12 +273,6 @@ func AfterTestSuitCleanup() {
 
 	deletePVC(osAlpineISCSI, true)
 	deletePV(osAlpineISCSI, true)
-
-	deletePVC(osCirrosISCSI, false)
-	deletePV(osCirrosISCSI, false)
-
-	deletePVC(osCirrosISCSI, true)
-	deletePV(osCirrosISCSI, true)
 
 	removeNamespaces()
 }
@@ -302,12 +290,6 @@ func BeforeTestSuitSetup() {
 	createNamespaces()
 	createIscsiSecrets()
 
-	createPvISCSI(osCirrosISCSI, 3, true)
-	createPVC(osCirrosISCSI, true)
-
-	createPvISCSI(osCirrosISCSI, 3, false)
-	createPVC(osCirrosISCSI, false)
-
 	createPvISCSI(osAlpineISCSI, 2, true)
 	createPVC(osAlpineISCSI, true)
 
@@ -316,9 +298,6 @@ func BeforeTestSuitSetup() {
 
 	createPvNFS(osAlpineNFS, nfsPathAlpine)
 	createPVC(osAlpineNFS, false)
-
-	createPvNFS(osCirrosNFS, nfsPathCirros)
-	createPVC(osCirrosNFS, false)
 }
 
 func createPVC(os string, withAuth bool) {
@@ -510,23 +489,17 @@ func getPodIpByLabel(label string) string {
 		PanicOnError(fmt.Errorf("failed to find pod with the label %s", label))
 	}
 
-	var readyPod *k8sv1.Pod
+	var runningPod *k8sv1.Pod
 	for _, pod := range pods.Items {
-		ready := true
-		for _, status := range pod.Status.ContainerStatuses {
-			if !status.Ready {
-				ready = false
-			}
-		}
-		if ready {
-			readyPod = &pod
+		if pod.ObjectMeta.DeletionTimestamp == nil {
+			runningPod = &pod
 			break
 		}
 	}
-	if readyPod == nil {
+	if runningPod == nil {
 		PanicOnError(fmt.Errorf("no ready pods with the label %s", label))
 	}
-	return readyPod.Status.PodIP
+	return runningPod.Status.PodIP
 }
 
 func cleanNamespaces() {
@@ -668,29 +641,6 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 
 func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachine {
 	vm := NewRandomVMWithEphemeralDisk(containerImage)
-
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "vdb",
-		VolumeName: "vdb",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Device: "vdb",
-			},
-		},
-	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-		Name: "vdb",
-		VolumeSource: v1.VolumeSource{
-			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-			},
-		},
-	})
-	return vm
-}
-
-func NewRandomVMWithUserData(userData string) *v1.VirtualMachine {
-	vm := NewRandomVMWithPVC(DiskCirrosISCSI)
 
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "vdb",

@@ -10,7 +10,6 @@ Available LUNs:
 0. (An tgt dinternal LUN, can not be used)
 1. Empty image - for your data
 2. Alpine
-3. CirrOS
 
 
 # Build
@@ -24,7 +23,6 @@ $ docker build -t kubevirt/iscsi-demo-target-tgtd .
 The build will download (and build in) two OS images:
 
 - Alpine, because it's extensible
-- CirrOS, because it's good for testing
 
 
 # Usage
@@ -69,10 +67,8 @@ $ make manifests
 $ kubectl create -f manifests/iscsi-demo-target.yaml
 persistentvolumeclaim "disk-custom" created
 persistentvolumeclaim "disk-alpine" created
-persistentvolumeclaim "disk-cirros" created
 persistentvolume "iscsi-disk-custom" created
 persistentvolume "iscsi-disk-alpine" created
-persistentvolume "iscsi-disk-cirros" created
 service "iscsi-demo-target" created
 pod "iscsi-demo-target-tgtd" created
 

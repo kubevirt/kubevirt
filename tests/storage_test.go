@@ -69,16 +69,8 @@ var _ = Describe("Storage", func() {
 		return string(logsRaw)
 	}
 
-	BeforeEach(func() {
-		// Wait until there is no connection
-		logs := func() string { return getTargetLogs(70) }
-		Eventually(logs,
-			60*time.Second,
-			5*time.Second).
-			Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
-	})
-
 	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool) {
+		By("Starting a VM")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStart(obj)
@@ -87,6 +79,7 @@ var _ = Describe("Storage", func() {
 			// Periodically check if we now have a connection on the target
 			// We don't check against the actual IP, since depending on the kubernetes proxy mode, and the network provider
 			// we will see different IPs here. The BeforeEach function makes sure that no other connections exist.
+			By("Checking ISCSI nexus information")
 			Eventually(func() string { return getTargetLogs(70) },
 				11*time.Second,
 				500*time.Millisecond).
@@ -96,7 +89,16 @@ var _ = Describe("Storage", func() {
 		}
 	}
 
-	Context("Given a fresh iSCSI target", func() {
+	Context("with fresh iSCSI target", func() {
+
+		BeforeEach(func() {
+			// Wait until there is no connection
+			logs := func() string { return getTargetLogs(70) }
+			Eventually(logs,
+				60*time.Second,
+				5*time.Second).
+				Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
+		})
 
 		It("should be available and ready", func() {
 			logs := getTargetLogs(75)
@@ -112,52 +114,81 @@ var _ = Describe("Storage", func() {
 		})
 	})
 
-	Context("Given a VM and a directly connected Alpine LUN", func() {
+	Describe("Starting a VM", func() {
 
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the LUN attached
-			vm := tests.NewRandomVMWithDirectLun(2, false)
-			RunVMAndExpectLaunch(vm, false)
-			close(done)
-		}, 60)
-	})
+		Context("with direct ISCSI volume", func() {
+			BeforeEach(func() {
+				// Wait until there is no connection
+				logs := func() string { return getTargetLogs(70) }
+				Eventually(logs,
+					60*time.Second,
+					5*time.Second).
+					Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
+			})
 
-	Context("Given a VM and a directly connected Alpine LUN with CHAP auth", func() {
+			It("should success", func(done Done) {
+				// Start the VM with the LUN attached
+				vm := tests.NewRandomVMWithDirectLun(2, false)
+				RunVMAndExpectLaunch(vm, false)
+				close(done)
+			}, 60)
 
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the LUN attached
-			vm := tests.NewRandomVMWithDirectLun(2, true)
-			RunVMAndExpectLaunch(vm, true)
-			close(done)
-		}, 60)
-	})
+			Context("with CHAP auth", func() {
+				It("should success", func(done Done) {
+					// Start the VM with the LUN attached
+					vm := tests.NewRandomVMWithDirectLun(2, true)
+					RunVMAndExpectLaunch(vm, true)
+					close(done)
+				}, 60)
+			})
+		})
 
-	Context("Given a VM and an Alpine PVC", func() {
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the PVC attached
-			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
-			RunVMAndExpectLaunch(vm, false)
-			close(done)
-		}, 60)
-	})
+		Context("with ISCSI PersistentVolume", func() {
 
-	Context("Given a VM and an Alpine PVC with CHAP auth", func() {
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the PVC attached
-			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
-			RunVMAndExpectLaunch(vm, true)
-			close(done)
-		}, 60)
+			BeforeEach(func() {
+				// Wait until there is no connection
+				logs := func() string { return getTargetLogs(70) }
+				Eventually(logs,
+					60*time.Second,
+					5*time.Second).
+					Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
+			})
 
-		It("should not modify the VM spec on status update", func() {
-			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
-			startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
-			Expect(err).To(BeNil())
-			Expect(startedVM.Spec).To(Equal(vm.Spec))
+			It("should success", func(done Done) {
+				// Start the VM with the PVC attached
+				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				RunVMAndExpectLaunch(vm, false)
+				close(done)
+			}, 60)
+
+			Context("with CHAP auth", func() {
+				It("should success", func(done Done) {
+					// Start the VM with the PVC attached
+					vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
+					RunVMAndExpectLaunch(vm, true)
+					close(done)
+				}, 60)
+
+				It("should not modify the spec on status update", func() {
+					vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSIWithAuth)
+					v1.SetObjectDefaults_VirtualMachine(vm)
+					vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+					Expect(err).To(BeNil())
+					tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
+					startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
+					Expect(err).To(BeNil())
+					Expect(startedVM.Spec).To(Equal(vm.Spec))
+				})
+			})
+		})
+
+		Context("with NFS PersistentVolume", func() {
+			It("should success", func(done Done) {
+				// Start the VM with the PVC attached
+				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineNFS)
+				RunVMAndExpectLaunch(vm, true)
+				close(done)
+			}, 60)
 		})
 	})
 })
