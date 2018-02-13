@@ -87,7 +87,6 @@ func (LunTarget) SwaggerDoc() map[string]string {
 
 func (FloppyTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":      "Bus indicates the type of disk device to emulate.",
 		"readonly": "ReadOnly\nDefaults to false",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
 	}

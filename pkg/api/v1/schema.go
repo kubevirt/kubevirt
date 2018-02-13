@@ -139,8 +139,6 @@ type LunTarget struct {
 }
 
 type FloppyTarget struct {
-	// Bus indicates the type of disk device to emulate.
-	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
