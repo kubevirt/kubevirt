@@ -76,6 +76,20 @@ var _ = Describe("VM Initializer", func() {
 	})
 
 	Context("Initializer Marking", func() {
+		var thisInitializer k8smetav1.Initializer
+		var initializer1 k8smetav1.Initializer
+		var initializer2 k8smetav1.Initializer
+		var initName1 string
+		var initName2 string
+
+		BeforeEach(func() {
+			initName1 = "test.initializer.1"
+			initName2 = "test.initializer.2"
+			thisInitializer = k8smetav1.Initializer{Name: initializerMarking}
+			initializer1 = k8smetav1.Initializer{Name: initName1}
+			initializer2 = k8smetav1.Initializer{Name: initName2}
+		})
+
 		It("Should handle nil initializers", func() {
 			vm := v1.VirtualMachine{}
 			// sanity check that the Initializers array is indeed nil (for testing)
@@ -94,7 +108,7 @@ var _ = Describe("VM Initializer", func() {
 		It("Should not modify an array without the correct initializer marking", func() {
 			vm := v1.VirtualMachine{}
 			vm.Initializers = new(k8smetav1.Initializers)
-			vm.Initializers.Pending = []k8smetav1.Initializer{k8smetav1.Initializer{Name: "test-case"}}
+			vm.Initializers.Pending = []k8smetav1.Initializer{initializer1}
 			removeInitializer(&vm)
 			Expect(len(vm.Initializers.Pending)).To(Equal(1))
 		})
@@ -102,21 +116,48 @@ var _ = Describe("VM Initializer", func() {
 		It("Should remove the correct initializer marking", func() {
 			vm := v1.VirtualMachine{}
 			vm.Initializers = new(k8smetav1.Initializers)
-			vm.Initializers.Pending = []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}
+			vm.Initializers.Pending = []k8smetav1.Initializer{thisInitializer}
 			removeInitializer(&vm)
 			Expect(len(vm.Initializers.Pending)).To(Equal(0))
 		})
 
 		It("Should preserve the rest of the list", func() {
-			otherName := "something-that-wont-match"
 			vm := v1.VirtualMachine{}
 			vm.Initializers = new(k8smetav1.Initializers)
 			vm.Initializers.Pending = []k8smetav1.Initializer{
-				k8smetav1.Initializer{Name: initializerMarking},
-				k8smetav1.Initializer{Name: otherName}}
+				initializer1,
+				thisInitializer,
+				initializer2}
 			removeInitializer(&vm)
-			Expect(len(vm.Initializers.Pending)).To(Equal(1))
-			Expect(vm.Initializers.Pending[0].Name).To(Equal(otherName))
+			Expect(len(vm.Initializers.Pending)).To(Equal(2))
+			Expect(vm.Initializers.Pending[0].Name).To(Equal(initName1))
+			Expect(vm.Initializers.Pending[1].Name).To(Equal(initName2))
+		})
+
+		It("Should recognize a nil initializer", func() {
+			vm := v1.VirtualMachine{}
+			vm.Initializers = nil
+			Expect(isInitialized(&vm)).To(Equal(true))
+		})
+
+		It("Should recognize an empty initializer", func() {
+			vm := v1.VirtualMachine{}
+			vm.Initializers = new(k8smetav1.Initializers)
+			Expect(isInitialized(&vm)).To(Equal(true))
+		})
+
+		It("Should return false if initializer marking is present", func() {
+			vm := v1.VirtualMachine{}
+			vm.Initializers = new(k8smetav1.Initializers)
+			vm.Initializers.Pending = []k8smetav1.Initializer{initializer1, thisInitializer, initializer2}
+			Expect(isInitialized(&vm)).To(Equal(false))
+		})
+
+		It("Should return true for missing initializer", func() {
+			vm := v1.VirtualMachine{}
+			vm.Initializers = new(k8smetav1.Initializers)
+			vm.Initializers.Pending = []k8smetav1.Initializer{initializer1, initializer2}
+			Expect(isInitialized(&vm)).To(Equal(true))
 		})
 	})
 
@@ -433,6 +474,10 @@ var _ = Describe("VM Initializer", func() {
 		})
 	})
 })
+
+func NewInitializer(name string) k8smetav1.Initializer {
+	return k8smetav1.Initializer{Name: name}
+}
 
 func TestLogging(t *testing.T) {
 	RegisterFailHandler(Fail)
