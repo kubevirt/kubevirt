@@ -86,6 +86,13 @@ var _ = Describe("Storage", func() {
 		return string(logsRaw)
 	}
 
+	checkReadiness := func() {
+		logs := getTargetLogs(75)
+		Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
+		Expect(logs).To(ContainSubstring("Driver: iscsi"))
+		Expect(logs).To(ContainSubstring("State: ready"))
+	}
+
 	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) runtime.Object {
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
@@ -95,15 +102,14 @@ var _ = Describe("Storage", func() {
 
 	Context("Given a fresh iSCSI target", func() {
 		It("should be available and ready", func() {
-			logs := getTargetLogs(75)
-			Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
-			Expect(logs).To(ContainSubstring("Driver: iscsi"))
-			Expect(logs).To(ContainSubstring("State: ready"))
+			checkReadiness()
 		})
 	})
 
 	Context("Given a VM and an Alpine PVC", func() {
 		It("should be successfully started", func(done Done) {
+			checkReadiness()
+
 			// Start the VM with the PVC attached
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
@@ -121,6 +127,8 @@ var _ = Describe("Storage", func() {
 		}, 110)
 
 		It("should be successfully started and stopped multiple times", func(done Done) {
+			checkReadiness()
+
 			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
