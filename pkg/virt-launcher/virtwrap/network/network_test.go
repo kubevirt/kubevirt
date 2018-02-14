@@ -45,8 +45,8 @@ var _ = Describe("Network", func() {
 	var fakeMac net.HardwareAddr
 	var fakeAddr netlink.Addr
 	var updateFakeMac net.HardwareAddr
-	var macvlanTest *netlink.Macvlan
-	var macvlanAddr *netlink.Addr
+	var bridgeTest *netlink.Bridge
+	var bridgeAddr *netlink.Addr
 	var testNic *VIF
 	var interfaceXml []byte
 	var tmpDir string
@@ -69,27 +69,27 @@ var _ = Describe("Network", func() {
 		addrList = []netlink.Addr{fakeAddr}
 		routeAddr = netlink.Route{Gw: gw}
 		routeList = []netlink.Route{routeAddr}
-		macvlanTest = &netlink.Macvlan{
+
+		// Create a bridge
+		bridgeTest = &netlink.Bridge{
 			LinkAttrs: netlink.LinkAttrs{
-				Name:        macVlanIfaceName,
-				ParentIndex: 1,
+				Name: bridgeName,
 			},
-			Mode: netlink.MACVLAN_MODE_BRIDGE,
 		}
-		macvlanAddr, _ = netlink.ParseAddr(macVlanFakeIP)
+		bridgeAddr, _ = netlink.ParseAddr(bridgeFakeIP)
 		testNic = &VIF{Name: podInterface,
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="direct" trustGuestRxFilters="yes"><source dev="eth0" mode="bridge"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	Context("on successful Network setup", func() {
-		It("define a new VIF", func() {
+	Context("on successful setup", func() {
+		It("should define a new VIF", func() {
 
 			Handler = mockNetwork
 			domain := &api.Domain{}
@@ -104,12 +104,12 @@ var _ = Describe("Network", func() {
 			mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
 			mockNetwork.EXPECT().ChangeMacAddr(podInterface).Return(updateFakeMac, nil)
 			mockNetwork.EXPECT().LinkSetUp(dummy).Return(nil)
-			mockNetwork.EXPECT().LinkAdd(macvlanTest).Return(nil)
-			mockNetwork.EXPECT().LinkByName(macVlanIfaceName).Return(macvlanTest, nil)
-			mockNetwork.EXPECT().LinkSetUp(macvlanTest).Return(nil)
-			mockNetwork.EXPECT().ParseAddr(macVlanFakeIP).Return(macvlanAddr, nil)
-			mockNetwork.EXPECT().AddrAdd(macvlanTest, macvlanAddr).Return(nil)
-			mockNetwork.EXPECT().StartDHCP(testNic, macvlanAddr)
+			mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
+			mockNetwork.EXPECT().LinkByName(bridgeName).Return(bridgeTest, nil)
+			mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
+			mockNetwork.EXPECT().ParseAddr(bridgeFakeIP).Return(bridgeAddr, nil)
+			mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
+			mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr)
 
 			err := SetupPodNetwork(domain)
 			Expect(err).To(BeNil())

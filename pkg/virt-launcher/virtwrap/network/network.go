@@ -43,13 +43,13 @@ import (
 )
 
 const (
-	podInterface     = "eth0"
-	macVlanIfaceName = "macvlan0"
-	macVlanFakeIP    = "10.11.12.13/24"
-	guestDNS         = "8.8.8.8"
+	podInterface = "eth0"
+	bridgeName   = "br1"
+	guestDNS     = "8.8.8.8"
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
+var bridgeFakeIP = "10.11.12.13/24"
 
 // only used by unit test suite
 func setInterfaceCacheFile(path string) {
@@ -152,7 +152,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 		nic.MAC,
 		nic.IP.IP,
 		nic.IP.Mask,
-		macVlanIfaceName,
+		bridgeName,
 		serverAddr.IP,
 		nic.Gateway,
 		net.ParseIP(guestDNS),
@@ -199,7 +199,7 @@ func SetupDefaultPodNetwork(domain *api.Domain) error {
 		}
 
 		// Start DHCP Server
-		fakeServerAddr, _ := netlink.ParseAddr(macVlanFakeIP)
+		fakeServerAddr, _ := netlink.ParseAddr(bridgeFakeIP)
 		go Handler.StartDHCP(vif, fakeServerAddr)
 
 		// After the network is configured, cache the result
@@ -316,41 +316,33 @@ func preparePodNetworkInterfaces(nic *VIF, nicLink netlink.Link) error {
 		return err
 	}
 
-	// Create a macvlan link
-	macvlan := &netlink.Macvlan{
+	// Create a bridge
+	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
-			Name:        macVlanIfaceName,
-			ParentIndex: nicLink.Attrs().Index,
+			Name: bridgeName,
 		},
-		Mode: netlink.MACVLAN_MODE_BRIDGE,
 	}
-
-	//Create macvlan interface
-	if err := Handler.LinkAdd(macvlan); err != nil {
-		log.Log.Reason(err).Errorf("failed to create macvlan interface")
-		return err
-	}
-
-	//get macvlan link
-	macvlink, err := Handler.LinkByName(macVlanIfaceName)
+	err = Handler.LinkAdd(bridge)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", macVlanIfaceName)
+		log.Log.Reason(err).Errorf("failed to create a bridge")
 		return err
 	}
-	err = Handler.LinkSetUp(macvlink)
+	netlink.LinkSetMaster(nicLink, bridge)
+
+	err = Handler.LinkSetUp(bridge)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", macVlanIfaceName)
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeName)
 		return err
 	}
 
-	// set fake ip on macvlan interface
-	fakeaddr, err := Handler.ParseAddr(macVlanFakeIP)
+	// set fake ip on a bridge
+	fakeaddr, err := Handler.ParseAddr(bridgeFakeIP)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", macVlanIfaceName)
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeName)
 		return err
 	}
 
-	if err := Handler.AddrAdd(macvlink, fakeaddr); err != nil {
+	if err := Handler.AddrAdd(bridge, fakeaddr); err != nil {
 		log.Log.Reason(err).Errorf("failed to set macvlan IP")
 		return err
 	}
@@ -361,9 +353,8 @@ func preparePodNetworkInterfaces(nic *VIF, nicLink netlink.Link) error {
 func decorateInterfaceConfig(vif *VIF) *api.Interface {
 
 	inter := api.Interface{}
-	inter.Type = "direct"
-	inter.TrustGuestRxFilters = "yes"
-	inter.Source = api.InterfaceSource{Device: vif.Name, Mode: "bridge"}
+	inter.Type = "bridge"
+	inter.Source = api.InterfaceSource{Bridge: bridgeName}
 	inter.MAC = &api.MAC{MAC: vif.MAC.String()}
 	inter.Model = &api.Model{Type: "virtio"}
 
