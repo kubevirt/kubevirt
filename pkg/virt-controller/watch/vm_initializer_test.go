@@ -16,34 +16,6 @@ import (
 )
 
 var _ = Describe("VM Initializer", func() {
-	Context("Utility tests", func() {
-		It("Should map device names", func() {
-			dev := v1.DiskDevice{}
-			dev.Disk = &v1.DiskTarget{Device: "diskdevice"}
-			result := diskDeviceToDeviceName(dev)
-			Expect(result).To(Equal("diskdevice"))
-
-			dev = v1.DiskDevice{}
-			dev.LUN = &v1.LunTarget{Device: "lundevice"}
-			result = diskDeviceToDeviceName(dev)
-			Expect(result).To(Equal("lundevice"))
-
-			dev = v1.DiskDevice{}
-			dev.Floppy = &v1.FloppyTarget{Device: "floppydevice"}
-			result = diskDeviceToDeviceName(dev)
-			Expect(result).To(Equal("floppydevice"))
-
-			dev = v1.DiskDevice{}
-			dev.CDRom = &v1.CDRomTarget{Device: "cdromdevice"}
-			result = diskDeviceToDeviceName(dev)
-			Expect(result).To(Equal("cdromdevice"))
-
-			dev = v1.DiskDevice{}
-			result = diskDeviceToDeviceName(dev)
-			Expect(result).To(Equal(""))
-		})
-	})
-
 	Context("Annotate Presets", func() {
 		It("should properly annotate a VM", func() {
 			vm := v1.VirtualMachine{}
@@ -188,7 +160,7 @@ var _ = Describe("VM Initializer", func() {
 						WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}},
 					Disks: []v1.Disk{v1.Disk{Name: "testdisk",
 						VolumeName: "testvolume",
-						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vda", ReadOnly: true}}}}},
+						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}}},
 			}}}
 			preset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 		})
@@ -281,11 +253,11 @@ var _ = Describe("VM Initializer", func() {
 		})
 
 		It("Should detect Disk conflicts", func() {
-			matchingDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vda", ReadOnly: true}}}
-			sameName := v1.Disk{Name: "testdisk", VolumeName: "wrong", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vdb", ReadOnly: true}}}
-			sameVolume := v1.Disk{Name: "randomname", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vdb", ReadOnly: true}}}
-			sameMountPoint := v1.Disk{Name: "wrongname", VolumeName: "different", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vda", ReadOnly: true}}}
-			unrelated := v1.Disk{Name: "wrongname", VolumeName: "different", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vdb", ReadOnly: true}}}
+			matchingDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
+			sameName := v1.Disk{Name: "testdisk", VolumeName: "wrong", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
+			sameVolume := v1.Disk{Name: "randomname", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
+			sameMountPoint := v1.Disk{Name: "wrongname", VolumeName: "different", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
+			unrelated := v1.Disk{Name: "wrongname", VolumeName: "different", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
 
 			// First check everything works if all fields match
 			preset.Spec.Domain.Devices.Disks = []v1.Disk{matchingDisk, unrelated}
@@ -302,10 +274,10 @@ var _ = Describe("VM Initializer", func() {
 			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
-			// Two devices using the same mount point
+			// Two devices using the same Bus (should not conflict)
 			preset.Spec.Domain.Devices.Disks = []v1.Disk{sameMountPoint, unrelated}
 			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
-			Expect(err).To(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -401,7 +373,7 @@ var _ = Describe("VM Initializer", func() {
 		})
 
 		It("Should apply Disk devices", func() {
-			referenceDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vda", ReadOnly: true}}}
+			referenceDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
 
 			preset.Spec.Domain.Devices.Disks = []v1.Disk{referenceDisk}
 
@@ -415,7 +387,7 @@ var _ = Describe("VM Initializer", func() {
 		})
 
 		It("Should not duplicate Disks", func() {
-			referenceDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Device: "/dev/vda", ReadOnly: true}}}
+			referenceDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
 
 			// Both preset and VM will have the same disk defined
 			preset.Spec.Domain.Devices.Disks = []v1.Disk{referenceDisk}

@@ -187,22 +187,6 @@ func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine
 	return matchingPresets, nil
 }
 
-func diskDeviceToDeviceName(dev kubev1.DiskDevice) string {
-	if dev.Disk != nil {
-		return dev.Disk.Device
-	}
-	if dev.LUN != nil {
-		return dev.LUN.Device
-	}
-	if dev.Floppy != nil {
-		return dev.Floppy.Device
-	}
-	if dev.CDRom != nil {
-		return dev.CDRom.Device
-	}
-	return ""
-}
-
 func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) error {
 	errors := []error{}
 	if len(presetSpec.Resources.Requests) > 0 {
@@ -246,12 +230,10 @@ func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.Dom
 	}
 	nameMap := make(map[string]kubev1.Disk)
 	volumeNameMap := make(map[string]kubev1.Disk)
-	diskDeviceMap := make(map[string]kubev1.Disk)
 
 	for _, vmDev := range vmSpec.Devices.Disks {
 		nameMap[vmDev.Name] = vmDev
 		volumeNameMap[vmDev.VolumeName] = vmDev
-		diskDeviceMap[diskDeviceToDeviceName(vmDev.DiskDevice)] = vmDev
 	}
 	for _, presetDev := range presetSpec.Devices.Disks {
 		if vmDev, conflict := nameMap[presetDev.Name]; conflict {
@@ -262,11 +244,6 @@ func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.Dom
 		if vmDev, conflict := volumeNameMap[presetDev.VolumeName]; conflict {
 			if !reflect.DeepEqual(presetDev, vmDev) {
 				errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same volume name", presetDev.Name))
-			}
-		}
-		if vmDev, conflict := diskDeviceMap[diskDeviceToDeviceName(presetDev.DiskDevice)]; conflict {
-			if !reflect.DeepEqual(presetDev, vmDev) {
-				errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting device", presetDev.Name))
 			}
 		}
 	}
