@@ -12,6 +12,11 @@ import (
 var _true = t(true)
 var _false = t(false)
 
+// TODO: make it const?
+// no special meaning, randomly generated on my box.
+// TODO: do we want to use another constants? see examples in RFC4122
+var _uuid_ns = uuid.Parse("6a1a24a1-4061-4607-8bf4-a3963d0c5895")
+
 func SetDefaults_HPETTimer(obj *HPETTimer) {
 	if obj.Enabled == nil {
 		obj.Enabled = _true
@@ -114,6 +119,9 @@ func SetDefaults_VirtualMachine(obj *VirtualMachine) {
 	}
 	if obj.Spec.Domain.Firmware == nil {
 		obj.Spec.Domain.Firmware = &Firmware{}
+	}
+	if obj.Spec.Domain.Firmware.UUID == "" {
+		obj.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(_uuid_ns, []byte(obj.Name)).String())
 	}
 
 	if obj.Spec.Domain.Features == nil {
