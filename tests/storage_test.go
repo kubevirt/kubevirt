@@ -120,11 +120,11 @@ var _ = Describe("Storage", func() {
 			Expect(err).To(BeNil())
 			_, err = expecter.ExpectBatch([]expect.Batcher{
 				&expect.BExp{R: "Welcome to Alpine"},
-			}, 90*time.Second)
+			}, 200*time.Second)
 			Expect(err).To(BeNil())
 
 			close(done)
-		}, 110)
+		}, 240)
 
 		It("should be successfully started and stopped multiple times", func(done Done) {
 			checkReadiness()
@@ -144,7 +144,7 @@ var _ = Describe("Storage", func() {
 					Expect(err).To(BeNil())
 					_, err = expecter.ExpectBatch([]expect.Batcher{
 						&expect.BExp{R: "Welcome to Alpine"},
-					}, 90*time.Second)
+					}, 200*time.Second)
 					Expect(err).To(BeNil())
 				}
 
@@ -154,6 +154,6 @@ var _ = Describe("Storage", func() {
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
 			}
 			close(done)
-		}, 200)
+		}, 240)
 	})
 })
