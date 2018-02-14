@@ -1627,8 +1627,8 @@
    },
    "v1.CDRomTarget": {
     "properties": {
-     "dev": {
-      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+     "bus": {
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
       "type": "string"
      },
      "readonly": {
@@ -1774,8 +1774,8 @@
    },
    "v1.DiskTarget": {
     "properties": {
-     "dev": {
-      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+     "bus": {
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
       "type": "string"
      },
      "readonly": {
@@ -1922,10 +1922,6 @@
    },
    "v1.FloppyTarget": {
     "properties": {
-     "dev": {
-      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
-      "type": "string"
-     },
      "readonly": {
       "description": "ReadOnly\nDefaults to false",
       "type": "boolean"
@@ -2147,8 +2143,8 @@
    },
    "v1.LunTarget": {
     "properties": {
-     "dev": {
-      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+     "bus": {
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
       "type": "string"
      },
      "readonly": {

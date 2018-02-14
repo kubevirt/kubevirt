@@ -11,6 +11,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
@@ -20,32 +21,69 @@ type ConverterContext struct {
 	VirtualMachine *v1.VirtualMachine
 }
 
-func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk) error {
+func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
 
 	if diskDevice.Disk != nil {
 		disk.Device = "disk"
-		disk.Target.Device = diskDevice.Disk.Device
+		disk.Target.Bus = diskDevice.Disk.Bus
+		disk.Target.Device = makeDeviceName(diskDevice.Disk.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
+		disk.Target.Bus = diskDevice.LUN.Bus
+		disk.Target.Device = makeDeviceName(diskDevice.LUN.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
-		disk.Target.Device = diskDevice.LUN.Device
 	} else if diskDevice.Floppy != nil {
 		disk.Device = "floppy"
+		disk.Target.Bus = "fdc"
 		disk.Target.Tray = string(diskDevice.Floppy.Tray)
+		disk.Target.Device = makeDeviceName(disk.Target.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
-		disk.Target.Device = diskDevice.Floppy.Device
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
+		disk.Target.Bus = diskDevice.CDRom.Bus
+		disk.Target.Device = makeDeviceName(diskDevice.CDRom.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
-		disk.Target.Device = diskDevice.CDRom.Device
 	}
 	disk.Driver = &DiskDriver{
 		Name: "qemu",
 	}
 	disk.Alias = &Alias{Name: diskDevice.Name}
 	return nil
+}
+
+func makeDeviceName(bus string, devicePerBus map[string]int) string {
+	index := devicePerBus[bus]
+	devicePerBus[bus] += 1
+
+	prefix := ""
+	switch bus {
+	case "virtio":
+		prefix = "vd"
+	case "sata", "scsi":
+		prefix = "sd"
+	case "ide":
+		prefix = "hd"
+	case "fdc":
+		prefix = "fd"
+	default:
+		log.Log.Errorf("Unrecognized bus '%s'", bus)
+		return ""
+	}
+	return formatDeviceName(prefix, index)
+}
+
+// port of http://elixir.free-electrons.com/linux/v4.15/source/drivers/scsi/sd.c#L3211
+func formatDeviceName(prefix string, index int) string {
+	base := int('z' - 'a' + 1)
+	name := ""
+
+	for index >= 0 {
+		name = string('a'+(index%base)) + name
+		index = (index / base) - 1
+	}
+	return prefix + name
 }
 
 func toApiReadOnly(src bool) *ReadOnly {
@@ -287,9 +325,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
+	devicePerBus := make(map[string]int)
 	for _, disk := range vm.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk)
+
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus)
 		if err != nil {
 			return err
 		}
@@ -330,12 +370,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 			return err
 		}
 	}
-	if vm.Spec.Domain.Machine != nil {
-		apiOst := vm.Spec.Domain.Machine
-		err := Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
-		if err != nil {
-			return err
-		}
+	apiOst := &vm.Spec.Domain.Machine
+	err = Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
+	if err != nil {
+		return err
 	}
 
 	if vm.Spec.Domain.CPU != nil {

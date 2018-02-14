@@ -26,3 +26,4 @@ cluster/local/certs
 **.crt
 **.csr
 _out
+vendor/**/*_test.go

@@ -46,6 +46,9 @@ var exampleJSON = `{
       "cpu": {
         "cores": 3
       },
+      "machine": {
+        "type": "q35"
+      },
       "firmware": {
         "uuid": "28a42a60-44ef-4428-9c10-1a6aee94627f"
       },
@@ -114,14 +117,14 @@ var exampleJSON = `{
             "name": "disk0",
             "volumeName": "volume0",
             "disk": {
-              "dev": "vda"
+              "bus": "virtio"
             }
           },
           {
             "name": "cdrom0",
             "volumeName": "volume1",
             "cdrom": {
-              "dev": "vdb",
+              "bus": "virtio",
               "readonly": true,
               "tray": "open"
             }
@@ -130,7 +133,6 @@ var exampleJSON = `{
             "name": "floppy0",
             "volumeName": "volume2",
             "floppy": {
-              "dev": "vdc",
               "readonly": true,
               "tray": "open"
             }
@@ -139,7 +141,7 @@ var exampleJSON = `{
             "name": "lun0",
             "volumeName": "volume3",
             "lun": {
-              "dev": "vdd",
+              "bus": "virtio",
               "readonly": true
             }
           }
@@ -195,7 +197,7 @@ var _ = Describe("Schema", func() {
 				VolumeName: "volume0",
 				DiskDevice: DiskDevice{
 					Disk: &DiskTarget{
-						Device:   "vda",
+						Bus:      "virtio",
 						ReadOnly: false,
 					},
 				},
@@ -205,7 +207,7 @@ var _ = Describe("Schema", func() {
 				VolumeName: "volume1",
 				DiskDevice: DiskDevice{
 					CDRom: &CDRomTarget{
-						Device:   "vdb",
+						Bus:      "virtio",
 						ReadOnly: _true,
 						Tray:     "open",
 					},
@@ -216,7 +218,6 @@ var _ = Describe("Schema", func() {
 				VolumeName: "volume2",
 				DiskDevice: DiskDevice{
 					Floppy: &FloppyTarget{
-						Device:   "vdc",
 						ReadOnly: true,
 						Tray:     "open",
 					},
@@ -227,7 +228,7 @@ var _ = Describe("Schema", func() {
 				VolumeName: "volume3",
 				DiskDevice: DiskDevice{
 					LUN: &LunTarget{
-						Device:   "vdd",
+						Bus:      "virtio",
 						ReadOnly: true,
 					},
 				},
@@ -313,7 +314,6 @@ var _ = Describe("Schema", func() {
 			newVM := &VirtualMachine{}
 			err := json.Unmarshal([]byte(exampleJSON), newVM)
 			Expect(err).To(BeNil())
-
 			Expect(newVM).To(Equal(exampleVM))
 		})
 		It("Marshal struct into json", func() {

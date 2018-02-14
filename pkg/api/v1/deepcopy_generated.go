@@ -332,15 +332,7 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 			**out = **in
 		}
 	}
-	if in.Machine != nil {
-		in, out := &in.Machine, &out.Machine
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Machine)
-			**out = **in
-		}
-	}
+	out.Machine = in.Machine
 	if in.Firmware != nil {
 		in, out := &in.Firmware, &out.Firmware
 		if *in == nil {

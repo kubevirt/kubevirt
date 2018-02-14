@@ -1,7 +1,7 @@
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 metadata:
-  name: testvm-auth
+  name: testvm-sata
 spec:
   terminationGracePeriodSeconds: 0
   domain:
@@ -13,11 +13,10 @@ spec:
       - name: mydisk
         volumeName: myvolume
         disk:
-          bus: virtio
+          bus: sata
   volumes:
     - name: myvolume
       iscsi:
         iqn: iqn.2017-01.io.kubevirt:sn.42
         lun: 2
         targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
-        secretRef: iscsi-auth-demo-secret
