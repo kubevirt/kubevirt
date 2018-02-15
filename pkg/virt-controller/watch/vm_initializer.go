@@ -23,6 +23,7 @@ import (
 
 type VirtualMachineInitializer struct {
 	vmPresetInformer cache.SharedIndexInformer
+	vmInitInformer   cache.SharedIndexInformer
 	clientset        kubecli.KubevirtClient
 	queue            workqueue.RateLimitingInterface
 	store            cache.Store
@@ -30,9 +31,10 @@ type VirtualMachineInitializer struct {
 
 const initializerMarking = "presets.virtualmachines.kubevirt.io"
 
-func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient) *VirtualMachineInitializer {
+func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient) *VirtualMachineInitializer {
 	vmi := VirtualMachineInitializer{
 		vmPresetInformer: vmPresetInformer,
+		vmInitInformer:   vmInitInformer,
 		clientset:        clientset,
 		queue:            queue,
 		store:            vmInitCache,
@@ -46,7 +48,7 @@ func (c *VirtualMachineInitializer) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Starting Virtual Machine Initializer.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmPresetInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmPresetInformer.HasSynced, c.vmInitInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -82,30 +84,24 @@ func (c *VirtualMachineInitializer) Execute() bool {
 
 func (c *VirtualMachineInitializer) execute(key string) error {
 
-	// Fetch the latest Vm state from cache
+	// Fetch the latest VM state from cache
 	obj, exists, err := c.store.GetByKey(key)
 
 	if err != nil {
 		return err
 	}
 
-	// Retrieve the VM
-	var vm *kubev1.VirtualMachine
-	if !exists {
-		namespace, name, err := cache.SplitMetaNamespaceKey(key)
-		if err != nil {
-			return err
-		}
-		vm = kubev1.NewVMReferenceFromNameWithNS(namespace, name)
-	} else {
+	// If the VM isn't in the cache, it was just deleted, so shouldn't
+	// be initialized
+	if exists {
+		var vm *kubev1.VirtualMachine
 		vm = obj.(*kubev1.VirtualMachine)
+		// only process VM's that aren't initialized by this controller yet
+		if !isInitialized(vm) {
+			return c.initializeVirtualMachine(vm)
+		}
 	}
 
-	// only process VM's that aren't initialized by this controller yet
-	if !isInitialized(vm) {
-		return c.initializeVirtualMachine(vm)
-	}
-	// Ignore fully initialized Virtual Machines
 	return nil
 }
 
@@ -119,12 +115,7 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 
 	allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
 
-	matchingPresets, err := filterPresets(allPresets, vm)
-
-	if err != nil {
-		logger.Object(vm).Reason(err).Errorf("Error while matching presets to VirtualMachine")
-		errors = append(errors, err)
-	}
+	matchingPresets := filterPresets(allPresets, vm)
 
 	if len(matchingPresets) != 0 {
 		err = applyPresets(vm, matchingPresets)
@@ -155,36 +146,35 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachinePreset, error) {
 	result := []kubev1.VirtualMachinePreset{}
 	for _, obj := range vmPresetInformer.GetStore().List() {
-		preset := kubev1.VirtualMachinePreset{}
-		obj.(*kubev1.VirtualMachinePreset).DeepCopyInto(&preset)
+		var preset *kubev1.VirtualMachinePreset
+		preset = obj.(*kubev1.VirtualMachinePreset)
 		if preset.Namespace == namespace {
-			result = append(result, preset)
+			result = append(result, *preset)
 		}
 	}
 	return result, nil
 }
 
 // filterPresets returns list of VirtualMachinePresets which match given VirtualMachine.
-func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine) ([]kubev1.VirtualMachinePreset, error) {
-	var matchingPresets []kubev1.VirtualMachinePreset
+func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine) []kubev1.VirtualMachinePreset {
+	matchingPresets := []kubev1.VirtualMachinePreset{}
 
 	logger := log.Log
 
 	for _, preset := range list {
 		selector, err := k8smetav1.LabelSelectorAsSelector(&preset.Spec.Selector)
 		if err != nil {
-			logger.Reason(err).Errorf("label selector conversion failed: %v for selector: %v", preset.Spec.Selector, err)
-			return nil, fmt.Errorf("label selector conversion failed: %v for selector: %v", preset.Spec.Selector, err)
+			// FIXME: create an event here
+			// Do not return an error from this function--or the VM will be
+			// re-enqueued for processing again.
+			logger.Object(&preset).Reason(err).Errorf("label selector conversion failed: %v", err)
+		} else if selector.Matches(labels.Set(vm.Labels)) {
+			logger.Infof("VirtualMachinePreset %s matches labels of VM %s", preset.GetName(), vm.GetName())
+			matchingPresets = append(matchingPresets, preset)
 		}
-
-		// check if the pod labels match the selector
-		if !selector.Matches(labels.Set(vm.Labels)) {
-			continue
-		}
-		logger.Infof("VirtualMachinePreset %s matches labels of VM %s", preset.GetName(), vm.GetName())
-		matchingPresets = append(matchingPresets, preset)
 	}
-	return matchingPresets, nil
+	logger.Infof("length of matching presets: %d", len(matchingPresets))
+	return matchingPresets
 }
 
 func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) error {
@@ -317,10 +307,13 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) e
 }
 
 func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset) error {
+	logger := log.Log
 	for _, preset := range presets {
 		err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
 		if err != nil {
-			return fmt.Errorf("unable to apply preset '%s' to virtual machine '%s': %v", preset.Name, vm.Name, err)
+			// FIXME: a Kubernetes event should be reported here
+			logger.Object(vm).Errorf("Unable to apply Preset '%s': %v", preset.Name, err)
+			return nil
 		}
 	}
 
@@ -334,7 +327,7 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 // isInitialized checks if *this* module has initialized the VM,
 // which is distinct from "has the VM been initialized by all controllers?"
 func isInitialized(vm *kubev1.VirtualMachine) bool {
-	// if initializers is nil/empty then this resource is initialized
+	// if initializers is nil/empty then consider this resource as initialized
 	if vm.Initializers != nil && len(vm.Initializers.Pending) > 0 {
 		for _, i := range vm.Initializers.Pending {
 			if i.Name == initializerMarking {

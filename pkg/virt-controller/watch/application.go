@@ -205,7 +205,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
-	vca.vmInitController = NewVirtualMachineInitializer(vca.vmPresetInformer, vca.vmInitQueue, vca.vmInitCache, vca.clientSet)
+	vca.vmInitController = NewVirtualMachineInitializer(vca.vmPresetInformer, vca.vmInitInformer, vca.vmInitQueue, vca.vmInitCache, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

@@ -554,6 +554,16 @@ type VirtualMachinePreset struct {
 	Spec VirtualMachinePresetSpec `json:"spec,omitempty" valid:"required"`
 }
 
+// Required to satisfy Object interface
+func (v *VirtualMachinePreset) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (v *VirtualMachinePreset) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
+
 // VirtualMachinePresetList is a list of VirtualMachinePresets
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachinePresetList struct {

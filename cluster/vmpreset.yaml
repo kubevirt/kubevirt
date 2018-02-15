@@ -4,7 +4,7 @@ metadata:
   name: small-qemu
   selector:
     matchLabels:
-      flavor: small-qemu
+      flavor: small
 spec:
   domain:
     resources:

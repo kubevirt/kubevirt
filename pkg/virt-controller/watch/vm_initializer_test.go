@@ -408,6 +408,7 @@ var _ = Describe("VM Initializer", func() {
 		var matchingPreset v1.VirtualMachinePreset
 		var nonmatchingPreset v1.VirtualMachinePreset
 		var errorPreset v1.VirtualMachinePreset
+		matchingPresetName := "test-preset"
 		matchingLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{"flavor": "matching"}}
 		mismatchLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{"flavor": "unrelated"}}
 		errorLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{"flavor": "!"}}
@@ -418,7 +419,7 @@ var _ = Describe("VM Initializer", func() {
 			vm.ObjectMeta.Labels = map[string]string{"flavor": "matching"}
 
 			matchingPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
-			matchingPreset.ObjectMeta.Name = "test-preset"
+			matchingPreset.ObjectMeta.Name = matchingPresetName
 			matchingPreset.Spec.Selector = matchingLabel
 
 			nonmatchingPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
@@ -432,18 +433,24 @@ var _ = Describe("VM Initializer", func() {
 
 		It("Should match preset with the correct selector", func() {
 			allPresets := []v1.VirtualMachinePreset{matchingPreset, nonmatchingPreset}
-			matchingPresets, err := filterPresets(allPresets, &vm)
-			Expect(err).ToNot(HaveOccurred())
+			matchingPresets := filterPresets(allPresets, &vm)
 			Expect(len(matchingPresets)).To(Equal(1))
-			Expect(matchingPresets[0].Name).To(Equal("test-preset"))
+			Expect(matchingPresets[0].Name).To(Equal(matchingPresetName))
 		})
 
-		It("Should reject bogus selectors", func() {
-			allPresets := []v1.VirtualMachinePreset{matchingPreset, nonmatchingPreset, errorPreset}
-			matching, err := filterPresets(allPresets, &vm)
-			Expect(err).To(HaveOccurred())
-			Expect(matching).To(BeNil())
+		It("Should not match preset with the incorrect selector", func() {
+			allPresets := []v1.VirtualMachinePreset{nonmatchingPreset}
+			matchingPresets := filterPresets(allPresets, &vm)
+			Expect(len(matchingPresets)).To(Equal(0))
 		})
+
+		It("Should ignore bogus selectors", func() {
+			allPresets := []v1.VirtualMachinePreset{matchingPreset, nonmatchingPreset, errorPreset}
+			matchingPresets := filterPresets(allPresets, &vm)
+			Expect(len(matchingPresets)).To(Equal(1))
+			Expect(matchingPresets[0].Name).To(Equal(matchingPresetName))
+		})
+
 	})
 })
 
