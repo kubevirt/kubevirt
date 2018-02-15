@@ -846,6 +846,13 @@ func (in *ResourceRequirements) DeepCopyInto(out *ResourceRequirements) {
 			(*out)[key] = val.DeepCopy()
 		}
 	}
+	if in.Limits != nil {
+		in, out := &in.Limits, &out.Limits
+		*out = make(core_v1.ResourceList, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val.DeepCopy()
+		}
+	}
 	return
 }
 

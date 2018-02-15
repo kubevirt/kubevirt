@@ -138,11 +138,11 @@ var _ = Describe("Template", func() {
 							Resources: v1.ResourceRequirements{
 								Requests: kubev1.ResourceList{
 									kubev1.ResourceCPU:    resource.MustParse("1m"),
-									kubev1.ResourceMemory: resource.MustParse("1Gi"),
+									kubev1.ResourceMemory: resource.MustParse("1G"),
 								},
 								Limits: kubev1.ResourceList{
 									kubev1.ResourceCPU:    resource.MustParse("2m"),
-									kubev1.ResourceMemory: resource.MustParse("2Gi"),
+									kubev1.ResourceMemory: resource.MustParse("2G"),
 								},
 							},
 						},
@@ -154,8 +154,8 @@ var _ = Describe("Template", func() {
 				Expect(err).To(BeNil())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("2m"))
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1Gi"))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2Gi"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1099507557"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
 			})
 			It("should not add unset resources", func() {
 
@@ -167,10 +167,11 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineSpec{
 						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{Cores: 3},
 							Resources: v1.ResourceRequirements{
 								Requests: kubev1.ResourceList{
 									kubev1.ResourceCPU:    resource.MustParse("1m"),
-									kubev1.ResourceMemory: resource.MustParse("1Gi"),
+									kubev1.ResourceMemory: resource.MustParse("64M"),
 								},
 							},
 						},
@@ -180,12 +181,12 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vm)
 
 				Expect(err).To(BeNil())
+				Expect(vm.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1Gi"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 				Expect(pod.Spec.Containers[0].Resources.Limits).To(BeNil())
 			})
 		})
-	})
 
 		Context("with pvc source", func() {
 			It("should add pvc to template", func() {
