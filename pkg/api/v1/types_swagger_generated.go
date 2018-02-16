@@ -155,3 +155,7 @@ func (OfflineVirtualMachineStatus) SwaggerDoc() map[string]string {
 		"": "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
 	}
 }
+
+func (OfflineVirtualMachineCondition) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}

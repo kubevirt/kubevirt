@@ -664,9 +664,8 @@ type OfflineVirtualMachineSpec struct {
 // OfflineVirtualMachineStatus represents the status returned by the
 // controller to describe how the OfflineVirtualMachine is doing
 type OfflineVirtualMachineStatus struct {
-	VirtualMachineName string `json:"VMname,omitempty"`
-	Running            bool   `json:"Running,ommitempty"`
-	Ready              bool   `json:"Ready,ommitempty"`
+	VirtualMachineName string                           `json:"VMname,omitempty"`
+	Conditions         []OfflineVirtualMachineCondition `json:"conditions" optional:"true"`
 }
 
 // GetObjectKind is required to satisfy Object interface
@@ -678,3 +677,26 @@ func (v *OfflineVirtualMachine) GetObjectKind() schema.ObjectKind {
 func (v *OfflineVirtualMachine) GetObjectMeta() metav1.Object {
 	return &v.ObjectMeta
 }
+
+type OfflineVirtualMachineCondition struct {
+	Type               OfflineVirtualMachineConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus              `json:"status"`
+	LastProbeTime      metav1.Time                        `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time                        `json:"lastTransitionTime,omitempty"`
+	Reason             string                             `json:"reason,omitempty"`
+	Message            string                             `json:"message,omitempty"`
+}
+
+type OfflineVirtualMachineConditionType string
+
+const (
+	// TODO +pkotas update for offlinevirtualmachine
+	// VMReplicaSetReplicaFailure is added in a replica set when one of its vms
+	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
+	// etc. or deleted due to kubelet being down or finalizers are failing.
+	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "OVMFailure"
+
+	// VMReplicaSetReplicaPaused is added in a replica set when the replica set got paused by the controller.
+	// After this condition was added, it is safe to remove or add vms by hand and adjust the replica count by hand.
+	OfflineVirtualMachineRunning OfflineVirtualMachineConditionType = "OVMRunning"
+)

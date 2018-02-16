@@ -236,7 +236,7 @@ func (vca *VirtControllerApp) initReplicaSet() {
 
 func (vca *VirtControllerApp) initOfflineVirtualMachines() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "offlinevirtualmachine-controller")
-	vca.ovmController = NewOVMController(vca.clientSet, recorder, vca.ovmInformer, vca.vmInformer)
+	vca.ovmController = NewOVMController(vca.vmInformer, vca.ovmInformer, recorder, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restful.Response) {

@@ -2,8 +2,13 @@ apiVersion: kubevirt.io/v1alpha1
 kind: OfflineVirtualMachine
 metadata:
   name: my-vm
+  labels:
+    my: label
 spec:
   running: false # equivalent to replicas 0
+  selector:
+    matchLabels:
+      my: label
   template:
     metadata:
       labels: 
