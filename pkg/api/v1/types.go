@@ -573,7 +573,9 @@ type VirtualMachinePresetList struct {
 }
 
 type VirtualMachinePresetSpec struct {
-	Selector metav1.LabelSelector
+	// Selector is a label query over a set of VMs.
+	// Required.
+	Selector metav1.LabelSelector `json:"selector"`
 	// Domain is the same object type as contained in VirtualMachineSpec
 	Domain *DomainSpec `json:"domain,omitempty"`
 }

@@ -3404,15 +3404,15 @@
    },
    "v1.VirtualMachinePresetSpec": {
     "required": [
-     "Selector"
+     "selector"
     ],
     "properties": {
-     "Selector": {
-      "$ref": "#/definitions/v1.LabelSelector"
-     },
      "domain": {
       "description": "Domain is the same object type as contained in VirtualMachineSpec",
       "$ref": "#/definitions/v1.DomainSpec"
+     },
+     "selector": {
+      "$ref": "#/definitions/v1.LabelSelector"
      }
     }
    },
