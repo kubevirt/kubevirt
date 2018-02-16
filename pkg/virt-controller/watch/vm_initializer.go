@@ -168,12 +168,11 @@ func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine
 			// Do not return an error from this function--or the VM will be
 			// re-enqueued for processing again.
 			logger.Object(&preset).Reason(err).Errorf("label selector conversion failed: %v", err)
-		} else if selector.Matches(labels.Set(vm.Labels)) {
+		} else if selector.Matches(labels.Set(vm.GetLabels())) {
 			logger.Infof("VirtualMachinePreset %s matches labels of VM %s", preset.GetName(), vm.GetName())
 			matchingPresets = append(matchingPresets, preset)
 		}
 	}
-	logger.Infof("length of matching presets: %d", len(matchingPresets))
 	return matchingPresets
 }
 

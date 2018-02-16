@@ -68,14 +68,15 @@ KubeVirt will determine which `VirtualMachinePresets` apply to a Particular
 kind: VirtualMachinePreset
 metadata:
   name: example-preset
+spec:
   selector:
     matchLabels:
-      flavor: foo
+      kubevirt.io/flavor: foo
   ...
 ```
 
 would match any `VirtualMachine` in the same namespace with a `Label` of
-`flavor: foo`. For example:
+`kubevirt.io/flavor: foo`. For example:
 
 ```yaml
 kind: VirtualMachine
@@ -83,7 +84,7 @@ version: v1
 metadata:
   name: myvm
   labels:
-    flavor: foo
+    kubevirt.io/flavor: foo
   ...
 ```
 
@@ -99,10 +100,10 @@ kind: VirtualMachinePreset
 version: v1alpha1
 metadata:
   name: example-preset
+spec:
   selector:
     matchLabels:
-      flavor: default-features
-spec:
+      kubevirt.io/flavor: windows-10
   domain:
     features:
       acpi: {}
@@ -118,7 +119,7 @@ version: v1
 metadata:
   name: myvm
   labels:
-    flavor: default-features
+    kubevirt.io/flavor: windows-10
 spec:
   firmware:
     UUID: c8f99fc8-20f5-46c4-85e5-2b841c547cef
@@ -134,7 +135,7 @@ version: v1
 metadata:
   name: myvm
   labels:
-    flavor: windows-10
+    kubevirt.io/flavor: windows-10
   annotations:
     virtualmachinepreset.kubevirt.io/example-preset: kubevirt.io/v1alpha1
 spec:
@@ -162,10 +163,10 @@ kind: VirtualMachinePreset
 version: v1alpha1
 metadata:
   name: windows-features
+spec:
   selector:
     matchLabels:
-      flavor: default-features
-spec:
+      kubevirt.io/flavor: windows
   domain:
     disks:
     - name: server2012r2
@@ -184,7 +185,7 @@ version: v1
 metadata:
   name: myvm
   labels:
-    flavor: default-features
+    kubevirt.io/flavor: windows
 spec:
   domain:
     disks:
@@ -207,7 +208,7 @@ version: v1
 metadata:
   name: myvm
   labels:
-    flavor: windows-server2012r2
+    kubevirt.io/flavor: windows
   annotations:
     virtualmachinepreset.kubevirt.io/windows-features: kubevirt.io/v1alpha1
 spec:
@@ -247,10 +248,10 @@ kind: VirtualMachinePreset
 version: v1alpha1
 metadata:
   name: example-preset
+spec:
   selector:
     matchLabels:
-      flavor: default-features
-spec:
+      kubevirt.io/flavor: default-features
   domain:
     disks:
     - name: server2012r2
@@ -269,7 +270,7 @@ version: v1
 metadata:
   name: myvm
   labels:
-    flavor: default-features
+    kubevirt.io/flavor: default-features
 spec:
   domain:
     disks:

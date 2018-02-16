@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -409,14 +410,15 @@ var _ = Describe("VM Initializer", func() {
 		var nonmatchingPreset v1.VirtualMachinePreset
 		var errorPreset v1.VirtualMachinePreset
 		matchingPresetName := "test-preset"
-		matchingLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{"flavor": "matching"}}
-		mismatchLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{"flavor": "unrelated"}}
-		errorLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{"flavor": "!"}}
+		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
+		matchingLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "matching"}}
+		mismatchLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "unrelated"}}
+		errorLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "!"}}
 
 		BeforeEach(func() {
 			vm = v1.VirtualMachine{Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}}
 			vm.ObjectMeta.Name = "testvm"
-			vm.ObjectMeta.Labels = map[string]string{"flavor": "matching"}
+			vm.ObjectMeta.Labels = map[string]string{flavorKey: "matching"}
 
 			matchingPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 			matchingPreset.ObjectMeta.Name = matchingPresetName
