@@ -16,7 +16,6 @@
   "paths": {
    "/apis/kubevirt.io": {
     "get": {
-     "description": "Get a KubeVirt API group",
      "produces": [
       "application/json"
      ],
@@ -43,7 +42,6 @@
    },
    "/apis/kubevirt.io/v1alpha1": {
     "get": {
-     "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
@@ -70,7 +68,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/healthz": {
     "get": {
-     "description": "Health endpoint",
      "consumes": [
       "application/json"
      ],
@@ -94,7 +91,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinereplicasets": {
     "get": {
-     "description": "Get a list of VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -179,7 +175,6 @@
      }
     },
     "post": {
-     "description": "Create a VirtualMachineReplicaSet object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -239,7 +234,6 @@
      }
     },
     "delete": {
-     "description": "Delete a collection of VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
       "application/yaml"
@@ -317,7 +311,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinereplicasets/{name}": {
     "get": {
-     "description": "Get a VirtualMachineReplicaSet object.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -374,7 +367,6 @@
      }
     },
     "put": {
-     "description": "Update a VirtualMachineReplicaSet object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -436,7 +428,6 @@
      }
     },
     "delete": {
-     "description": "Delete a VirtualMachineReplicaSet object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -510,7 +501,6 @@
      }
     },
     "patch": {
-     "description": "Patch a VirtualMachineReplicaSet object.",
      "consumes": [
       "application/json-patch+json",
       "application/merge-patch+json"
@@ -551,7 +541,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines": {
     "get": {
-     "description": "Get a list of VirtualMachine objects.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -636,7 +625,6 @@
      }
     },
     "post": {
-     "description": "Create a VirtualMachine object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -696,7 +684,6 @@
      }
     },
     "delete": {
-     "description": "Delete a collection of VirtualMachine objects.",
      "produces": [
       "application/json",
       "application/yaml"
@@ -774,7 +761,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}": {
     "get": {
-     "description": "Get a VirtualMachine object.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -831,7 +817,6 @@
      }
     },
     "put": {
-     "description": "Update a VirtualMachine object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -893,7 +878,6 @@
      }
     },
     "delete": {
-     "description": "Delete a VirtualMachine object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -967,7 +951,6 @@
      }
     },
     "patch": {
-     "description": "Patch a VirtualMachine object.",
      "consumes": [
       "application/json-patch+json",
       "application/merge-patch+json"
@@ -1008,7 +991,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/virtualmachinereplicasets": {
     "get": {
-     "description": "Get a list of all VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -1087,7 +1069,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/virtualmachines": {
     "get": {
-     "description": "Get a list of all VirtualMachine objects.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -1166,7 +1147,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinereplicasets": {
     "get": {
-     "description": "Watch a VirtualMachineReplicaSet object.",
      "produces": [
       "application/json"
      ],
@@ -1251,7 +1231,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachines": {
     "get": {
-     "description": "Watch a VirtualMachine object.",
      "produces": [
       "application/json"
      ],
@@ -1336,7 +1315,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/watch/virtualmachinereplicasets": {
     "get": {
-     "description": "Watch a VirtualMachineReplicaSetList object.",
      "produces": [
       "application/json"
      ],
@@ -1413,7 +1391,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/watch/virtualmachines": {
     "get": {
-     "description": "Watch a VirtualMachineList object.",
      "produces": [
       "application/json"
      ],

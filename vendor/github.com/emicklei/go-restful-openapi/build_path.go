@@ -74,11 +74,8 @@ func buildPathItem(ws *restful.WebService, r restful.Route, existingPathItem spe
 
 func buildOperation(ws *restful.WebService, r restful.Route, patterns map[string]string, cfg Config) *spec.Operation {
 	o := spec.NewOperation(r.Operation)
-	o.Description = r.Doc
-	// take the first line (stripping HTML tags) to be the summary
-	if lines := strings.Split(r.Doc, "\n"); len(lines) > 0 {
-		o.Summary = stripTags(lines[0])
-	}
+	o.Description = r.Notes
+	o.Summary = stripTags(r.Doc)
 	o.Consumes = r.Consumes
 	o.Produces = r.Produces
 	o.Deprecated = r.Deprecated
@@ -147,11 +144,27 @@ func buildParameter(r restful.Route, restfulParam *restful.Parameter, pattern st
 	if param.Kind == restful.PathParameterKind {
 		p.Pattern = pattern
 	}
-
-	if param.Kind == restful.BodyParameterKind && r.ReadSample != nil && param.DataType == reflect.TypeOf(r.ReadSample).String() {
+	st := reflect.TypeOf(r.ReadSample)
+	if param.Kind == restful.BodyParameterKind && r.ReadSample != nil && param.DataType == st.String() {
 		p.Schema = new(spec.Schema)
-		p.Schema.Ref = spec.MustCreateRef("#/definitions/" + param.DataType)
 		p.SimpleSchema = spec.SimpleSchema{}
+		if st.Kind() == reflect.Array || st.Kind() == reflect.Slice {
+			dataTypeName := definitionBuilder{}.keyFrom(st.Elem())
+			p.Schema.Type = []string{"array"}
+			p.Schema.Items = &spec.SchemaOrArray{
+				Schema: &spec.Schema{},
+			}
+			isPrimitive := isPrimitiveType(dataTypeName)
+			if isPrimitive {
+				mapped := jsonSchemaType(dataTypeName)
+				p.Schema.Items.Schema.Type = []string{mapped}
+			} else {
+				p.Schema.Items.Schema.Ref = spec.MustCreateRef("#/definitions/" + dataTypeName)
+			}
+		} else {
+			p.Schema.Ref = spec.MustCreateRef("#/definitions/" + param.DataType)
+		}
+
 	} else {
 		p.Type = param.DataType
 		p.Default = stringAutoType(param.DefaultValue)

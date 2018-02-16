@@ -17,7 +17,6 @@
   "paths": {
     "/users": {
       "get": {
-        "description": "get all users",
         "consumes": [
           "application/xml",
           "application/json"
@@ -53,7 +52,6 @@
         }
       },
       "put": {
-        "description": "create a user",
         "consumes": [
           "application/xml",
           "application/json"
@@ -86,7 +84,6 @@
     },
     "/users/{user-id}": {
       "get": {
-        "description": "get a user",
         "consumes": [
           "application/xml",
           "application/json"
@@ -129,7 +126,6 @@
         }
       },
       "put": {
-        "description": "update a user",
         "consumes": [
           "application/xml",
           "application/json"
@@ -167,7 +163,6 @@
         }
       },
       "delete": {
-        "description": "delete a user",
         "consumes": [
           "application/xml",
           "application/json"

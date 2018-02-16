@@ -3488,19 +3488,19 @@ type DomainSchedulerParameters struct {
 	GlobalPeriodSet   bool
 	GlobalPeriod      uint64
 	GlobalQuotaSet    bool
-	GlobalQuota       uint64
+	GlobalQuota       int64
 	VcpuPeriodSet     bool
 	VcpuPeriod        uint64
 	VcpuQuotaSet      bool
-	VcpuQuota         uint64
+	VcpuQuota         int64
 	EmulatorPeriodSet bool
 	EmulatorPeriod    uint64
 	EmulatorQuotaSet  bool
-	EmulatorQuota     uint64
+	EmulatorQuota     int64
 	IothreadPeriodSet bool
 	IothreadPeriod    uint64
 	IothreadQuotaSet  bool
-	IothreadQuota     uint64
+	IothreadQuota     int64
 	WeightSet         bool
 	Weight            uint
 	CapSet            bool
@@ -3525,7 +3525,7 @@ func getDomainSchedulerParametersFieldInfo(params *DomainSchedulerParameters) ma
 		},
 		C.VIR_DOMAIN_SCHEDULER_GLOBAL_QUOTA: typedParamsFieldInfo{
 			set: &params.GlobalQuotaSet,
-			ul:  &params.GlobalQuota,
+			l:   &params.GlobalQuota,
 		},
 		C.VIR_DOMAIN_SCHEDULER_EMULATOR_PERIOD: typedParamsFieldInfo{
 			set: &params.EmulatorPeriodSet,
@@ -3533,7 +3533,7 @@ func getDomainSchedulerParametersFieldInfo(params *DomainSchedulerParameters) ma
 		},
 		C.VIR_DOMAIN_SCHEDULER_EMULATOR_QUOTA: typedParamsFieldInfo{
 			set: &params.EmulatorQuotaSet,
-			ul:  &params.EmulatorQuota,
+			l:   &params.EmulatorQuota,
 		},
 		C.VIR_DOMAIN_SCHEDULER_VCPU_PERIOD: typedParamsFieldInfo{
 			set: &params.VcpuPeriodSet,
@@ -3541,7 +3541,7 @@ func getDomainSchedulerParametersFieldInfo(params *DomainSchedulerParameters) ma
 		},
 		C.VIR_DOMAIN_SCHEDULER_VCPU_QUOTA: typedParamsFieldInfo{
 			set: &params.VcpuQuotaSet,
-			ul:  &params.VcpuQuota,
+			l:   &params.VcpuQuota,
 		},
 		C.VIR_DOMAIN_SCHEDULER_IOTHREAD_PERIOD: typedParamsFieldInfo{
 			set: &params.IothreadPeriodSet,
@@ -3549,7 +3549,7 @@ func getDomainSchedulerParametersFieldInfo(params *DomainSchedulerParameters) ma
 		},
 		C.VIR_DOMAIN_SCHEDULER_IOTHREAD_QUOTA: typedParamsFieldInfo{
 			set: &params.IothreadQuotaSet,
-			ul:  &params.IothreadQuota,
+			l:   &params.IothreadQuota,
 		},
 		C.VIR_DOMAIN_SCHEDULER_WEIGHT: typedParamsFieldInfo{
 			set: &params.WeightSet,
