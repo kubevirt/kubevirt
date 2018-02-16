@@ -584,6 +584,7 @@ func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *Virtua
 	return &VirtualMachinePreset{
 		Spec: VirtualMachinePresetSpec{
 			Selector: selector,
+			Domain:   &DomainSpec{},
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

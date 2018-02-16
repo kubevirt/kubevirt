@@ -2,18 +2,27 @@ package watch
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 var _ = Describe("VM Initializer", func() {
@@ -451,6 +460,149 @@ var _ = Describe("VM Initializer", func() {
 			matchingPresets := filterPresets(allPresets, &vm)
 			Expect(len(matchingPresets)).To(Equal(1))
 			Expect(matchingPresets[0].Name).To(Equal(matchingPresetName))
+		})
+
+	})
+
+	Context("VM Init Watcher", func() {
+		var server *ghttp.Server
+
+		log.Log.SetIOWriter(GinkgoWriter)
+		var app = VirtControllerApp{}
+		app.launcherImage = "kubevirt/virt-launcher"
+
+		var vmPreset *v1.VirtualMachinePreset
+		var stopChan chan struct{}
+
+		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
+		presetFlavor := "test-case"
+
+		BeforeEach(func() {
+			stopChan = make(chan struct{})
+
+			server = ghttp.NewServer()
+			app.clientSet, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+			app.restClient = app.clientSet.RestClient()
+
+			// create a reference preset
+			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: presetFlavor}}
+			vmPreset = v1.NewVirtualMachinePreset("test-preset", selector)
+
+			// create a stock VM
+
+			// Synthesize a fake, but fully functional, vmPresetInformer
+			presetListWatch := &cache.ListWatch{
+				ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
+					return &v1.VirtualMachinePresetList{Items: []v1.VirtualMachinePreset{*vmPreset}}, nil
+				},
+				WatchFunc: func(options k8smetav1.ListOptions) (watch.Interface, error) {
+					fakeWatch := watch.NewFake()
+					fakeWatch.Add(vmPreset)
+					return fakeWatch, nil
+				},
+			}
+			app.vmPresetInformer = cache.NewSharedIndexInformer(presetListWatch, &v1.VirtualMachinePreset{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			go app.vmPresetInformer.Run(stopChan)
+
+			// Synthesize a fake vmInitInformer
+			vmListWatch := &cache.ListWatch{
+				ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
+					return &v1.VirtualMachineList{}, nil
+				},
+				WatchFunc: func(options k8smetav1.ListOptions) (watch.Interface, error) {
+					return watch.NewFake(), nil
+				},
+			}
+			app.vmInitInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			app.vmInitCache = app.vmInitInformer.GetStore()
+			app.vmInitQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			app.vmInitInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmInitQueue))
+			go app.vmInitInformer.Run(stopChan)
+
+			app.initCommon()
+			// Make sure the informers are synced before continuing -- avoid race conditions
+			cache.WaitForCacheSync(stopChan, app.vmPresetInformer.HasSynced, app.vmInitInformer.HasSynced)
+		})
+
+		AfterEach(func() {
+			close(stopChan)
+		})
+
+		// This is a meta-test to ensure the preset cache in this test suite works
+		It("should have a result in the fake VM Preset cache", func() {
+			presets := app.vmPresetInformer.GetStore().List()
+			Expect(len(presets)).To(Equal(1))
+			for _, obj := range presets {
+				var preset *v1.VirtualMachinePreset
+				preset = obj.(*v1.VirtualMachinePreset)
+				Expect(preset.Name).To(Equal("test-preset"))
+			}
+
+		})
+
+		It("should not process an initialized VM", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			key, _ := cache.MetaNamespaceKeyFunc(vm)
+			app.vmInitCache.Add(vm)
+			app.vmInitQueue.Add(key)
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.vmInitController.Execute()
+			// the initializer should inspect the VM and decide nothing needs to be done
+			// (and skip the update entirely). So zero requests are expected.
+			Expect(len(server.ReceivedRequests())).To(Equal(0))
+
+		})
+
+		It("should initialized a VM if needed", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
+
+			key, _ := cache.MetaNamespaceKeyFunc(vm)
+			app.vmInitCache.Add(vm)
+			app.vmInitQueue.Add(key)
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.vmInitController.Execute()
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
+
+		})
+
+		It("should apply presets", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
+			vm.Labels = map[string]string{flavorKey: presetFlavor}
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			err := app.vmInitController.initializeVirtualMachine(vm)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			// Prove that the VM was annotated (indicates successful application of preset)
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
 		})
 
 	})
