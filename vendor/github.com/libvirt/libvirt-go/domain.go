@@ -394,6 +394,7 @@ type DomainInterfaceAddressesSource int
 const (
 	DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE = DomainInterfaceAddressesSource(C.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE)
 	DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT = DomainInterfaceAddressesSource(C.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT)
+	DOMAIN_INTERFACE_ADDRESSES_SRC_ARP   = DomainInterfaceAddressesSource(C.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_ARP)
 )
 
 type KeycodeSet int
@@ -409,6 +410,7 @@ const (
 	KEYCODE_SET_USB    = KeycodeSet(C.VIR_KEYCODE_SET_USB)
 	KEYCODE_SET_WIN32  = KeycodeSet(C.VIR_KEYCODE_SET_WIN32)
 	KEYCODE_SET_RFB    = KeycodeSet(C.VIR_KEYCODE_SET_RFB)
+	KEYCODE_SET_QNUM   = KeycodeSet(C.VIR_KEYCODE_SET_QNUM)
 )
 
 type ConnectDomainEventBlockJobStatus int

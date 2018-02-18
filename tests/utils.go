@@ -49,8 +49,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-var KubeVirtVersionTag string = "latest"
-var KubeVirtRepoPrefix string = "kubevirt"
+var KubeVirtVersionTag = "latest"
+var KubeVirtRepoPrefix = "kubevirt"
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
@@ -262,8 +262,8 @@ func AfterTestSuitCleanup() {
 	createNamespaces()
 	cleanNamespaces()
 
-	deletePVC(osAlpineISCSI, false)
-	deletePV(osAlpineISCSI, false)
+	deletePVC(osAlpineISCSI)
+	deletePV(osAlpineISCSI)
 
 	removeNamespaces()
 }
@@ -281,35 +281,27 @@ func BeforeTestSuitSetup() {
 	createNamespaces()
 	createIscsiSecrets()
 
-	createPvISCSI(osAlpineISCSI, 2, false)
-	createPVC(osAlpineISCSI, false)
+	createPvISCSI(osAlpineISCSI, 2)
+	createPVC(osAlpineISCSI)
 }
 
-func createPVC(os string, withAuth bool) {
+func createPVC(os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os, withAuth))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newPVC(os string, withAuth bool) *k8sv1.PersistentVolumeClaim {
+func newPVC(os string) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
 
 	name := fmt.Sprintf("disk-%s", os)
-	label := os
-	if withAuth {
-		name = fmt.Sprintf("disk-auth-%s", os)
-		label = fmt.Sprintf("%s-auth", os)
-	}
-
 	return &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 			Resources: k8sv1.ResourceRequirements{
@@ -319,42 +311,35 @@ func newPVC(os string, withAuth bool) *k8sv1.PersistentVolumeClaim {
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"kubevirt.io/test": label,
+					"kubevirt.io/test": os,
 				},
 			},
 		},
 	}
 }
 
-func createPvISCSI(os string, lun int32, withAuth bool) {
+func createPvISCSI(os string, lun int32) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
 	targetIp := "127.0.0.1" // getPodIpByLabel(label)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPvISCSI(os, targetIp, lun, withAuth))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPvISCSI(os, targetIp, lun))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newPvISCSI(os string, targetIp string, lun int32, withAuth bool) *k8sv1.PersistentVolume {
+func newPvISCSI(os string, targetIp string, lun int32) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
 
 	name := fmt.Sprintf("%s-disk-for-tests", os)
-
-	label := os
-	if withAuth {
-		name = fmt.Sprintf("%s-auth-disk-for-tests", os)
-		label = fmt.Sprintf("%s-auth", os)
-	}
-
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				"kubevirt.io/test": label,
+				"kubevirt.io/test": os,
 			},
 		},
 		Spec: k8sv1.PersistentVolumeSpec{
@@ -364,7 +349,7 @@ func newPvISCSI(os string, targetIp string, lun int32, withAuth bool) *k8sv1.Per
 			},
 			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimRetain,
 			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				ISCSI: &k8sv1.ISCSIVolumeSource{
+				ISCSI: &k8sv1.ISCSIPersistentVolumeSource{
 					IQN:          iscsiIqn,
 					Lun:          lun,
 					TargetPortal: targetIp,
@@ -372,48 +357,29 @@ func newPvISCSI(os string, targetIp string, lun int32, withAuth bool) *k8sv1.Per
 			},
 		},
 	}
-
-	if withAuth {
-		pv.Spec.PersistentVolumeSource.ISCSI.SessionCHAPAuth = true
-		pv.Spec.PersistentVolumeSource.ISCSI.SecretRef = &k8sv1.LocalObjectReference{
-			Name: iscsiSecretName,
-		}
-	}
 	return pv
 }
 
-func deletePVC(os string, withAuth bool) {
+func deletePVC(os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
 	name := fmt.Sprintf("disk-%s", os)
-	if withAuth {
-		name = fmt.Sprintf("disk-auth-%s", os)
-	}
 	err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Delete(name, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
 }
 
-func deletePV(os string, withAuth bool) {
+func deletePV(os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
 	name := fmt.Sprintf("%s-disk-for-tests", os)
-	if withAuth {
-		name = fmt.Sprintf("%s-auth-disk-for-tests", os)
-	}
-
 	err = virtCli.CoreV1().PersistentVolumes().Delete(name, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
-}
-
-func getPodIpByLabel(label string) string {
-	pod := GetRunningPodByLabel(label, v1.AppLabel, metav1.NamespaceSystem)
-	return pod.Status.PodIP
 }
 
 func GetRunningPodByLabel(label string, labelType string, namespace string) *k8sv1.Pod {
