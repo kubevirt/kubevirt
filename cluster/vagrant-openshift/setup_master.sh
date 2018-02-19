@@ -37,9 +37,9 @@ done
 openshift_ansible_dir="/root/openshift-ansible"
 inventory_file="/root/inventory"
 
-# Clone openshift-ansible repository and apply fix for https://github.com/openshift/openshift-ansible/issues/6756
 mkdir -p /root/openshift-ansible
-git clone https://github.com/openshift/openshift-ansible.git $openshift_ansible_dir
+# Checkout to the specific version as W/A for https://github.com/openshift/openshift-ansible/issues/6756
+git clone https://github.com/openshift/openshift-ansible.git $openshift_ansible_dir -b openshift-ansible-3.9.0-0.40.0
 
 # Create ansible inventory file
 cat >$inventory_file <<EOF
