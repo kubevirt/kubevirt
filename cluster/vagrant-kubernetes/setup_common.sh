@@ -36,6 +36,11 @@ yum -y install jq sshpass
 
 yum -y install bind-utils net-tools
 
+# Install storage requirements for iscsi and cluster
+yum -y install centos-release-gluster
+yum -y install --nogpgcheck -y glusterfs-fuse
+yum -y install iscsi-initiator-utils
+
 # if there is a second disk, use it for docker
 if ls /dev/*db; then
     # We use the loopback docker dm support, and not a VG for now

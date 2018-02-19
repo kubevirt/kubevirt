@@ -27,6 +27,11 @@ for node in $(seq 0 $(($2 - 1))); do
     grep $node_hostname /etc/hosts || echo "$node_ip $node_hostname" >>/etc/hosts
 done
 
+# Install storage requirements for iscsi and cluster
+yum -y install centos-release-gluster
+yum -y install --nogpgcheck -y glusterfs-fuse
+yum -y install iscsi-initiator-utils
+
 # Install OpenShift packages
 yum install -y centos-release-openshift-origin
 yum install -y yum-utils ansible wget git net-tools bind-utils iptables-services bridge-utils bash-completion kexec-tools sos psacct docker
