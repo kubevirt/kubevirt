@@ -30,11 +30,11 @@ distclean: clean
 	rm -rf vendor/
 
 deps-install:
-	hack/dockerized "glide install --strip-vendor"
+	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor"
 	hack/dep-prune.sh
  
 deps-update:
-	hack/dockerized "glide cc && glide update --strip-vendor"
+	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor"
 	hack/dep-prune.sh
 
 docker: build
