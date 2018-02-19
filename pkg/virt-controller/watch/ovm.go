@@ -132,6 +132,8 @@ func (c *OVMController) execute(key string) error {
 
 	logger := log.Log.Object(OVM)
 
+	logger.Infof("Working on OVM: %s", OVM.Name)
+
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
 	if OVM.Spec.Template == nil || OVM.Spec.Selector == nil || len(OVM.Spec.Template.ObjectMeta.Labels) == 0 {
 		logger.Error("Invalid controller spec, will not re-enqueue.")
@@ -154,7 +156,6 @@ func (c *OVMController) execute(key string) error {
 	// get all potentially interesting VMs from the cache
 	vms, err := c.listVMsFromNamespace(OVM.ObjectMeta.Namespace)
 
-	logger.Infof("Found %d VMs", len(vms))
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch vms for namespace from cache.")
 		return err
@@ -196,6 +197,7 @@ func (c *OVMController) execute(key string) error {
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	// TODO +pkotas update for offlinevirtualmachine
 	if needsSync && OVM.ObjectMeta.DeletionTimestamp == nil {
+		logger.Infof("Creating or stopping the VM: %s", OVM.Spec.Running)
 		createErr = c.startStop(OVM, vm)
 	}
 
@@ -253,6 +255,8 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 		return nil
 	}
 
+	log.Log.Object(ovm).Infof("Creating the vm since: %t", ovm.Spec.Running)
+
 	if ovm.Spec.Running == true {
 		if vm != nil {
 			// the VM should be running and is running
@@ -266,7 +270,7 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 
 		vm := virtv1.NewVMReferenceFromNameWithNS(ovm.ObjectMeta.Namespace, "")
 		vm.ObjectMeta = ovm.Spec.Template.ObjectMeta
-		vm.ObjectMeta.Name = ""
+		vm.ObjectMeta.Name = basename
 		vm.ObjectMeta.GenerateName = basename
 		vm.Spec = ovm.Spec.Template.Spec
 		// TODO check if vm labels exist, and when make sure that they match. For now just override them
@@ -569,15 +573,13 @@ func (c *OVMController) removeCondition(ovm *virtv1.OfflineVirtualMachine, cond 
 }
 
 func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) error {
-	// TODO +pkotas
-
 	// check if we need to update because of appeared or disappeard errors
 	errorsMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
 
 	// check if we need to update because pause was modified
 	stoppedMatch := ovm.Spec.Running == c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning)
 
-	// in case the replica count matches and the scaleErr and the error condition equal, don't update
+	// in case scaleErr and the error condition equal, don't update
 	if errorsMatch && stoppedMatch {
 		return nil
 	}
