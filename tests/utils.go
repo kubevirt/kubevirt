@@ -467,6 +467,9 @@ func cleanNamespaces() {
 
 		// Remove all VM Secrets
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("secrets").Do().Error())
+
+		// Remove all VM Presets
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachinepresets").Do().Error())
 	}
 }
 
