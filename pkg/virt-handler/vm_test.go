@@ -247,8 +247,7 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)
 
-			secrets := map[string]*k8sv1.Secret{}
-			client.EXPECT().SyncVirtualMachine(vm, secrets)
+			client.EXPECT().SyncVirtualMachine(vm)
 
 			controller.Execute()
 		})
@@ -314,8 +313,7 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)
 
-			secrets := map[string]*k8sv1.Secret{}
-			client.EXPECT().SyncVirtualMachine(vm, secrets)
+			client.EXPECT().SyncVirtualMachine(vm)
 			vmInterface.EXPECT().Update(updatedVM)
 
 			controller.Execute()
@@ -332,107 +330,6 @@ var _ = Describe("VM", func() {
 			table.Entry("succeeded", v1.Succeeded),
 			table.Entry("failed", v1.Failed),
 		)
-	})
-})
-
-var _ = Describe("PVC", func() {
-	RegisterFailHandler(Fail)
-
-	log.Log.SetIOWriter(GinkgoWriter)
-	var ctrl *gomock.Controller
-	var virtClient *kubecli.MockKubevirtClient
-
-	var (
-		expectedPVC k8sv1.PersistentVolumeClaim
-		expectedPV  k8sv1.PersistentVolume
-	)
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		expectedPVC = k8sv1.PersistentVolumeClaim{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "PersistentVolumeClaim",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-claim",
-				Namespace: metav1.NamespaceDefault,
-			},
-			Spec: k8sv1.PersistentVolumeClaimSpec{
-				VolumeName: "disk-01",
-			},
-			Status: k8sv1.PersistentVolumeClaimStatus{
-				Phase: k8sv1.ClaimBound,
-			},
-		}
-
-		source := k8sv1.ISCSIVolumeSource{
-			IQN:          "iqn.2009-02.com.test:for.all",
-			Lun:          1,
-			TargetPortal: "127.0.0.1:6543",
-		}
-
-		expectedPV = k8sv1.PersistentVolume{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "PersistentVolume",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "disk-01",
-			},
-			Spec: k8sv1.PersistentVolumeSpec{
-				PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-					ISCSI: &source,
-				},
-			},
-		}
-		fakeClient := fake.NewSimpleClientset(&expectedPVC, &expectedPV).CoreV1()
-		virtClient.EXPECT().CoreV1().Return(fakeClient).AnyTimes()
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
-	Context("Map Source Disks", func() {
-		It("looks up and applies PVC", func() {
-			vm := v1.VirtualMachine{
-				Spec: v1.VirtualMachineSpec{
-					Domain: v1.DomainSpec{},
-					Volumes: []v1.Volume{
-						{
-							Name: "test-pvc",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "test-claim",
-								},
-							},
-						},
-					},
-				},
-			}
-
-			vmCopy, err := MapVolumes(&vm, virtClient, k8sv1.NamespaceDefault)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vmCopy.Spec.Volumes[0].ISCSI).To(Equal(expectedPV.Spec.ISCSI))
-		})
-		It("should fail on unsupported PV disk types", func() {
-			expectedPV.Spec.ISCSI = nil
-			expectedPV.Spec.CephFS = &k8sv1.CephFSPersistentVolumeSource{}
-			volume := &v1.Volume{
-				Name: "test",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-claim",
-					},
-				},
-			}
-
-			err := mapPVToDisk(volume, &expectedPV)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unsupported"))
-		})
 	})
 })
 

@@ -44,32 +44,6 @@ func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachine, error) {
 	return args.VM, nil
 }
 
-func (s *Launcher) SyncSecret(args *cmdclient.Args, reply *cmdclient.Reply) error {
-	reply.Success = true
-
-	vm, err := getVmfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
-	}
-
-	err = s.domainManager.SyncVMSecret(vm,
-		args.SecretUsageType,
-		args.SecretUsageID,
-		args.SecretValue)
-
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Failed to sync vm secrets")
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
-	}
-
-	log.Log.Object(vm).Info("Synced vm secrets")
-	return nil
-}
-
 func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	reply.Success = true
 
@@ -80,7 +54,7 @@ func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	_, err = s.domainManager.SyncVM(vm, args.K8Secrets)
+	_, err = s.domainManager.SyncVM(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Failed to sync vm")
 		reply.Success = false

@@ -20,6 +20,7 @@
 package services
 
 import (
+	"path/filepath"
 	"strconv"
 
 	kubev1 "k8s.io/api/core/v1"
@@ -54,10 +55,43 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	var volumes []kubev1.Volume
 	var userId int64 = 0
 	var privileged bool = true
+	var volumesMounts []kubev1.VolumeMount
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
 		gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+	}
+
+	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+		Name:      "virt-share-dir",
+		MountPath: t.virtShareDir,
+	})
+	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+		Name:      "libvirt-runtime",
+		MountPath: "/var/run/libvirt",
+	})
+	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+		Name:      "host-dev",
+		MountPath: "/host-dev",
+	})
+	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+		Name:      "host-sys",
+		MountPath: "/host-sys",
+	})
+	for _, volume := range vm.Spec.Volumes {
+		volumeMount := kubev1.VolumeMount{
+			Name:      volume.Name,
+			MountPath: filepath.Join("/var/run/kubevirt-private", "vm-disks", volume.Name),
+		}
+		if volume.PersistentVolumeClaim != nil {
+			volumesMounts = append(volumesMounts, volumeMount)
+			volumes = append(volumes, kubev1.Volume{
+				Name: volume.Name,
+				VolumeSource: kubev1.VolumeSource{
+					PersistentVolumeClaim: volume.PersistentVolumeClaim,
+				},
+			})
+		}
 	}
 
 	// Pad the virt-launcher grace period.
@@ -86,25 +120,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			"--readiness-file", "/tmp/healthy",
 			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		},
-		VolumeMounts: []kubev1.VolumeMount{
-			{
-				Name:      "virt-share-dir",
-				MountPath: t.virtShareDir,
-			},
-			{
-				// shared with registry disks on Pod shared volume
-				Name:      "libvirt-runtime",
-				MountPath: "/var/run/libvirt",
-			},
-			{
-				Name:      "host-dev",
-				MountPath: "/host-dev",
-			},
-			{
-				Name:      "host-sys",
-				MountPath: "/host-sys",
-			},
-		},
+		VolumeMounts: volumesMounts,
 		ReadinessProbe: &kubev1.Probe{
 			Handler: kubev1.Handler{
 				Exec: &kubev1.ExecAction{

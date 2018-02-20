@@ -153,22 +153,13 @@ var _ = Describe("Converter", func() {
 					Name:       "should_default_to_disk",
 					VolumeName: "volume4",
 				},
-				{
-					Name:       "lun",
-					VolumeName: "volume5",
-					DiskDevice: v1.DiskDevice{
-						LUN: &v1.LunTarget{},
-					},
-				},
 			}
 			vm.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
@@ -191,51 +182,32 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "volume1",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
 				{
 					Name: "volume2",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
 				{
 					Name: "volume3",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
 				{
 					Name: "volume4",
 					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
-						},
-					},
-				},
-				{
-					Name: "volume5",
-					VolumeSource: v1.VolumeSource{
-						ISCSI: &k8sv1.ISCSIVolumeSource{
-							TargetPortal: "example.com:3260",
-							IQN:          "iqn.2013-07.com.example:iscsi-nopool",
-							Lun:          2,
-							SecretRef:    &k8sv1.LocalObjectReference{Name: "mysecret"},
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
@@ -274,12 +246,10 @@ var _ = Describe("Converter", func() {
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/mynamespace/testvm/virt-vnc"></listen>
     </graphics>
-    <disk device="disk" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/vm-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
-      <driver cache="none" name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw"></driver>
       <alias name="mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
@@ -295,49 +265,30 @@ var _ = Describe("Converter", func() {
       <readonly></readonly>
       <alias name="cdrom_tray_unspecified"></alias>
     </disk>
-    <disk device="cdrom" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/vm-disks/volume1/disk.img"></source>
       <target bus="sata" dev="sdb" tray="open"></target>
-      <driver cache="none" name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw"></driver>
       <alias name="cdrom_tray_open"></alias>
     </disk>
-    <disk device="floppy" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
+    <disk device="floppy" type="file">
+      <source file="/var/run/kubevirt-private/vm-disks/volume2/disk.img"></source>
       <target bus="fdc" dev="fda" tray="closed"></target>
-      <driver cache="none" name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw"></driver>
       <alias name="floppy_tray_unspecified"></alias>
     </disk>
-    <disk device="floppy" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
+    <disk device="floppy" type="file">
+      <source file="/var/run/kubevirt-private/vm-disks/volume3/disk.img"></source>
       <target bus="fdc" dev="fdb" tray="open"></target>
-      <driver cache="none" name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw"></driver>
       <readonly></readonly>
       <alias name="floppy_tray_open"></alias>
     </disk>
-    <disk device="disk" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/vm-disks/volume4/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
-      <driver cache="none" name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw"></driver>
       <alias name="should_default_to_disk"></alias>
-    </disk>
-    <disk device="lun" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
-      <target bus="sata" dev="sdd"></target>
-      <driver cache="none" name="qemu" type="raw"></driver>
-      <auth username="admin">
-        <secret type="iscsi" usage="mysecret-mynamespace-testvm---"></secret>
-      </auth>
-      <alias name="lun"></alias>
     </disk>
     <serial type="unix">
       <target port="0"></target>

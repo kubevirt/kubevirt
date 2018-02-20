@@ -34,7 +34,7 @@ yum -y remove NetworkManager firewalld
 yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 yum -y install jq sshpass
 
-yum -y install bind-utils net-tools
+yum -y install bind-utils net-tools iscsi-initiator-utils
 
 # Install storage requirements for iscsi and cluster
 yum -y install centos-release-gluster

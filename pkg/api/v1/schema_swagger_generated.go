@@ -109,8 +109,7 @@ func (Volume) SwaggerDoc() map[string]string {
 
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
-		"iscsi":                 "ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.\n+optional",
+		"": "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
