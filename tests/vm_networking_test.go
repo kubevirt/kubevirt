@@ -123,6 +123,7 @@ var _ = Describe("Networking", func() {
 	Context("VirtualMachine with nodeNetwork definition given", func() {
 
 		It("should be able to reach the internet", func() {
+			Skip("Skip network test that requires DNS resolution.")
 			// Wait until the VM is booted, ping google and check if we can reach the internet
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVM, "serial0", 10*time.Second)
 			defer expecter.Close()
@@ -141,6 +142,14 @@ var _ = Describe("Networking", func() {
 		table.DescribeTable("should be reachable via the propagated IP from a Pod", func(op v12.NodeSelectorOperator, hostNetwork bool) {
 
 			ip := inboundVM.Status.Interfaces[0].IP
+
+			//TODO if node count 1, skip whe nv12.NodeSelectorOpOut
+			nodes, err := virtClient.CoreV1().Nodes().List(v13.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodes.Items).ToNot(BeEmpty())
+			if len(nodes.Items) == 1 && op == v12.NodeSelectorOpNotIn {
+				Skip("Skip network test that requires multiple nodes when only one node is present.")
+			}
 
 			// Run netcat and give it one second to ghet "Hello World!" back from the VM
 			check := []string{fmt.Sprintf("while read x; do test \"$x\" = \"Hello World!\"; exit $?; done < <(nc %s 1500 -i 1 -w 1)", ip)}
