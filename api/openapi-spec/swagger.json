@@ -3412,6 +3412,7 @@
       "$ref": "#/definitions/v1.DomainSpec"
      },
      "selector": {
+      "description": "Selector is a label query over a set of VMs.\nRequired.",
       "$ref": "#/definitions/v1.LabelSelector"
      }
     }

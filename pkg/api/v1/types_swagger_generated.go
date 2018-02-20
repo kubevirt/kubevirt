@@ -126,6 +126,7 @@ func (VirtualMachinePresetList) SwaggerDoc() map[string]string {
 
 func (VirtualMachinePresetSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"domain": "Domain is the same object type as contained in VirtualMachineSpec",
+		"selector": "Selector is a label query over a set of VMs.\nRequired.",
+		"domain":   "Domain is the same object type as contained in VirtualMachineSpec",
 	}
 }
