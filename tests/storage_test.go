@@ -142,7 +142,7 @@ var _ = Describe("Storage", func() {
 				num := 3
 				By("Starting and stopping the VM number of times")
 				for i := 1; i <= num; i++ {
-					obj := RunVMAndExpectLaunch(vm, false, 60)
+					obj := RunVMAndExpectLaunch(vm, false, 90)
 
 					// Verify console on last iteration to verify the VM is still booting properly
 					// after being restarted multiple times
