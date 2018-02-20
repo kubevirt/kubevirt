@@ -40,11 +40,19 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"nodeName":   "NodeName is the name where the VM is currently running.",
 		"conditions": "Conditions are specific points in VM's pod runtime.",
 		"phase":      "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
+		"interfaces": "Interfaces represent the details of available network interfaces.",
 	}
 }
 
 func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (VirtualMachineNetworkInterface) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"ipAddress": "IP address of a Virtual Machine interface",
+		"mac":       "Hardware address of a Virtual Machine interface",
+	}
 }
 
 func (Spice) SwaggerDoc() map[string]string {

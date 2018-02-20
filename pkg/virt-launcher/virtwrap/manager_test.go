@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 )
 
 var _ = Describe("Manager", func() {
@@ -67,6 +68,7 @@ var _ = Describe("Manager", func() {
 
 	Context("on successful VM sync", func() {
 		It("should define and start a new VM", func() {
+			StubOutNetworkForTest()
 			vm := newVM(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
@@ -212,4 +214,8 @@ func newVM(namespace string, name string) *v1.VirtualMachine {
 	}
 	v1.SetObjectDefaults_VirtualMachine(vm)
 	return vm
+}
+
+func StubOutNetworkForTest() {
+	network.SetupPodNetwork = func(domain *api.Domain) error { return nil }
 }

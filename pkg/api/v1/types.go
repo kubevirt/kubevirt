@@ -143,6 +143,8 @@ type VirtualMachineStatus struct {
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
 	Phase VMPhase `json:"phase,omitempty"`
+	// Interfaces represent the details of available network interfaces.
+	Interfaces []VirtualMachineNetworkInterface `json:"interfaces,omitempty"`
 }
 
 // Required to satisfy Object interface
@@ -230,6 +232,13 @@ type VirtualMachineCondition struct {
 	LastTransitionTime metav1.Time                 `json:"lastTransitionTime,omitempty"`
 	Reason             string                      `json:"reason,omitempty"`
 	Message            string                      `json:"message,omitempty"`
+}
+
+type VirtualMachineNetworkInterface struct {
+	// IP address of a Virtual Machine interface
+	IP string `json:"ipAddress,omitempty"`
+	// Hardware address of a Virtual Machine interface
+	MAC string `json:"mac,omitempty"`
 }
 
 // VMPhase is a label for the condition of a VM at the current time.

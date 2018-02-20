@@ -588,7 +588,7 @@ func getDomainTuneSchedulerParametersFieldInfo(params *DomainSchedulerParameters
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_GLOBAL_QUOTA: typedParamsFieldInfo{
 			set: &params.GlobalQuotaSet,
-			ul:  &params.GlobalQuota,
+			l:   &params.GlobalQuota,
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_EMULATOR_PERIOD: typedParamsFieldInfo{
 			set: &params.EmulatorPeriodSet,
@@ -596,7 +596,7 @@ func getDomainTuneSchedulerParametersFieldInfo(params *DomainSchedulerParameters
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_EMULATOR_QUOTA: typedParamsFieldInfo{
 			set: &params.EmulatorQuotaSet,
-			ul:  &params.EmulatorQuota,
+			l:   &params.EmulatorQuota,
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_VCPU_PERIOD: typedParamsFieldInfo{
 			set: &params.VcpuPeriodSet,
@@ -604,7 +604,7 @@ func getDomainTuneSchedulerParametersFieldInfo(params *DomainSchedulerParameters
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_VCPU_QUOTA: typedParamsFieldInfo{
 			set: &params.VcpuQuotaSet,
-			ul:  &params.VcpuQuota,
+			l:   &params.VcpuQuota,
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_IOTHREAD_PERIOD: typedParamsFieldInfo{
 			set: &params.IothreadPeriodSet,
@@ -612,7 +612,7 @@ func getDomainTuneSchedulerParametersFieldInfo(params *DomainSchedulerParameters
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_IOTHREAD_QUOTA: typedParamsFieldInfo{
 			set: &params.IothreadQuotaSet,
-			ul:  &params.IothreadQuota,
+			l:   &params.IothreadQuota,
 		},
 	}
 }
@@ -724,7 +724,7 @@ func getDomainPinTempFieldInfo(numvcpu int, numiothread int, params *domainEvent
 		}
 	}
 	for i := 0; i < numiothread; i++ {
-		ret[fmt.Sprintf("cputune.iothreadpin%u", i)] = typedParamsFieldInfo{
+		ret[fmt.Sprintf("cputune.iothreadpin%d", i)] = typedParamsFieldInfo{
 			s: &params.IOThreadPin[i],
 		}
 	}

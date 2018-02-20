@@ -406,6 +406,15 @@ govalidator.CustomTypeTagMap.Set("customMinLengthValidator", CustomTypeValidator
 }))
 ```
 
+###### Custom error messages
+Custom error messages are supported via annotations by adding the `~` separator - here's an example of how to use it:
+```go
+type Ticket struct {
+  Id        int64     `json:"id"`
+  FirstName string    `json:"firstname" valid:"required~First name is blank"`
+}
+```
+
 #### Notes
 Documentation is available here: [godoc.org](https://godoc.org/github.com/asaskevich/govalidator).
 Full information about code coverage is also available here: [govalidator on gocover.io](http://gocover.io/github.com/asaskevich/govalidator).

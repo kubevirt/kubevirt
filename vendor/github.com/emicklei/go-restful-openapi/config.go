@@ -22,8 +22,7 @@ type PostBuildSwaggerObjectFunc func(s *spec.Swagger)
 
 // Config holds service api metadata.
 type Config struct {
-	// WebServicesURL is the url where the services are available, e.g. http://localhost:8080
-	// if left empty then the basePath of Swagger is taken from the actual request
+	// WebServicesURL is a DEPRECATED field; it never had any effect in this package.
 	WebServicesURL string
 	// APIPath is the path where the JSON api is avaiable , e.g. /apidocs.json
 	APIPath string
