@@ -11,6 +11,7 @@ function up() {
     docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest run --nodes ${VAGRANT_NUM_NODES} --tls-port 127.0.0.1:8443 --ssh-port 127.0.0.1:2201 --background --registry-port 127.0.0.1:5000 --base rmohr/kubeadm-1.9.3
     docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest ssh node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
 
+    chmod 0600 ${KUBEVIRT_PATH}cluster/k8s-1.9.3/vagrant.key
     OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/k8s-1.9.3/vagrant.key -P 2201"
 
     # Copy k8s config and kubectl
