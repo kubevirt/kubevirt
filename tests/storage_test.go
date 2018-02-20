@@ -76,6 +76,7 @@ var _ = Describe("Storage", func() {
 		}
 		Expect(podName).ToNot(BeEmpty())
 
+		By("Getting the ISCSI pod logs")
 		logsRaw, err := virtClient.CoreV1().
 			Pods(metav1.NamespaceSystem).
 			GetLogs(podName,
@@ -88,72 +89,81 @@ var _ = Describe("Storage", func() {
 
 	checkReadiness := func() {
 		logs := getTargetLogs(75)
+		By("Checking that ISCSI is ready")
 		Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
 		Expect(logs).To(ContainSubstring("Driver: iscsi"))
 		Expect(logs).To(ContainSubstring("State: ready"))
 	}
 
 	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) runtime.Object {
+		By("Starting a VM")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
+		By("Waiting until the VM will start")
 		tests.WaitForSuccessfulVMStartWithTimeout(obj, timeout)
 		return obj
 	}
 
-	Context("Given a fresh iSCSI target", func() {
+	Context("with fresh iSCSI target", func() {
 		It("should be available and ready", func() {
 			checkReadiness()
 		})
 	})
 
-	Context("Given a VM and an Alpine PVC", func() {
-		It("should be successfully started", func(done Done) {
-			checkReadiness()
+	Describe("Starting a VM", func() {
+		Context("with Alpine PVC", func() {
+			It("should be successfully started", func(done Done) {
+				checkReadiness()
 
-			// Start the VM with the PVC attached
-			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
-			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-			RunVMAndExpectLaunch(vm, false, 45)
+				// Start the VM with the PVC attached
+				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				RunVMAndExpectLaunch(vm, false, 45)
 
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
-			defer expecter.Close()
-			Expect(err).To(BeNil())
-			_, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BExp{R: "Welcome to Alpine"},
-			}, 200*time.Second)
-			Expect(err).To(BeNil())
-
-			close(done)
-		}, 240)
-
-		It("should be successfully started and stopped multiple times", func(done Done) {
-			checkReadiness()
-
-			vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
-			vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-
-			num := 3
-			for i := 1; i <= num; i++ {
-				obj := RunVMAndExpectLaunch(vm, false, 60)
-
-				// Verify console on last iteration to verify the VM is still booting properly
-				// after being restarted multiple times
-				if i == num {
-					expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
-					defer expecter.Close()
-					Expect(err).To(BeNil())
-					_, err = expecter.ExpectBatch([]expect.Batcher{
-						&expect.BExp{R: "Welcome to Alpine"},
-					}, 200*time.Second)
-					Expect(err).To(BeNil())
-				}
-
-				err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				defer expecter.Close()
 				Expect(err).To(BeNil())
 
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
-			}
-			close(done)
-		}, 240)
+				By("Checking that the VM console has expected output")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+				}, 200*time.Second)
+				Expect(err).To(BeNil())
+
+				close(done)
+			}, 240)
+
+			It("should be successfully started and stopped multiple times", func(done Done) {
+				checkReadiness()
+
+				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+
+				num := 3
+				By("Starting and stopping the VM number of times")
+				for i := 1; i <= num; i++ {
+					obj := RunVMAndExpectLaunch(vm, false, 60)
+
+					// Verify console on last iteration to verify the VM is still booting properly
+					// after being restarted multiple times
+					if i == num {
+						By("Checking that the VM console has expected output")
+						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+						defer expecter.Close()
+						Expect(err).To(BeNil())
+						_, err = expecter.ExpectBatch([]expect.Batcher{
+							&expect.BExp{R: "Welcome to Alpine"},
+						}, 200*time.Second)
+						Expect(err).To(BeNil())
+					}
+
+					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					Expect(err).To(BeNil())
+
+					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				}
+				close(done)
+			}, 240)
+		})
 	})
 })

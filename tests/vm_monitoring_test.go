@@ -42,6 +42,7 @@ var _ = Describe("Health Monitoring", func() {
 	tests.PanicOnError(err)
 
 	launchVM := func(vm *v1.VirtualMachine) {
+		By("Starting a VM")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 
@@ -52,16 +53,18 @@ var _ = Describe("Health Monitoring", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Context("Watchdog device", func() {
-		It("should cause VM to shutdown when watchdog expires", func(done Done) {
+	Describe("A VM with a watchdog device", func() {
+		It("should be shut down when the watchdog expires", func(done Done) {
 			vm := tests.NewRandomVMWithWatchdog()
 			Expect(err).ToNot(HaveOccurred())
 			launchVM(vm)
 
+			By("Expecting the VM console")
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
+			By("Killing the watchdog device")
 			_, err = expecter.ExpectBatch([]expect.Batcher{
 				&expect.BExp{R: "Welcome to Alpine"},
 				&expect.BSnd{S: "\n"},
@@ -78,6 +81,7 @@ var _ = Describe("Health Monitoring", func() {
 			namespace := vm.ObjectMeta.Namespace
 			name := vm.ObjectMeta.Name
 
+			By("Checking that the VM has Failed status")
 			Eventually(func() v1.VMPhase {
 				startedVM, err := virtClient.VM(namespace).Get(name, metav1.GetOptions{})
 

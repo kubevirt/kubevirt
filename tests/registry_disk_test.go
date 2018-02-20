@@ -51,6 +51,7 @@ var _ = Describe("RegistryDisk", func() {
 	})
 
 	LaunchVM := func(vm *v1.VirtualMachine) runtime.Object {
+		By("Starting a VM")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 		return obj
@@ -68,6 +69,8 @@ var _ = Describe("RegistryDisk", func() {
 		// Verify Registry Disks are Online
 		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
 		Expect(err).To(BeNil())
+
+		By("Checking the number of VM disks")
 		disksFound := 0
 		for _, pod := range pods.Items {
 			if pod.ObjectMeta.DeletionTimestamp != nil {
@@ -85,57 +88,73 @@ var _ = Describe("RegistryDisk", func() {
 		Expect(disksFound).To(Equal(1))
 	}
 
-	Context("Ephemeral RegistryDisk", func() {
-		It("should be able to start and stop the same VM multiple times.", func(done Done) {
-			vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
-			num := 2
-			for i := 0; i < num; i++ {
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
-				Expect(err).To(BeNil())
-				tests.WaitForSuccessfulVMStartWithTimeout(obj, 180)
-				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
-				Expect(err).To(BeNil())
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
-			}
-			close(done)
-		}, 140)
-
-		It("should launch multiple VMs using ephemeral registry disks", func(done Done) {
-			num := 5
-			vms := make([]*v1.VirtualMachine, 0, num)
-			objs := make([]runtime.Object, 0, num)
-			for i := 0; i < num; i++ {
+	Describe("Starting and stopping the same VM", func() {
+		Context("with ephemeral registry disk", func() {
+			It("should success multiple times", func(done Done) {
 				vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
-				// FIXME if we give too much ram, the vms really boot and eat all our memory (cache?)
-				vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-				obj := LaunchVM(vm)
-				vms = append(vms, vm)
-				objs = append(objs, obj)
-			}
+				num := 2
+				for i := 0; i < num; i++ {
+					By("Starting the VM")
+					obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+					Expect(err).To(BeNil())
+					tests.WaitForSuccessfulVMStartWithTimeout(obj, 180)
 
-			for idx, vm := range vms {
-				// TODO once networking is implemented properly set ignoreWarnings == false here.
-				// We have to ignore warnings because VMs started in parallel
-				// may cause libvirt to fail to create the macvtap device in
-				// the host network.
-				// The new network implementation we're working on should resolve this.
-				// NOTE the VM still starts successfully regardless of this warning.
-				// It just requires virt-handler to retry the Start command at the moment.
-				VerifyRegistryDiskVM(vm, objs[idx], true)
-			}
+					By("Stopping the VM")
+					_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
+					Expect(err).To(BeNil())
+					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				}
+				close(done)
+			}, 140)
+		})
+	})
 
-			close(done)
-		}, 120) // Timeout is long because this test involves multiple parallel VM launches.
+	Describe("Starting a VM", func() {
+		Context("with ephemeral registry disk", func() {
+			It("should not modify the spec on status update", func() {
+				vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+				v1.SetObjectDefaults_VirtualMachine(vm)
 
-		It("should not modify the VM spec on status update", func() {
-			vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
-			startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
-			Expect(err).To(BeNil())
-			Expect(startedVM.Spec).To(Equal(vm.Spec))
+				By("Starting the VM")
+				vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).To(BeNil())
+				tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
+				startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
+				Expect(err).To(BeNil())
+				By("Checking that the VM spec did not change")
+				Expect(startedVM.Spec).To(Equal(vm.Spec))
+			})
+		})
+	})
+
+	Describe("Starting multiple VMs", func() {
+		Context("with ephemeral registry disk", func() {
+			It("should success", func(done Done) {
+				num := 5
+				vms := make([]*v1.VirtualMachine, 0, num)
+				objs := make([]runtime.Object, 0, num)
+				for i := 0; i < num; i++ {
+					vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+					// FIXME if we give too much ram, the vms really boot and eat all our memory (cache?)
+					vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
+					obj := LaunchVM(vm)
+					vms = append(vms, vm)
+					objs = append(objs, obj)
+				}
+
+				for idx, vm := range vms {
+					// TODO once networking is implemented properly set ignoreWarnings == false here.
+					// We have to ignore warnings because VMs started in parallel
+					// may cause libvirt to fail to create the macvtap device in
+					// the host network.
+					// The new network implementation we're working on should resolve this.
+					// NOTE the VM still starts successfully regardless of this warning.
+					// It just requires virt-handler to retry the Start command at the moment.
+					VerifyRegistryDiskVM(vm, objs[idx], true)
+				}
+
+				close(done)
+			}, 120) // Timeout is long because this test involves multiple parallel VM launches.
 		})
 	})
 })
