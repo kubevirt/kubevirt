@@ -64,7 +64,7 @@ var _ = Describe("Networking", func() {
 		var wg sync.WaitGroup
 
 		createAndLogin := func() (vm *v1.VirtualMachine) {
-			vm = tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", "#!/bin/bash\necho 'hello'\n")
+			vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
 			// Start VM
 			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)

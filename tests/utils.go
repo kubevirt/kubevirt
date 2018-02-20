@@ -42,10 +42,20 @@ import (
 
 	"github.com/google/goexpect"
 
+	"flag"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
+
+var KubeVirtVersionTag string = "latest"
+var KubeVirtRepoPrefix string = "kubevirt"
+
+func init() {
+	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
+	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
+}
 
 type EventType string
 
@@ -88,19 +98,12 @@ const (
 )
 
 const (
-	labelISCSIPod         = "iscsi-demo-target"
-	labelISCSIWithAuthPod = "iscsi-auth-demo-target"
-	labelNFSPod           = "nfs-server-demo"
+	labelNFSPod = "nfs-server-demo"
 )
 
 const (
 	iscsiIqn        = "iqn.2017-01.io.kubevirt:sn.42"
 	iscsiSecretName = "iscsi-demo-secret"
-)
-
-const (
-	nfsPathAlpine = "/nfsshare/alpine"
-	nfsPathCirros = "/nfsshare/cirros"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -700,7 +703,7 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 }
 
 func NewRandomVMWithWatchdog() *v1.VirtualMachine {
-	vm := NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+	vm := NewRandomVMWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
 
 	vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",
@@ -842,4 +845,23 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, c
 		},
 		Check: func() bool { return true },
 	}, timeout, opts...)
+}
+
+type RegistryDisk string
+
+const (
+	RegistryDiskCirros RegistryDisk = "cirros"
+	RegistryDiskAlpine RegistryDisk = "alpine"
+	RegistryDiskFedora RegistryDisk = "fedora"
+)
+
+// RegistryDiskFor takes the name of an image and returns the full
+// registry diks image path.
+// Supported values are: cirros, fedora, alpine
+func RegistryDiskFor(name RegistryDisk) string {
+	switch name {
+	case RegistryDiskCirros, RegistryDiskAlpine, RegistryDiskFedora:
+		return fmt.Sprintf("%s/%s-registry-disk-demo:%s", KubeVirtRepoPrefix, name, KubeVirtVersionTag)
+	}
+	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }

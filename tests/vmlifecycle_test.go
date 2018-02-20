@@ -54,7 +54,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+		vm = tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 	})
 
 	Describe("Creating a VM", func() {
@@ -105,7 +105,7 @@ var _ = Describe("Vmlifecycle", func() {
 			Context("without k8s secret", func() {
 				It("should retry starting the VM", func(done Done) {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
-					vm = tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
+					vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 
 					for _, volume := range vm.Spec.Volumes {
 						if volume.CloudInitNoCloud != nil {
@@ -137,7 +137,7 @@ var _ = Describe("Vmlifecycle", func() {
 				It("should log warning and proceed once the secret is there", func(done Done) {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
 					userData64 := ""
-					vm = tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
+					vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 
 					for _, volume := range vm.Spec.Volumes {
 						if volume.CloudInitNoCloud != nil {

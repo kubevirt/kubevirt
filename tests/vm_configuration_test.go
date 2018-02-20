@@ -48,7 +48,7 @@ var _ = Describe("Configurations", func() {
 			var vm *v1.VirtualMachine
 
 			BeforeEach(func() {
-				vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+				vm = tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 			})
 			It("should report 3 cpu cores under guest OS", func() {
 				vm.Spec.Domain.CPU = &v1.CPU{
@@ -88,7 +88,7 @@ var _ = Describe("Configurations", func() {
 		BeforeEach(func() {
 			// ordering:
 			// use a small disk for the other ones
-			containerImage := "kubevirt/cirros-registry-disk-demo:devel"
+			containerImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
 			// virtio - added by NewRandomVMWithEphemeralDisk
 			vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
