@@ -278,34 +278,6 @@ var _ = Describe("VM Initializer", func() {
 			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 		})
-
-		It("Should detect Disk conflicts", func() {
-			matchingDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
-			sameName := v1.Disk{Name: "testdisk", VolumeName: "wrong", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
-			sameVolume := v1.Disk{Name: "randomname", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
-			sameMountPoint := v1.Disk{Name: "wrongname", VolumeName: "different", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
-			unrelated := v1.Disk{Name: "wrongname", VolumeName: "different", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
-
-			// First check everything works if all fields match
-			preset.Spec.Domain.Devices.Disks = []v1.Disk{matchingDisk, unrelated}
-			err := checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Name field matches, but nothing else
-			preset.Spec.Domain.Devices.Disks = []v1.Disk{sameName, unrelated}
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
-			Expect(err).To(HaveOccurred())
-
-			// Two devices using the same volume name
-			preset.Spec.Domain.Devices.Disks = []v1.Disk{sameVolume, unrelated}
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
-			Expect(err).To(HaveOccurred())
-
-			// Two devices using the same Bus (should not conflict)
-			preset.Spec.Domain.Devices.Disks = []v1.Disk{sameMountPoint, unrelated}
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
-			Expect(err).ToNot(HaveOccurred())
-		})
 	})
 
 	Context("Apply Presets", func() {
@@ -396,36 +368,6 @@ var _ = Describe("VM Initializer", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Spec.Domain.Devices.Watchdog).To(Equal(watchdog))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
-		})
-
-		It("Should apply Disk devices", func() {
-			referenceDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
-
-			preset.Spec.Domain.Devices.Disks = []v1.Disk{referenceDisk}
-
-			presets := []v1.VirtualMachinePreset{preset}
-			err := applyPresets(&vm, presets)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(len(vm.Spec.Domain.Devices.Disks)).To(Equal(1))
-			Expect(vm.Spec.Domain.Devices.Disks[0].Name).To(Equal("testdisk"))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
-		})
-
-		It("Should not duplicate Disks", func() {
-			referenceDisk := v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}
-
-			// Both preset and VM will have the same disk defined
-			preset.Spec.Domain.Devices.Disks = []v1.Disk{referenceDisk}
-			vm.Spec.Domain.Devices.Disks = []v1.Disk{referenceDisk}
-
-			presets := []v1.VirtualMachinePreset{preset}
-			err := applyPresets(&vm, presets)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(len(vm.Spec.Domain.Devices.Disks)).To(Equal(1))
-			Expect(vm.Spec.Domain.Devices.Disks[0].Name).To(Equal("testdisk"))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
 		})
 	})

@@ -237,25 +237,7 @@ func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.Dom
 			errors = append(errors, fmt.Errorf("spec.devices.watchdog: %v != %v", presetSpec.Devices.Watchdog, vmSpec.Devices.Watchdog))
 		}
 	}
-	nameMap := make(map[string]kubev1.Disk)
-	volumeNameMap := make(map[string]kubev1.Disk)
 
-	for _, vmDev := range vmSpec.Devices.Disks {
-		nameMap[vmDev.Name] = vmDev
-		volumeNameMap[vmDev.VolumeName] = vmDev
-	}
-	for _, presetDev := range presetSpec.Devices.Disks {
-		if vmDev, conflict := nameMap[presetDev.Name]; conflict {
-			if !reflect.DeepEqual(presetDev, vmDev) {
-				errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same name", presetDev.Name))
-			}
-		}
-		if vmDev, conflict := volumeNameMap[presetDev.VolumeName]; conflict {
-			if !reflect.DeepEqual(presetDev, vmDev) {
-				errors = append(errors, fmt.Errorf("spec.devices.disk[%s]: conflicting disk with same volume name", presetDev.Name))
-			}
-		}
-	}
 	if len(errors) > 0 {
 		return utilerrors.NewAggregate(errors)
 	}
@@ -310,17 +292,6 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) e
 			vmSpec.Devices.Watchdog = &kubev1.Watchdog{}
 		}
 		presetSpec.Devices.Watchdog.DeepCopyInto(vmSpec.Devices.Watchdog)
-	}
-	// Devices in the VM should appear first (for mount point ordering)
-	// Append all devices from preset, but ignore duplicates.
-	deviceSet := make(map[string]bool)
-	for _, vmDev := range vmSpec.Devices.Disks {
-		deviceSet[vmDev.Name] = true
-	}
-	for _, presetDev := range presetSpec.Devices.Disks {
-		if !deviceSet[presetDev.Name] {
-			vmSpec.Devices.Disks = append(vmSpec.Devices.Disks, presetDev)
-		}
 	}
 	return nil
 }
