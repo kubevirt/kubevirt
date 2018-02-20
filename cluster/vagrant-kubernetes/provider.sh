@@ -5,6 +5,7 @@ function _main_ip() {
 }
 
 function up() {
+    set -e
     export USING_KUBE_SCRIPTS=true
     # Make sure that the vagrant environment is up and running
     vagrant up --provider=libvirt
@@ -24,6 +25,7 @@ function up() {
 
     # Make sure that local config is correct
     prepare_config
+    set +e
 }
 
 function prepare_config() {
