@@ -129,10 +129,11 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 	// Collect all errors and defer returning until after the update
 	logger := log.Log
 	errors := []error{}
+	var err error
 
 	logger.Object(vm).Info("Initializing VirtualMachine")
 
-	allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
+	allPresets := listPresets(c.vmPresetInformer, vm.GetNamespace())
 
 	matchingPresets := filterPresets(allPresets, vm)
 
@@ -150,7 +151,7 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 	removeInitializer(vm)
 	_, err = c.clientset.VM(vm.Namespace).Update(vm)
 	if err != nil {
-		logger.Object(vm).Errorf("Could not update VM. VM will not appear in the cluster: %v", err)
+		logger.Object(vm).Errorf("Could not update VirtualMachine: %v", err)
 		errors = append(errors, err)
 	}
 
@@ -162,7 +163,7 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 
 // FIXME: There is probably a way to set up the vmPresetInformer such that
 // items are already partitioned into namespaces (and can just be listed)
-func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachinePreset, error) {
+func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) []kubev1.VirtualMachinePreset {
 	result := []kubev1.VirtualMachinePreset{}
 	for _, obj := range vmPresetInformer.GetStore().List() {
 		var preset *kubev1.VirtualMachinePreset
@@ -171,7 +172,7 @@ func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) (
 			result = append(result, *preset)
 		}
 	}
-	return result, nil
+	return result
 }
 
 // filterPresets returns list of VirtualMachinePresets which match given VirtualMachine.
@@ -188,7 +189,7 @@ func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine
 			// re-enqueued for processing again.
 			logger.Object(&preset).Reason(err).Errorf("label selector conversion failed: %v", err)
 		} else if selector.Matches(labels.Set(vm.GetLabels())) {
-			logger.Infof("VirtualMachinePreset %s matches labels of VM %s", preset.GetName(), vm.GetName())
+			logger.Object(vm).Infof("VirtualMachinePreset %s matches VirtualMachine", preset.GetName())
 			matchingPresets = append(matchingPresets, preset)
 		}
 	}
@@ -335,10 +336,7 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 		}
 	}
 
-	err := annotateVM(vm, presets)
-	if err != nil {
-		return err
-	}
+	annotateVM(vm, presets)
 	return nil
 }
 
@@ -370,7 +368,7 @@ func removeInitializer(vm *kubev1.VirtualMachine) {
 	vm.Initializers.Pending = newInitilizers
 }
 
-func annotateVM(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset) error {
+func annotateVM(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset) {
 	if vm.Annotations == nil {
 		vm.Annotations = map[string]string{}
 	}
@@ -378,5 +376,4 @@ func annotateVM(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset
 		annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", kubev1.GroupName, preset.Name)
 		vm.Annotations[annotationKey] = kubev1.GroupVersion.String()
 	}
-	return nil
 }

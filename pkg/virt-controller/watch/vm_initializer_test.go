@@ -52,8 +52,7 @@ var _ = Describe("VM Initializer", func() {
 			preset.ObjectMeta.Name = "test-preset"
 			presets := append([]v1.VirtualMachinePreset{}, preset)
 
-			err := annotateVM(&vm, presets)
-			Expect(err).ToNot(HaveOccurred())
+			annotateVM(&vm, presets)
 			Expect(len(vm.Annotations)).To(Equal(1))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal(v1.GroupVersion.String()))
 		})
@@ -68,8 +67,7 @@ var _ = Describe("VM Initializer", func() {
 
 			presets = append(presets, preset)
 
-			err := annotateVM(&vm, presets)
-			Expect(err).ToNot(HaveOccurred())
+			annotateVM(&vm, presets)
 			Expect(len(vm.Annotations)).To(Equal(2))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/preset-foo"]).To(Equal(v1.GroupVersion.String()))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/preset-bar"]).To(Equal(v1.GroupVersion.String()))
