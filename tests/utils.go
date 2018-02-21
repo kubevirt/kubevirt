@@ -98,10 +98,6 @@ const (
 )
 
 const (
-	labelNFSPod = "nfs-server-demo"
-)
-
-const (
 	iscsiIqn        = "iqn.2017-01.io.kubevirt:sn.42"
 	iscsiSecretName = "iscsi-demo-secret"
 )
@@ -382,49 +378,6 @@ func newPvISCSI(os string, targetIp string, lun int32, withAuth bool) *k8sv1.Per
 		pv.Spec.PersistentVolumeSource.ISCSI.SecretRef = &k8sv1.LocalObjectReference{
 			Name: iscsiSecretName,
 		}
-	}
-	return pv
-}
-
-func createPvNFS(os string, path string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	nfsServer := getPodIpByLabel(labelNFSPod)
-
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPvNFS(os, nfsServer, path))
-	if !errors.IsAlreadyExists(err) {
-		PanicOnError(err)
-	}
-}
-
-func newPvNFS(os string, nfsServer string, path string) *k8sv1.PersistentVolume {
-	quantity, err := resource.ParseQuantity("1Gi")
-	PanicOnError(err)
-
-	name := fmt.Sprintf("%s-disk-for-tests", os)
-	label := os
-
-	pv := &k8sv1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				"kubevirt.io/test": label,
-			},
-		},
-		Spec: k8sv1.PersistentVolumeSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-			Capacity: k8sv1.ResourceList{
-				"storage": quantity,
-			},
-			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimRetain,
-			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				NFS: &k8sv1.NFSVolumeSource{
-					Server: nfsServer,
-					Path:   path,
-				},
-			},
-		},
 	}
 	return pv
 }
