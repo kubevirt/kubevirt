@@ -558,6 +558,13 @@ func NewRandomVMWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMa
 	return vm
 }
 
+func NewRandomVMWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachine {
+	vm := NewRandomVMWithEphemeralDiskAndUserdata(containerImage, userData)
+
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return vm
+}
+
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 

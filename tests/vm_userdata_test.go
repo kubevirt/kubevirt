@@ -30,11 +30,16 @@ import (
 
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+)
+
+const (
+	sshAuthorizedKey = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"
+	fedoraPassword   = "fedora"
+	expectedUserData = "printed from cloud-init userdata"
 )
 
 var _ = Describe("CloudInit UserData", func() {
@@ -44,27 +49,25 @@ var _ = Describe("CloudInit UserData", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	LaunchVM := func(vm *v1.VirtualMachine) runtime.Object {
+	LaunchVM := func(vm *v1.VirtualMachine) {
 		By("Starting a VM")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
-		return obj
-	}
 
-	VerifyUserDataVM := func(vm *v1.VirtualMachine, obj runtime.Object, magicStr string) {
+		By("Waiting the VM start")
 		_, ok := obj.(*v1.VirtualMachine)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
-		tests.WaitForSuccessfulVMStart(obj)
+		Expect(tests.WaitForSuccessfulVMStart(obj)).ToNot(BeEmpty())
+	}
 
+	VerifyUserDataVM := func(vm *v1.VirtualMachine, commands []expect.Batcher, timeout time.Duration) {
 		By("Expecting the VM console")
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Checking that the console output equals to expected one")
-		_, err = expecter.ExpectBatch([]expect.Batcher{
-			&expect.BExp{R: magicStr},
-		}, 120*time.Second)
+		By("Checking that the VM serial console output equals to expected one")
+		_, err = expecter.ExpectBatch(commands, timeout)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -75,19 +78,42 @@ var _ = Describe("CloudInit UserData", func() {
 	Describe("A new VM", func() {
 		Context("with cloudInitNoCloud source", func() {
 			It("should have cloud-init data", func(done Done) {
-				magicStr := "printed from cloud-init userdata"
-				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
+				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
 				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
-				obj := LaunchVM(vm)
-				VerifyUserDataVM(vm, obj, magicStr)
+				LaunchVM(vm)
+				VerifyUserDataVM(vm, []expect.Batcher{
+					&expect.BExp{R: expectedUserData},
+				}, time.Second*120)
 				close(done)
 			}, 180)
+
+			Context("with injected ssh-key", func() {
+				It("should have ssh-key under authorized keys", func() {
+					userData := fmt.Sprintf(
+						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
+						fedoraPassword,
+						sshAuthorizedKey,
+					)
+					vm := tests.NewRandomVMWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+
+					LaunchVM(vm)
+
+					VerifyUserDataVM(vm, []expect.Batcher{
+						&expect.BExp{R: "login:"},
+						&expect.BSnd{S: "fedora\n"},
+						&expect.BExp{R: "Password:"},
+						&expect.BSnd{S: fedoraPassword + "\n"},
+						&expect.BExp{R: "$"},
+						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+						&expect.BExp{R: "test-ssh-key"},
+					}, time.Second*240)
+				}, 300)
+			})
 		})
 
 		It("should take user-data from k8s secret", func(done Done) {
-			magicStr := "printed from cloud-init userdata"
-			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
+			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 
 			for _, volume := range vm.Spec.Volumes {
@@ -117,8 +143,10 @@ var _ = Describe("CloudInit UserData", func() {
 				Expect(err).To(BeNil())
 				break
 			}
-			obj := LaunchVM(vm)
-			VerifyUserDataVM(vm, obj, magicStr)
+			LaunchVM(vm)
+			VerifyUserDataVM(vm, []expect.Batcher{
+				&expect.BExp{R: expectedUserData},
+			}, time.Second*120)
 
 			close(done)
 		}, 180)
