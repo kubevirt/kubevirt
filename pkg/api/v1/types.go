@@ -653,11 +653,6 @@ type OfflineVirtualMachineList struct {
 type OfflineVirtualMachineSpec struct {
 	Running bool `json:"Running"`
 
-	// Label selector for VirtualMachine. VirtualMachine with labels
-	// selected by this selector is the VirtualMachine influenced.
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty" valid:"required"`
-
 	Template *VMTemplateSpec `json:"Template"`
 }
 
@@ -694,9 +689,9 @@ const (
 	// VMReplicaSetReplicaFailure is added in a replica set when one of its vms
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
-	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "OVMFailure"
+	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "Failure"
 
 	// VMReplicaSetReplicaPaused is added in a replica set when the replica set got paused by the controller.
 	// After this condition was added, it is safe to remove or add vms by hand and adjust the replica count by hand.
-	OfflineVirtualMachineRunning OfflineVirtualMachineConditionType = "OVMRunning"
+	OfflineVirtualMachineRunning OfflineVirtualMachineConditionType = "Running"
 )

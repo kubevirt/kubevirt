@@ -121,9 +121,6 @@ func NewRandomOfflineVirtualMachine(vm *v1.VirtualMachine, running bool) *v1.Off
 	ovm := &v1.OfflineVirtualMachine{
 		ObjectMeta: v12.ObjectMeta{Name: "offlinevm" + rand.String(5)},
 		Spec: v1.OfflineVirtualMachineSpec{
-			Selector: &v12.LabelSelector{
-				MatchLabels: map[string]string{"name": name},
-			},
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: v12.ObjectMeta{
 					Labels: map[string]string{"name": name},

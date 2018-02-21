@@ -145,8 +145,7 @@ func (OfflineVirtualMachineList) SwaggerDoc() map[string]string {
 
 func (OfflineVirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
-		"selector": "Label selector for VirtualMachine. VirtualMachine with labels\nselected by this selector is the VirtualMachine influenced.\n+optional",
+		"": "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
 	}
 }
 

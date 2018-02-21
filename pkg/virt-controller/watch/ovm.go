@@ -135,19 +135,8 @@ func (c *OVMController) execute(key string) error {
 	logger.Infof("Working on OVM: %s", OVM.Name)
 
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
-	if OVM.Spec.Template == nil || OVM.Spec.Selector == nil || len(OVM.Spec.Template.ObjectMeta.Labels) == 0 {
+	if OVM.Spec.Template == nil || len(OVM.Spec.Template.ObjectMeta.Labels) == 0 {
 		logger.Error("Invalid controller spec, will not re-enqueue.")
-		return nil
-	}
-
-	selector, err := v1.LabelSelectorAsSelector(OVM.Spec.Selector)
-	if err != nil {
-		logger.Reason(err).Error("Invalid selector on replicaset, will not re-enqueue.")
-		return nil
-	}
-
-	if !selector.Matches(labels.Set(OVM.Spec.Template.ObjectMeta.Labels)) {
-		logger.Reason(err).Error("Selector does not match template labels, will not re-enqueue.")
 		return nil
 	}
 
@@ -175,7 +164,7 @@ func (c *OVMController) execute(key string) error {
 		}
 		return fresh, nil
 	})
-	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, OVM, selector, virtv1.OfflineVirtualMachineGroupVersionKind, canAdoptFunc)
+	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, OVM, nil, virtv1.OfflineVirtualMachineGroupVersionKind, canAdoptFunc)
 	vms, err = cm.ClaimVirtualMachines(vms)
 	if err != nil {
 		return err
@@ -363,7 +352,6 @@ func (c *OVMController) listControllerFromNamespace(namespace string) ([]*virtv1
 // the labels of the VM from the listener cache. If there are no matching
 // controllers nothing is returned
 func (c *OVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (ovms []*virtv1.OfflineVirtualMachine) {
-	logger := log.Log
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
 		return nil
@@ -372,16 +360,9 @@ func (c *OVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (ovms 
 	// TODO check owner reference, if we have an existing controller which owns this one
 
 	for _, ovm := range controllers {
-		selector, err := v1.LabelSelectorAsSelector(ovm.Spec.Selector)
-		if err != nil {
-			logger.Object(ovm).Reason(err).Error("Failed to parse label selector from OfflineVirtualMachine.")
-			continue
-		}
-
-		if selector.Matches(labels.Set(vm.ObjectMeta.Labels)) {
+		if vm.Name == ovm.Name {
 			ovms = append(ovms, ovm)
 		}
-
 	}
 	return ovms
 }

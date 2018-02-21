@@ -235,9 +235,6 @@ func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started boo
 		ObjectMeta: v12.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
 		Spec: v1.OfflineVirtualMachineSpec{
 			Running: started,
-			Selector: &v12.LabelSelector{
-				MatchLabels: vm.ObjectMeta.Labels,
-			},
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: v12.ObjectMeta{
 					Name:   vm.ObjectMeta.Name,
