@@ -302,8 +302,13 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 	for _, preset := range presets {
 		applied, err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
 		if err != nil {
-			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Unable to apply Preset '%s': %v", preset.Name, err))
-			logger.Object(vm).Errorf("Unable to apply Preset '%s': %v", preset.Name, err)
+			msg := fmt.Sprintf("Unable to apply VirtualMachinePreset '%s': %v", preset.Name, err)
+			if applied {
+				msg = fmt.Sprintf("Conflicts occurred with VirtualMachinePreset '%s': %v",  preset.Name, err)
+			}
+
+			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), msg)
+			logger.Object(vm).Error(msg)
 		}
 		if applied {
 			annotateVM(vm, preset)

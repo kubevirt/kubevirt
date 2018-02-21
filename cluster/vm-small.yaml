@@ -9,13 +9,11 @@ spec:
   domain:
     devices:
       disks:
-      - name: mydisk
-        volumeName: myvolume
+      - name: registrydisk
+        volumeName: registryvolume
         disk:
-          dev: vda
+          bus: virtio
   volumes:
-    - name: myvolume
-      iscsi:
-        iqn: iqn.2017-01.io.kubevirt:sn.42
-        lun: 2
-        targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
+    - name: registryvolume
+      registryDisk:
+        image: kubevirt/cirros-registry-disk-demo:devel
