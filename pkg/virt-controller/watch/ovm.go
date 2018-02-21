@@ -139,7 +139,7 @@ func (c *OVMController) execute(key string) error {
 
 	needsSync := c.expectations.SatisfiedExpectations(key)
 
-	key, err = controller.KeyFunc(OVM)
+	ovmKey, err := controller.KeyFunc(OVM)
 	if err != nil {
 		return err
 	}
@@ -159,12 +159,13 @@ func (c *OVMController) execute(key string) error {
 	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, OVM, nil, virtv1.OfflineVirtualMachineGroupVersionKind, canAdoptFunc)
 
 	var vm *virtv1.VirtualMachine
-	vmObj, exist, err := c.vmInformer.GetStore().GetByKey(key)
+	vmObj, exist, err := c.vmInformer.GetStore().GetByKey(ovmKey)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch vm for namespace from cache.")
 		return err
 	}
 	if !exist {
+		logger.Infof("VM not found in cache %s", key)
 		vm = nil
 	} else {
 		vm = vmObj.(*virtv1.VirtualMachine)
@@ -271,7 +272,9 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 	}
 
 	if ovm.Spec.Running == false {
+		log.Log.Object(ovm).Info("It is false delete")
 		if vm == nil {
+			log.Log.Info("vm is nil")
 			// vm should not run and is not running
 			return nil
 		}
@@ -287,6 +290,7 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 			return err
 		}
 		c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", vm.ObjectMeta.UID)
+		log.Log.Object(ovm).Info("Dispatching delete event")
 	}
 
 	return nil
@@ -360,6 +364,8 @@ func (c *OVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (ovms 
 func (c *OVMController) addVirtualMachine(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 
+	log.Log.Object(vm).Infof("VM ADDED: %s/%s", vm.Namespace, vm.Name)
+
 	if vm.DeletionTimestamp != nil {
 		// on a restart of the controller manager, it's possible a new vm shows up in a state that
 		// is already pending deletion. Prevent the vm from being a creation observation.
@@ -369,15 +375,18 @@ func (c *OVMController) addVirtualMachine(obj interface{}) {
 
 	// If it has a ControllerRef, that's all that matters.
 	if controllerRef := controller.GetControllerOf(vm); controllerRef != nil {
+		log.Log.Object(vm).Info("Looking for VM Ref")
 		ovm := c.resolveControllerRef(vm.Namespace, controllerRef)
 		if ovm == nil {
+			log.Log.Object(vm).Errorf("Cant find the matching OVM for VM: %s", vm.Name)
 			return
 		}
 		ovmKey, err := controller.KeyFunc(ovm)
 		if err != nil {
+			log.Log.Object(vm).Errorf("Cannot parse key of OVM: %s for VM: %s", ovm.Name, vm.Name)
 			return
 		}
-		log.Log.V(4).Object(vm).Infof("VirtualMachine created")
+		log.Log.Object(vm).Infof("VirtualMachine created bacause %s was added.", vm.Name)
 		c.expectations.CreationObserved(ovmKey)
 		c.enqueueOvm(ovm)
 		return

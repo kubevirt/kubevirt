@@ -66,7 +66,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				ovm, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Get(newOVM.ObjectMeta.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return ovm.Status.Conditions[0].Type
-			}, 120*time.Second, 1*time.Second).Should(Equal("OVMRunning"))
+			}, 120*time.Second, 1*time.Second).Should(Equal("Running"))
 		})
 
 		It("should remove VM once the OVM is marked for deletion", func() {
@@ -119,7 +119,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 func NewRandomOfflineVirtualMachine(vm *v1.VirtualMachine, running bool) *v1.OfflineVirtualMachine {
 	name := "offlinevm" + rand.String(5)
 	ovm := &v1.OfflineVirtualMachine{
-		ObjectMeta: v12.ObjectMeta{Name: "offlinevm" + rand.String(5)},
+		ObjectMeta: v12.ObjectMeta{Name: name},
 		Spec: v1.OfflineVirtualMachineSpec{
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: v12.ObjectMeta{

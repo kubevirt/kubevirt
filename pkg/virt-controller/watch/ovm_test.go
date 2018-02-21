@@ -91,29 +91,25 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should delete VM when stopped", func() {
-			ovm, _ := DefaultOVM(false)
+			ovm, vm := DefaultOVM(false)
 
 			addOfflineVirtualMachine(ovm)
 
 			// Add VM to the cache
-			vm := v1.NewMinimalVM("testvm")
-			vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-			t := true
-			vm.OwnerReferences = []v12.OwnerReference{v12.OwnerReference{
-				APIVersion:         v1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
-				Kind:               v1.OfflineVirtualMachineGroupVersionKind.Kind,
-				Name:               ovm.ObjectMeta.Name,
-				UID:                ovm.ObjectMeta.UID,
-				Controller:         &t,
-				BlockOwnerDeletion: &t,
-			}}
+			// vm := v1.NewMinimalVM("testvm")
+			// t := true
+			// vm.OwnerReferences = []v12.OwnerReference{v12.OwnerReference{
+			// 	APIVersion:         v1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
+			// 	Kind:               v1.OfflineVirtualMachineGroupVersionKind.Kind,
+			// 	Name:               ovm.ObjectMeta.Name,
+			// 	UID:                ovm.ObjectMeta.UID,
+			// 	Controller:         &t,
+			// 	BlockOwnerDeletion: &t,
+			// }}
 			vmFeeder.Add(vm)
 
-			ovmInterface.EXPECT().Update(gomock.Any()).AnyTimes()
-
-			// Check if only 10 are deleted
-			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).
-				Times(10).Return(nil)
+			// ovmInterface.EXPECT().Update(gomock.Any()).Return(ovm, nil)
+			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 
 			controller.Execute()
 
@@ -250,7 +246,7 @@ func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started boo
 func DefaultOVM(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
 	vm := v1.NewMinimalVM("testvm")
 	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-	ovm := OfflineVirtualMachineFromVM("ovm", vm, started)
+	ovm := OfflineVirtualMachineFromVM("testvm", vm, started)
 	t := true
 	vm.OwnerReferences = []v12.OwnerReference{v12.OwnerReference{
 		APIVersion:         v1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
