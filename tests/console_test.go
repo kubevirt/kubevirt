@@ -66,7 +66,7 @@ var _ = Describe("Console", func() {
 			Context("with a cirros image", func() {
 				It("should return that we are running cirros", func() {
 					RunVMAndExpectConsoleOutput(
-						"kubevirt/cirros-registry-disk-demo:devel",
+						tests.RegistryDiskFor(tests.RegistryDiskCirros),
 						"checking http://169.254.169.254/2009-04-04/instance-id",
 					)
 				}, 140)
@@ -75,14 +75,14 @@ var _ = Describe("Console", func() {
 			Context("with a fedora image", func() {
 				It("should return that we are running fedora", func() {
 					RunVMAndExpectConsoleOutput(
-						"kubevirt/fedora-cloud-registry-disk-demo:devel",
+						tests.RegistryDiskFor(tests.RegistryDiskFedora),
 						"Welcome to",
 					)
 				}, 140)
 			})
 
 			It("should be able to reconnect to console multiple times", func() {
-				vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 
 				By("Creating a new VM")
 				Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())

@@ -42,10 +42,20 @@ import (
 
 	"github.com/google/goexpect"
 
+	"flag"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
+
+var KubeVirtVersionTag string = "latest"
+var KubeVirtRepoPrefix string = "kubevirt"
+
+func init() {
+	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
+	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
+}
 
 type EventType string
 
@@ -88,19 +98,8 @@ const (
 )
 
 const (
-	labelISCSIPod         = "iscsi-demo-target"
-	labelISCSIWithAuthPod = "iscsi-auth-demo-target"
-	labelNFSPod           = "nfs-server-demo"
-)
-
-const (
 	iscsiIqn        = "iqn.2017-01.io.kubevirt:sn.42"
 	iscsiSecretName = "iscsi-demo-secret"
-)
-
-const (
-	nfsPathAlpine = "/nfsshare/alpine"
-	nfsPathCirros = "/nfsshare/cirros"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -383,49 +382,6 @@ func newPvISCSI(os string, targetIp string, lun int32, withAuth bool) *k8sv1.Per
 	return pv
 }
 
-func createPvNFS(os string, path string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	nfsServer := getPodIpByLabel(labelNFSPod)
-
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPvNFS(os, nfsServer, path))
-	if !errors.IsAlreadyExists(err) {
-		PanicOnError(err)
-	}
-}
-
-func newPvNFS(os string, nfsServer string, path string) *k8sv1.PersistentVolume {
-	quantity, err := resource.ParseQuantity("1Gi")
-	PanicOnError(err)
-
-	name := fmt.Sprintf("%s-disk-for-tests", os)
-	label := os
-
-	pv := &k8sv1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				"kubevirt.io/test": label,
-			},
-		},
-		Spec: k8sv1.PersistentVolumeSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-			Capacity: k8sv1.ResourceList{
-				"storage": quantity,
-			},
-			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimRetain,
-			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				NFS: &k8sv1.NFSVolumeSource{
-					Server: nfsServer,
-					Path:   path,
-				},
-			},
-		},
-	}
-	return pv
-}
-
 func deletePVC(os string, withAuth bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -700,7 +656,7 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 }
 
 func NewRandomVMWithWatchdog() *v1.VirtualMachine {
-	vm := NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+	vm := NewRandomVMWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
 
 	vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",
@@ -788,7 +744,7 @@ func NewBool(x bool) *bool {
 	return &x
 }
 
-func RenderJob(name string, dockerTag string, cmd []string, args []string) *k8sv1.Pod {
+func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 	job := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
@@ -801,7 +757,7 @@ func RenderJob(name string, dockerTag string, cmd []string, args []string) *k8sv
 			Containers: []k8sv1.Container{
 				{
 					Name:    name,
-					Image:   "kubevirt/vm-killer:" + dockerTag,
+					Image:   fmt.Sprintf("%s/vm-killer:%s", KubeVirtRepoPrefix, KubeVirtVersionTag),
 					Command: cmd,
 					Args:    args,
 					SecurityContext: &k8sv1.SecurityContext{
@@ -842,4 +798,23 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, c
 		},
 		Check: func() bool { return true },
 	}, timeout, opts...)
+}
+
+type RegistryDisk string
+
+const (
+	RegistryDiskCirros RegistryDisk = "cirros"
+	RegistryDiskAlpine RegistryDisk = "alpine"
+	RegistryDiskFedora RegistryDisk = "fedora-cloud"
+)
+
+// RegistryDiskFor takes the name of an image and returns the full
+// registry diks image path.
+// Supported values are: cirros, fedora, alpine
+func RegistryDiskFor(name RegistryDisk) string {
+	switch name {
+	case RegistryDiskCirros, RegistryDiskAlpine, RegistryDiskFedora:
+		return fmt.Sprintf("%s/%s-registry-disk-demo:%s", KubeVirtRepoPrefix, name, KubeVirtVersionTag)
+	}
+	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }

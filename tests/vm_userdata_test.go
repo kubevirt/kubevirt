@@ -78,7 +78,7 @@ var _ = Describe("CloudInit UserData", func() {
 				magicStr := "printed from cloud-init userdata"
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
 
-				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
+				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 				obj := LaunchVM(vm)
 				VerifyUserDataVM(vm, obj, magicStr)
 				close(done)
@@ -88,7 +88,7 @@ var _ = Describe("CloudInit UserData", func() {
 		It("should take user-data from k8s secret", func(done Done) {
 			magicStr := "printed from cloud-init userdata"
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
-			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
+			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 
 			for _, volume := range vm.Spec.Volumes {
 				if volume.CloudInitNoCloud == nil {

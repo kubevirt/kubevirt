@@ -81,7 +81,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 
 	newReplicaSet := func() *v1.VirtualMachineReplicaSet {
 		By("Create a new VM replica set")
-		template := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+		template := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 		newRS := tests.NewRandomReplicaSetFromVM(template, int32(0))
 		newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())

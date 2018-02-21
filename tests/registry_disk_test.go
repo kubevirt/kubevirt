@@ -91,7 +91,7 @@ var _ = Describe("RegistryDisk", func() {
 	Describe("Starting and stopping the same VM", func() {
 		Context("with ephemeral registry disk", func() {
 			It("should success multiple times", func(done Done) {
-				vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 				num := 2
 				for i := 0; i < num; i++ {
 					By("Starting the VM")
@@ -112,7 +112,7 @@ var _ = Describe("RegistryDisk", func() {
 	Describe("Starting a VM", func() {
 		Context("with ephemeral registry disk", func() {
 			It("should not modify the spec on status update", func() {
-				vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 				v1.SetObjectDefaults_VirtualMachine(vm)
 
 				By("Starting the VM")
@@ -134,7 +134,7 @@ var _ = Describe("RegistryDisk", func() {
 				vms := make([]*v1.VirtualMachine, 0, num)
 				objs := make([]runtime.Object, 0, num)
 				for i := 0; i < num; i++ {
-					vm := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+					vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 					// FIXME if we give too much ram, the vms really boot and eat all our memory (cache?)
 					vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
 					obj := LaunchVM(vm)
