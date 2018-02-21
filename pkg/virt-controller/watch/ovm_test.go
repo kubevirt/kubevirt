@@ -3,15 +3,20 @@ package watch
 import (
 	"fmt"
 
+	"github.com/pborman/uuid"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	// "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	v13 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -88,6 +93,30 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should have stable firmware UUIDs", func() {
+			ovm1, _ := DefaultOVMWithNames(true, "testovm1", "testvm1")
+			vm1 := controller.setupVMFromOVM(ovm1)
+
+			// intentionally use the same names
+			ovm2, _ := DefaultOVMWithNames(true, "testovm1", "testvm1")
+			vm2 := controller.setupVMFromOVM(ovm2)
+			Expect(vm1.Spec.Domain.Firmware.UUID).To(Equal(vm2.Spec.Domain.Firmware.UUID))
+
+			// now we want different names
+			ovm3, _ := DefaultOVMWithNames(true, "testovm3", "testvm3")
+			vm3 := controller.setupVMFromOVM(ovm3)
+			Expect(vm1.Spec.Domain.Firmware.UUID).NotTo(Equal(vm3.Spec.Domain.Firmware.UUID))
+		})
+
+		It("should honour any firmware UUID present in the template", func() {
+			uid := uuid.NewRandom().String()
+			ovm1, _ := DefaultOVMWithNames(true, "testovm1", "testvm1")
+			ovm1.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: types.UID(uid)}
+
+			vm1 := controller.setupVMFromOVM(ovm1)
+			Expect(string(vm1.Spec.Domain.Firmware.UUID)).To(Equal(uid))
 		})
 
 		It("should delete VM when stopped", func() {
@@ -232,11 +261,11 @@ func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started boo
 	return ovm
 }
 
-func DefaultOVM(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
-	vm := v1.NewMinimalVM("testvm")
+func DefaultOVMWithNames(started bool, ovmName string, vmName string) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
+	vm := v1.NewMinimalVM(vmName)
 	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 	vm.Status.Phase = v1.Running
-	ovm := OfflineVirtualMachineFromVM("testvm", vm, started)
+	ovm := OfflineVirtualMachineFromVM(ovmName, vm, started)
 	t := true
 	vm.OwnerReferences = []v12.OwnerReference{v12.OwnerReference{
 		APIVersion:         v1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
@@ -257,4 +286,8 @@ func hasCondition(ovm *v1.OfflineVirtualMachine, cond v1.OfflineVirtualMachineCo
 	}
 
 	return false
+}
+
+func DefaultOVM(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
+	return DefaultOVMWithNames(started, "ovm", "testvm")
 }

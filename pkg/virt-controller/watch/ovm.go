@@ -22,12 +22,15 @@ package watch
 import (
 	"time"
 
+	"github.com/pborman/uuid"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	k8score "k8s.io/api/core/v1"
 
@@ -275,24 +278,7 @@ func (c *OVMController) startVM(ovm *virtv1.OfflineVirtualMachine) error {
 	}
 
 	// start it
-	basename := c.getVirtualMachineBaseName(ovm)
-	t := true
-
-	vm := virtv1.NewVMReferenceFromNameWithNS(ovm.ObjectMeta.Namespace, "")
-	vm.ObjectMeta = ovm.Spec.Template.ObjectMeta
-	vm.ObjectMeta.Name = basename
-	vm.ObjectMeta.GenerateName = basename
-	vm.Spec = ovm.Spec.Template.Spec
-
-	vm.ObjectMeta.Labels = ovm.Spec.Template.ObjectMeta.Labels
-	vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{v1.OwnerReference{
-		APIVersion:         virtv1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               virtv1.OfflineVirtualMachineGroupVersionKind.Kind,
-		Name:               ovm.ObjectMeta.Name,
-		UID:                ovm.ObjectMeta.UID,
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}}
+	vm := c.setupVMFromOVM(ovm)
 
 	c.expectations.ExpectCreations(ovmKey, 1)
 	vm, err = c.clientset.VM(ovm.ObjectMeta.Namespace).Create(vm)
@@ -335,6 +321,63 @@ func (c *OVMController) stopVM(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.Vir
 	log.Log.Object(ovm).Info("Dispatching delete event")
 
 	return nil
+}
+
+// setupVMfromOVM creates a VirtualMachine object from one OfflineVirtualMachine object.
+func (c *OVMController) setupVMFromOVM(ovm *virtv1.OfflineVirtualMachine) *virtv1.VirtualMachine {
+	basename := c.getVirtualMachineBaseName(ovm)
+
+	vm := virtv1.NewVMReferenceFromNameWithNS(ovm.ObjectMeta.Namespace, "")
+	vm.ObjectMeta = ovm.Spec.Template.ObjectMeta
+	vm.ObjectMeta.Name = basename
+	vm.ObjectMeta.GenerateName = basename
+	vm.Spec = ovm.Spec.Template.Spec
+
+	setupStableFirmwareUUID(ovm, vm)
+
+	t := true
+	// TODO check if vm labels exist, and when make sure that they match. For now just override them
+	vm.ObjectMeta.Labels = ovm.Spec.Template.ObjectMeta.Labels
+	vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{v1.OwnerReference{
+		APIVersion:         virtv1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               virtv1.OfflineVirtualMachineGroupVersionKind.Kind,
+		Name:               ovm.ObjectMeta.Name,
+		UID:                ovm.ObjectMeta.UID,
+		Controller:         &t,
+		BlockOwnerDeletion: &t,
+	}}
+
+	return vm
+}
+
+// no special meaning, randomly generated on my box.
+// TODO: do we want to use another constants? see examples in RFC4122
+var firmwareUUIDNs = uuid.Parse("6a1a24a1-4061-4607-8bf4-a3963d0c5895")
+
+// setStableUUID makes sure the VM being started has a a 'stable' UUID.
+// The UUID is 'stable' if doesn't change across reboots.
+func setupStableFirmwareUUID(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) {
+
+	logger := log.Log.Object(ovm)
+
+	if vm.Spec.Domain.Firmware == nil {
+		vm.Spec.Domain.Firmware = &virtv1.Firmware{}
+	}
+
+	existingUUID := vm.Spec.Domain.Firmware.UUID
+	if existingUUID != "" {
+		logger.Debugf("Using existing UUID '%s'", existingUUID)
+		return
+	}
+
+	stableUUID := types.UID(uuid.NewSHA1(firmwareUUIDNs, []byte(vm.ObjectMeta.Name)).String())
+	if existingUUID == stableUUID {
+		logger.Debugf("Using existing UUID '%s' (already stable)", existingUUID)
+		return
+	}
+
+	vm.Spec.Domain.Firmware.UUID = stableUUID
+	logger.Infof("Stabilizing UUID from '%s' to '%s'", existingUUID, stableUUID)
 }
 
 // filterActiveVMs takes a list of VMs and returns all VMs which are not in a final state
