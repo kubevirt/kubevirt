@@ -1665,6 +1665,10 @@
       "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
       "$ref": "#/definitions/v1.LocalObjectReference"
      },
+     "userData": {
+      "description": "UserData contains NoCloud inline cloud-init userdata\n+ optional",
+      "type": "string"
+     },
      "userDataBase64": {
       "description": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string\n+ optional",
       "type": "string"

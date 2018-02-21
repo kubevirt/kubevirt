@@ -7,6 +7,7 @@ func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 		"":               "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 		"secretRef":      "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
 		"userDataBase64": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string\n+ optional",
+		"userData":       "UserData contains NoCloud inline cloud-init userdata\n+ optional",
 	}
 }
 

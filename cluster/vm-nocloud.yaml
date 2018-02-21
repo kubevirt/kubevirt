@@ -7,7 +7,7 @@ spec:
   domain:
     resources:
       requests:
-        memory: 64M
+        memory: 1024M
     devices:
       disks:
       - name: registrydisk
@@ -21,7 +21,12 @@ spec:
   volumes:
     - name: registryvolume
       registryDisk:
-        image: kubevirt/cirros-registry-disk-demo:devel
+        image: kubevirt/fedora-cloud-registry-disk-demo:devel
     - name: cloudinitvolume
       cloudInitNoCloud:
-        userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
+        userData: |
+          #cloud-config
+          password: fedora
+          chpasswd: { expire: False }
+          ssh_authorized_keys:
+            - ssh-rsa AAAAB3NzaC1ycGAtntmDCUz3H4UWSVv4LQ8L93bWxnyp test@test.com
