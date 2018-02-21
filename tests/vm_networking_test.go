@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -118,7 +119,11 @@ var _ = Describe("Networking", func() {
 	Context("VirtualMachine with nodeNetwork definition given", func() {
 
 		It("should be able to reach the internet", func() {
-			Skip("Skip network test that requires DNS resolution.")
+			_, exists := os.LookupEnv("JENKINS_HOME")
+			if exists {
+				Skip("Skip network test that requires DNS resolution in Jenkins environment")
+			}
+
 			// Wait until the VM is booted, ping google and check if we can reach the internet
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVM, "serial0", 10*time.Second)
 			defer expecter.Close()
