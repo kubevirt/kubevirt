@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"flag"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -44,10 +43,6 @@ import (
 )
 
 var _ = Describe("Networking", func() {
-	dockerTag := os.Getenv("docker_tag")
-	if dockerTag == "" {
-		dockerTag = "latest"
-	}
 
 	flag.Parse()
 
@@ -153,7 +148,7 @@ var _ = Describe("Networking", func() {
 
 			// Run netcat and give it one second to ghet "Hello World!" back from the VM
 			check := []string{fmt.Sprintf("while read x; do test \"$x\" = \"Hello World!\"; exit $?; done < <(nc %s 1500 -i 1 -w 1)", ip)}
-			job := tests.RenderJob("netcat", dockerTag, []string{"/bin/bash", "-c"}, check)
+			job := tests.RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
 			job.Spec.Affinity = &v12.Affinity{
 				NodeAffinity: &v12.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{

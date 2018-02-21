@@ -744,7 +744,7 @@ func NewBool(x bool) *bool {
 	return &x
 }
 
-func RenderJob(name string, dockerTag string, cmd []string, args []string) *k8sv1.Pod {
+func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 	job := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
@@ -757,7 +757,7 @@ func RenderJob(name string, dockerTag string, cmd []string, args []string) *k8sv
 			Containers: []k8sv1.Container{
 				{
 					Name:    name,
-					Image:   "kubevirt/vm-killer:" + dockerTag,
+					Image:   fmt.Sprintf("%s/vm-killer:%s", KubeVirtRepoPrefix, KubeVirtVersionTag),
 					Command: cmd,
 					Args:    args,
 					SecurityContext: &k8sv1.SecurityContext{

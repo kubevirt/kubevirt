@@ -40,11 +40,6 @@ import (
 
 var _ = Describe("Vmlifecycle", func() {
 
-	dockerTag := os.Getenv("docker_tag")
-	if dockerTag == "" {
-		dockerTag = "latest"
-	}
-
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -195,7 +190,7 @@ var _ = Describe("Vmlifecycle", func() {
 				time.Sleep(10 * time.Second)
 
 				By("Crashing the virt-launcher")
-				err = pkillAllLaunchers(virtClient, nodeName, dockerTag)
+				err = pkillAllLaunchers(virtClient, nodeName)
 				Expect(err).To(BeNil())
 
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
@@ -226,13 +221,13 @@ var _ = Describe("Vmlifecycle", func() {
 				// Kill virt-handler on the node the VM is active on.
 				time.Sleep(5 * time.Second)
 				By("Crashing the virt-handler")
-				err = pkillAllHandlers(virtClient, nodeName, dockerTag)
+				err = pkillAllHandlers(virtClient, nodeName)
 				Expect(err).To(BeNil())
 
 				// Crash the VM and verify a recovered version of virt-handler processes the crash
 				time.Sleep(5 * time.Second)
 				By("Killing the VM")
-				err = pkillAllVms(virtClient, nodeName, dockerTag)
+				err = pkillAllVms(virtClient, nodeName)
 				Expect(err).To(BeNil())
 
 				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
@@ -391,7 +386,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 			By("Killing the VM")
 			time.Sleep(10 * time.Second)
-			err = pkillAllVms(virtClient, nodeName, dockerTag)
+			err = pkillAllVms(virtClient, nodeName)
 			Expect(err).To(BeNil())
 
 			tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
@@ -418,7 +413,7 @@ var _ = Describe("Vmlifecycle", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Killing the VM")
-			err = pkillAllVms(virtClient, nodeName, dockerTag)
+			err = pkillAllVms(virtClient, nodeName)
 			Expect(err).To(BeNil())
 
 			// Wait for stop event of the VM
@@ -435,39 +430,8 @@ var _ = Describe("Vmlifecycle", func() {
 	})
 })
 
-func renderPkillAllJob(dockerTag string, processName string) *k8sv1.Pod {
-	job := k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-killer",
-			Labels: map[string]string{
-				v1.AppLabel: "test",
-			},
-		},
-		Spec: k8sv1.PodSpec{
-			RestartPolicy: k8sv1.RestartPolicyNever,
-			Containers: []k8sv1.Container{
-				{
-					Name:  "vm-killer",
-					Image: "kubevirt/vm-killer:" + dockerTag,
-					Command: []string{
-						"pkill",
-						"-9",
-						processName,
-					},
-					SecurityContext: &k8sv1.SecurityContext{
-						Privileged: newBool(true),
-						RunAsUser:  new(int64),
-					},
-				},
-			},
-			HostPID: true,
-			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser: new(int64),
-			},
-		},
-	}
-
-	return &job
+func renderPkillAllJob(processName string) *k8sv1.Pod {
+	return tests.RenderJob("vm-killer", []string{"pkill"}, []string{"-9", processName})
 }
 
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) string {
@@ -501,8 +465,8 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) 
 	return string(logsRaw)
 }
 
-func pkillAllHandlers(virtCli kubecli.KubevirtClient, node, dockerTag string) error {
-	job := renderPkillAllJob(dockerTag, "virt-handler")
+func pkillAllHandlers(virtCli kubecli.KubevirtClient, node string) error {
+	job := renderPkillAllJob("virt-handler")
 	job.Spec.NodeName = node
 	pod, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
 	Expect(err).ToNot(HaveOccurred())
@@ -518,22 +482,18 @@ func pkillAllHandlers(virtCli kubecli.KubevirtClient, node, dockerTag string) er
 	return err
 }
 
-func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node, dockerTag string) error {
-	job := renderPkillAllJob(dockerTag, "virt-launcher")
+func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) error {
+	job := renderPkillAllJob("virt-launcher")
 	job.Spec.NodeName = node
 	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
 
 	return err
 }
 
-func pkillAllVms(virtCli kubecli.KubevirtClient, node, dockerTag string) error {
-	job := renderPkillAllJob(dockerTag, "qemu")
+func pkillAllVms(virtCli kubecli.KubevirtClient, node string) error {
+	job := renderPkillAllJob("qemu")
 	job.Spec.NodeName = node
 	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
 
 	return err
-}
-
-func newBool(x bool) *bool {
-	return &x
 }
