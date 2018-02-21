@@ -175,7 +175,6 @@ func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine
 	for _, preset := range list {
 		selector, err := k8smetav1.LabelSelectorAsSelector(&preset.Spec.Selector)
 		if err != nil {
-			// FIXME: create an event here
 			// Do not return an error from this function--or the VM will be
 			// re-enqueued for processing again.
 			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Invalid Preset '%s': %v", preset.Name, err))
