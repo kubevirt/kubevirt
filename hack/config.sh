@@ -1,5 +1,5 @@
 unset binaries docker_images docker_prefix docker_tag manifest_templates \
-    master_ip network_provider kubeconfig
+    master_ip network_provider kubeconfig manifest_docker_prefix
 
 PROVIDER=${PROVIDER:-vagrant-kubernetes}
 

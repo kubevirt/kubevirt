@@ -6,6 +6,9 @@ bin/*
 .vagrant
 cluster/vagrant-kubernetes/.kubeconfig
 cluster/vagrant-kubernetes/.kubectl
+cluster/k8s-1.9.3/.kubeconfig
+cluster/k8s-1.9.3/.kubectl
+hack/config-provider-k8s-1.9.3.sh
 cluster/vagrant-openshift/.kubeconfig
 cluster/vagrant-openshift/.oc
 cluster/.console.vv
