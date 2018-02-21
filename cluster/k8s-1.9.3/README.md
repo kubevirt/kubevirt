@@ -30,6 +30,16 @@ export PROVIDER=k8s-1.9.3
 make cluster-up
 ```
 
-This destroys right now the whole state and this is intended. Recreating the
-cluster is fast, since k8s is already re-deployed. In the future the included
-docker-registry may keep it's state.
+This destroys the whole cluster. Recreating the cluster is fast, since k8s is
+already pre-deployed. The only state which is kept is the state of the local
+docker registry.
+
+## Destroying the docker registry state
+
+The docker registry survives a `make cluster-down`. It's state is stored in a
+docker volume called `kubevirt_registry`. If the volume gets too big or the
+volume contains corrupt data, it can be deleted with
+
+```bash
+docker volume rm kubevirt_registry
+```
