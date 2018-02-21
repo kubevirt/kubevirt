@@ -768,13 +768,39 @@ func (_m *MockVMPresetInterface) Patch(name string, pt types.PatchType, data []b
 	}
 	ret := _m.ctrl.Call(_m, "Patch", _s...)
 	ret0, _ := ret[0].(*v18.VirtualMachinePreset)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
 }
 
 func (_mr *_MockVMPresetInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
+}
+
+// Mock of OfflineVirtualMachineInterface interface
+type MockOfflineVirtualMachineInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockOfflineVirtualMachineInterfaceRecorder
+}
+
+// Recorder for MockOfflineVirtualMachineInterface (not exported)
+type _MockOfflineVirtualMachineInterfaceRecorder struct {
+	mock *MockOfflineVirtualMachineInterface
+}
+
+func NewMockOfflineVirtualMachineInterface(ctrl *gomock.Controller) *MockOfflineVirtualMachineInterface {
+	mock := &MockOfflineVirtualMachineInterface{ctrl: ctrl}
+	mock.recorder = &_MockOfflineVirtualMachineInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockOfflineVirtualMachineInterface) EXPECT() *_MockOfflineVirtualMachineInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockOfflineVirtualMachineInterface) Get(name string, options *v1.GetOptions) (*v18.OfflineVirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "Get", name, options)
+	ret0, _ := ret[0].(*v18.OfflineVirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
