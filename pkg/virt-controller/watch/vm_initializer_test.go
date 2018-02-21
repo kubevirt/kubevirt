@@ -62,9 +62,8 @@ var _ = Describe("VM Initializer", func() {
 			vm := v1.VirtualMachine{}
 			preset := v1.VirtualMachinePreset{}
 			preset.ObjectMeta.Name = "test-preset"
-			presets := append([]v1.VirtualMachinePreset{}, preset)
 
-			annotateVM(&vm, presets)
+			annotateVM(&vm, preset)
 			Expect(len(vm.Annotations)).To(Equal(1))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal(v1.GroupVersion.String()))
 		})
@@ -73,13 +72,11 @@ var _ = Describe("VM Initializer", func() {
 			vm := v1.VirtualMachine{}
 			preset := v1.VirtualMachinePreset{}
 			preset.ObjectMeta.Name = "preset-foo"
-			presets := append([]v1.VirtualMachinePreset{}, preset)
+			annotateVM(&vm, preset)
 			preset = v1.VirtualMachinePreset{}
 			preset.ObjectMeta.Name = "preset-bar"
+			annotateVM(&vm, preset)
 
-			presets = append(presets, preset)
-
-			annotateVM(&vm, presets)
 			Expect(len(vm.Annotations)).To(Equal(2))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/preset-foo"]).To(Equal(v1.GroupVersion.String()))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/preset-bar"]).To(Equal(v1.GroupVersion.String()))
@@ -210,17 +207,19 @@ var _ = Describe("VM Initializer", func() {
 			err := checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
-			preset.Spec.Domain.CPU = &v1.CPU{Cores: 8}
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
-			Expect(err).To(HaveOccurred())
-
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
 			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
+			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
+			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			Expect(err).To(HaveOccurred())
+
+			vm.Annotations = map[string]string{}
 			presets := []v1.VirtualMachinePreset{preset}
-			err = applyPresets(&vm, presets, recorder)
-			Expect(err).ToNot(HaveOccurred())
+			applyPresets(&vm, presets, recorder)
+
+			Expect(len(vm.Annotations)).To(Equal(0))
 		})
 
 		It("Should detect Resource conflicts", func() {
@@ -310,8 +309,7 @@ var _ = Describe("VM Initializer", func() {
 		It("Should apply CPU settings", func() {
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
 			presets := []v1.VirtualMachinePreset{preset}
-			err := applyPresets(&vm, presets, recorder)
-			Expect(err).ToNot(HaveOccurred())
+			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.CPU.Cores).To(Equal(uint32(4)))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
@@ -323,8 +321,7 @@ var _ = Describe("VM Initializer", func() {
 				"memory": memory,
 			}}
 			presets := []v1.VirtualMachinePreset{preset}
-			err := applyPresets(&vm, presets, recorder)
-			Expect(err).ToNot(HaveOccurred())
+			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Resources.Requests["memory"]).To(Equal(memory))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
@@ -335,8 +332,7 @@ var _ = Describe("VM Initializer", func() {
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: uuid}
 
 			presets := []v1.VirtualMachinePreset{preset}
-			err := applyPresets(&vm, presets, recorder)
-			Expect(err).ToNot(HaveOccurred())
+			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(uuid))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
@@ -349,8 +345,7 @@ var _ = Describe("VM Initializer", func() {
 			preset.Spec.Domain.Clock = clock
 
 			presets := []v1.VirtualMachinePreset{preset}
-			err := applyPresets(&vm, presets, recorder)
-			Expect(err).ToNot(HaveOccurred())
+			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Clock).To(Equal(clock))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
@@ -365,8 +360,7 @@ var _ = Describe("VM Initializer", func() {
 			preset.Spec.Domain.Features = features
 
 			presets := []v1.VirtualMachinePreset{preset}
-			err := applyPresets(&vm, presets, recorder)
-			Expect(err).ToNot(HaveOccurred())
+			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Features).To(Equal(features))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
@@ -378,8 +372,7 @@ var _ = Describe("VM Initializer", func() {
 			preset.Spec.Domain.Devices.Watchdog = watchdog
 
 			presets := []v1.VirtualMachinePreset{preset}
-			err := applyPresets(&vm, presets, recorder)
-			Expect(err).ToNot(HaveOccurred())
+			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Devices.Watchdog).To(Equal(watchdog))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))

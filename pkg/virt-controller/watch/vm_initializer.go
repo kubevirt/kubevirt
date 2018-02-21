@@ -130,7 +130,6 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 	// All VM's must be marked as initialized or they are held in limbo forever
 	// Collect all errors and defer returning until after the update
 	logger := log.Log
-	errors := []error{}
 	var err error
 
 	logger.Object(vm).Info("Initializing VirtualMachine")
@@ -140,13 +139,7 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 	matchingPresets := filterPresets(allPresets, vm, c.recorder)
 
 	if len(matchingPresets) != 0 {
-		err = applyPresets(vm, matchingPresets, c.recorder)
-		if err != nil {
-			// A more specific error should have been logged during the applyPresets call.
-			// We don't know *which* preset in the list was problematic at this level.
-			logger.Object(vm).Errorf("Unable to apply presets to virtualmachine: %v", err)
-			errors = append(errors, err)
-		}
+		applyPresets(vm, matchingPresets, c.recorder)
 	}
 
 	logger.Object(vm).Info("Marking VM as initialized and updating")
@@ -154,11 +147,7 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 	_, err = c.clientset.VM(vm.Namespace).Update(vm)
 	if err != nil {
 		logger.Object(vm).Errorf("Could not update VirtualMachine: %v", err)
-		errors = append(errors, err)
-	}
-
-	if len(errors) > 0 {
-		return utilerrors.NewAggregate(errors)
+		return err
 	}
 	return nil
 }
@@ -299,19 +288,17 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) e
 	return nil
 }
 
-func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset, recorder record.EventRecorder) error {
+func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset, recorder record.EventRecorder) {
 	logger := log.Log
 	for _, preset := range presets {
 		err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
 		if err != nil {
 			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Unable to apply Preset '%s': %v", preset.Name, err))
 			logger.Object(vm).Errorf("Unable to apply Preset '%s': %v", preset.Name, err)
-			return nil
+		} else {
+			annotateVM(vm, preset)
 		}
 	}
-
-	annotateVM(vm, presets)
-	return nil
 }
 
 // isInitialized checks if *this* module has initialized the VM,
@@ -342,12 +329,10 @@ func removeInitializer(vm *kubev1.VirtualMachine) {
 	vm.Initializers.Pending = newInitilizers
 }
 
-func annotateVM(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset) {
+func annotateVM(vm *kubev1.VirtualMachine, preset kubev1.VirtualMachinePreset) {
 	if vm.Annotations == nil {
 		vm.Annotations = map[string]string{}
 	}
-	for _, preset := range presets {
-		annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", kubev1.GroupName, preset.Name)
-		vm.Annotations[annotationKey] = kubev1.GroupVersion.String()
-	}
+	annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", kubev1.GroupName, preset.Name)
+	vm.Annotations[annotationKey] = kubev1.GroupVersion.String()
 }
