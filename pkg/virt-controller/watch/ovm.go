@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"sync"
 
@@ -165,7 +164,7 @@ func (c *OVMController) execute(key string) error {
 		return fresh, nil
 	})
 	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, OVM, nil, virtv1.OfflineVirtualMachineGroupVersionKind, canAdoptFunc)
-	vms, err = cm.ClaimVirtualMachines(vms)
+	vms, err = cm.ClaimVirtualMachinesByName(vms)
 	if err != nil {
 		return err
 	}
