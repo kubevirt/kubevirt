@@ -805,7 +805,7 @@ type RegistryDisk string
 const (
 	RegistryDiskCirros RegistryDisk = "cirros"
 	RegistryDiskAlpine RegistryDisk = "alpine"
-	RegistryDiskFedora RegistryDisk = "fedora"
+	RegistryDiskFedora RegistryDisk = "fedora-cloud"
 )
 
 // RegistryDiskFor takes the name of an image and returns the full
