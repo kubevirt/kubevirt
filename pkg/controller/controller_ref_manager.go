@@ -224,7 +224,7 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
-// ClaimVirtualMachinesByName tries to take ownership of a list of VirtualMachines.
+// ClaimVirtualMachineByName tries to take ownership of a list of VirtualMachines.
 //
 // It will reconcile the following:
 //   * Adopt orphans if the selector matches.
@@ -239,10 +239,7 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.
 //
 // If the error is nil, either the reconciliation succeeded, or no
 // reconciliation was necessary. The list of VirtualMachines that you now own is returned.
-func (m *VirtualMachineControllerRefManager) ClaimVirtualMachinesByName(vms []*virtv1.VirtualMachine, filters ...func(machine *virtv1.VirtualMachine) bool) ([]*virtv1.VirtualMachine, error) {
-	var claimed []*virtv1.VirtualMachine
-	var errlist []error
-
+func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vm *virtv1.VirtualMachine, filters ...func(machine *virtv1.VirtualMachine) bool) (*virtv1.VirtualMachine, error) {
 	match := func(obj metav1.Object) bool {
 		vm := obj.(*virtv1.VirtualMachine)
 		// Check selector first so filters only run on potentially matching VirtualMachines.
@@ -263,17 +260,14 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachinesByName(vms []*v
 		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachine))
 	}
 
-	for _, vm := range vms {
-		ok, err := m.ClaimObject(vm, match, adopt, release)
-		if err != nil {
-			errlist = append(errlist, err)
-			continue
-		}
-		if ok {
-			claimed = append(claimed, vm)
-		}
+	ok, err := m.ClaimObject(vm, match, adopt, release)
+	if err != nil {
+		return nil, err
 	}
-	return claimed, utilerrors.NewAggregate(errlist)
+	if ok {
+		return vm, nil
+	}
+	return nil, nil
 }
 
 // AdoptVirtualMachine sends a patch to take control of the vm. It returns the error if

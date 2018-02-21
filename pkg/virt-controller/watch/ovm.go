@@ -29,8 +29,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"sync"
-
 	k8score "k8s.io/api/core/v1"
 
 	"fmt"
@@ -141,15 +139,10 @@ func (c *OVMController) execute(key string) error {
 
 	needsSync := c.expectations.SatisfiedExpectations(key)
 
-	// get all potentially interesting VMs from the cache
-	vms, err := c.listVMsFromNamespace(OVM.ObjectMeta.Namespace)
-
+	key, err = controller.KeyFunc(OVM)
 	if err != nil {
-		logger.Reason(err).Error("Failed to fetch vms for namespace from cache.")
 		return err
 	}
-
-	vms = c.filterActiveVMs(vms)
 
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
@@ -164,20 +157,22 @@ func (c *OVMController) execute(key string) error {
 		return fresh, nil
 	})
 	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, OVM, nil, virtv1.OfflineVirtualMachineGroupVersionKind, canAdoptFunc)
-	vms, err = cm.ClaimVirtualMachinesByName(vms)
-	if err != nil {
-		return err
-	}
+
 	var vm *virtv1.VirtualMachine
-	// the OfflineVirtualMachine can manage ONLY one VirtualMachine
-	// if for some unknown reason this controller is managing more
-	// than one handle the error
-	if len(vms) > 1 {
-		// handle the error
+	vmObj, exist, err := c.vmInformer.GetStore().GetByKey(key)
+	if err != nil {
+		logger.Reason(err).Error("Failed to fetch vm for namespace from cache.")
 		return err
 	}
-	if len(vms) == 1 {
-		vm = vms[0]
+	if !exist {
+		vm = nil
+	} else {
+		vm = vmObj.(*virtv1.VirtualMachine)
+
+		vm, err = cm.ClaimVirtualMachineByName(vm)
+		if err != nil {
+			return err
+		}
 	}
 
 	var createErr error
@@ -192,7 +187,7 @@ func (c *OVMController) execute(key string) error {
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMs. Don't update the status
 	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
 	if OVM.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(OVM, v1.FinalizerOrphanDependents) {
-		return c.orphan(cm, vms)
+		return c.orphan(cm, vm)
 	}
 
 	if createErr != nil {
@@ -211,22 +206,17 @@ func (c *OVMController) execute(key string) error {
 // Workaround for https://github.com/kubernetes/kubernetes/issues/56348 to make no-cascading deletes possible
 // We don't have to remove the finalizer. This part of the gc is not affected by the mentioned bug
 // TODO +pkotas unify with replicasets. This function can be the same
-func (c *OVMController) orphan(cm *controller.VirtualMachineControllerRefManager, vms []*virtv1.VirtualMachine) error {
+func (c *OVMController) orphan(cm *controller.VirtualMachineControllerRefManager, vm *virtv1.VirtualMachine) error {
 
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(vms))
-	wg.Add(len(vms))
+	errChan := make(chan error, 1)
 
-	for _, vm := range vms {
-		go func(vm *virtv1.VirtualMachine) {
-			defer wg.Done()
-			err := cm.ReleaseVirtualMachine(vm)
-			if err != nil {
-				errChan <- err
-			}
-		}(vm)
-	}
-	wg.Wait()
+	go func(vm *virtv1.VirtualMachine) {
+		err := cm.ReleaseVirtualMachine(vm)
+		if err != nil {
+			errChan <- err
+		}
+	}(vm)
+
 	select {
 	case err := <-errChan:
 		return err
