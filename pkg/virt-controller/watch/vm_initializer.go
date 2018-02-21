@@ -24,14 +24,14 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/api/core/v1"
-
+	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -45,17 +45,19 @@ type VirtualMachineInitializer struct {
 	vmInitInformer   cache.SharedIndexInformer
 	clientset        kubecli.KubevirtClient
 	queue            workqueue.RateLimitingInterface
+	recorder         record.EventRecorder
 	store            cache.Store
 }
 
 const initializerMarking = "presets.virtualmachines.kubevirt.io"
 
-func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient) *VirtualMachineInitializer {
+func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachineInitializer {
 	vmi := VirtualMachineInitializer{
 		vmPresetInformer: vmPresetInformer,
 		vmInitInformer:   vmInitInformer,
 		clientset:        clientset,
 		queue:            queue,
+		recorder:         recorder,
 		store:            vmInitCache,
 	}
 	return &vmi
@@ -135,10 +137,10 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 
 	allPresets := listPresets(c.vmPresetInformer, vm.GetNamespace())
 
-	matchingPresets := filterPresets(allPresets, vm)
+	matchingPresets := filterPresets(allPresets, vm, c.recorder)
 
 	if len(matchingPresets) != 0 {
-		err = applyPresets(vm, matchingPresets)
+		err = applyPresets(vm, matchingPresets, c.recorder)
 		if err != nil {
 			// A more specific error should have been logged during the applyPresets call.
 			// We don't know *which* preset in the list was problematic at this level.
@@ -176,7 +178,7 @@ func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) [
 }
 
 // filterPresets returns list of VirtualMachinePresets which match given VirtualMachine.
-func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine) []kubev1.VirtualMachinePreset {
+func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine, recorder record.EventRecorder) []kubev1.VirtualMachinePreset {
 	matchingPresets := []kubev1.VirtualMachinePreset{}
 
 	logger := log.Log
@@ -187,6 +189,7 @@ func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine
 			// FIXME: create an event here
 			// Do not return an error from this function--or the VM will be
 			// re-enqueued for processing again.
+			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Invalid Preset '%s': %v", preset.Name, err))
 			logger.Object(&preset).Reason(err).Errorf("label selector conversion failed: %v", err)
 		} else if selector.Matches(labels.Set(vm.GetLabels())) {
 			logger.Object(vm).Infof("VirtualMachinePreset %s matches VirtualMachine", preset.GetName())
@@ -251,7 +254,7 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) e
 	}
 	if len(presetSpec.Resources.Requests) > 0 {
 		if vmSpec.Resources.Requests == nil {
-			vmSpec.Resources.Requests = v1.ResourceList{}
+			vmSpec.Resources.Requests = k8sv1.ResourceList{}
 		}
 		for key, val := range presetSpec.Resources.Requests {
 			vmSpec.Resources.Requests[key] = val
@@ -296,12 +299,12 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) e
 	return nil
 }
 
-func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset) error {
+func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset, recorder record.EventRecorder) error {
 	logger := log.Log
 	for _, preset := range presets {
 		err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
 		if err != nil {
-			// FIXME: a Kubernetes event should be reported here
+			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Unable to apply Preset '%s': %v", preset.Name, err))
 			logger.Object(vm).Errorf("Unable to apply Preset '%s': %v", preset.Name, err)
 			return nil
 		}

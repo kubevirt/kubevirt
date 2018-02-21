@@ -302,6 +302,7 @@ type SyncEvent string
 const (
 	Created      SyncEvent = "Created"
 	Deleted      SyncEvent = "Deleted"
+	PresetFailed SyncEvent = "PresetFailed"
 	Started      SyncEvent = "Started"
 	ShuttingDown SyncEvent = "ShuttingDown"
 	Stopped      SyncEvent = "Stopped"
