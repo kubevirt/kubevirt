@@ -94,7 +94,12 @@ cleanup() {
     # We need to destroy the VMs so they won't be found in 'virsh list'.
     # Otherwise the environment cleanup code will clean them up as well as the
     # Docker data disks that we want to keep around.
+    set +e
     vagrant destroy
+    vagrant global-status --prune
+    # Possible situation when vagrant machine does not exist under status
+    # but still exists vagrant machine ruby process
+    ps aux | grep ruby | awk '{print $2}' | xargs kill -9
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

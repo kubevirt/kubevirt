@@ -58,14 +58,17 @@ curl -LO https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
 trap '{ make cluster-down; }' EXIT
 
 # TODO handle complete workspace removal on CI
-set +e
 make cluster-up
 if [ $? -ne 0 ]; then
+  set +e
   vagrant destroy
+  vagrant global-status --prune
+  # Possible situation when vagrant machine does not exist under status
+  # but still exists vagrant machine ruby process
+  ps aux | grep ruby | awk '{print $2}' | xargs kill -9
   set -e
   make cluster-up
 fi
-set -e
 
 # Build KubeVirt
 make
