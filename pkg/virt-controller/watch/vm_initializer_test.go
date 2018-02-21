@@ -444,6 +444,7 @@ var _ = Describe("VM Initializer", func() {
 
 		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 		presetFlavor := "test-case"
+		app.recorder = &FakeRecorder{}
 
 		BeforeEach(func() {
 			stopChan = make(chan struct{})
@@ -455,6 +456,8 @@ var _ = Describe("VM Initializer", func() {
 			// create a reference preset
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: presetFlavor}}
 			vmPreset = v1.NewVirtualMachinePreset("test-preset", selector)
+			vmPreset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
+			vmPreset.Spec.Domain.Firmware = &v1.Firmware{UUID:"12345678-1234-1234-1234-123456781234"}
 
 			// create a stock VM
 
@@ -573,6 +576,53 @@ var _ = Describe("VM Initializer", func() {
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
 		})
 
+
+		It("should should annotate partially applied presets", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
+			vm.Labels = map[string]string{flavorKey: presetFlavor}
+			vm.Spec.Domain = v1.DomainSpec{CPU: &v1.CPU{Cores:6}}
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			err := app.vmInitController.initializeVirtualMachine(vm)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			// Prove that the VM was annotated (indicates successful application of preset)
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+		})
+
+		It("should should not annotate presets with no settings successfully applied", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
+			vm.Labels = map[string]string{flavorKey: presetFlavor}
+			vm.Spec.Domain = v1.DomainSpec{
+				CPU: &v1.CPU{Cores:6},
+				Firmware: &v1.Firmware{UUID:"11111111-2222-3333-4444-123456781234"}}
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			err := app.vmInitController.initializeVirtualMachine(vm)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			Expect(len(vm.Annotations)).To(Equal(0))
+		})
 	})
 })
 

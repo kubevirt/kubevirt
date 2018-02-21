@@ -236,66 +236,77 @@ func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.Dom
 	return nil
 }
 
-func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) error {
-	err := checkPresetMergeConflicts(presetSpec, vmSpec)
-	if err != nil {
-		return err
-	}
+func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (bool, error) {
+	presetConflicts := checkPresetMergeConflicts(presetSpec, vmSpec)
+	applied := false
+
 	if len(presetSpec.Resources.Requests) > 0 {
 		if vmSpec.Resources.Requests == nil {
 			vmSpec.Resources.Requests = k8sv1.ResourceList{}
-		}
-		for key, val := range presetSpec.Resources.Requests {
-			vmSpec.Resources.Requests[key] = val
+			for key, val := range presetSpec.Resources.Requests {
+				vmSpec.Resources.Requests[key] = val
+			}
+			applied = true
 		}
 	}
 	if presetSpec.CPU != nil {
 		if vmSpec.CPU == nil {
 			vmSpec.CPU = &kubev1.CPU{}
+			presetSpec.CPU.DeepCopyInto(vmSpec.CPU)
+			applied = true
 		}
-		presetSpec.CPU.DeepCopyInto(vmSpec.CPU)
 	}
 	if presetSpec.Firmware != nil {
 		if vmSpec.Firmware == nil {
 			vmSpec.Firmware = &kubev1.Firmware{}
+			presetSpec.Firmware.DeepCopyInto(vmSpec.Firmware)
+			applied = true
 		}
-		presetSpec.Firmware.DeepCopyInto(vmSpec.Firmware)
 	}
 	if presetSpec.Clock != nil {
 		if vmSpec.Clock == nil {
 			vmSpec.Clock = &kubev1.Clock{}
+			vmSpec.Clock.ClockOffset = presetSpec.Clock.ClockOffset
+			applied = true
 		}
-		vmSpec.Clock.ClockOffset = presetSpec.Clock.ClockOffset
+
 		if presetSpec.Clock.Timer != nil {
 			if vmSpec.Clock.Timer == nil {
 				vmSpec.Clock.Timer = &kubev1.Timer{}
+				presetSpec.Clock.Timer.DeepCopyInto(vmSpec.Clock.Timer)
+				applied = true
 			}
-			presetSpec.Clock.Timer.DeepCopyInto(vmSpec.Clock.Timer)
 		}
 	}
 	if presetSpec.Features != nil {
 		if vmSpec.Features == nil {
 			vmSpec.Features = &kubev1.Features{}
+			presetSpec.Features.DeepCopyInto(vmSpec.Features)
+			applied = true
 		}
-		presetSpec.Features.DeepCopyInto(vmSpec.Features)
 	}
 	if presetSpec.Devices.Watchdog != nil {
 		if vmSpec.Devices.Watchdog == nil {
 			vmSpec.Devices.Watchdog = &kubev1.Watchdog{}
+			presetSpec.Devices.Watchdog.DeepCopyInto(vmSpec.Devices.Watchdog)
+			applied = true
 		}
-		presetSpec.Devices.Watchdog.DeepCopyInto(vmSpec.Devices.Watchdog)
 	}
-	return nil
+	if presetConflicts != nil {
+		return applied, presetConflicts
+	}
+	return applied, nil
 }
 
 func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset, recorder record.EventRecorder) {
 	logger := log.Log
 	for _, preset := range presets {
-		err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
+		applied, err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
 		if err != nil {
 			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Unable to apply Preset '%s': %v", preset.Name, err))
 			logger.Object(vm).Errorf("Unable to apply Preset '%s': %v", preset.Name, err)
-		} else {
+		}
+		if applied {
 			annotateVM(vm, preset)
 		}
 	}
