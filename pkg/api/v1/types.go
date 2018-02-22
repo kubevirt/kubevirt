@@ -635,7 +635,10 @@ type OfflineVirtualMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   OfflineVirtualMachineSpec   `json:"spec,omitempty"`
+	// Spec contains the specification of VirtualMachine created
+	Spec OfflineVirtualMachineSpec `json:"spec,omitempty"`
+	// Status holds the current state of the controller and brief information
+	// about its associated VirtualMachine
 	Status OfflineVirtualMachineStatus `json:"status,omitempty"`
 }
 
@@ -645,22 +648,27 @@ type OfflineVirtualMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
+	// Items is a list of OfflineVirtualMachines
 	Items []OfflineVirtualMachine `json:"items"`
 }
 
 // OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine
 // should look like
 type OfflineVirtualMachineSpec struct {
+	// Running controlls whether the associatied VirtualMachine is created or not
 	Running bool `json:"Running"`
 
+	// Template is the direct specification of VirtualMachine
 	Template *VMTemplateSpec `json:"Template"`
 }
 
 // OfflineVirtualMachineStatus represents the status returned by the
 // controller to describe how the OfflineVirtualMachine is doing
 type OfflineVirtualMachineStatus struct {
-	VirtualMachineName string                           `json:"VMname,omitempty"`
-	Conditions         []OfflineVirtualMachineCondition `json:"conditions" optional:"true"`
+	// VirtualMachineName is the name of created VirtualMachine
+	VirtualMachineName string `json:"VMname,omitempty"`
+	// Hold the state information of the OfflineVirtualMachine and its VirtualMachine
+	Conditions []OfflineVirtualMachineCondition `json:"conditions" optional:"true"`
 }
 
 // GetObjectKind is required to satisfy Object interface
@@ -673,6 +681,7 @@ func (v *OfflineVirtualMachine) GetObjectMeta() metav1.Object {
 	return &v.ObjectMeta
 }
 
+// OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine
 type OfflineVirtualMachineCondition struct {
 	Type               OfflineVirtualMachineConditionType `json:"type"`
 	Status             k8sv1.ConditionStatus              `json:"status"`
@@ -685,13 +694,12 @@ type OfflineVirtualMachineCondition struct {
 type OfflineVirtualMachineConditionType string
 
 const (
-	// TODO +pkotas update for offlinevirtualmachine
-	// VMReplicaSetReplicaFailure is added in a replica set when one of its vms
+	// OfflineVirtualMachineFailure is added in a offline virtual machine when its vm
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "Failure"
 
-	// VMReplicaSetReplicaPaused is added in a replica set when the replica set got paused by the controller.
-	// After this condition was added, it is safe to remove or add vms by hand and adjust the replica count by hand.
+	// OfflineVirtualMachineRunning is added in a offline virtual machine when the VM succesfully runs.
+	// After this condition was added, the VM is up and running.
 	OfflineVirtualMachineRunning OfflineVirtualMachineConditionType = "Running"
 )

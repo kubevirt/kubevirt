@@ -94,18 +94,6 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			ovm, vm := DefaultOVM(false)
 
 			addOfflineVirtualMachine(ovm)
-
-			// Add VM to the cache
-			// vm := v1.NewMinimalVM("testvm")
-			// t := true
-			// vm.OwnerReferences = []v12.OwnerReference{v12.OwnerReference{
-			// 	APIVersion:         v1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
-			// 	Kind:               v1.OfflineVirtualMachineGroupVersionKind.Kind,
-			// 	Name:               ovm.ObjectMeta.Name,
-			// 	UID:                ovm.ObjectMeta.UID,
-			// 	Controller:         &t,
-			// 	BlockOwnerDeletion: &t,
-			// }}
 			vmFeeder.Add(vm)
 
 			// ovmInterface.EXPECT().Update(gomock.Any()).Return(ovm, nil)

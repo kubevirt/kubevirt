@@ -152,7 +152,7 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) OfflineVirtualMachine() cache.SharedIndexInformer {
 	return f.getInformer("ovmInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "offlinevirtualmachines", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &kubev1.OfflineVirtualMachine{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		return cache.NewSharedIndexInformer(lw, &kubev1.OfflineVirtualMachine{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

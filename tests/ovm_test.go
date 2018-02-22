@@ -60,10 +60,10 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			return newOVM
 		}
 
-		It("should update readyReplicas once VMs are up", func() {
+		It("should update OfflineVirtualMachine once VMs are up", func() {
 			newOVM := newOfflineVirtualMachine()
 			Eventually(func() v1.OfflineVirtualMachineConditionType {
-				ovm, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Get(newOVM.ObjectMeta.Name, &v12.GetOptions{})
+				ovm, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Get(newOVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return ovm.Status.Conditions[0].Type
 			}, 120*time.Second, 1*time.Second).Should(Equal("Running"))
@@ -73,10 +73,10 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			newOVM := newOfflineVirtualMachine()
 			// Create a offlinevm with vm
 			// Delete it
-			Expect(virtClient.OfflineVirtualMachine(newOVM.ObjectMeta.Namespace).Delete(newOVM.ObjectMeta.Name, &v12.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.OfflineVirtualMachine(newOVM.Namespace).Delete(newOVM.Name, &v12.DeleteOptions{})).To(Succeed())
 			// Wait until VMs are gone
 			Eventually(func() int {
-				vms, err := virtClient.VM(newOVM.ObjectMeta.Namespace).List(v12.ListOptions{})
+				vms, err := virtClient.VM(newOVM.Namespace).List(v12.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return len(vms.Items)
 			}, 60*time.Second, 1*time.Second).Should(BeZero())
@@ -86,7 +86,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			newOVM := newOfflineVirtualMachine()
 
 			// Check for owner reference
-			vms, err := virtClient.VM(newOVM.ObjectMeta.Namespace).List(v12.ListOptions{})
+			vms, err := virtClient.VM(newOVM.Namespace).List(v12.ListOptions{})
 			Expect(vms.Items).To(HaveLen(1))
 			for _, vm := range vms.Items {
 				Expect(vm.OwnerReferences).ToNot(BeEmpty())
@@ -94,18 +94,18 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 			// Delete it
 			orphanPolicy := v12.DeletePropagationOrphan
-			Expect(virtClient.OfflineVirtualMachine(newOVM.ObjectMeta.Namespace).
-				Delete(newOVM.ObjectMeta.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
+			Expect(virtClient.OfflineVirtualMachine(newOVM.Namespace).
+				Delete(newOVM.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 			// Wait until the replica set is deleted
 			Eventually(func() bool {
-				_, err := virtClient.OfflineVirtualMachine(newOVM.ObjectMeta.Namespace).Get(newOVM.ObjectMeta.Name, &v12.GetOptions{})
+				_, err := virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 				if errors.IsNotFound(err) {
 					return true
 				}
 				return false
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
-			vms, err = virtClient.VM(newOVM.ObjectMeta.Namespace).List(v12.ListOptions{})
+			vms, err = virtClient.VM(newOVM.Namespace).List(v12.ListOptions{})
 			Expect(vms.Items).To(HaveLen(2))
 			for _, vm := range vms.Items {
 				Expect(vm.OwnerReferences).To(BeEmpty())

@@ -224,7 +224,7 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
-// ClaimVirtualMachineByName tries to take ownership of a list of VirtualMachines.
+// ClaimVirtualMachineByName tries to take ownership of a VirtualMachine.
 //
 // It will reconcile the following:
 //   * Adopt orphans if the selector matches.

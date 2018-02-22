@@ -179,7 +179,6 @@ func (c *OVMController) execute(key string) error {
 	var createErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
-	// TODO +pkotas update for offlinevirtualmachine
 	if needsSync && OVM.ObjectMeta.DeletionTimestamp == nil {
 		logger.Infof("Creating or stopping the VM: %s", OVM.Spec.Running)
 		createErr = c.startStop(OVM, vm)
@@ -364,7 +363,7 @@ func (c *OVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (ovms 
 func (c *OVMController) addVirtualMachine(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 
-	log.Log.Object(vm).Infof("VM ADDED: %s/%s", vm.Namespace, vm.Name)
+	log.Log.Object(vm).V(4).Info("VM added.")
 
 	if vm.DeletionTimestamp != nil {
 		// on a restart of the controller manager, it's possible a new vm shows up in a state that
@@ -555,11 +554,8 @@ func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virt
 	// check if we need to update because of appeared or disappeard errors
 	errorsMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
 
-	// check if we need to update because pause was modified
-	stoppedMatch := ovm.Spec.Running == c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning)
-
 	// in case scaleErr and the error condition equal, don't update
-	if errorsMatch && stoppedMatch {
+	if errorsMatch {
 		return nil
 	}
 
@@ -573,14 +569,6 @@ func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virt
 
 	if err != nil {
 		return err
-	}
-	// Finally trigger resumed or paused events
-	if !stoppedMatch {
-		if ovm.Spec.Running {
-			c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulPausedReplicaSetReason, "Running")
-		} else {
-			c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulResumedReplicaSetReason, "Stopped")
-		}
 	}
 
 	return nil
