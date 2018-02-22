@@ -107,8 +107,8 @@ var _ = Describe("CloudInit UserData", func() {
 						&expect.BExp{R: "$"},
 						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 						&expect.BExp{R: "test-ssh-key"},
-					}, time.Second*240)
-				}, 300)
+					}, time.Second*300)
+				}, 360)
 			})
 		})
 
