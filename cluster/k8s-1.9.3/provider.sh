@@ -50,14 +50,17 @@ function build() {
 
     # Make sure that all nodes use the newest images
     container=""
+    container_alias=""
     for arg in ${docker_images}; do
         local name=$(basename $arg)
         container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
+        container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
     done
     local num_nodes=${VAGRANT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
     for i in $(seq 1 ${num_nodes}); do
         ${_cli} ssh "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
+        ${_cli} ssh "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs --max-args=2 sudo docker tag"
     done
 }
 
