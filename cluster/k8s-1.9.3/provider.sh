@@ -6,12 +6,14 @@ function _main_ip() {
     echo 127.0.0.1
 }
 
+_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest'
+
 function up() {
-    VAGRANT_NUM_NODES=${VAGRANT_NUM_NODES-0}
     # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
-    VAGRANT_NUM_NODES=$((VAGRANT_NUM_NODES + 1))
-    docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest run --nodes ${VAGRANT_NUM_NODES} --tls-port 127.0.0.1:8443 --ssh-port 127.0.0.1:2201 --background --registry-port 127.0.0.1:5000 --prefix kubevirt --registry-volume kubevirt_registry --base "rmohr/kubeadm-1.9.3@sha256:0c34eb10b2f0a99089529dd16e55efddc3cd313c50e113a7def0e48bae86e697"
-    docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest ssh node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
+    local num_nodes=${VAGRANT_NUM_NODES-0}
+    num_nodes=$((num_nodes + 1))
+    ${_cli} run --nodes ${num_nodes} --tls-port 127.0.0.1:8443 --ssh-port 127.0.0.1:2201 --background --registry-port 127.0.0.1:5000 --prefix kubevirt --registry-volume kubevirt_registry --base "rmohr/kubeadm-1.9.3@sha256:0c34eb10b2f0a99089529dd16e55efddc3cd313c50e113a7def0e48bae86e697"
+    ${_cli} ssh node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
 
     chmod 0600 ${KUBEVIRT_PATH}cluster/k8s-1.9.3/vagrant.key
     OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/k8s-1.9.3/vagrant.key -P 2201"
@@ -42,8 +44,21 @@ EOF
 }
 
 function build() {
+    # Build everyting and publish it
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} PROVIDER=${PROVIDER} ./hack/build-manifests.sh"
     make build docker publish
+
+    # Make sure that all nodes use the newest images
+    container=""
+    for arg in ${docker_images}; do
+        local name=$(basename $arg)
+        container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
+    done
+    local num_nodes=${VAGRANT_NUM_NODES-0}
+    num_nodes=$((num_nodes + 1))
+    for i in $(seq 1 ${num_nodes}); do
+        ${_cli} ssh "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
+    done
 }
 
 function _kubectl() {
