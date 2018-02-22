@@ -34,8 +34,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -49,20 +47,13 @@ type Reply struct {
 
 type Args struct {
 	// used for domain management
-	VM        *v1.VirtualMachine
-	K8Secrets map[string]*k8sv1.Secret
-
-	// used for syncing secrets
-	SecretUsageType string
-	SecretUsageID   string
-	SecretValue     string
+	VM *v1.VirtualMachine
 }
 
 type LauncherClient interface {
-	SyncVirtualMachine(vm *v1.VirtualMachine, secrets map[string]*k8sv1.Secret) error
+	SyncVirtualMachine(vm *v1.VirtualMachine) error
 	ShutdownVirtualMachine(vm *v1.VirtualMachine) error
 	KillVirtualMachine(vm *v1.VirtualMachine) error
-	SyncSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error
 	GetDomain() (*api.Domain, bool, error)
 	Ping() error
 	Close()
@@ -186,31 +177,16 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	return domain, exists, nil
 
 }
-func (c *VirtLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachine, secrets map[string]*k8sv1.Secret) error {
+func (c *VirtLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachine) error {
 
 	cmd := "Launcher.Sync"
 
 	args := &Args{
-		VM:        vm,
-		K8Secrets: secrets,
+		VM: vm,
 	}
 
 	_, err := c.genericSendCmd(args, cmd)
 
-	return err
-}
-
-func (c *VirtLauncherClient) SyncSecret(vm *v1.VirtualMachine, usageType string, usageID string, secretValue string) error {
-	cmd := "Launcher.SyncSecret"
-
-	args := &Args{
-		VM:              vm,
-		SecretUsageType: usageType,
-		SecretUsageID:   usageID,
-		SecretValue:     secretValue,
-	}
-
-	_, err := c.genericSendCmd(args, cmd)
 	return err
 }
 

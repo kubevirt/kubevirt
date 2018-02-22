@@ -233,18 +233,18 @@ func IsUpperCase(str string) bool {
 
 // HasLowerCase check if the string contains at least 1 lowercase. Empty string is valid.
 func HasLowerCase(str string) bool {
-    if IsNull(str) {
-        return true
-    }
-    return rxHasLowerCase.MatchString(str)
+	if IsNull(str) {
+		return true
+	}
+	return rxHasLowerCase.MatchString(str)
 }
 
 // HasUpperCase check if the string contians as least 1 uppercase. Empty string is valid.
 func HasUpperCase(str string) bool {
-    if IsNull(str) {
-        return true
-    }
-    return rxHasUpperCase.MatchString(str)
+	if IsNull(str) {
+		return true
+	}
+	return rxHasUpperCase.MatchString(str)
 }
 
 // IsInt check if the string is an integer. Empty string is valid.
@@ -539,7 +539,7 @@ func IsHash(str string, algorithm string) bool {
 		return false
 	}
 
-	return Matches(str, "^[a-f0-9]{" + len + "}$")
+	return Matches(str, "^[a-f0-9]{"+len+"}$")
 }
 
 // IsDialString validates the given string for usage with the various Dial() functions
@@ -694,7 +694,9 @@ func ValidateStruct(s interface{}) (bool, error) {
 			continue // Private field
 		}
 		structResult := true
-		if valueField.Kind() == reflect.Struct && typeField.Tag.Get(tagName) != "-" {
+		if (valueField.Kind() == reflect.Struct ||
+			(valueField.Kind() == reflect.Ptr && valueField.Elem().Kind() == reflect.Struct)) &&
+			typeField.Tag.Get(tagName) != "-" {
 			var err error
 			structResult, err = ValidateStruct(valueField.Interface())
 			if err != nil {

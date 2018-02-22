@@ -16,7 +16,6 @@
   "paths": {
    "/apis/kubevirt.io": {
     "get": {
-     "description": "Get a KubeVirt API group",
      "produces": [
       "application/json"
      ],
@@ -43,7 +42,6 @@
    },
    "/apis/kubevirt.io/v1alpha1": {
     "get": {
-     "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
@@ -70,7 +68,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/healthz": {
     "get": {
-     "description": "Health endpoint",
      "consumes": [
       "application/json"
      ],
@@ -94,7 +91,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinereplicasets": {
     "get": {
-     "description": "Get a list of VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -179,7 +175,6 @@
      }
     },
     "post": {
-     "description": "Create a VirtualMachineReplicaSet object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -239,7 +234,6 @@
      }
     },
     "delete": {
-     "description": "Delete a collection of VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
       "application/yaml"
@@ -317,7 +311,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinereplicasets/{name}": {
     "get": {
-     "description": "Get a VirtualMachineReplicaSet object.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -374,7 +367,6 @@
      }
     },
     "put": {
-     "description": "Update a VirtualMachineReplicaSet object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -436,7 +428,6 @@
      }
     },
     "delete": {
-     "description": "Delete a VirtualMachineReplicaSet object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -510,7 +501,6 @@
      }
     },
     "patch": {
-     "description": "Patch a VirtualMachineReplicaSet object.",
      "consumes": [
       "application/json-patch+json",
       "application/merge-patch+json"
@@ -551,7 +541,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines": {
     "get": {
-     "description": "Get a list of VirtualMachine objects.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -636,7 +625,6 @@
      }
     },
     "post": {
-     "description": "Create a VirtualMachine object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -696,7 +684,6 @@
      }
     },
     "delete": {
-     "description": "Delete a collection of VirtualMachine objects.",
      "produces": [
       "application/json",
       "application/yaml"
@@ -774,7 +761,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}": {
     "get": {
-     "description": "Get a VirtualMachine object.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -831,7 +817,6 @@
      }
     },
     "put": {
-     "description": "Update a VirtualMachine object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -893,7 +878,6 @@
      }
     },
     "delete": {
-     "description": "Delete a VirtualMachine object.",
      "consumes": [
       "application/json",
       "application/yaml"
@@ -967,7 +951,6 @@
      }
     },
     "patch": {
-     "description": "Patch a VirtualMachine object.",
      "consumes": [
       "application/json-patch+json",
       "application/merge-patch+json"
@@ -1008,7 +991,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/virtualmachinereplicasets": {
     "get": {
-     "description": "Get a list of all VirtualMachineReplicaSet objects.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -1087,7 +1069,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/virtualmachines": {
     "get": {
-     "description": "Get a list of all VirtualMachine objects.",
      "produces": [
       "application/json",
       "application/yaml",
@@ -1166,7 +1147,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinereplicasets": {
     "get": {
-     "description": "Watch a VirtualMachineReplicaSet object.",
      "produces": [
       "application/json"
      ],
@@ -1251,7 +1231,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachines": {
     "get": {
-     "description": "Watch a VirtualMachine object.",
      "produces": [
       "application/json"
      ],
@@ -1336,7 +1315,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/watch/virtualmachinereplicasets": {
     "get": {
-     "description": "Watch a VirtualMachineReplicaSetList object.",
      "produces": [
       "application/json"
      ],
@@ -1413,7 +1391,6 @@
    },
    "/apis/kubevirt.io/v1alpha1/watch/virtualmachines": {
     "get": {
-     "description": "Watch a VirtualMachineList object.",
      "produces": [
       "application/json"
      ],
@@ -1627,8 +1604,8 @@
    },
    "v1.CDRomTarget": {
     "properties": {
-     "dev": {
-      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+     "bus": {
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
       "type": "string"
      },
      "readonly": {
@@ -1774,8 +1751,8 @@
    },
    "v1.DiskTarget": {
     "properties": {
-     "dev": {
-      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+     "bus": {
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
       "type": "string"
      },
      "readonly": {
@@ -1922,10 +1899,6 @@
    },
    "v1.FloppyTarget": {
     "properties": {
-     "dev": {
-      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
-      "type": "string"
-     },
      "readonly": {
       "description": "ReadOnly\nDefaults to false",
       "type": "boolean"
@@ -1978,64 +1951,6 @@
     "properties": {
      "action": {
       "description": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
-      "type": "string"
-     }
-    }
-   },
-   "v1.ISCSIVolumeSource": {
-    "description": "Represents an ISCSI disk. ISCSI volumes can only be mounted as read/write once. ISCSI volumes support ownership management and SELinux relabeling.",
-    "required": [
-     "targetPortal",
-     "iqn",
-     "lun"
-    ],
-    "properties": {
-     "chapAuthDiscovery": {
-      "description": "whether support iSCSI Discovery CHAP authentication",
-      "type": "boolean"
-     },
-     "chapAuthSession": {
-      "description": "whether support iSCSI Session CHAP authentication",
-      "type": "boolean"
-     },
-     "fsType": {
-      "description": "Filesystem type of the volume that you want to mount. Tip: Ensure that the filesystem type is supported by the host operating system. Examples: \"ext4\", \"xfs\", \"ntfs\". Implicitly inferred to be \"ext4\" if unspecified. More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi",
-      "type": "string"
-     },
-     "initiatorName": {
-      "description": "Custom iSCSI initiator name. If initiatorName is specified with iscsiInterface simultaneously, new iSCSI interface \u003ctarget portal\u003e:\u003cvolume name\u003e will be created for the connection.",
-      "type": "string"
-     },
-     "iqn": {
-      "description": "Target iSCSI Qualified Name.",
-      "type": "string"
-     },
-     "iscsiInterface": {
-      "description": "Optional: Defaults to 'default' (tcp). iSCSI interface name that uses an iSCSI transport.",
-      "type": "string"
-     },
-     "lun": {
-      "description": "iSCSI target lun number.",
-      "type": "integer",
-      "format": "int32"
-     },
-     "portals": {
-      "description": "iSCSI target portal List. The portal is either an IP or ip_addr:port if the port is other than default (typically TCP ports 860 and 3260).",
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
-     "readOnly": {
-      "description": "ReadOnly here will force the ReadOnly setting in VolumeMounts. Defaults to false.",
-      "type": "boolean"
-     },
-     "secretRef": {
-      "description": "CHAP secret for iSCSI target and initiator authentication",
-      "$ref": "#/definitions/v1.LocalObjectReference"
-     },
-     "targetPortal": {
-      "description": "iSCSI target portal. The portal is either an IP or ip_addr:port if the port is other than default (typically TCP ports 860 and 3260).",
       "type": "string"
      }
     }
@@ -2147,8 +2062,8 @@
    },
    "v1.LunTarget": {
     "properties": {
-     "dev": {
-      "description": "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+     "bus": {
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
       "type": "string"
      },
      "readonly": {
@@ -2730,6 +2645,18 @@
      }
     }
    },
+   "v1.VirtualMachineNetworkInterface": {
+    "properties": {
+     "ipAddress": {
+      "description": "IP address of a Virtual Machine interface",
+      "type": "string"
+     },
+     "mac": {
+      "description": "Hardware address of a Virtual Machine interface",
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineReplicaSet": {
     "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "properties": {
@@ -2821,6 +2748,13 @@
        "$ref": "#/definitions/v1.VirtualMachineCondition"
       }
      },
+     "interfaces": {
+      "description": "Interfaces represent the details of available network interfaces.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineNetworkInterface"
+      }
+     },
      "nodeName": {
       "description": "NodeName is the name where the VM is currently running.",
       "type": "string"
@@ -2840,10 +2774,6 @@
      "cloudInitNoCloud": {
       "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
-     },
-     "iscsi": {
-      "description": "ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.\n+optional",
-      "$ref": "#/definitions/v1.ISCSIVolumeSource"
      },
      "name": {
       "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",

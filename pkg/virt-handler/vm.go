@@ -35,17 +35,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"net"
-	"strings"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
@@ -408,74 +405,6 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
-// Look up Volumes and PVs and translate them into their primitives (only supports ISCSI and PVs right now)
-func MapVolumes(vm *v1.VirtualMachine, clientset kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
-	vmCopy := vm.DeepCopy()
-	logger := log.Log.Object(vm)
-
-	for idx, volume := range vmCopy.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil {
-			logger.V(3).Infof("Mapping PersistentVolumeClaim: %s", volume.PersistentVolumeClaim.ClaimName)
-
-			// Look up existing persistent volume
-			pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
-
-			if err != nil {
-				logger.Reason(err).Error("unable to look up persistent volume claim")
-				return vm, fmt.Errorf("unable to look up persistent volume claim: %v", err)
-			}
-
-			if pvc.Status.Phase != k8sv1.ClaimBound {
-				logger.Error("attempted use of unbound persistent volume")
-				return vm, fmt.Errorf("attempted use of unbound persistent volume claim: %s", pvc.Name)
-			}
-
-			// Look up the PersistentVolume this PVC is bound to
-			pv, err := clientset.CoreV1().PersistentVolumes().Get(pvc.Spec.VolumeName, metav1.GetOptions{})
-
-			if err != nil {
-				logger.Reason(err).Error("unable to access persistent volume record")
-				return vm, fmt.Errorf("unable to access persistent volume record: %v", err)
-			}
-
-			logger.Infof("Mapping PVC %s", pv.Name)
-			if err = mapPVToDisk(&volume, pv); err != nil {
-				logger.Reason(err).Errorf("Mapping PVC %s failed", pv.Name)
-				return vm, err
-			}
-		}
-
-		// After a PVC translation, ISCSI can be the resolved type, so "if" instead of "else if"
-		if volume.ISCSI != nil {
-			// FIXME ugly hack to resolve the IP from dns, since qemu is not in the right namespace
-			hostPort := strings.Split(volume.ISCSI.TargetPortal, ":")
-			ipAddrs, err := net.LookupIP(hostPort[0])
-			if err != nil || len(ipAddrs) < 1 {
-				return nil, fmt.Errorf("unable to resolve host '%s': %s", hostPort[0], err)
-			}
-			volume.ISCSI.TargetPortal = ipAddrs[0].String()
-			for _, part := range hostPort[1:] {
-				volume.ISCSI.TargetPortal = volume.ISCSI.TargetPortal + ":" + part
-			}
-		}
-
-		// Set the translated volume, necessary since the VolumeSource might have been exchanged
-		vmCopy.Spec.Volumes[idx] = volume
-	}
-
-	return vmCopy, nil
-}
-
-func mapPVToDisk(volume *v1.Volume, pv *k8sv1.PersistentVolume) error {
-	if pv.Spec.ISCSI != nil {
-		// Take the ISCSI config from the PV and set it on the vm
-		volume.ISCSI = pv.Spec.ISCSI
-		volume.PersistentVolumeClaim = nil
-		return nil
-	}
-	return fmt.Errorf("referenced PV %s is backed by an unsupported storage type", pv.ObjectMeta.Name)
-}
-
 func (d *VirtualMachineController) injectCloudInitSecrets(vm *v1.VirtualMachine) error {
 	cloudInitSpec := cloudinit.GetCloudInitNoCloudSource(vm)
 	if cloudInitSpec == nil {
@@ -488,47 +417,6 @@ func (d *VirtualMachineController) injectCloudInitSecrets(vm *v1.VirtualMachine)
 		return err
 	}
 	return nil
-}
-
-// injectDiskAuth takes a virtual machine, extracts secrets, synchronizes them with libvirt and returns a map
-// of all extrated secrets, for later use when converting from v1.VirtualMachine to api.Domain
-func (d *VirtualMachineController) injectDiskAuth(vm *v1.VirtualMachine) (map[string]*k8sv1.Secret, error) {
-	secrets := map[string]*k8sv1.Secret{}
-	for _, volume := range vm.Spec.Volumes {
-		if volume.ISCSI != nil {
-			if volume.ISCSI.SecretRef == nil || volume.ISCSI.SecretRef.Name == "" {
-				continue
-			}
-
-			usageType := "iscsi"
-			secretID := volume.ISCSI.SecretRef.Name
-			usageID := api.SecretToLibvirtSecret(vm, volume.ISCSI.SecretRef.Name)
-
-			secret, err := d.clientset.CoreV1().Secrets(vm.Namespace).Get(secretID, metav1.GetOptions{})
-			if err != nil {
-				log.Log.Reason(err).Error("Defining the VM secret failed unable to pull corresponding k8s secret value")
-				return nil, err
-			}
-
-			secretValue, ok := secret.Data["node.session.auth.password"]
-			if ok == false {
-				return nil, fmt.Errorf("No password value found in k8s secret %s %v", secretID, err)
-			}
-
-			client, err := d.getLauncherClient(vm)
-			if err != nil {
-				return nil, err
-			}
-
-			err = client.SyncSecret(vm, usageType, usageID, string(secretValue))
-			if err != nil {
-				return nil, err
-			}
-			secrets[secretID] = secret
-		}
-	}
-
-	return secrets, nil
 }
 
 func (d *VirtualMachineController) processVmCleanup(vm *v1.VirtualMachine) error {
@@ -671,18 +559,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 		return goerror.New(fmt.Sprintf("No watchdog file found for vm"))
 	}
 
-	// Synchronize the VM state
-	vm, err = MapVolumes(vm, d.clientset, vm.ObjectMeta.Namespace)
-	if err != nil {
-		return err
-	}
-
 	err = d.injectCloudInitSecrets(vm)
-	if err != nil {
-		return err
-	}
-
-	secrets, err := d.injectDiskAuth(vm)
 	if err != nil {
 		return err
 	}
@@ -693,7 +570,7 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	if err != nil {
 		return err
 	}
-	err = client.SyncVirtualMachine(vm, secrets)
+	err = client.SyncVirtualMachine(vm)
 	if err != nil {
 		return err
 	}

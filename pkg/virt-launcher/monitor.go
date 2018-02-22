@@ -133,6 +133,23 @@ func InitializePrivateDirectories(baseDir string) error {
 	return nil
 }
 
+func InitializeDisksDirectories(baseDir string) error {
+	err := os.MkdirAll(baseDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	err = os.Chmod(baseDir, 0755)
+	if err != nil {
+		return err
+	}
+	err = diskutils.SetFileOwnership("qemu", baseDir)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func InitializeSharedDirectories(baseDir string) error {
 	err := os.MkdirAll(watchdog.WatchdogFileDirectory(baseDir), 0755)
 	if err != nil {

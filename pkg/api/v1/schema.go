@@ -50,7 +50,7 @@ type DomainSpec struct {
 	CPU *CPU `json:"cpu,omitempty"`
 	// Machine type
 	// +optional
-	Machine *Machine `json:"machine,omitempty"`
+	Machine Machine `json:"machine,omitempty"`
 	// Firmware
 	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`
@@ -121,30 +121,24 @@ type DiskDevice struct {
 }
 
 type DiskTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type LunTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type FloppyTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -166,10 +160,9 @@ const (
 )
 
 type CDRomTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to true
 	ReadOnly *bool `json:"readonly,omitempty"`
@@ -194,9 +187,6 @@ type Volume struct {
 // Represents the source of a volume to mount.
 // Only one of its members may be specified.
 type VolumeSource struct {
-	// ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.
-	// +optional
-	ISCSI *v1.ISCSIVolumeSource `json:"iscsi,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the vm via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims

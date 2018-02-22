@@ -45,11 +45,6 @@ type Connection interface {
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
-	LookupSecretByUsage(usageType libvirt.SecretUsageType, usageID string) (VirSecret, error)
-	SecretDefineXML(xml string) (VirSecret, error)
-	ListSecrets() ([]string, error)
-	LookupSecretByUUIDString(uuid string) (VirSecret, error)
-	ListAllSecrets(flags libvirt.ConnectListAllSecretsFlags) ([]VirSecret, error)
 }
 
 type Stream interface {
@@ -113,63 +108,6 @@ func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error)
 func (l *LibvirtConnection) Close() (int, error) {
 	close(l.stop)
 	return l.Connect.Close()
-}
-
-func (l *LibvirtConnection) ListSecrets() (secrets []string, err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-	defer l.checkConnectionLost()
-
-	secrets, err = l.Connect.ListSecrets()
-	return
-}
-
-func (l *LibvirtConnection) LookupSecretByUUIDString(uuid string) (secret VirSecret, err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-	defer l.checkConnectionLost()
-
-	secret, err = l.Connect.LookupSecretByUUIDString(uuid)
-	return
-}
-
-func (l *LibvirtConnection) LookupSecretByUsage(usageType libvirt.SecretUsageType, usageID string) (secret VirSecret, err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-	defer l.checkConnectionLost()
-
-	secret, err = l.Connect.LookupSecretByUsage(usageType, usageID)
-	return
-}
-
-func (l *LibvirtConnection) ListAllSecrets(flags libvirt.ConnectListAllSecretsFlags) ([]VirSecret, error) {
-	if err := l.reconnectIfNecessary(); err != nil {
-		return nil, err
-	}
-	defer l.checkConnectionLost()
-
-	virSecrets, err := l.Connect.ListAllSecrets(flags)
-	if err != nil {
-		return nil, err
-	}
-	secrets := make([]VirSecret, len(virSecrets))
-	for i, d := range virSecrets {
-		secrets[i] = &d
-	}
-	return secrets, nil
-}
-
-func (l *LibvirtConnection) SecretDefineXML(xml string) (secret VirSecret, err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-	defer l.checkConnectionLost()
-
-	secret, err = l.Connect.SecretDefineXML(xml, 0)
-	return
 }
 
 func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) (err error) {
@@ -297,15 +235,6 @@ func (l *LibvirtConnection) checkConnectionLost() {
 		l.alive = false
 		log.Log.With("code", err.Code).Reason(err).Error("Connection to libvirt lost.")
 	}
-}
-
-type VirSecret interface {
-	SetValue(value []byte, flags uint32) error
-	Undefine() error
-	GetUsageID() (string, error)
-	GetUUIDString() (string, error)
-	GetXMLDesc(flags uint32) (string, error)
-	Free() error
 }
 
 type VirDomain interface {

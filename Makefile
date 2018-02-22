@@ -30,11 +30,11 @@ distclean: clean
 	rm -rf vendor/
 
 deps-install:
-	hack/dockerized "glide install --strip-vendor"
+	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor"
 	hack/dep-prune.sh
  
 deps-update:
-	hack/dockerized "glide cc && glide update --strip-vendor"
+	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor"
 	hack/dep-prune.sh
 
 docker: build
@@ -44,7 +44,7 @@ publish: docker
 	hack/build-docker.sh push ${WHAT}
 
 manifests:
-	hack/dockerized ./hack/build-manifests.sh
+	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
 
 .release-functest:
 	make functest > .release-functest 2>&1

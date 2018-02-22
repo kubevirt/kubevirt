@@ -50,7 +50,7 @@ var _ = Describe("Template", func() {
 					v1.DomainLabel: "testvm",
 					v1.VMUIDLabel:  "1234",
 				}))
-				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-----"))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
 				Expect(pod.Spec.NodeSelector).To(BeEmpty())
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
 					"--qemu-timeout", "5m",
@@ -79,7 +79,7 @@ var _ = Describe("Template", func() {
 					v1.DomainLabel: "testvm",
 					v1.VMUIDLabel:  "1234",
 				}))
-				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-----"))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					"kubernetes.io/hostname": "master",
 				}))
@@ -123,6 +123,32 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity).To(BeNil())
 			})
 		})
-	})
 
+		Context("with pvc source", func() {
+			It("should add pvc to template", func() {
+				volumes := []v1.Volume{
+					{
+						Name: "pvc-volume",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: "nfs-pvc"},
+						},
+					},
+				}
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvm", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).To(BeNil())
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+				Expect(len(pod.Spec.Volumes)).To(Equal(5))
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
+			})
+		})
+	})
 })

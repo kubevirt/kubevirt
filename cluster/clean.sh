@@ -31,11 +31,21 @@ _kubectl delete ds -l "kubevirt.io" -n kube-system --cascade=false --grace-perio
 _kubectl delete pods -n kube-system -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
 _kubectl delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
 
-# Delete everything, no matter if release, devel or infra
-_kubectl delete -f ${MANIFESTS_OUT_DIR}/ -R --grace-period 1 2>/dev/null || :
-
-# Delete exposures
-_kubectl delete services -l "kubevirt.io" -n kube-system
+# Delete all traces of kubevirt
+namespaces=(default kube-system)
+for i in ${namespaces[@]}; do
+    _kubectl -n ${i} delete deployment -l 'kubevirt.io'
+    _kubectl -n ${i} delete rs -l 'kubevirt.io'
+    _kubectl -n ${i} delete services -l 'kubevirt.io'
+    _kubectl -n ${i} delete pv -l 'kubevirt.io'
+    _kubectl -n ${i} delete pvc -l 'kubevirt.io'
+    _kubectl -n ${i} delete ds -l 'kubevirt.io'
+    _kubectl -n ${i} delete crd -l 'kubevirt.io'
+    _kubectl -n ${i} delete pods -l 'kubevirt.io'
+    _kubectl -n ${i} delete clusterrolebinding -l 'kubevirt.io'
+    _kubectl -n ${i} delete clusterroles -l 'kubevirt.io'
+    _kubectl -n ${i} delete serviceaccounts -l 'kubevirt.io'
+done
 
 sleep 2
 

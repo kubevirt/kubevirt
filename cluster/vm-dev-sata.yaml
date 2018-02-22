@@ -1,0 +1,20 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: testvm-sata
+spec:
+  terminationGracePeriodSeconds: 0
+  domain:
+    resources:
+      requests:
+        memory: 64M
+    devices:
+      disks:
+      - name: mydisk
+        volumeName: myvolume
+        disk:
+          bus: sata
+  volumes:
+    - name: myvolume
+      registryDisk:
+        image: kubevirt/cirros-registry-disk-demo:devel

@@ -38,7 +38,5 @@ spec:
           dev: vda
   volumes:
     - name: server2012r2
-      iscsi:
-        iqn: iqn.2017-01.io.kubevirt:sn.42
-        lun: 4
-        targetPortal: iscsi-demo-target.kube-system.svc.cluster.local
+      persistentVolumeClaim:
+        claimName: my-windows-image

@@ -45,6 +45,7 @@ deploy:
   - _out/cmd/virtctl/virtctl-*
   - _out/manifests/release/kubevirt.yaml
   prerelease: true
+  overwrite: true
   on:
     tags: true
     repo: kubevirt/kubevirt

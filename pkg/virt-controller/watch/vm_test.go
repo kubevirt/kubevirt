@@ -217,6 +217,8 @@ var _ = Describe("VM watcher", func() {
 			expectedVM := obj.(*v1.VirtualMachine)
 			expectedVM.Status.Phase = v1.Scheduled
 			expectedVM.Status.NodeName = pod.Spec.NodeName
+			expectedVM.Status.Interfaces = []v1.VirtualMachineNetworkInterface{
+				v1.VirtualMachineNetworkInterface{IP: pod.Status.PodIP}}
 			expectedVM.ObjectMeta.Labels = map[string]string{v1.NodeNameLabel: pod.Spec.NodeName}
 
 			// Register the expected REST call

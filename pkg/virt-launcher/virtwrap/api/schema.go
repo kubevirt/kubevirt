@@ -311,17 +311,18 @@ type ConsoleSource struct {
 // BEGIN Inteface -----------------------------
 
 type Interface struct {
-	Address   *Address         `xml:"address,omitempty"`
-	Type      string           `xml:"type,attr"`
-	Source    InterfaceSource  `xml:"source"`
-	Target    *InterfaceTarget `xml:"target,omitempty"`
-	Model     *Model           `xml:"model,omitempty"`
-	MAC       *MAC             `xml:"mac,omitempty"`
-	BandWidth *BandWidth       `xml:"bandwidth,omitempty"`
-	BootOrder *BootOrder       `xml:"boot,omitempty"`
-	LinkState *LinkState       `xml:"link,omitempty"`
-	FilterRef *FilterRef       `xml:"filterref,omitempty"`
-	Alias     *Alias           `xml:"alias,omitempty"`
+	Address             *Address         `xml:"address,omitempty"`
+	Type                string           `xml:"type,attr"`
+	TrustGuestRxFilters string           `xml:"trustGuestRxFilters,attr,omitempty"`
+	Source              InterfaceSource  `xml:"source"`
+	Target              *InterfaceTarget `xml:"target,omitempty"`
+	Model               *Model           `xml:"model,omitempty"`
+	MAC                 *MAC             `xml:"mac,omitempty"`
+	BandWidth           *BandWidth       `xml:"bandwidth,omitempty"`
+	BootOrder           *BootOrder       `xml:"boot,omitempty"`
+	LinkState           *LinkState       `xml:"link,omitempty"`
+	FilterRef           *FilterRef       `xml:"filterref,omitempty"`
+	Alias               *Alias           `xml:"alias,omitempty"`
 }
 
 type LinkState struct {
@@ -347,6 +348,7 @@ type InterfaceSource struct {
 	Network string `xml:"network,attr,omitempty"`
 	Device  string `xml:"dev,attr,omitempty"`
 	Bridge  string `xml:"bridge,attr,omitempty"`
+	Mode    string `xml:"mode,attr,omitempty"`
 }
 
 type Model struct {

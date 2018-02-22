@@ -123,18 +123,26 @@ func main() {
 	restful.DefaultContainer.Add(u.WebService())
 
 	config := restfulspec.Config{
-		WebServices:    restful.RegisteredWebServices(), // you control what services are visible
-		WebServicesURL: "http://localhost:8080",
-		APIPath:        "/apidocs.json",
+		WebServices: restful.RegisteredWebServices(), // you control what services are visible
+		APIPath:     "/apidocs.json",
 		PostBuildSwaggerObjectHandler: enrichSwaggerObject}
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(config))
 
 	// Optionally, you can install the Swagger Service which provides a nice Web UI on your REST API
 	// You need to download the Swagger HTML5 assets and change the FilePath location in the config below.
 	// Open http://localhost:8080/apidocs/?url=http://localhost:8080/apidocs.json
-	http.Handle("/apidocs/", http.StripPrefix("/apidocs/", http.FileServer(http.Dir("/home/v/Downloads/swagger-ui"))))
+	http.Handle("/apidocs/", http.StripPrefix("/apidocs/", http.FileServer(http.Dir("/Users/emicklei/Projects/swagger-ui/dist"))))
 
-	log.Printf("start listening on localhost:8080")
+	// Optionally, you may need to enable CORS for the UI to work.
+	cors := restful.CrossOriginResourceSharing{
+		AllowedHeaders: []string{"Content-Type", "Accept"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+		CookiesAllowed: false,
+		Container:      restful.DefaultContainer}
+	restful.DefaultContainer.Filter(cors.Filter)
+
+	log.Printf("Get the API using http://localhost:8080/apidocs.json")
+	log.Printf("Open Swagger UI using http://localhost:8080/apidocs/?url=http://localhost:8080/apidocs.json")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 

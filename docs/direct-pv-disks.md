@@ -70,9 +70,9 @@ spec:
     devices:
       disks:
       - type: PersistentVolumeClaim
-        - source:
+        source:
           name: disk-01
-        - target:
+        target:
           bus: scsi
           device: sda
 ```

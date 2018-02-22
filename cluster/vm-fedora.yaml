@@ -13,11 +13,11 @@ spec:
       - name: registrydisk
         volumeName: registryvolume
         disk:
-          dev: vda
+          bus: virtio
       - name: cloudinitdisk
         volumeName: cloudinitvolume
         disk:
-          dev: vdb
+          bus: virtio
   volumes:
     - name: registryvolume
       registryDisk:
