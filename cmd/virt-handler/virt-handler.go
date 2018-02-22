@@ -89,7 +89,7 @@ func (app *virtHandlerApp) Run() {
 	}
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: virtCli.CoreV1().Events(k8sv1.NamespaceAll)})
-	// TODO what is scheme used for in Recorder?
+	// Scheme is used to create an ObjectReference from an Object (e.g. VM) during Event creation
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
 	if err != nil {

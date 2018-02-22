@@ -304,10 +304,10 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 		if err != nil {
 			msg := fmt.Sprintf("Unable to apply VirtualMachinePreset '%s': %v", preset.Name, err)
 			if applied {
-				msg = fmt.Sprintf("Conflicts occurred with VirtualMachinePreset '%s': %v",  preset.Name, err)
+				msg = fmt.Sprintf("Conflicts occurred with VirtualMachinePreset '%s': %v", preset.Name, err)
 			}
 
-			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), msg)
+			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.Conflict.String(), msg)
 			logger.Object(vm).Error(msg)
 		}
 		if applied {

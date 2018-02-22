@@ -457,7 +457,7 @@ var _ = Describe("VM Initializer", func() {
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: presetFlavor}}
 			vmPreset = v1.NewVirtualMachinePreset("test-preset", selector)
 			vmPreset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
-			vmPreset.Spec.Domain.Firmware = &v1.Firmware{UUID:"12345678-1234-1234-1234-123456781234"}
+			vmPreset.Spec.Domain.Firmware = &v1.Firmware{UUID: "12345678-1234-1234-1234-123456781234"}
 
 			// create a stock VM
 
@@ -576,12 +576,11 @@ var _ = Describe("VM Initializer", func() {
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
 		})
 
-
 		It("should should annotate partially applied presets", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
-			vm.Spec.Domain = v1.DomainSpec{CPU: &v1.CPU{Cores:6}}
+			vm.Spec.Domain = v1.DomainSpec{CPU: &v1.CPU{Cores: 6}}
 
 			// Register the expected REST call
 			server.AppendHandlers(
@@ -605,8 +604,8 @@ var _ = Describe("VM Initializer", func() {
 			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 			vm.Spec.Domain = v1.DomainSpec{
-				CPU: &v1.CPU{Cores:6},
-				Firmware: &v1.Firmware{UUID:"11111111-2222-3333-4444-123456781234"}}
+				CPU:      &v1.CPU{Cores: 6},
+				Firmware: &v1.Firmware{UUID: "11111111-2222-3333-4444-123456781234"}}
 
 			// Register the expected REST call
 			server.AppendHandlers(

@@ -68,8 +68,6 @@ type VirtControllerApp struct {
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
-	recorder record.EventRecorder
-
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
@@ -124,10 +122,6 @@ func Execute() {
 	app.vmPresetInformer = app.informerFactory.VirtualMachinePreset()
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
-
-	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.clientSet.CoreV1().Events(k8sv1.NamespaceAll)})
-	app.recorder = broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-controller"})
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -211,7 +205,8 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
-	vca.vmInitController = NewVirtualMachineInitializer(vca.vmPresetInformer, vca.vmInitInformer, vca.vmInitQueue, vca.vmInitCache, vca.clientSet, vca.recorder)
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinepreset-controller")
+	vca.vmInitController = NewVirtualMachineInitializer(vca.vmPresetInformer, vca.vmInitInformer, vca.vmInitQueue, vca.vmInitCache, vca.clientSet, recorder)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
