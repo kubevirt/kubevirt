@@ -30,3 +30,4 @@ cluster/local/certs
 **.csr
 _out
 vendor/**/*_test.go
+**/polarion.xml
