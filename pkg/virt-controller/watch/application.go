@@ -59,11 +59,11 @@ type VirtControllerApp struct {
 	vmInformer   cache.SharedIndexInformer
 	vmQueue      workqueue.RateLimitingInterface
 
-	vmInitCache      cache.Store
-	vmInitController *VirtualMachineInitializer
-	vmInitInformer   cache.SharedIndexInformer
-	vmInitQueue      workqueue.RateLimitingInterface
-	vmPresetInformer cache.SharedIndexInformer
+	vmPresetCache      cache.Store
+	vmPresetController *VirtualMachinePresetController
+	vmPresetQueue      workqueue.RateLimitingInterface
+	vmPresetInformer   cache.SharedIndexInformer
+	vmPresetRecorder   record.EventRecorder
 
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
@@ -114,14 +114,17 @@ func Execute() {
 	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
 	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
 
-	app.vmInitQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	app.vmInitInformer = app.informerFactory.VM()
-	app.vmInitCache = app.vmInitInformer.GetStore()
-	app.vmInitInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmInitQueue))
+	app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	app.vmPresetCache = app.vmInformer.GetStore()
+	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmPresetQueue))
 
 	app.vmPresetInformer = app.informerFactory.VirtualMachinePreset()
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
+
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.clientSet.CoreV1().Events(k8sv1.NamespaceAll)})
+	app.vmPresetRecorder = broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virtualmachine-preset-controller"})
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -170,7 +173,7 @@ func (vca *VirtControllerApp) Run() {
 					vca.informerFactory.Start(stop)
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
-					go vca.vmInitController.Run(controllerThreads, stop)
+					go vca.vmPresetController.Run(controllerThreads, stop)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -205,8 +208,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinepreset-controller")
-	vca.vmInitController = NewVirtualMachineInitializer(vca.vmPresetInformer, vca.vmInitInformer, vca.vmInitQueue, vca.vmInitCache, vca.clientSet, recorder)
+	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

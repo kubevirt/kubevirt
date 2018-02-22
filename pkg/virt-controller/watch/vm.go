@@ -122,7 +122,7 @@ func (c *VMController) execute(key string) error {
 	}
 
 	// don't process VM's that aren't fully initialized
-	if vm.Initializers != nil && len(vm.Initializers.Pending) > 0 {
+	if !isVirtualMachineInitialized(vm) {
 		return nil
 	}
 

@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-type VirtualMachineInitializer struct {
+type VirtualMachinePresetController struct {
 	vmPresetInformer cache.SharedIndexInformer
 	vmInitInformer   cache.SharedIndexInformer
 	clientset        kubecli.KubevirtClient
@@ -49,10 +49,10 @@ type VirtualMachineInitializer struct {
 	store            cache.Store
 }
 
-const initializerMarking = "presets.virtualmachines.kubevirt.io"
+const initializerMarking = "presets.virtualmachines." + kubev1.GroupName + "/presets-applied"
 
-func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachineInitializer {
-	vmi := VirtualMachineInitializer{
+func NewVirtualMachinePresetController(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachinePresetController {
+	vmi := VirtualMachinePresetController{
 		vmPresetInformer: vmPresetInformer,
 		vmInitInformer:   vmInitInformer,
 		clientset:        clientset,
@@ -63,7 +63,7 @@ func NewVirtualMachineInitializer(vmPresetInformer cache.SharedIndexInformer, vm
 	return &vmi
 }
 
-func (c *VirtualMachineInitializer) Run(threadiness int, stopCh chan struct{}) {
+func (c *VirtualMachinePresetController) Run(threadiness int, stopCh chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.queue.ShutDown()
 	log.Log.Info("Starting Virtual Machine Initializer.")
@@ -80,12 +80,12 @@ func (c *VirtualMachineInitializer) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Stopping controller.")
 }
 
-func (c *VirtualMachineInitializer) runWorker() {
+func (c *VirtualMachinePresetController) runWorker() {
 	for c.Execute() {
 	}
 }
 
-func (c *VirtualMachineInitializer) Execute() bool {
+func (c *VirtualMachinePresetController) Execute() bool {
 	key, quit := c.queue.Get()
 	if quit {
 		return false
@@ -103,7 +103,7 @@ func (c *VirtualMachineInitializer) Execute() bool {
 	return true
 }
 
-func (c *VirtualMachineInitializer) execute(key string) error {
+func (c *VirtualMachinePresetController) execute(key string) error {
 
 	// Fetch the latest VM state from cache
 	obj, exists, err := c.store.GetByKey(key)
@@ -118,7 +118,7 @@ func (c *VirtualMachineInitializer) execute(key string) error {
 		var vm *kubev1.VirtualMachine
 		vm = obj.(*kubev1.VirtualMachine)
 		// only process VM's that aren't initialized by this controller yet
-		if !isInitialized(vm) {
+		if !isVirtualMachineInitialized(vm) {
 			return c.initializeVirtualMachine(vm)
 		}
 	}
@@ -126,7 +126,7 @@ func (c *VirtualMachineInitializer) execute(key string) error {
 	return nil
 }
 
-func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualMachine) error {
+func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.VirtualMachine) error {
 	// All VM's must be marked as initialized or they are held in limbo forever
 	// Collect all errors and defer returning until after the update
 	logger := log.Log
@@ -143,7 +143,7 @@ func (c *VirtualMachineInitializer) initializeVirtualMachine(vm *kubev1.VirtualM
 	}
 
 	logger.Object(vm).Info("Marking VM as initialized and updating")
-	removeInitializer(vm)
+	addInitializedAnnotation(vm)
 	_, err = c.clientset.VM(vm.Namespace).Update(vm)
 	if err != nil {
 		logger.Object(vm).Errorf("Could not update VirtualMachine: %v", err)
@@ -316,32 +316,20 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 	}
 }
 
-// isInitialized checks if *this* module has initialized the VM,
-// which is distinct from "has the VM been initialized by all controllers?"
-func isInitialized(vm *kubev1.VirtualMachine) bool {
-	// if initializers is nil/empty then consider this resource as initialized
-	if vm.Initializers != nil && len(vm.Initializers.Pending) > 0 {
-		for _, i := range vm.Initializers.Pending {
-			if i.Name == initializerMarking {
-				return false
-			}
-		}
+// isVirtualMachineInitialized checks if this module has applied presets
+func isVirtualMachineInitialized(vm *kubev1.VirtualMachine) bool {
+	if vm.Annotations != nil {
+		_, found := vm.Annotations[initializerMarking]
+		return found
 	}
-	return true
+	return false
 }
 
-func removeInitializer(vm *kubev1.VirtualMachine) {
-	if vm.Initializers == nil {
-		// If Initializers is nil, there's nothing to remove.
-		return
+func addInitializedAnnotation(vm *kubev1.VirtualMachine) {
+	if vm.Annotations == nil {
+		vm.Annotations = map[string]string{}
 	}
-	newInitilizers := []k8smetav1.Initializer{}
-	for _, i := range vm.Initializers.Pending {
-		if i.Name != initializerMarking {
-			newInitilizers = append(newInitilizers, i)
-		}
-	}
-	vm.Initializers.Pending = newInitilizers
+	vm.Annotations[initializerMarking] = kubev1.GroupVersion.String()
 }
 
 func annotateVM(vm *kubev1.VirtualMachine, preset kubev1.VirtualMachinePreset) {

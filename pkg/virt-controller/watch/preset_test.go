@@ -84,88 +84,30 @@ var _ = Describe("VM Initializer", func() {
 	})
 
 	Context("Initializer Marking", func() {
-		var thisInitializer k8smetav1.Initializer
-		var initializer1 k8smetav1.Initializer
-		var initializer2 k8smetav1.Initializer
-		var initName1 string
-		var initName2 string
-
-		BeforeEach(func() {
-			initName1 = "test.initializer.1"
-			initName2 = "test.initializer.2"
-			thisInitializer = k8smetav1.Initializer{Name: initializerMarking}
-			initializer1 = k8smetav1.Initializer{Name: initName1}
-			initializer2 = k8smetav1.Initializer{Name: initName2}
+		It("Should handle nil Annotations", func() {
+			vm := &v1.VirtualMachine{}
+			vm.Annotations = nil
+			Expect(isVirtualMachineInitialized(vm)).To(BeFalse())
+			addInitializedAnnotation(vm)
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 		})
 
-		It("Should handle nil initializers", func() {
-			vm := v1.VirtualMachine{}
-			// sanity check that the Initializers array is indeed nil (for testing)
-			Expect(vm.Initializers).To(BeNil())
-			removeInitializer(&vm)
+		It("Should handle empty Annotations", func() {
+			vm := &v1.VirtualMachine{}
+			vm.Annotations = map[string]string{}
+			Expect(isVirtualMachineInitialized(vm)).To(BeFalse())
+			addInitializedAnnotation(vm)
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 		})
 
-		It("Should not modify an empty array", func() {
-			vm := v1.VirtualMachine{}
-			vm.Initializers = new(k8smetav1.Initializers)
-			Expect(len(vm.Initializers.Pending)).To(Equal(0))
-			removeInitializer(&vm)
-			Expect(len(vm.Initializers.Pending)).To(Equal(0))
-		})
-
-		It("Should not modify an array without the correct initializer marking", func() {
-			vm := v1.VirtualMachine{}
-			vm.Initializers = new(k8smetav1.Initializers)
-			vm.Initializers.Pending = []k8smetav1.Initializer{initializer1}
-			removeInitializer(&vm)
-			Expect(len(vm.Initializers.Pending)).To(Equal(1))
-		})
-
-		It("Should remove the correct initializer marking", func() {
-			vm := v1.VirtualMachine{}
-			vm.Initializers = new(k8smetav1.Initializers)
-			vm.Initializers.Pending = []k8smetav1.Initializer{thisInitializer}
-			removeInitializer(&vm)
-			Expect(len(vm.Initializers.Pending)).To(Equal(0))
-		})
-
-		It("Should preserve the rest of the list", func() {
-			vm := v1.VirtualMachine{}
-			vm.Initializers = new(k8smetav1.Initializers)
-			vm.Initializers.Pending = []k8smetav1.Initializer{
-				initializer1,
-				thisInitializer,
-				initializer2}
-			removeInitializer(&vm)
-			Expect(len(vm.Initializers.Pending)).To(Equal(2))
-			Expect(vm.Initializers.Pending[0].Name).To(Equal(initName1))
-			Expect(vm.Initializers.Pending[1].Name).To(Equal(initName2))
-		})
-
-		It("Should recognize a nil initializer", func() {
-			vm := v1.VirtualMachine{}
-			vm.Initializers = nil
-			Expect(isInitialized(&vm)).To(Equal(true))
-		})
-
-		It("Should recognize an empty initializer", func() {
-			vm := v1.VirtualMachine{}
-			vm.Initializers = new(k8smetav1.Initializers)
-			Expect(isInitialized(&vm)).To(Equal(true))
-		})
-
-		It("Should return false if initializer marking is present", func() {
-			vm := v1.VirtualMachine{}
-			vm.Initializers = new(k8smetav1.Initializers)
-			vm.Initializers.Pending = []k8smetav1.Initializer{initializer1, thisInitializer, initializer2}
-			Expect(isInitialized(&vm)).To(Equal(false))
-		})
-
-		It("Should return true for missing initializer", func() {
-			vm := v1.VirtualMachine{}
-			vm.Initializers = new(k8smetav1.Initializers)
-			vm.Initializers.Pending = []k8smetav1.Initializer{initializer1, initializer2}
-			Expect(isInitialized(&vm)).To(Equal(true))
+		It("Should not modify already initialized VM's", func() {
+			vm := &v1.VirtualMachine{}
+			vm.Annotations = map[string]string{}
+			vm.Annotations[initializerMarking] = v1.GroupVersion.String()
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+			// call addInitializedAnnotation
+			addInitializedAnnotation(vm)
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 		})
 	})
 
@@ -444,7 +386,7 @@ var _ = Describe("VM Initializer", func() {
 
 		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 		presetFlavor := "test-case"
-		app.recorder = &FakeRecorder{}
+		app.vmPresetRecorder = &FakeRecorder{}
 
 		BeforeEach(func() {
 			stopChan = make(chan struct{})
@@ -475,7 +417,7 @@ var _ = Describe("VM Initializer", func() {
 			app.vmPresetInformer = cache.NewSharedIndexInformer(presetListWatch, &v1.VirtualMachinePreset{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			go app.vmPresetInformer.Run(stopChan)
 
-			// Synthesize a fake vmInitInformer
+			// Synthesize a fake vmInformer
 			vmListWatch := &cache.ListWatch{
 				ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
 					return &v1.VirtualMachineList{}, nil
@@ -484,15 +426,15 @@ var _ = Describe("VM Initializer", func() {
 					return watch.NewFake(), nil
 				},
 			}
-			app.vmInitInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			app.vmInitCache = app.vmInitInformer.GetStore()
-			app.vmInitQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-			app.vmInitInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmInitQueue))
-			go app.vmInitInformer.Run(stopChan)
+			app.vmInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			app.vmPresetCache = app.vmInformer.GetStore()
+			app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmPresetQueue))
+			go app.vmInformer.Run(stopChan)
 
 			app.initCommon()
 			// Make sure the informers are synced before continuing -- avoid race conditions
-			cache.WaitForCacheSync(stopChan, app.vmPresetInformer.HasSynced, app.vmInitInformer.HasSynced)
+			cache.WaitForCacheSync(stopChan, app.vmPresetInformer.HasSynced, app.vmPresetInformer.HasSynced)
 		})
 
 		AfterEach(func() {
@@ -513,10 +455,11 @@ var _ = Describe("VM Initializer", func() {
 
 		It("should not process an initialized VM", func() {
 			vm := v1.NewMinimalVM("testvm")
+			addInitializedAnnotation(vm)
 
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmInitCache.Add(vm)
-			app.vmInitQueue.Add(key)
+			app.vmPresetCache.Add(vm)
+			app.vmPresetQueue.Add(key)
 
 			// Register the expected REST call
 			server.AppendHandlers(
@@ -526,20 +469,20 @@ var _ = Describe("VM Initializer", func() {
 				),
 			)
 
-			app.vmInitController.Execute()
+			app.vmPresetController.Execute()
 			// the initializer should inspect the VM and decide nothing needs to be done
 			// (and skip the update entirely). So zero requests are expected.
 			Expect(len(server.ReceivedRequests())).To(Equal(0))
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 
 		})
 
 		It("should initialized a VM if needed", func() {
 			vm := v1.NewMinimalVM("testvm")
-			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
 
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmInitCache.Add(vm)
-			app.vmInitQueue.Add(key)
+			app.vmPresetCache.Add(vm)
+			app.vmPresetQueue.Add(key)
 
 			// Register the expected REST call
 			server.AppendHandlers(
@@ -549,14 +492,13 @@ var _ = Describe("VM Initializer", func() {
 				),
 			)
 
-			app.vmInitController.Execute()
+			app.vmPresetController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 		})
 
 		It("should apply presets", func() {
 			vm := v1.NewMinimalVM("testvm")
-			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 
 			// Register the expected REST call
@@ -567,7 +509,7 @@ var _ = Describe("VM Initializer", func() {
 				),
 			)
 
-			err := app.vmInitController.initializeVirtualMachine(vm)
+			err := app.vmPresetController.initializeVirtualMachine(vm)
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -576,9 +518,8 @@ var _ = Describe("VM Initializer", func() {
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
 		})
 
-		It("should should annotate partially applied presets", func() {
+		It("should annotate partially applied presets", func() {
 			vm := v1.NewMinimalVM("testvm")
-			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 			vm.Spec.Domain = v1.DomainSpec{CPU: &v1.CPU{Cores: 6}}
 
@@ -590,7 +531,7 @@ var _ = Describe("VM Initializer", func() {
 				),
 			)
 
-			err := app.vmInitController.initializeVirtualMachine(vm)
+			err := app.vmPresetController.initializeVirtualMachine(vm)
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -601,7 +542,6 @@ var _ = Describe("VM Initializer", func() {
 
 		It("should should not annotate presets with no settings successfully applied", func() {
 			vm := v1.NewMinimalVM("testvm")
-			vm.Initializers = &k8smetav1.Initializers{Pending: []k8smetav1.Initializer{k8smetav1.Initializer{Name: initializerMarking}}}
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 			vm.Spec.Domain = v1.DomainSpec{
 				CPU:      &v1.CPU{Cores: 6},
@@ -615,19 +555,17 @@ var _ = Describe("VM Initializer", func() {
 				),
 			)
 
-			err := app.vmInitController.initializeVirtualMachine(vm)
+			err := app.vmPresetController.initializeVirtualMachine(vm)
 
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			Expect(len(vm.Annotations)).To(Equal(0))
+
+			_, found := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+			Expect(found).To(BeFalse())
 		})
 	})
 })
-
-func NewInitializer(name string) k8smetav1.Initializer {
-	return k8smetav1.Initializer{Name: name}
-}
 
 func TestLogging(t *testing.T) {
 	RegisterFailHandler(Fail)
