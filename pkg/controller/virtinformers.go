@@ -24,11 +24,8 @@ import (
 	"sync"
 	"time"
 
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -118,19 +115,7 @@ func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer)
 
 func (f *kubeInformerFactory) VM() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
-		// virtual machine informer needs to be aware of un-initialized VM's
-		// because this is shared by the initializer that applies presets
-		watchlist := cache.NewListWatchFromClient(f.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
-		lw := &cache.ListWatch{
-			ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
-				options.IncludeUninitialized = true
-				return watchlist.List(options)
-			},
-			WatchFunc: func(options k8smetav1.ListOptions) (watch.Interface, error) {
-				options.IncludeUninitialized = true
-				return watchlist.Watch(options)
-			},
-		}
+		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }

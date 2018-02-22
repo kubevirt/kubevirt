@@ -23,7 +23,6 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -40,12 +39,6 @@ import (
 )
 
 var _ = Describe("VMPreset", func() {
-
-	dockerTag := os.Getenv("docker_tag")
-	if dockerTag == "" {
-		dockerTag = "latest"
-	}
-
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()

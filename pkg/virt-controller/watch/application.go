@@ -121,10 +121,7 @@ func Execute() {
 	app.vmPresetInformer = app.informerFactory.VirtualMachinePreset()
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
-
-	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.clientSet.CoreV1().Events(k8sv1.NamespaceAll)})
-	app.vmPresetRecorder = broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virtualmachine-preset-controller"})
+	app.vmPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
 
 	app.initCommon()
 	app.initReplicaSet()
