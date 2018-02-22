@@ -20,9 +20,11 @@ spec:
             memory: 8Mi
         devices:
           disks:
-          - name: disk0
-            volumeName: mypcv
+            - name: registrydisk
+              volumeName: registryvolume
+              disk:
+                bus: virtio
       volumes:
-        - name: mypvc
-          persistentVolumeClaim:
-            claimName: myclaim
+        - name: registryvolume
+          registryDisk:
+            image: kubevirt/cirros-registry-disk-demo:devel
