@@ -30,7 +30,16 @@ systemctl enable cockpit.socket && systemctl start cockpit.socket
 rm -rf /var/lib/kubelet
 
 # Create the master
-kubeadm init --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456
+cat >/etc/kubernetes/kubeadm.conf <<EOF
+apiVersion: kubeadm.k8s.io/v1alpha1
+kind: MasterConfiguration
+apiServerExtraArgs:
+  runtime-config: admissionregistration.k8s.io/v1alpha1
+token: abcdef.1234567890123456
+pod-network-cidr: 10.244.0.0/16
+EOF
+
+kubeadm init --config /etc/kubernetes/kubeadm.conf
 
 # Tell kubectl which config to use
 export KUBECONFIG=/etc/kubernetes/admin.conf

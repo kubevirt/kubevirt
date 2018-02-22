@@ -10,7 +10,7 @@ function up() {
     VAGRANT_NUM_NODES=${VAGRANT_NUM_NODES-0}
     # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
     VAGRANT_NUM_NODES=$((VAGRANT_NUM_NODES + 1))
-    docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest run --nodes ${VAGRANT_NUM_NODES} --tls-port 127.0.0.1:8443 --ssh-port 127.0.0.1:2201 --background --registry-port 127.0.0.1:5000 --prefix kubevirt --registry-volume kubevirt_registry --base rmohr/kubeadm-1.9.3
+    docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest run --nodes ${VAGRANT_NUM_NODES} --tls-port 127.0.0.1:8443 --ssh-port 127.0.0.1:2201 --background --registry-port 127.0.0.1:5000 --prefix kubevirt --registry-volume kubevirt_registry --base "rmohr/kubeadm-1.9.3@sha256:5f9394037a62ee0d5fb8e6005cf248f0b7601e1d0a67c0af79ff8d2f8e9541bb"
     docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest ssh node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
 
     chmod 0600 ${KUBEVIRT_PATH}cluster/k8s-1.9.3/vagrant.key
