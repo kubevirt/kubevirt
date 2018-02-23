@@ -50,7 +50,7 @@ var _ = Describe("Console", func() {
 		tests.WaitForSuccessfulVMStart(vm)
 
 		By("Expecting the VM console")
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -90,7 +90,7 @@ var _ = Describe("Console", func() {
 
 				for i := 0; i < 5; i++ {
 					By("Expecting a VM console")
-					expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+					expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 					defer expecter.Close()
 					Expect(err).ToNot(HaveOccurred())
 

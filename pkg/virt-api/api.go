@@ -1,8 +1,13 @@
 package virt_api
 
 import (
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+
+	"k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/cert/triple"
 
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
@@ -13,6 +18,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -20,7 +26,7 @@ import (
 
 const (
 	// Default port that virt-api listens on.
-	defaultPort = 8183
+	defaultPort = 443
 
 	// Default address that virt-api listens on.
 	defaultHost = "0.0.0.0"
@@ -29,6 +35,7 @@ const (
 type VirtAPIApp struct {
 	service.ServiceListen
 	SwaggerUI string
+	virtCli   kubecli.KubevirtClient
 }
 
 var _ service.Service = &VirtAPIApp{}
@@ -38,20 +45,28 @@ func (app *VirtAPIApp) Compose() {
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
 	vmpGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinepresets"}
+	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
+
+	virtCli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		panic(err)
+	}
+
+	app.virtCli = virtCli
 
 	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	ws, err = rest.GenericResourceProxy(ws, ctx, vmrsGVR, &v1.VirtualMachineReplicaSet{}, v1.VMReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineReplicaSetList{})
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachinePreset{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachinePresetList{})
@@ -59,7 +74,27 @@ func (app *VirtAPIApp) Compose() {
 		log.Fatal(err)
 	}
 
+	subws := new(restful.WebService)
+	subws.Doc("The KubeVirt API, a virtual machine management.")
+	subws.Path(rest.GroupVersionBasePath(v1.SubresourceGroupVersion))
+
+	subresourceApp := &rest.SubresourceAPIApp{
+		VirtCli: app.virtCli,
+	}
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("console")).
+		To(subresourceApp.ConsoleRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("console").
+		Doc("Open a websocket connection to a serial console on the specified VM."))
+
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("vnc")).
+		To(subresourceApp.VNCRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("vnc").
+		Doc("Open a websocket connection to connect to VNC on the specified VM."))
+
 	restful.Add(ws)
+	restful.Add(subws)
 
 	ws.Route(ws.GET("/healthz").
 		To(healthz.KubeConnectionHealthzFunc).
@@ -71,7 +106,7 @@ func (app *VirtAPIApp) Compose() {
 		Returns(http.StatusInternalServerError, "Unhealthy", nil))
 	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmGVR)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	restful.Add(ws)
@@ -113,7 +148,30 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 }
 
 func (app *VirtAPIApp) Run() {
-	log.Fatal(http.ListenAndServe(app.Address(), nil))
+	caKeyPair, _ := triple.NewCA("kubevirt.io")
+	keyPair, _ := triple.NewServerKeyPair(
+		caKeyPair,
+		"virt-api.kube-system.pod.cluster.local",
+		"virt-api",
+		"kube-system",
+		"cluster.local",
+		nil,
+		nil,
+	)
+	dir, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	ioutil.WriteFile(dir+"/key.pem", cert.EncodePrivateKeyPEM(keyPair.Key), 0600)
+	ioutil.WriteFile(dir+"/cert.pem", cert.EncodeCertPEM(keyPair.Cert), 0600)
+
+	errors := make(chan error)
+
+	go func() {
+		errors <- http.ListenAndServeTLS(app.BindAddress+":"+"8443", dir+"/cert.pem", dir+"/key.pem", nil)
+	}()
+	panic(<-errors)
+	//	panic(http.ListenAndServe(app.Address(), nil))
 }
 
 func (app *VirtAPIApp) AddFlags() {

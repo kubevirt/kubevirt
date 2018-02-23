@@ -39,7 +39,6 @@ type Console struct {
 
 func (c *Console) FlagSet() *flag.FlagSet {
 	cf := flag.NewFlagSet("console", flag.ExitOnError)
-	cf.StringP("device", "d", "serial0", "Console to connect to")
 
 	return cf
 }
@@ -58,7 +57,6 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
 	namespace, _ := flags.GetString("namespace")
-	device := "serial0"
 	if namespace == "" {
 		namespace = v1.NamespaceDefault
 	}
@@ -96,7 +94,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	readStop := make(chan error)
 
 	go func() {
-		err := virtCli.VM(namespace).SerialConsole(vm, device, stdinReader, stdoutWriter)
+		err := virtCli.VM(namespace).SerialConsole(vm, stdinReader, stdoutWriter)
 		resChan <- err
 	}()
 

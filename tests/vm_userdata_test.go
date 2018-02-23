@@ -63,7 +63,7 @@ var _ = Describe("CloudInit UserData", func() {
 
 	VerifyUserDataVM := func(vm *v1.VirtualMachine, commands []expect.Batcher, timeout time.Duration) {
 		By("Expecting the VM console")
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 

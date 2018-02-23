@@ -36,6 +36,7 @@ for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete deployment -l 'kubevirt.io'
     _kubectl -n ${i} delete rs -l 'kubevirt.io'
     _kubectl -n ${i} delete services -l 'kubevirt.io'
+    _kubectl -n ${i} delete apiservices -l 'kubevirt.io'
     _kubectl -n ${i} delete pv -l 'kubevirt.io'
     _kubectl -n ${i} delete pvc -l 'kubevirt.io'
     _kubectl -n ${i} delete ds -l 'kubevirt.io'

@@ -84,7 +84,7 @@ var _ = Describe("Networking", func() {
 			defer wg.Done()
 			defer GinkgoRecover()
 			inboundVM = createAndLogin()
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVM, "serial0", 10*time.Second)
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVM, 10*time.Second)
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
 			_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -114,7 +114,7 @@ var _ = Describe("Networking", func() {
 			}
 
 			// Wait until the VM is booted, ping google and check if we can reach the internet
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVM, "serial0", 10*time.Second)
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVM, 10*time.Second)
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
 			_, err = expecter.ExpectBatch([]expect.Batcher{
