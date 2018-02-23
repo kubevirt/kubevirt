@@ -124,15 +124,15 @@ var _ = Describe("VMPreset", func() {
 			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := v1.VirtualMachine{}
-			err = virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.Name).Do().Into(&newVm)
-			Expect(err).ToNot(HaveOccurred())
+			newVm := waitForVirtualMachine(virtClient)
 
 			Expect(newVm.Labels[flavorKey]).To(Equal(memoryFlavor))
 			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(memoryFlavor))
 
 			// check the annotations
-			Expect(len(newVm.Annotations)).To(Equal(0))
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			_, found := newVm.Annotations[annotationKey]
+			Expect(found).To(BeFalse())
 		})
 
 		It("Should accept presets that don't conflict with VM settings", func() {
@@ -147,9 +147,7 @@ var _ = Describe("VMPreset", func() {
 			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := v1.VirtualMachine{}
-			err = virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.Name).Do().Into(&newVm)
-			Expect(err).ToNot(HaveOccurred())
+			newVm := waitForVirtualMachine(virtClient)
 
 			Expect(newVm.Labels[flavorKey]).To(Equal(cpuFlavor))
 			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(cpuFlavor))
@@ -173,11 +171,7 @@ var _ = Describe("VMPreset", func() {
 			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := v1.VirtualMachine{}
-			err = virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.Name).Do().Into(&newVm)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(len(newVm.Annotations)).To(Equal(0))
+			newVm := waitForVirtualMachine(virtClient)
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
@@ -190,14 +184,12 @@ var _ = Describe("VMPreset", func() {
 			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newPreset := waitForPreset(virtClient)
+			newVm := waitForVirtualMachine(virtClient)
 
 			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := v1.VirtualMachine{}
-			err = virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.Name).Do().Into(&newVm)
-			Expect(err).ToNot(HaveOccurred())
+			newPreset := waitForPreset(virtClient)
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
@@ -215,8 +207,28 @@ func waitForPreset(virtClient kubecli.KubevirtClient) v1.VirtualMachinePreset {
 		Expect(err).ToNot(HaveOccurred())
 		if len(presetList.Items) == 1 {
 			preset = presetList.Items[0]
+			return true
 		}
-		return true
+		return false
 	}, time.Duration(60)*time.Second).Should(Equal(true), "Timed out waiting for preset to appear")
 	return preset
+}
+
+func waitForVirtualMachine(virtClient kubecli.KubevirtClient) v1.VirtualMachine {
+	initializerMarking := "presets.virtualmachines." + v1.GroupName + "/presets-applied"
+
+	vm := v1.VirtualMachine{}
+	Eventually(func() bool {
+		vmList := v1.VirtualMachineList{}
+		err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Do().Into(&vmList)
+		Expect(err).ToNot(HaveOccurred())
+		if len(vmList.Items) == 1 {
+			vm = vmList.Items[0]
+			_, found := vm.Annotations[initializerMarking]
+			return found
+		}
+		return false
+	}, time.Duration(60)*time.Second).Should(Equal(true), "Timed out waiting for VM to appear")
+
+	return vm
 }
