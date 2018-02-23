@@ -551,11 +551,12 @@ func (c *OVMController) removeCondition(ovm *virtv1.OfflineVirtualMachine, cond 
 }
 
 func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) error {
-	// check if we need to update because of appeared or disappeard errors
-	errorsMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
 
-	// in case scaleErr and the error condition equal, don't update
-	if errorsMatch {
+	// Check if it is worth updating
+	runningMatch := ovm.Spec.Running == c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning)
+	errMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
+
+	if runningMatch && errMatch {
 		return nil
 	}
 
@@ -587,7 +588,9 @@ func (c *OVMController) getVirtualMachineBaseName(ovm *virtv1.OfflineVirtualMach
 }
 
 func (c *OVMController) processRunning(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
+	log.Log.Object(ovm).Infof("Processing running status:: running: %t; err: %t; vm: %t", ovm.Spec.Running, createErr == nil, vm == nil)
 	if ovm.Spec.Running && createErr == nil && !c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning) {
+		log.Log.Object(ovm).Info("Adding running condition")
 		ovm.Status.Conditions = append(ovm.Status.Conditions, virtv1.OfflineVirtualMachineCondition{
 			Type:               virtv1.OfflineVirtualMachineRunning,
 			Reason:             fmt.Sprintf("Created by OVM %s", ovm.ObjectMeta.Name),
