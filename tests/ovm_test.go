@@ -30,7 +30,6 @@ import (
 	// "github.com/onsi/ginkgo/extensions/table"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	"time"
 
@@ -66,7 +65,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				ovm, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Get(newOVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return ovm.Status.Conditions[0].Type
-			}, 120*time.Second, 1*time.Second).Should(Equal("Running"))
+			}, 120*time.Second, 1*time.Second).Should(Equal(v1.OfflineVirtualMachineRunning))
 		})
 
 		It("should remove VM once the OVM is marked for deletion", func() {
@@ -79,14 +78,14 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				vms, err := virtClient.VM(newOVM.Namespace).List(v12.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return len(vms.Items)
-			}, 60*time.Second, 1*time.Second).Should(BeZero())
+			}, 120*time.Second, 2*time.Second).Should(BeZero())
 		})
 
 		It("should remove owner references on the VM if it is orphan deleted", func() {
 			newOVM := newOfflineVirtualMachine()
 
 			// Check for owner reference
-			vms, err := virtClient.VM(newOVM.Namespace).List(v12.ListOptions{})
+			vms, _ := virtClient.VM(newOVM.Namespace).List(v12.ListOptions{})
 			Expect(vms.Items).To(HaveLen(1))
 			for _, vm := range vms.Items {
 				Expect(vm.OwnerReferences).ToNot(BeEmpty())
@@ -96,7 +95,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			orphanPolicy := v12.DeletePropagationOrphan
 			Expect(virtClient.OfflineVirtualMachine(newOVM.Namespace).
 				Delete(newOVM.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
-			// Wait until the replica set is deleted
+			// Wait until the offlinevm is deleted
 			Eventually(func() bool {
 				_, err := virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 				if errors.IsNotFound(err) {
@@ -106,7 +105,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 			vms, err = virtClient.VM(newOVM.Namespace).List(v12.ListOptions{})
-			Expect(vms.Items).To(HaveLen(2))
+			Expect(vms.Items).To(HaveLen(1))
 			for _, vm := range vms.Items {
 				Expect(vm.OwnerReferences).To(BeEmpty())
 			}
@@ -117,10 +116,11 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 // NewRandomOfflineVirtualMachine creates new OfflineVirtualMachine
 func NewRandomOfflineVirtualMachine(vm *v1.VirtualMachine, running bool) *v1.OfflineVirtualMachine {
-	name := "offlinevm" + rand.String(5)
+	name := vm.Name
 	ovm := &v1.OfflineVirtualMachine{
 		ObjectMeta: v12.ObjectMeta{Name: name},
 		Spec: v1.OfflineVirtualMachineSpec{
+			Running: true,
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: v12.ObjectMeta{
 					Labels: map[string]string{"name": name},
