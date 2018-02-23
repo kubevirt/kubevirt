@@ -155,7 +155,6 @@ var _ = Describe("VMPreset", func() {
 			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(cpuFlavor))
 
 			// check the annotations
-			Expect(len(newVm.Annotations)).To(Equal(1))
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
 			Expect(newVm.Annotations[annotationKey]).To(Equal("kubevirt.io/v1alpha1"))
 
@@ -167,6 +166,8 @@ var _ = Describe("VMPreset", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
+			newPreset := waitForPreset(virtClient)
+
 			// reset the label so it will not match
 			vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
 			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
@@ -177,12 +178,19 @@ var _ = Describe("VMPreset", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(newVm.Annotations)).To(Equal(0))
+
+			// check the annotations
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			_, found := newVm.Annotations[annotationKey]
+			Expect(found).To(BeFalse())
 		})
 
 		It("Should not be applied to existing VMs", func() {
 			// create the VM first
 			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
+
+			newPreset := waitForPreset(virtClient)
 
 			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
@@ -191,7 +199,10 @@ var _ = Describe("VMPreset", func() {
 			err = virtClient.RestClient().Get().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.Name).Do().Into(&newVm)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(len(newVm.Annotations)).To(Equal(0))
+			// check the annotations
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			_, found := newVm.Annotations[annotationKey]
+			Expect(found).To(BeFalse())
 		})
 	})
 })
