@@ -134,7 +134,11 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 
 	logger.Object(vm).Info("Initializing VirtualMachine")
 
-	allPresets := listPresets(c.vmPresetInformer, vm.GetNamespace())
+	allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
+	if err != nil {
+		logger.Object(vm).Errorf("Listing VirtualMachinePresets failed: %v", err)
+		return err
+	}
 
 	matchingPresets := filterPresets(allPresets, vm, c.recorder)
 
@@ -152,28 +156,27 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 	return nil
 }
 
-// FIXME: There is probably a way to set up the vmPresetInformer such that
-// items are already partitioned into namespaces (and can just be listed)
-func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) []kubev1.VirtualMachinePreset {
+// listPresets returns all VirtualMachinePresets by namespace
+func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachinePreset, error) {
+	indexer := vmPresetInformer.GetIndexer()
+	selector := labels.NewSelector()
 	result := []kubev1.VirtualMachinePreset{}
-	for _, obj := range vmPresetInformer.GetStore().List() {
-		var preset *kubev1.VirtualMachinePreset
-		preset = obj.(*kubev1.VirtualMachinePreset)
-		if preset.Namespace == namespace {
-			result = append(result, *preset)
-		}
-	}
-	return result
+	err := cache.ListAllByNamespace(indexer, namespace, selector, func(obj interface{}) {
+		vm := obj.(*kubev1.VirtualMachinePreset)
+		result = append(result, *vm)
+	})
+
+	return result, err
 }
 
 // filterPresets returns list of VirtualMachinePresets which match given VirtualMachine.
 func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine, recorder record.EventRecorder) []kubev1.VirtualMachinePreset {
 	matchingPresets := []kubev1.VirtualMachinePreset{}
-
 	logger := log.Log
 
 	for _, preset := range list {
 		selector, err := k8smetav1.LabelSelectorAsSelector(&preset.Spec.Selector)
+
 		if err != nil {
 			// Do not return an error from this function--or the VM will be
 			// re-enqueued for processing again.
