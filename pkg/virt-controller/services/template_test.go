@@ -145,7 +145,7 @@ var _ = Describe("Template", func() {
 				Expect(err).To(BeNil())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(5))
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
 			})
