@@ -131,7 +131,7 @@ var _ = Describe("VM Initializer", func() {
 					Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
 				},
 				Features: &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
-					APIC:   &v1.FeatureState{Enabled: &falsy},
+					APIC:   &v1.FeatureAPIC{Enabled: &falsy},
 					Hyperv: &v1.FeatureHyperv{},
 				},
 				Devices: v1.Devices{
@@ -215,7 +215,7 @@ var _ = Describe("VM Initializer", func() {
 			Expect(err).To(HaveOccurred())
 
 			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
-				APIC:   &v1.FeatureState{Enabled: &falsy},
+				APIC:   &v1.FeatureAPIC{Enabled: &falsy},
 				Hyperv: &v1.FeatureHyperv{},
 			}
 			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
@@ -295,7 +295,7 @@ var _ = Describe("VM Initializer", func() {
 
 		It("Should apply Feature settings", func() {
 			features := &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
-				APIC:   &v1.FeatureState{Enabled: &falsy},
+				APIC:   &v1.FeatureAPIC{Enabled: &falsy},
 				Hyperv: &v1.FeatureHyperv{},
 			}
 
