@@ -589,7 +589,7 @@ func (in *Features) DeepCopyInto(out *Features) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(FeatureState)
+			*out = new(FeatureAPIC)
 			(*in).DeepCopyInto(*out)
 		}
 	}

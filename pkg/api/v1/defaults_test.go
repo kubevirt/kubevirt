@@ -28,7 +28,7 @@ var _ = Describe("Defaults", func() {
 		}
 		vm.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{},
-			APIC: &FeatureState{},
+			APIC: &FeatureAPIC{},
 			Hyperv: &FeatureHyperv{
 				Relaxed:    &FeatureState{},
 				VAPIC:      &FeatureState{},
@@ -68,7 +68,7 @@ var _ = Describe("Defaults", func() {
 		}
 		vm.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _true},
-			APIC: &FeatureState{Enabled: _false},
+			APIC: &FeatureAPIC{Enabled: _false},
 			Hyperv: &FeatureHyperv{
 				Relaxed:    &FeatureState{Enabled: _true},
 				VAPIC:      &FeatureState{Enabled: _false},
@@ -101,7 +101,7 @@ var _ = Describe("Defaults", func() {
 
 		vm.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _false},
-			APIC: &FeatureState{Enabled: _true},
+			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
 				Relaxed:    &FeatureState{Enabled: _false},
 				VAPIC:      &FeatureState{Enabled: _true},

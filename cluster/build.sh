@@ -21,7 +21,16 @@
 # We're leaving this file around for people who still reference this
 # specific script in their development workflow.
 
+set -e
+
 PROVIDER=${PROVIDER:-vagrant-kubernetes}
+
+source hack/common.sh
 source cluster/$PROVIDER/provider.sh
+source hack/config.sh
+
+echo "Building ..."
 
 build
+
+echo "Done"

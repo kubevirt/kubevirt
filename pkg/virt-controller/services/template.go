@@ -74,10 +74,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		Name:      "host-dev",
 		MountPath: "/host-dev",
 	})
-	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
-		Name:      "host-sys",
-		MountPath: "/host-sys",
-	})
 	for _, volume := range vm.Spec.Volumes {
 		volumeMount := kubev1.VolumeMount{
 			Name:      volume.Name,
@@ -163,14 +159,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		VolumeSource: kubev1.VolumeSource{
 			HostPath: &kubev1.HostPathVolumeSource{
 				Path: "/dev",
-			},
-		},
-	})
-	volumes = append(volumes, kubev1.Volume{
-		Name: "host-sys",
-		VolumeSource: kubev1.VolumeSource{
-			HostPath: &kubev1.HostPathVolumeSource{
-				Path: "/sys",
 			},
 		},
 	})
