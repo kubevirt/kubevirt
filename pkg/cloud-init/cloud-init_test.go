@@ -166,7 +166,7 @@ var _ = Describe("CloudInit", func() {
 		})
 
 		Describe("A new VM definition", func() {
-			verifyCloudInitIso := func (dataSource *v1.CloudInitNoCloudSource) {
+			verifyCloudInitIso := func(dataSource *v1.CloudInitNoCloudSource) {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
 				err := GenerateLocalData(domain, namespace, dataSource)

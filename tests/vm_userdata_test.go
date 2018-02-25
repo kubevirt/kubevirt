@@ -76,7 +76,7 @@ var _ = Describe("CloudInit UserData", func() {
 	})
 
 	Describe("A new VM", func() {
-		Context("with cloudInitNoCloud source", func() {
+		Context("with cloudInitNoCloud userDataBase64 source", func() {
 			It("should have cloud-init data", func(done Done) {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
@@ -110,6 +110,37 @@ var _ = Describe("CloudInit UserData", func() {
 					}, time.Second*300)
 				}, 360)
 			})
+		})
+
+		Context("with cloudInitNoCloud userData source", func() {
+			It("should have cloud-init data", func(done Done) {
+				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
+
+				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+					Name:       "disk1",
+					VolumeName: "disk1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				})
+				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+					Name: "disk1",
+					VolumeSource: v1.VolumeSource{
+						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+							UserData: userData,
+						},
+					},
+				})
+
+				LaunchVM(vm)
+				VerifyUserDataVM(vm, []expect.Batcher{
+					&expect.BExp{R: expectedUserData},
+				}, time.Second*120)
+				close(done)
+			}, 180)
 		})
 
 		It("should take user-data from k8s secret", func(done Done) {
