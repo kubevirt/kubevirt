@@ -17,14 +17,21 @@ spec:
       domain:
         resources:
           requests:
-            memory: 8Mi
+            memory: 64M
         devices:
           disks:
             - name: registrydisk
               volumeName: registryvolume
               disk:
                 bus: virtio
+            - name: cloudinitdisk
+              volumeName: cloudinitvolume
+              disk:
+                bus: virtio
       volumes:
         - name: registryvolume
           registryDisk:
             image: kubevirt/cirros-registry-disk-demo:devel
+        - name: cloudinitvolume
+          cloudInitNoCloud:
+            userDataBase64: SGkuXG4= 
