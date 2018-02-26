@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/google/goexpect"
 	"k8s.io/apimachinery/pkg/api/errors"
-
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -53,7 +53,8 @@ var _ = Describe("OfflineVirtualMachine", func() {
 	Context("A valid OfflineVirtualMachine given", func() {
 
 		newOfflineVirtualMachine := func(running bool) *v1.OfflineVirtualMachine {
-			template := tests.NewRandomVMWithEphemeralDisk("kubevirt/cirros-registry-disk-demo:devel")
+			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
 			newOVM := NewRandomOfflineVirtualMachine(template, running)
 			newOVM, err = virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(newOVM)
 			Expect(err).ToNot(HaveOccurred())
@@ -243,6 +244,49 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			vmMemory = vm.Spec.Domain.Resources.Requests.Memory()
 			ovmMemory = updatedOVM.Spec.Template.Spec.Domain.Resources.Requests.Memory()
 			Expect(vmMemory.Cmp(*ovmMemory)).To(Equal(0))
+		})
+
+		It("should survive guest shutdown, multiple times", func() {
+			newOVM := newOfflineVirtualMachine(false)
+
+			for i := 0; i < 1; i++ {
+				startOVM(newOVM)
+
+				By("VM being in running phase")
+				Eventually(func() bool {
+					vm, err := virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.Phase == "Running"
+				}, 200*time.Second, 1*time.Second).Should(BeTrue())
+
+				vm, err := virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Guest reboot")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "cirros login:"},
+					&expect.BSnd{S: "cirros\n"},
+					&expect.BExp{R: "Password:"},
+					&expect.BSnd{S: "gocubsgo\n"},
+					&expect.BExp{R: "$"},
+					// keep the ordering!
+					&expect.BSnd{S: "sudo poweroff"},
+					&expect.BExp{R: "reboot: Power down"},
+				}, 360*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("OVM does not have running condition")
+				Eventually(func() bool {
+					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return hasCondition(newOVM, v1.OfflineVirtualMachineFailure)
+				}, 120*time.Second, 1*time.Second).Should(BeTrue())
+			}
 		})
 	})
 })
