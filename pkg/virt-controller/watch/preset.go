@@ -115,8 +115,8 @@ func (c *VirtualMachinePresetController) execute(key string) error {
 	// If the VM isn't in the cache, it was just deleted, so shouldn't
 	// be initialized
 	if exists {
-		var vm *kubev1.VirtualMachine
-		vm = obj.(*kubev1.VirtualMachine)
+		vm  := &kubev1.VirtualMachine{}
+		obj.(*kubev1.VirtualMachine).DeepCopyInto(vm)
 		// only process VM's that aren't initialized by this controller yet
 		if !isVirtualMachineInitialized(vm) {
 			return c.initializeVirtualMachine(vm)

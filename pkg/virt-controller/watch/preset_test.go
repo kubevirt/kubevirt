@@ -456,6 +456,7 @@ var _ = Describe("VM Initializer", func() {
 		It("should not process an initialized VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			addInitializedAnnotation(vm)
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
 			app.vmPresetCache.Add(vm)
@@ -474,10 +475,9 @@ var _ = Describe("VM Initializer", func() {
 			// (and skip the update entirely). So zero requests are expected.
 			Expect(len(server.ReceivedRequests())).To(Equal(0))
 			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
-
 		})
 
-		It("should initialized a VM if needed", func() {
+		It("should initialize a VM if needed", func() {
 			vm := v1.NewMinimalVM("testvm")
 
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
@@ -494,7 +494,10 @@ var _ = Describe("VM Initializer", func() {
 
 			app.vmPresetController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+
+			// We should expect no changes to this VM object--because that would mean
+			// there were side effects in the cache.
+			Expect(isVirtualMachineInitialized(vm)).To(BeFalse())
 		})
 
 		It("should apply presets", func() {
