@@ -45,6 +45,7 @@ for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete clusterrolebinding -l 'kubevirt.io'
     _kubectl -n ${i} delete clusterroles -l 'kubevirt.io'
     _kubectl -n ${i} delete serviceaccounts -l 'kubevirt.io'
+    _kubectl -n ${i} delete ovm -l 'kubevirt.io'
 done
 
 sleep 2
