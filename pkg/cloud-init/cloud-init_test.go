@@ -27,13 +27,12 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -47,7 +46,7 @@ var _ = Describe("CloudInit", func() {
 	}
 	isoCreationFunc := func(isoOutFile string, inFiles []string) error {
 		if isoOutFile == "noCloud" && len(inFiles) != 2 {
-			return errors.New("Unexpected number of files for noCloud")
+			return errors.New("unexpected number of files for noCloud")
 		}
 
 		// fake creating the iso
@@ -73,9 +72,9 @@ var _ = Describe("CloudInit", func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	Describe("CloudInit Nocloud datasource", func() {
-		Context("nocloud", func() {
-			It("Verify no cloudinit data exec timeout works", func() {
+	Describe("No-Cloud data source", func() {
+		Context("when ISO generation fails", func() {
+			It("should fail local data generation", func() {
 
 				timedOut := false
 				customCreationFunc := func(isoOutFile string, inFiles []string) error {
@@ -120,20 +119,57 @@ var _ = Describe("CloudInit", func() {
 				Expect(timedOut).To(Equal(true))
 			})
 
-			It("delete non-existent local Nocloud data.", func() {
-				namespace := "fake-namespace"
-				domain := "fake-domain"
-				err = RemoveLocalData(domain, namespace)
-				Expect(err).ToNot(HaveOccurred())
+			Context("when local data does not exist", func() {
+				It("should fail to remove local data", func() {
+					namespace := "fake-namespace"
+					domain := "fake-domain"
+					err = RemoveLocalData(domain, namespace)
+					Expect(err).ToNot(HaveOccurred())
+				})
 			})
-			It("define vm with Nocloud datasource.", func() {
+
+			Context("with multiple data dirs and files", func() {
+				It("should list all VM's", func() {
+					var domains []string
+					fmt.Println(tmpDir)
+					domains = append(domains, "fakens1/fakedomain1")
+					domains = append(domains, "fakens1/fakedomain2")
+					domains = append(domains, "fakens2/fakedomain1")
+					domains = append(domains, "fakens2/fakedomain2")
+					domains = append(domains, "fakens3/fakedomain1")
+					domains = append(domains, "fakens4/fakedomain1")
+
+					for _, dom := range domains {
+						err := os.MkdirAll(fmt.Sprintf("%s/%s/some-other-dir", tmpDir, dom), 0755)
+						Expect(err).ToNot(HaveOccurred())
+						msg := "fake content"
+						bytes := []byte(msg)
+						err = ioutil.WriteFile(fmt.Sprintf("%s/%s/some-file", tmpDir, dom), bytes, 0644)
+						Expect(err).ToNot(HaveOccurred())
+					}
+
+					vms, err := ListVmWithLocalData()
+					for _, vm := range vms {
+						namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+						domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+
+						Expect(namespace).To(ContainSubstring("fakens"))
+						Expect(domain).To(ContainSubstring("fakedomain"))
+					}
+
+					Expect(len(vms)).To(Equal(len(domains)))
+					Expect(err).ToNot(HaveOccurred())
+
+					// verify a vm from each namespace is present
+				})
+			})
+		})
+
+		Describe("A new VM definition", func() {
+			verifyCloudInitIso := func(dataSource *v1.CloudInitNoCloudSource) {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
-				userData := "fake\nuser\ndata\n"
-				cloudInitData := &v1.CloudInitNoCloudSource{
-					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-				}
-				err := GenerateLocalData(domain, namespace, cloudInitData)
+				err := GenerateLocalData(domain, namespace, dataSource)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created
@@ -149,43 +185,25 @@ var _ = Describe("CloudInit", func() {
 					err = nil
 				}
 				Expect(err).ToNot(HaveOccurred())
+			}
+
+			Context("with cloudInitNoCloud userDataBase64 volume source", func() {
+				It("should success", func() {
+					userData := "fake\nuser\ndata\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+					}
+					verifyCloudInitIso(cloudInitData)
+				})
 			})
-
-			It("Verify listing VMs based on local nocloud data", func() {
-
-				var domains []string
-
-				domains = append(domains, "fakens1/fakedomain1")
-				domains = append(domains, "fakens1/fakedomain2")
-				domains = append(domains, "fakens2/fakedomain1")
-				domains = append(domains, "fakens2/fakedomain2")
-				domains = append(domains, "fakens3/fakedomain1")
-				domains = append(domains, "fakens4/fakedomain1")
-
-				for _, dom := range domains {
-					err := os.MkdirAll(fmt.Sprintf("%s/%s/some-other-dir", tmpDir, dom), 0755)
-					Expect(err).ToNot(HaveOccurred())
-					msg := "fake content"
-					bytes := []byte(msg)
-					err = ioutil.WriteFile(fmt.Sprintf("%s/%s/some-file", tmpDir, dom), bytes, 0644)
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				vms, err := ListVmWithLocalData()
-				for _, vm := range vms {
-					namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-					domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-
-					isNamespace := strings.Contains(namespace, "fakens")
-					isDomain := strings.Contains(domain, "fakedomain")
-					Expect(isNamespace).To(Equal(true))
-					Expect(isDomain).To(Equal(true))
-				}
-
-				Expect(len(vms)).To(Equal(len(domains)))
-				Expect(err).ToNot(HaveOccurred())
-
-				// verify a vm from each namespace is present
+			Context("with cloudInitNoCloud userData volume source", func() {
+				It("should success", func() {
+					userData := "fake\nuser\ndata\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData: userData,
+					}
+					verifyCloudInitIso(cloudInitData)
+				})
 			})
 		})
 	})

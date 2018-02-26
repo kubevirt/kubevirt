@@ -40,6 +40,9 @@ type CloudInitNoCloudSource struct {
 	// UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string
 	// + optional
 	UserDataBase64 string `json:"userDataBase64,omitempty"`
+	// UserData contains NoCloud inline cloud-init userdata
+	// + optional
+	UserData string `json:"userData,omitempty"`
 }
 
 type DomainSpec struct {
