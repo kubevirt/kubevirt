@@ -165,7 +165,7 @@ spec:
           command:
               - "/virt-controller"
               - "--launcher-image"
-              - "kubevirt/virt-launcher:{{ docker_tag }}"
+              - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
               - "--port"
               - "8182"
           ports:
