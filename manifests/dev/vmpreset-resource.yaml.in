@@ -1,0 +1,17 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachinepresets.kubevirt.io
+  labels:
+    kubevirt.io: ""
+spec:
+  group: kubevirt.io
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    plural: virtualmachinepresets
+    singular: virtualmachinepreset
+    kind: VirtualMachinePreset
+    shortNames:
+      - vmpreset
+      - vmpresets

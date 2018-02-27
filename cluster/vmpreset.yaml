@@ -1,0 +1,12 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachinePreset
+metadata:
+  name: small-qemu
+spec:
+  selector:
+    matchLabels:
+      kubevirt.io/flavor: small
+  domain:
+    resources:
+      requests:
+        memory: 64M

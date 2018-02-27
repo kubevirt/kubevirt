@@ -110,3 +110,23 @@ func (VMTemplateSpec) SwaggerDoc() map[string]string {
 		"spec": "VM Spec contains the VM specification.",
 	}
 }
+
+func (VirtualMachinePreset) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"spec": "VM Spec contains the VM specification.",
+	}
+}
+
+func (VirtualMachinePresetList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachinePresetList is a list of VirtualMachinePresets\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}
+
+func (VirtualMachinePresetSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"selector": "Selector is a label query over a set of VMs.\nRequired.",
+		"domain":   "Domain is the same object type as contained in VirtualMachineSpec",
+	}
+}

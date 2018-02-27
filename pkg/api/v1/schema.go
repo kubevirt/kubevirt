@@ -40,6 +40,9 @@ type CloudInitNoCloudSource struct {
 	// UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string
 	// + optional
 	UserDataBase64 string `json:"userDataBase64,omitempty"`
+	// UserData contains NoCloud inline cloud-init userdata
+	// + optional
+	UserData string `json:"userData,omitempty"`
 }
 
 type DomainSpec struct {
@@ -69,6 +72,10 @@ type ResourceRequirements struct {
 	// Valid resource keys are "memory" and "cpu".
 	// +optional
 	Requests v1.ResourceList `json:"requests,omitempty"`
+	// Limits describes the maximum amount of compute resources allowed.
+	// Valid resource keys are "memory" and "cpu".
+	// +optional
+	Limits v1.ResourceList `json:"limits,omitempty"`
 }
 
 // CPU allow specifying the CPU topology

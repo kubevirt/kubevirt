@@ -57,6 +57,8 @@ var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, V
 
 var VMReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineReplicaSet"}
 
+var VirtualMachinePresetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachinePreset"}
+
 var (
 	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
 	registry             = registered.NewOrDie(GroupVersion.String())
@@ -71,6 +73,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&metav1.DeleteOptions{},
 		&VirtualMachineReplicaSet{},
 		&VirtualMachineReplicaSetList{},
+		&VirtualMachinePreset{},
+		&VirtualMachinePresetList{},
 		&metav1.GetOptions{},
 		&Spice{},
 	)
@@ -298,6 +302,8 @@ type SyncEvent string
 const (
 	Created      SyncEvent = "Created"
 	Deleted      SyncEvent = "Deleted"
+	PresetFailed SyncEvent = "PresetFailed"
+	Conflict     SyncEvent = "Conflict"
 	Started      SyncEvent = "Started"
 	ShuttingDown SyncEvent = "ShuttingDown"
 	Stopped      SyncEvent = "Stopped"
@@ -539,5 +545,78 @@ func (vl *VirtualMachineReplicaSetList) GetObjectKind() schema.ObjectKind {
 
 // Required to satisfy ListMetaAccessor interface
 func (vl *VirtualMachineReplicaSetList) GetListMeta() meta.List {
+	return &vl.ListMeta
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachinePreset struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// VM Spec contains the VM specification.
+	Spec VirtualMachinePresetSpec `json:"spec,omitempty" valid:"required"`
+}
+
+// Required to satisfy Object interface
+func (v *VirtualMachinePreset) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (v *VirtualMachinePreset) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
+
+// VirtualMachinePresetList is a list of VirtualMachinePresets
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachinePresetList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta        `json:"metadata,omitempty"`
+	Items           []VirtualMachinePreset `json:"items"`
+}
+
+type VirtualMachinePresetSpec struct {
+	// Selector is a label query over a set of VMs.
+	// Required.
+	Selector metav1.LabelSelector `json:"selector"`
+	// Domain is the same object type as contained in VirtualMachineSpec
+	Domain *DomainSpec `json:"domain,omitempty"`
+}
+
+func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *VirtualMachinePreset {
+	return &VirtualMachinePreset{
+		Spec: VirtualMachinePresetSpec{
+			Selector: selector,
+			Domain:   &DomainSpec{},
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: k8sv1.NamespaceDefault,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       VirtualMachinePresetGroupVersionKind.Kind,
+		},
+	}
+}
+
+func (vl *VirtualMachinePresetList) UnmarshalJSON(data []byte) error {
+	type VirtualMachinePresetListCopy VirtualMachinePresetList
+	tmp := VirtualMachinePresetListCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := VirtualMachinePresetList(tmp)
+	*vl = tmp2
+	return nil
+}
+
+// Required to satisfy Object interface
+func (vl *VirtualMachinePresetList) GetObjectKind() schema.ObjectKind {
+	return &vl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (vl *VirtualMachinePresetList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
