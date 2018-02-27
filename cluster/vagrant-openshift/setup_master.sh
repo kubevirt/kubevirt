@@ -56,7 +56,7 @@ openshift_clock_enabled=true
 openshift_master_identity_providers=[{'name': 'allow_all_auth', 'login': 'true', 'challenge': 'true', 'kind': 'AllowAllPasswordIdentityProvider'}]
 openshift_disable_check=memory_availability,disk_availability,docker_storage,package_availability,docker_image_availability
 openshift_repos_enable_testing=True
-openshift_image_tag=latest
+openshift_image_tag=v3.9.0-alpha.4
 containerized=true
 enable_excluders=false
 
