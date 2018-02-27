@@ -30,9 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"time"
+
 	"github.com/google/goexpect"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"time"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -56,17 +57,23 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
 			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
 			newOVM := NewRandomOfflineVirtualMachine(template, running)
-			newOVM, err = virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(newOVM)
+			Eventually(func() int {
+				ovms, err := virtClient.OfflineVirtualMachine(newOVM.Namespace).List(&v12.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return len(ovms.Items)
+			}, 120*time.Second, 2*time.Second).Should(BeZero())
+			returnedOVM, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(newOVM)
 			Expect(err).ToNot(HaveOccurred())
-			return newOVM
+			By(fmt.Sprintf("Creating a VM: %s", returnedOVM.Name))
+			return returnedOVM
 		}
 
 		startOVM := func(ovm *v1.OfflineVirtualMachine) *v1.OfflineVirtualMachine {
 			By("Starting the VM")
-			ovm, err = virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
+			updatedOVM, err := virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			updatedOVM := ovm.DeepCopy()
+			updatedOVM = updatedOVM.DeepCopy()
 			updatedOVM.Spec.Running = true
 			updatedOVM, err = virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Update(updatedOVM)
 			Expect(err).ToNot(HaveOccurred())
@@ -89,12 +96,12 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 		stopOVM := func(ovm *v1.OfflineVirtualMachine) *v1.OfflineVirtualMachine {
 			By("Stopping the VM")
-			ovm, err = virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
+			updatedOVM, err := virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			updatedOVM := ovm.DeepCopy()
+			updatedOVM = updatedOVM.DeepCopy()
 			updatedOVM.Spec.Running = false
-			updatedOVM, err := virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Update(updatedOVM)
+			updatedOVM, err = virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Update(updatedOVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Observe the VM deleted
@@ -118,11 +125,11 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 		It("should update OfflineVirtualMachine once VMs are up", func() {
 			newOVM := newOfflineVirtualMachine(true)
-			Eventually(func() v1.OfflineVirtualMachineConditionType {
+			Eventually(func() bool {
 				ovm, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Get(newOVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return ovm.Status.Conditions[0].Type
-			}, 120*time.Second, 1*time.Second).Should(Equal(v1.OfflineVirtualMachineRunning))
+				return hasCondition(ovm, v1.OfflineVirtualMachineRunning)
+			}, 120*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
 		It("should remove VM once the OVM is marked for deletion", func() {
@@ -183,10 +190,8 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should stop VM if running set to false", func() {
-			var currOVM *v1.OfflineVirtualMachine
 
-			currOVM = newOfflineVirtualMachine(false)
-
+			currOVM := newOfflineVirtualMachine(false)
 			currOVM = startOVM(currOVM)
 			currOVM = stopOVM(currOVM)
 
@@ -247,6 +252,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should survive guest shutdown, multiple times", func() {
+			By("Creating new OVM, not running")
 			newOVM := newOfflineVirtualMachine(false)
 
 			for i := 0; i < 1; i++ {
@@ -275,17 +281,27 @@ var _ = Describe("OfflineVirtualMachine", func() {
 					&expect.BSnd{S: "gocubsgo\n"},
 					&expect.BExp{R: "$"},
 					// keep the ordering!
-					&expect.BSnd{S: "sudo poweroff"},
-					&expect.BExp{R: "reboot: Power down"},
-				}, 360*time.Second)
+					&expect.BSnd{S: "sudo poweroff\n"},
+					&expect.BExp{R: "The system is going down NOW!"},
+				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("OVM does not have running condition")
+				By("VM not running")
+				Eventually(func() bool {
+					vm, err := virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.Phase == v1.Running
+				}, 200*time.Second, 1*time.Second).ShouldNot(BeTrue())
+
+				By("OVM does not has running condition")
 				Eventually(func() bool {
 					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return hasCondition(newOVM, v1.OfflineVirtualMachineFailure)
-				}, 120*time.Second, 1*time.Second).Should(BeTrue())
+					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+				}, 200*time.Second, 1*time.Second).ShouldNot(BeTrue())
+
+				By("Stopping the OVM")
+				stopOVM(newOVM)
 			}
 		})
 	})
