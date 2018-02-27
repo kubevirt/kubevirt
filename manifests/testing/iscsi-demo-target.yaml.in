@@ -38,7 +38,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: iscsi-demo-target-tgtd
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: "iscsi-demo-target"
 spec:

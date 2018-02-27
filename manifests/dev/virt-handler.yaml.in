@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: virt-handler
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: "virt-handler"
 spec:

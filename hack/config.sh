@@ -1,5 +1,5 @@
 unset binaries docker_images docker_prefix docker_tag manifest_templates \
-    master_ip network_provider kubeconfig manifest_docker_prefix
+    master_ip network_provider kubeconfig manifest_docker_prefix namespace
 
 PROVIDER=${PROVIDER:-vagrant-kubernetes}
 
@@ -13,4 +13,4 @@ test -f "hack/config-provider-${PROVIDER}.sh" && source hack/config-provider-${P
 test -f "hack/config-local.sh" && source hack/config-local.sh
 
 export binaries docker_images docker_prefix docker_tag manifest_templates \
-    master_ip network_provider kubeconfig
+    master_ip network_provider kubeconfig namespace
