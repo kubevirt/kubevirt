@@ -129,7 +129,7 @@ func (c *OVMController) execute(key string) error {
 
 	logger := log.Log.Object(OVM)
 
-	logger.Infof("Working on OVM: %s", OVM.Name)
+	logger.Info("Started processing OVM")
 
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
 	if OVM.Spec.Template == nil || len(OVM.Spec.Template.ObjectMeta.Labels) == 0 {
@@ -180,7 +180,7 @@ func (c *OVMController) execute(key string) error {
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if needsSync && OVM.ObjectMeta.DeletionTimestamp == nil {
-		logger.Infof("Creating or stopping the VM: %s", OVM.Spec.Running)
+		logger.Infof("Creating or the VM: %t", OVM.Spec.Running)
 		createErr = c.startStop(OVM, vm)
 	}
 
@@ -207,6 +207,9 @@ func (c *OVMController) execute(key string) error {
 // We don't have to remove the finalizer. This part of the gc is not affected by the mentioned bug
 // TODO +pkotas unify with replicasets. This function can be the same
 func (c *OVMController) orphan(cm *controller.VirtualMachineControllerRefManager, vm *virtv1.VirtualMachine) error {
+	if vm == nil {
+		return nil
+	}
 
 	errChan := make(chan error, 1)
 
@@ -553,7 +556,7 @@ func (c *OVMController) removeCondition(ovm *virtv1.OfflineVirtualMachine, cond 
 func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) error {
 
 	// Check if it is worth updating
-	runningMatch := ovm.Spec.Running == c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning)
+	runningMatch := ovm.Spec.Running == c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning) && !c.hasCondition(ovm, virtv1.OfflineVirtualMachineVMFailure)
 	errMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
 	vmMatch := true
 	if vm != nil {
@@ -561,7 +564,7 @@ func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virt
 		vmMatch = c.hasCondition(ovm, virtv1.OfflineVirtualMachineVMFailure) == (vm.Status.Phase == virtv1.Unknown || vm.Status.Phase == virtv1.Failed)
 	}
 
-	log.Log.Object(ovm).Infof("Nothing to update: running: %t; err: %t; vm: %t", runningMatch, errMatch, vmMatch)
+	log.Log.Object(ovm).Infof("Nothing to update. runningMatch: %t; errMatch: %t; vmMatch: %t", runningMatch, errMatch, vmMatch)
 
 	// Add/Remove Failure condition if necessary
 	if !(errMatch && vmMatch) {
