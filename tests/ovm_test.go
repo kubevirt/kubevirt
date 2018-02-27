@@ -62,9 +62,13 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return len(ovms.Items)
 			}, 120*time.Second, 2*time.Second).Should(BeZero())
-			returnedOVM, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(newOVM)
+			Eventually(func() error {
+				newOVM, err = virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(newOVM)
+				return err
+			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+			returnedOVM, err := virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			By(fmt.Sprintf("Creating a VM: %s", returnedOVM.Name))
 			return returnedOVM
 		}
 
