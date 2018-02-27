@@ -412,12 +412,17 @@ func deletePV(os string, withAuth bool) {
 }
 
 func getPodIpByLabel(label string) string {
+	pod := GetRunningPodByLabel(label, v1.AppLabel, metav1.NamespaceSystem)
+	return pod.Status.PodIP
+}
+
+func GetRunningPodByLabel(label string, labelType string, namespace string) *k8sv1.Pod {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	labelSelector := fmt.Sprintf("%s=%s", v1.AppLabel, label)
+	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
 	fieldSelector := fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
-	pods, err := virtCli.CoreV1().Pods(metav1.NamespaceSystem).List(
+	pods, err := virtCli.CoreV1().Pods(namespace).List(
 		metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
 	)
 	PanicOnError(err)
@@ -442,7 +447,8 @@ func getPodIpByLabel(label string) string {
 	if readyPod == nil {
 		PanicOnError(fmt.Errorf("no ready pods with the label %s", label))
 	}
-	return readyPod.Status.PodIP
+
+	return readyPod
 }
 
 func cleanNamespaces() {

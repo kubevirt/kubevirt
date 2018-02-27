@@ -26,6 +26,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"requests": "Requests is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+		"limits":   "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
 	}
 }
 

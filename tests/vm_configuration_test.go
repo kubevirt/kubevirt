@@ -21,11 +21,14 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"time"
 
 	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -54,6 +57,11 @@ var _ = Describe("Configurations", func() {
 				vm.Spec.Domain.CPU = &v1.CPU{
 					Cores: 3,
 				}
+				vm.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
 
 				By("Starting a VM")
 				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
@@ -75,6 +83,22 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "3"},
 				}, 250*time.Second)
+
+				By("Checking the requested amount of memory allocated for a guest")
+				Expect(vm.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
+
+				readyPod := tests.GetRunningPodByLabel(vm.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+				var computeContainer *kubev1.Container
+				for _, container := range readyPod.Spec.Containers {
+					println(container.Name)
+					if container.Name == "compute" {
+						computeContainer = &container
+					}
+				}
+				if computeContainer == nil {
+					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
+				}
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 
 				Expect(err).ToNot(HaveOccurred())
 			}, 300)
