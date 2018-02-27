@@ -557,18 +557,21 @@ func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virt
 	errMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
 	vmMatch := true
 	if vm != nil {
-		vmMatch = c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure) == (vm.Status.Phase == virtv1.Unknown || vm.Status.Phase == virtv1.Failed)
+		log.Log.Object(ovm).Info("Everything up to date.")
+		vmMatch = c.hasCondition(ovm, virtv1.OfflineVirtualMachineVMFailure) == (vm.Status.Phase == virtv1.Unknown || vm.Status.Phase == virtv1.Failed)
 	}
 
-	if runningMatch && errMatch && vmMatch {
-		return nil
-	}
+	log.Log.Object(ovm).Infof("Nothing to update: running: %t; err: %t; vm: %t", runningMatch, errMatch, vmMatch)
 
 	// Add/Remove Failure condition if necessary
-	c.processFailure(ovm, vm, createErr)
+	if !(errMatch && vmMatch) {
+		c.processFailure(ovm, vm, createErr)
+	}
 
 	// update condition if the vm is running or not
-	c.processRunning(ovm, vm, createErr)
+	if !runningMatch {
+		c.processRunning(ovm, vm, createErr)
+	}
 
 	_, err := c.clientset.OfflineVirtualMachine(ovm.ObjectMeta.Namespace).Update(ovm)
 
@@ -614,6 +617,8 @@ func (c *OVMController) processRunning(ovm *virtv1.OfflineVirtualMachine, vm *vi
 
 func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
 	reason := ""
+	message := ""
+	log.Log.Object(ovm).Infof("Processing running status:: running: %t; err: %t; vm: %t; phase: %s", ovm.Spec.Running, createErr != nil, vm != nil, vm.Status.Phase)
 
 	if createErr != nil {
 		if ovm.Spec.Running == true {
@@ -621,24 +626,44 @@ func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *vi
 		} else {
 			reason = "FailedDelete"
 		}
-	} else if vm != nil {
+		message = createErr.Error()
+
+		if !c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure) {
+			log.Log.Object(ovm).Infof("Reason to fail: %s", reason)
+			ovm.Status.Conditions = append(ovm.Status.Conditions, virtv1.OfflineVirtualMachineCondition{
+				Type:               virtv1.OfflineVirtualMachineFailure,
+				Reason:             reason,
+				Message:            message,
+				LastTransitionTime: v1.Now(),
+				Status:             k8score.ConditionTrue,
+			})
+		} else {
+			log.Log.Object(ovm).Info("Removing failure")
+			c.removeCondition(ovm, virtv1.OfflineVirtualMachineFailure)
+		}
+	}
+
+	if vm != nil {
 		if vm.Status.Phase == virtv1.Failed {
 			reason = "VMFailed"
 		} else if vm.Status.Phase == virtv1.Unknown {
 			reason = "VMUnknown"
 		}
-	}
+		message = string(vm.Status.Phase)
 
-	if reason != "" && !c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure) {
-		ovm.Status.Conditions = append(ovm.Status.Conditions, virtv1.OfflineVirtualMachineCondition{
-			Type:               virtv1.OfflineVirtualMachineFailure,
-			Reason:             reason,
-			Message:            createErr.Error(),
-			LastTransitionTime: v1.Now(),
-			Status:             k8score.ConditionTrue,
-		})
-	} else {
-		c.removeCondition(ovm, virtv1.OfflineVirtualMachineFailure)
+		if !c.hasCondition(ovm, virtv1.OfflineVirtualMachineVMFailure) {
+			log.Log.Object(ovm).Infof("Reason to fail: %s", reason)
+			ovm.Status.Conditions = append(ovm.Status.Conditions, virtv1.OfflineVirtualMachineCondition{
+				Type:               virtv1.OfflineVirtualMachineVMFailure,
+				Reason:             reason,
+				Message:            message,
+				LastTransitionTime: v1.Now(),
+				Status:             k8score.ConditionTrue,
+			})
+		} else {
+			log.Log.Object(ovm).Info("Removing failure")
+			c.removeCondition(ovm, virtv1.OfflineVirtualMachineVMFailure)
+		}
 	}
 }
 
