@@ -30,6 +30,8 @@ import (
 func RegisterDefaults(scheme *runtime.Scheme) error {
 	scheme.AddTypeDefaultingFunc(&VirtualMachine{}, func(obj interface{}) { SetObjectDefaults_VirtualMachine(obj.(*VirtualMachine)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineList(obj.(*VirtualMachineList)) })
+	scheme.AddTypeDefaultingFunc(&VirtualMachinePreset{}, func(obj interface{}) { SetObjectDefaults_VirtualMachinePreset(obj.(*VirtualMachinePreset)) })
+	scheme.AddTypeDefaultingFunc(&VirtualMachinePresetList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachinePresetList(obj.(*VirtualMachinePresetList)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachineReplicaSet{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineReplicaSet(obj.(*VirtualMachineReplicaSet)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachineReplicaSetList{}, func(obj interface{}) {
 		SetObjectDefaults_VirtualMachineReplicaSetList(obj.(*VirtualMachineReplicaSetList))
@@ -118,6 +120,91 @@ func SetObjectDefaults_VirtualMachineList(in *VirtualMachineList) {
 	for i := range in.Items {
 		a := &in.Items[i]
 		SetObjectDefaults_VirtualMachine(a)
+	}
+}
+
+func SetObjectDefaults_VirtualMachinePreset(in *VirtualMachinePreset) {
+	if in.Spec.Domain != nil {
+		if in.Spec.Domain.Firmware != nil {
+			SetDefaults_Firmware(in.Spec.Domain.Firmware)
+		}
+		if in.Spec.Domain.Clock != nil {
+			if in.Spec.Domain.Clock.Timer != nil {
+				if in.Spec.Domain.Clock.Timer.HPET != nil {
+					SetDefaults_HPETTimer(in.Spec.Domain.Clock.Timer.HPET)
+				}
+				if in.Spec.Domain.Clock.Timer.KVM != nil {
+					SetDefaults_KVMTimer(in.Spec.Domain.Clock.Timer.KVM)
+				}
+				if in.Spec.Domain.Clock.Timer.PIT != nil {
+					SetDefaults_PITTimer(in.Spec.Domain.Clock.Timer.PIT)
+				}
+				if in.Spec.Domain.Clock.Timer.RTC != nil {
+					SetDefaults_RTCTimer(in.Spec.Domain.Clock.Timer.RTC)
+				}
+				if in.Spec.Domain.Clock.Timer.Hyperv != nil {
+					SetDefaults_HypervTimer(in.Spec.Domain.Clock.Timer.Hyperv)
+				}
+			}
+		}
+		if in.Spec.Domain.Features != nil {
+			SetDefaults_FeatureState(&in.Spec.Domain.Features.ACPI)
+			if in.Spec.Domain.Features.APIC != nil {
+				SetDefaults_FeatureAPIC(in.Spec.Domain.Features.APIC)
+			}
+			if in.Spec.Domain.Features.Hyperv != nil {
+				if in.Spec.Domain.Features.Hyperv.Relaxed != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Relaxed)
+				}
+				if in.Spec.Domain.Features.Hyperv.VAPIC != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VAPIC)
+				}
+				if in.Spec.Domain.Features.Hyperv.Spinlocks != nil {
+					SetDefaults_FeatureSpinlocks(in.Spec.Domain.Features.Hyperv.Spinlocks)
+				}
+				if in.Spec.Domain.Features.Hyperv.VPIndex != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VPIndex)
+				}
+				if in.Spec.Domain.Features.Hyperv.Runtime != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Runtime)
+				}
+				if in.Spec.Domain.Features.Hyperv.SyNIC != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.SyNIC)
+				}
+				if in.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.SyNICTimer)
+				}
+				if in.Spec.Domain.Features.Hyperv.Reset != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Reset)
+				}
+				if in.Spec.Domain.Features.Hyperv.VendorID != nil {
+					SetDefaults_FeatureVendorID(in.Spec.Domain.Features.Hyperv.VendorID)
+				}
+			}
+		}
+		for i := range in.Spec.Domain.Devices.Disks {
+			a := &in.Spec.Domain.Devices.Disks[i]
+			SetDefaults_DiskDevice(&a.DiskDevice)
+			if a.DiskDevice.Floppy != nil {
+				SetDefaults_FloppyTarget(a.DiskDevice.Floppy)
+			}
+			if a.DiskDevice.CDRom != nil {
+				SetDefaults_CDRomTarget(a.DiskDevice.CDRom)
+			}
+		}
+		if in.Spec.Domain.Devices.Watchdog != nil {
+			SetDefaults_Watchdog(in.Spec.Domain.Devices.Watchdog)
+			if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
+				SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
+			}
+		}
+	}
+}
+
+func SetObjectDefaults_VirtualMachinePresetList(in *VirtualMachinePresetList) {
+	for i := range in.Items {
+		a := &in.Items[i]
+		SetObjectDefaults_VirtualMachinePreset(a)
 	}
 }
 

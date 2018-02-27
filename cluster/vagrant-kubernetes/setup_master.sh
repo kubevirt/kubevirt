@@ -33,8 +33,6 @@ rm -rf /var/lib/kubelet
 cat >/etc/kubernetes/kubeadm.conf <<EOF
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
-apiServerExtraArgs:
-  runtime-config: admissionregistration.k8s.io/v1alpha1
 token: abcdef.1234567890123456
 networking:
   podSubnet: 10.244.0.0/16
