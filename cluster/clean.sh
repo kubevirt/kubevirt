@@ -40,6 +40,7 @@ for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete pv -l 'kubevirt.io'
     _kubectl -n ${i} delete pvc -l 'kubevirt.io'
     _kubectl -n ${i} delete ds -l 'kubevirt.io'
+    _kubectl -n ${i} delete crd 'offlinevirtualmachines'
     _kubectl -n ${i} delete crd -l 'kubevirt.io'
     _kubectl -n ${i} delete pods -l 'kubevirt.io'
     _kubectl -n ${i} delete clusterrolebinding -l 'kubevirt.io'
