@@ -82,7 +82,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 			// expect update status is called
 			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.OfflineVirtualMachine).Status.Conditions[0].Type).To(Equal(v1.OfflineVirtualMachineRunning))
+				Expect(hasCondition(arg.(*v1.OfflineVirtualMachine), v1.OfflineVirtualMachineRunning)).To(BeFalse())
 			}).Return(ovm, nil)
 
 			controller.Execute()
@@ -98,6 +98,8 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 			// ovmInterface.EXPECT().Update(gomock.Any()).Return(ovm, nil)
 			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+
+			ovmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(ovm, nil)
 
 			controller.Execute()
 
@@ -116,7 +118,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			vmSource.Add(nonMatchingVM)
 
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
-			ovmInterface.EXPECT().Update(gomock.Any()).Return(ovm, nil)
+			ovmInterface.EXPECT().Update(gomock.Any()).Times(2).Return(ovm, nil)
 
 			controller.Execute()
 
@@ -164,13 +166,13 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			controller.Execute()
 		})
 
-		It("should add a fail condition if scaling up fails", func() {
-			ovm, _ := DefaultOVM(true)
+		It("should add a fail condition if start up fails", func() {
+			ovm, vm := DefaultOVM(true)
 
 			addOfflineVirtualMachine(ovm)
 			// vmFeeder.Add(vm)
 
-			vmInterface.EXPECT().Create(gomock.Any()).Return(nil, fmt.Errorf("failure"))
+			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, fmt.Errorf("failure"))
 
 			// We should see the failed condition, replicas should stay at 0
 			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
@@ -181,11 +183,11 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Expect(cond.Reason).To(Equal("FailedCreate"))
 				Expect(cond.Message).To(Equal("failure"))
 				Expect(cond.Status).To(Equal(v13.ConditionTrue))
-			})
+			}).Return(ovm, nil)
 
 			controller.Execute()
 
-			testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+			// testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 		})
 
 		It("should add a fail condition if scaling down fails", func() {
@@ -199,11 +201,16 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			// We should see the failed condition, replicas should stay at 2
 			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
 				objOVM := obj.(*v1.OfflineVirtualMachine)
-				Expect(objOVM.Status.Conditions).To(HaveLen(1))
+				Expect(objOVM.Status.Conditions).To(HaveLen(2))
 				cond := objOVM.Status.Conditions[0]
 				Expect(cond.Type).To(Equal(v1.OfflineVirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Status).To(Equal(v13.ConditionTrue))
+				cond = objOVM.Status.Conditions[1]
+				Expect(cond.Type).To(Equal(v1.OfflineVirtualMachineVMFailure))
+				Expect(cond.Reason).To(Equal("FailedDelete"))
+				Expect(cond.Message).To(Equal("Running"))
 				Expect(cond.Status).To(Equal(v13.ConditionTrue))
 			})
 
@@ -234,6 +241,7 @@ func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started boo
 func DefaultOVM(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
 	vm := v1.NewMinimalVM("testvm")
 	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
+	vm.Status.Phase = v1.Running
 	ovm := OfflineVirtualMachineFromVM("testvm", vm, started)
 	t := true
 	vm.OwnerReferences = []v12.OwnerReference{v12.OwnerReference{
@@ -245,4 +253,14 @@ func DefaultOVM(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
 		BlockOwnerDeletion: &t,
 	}}
 	return ovm, vm
+}
+
+func hasCondition(ovm *v1.OfflineVirtualMachine, cond v1.OfflineVirtualMachineConditionType) bool {
+	for _, c := range ovm.Status.Conditions {
+		if c.Type == cond {
+			return true
+		}
+	}
+
+	return false
 }
