@@ -70,7 +70,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() error {
 				newOVM, err = virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(newOVM)
 				return err
-			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			returnedOVM, err := virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
