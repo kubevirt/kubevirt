@@ -149,12 +149,16 @@ func (vca *VirtControllerApp) Run() {
 		golog.Fatalf("unable to get hostname: %v", err)
 	}
 
-	// TODO: Replace leaderelectionconfig.DefaultNamespace with a flag
-	namespace := leaderelectionconfig.DefaultNamespace
+	var namespace string
 	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
 		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
 			namespace = ns
 		}
+	} else if os.IsNotExist(err) {
+		// TODO: Replace leaderelectionconfig.DefaultNamespace with a flag
+		namespace = leaderelectionconfig.DefaultNamespace
+	} else {
+		golog.Fatalf("Error searching for namespace in /var/run/secrets/kubernetes.io/serviceaccount/namespace: %v", err)
 	}
 
 	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
