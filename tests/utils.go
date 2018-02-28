@@ -680,7 +680,7 @@ func NewRandomVMWithEphemeralPVC(claimName string) *v1.VirtualMachine {
 		VolumeName: "disk0",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: "virtio",
+				Bus: "sata",
 			},
 		},
 	})

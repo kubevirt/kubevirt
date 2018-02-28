@@ -251,7 +251,7 @@ var _ = Describe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				close(done)
-			}, 240)
+			}, 400)
 		})
 	})
 })

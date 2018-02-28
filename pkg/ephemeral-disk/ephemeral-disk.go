@@ -30,8 +30,8 @@ import (
 )
 
 var mountBaseDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
-
-const ephemeralImageDiskOwner = "qemu"
+var pvcBaseDir = "/var/run/kubevirt-private/vm-disks"
+var ephemeralImageDiskOwner = "qemu"
 
 func generateBaseDir() string {
 	return fmt.Sprintf("%s", mountBaseDir)
@@ -42,12 +42,23 @@ func generateVolumeMountDir(volumeName string) string {
 }
 
 func getBackingFilePath(volumeName string) string {
-	return filepath.Join("/var/run/kubevirt-private", "vm-disks", volumeName, "disk.img")
+	return filepath.Join(pvcBaseDir, volumeName, "disk.img")
 }
 
 func SetLocalDirectory(dir string) error {
 	mountBaseDir = dir
 	return os.MkdirAll(dir, 0755)
+}
+
+// Used by tests.
+func setBackingDirectory(dir string) error {
+	pvcBaseDir = dir
+	return os.MkdirAll(dir, 0755)
+}
+
+// Used by tests.
+func SetLocalDataOwner(user string) {
+	ephemeralImageDiskOwner = user
 }
 
 func createVolumeDirectory(volumeName string) error {
