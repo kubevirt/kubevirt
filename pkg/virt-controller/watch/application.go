@@ -1,9 +1,11 @@
 package watch
 
 import (
+	"io/ioutil"
 	golog "log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/emicklei/go-restful"
@@ -147,8 +149,16 @@ func (vca *VirtControllerApp) Run() {
 		golog.Fatalf("unable to get hostname: %v", err)
 	}
 
+	// TODO: Replace leaderelectionconfig.DefaultNamespace with a flag
+	namespace := leaderelectionconfig.DefaultNamespace
+	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+			namespace = ns
+		}
+	}
+
 	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
-		leaderelectionconfig.DefaultNamespace,
+		namespace,
 		leaderelectionconfig.DefaultEndpointName,
 		vca.clientSet.CoreV1(),
 		resourcelock.ResourceLockConfig{
