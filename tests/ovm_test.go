@@ -56,12 +56,17 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		newOfflineVirtualMachine := func(running bool) *v1.OfflineVirtualMachine {
 			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
 			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
-			newOVM := NewRandomOfflineVirtualMachine(template, running)
+
+			var newOVM *v1.OfflineVirtualMachine
+			var err error
+
+			newOVM = NewRandomOfflineVirtualMachine(template, running)
 			Eventually(func() int {
 				ovms, err := virtClient.OfflineVirtualMachine(newOVM.Namespace).List(&v12.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return len(ovms.Items)
 			}, 120*time.Second, 2*time.Second).Should(BeZero())
+
 			Eventually(func() error {
 				newOVM, err = virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(newOVM)
 				return err
