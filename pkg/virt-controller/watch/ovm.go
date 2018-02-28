@@ -266,6 +266,7 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 		}}
 		vm, err := c.clientset.VM(ovm.ObjectMeta.Namespace).Create(vm)
 		if err != nil {
+			log.Log.Object(ovm).Infof("Failed to create VM: %s/%s", vm.Namespace, vm.Name)
 			c.expectations.CreationObserved(ovmKey)
 			c.recorder.Eventf(ovm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine: %v", err)
 			return err
@@ -564,7 +565,7 @@ func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virt
 		vmMatch = c.hasCondition(ovm, virtv1.OfflineVirtualMachineVMFailure) == (vm.Status.Phase == virtv1.Unknown || vm.Status.Phase == virtv1.Failed)
 	}
 
-	log.Log.Object(ovm).Infof("Nothing to update. runningMatch: %t; errMatch: %t; vmMatch: %t", runningMatch, errMatch, vmMatch)
+	log.Log.Object(ovm).Infof("Update: runningMatch: %t; errMatch: %t; vmMatch: %t", runningMatch, errMatch, vmMatch)
 
 	// Add/Remove Failure condition if necessary
 	if !(errMatch && vmMatch) {
@@ -598,7 +599,7 @@ func (c *OVMController) getVirtualMachineBaseName(ovm *virtv1.OfflineVirtualMach
 }
 
 func (c *OVMController) processRunning(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
-	log.Log.Object(ovm).Infof("Processing running status:: running: %t; err: %t; vm: %t", ovm.Spec.Running, createErr == nil, vm == nil)
+	log.Log.Object(ovm).Infof("Processing running status:: shouldRun: %t; noErr: %t; noVm: %t", ovm.Spec.Running, createErr == nil, vm == nil)
 	if vm == nil {
 		return
 	}
@@ -621,7 +622,7 @@ func (c *OVMController) processRunning(ovm *virtv1.OfflineVirtualMachine, vm *vi
 func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
 	reason := ""
 	message := ""
-	log.Log.Object(ovm).Infof("Processing running status:: running: %t; err: %t; vm: %t; phase: %s", ovm.Spec.Running, createErr != nil, vm != nil, vm.Status.Phase)
+	log.Log.Object(ovm).Infof("Processing failure status:: shouldRun: %t; noErr: %t; noVm: %t", ovm.Spec.Running, createErr != nil, vm != nil)
 
 	if createErr != nil {
 		if ovm.Spec.Running == true {
