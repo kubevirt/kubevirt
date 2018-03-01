@@ -97,8 +97,13 @@ var _ = Describe("Storage", func() {
 
 	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) runtime.Object {
 		By("Starting a VM")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
-		Expect(err).To(BeNil())
+
+		var obj runtime.Object
+		var err error
+		Eventually(func() error {
+			obj, err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+			return err
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VM will start")
 		tests.WaitForSuccessfulVMStartWithTimeout(obj, timeout)
 		return obj
@@ -164,6 +169,89 @@ var _ = Describe("Storage", func() {
 				}
 				close(done)
 			}, 240)
+		})
+
+		Context("With ephemeral alpine PVC", func() {
+			// The following case is mostly similar to the alpine PVC test above, except using different VM.
+			It("should be successfully started", func(done Done) {
+				checkReadiness()
+
+				// Start the VM with the PVC attached
+				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				RunVMAndExpectLaunch(vm, false, 45)
+
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				defer expecter.Close()
+				Expect(err).To(BeNil())
+
+				By("Checking that the VM console has expected output")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+				}, 200*time.Second)
+				Expect(err).To(BeNil())
+
+				close(done)
+			}, 240)
+
+			It("should not persist data", func(done Done) {
+				checkReadiness()
+				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+
+				By("Starting the VM")
+				obj := RunVMAndExpectLaunch(vm, false, 90)
+
+				By("Writing an arbitrary file to it's EFI partition")
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login"},
+					&expect.BSnd{S: "root\n"},
+					&expect.BExp{R: "#"},
+					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
+					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
+					// The QEMU process will be killed, therefore the write must be flushed to the disk.
+					&expect.BSnd{S: "sync\n"},
+				}, 200*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Killing a VM")
+				err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+
+				By("Starting the VM again")
+				RunVMAndExpectLaunch(vm, false, 90)
+
+				By("Making sure that the previously written file is not present")
+				expecter, _, err = tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login"},
+					&expect.BSnd{S: "root\n"},
+					&expect.BExp{R: "#"},
+					// Same story as when first starting the VM - the checkpoint, if persisted, is located at /dev/sda2.
+					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "1"},
+				}, 200*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+				close(done)
+			}, 400)
 		})
 	})
 })

@@ -2,7 +2,7 @@ FROM fedora:27
 
 ENV LIBVIRT_VERSION 3.7.0
 
-RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync && \
+RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img && \
     dnf -y clean all
 
 ENV GIMME_GO_VERSION=1.9.2
