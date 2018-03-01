@@ -601,8 +601,10 @@ func (c *OVMController) getVirtualMachineBaseName(ovm *virtv1.OfflineVirtualMach
 func (c *OVMController) processRunning(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
 	log.Log.Object(ovm).Infof("Processing running status:: shouldRun: %t; noErr: %t; noVm: %t", ovm.Spec.Running, createErr != nil, vm != nil)
 	if vm == nil {
+		c.removeCondition(ovm, virtv1.OfflineVirtualMachineRunning)
 		return
 	}
+
 	if ovm.Spec.Running && createErr == nil && !c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning) && vm.Status.Phase == virtv1.Running {
 		log.Log.Object(ovm).Info("Adding running condition")
 		ovm.Status.Conditions = append(ovm.Status.Conditions, virtv1.OfflineVirtualMachineCondition{
