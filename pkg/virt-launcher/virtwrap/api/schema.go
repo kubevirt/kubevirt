@@ -223,7 +223,7 @@ type Disk struct {
 	Driver       *DiskDriver   `xml:"driver,omitempty"`
 	ReadOnly     *ReadOnly     `xml:"readonly,omitempty"`
 	Auth         *DiskAuth     `xml:"auth,omitempty"`
-	Alias        *Alias        `xml:"alias,omitmepty"`
+	Alias        *Alias        `xml:"alias,omitempty"`
 	BackingStore *BackingStore `xml:"backingStore,omitempty"`
 }
 
@@ -284,7 +284,7 @@ type Serial struct {
 	Type   string        `xml:"type,attr"`
 	Target *SerialTarget `xml:"target,omitempty"`
 	Source *SerialSource `xml:"source,omitempty"`
-	Alias  *Alias        `xml:"alias,omitmepty"`
+	Alias  *Alias        `xml:"alias,omitempty"`
 }
 
 type SerialTarget struct {
@@ -304,7 +304,7 @@ type Console struct {
 	Type   string         `xml:"type,attr"`
 	Target *ConsoleTarget `xml:"target,omitempty"`
 	Source *ConsoleSource `xml:"source,omitempty"`
-	Alias  *Alias         `xml:"alias,omitmepty"`
+	Alias  *Alias         `xml:"alias,omitempty"`
 }
 
 type ConsoleTarget struct {
@@ -527,7 +527,7 @@ type RandomGenerator struct {
 type Watchdog struct {
 	Model  string `xml:"model,attr"`
 	Action string `xml:"action,attr"`
-	Alias  *Alias `xml:"alias,omitmepty"`
+	Alias  *Alias `xml:"alias,omitempty"`
 }
 
 // TODO ballooning, rng, cpu ...
