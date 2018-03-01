@@ -599,7 +599,7 @@ func (c *OVMController) getVirtualMachineBaseName(ovm *virtv1.OfflineVirtualMach
 }
 
 func (c *OVMController) processRunning(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
-	log.Log.Object(ovm).Infof("Processing running status:: shouldRun: %t; noErr: %t; noVm: %t", ovm.Spec.Running, createErr == nil, vm == nil)
+	log.Log.Object(ovm).Infof("Processing running status:: shouldRun: %t; noErr: %t; noVm: %t", ovm.Spec.Running, createErr != nil, vm != nil)
 	if vm == nil {
 		return
 	}
