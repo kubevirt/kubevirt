@@ -27,12 +27,12 @@ source hack/config.sh
 
 echo "Cleaning up ..."
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
-_kubectl delete ds -l "kubevirt.io" -n kube-system --cascade=false --grace-period 0 2>/dev/null || :
-_kubectl delete pods -n kube-system -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
-_kubectl delete pods -n kube-system -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
+_kubectl delete ds -l "kubevirt.io" -n ${namespace} --cascade=false --grace-period 0 2>/dev/null || :
+_kubectl delete pods -n ${namespace} -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
+_kubectl delete pods -n ${namespace} -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
 
 # Delete all traces of kubevirt
-namespaces=(default kube-system)
+namespaces=(default ${namespace})
 for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete deployment -l 'kubevirt.io'
     _kubectl -n ${i} delete rs -l 'kubevirt.io'
