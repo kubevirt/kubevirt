@@ -245,7 +245,6 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 		}
 
 		// start it
-		c.expectations.ExpectCreations(ovmKey, 1)
 		basename := c.getVirtualMachineBaseName(ovm)
 		t := true
 
@@ -264,6 +263,8 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 			Controller:         &t,
 			BlockOwnerDeletion: &t,
 		}}
+
+		c.expectations.ExpectCreations(ovmKey, 1)
 		vm, err := c.clientset.VM(ovm.ObjectMeta.Namespace).Create(vm)
 		if err != nil {
 			log.Log.Object(ovm).Infof("Failed to create VM: %s/%s", vm.Namespace, vm.Name)
