@@ -254,7 +254,7 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 		vm.ObjectMeta.Name = basename
 		vm.ObjectMeta.GenerateName = basename
 		vm.Spec = ovm.Spec.Template.Spec
-		// TODO check if vm labels exist, and when make sure that they match. For now just override them
+
 		vm.ObjectMeta.Labels = ovm.Spec.Template.ObjectMeta.Labels
 		vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{v1.OwnerReference{
 			APIVersion:         virtv1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
