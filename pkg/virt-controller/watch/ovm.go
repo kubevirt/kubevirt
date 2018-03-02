@@ -24,13 +24,13 @@ import (
 
 	"github.com/pborman/uuid"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	k8score "k8s.io/api/core/v1"
 
@@ -352,7 +352,9 @@ func (c *OVMController) setupVMFromOVM(ovm *virtv1.OfflineVirtualMachine) *virtv
 
 // no special meaning, randomly generated on my box.
 // TODO: do we want to use another constants? see examples in RFC4122
-var firmwareUUIDNs = uuid.Parse("6a1a24a1-4061-4607-8bf4-a3963d0c5895")
+const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
+
+var firmwareUUIDns = uuid.Parse(magicUUID)
 
 // setStableUUID makes sure the VM being started has a a 'stable' UUID.
 // The UUID is 'stable' if doesn't change across reboots.
@@ -370,14 +372,8 @@ func setupStableFirmwareUUID(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.Virtu
 		return
 	}
 
-	stableUUID := types.UID(uuid.NewSHA1(firmwareUUIDNs, []byte(vm.ObjectMeta.Name)).String())
-	if existingUUID == stableUUID {
-		logger.Debugf("Using existing UUID '%s' (already stable)", existingUUID)
-		return
-	}
-
-	vm.Spec.Domain.Firmware.UUID = stableUUID
-	logger.Infof("Stabilizing UUID from '%s' to '%s'", existingUUID, stableUUID)
+	vm.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vm.ObjectMeta.Name)).String())
+	logger.Infof("Setting stabile UUID '%s' (was '%s')", vm.Spec.Domain.Firmware.UUID, existingUUID)
 }
 
 // filterActiveVMs takes a list of VMs and returns all VMs which are not in a final state
