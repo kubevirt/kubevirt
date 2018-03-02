@@ -182,6 +182,9 @@ func (c *OVMController) execute(key string) error {
 	if needsSync && OVM.ObjectMeta.DeletionTimestamp == nil {
 		logger.Infof("Creating or the VM: %t", OVM.Spec.Running)
 		createErr = c.startStop(OVM, vm)
+
+		// restart VM if the VM fails or is final
+		vmError = c.restartVM(OVM, vm)
 	}
 
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMs. Don't update the status
@@ -229,14 +232,7 @@ func (c *OVMController) orphan(cm *controller.VirtualMachineControllerRefManager
 }
 
 func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) error {
-
-	ovmKey, err := controller.KeyFunc(ovm)
-	if err != nil {
-		log.Log.Object(ovm).Reason(err).Error("Failed to extract ovmKey from OfflineVirtualMachine.")
-		return nil
-	}
-
-	log.Log.Object(ovm).Infof("Creating the vm since: %t", ovm.Spec.Running)
+	log.Log.Object(ovm).Infof("VM should be running: %t", ovm.Spec.Running)
 
 	if ovm.Spec.Running == true {
 		if vm != nil {
@@ -244,35 +240,8 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 			return nil
 		}
 
-		// start it
-		basename := c.getVirtualMachineBaseName(ovm)
-		t := true
-
-		vm := virtv1.NewVMReferenceFromNameWithNS(ovm.ObjectMeta.Namespace, "")
-		vm.ObjectMeta = ovm.Spec.Template.ObjectMeta
-		vm.ObjectMeta.Name = basename
-		vm.ObjectMeta.GenerateName = basename
-		vm.Spec = ovm.Spec.Template.Spec
-
-		vm.ObjectMeta.Labels = ovm.Spec.Template.ObjectMeta.Labels
-		vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{v1.OwnerReference{
-			APIVersion:         virtv1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
-			Kind:               virtv1.OfflineVirtualMachineGroupVersionKind.Kind,
-			Name:               ovm.ObjectMeta.Name,
-			UID:                ovm.ObjectMeta.UID,
-			Controller:         &t,
-			BlockOwnerDeletion: &t,
-		}}
-
-		c.expectations.ExpectCreations(ovmKey, 1)
-		vm, err := c.clientset.VM(ovm.ObjectMeta.Namespace).Create(vm)
-		if err != nil {
-			log.Log.Object(ovm).Infof("Failed to create VM: %s/%s", vm.Namespace, vm.Name)
-			c.expectations.CreationObserved(ovmKey)
-			c.recorder.Eventf(ovm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine: %v", err)
-			return err
-		}
-		c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created virtual machine: %v", vm.ObjectMeta.Name)
+		err := c.startVM(ovm)
+		return err
 	}
 
 	if ovm.Spec.Running == false {
@@ -283,18 +252,101 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 			return nil
 		}
 
-		// stop it
-		c.expectations.ExpectDeletions(ovmKey, []string{controller.VirtualMachineKey(vm)})
-		err := c.clientset.VM(ovm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
-		// Don't log an error if it is already deleted
-		if err != nil {
-			// We can't observe a delete if it was not accepted by the server
-			c.expectations.DeletionObserved(ovmKey, controller.VirtualMachineKey(vm))
-			c.recorder.Eventf(ovm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
-			return err
-		}
-		c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", vm.ObjectMeta.UID)
-		log.Log.Object(ovm).Info("Dispatching delete event")
+		err := c.stopVM(ovm, vm)
+		return err
+	}
+
+	return nil
+}
+
+func (c *OVMController) startVM(ovm *virtv1.OfflineVirtualMachine) error {
+	// TODO add check for existence
+	ovmKey, err := controller.KeyFunc(ovm)
+	if err != nil {
+		log.Log.Object(ovm).Reason(err).Error("Failed to extract ovmKey from OfflineVirtualMachine.")
+		return nil
+	}
+
+	// start it
+	basename := c.getVirtualMachineBaseName(ovm)
+	t := true
+
+	vm := virtv1.NewVMReferenceFromNameWithNS(ovm.ObjectMeta.Namespace, "")
+	vm.ObjectMeta = ovm.Spec.Template.ObjectMeta
+	vm.ObjectMeta.Name = basename
+	vm.ObjectMeta.GenerateName = basename
+	vm.Spec = ovm.Spec.Template.Spec
+
+	vm.ObjectMeta.Labels = ovm.Spec.Template.ObjectMeta.Labels
+	vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{v1.OwnerReference{
+		APIVersion:         virtv1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               virtv1.OfflineVirtualMachineGroupVersionKind.Kind,
+		Name:               ovm.ObjectMeta.Name,
+		UID:                ovm.ObjectMeta.UID,
+		Controller:         &t,
+		BlockOwnerDeletion: &t,
+	}}
+
+	c.expectations.ExpectCreations(ovmKey, 1)
+	vm, err = c.clientset.VM(ovm.ObjectMeta.Namespace).Create(vm)
+	if err != nil {
+		log.Log.Object(ovm).Infof("Failed to create VM: %s/%s", vm.Namespace, vm.Name)
+		c.expectations.CreationObserved(ovmKey)
+		c.recorder.Eventf(ovm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine: %v", err)
+		return err
+	}
+	c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created virtual machine: %v", vm.ObjectMeta.Name)
+
+	return nil
+}
+
+func (c *OVMController) stopVM(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) error {
+	if vm == nil {
+		// nothing to do
+		return nil
+	}
+
+	ovmKey, err := controller.KeyFunc(ovm)
+	if err != nil {
+		log.Log.Object(ovm).Reason(err).Error("Failed to extract ovmKey from OfflineVirtualMachine.")
+		return nil
+	}
+
+	// stop it
+	c.expectations.ExpectDeletions(ovmKey, []string{controller.VirtualMachineKey(vm)})
+	err = c.clientset.VM(ovm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
+
+	// Don't log an error if it is already deleted
+	if err != nil {
+		// We can't observe a delete if it was not accepted by the server
+		c.expectations.DeletionObserved(ovmKey, controller.VirtualMachineKey(vm))
+		c.recorder.Eventf(ovm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
+		return err
+	}
+
+	c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", vm.ObjectMeta.UID)
+	log.Log.Object(ovm).Info("Dispatching delete event")
+
+	return nil
+}
+
+// restartVM deletes the VM object and creates new one when the VM is in Failed or Final phase
+func (c *OVMController) restartVM(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) error {
+
+	if vm == nil {
+		// no vm do nothing
+		return nil
+	}
+
+	if ovm.Spec.Running != true {
+		// VM should not be running
+		return nil
+	}
+
+	if shouldRestart(vm) {
+		// stop VM
+		err := c.clientset.VM(vm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
+		return nil
 	}
 
 	return nil
@@ -710,4 +762,19 @@ func (c *OVMController) resolveControllerRef(namespace string, controllerRef *v1
 		return nil
 	}
 	return ovm.(*virtv1.OfflineVirtualMachine)
+}
+
+// shouldRestart is helper function checking the VM phase
+// if VM is: Failed, Succeeded
+// it should be restarted
+func shouldRestart(vm *virtv1.VirtualMachine) bool {
+	if vm.Status.Phase == virtv1.Failed {
+		return true
+	}
+
+	if vm.Status.Phase == virtv1.Succeeded {
+		return true
+	}
+
+	return false
 }
