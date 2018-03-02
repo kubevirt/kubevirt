@@ -364,7 +364,7 @@ func (c *OVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (ovms 
 	return ovms
 }
 
-// When a vm is created, enqueue the replica set that manages it and update its expectations.
+// When a vm is created, enqueue the OfflineVirtualMachine that manages it and update its expectations.
 func (c *OVMController) addVirtualMachine(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 
@@ -396,7 +396,7 @@ func (c *OVMController) addVirtualMachine(obj interface{}) {
 		return
 	}
 
-	// Otherwise, it's an orphan. Get a list of all matching ReplicaSets and sync
+	// Otherwise, it's an orphan. Get a list of all matching OfflineVirtualMachines and sync
 	// them to see if anyone wants to adopt it.
 	// DO NOT observe creation because no controller should be waiting for an
 	// orphan.
@@ -410,9 +410,9 @@ func (c *OVMController) addVirtualMachine(obj interface{}) {
 	}
 }
 
-// When a vm is updated, figure out what replica set/s manage it and wake them
+// When a vm is updated, figure out what OfflineVirtualMachine manage it and wake them
 // up. If the labels of the vm have changed we need to awaken both the old
-// and new replica set. old and cur must be *v1.VirtualMachine types.
+// and new OfflineVirtualMachine. old and cur must be *v1.VirtualMachine types.
 func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
 	curVM := cur.(*virtv1.VirtualMachine)
 	oldVM := old.(*virtv1.VirtualMachine)
@@ -426,7 +426,7 @@ func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
 	if curVM.DeletionTimestamp != nil {
 		// when a vm is deleted gracefully it's deletion timestamp is first modified to reflect a grace period,
 		// and after such time has passed, the virt-handler actually deletes it from the store. We receive an update
-		// for modification of the deletion timestamp and expect an rs to create more replicas asap, not wait
+		// for modification of the deletion timestamp and expect an OfflineVirtualMachine to create newVM asap, not wait
 		// until the virt-handler actually deletes the vm. This is different from the Phase of a vm changing, because
 		// an rs never initiates a phase change, and so is never asleep waiting for the same.
 		c.deleteVirtualMachine(curVM)
@@ -474,7 +474,7 @@ func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
 	}
 }
 
-// When a vm is deleted, enqueue the replica set that manages the vm and update its expectations.
+// When a vm is deleted, enqueue the OfflineVirtualMachine that manages the vm and update its expectations.
 // obj could be an *v1.VirtualMachine, or a DeletionFinalStateUnknown marker item.
 func (c *OVMController) deleteVirtualMachine(obj interface{}) {
 	vm, ok := obj.(*virtv1.VirtualMachine)
@@ -482,7 +482,7 @@ func (c *OVMController) deleteVirtualMachine(obj interface{}) {
 	// When a delete is dropped, the relist will notice a vm in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
 	// the deleted key/value. Note that this value might be stale. If the vm
-	// changed labels the new ReplicaSet will not be woken up till the periodic resync.
+	// changed labels the new OfflineVirtualMachine will not be woken up till the periodic resync.
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
