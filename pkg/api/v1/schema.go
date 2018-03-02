@@ -116,6 +116,8 @@ type Devices struct {
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vm
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
+	// Interfaces describe network interface which can be added to the vm
+	Interfaces []Interface `json:"interfaces,omitempty"`
 }
 
 // ---
@@ -603,3 +605,79 @@ func NewMinimalDomainSpec() DomainSpec {
 	}
 	return domain
 }
+
+// ---
+// +k8s:openapi-gen=true
+type Interface struct {
+	// Name of the interface
+	Name string `json:"name"`
+	// Name of the refernced networks
+	// Must match the Name of a Network
+	NetworkName string `json:"networkName"`
+	// BinindMethod specifies the method which will be used to connect the interface to the guest
+	// Defaults to Bridge
+	InterfaceBinindMethod `json:",inline"`
+}
+
+// Represents the method which will be used to connet the interface to the guest.
+// Only one of its members may be specified.
+// ---
+// +k8s:openapi-gen=true
+type InterfaceBinindMethod struct {
+	Bridge      *InterfaceBridge      `json:"bridge,omitempty"`
+	Proxy       *InterfaceProxy       `json:"proxy,omitempty"`
+	Passthrough *InterfacePassthrough `json:"passthrough,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type InterfaceBridge struct {
+	// offers the source interface ip to the guest interface
+	DelegateIp bool `json:"delegateIp,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type InterfaceProxy struct {
+	// List of ports to expose from the container. Exposing a port here gives
+	// the system additional information about the network connections a
+	// container uses, but is primarily informational. Not specifying a port here
+	// DOES NOT prevent that port from being exposed. Any port which is
+	// listening on the default "0.0.0.0" address inside a container will be
+	// accessible from the network.
+	// Cannot be updated.
+	// +optional
+	// +patchMergeKey=containerPort
+	// +patchStrategy=merge
+	Ports []v1.ContainerPort `json:ports`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type InterfacePassthrough struct{}
+
+// Network represents a network type and an resource that should be connected to the vm.
+// ---
+// +k8s:openapi-gen=true
+type Network struct {
+	// Network name
+	// Must be a DNS_LABEL and unique within the vm.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+	Name string `json:"name"`
+	// NetworkSource represents the network type and the source interface that should be connected to the virtual machine.
+	// Defaults to Pod, if no type is specified
+	NetworkSource `json:",inline"`
+}
+
+// Represents the source resource that will be connected to the vm.
+// Only one of its members may be specified.
+// ---
+// +k8s:openapi-gen=true
+type NetworkSource struct {
+	Pod *PodNetwork `json:"pod,omitempty"`
+}
+
+// Represents the stock pod network interface
+// ---
+// +k8s:openapi-gen=true
+type PodNetwork struct{}
