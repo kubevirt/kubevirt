@@ -54,7 +54,7 @@ func main() {
 	klog.InitializeLogging("openapispec")
 
 	// arguments for NewVirtAPIApp have no influence on the generated spec
-	app := virt_api.VirtAPIApp{}
+	app := virt_api.NewVirtApi()
 	app.Compose()
 	dumpOpenApiSpec(dumpapispecpath)
 }

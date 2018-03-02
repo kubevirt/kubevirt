@@ -96,6 +96,12 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 	namespace := request.PathParameter("namespace")
 
 	cmd := []string{"/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", namespace, vmName, "serial0")}
+
+	if request.Request == nil || request.Request.TLS == nil || len(request.Request.TLS.PeerCertificates) == 0 {
+		log.Log.Error("Client failed to provide cert.")
+		response.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	app.requestHandler(request, response, cmd)
 }
 

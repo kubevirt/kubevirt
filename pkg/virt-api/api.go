@@ -1,20 +1,29 @@
 package virt_api
 
 import (
+	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-
-	"k8s.io/client-go/util/cert"
-	"k8s.io/client-go/util/cert/triple"
+	"path/filepath"
+	"reflect"
 
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 	openapispec "github.com/go-openapi/spec"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
+
+	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/cert/triple"
+	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
@@ -30,22 +39,39 @@ const (
 
 	// Default address that virt-api listens on.
 	defaultHost = "0.0.0.0"
+
+	// selfsigned cert secret name
+	virtApiCertSecretName = "kubevirt-virt-api-certs"
+
+	certBytesValue        = "cert-bytes"
+	keyBytesValue         = "key-bytes"
+	signingCertBytesValue = "signing-cert-bytes"
 )
 
-type VirtAPIApp struct {
-	service.ServiceListen
-	SwaggerUI string
-	virtCli   kubecli.KubevirtClient
+type VirtApi interface {
+	Compose()
+	Run()
+	AddFlags()
+	ConfigureOpenAPIService()
 }
 
-var _ service.Service = &VirtAPIApp{}
+type virtAPIApp struct {
+	service.ServiceListen
+	SwaggerUI      string
+	virtCli        kubecli.KubevirtClient
+	certsDirectory string
 
-func (app *VirtAPIApp) Compose() {
-	ctx := context.Background()
-	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
-	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
-	vmpGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinepresets"}
-	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
+	signingCertBytes []byte
+	certBytes        []byte
+	keyBytes         []byte
+	clientCABytes    []byte
+}
+
+var _ service.Service = &virtAPIApp{}
+
+func NewVirtApi() VirtApi {
+
+	app := &virtAPIApp{}
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
@@ -53,6 +79,22 @@ func (app *VirtAPIApp) Compose() {
 	}
 
 	app.virtCli = virtCli
+	app.BindAddress = defaultHost
+	app.Port = defaultPort
+
+	app.certsDirectory, err = os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	return app
+}
+
+func (app *virtAPIApp) composeResources(ctx context.Context) {
+
+	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
+	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
+	vmpGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinepresets"}
 
 	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
 	if err != nil {
@@ -74,8 +116,30 @@ func (app *VirtAPIApp) Compose() {
 		log.Fatal(err)
 	}
 
+	restful.Add(ws)
+
+	ws.Route(ws.GET("/healthz").
+		To(healthz.KubeConnectionHealthzFunc).
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON).
+		Operation("checkHealth").
+		Doc("Health endpoint").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusInternalServerError, "Unhealthy", nil))
+	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmGVR)
+	if err != nil {
+		panic(err)
+	}
+
+	restful.Add(ws)
+}
+
+func (app *virtAPIApp) composeSubresources(ctx context.Context) {
+
+	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
+
 	subws := new(restful.WebService)
-	subws.Doc("The KubeVirt API, a virtual machine management.")
+	subws.Doc("The KubeVirt Subresource API.")
 	subws.Path(rest.GroupVersionBasePath(v1.SubresourceGroupVersion))
 
 	subresourceApp := &rest.SubresourceAPIApp{
@@ -93,29 +157,20 @@ func (app *VirtAPIApp) Compose() {
 		Operation("vnc").
 		Doc("Open a websocket connection to connect to VNC on the specified VM."))
 
-	restful.Add(ws)
 	restful.Add(subws)
+}
 
-	ws.Route(ws.GET("/healthz").
-		To(healthz.KubeConnectionHealthzFunc).
-		Consumes(restful.MIME_JSON).
-		Produces(restful.MIME_JSON).
-		Operation("checkHealth").
-		Doc("Health endpoint").
-		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusInternalServerError, "Unhealthy", nil))
-	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmGVR)
-	if err != nil {
-		panic(err)
-	}
+func (app *virtAPIApp) Compose() {
+	ctx := context.Background()
 
-	restful.Add(ws)
+	app.composeResources(ctx)
+	app.composeSubresources(ctx)
 
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
 }
 
-func (app *VirtAPIApp) ConfigureOpenAPIService() {
+func (app *virtAPIApp) ConfigureOpenAPIService() {
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(CreateOpenAPIConfig()))
 	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
 }
@@ -147,38 +202,240 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 	}
 }
 
-func (app *VirtAPIApp) Run() {
-	caKeyPair, _ := triple.NewCA("kubevirt.io")
-	keyPair, _ := triple.NewServerKeyPair(
-		caKeyPair,
-		"virt-api.kube-system.pod.cluster.local",
-		"virt-api",
-		"kube-system",
-		"cluster.local",
-		nil,
-		nil,
-	)
-	dir, err := os.Getwd()
+func (app *virtAPIApp) getClientCert() error {
+	authConfigMap, err := app.virtCli.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
 	if err != nil {
-		panic(err)
+		return err
 	}
-	ioutil.WriteFile(dir+"/key.pem", cert.EncodePrivateKeyPEM(keyPair.Key), 0600)
-	ioutil.WriteFile(dir+"/cert.pem", cert.EncodeCertPEM(keyPair.Cert), 0600)
+
+	clientCA, ok := authConfigMap.Data["client-ca-file"]
+	if !ok {
+		return fmt.Errorf("client-ca-file value not found in auth config map.")
+	}
+
+	app.clientCABytes = []byte(clientCA)
+	return nil
+}
+
+func (app *virtAPIApp) getSelfSignedCert() error {
+	var ok bool
+	generateCerts := false
+	secret, err := app.virtCli.CoreV1().Secrets(metav1.NamespaceSystem).Get(virtApiCertSecretName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			generateCerts = true
+		} else {
+			return err
+		}
+	}
+
+	if generateCerts {
+		// Generate new certs if secret doesn't already exist
+		caKeyPair, _ := triple.NewCA("kubevirt.io")
+		keyPair, _ := triple.NewServerKeyPair(
+			caKeyPair,
+			"virt-api.kube-system.pod.cluster.local",
+			"virt-api",
+			"kube-system",
+			"cluster.local",
+			nil,
+			nil,
+		)
+
+		app.keyBytes = cert.EncodePrivateKeyPEM(keyPair.Key)
+		app.certBytes = cert.EncodeCertPEM(keyPair.Cert)
+		app.signingCertBytes = cert.EncodeCertPEM(caKeyPair.Cert)
+
+		secret := k8sv1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      virtApiCertSecretName,
+				Namespace: metav1.NamespaceSystem,
+				Labels: map[string]string{
+					v1.AppLabel: "virt-api-aggregator",
+				},
+			},
+			Type: "Opaque",
+			Data: map[string][]byte{
+				certBytesValue:        app.certBytes,
+				keyBytesValue:         app.keyBytes,
+				signingCertBytesValue: app.signingCertBytes,
+			},
+		}
+		_, err := app.virtCli.CoreV1().Secrets(metav1.NamespaceSystem).Create(&secret)
+		if err != nil {
+			return err
+		}
+	} else {
+		// retrieve self signed cert info from secret
+
+		app.certBytes, ok = secret.Data[certBytesValue]
+		if !ok {
+			return fmt.Errorf("%s value not found in %s virt-api secret", certBytesValue, virtApiCertSecretName)
+		}
+		app.keyBytes, ok = secret.Data[keyBytesValue]
+		if !ok {
+			return fmt.Errorf("%s value not found in %s virt-api secret", keyBytesValue, virtApiCertSecretName)
+		}
+		app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
+		if !ok {
+			return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtApiCertSecretName)
+		}
+	}
+	return nil
+}
+
+func (app *virtAPIApp) createSubresourceApiservice() error {
+	config, err := kubecli.GetConfig()
+	if err != nil {
+		return err
+	}
+	aggregatorClient := aggregatorclient.NewForConfigOrDie(config)
+
+	subresourceAggregatedApiName := v1.SubresourceGroupVersion.Version + "." + v1.SubresourceGroupName
+
+	registerApiService := false
+
+	apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get(subresourceAggregatedApiName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			registerApiService = true
+		} else {
+			return err
+		}
+	}
+
+	if registerApiService {
+		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Create(&apiregistrationv1beta1.APIService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: subresourceAggregatedApiName,
+				Labels: map[string]string{
+					v1.AppLabel: "virt-api-aggregator",
+				},
+			},
+			Spec: apiregistrationv1beta1.APIServiceSpec{
+				Service: &apiregistrationv1beta1.ServiceReference{
+					Namespace: "kube-system",
+					Name:      "virt-api",
+				},
+				Group:                v1.SubresourceGroupName,
+				Version:              v1.SubresourceGroupVersion.Version,
+				CABundle:             app.signingCertBytes,
+				GroupPriorityMinimum: 1000,
+				VersionPriority:      15,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	} else if reflect.DeepEqual(apiService.Spec.CABundle, app.signingCertBytes) == false {
+		// Update apiService if CA bundle doesn't match ours
+		apiService.Spec.CABundle = app.signingCertBytes
+		_, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Update(apiService)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (app *virtAPIApp) startTLS() error {
 
 	errors := make(chan error)
 
+	keyFile := filepath.Join(app.certsDirectory, "/key.pem")
+	certFile := filepath.Join(app.certsDirectory, "/cert.pem")
+	signingCertFile := filepath.Join(app.certsDirectory, "/signingCert.pem")
+	clientCAFile := filepath.Join(app.certsDirectory, "/clientCA.crt")
+
+	// Write the certs to disk
+	err := ioutil.WriteFile(clientCAFile, app.clientCABytes, 0600)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(keyFile, app.keyBytes, 0600)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(certFile, app.certBytes, 0600)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(signingCertFile, app.signingCertBytes, 0600)
+	if err != nil {
+		return err
+	}
+
+	// create the client CA pool.
+	// This ensures we're talking to the k8s api server
+	pool, err := cert.NewPool(clientCAFile)
+	if err != nil {
+		return err
+	}
+
+	tlsConfig := &tls.Config{
+		ClientCAs: pool,
+		// A RequestClientCert request means we're not guaranteed
+		// a client has been authenticated unless they provide a peer
+		// cert.
+		//
+		// Make sure to verify in subresource endpoint that peer cert
+		// was provided before processing request. If the peer cert is
+		// given on the connection, then we can be guaranteed that it
+		// was signed by the client CA in our pool.
+		//
+		// There is another ClientAuth type called 'RequireAndVerifyClientCert'
+		// We can't use this type here because during the aggregated api status
+		// check it attempts to hit '/' on our api endpoint to verify an http
+		// response is given. That status request won't send a peer cert regardless
+		// if the TLS handshake requests it. As a result, the TLS handshake fails
+		// and our aggregated endpoint never becomes available.
+		ClientAuth: tls.RequestClientCert,
+	}
+	tlsConfig.BuildNameToCertificate()
+
 	go func() {
-		errors <- http.ListenAndServeTLS(app.BindAddress+":"+"8443", dir+"/cert.pem", dir+"/key.pem", nil)
+		server := &http.Server{
+			Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
+			TLSConfig: tlsConfig,
+		}
+
+		errors <- server.ListenAndServeTLS(certFile, keyFile)
 	}()
-	panic(<-errors)
-	//	panic(http.ListenAndServe(app.Address(), nil))
+
+	// wait for server to exit
+	return <-errors
 }
 
-func (app *VirtAPIApp) AddFlags() {
-	app.InitFlags()
+func (app *virtAPIApp) Run() {
 
-	app.BindAddress = defaultHost
-	app.Port = defaultPort
+	// get client Cert
+	err := app.getClientCert()
+	if err != nil {
+		panic(err)
+	}
+
+	// Get/Set selfsigned cert
+	err = app.getSelfSignedCert()
+	if err != nil {
+		panic(err)
+	}
+
+	// Verify/create aggregator endpoint.
+	err = app.createSubresourceApiservice()
+	if err != nil {
+		panic(err)
+	}
+
+	// TODO add readiness check
+	// start TLS server
+	err = app.startTLS()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (app *virtAPIApp) AddFlags() {
+	app.InitFlags()
 
 	app.AddCommonFlags()
 

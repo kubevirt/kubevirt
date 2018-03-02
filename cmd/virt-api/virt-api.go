@@ -28,8 +28,8 @@ import (
 func main() {
 	klog.InitializeLogging("virt-api")
 
-	app := virt_api.VirtAPIApp{}
-	service.Setup(&app)
+	app := virt_api.NewVirtApi()
+	service.Setup(app)
 	app.Compose()
 	app.ConfigureOpenAPIService()
 	app.Run()

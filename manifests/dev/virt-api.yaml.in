@@ -13,22 +13,6 @@ spec:
   selector:
     kubevirt.io: virt-api
 ---
-apiVersion: apiregistration.k8s.io/v1beta1
-kind: APIService
-metadata:
-  name: v1alpha1.subresources.kubevirt.io
-  labels:
-    kubevirt.io: "virt-api-aggregator"
-spec:
-  insecureSkipTLSVerify: true
-  group: subresources.kubevirt.io
-  groupPriorityMinimum: 1000
-  versionPriority: 15
-  service:
-    name: virt-api
-    namespace: kube-system
-  version: v1alpha1
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -37,6 +21,7 @@ metadata:
   labels:
     kubevirt.io: "virt-api"
 spec:
+  replicas: 2
   template:
     metadata:
       labels:
