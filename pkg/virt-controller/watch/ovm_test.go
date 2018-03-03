@@ -208,7 +208,6 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Expect(cond.Message).To(Equal("failure"))
 				Expect(cond.Status).To(Equal(v13.ConditionTrue))
 				cond = objOVM.Status.Conditions[1]
-				Expect(cond.Type).To(Equal(v1.OfflineVirtualMachineVMFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("Running"))
 				Expect(cond.Status).To(Equal(v13.ConditionTrue))
