@@ -201,15 +201,11 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			// We should see the failed condition, replicas should stay at 2
 			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
 				objOVM := obj.(*v1.OfflineVirtualMachine)
-				Expect(objOVM.Status.Conditions).To(HaveLen(2))
+				Expect(objOVM.Status.Conditions).To(HaveLen(1))
 				cond := objOVM.Status.Conditions[0]
 				Expect(cond.Type).To(Equal(v1.OfflineVirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("failure"))
-				Expect(cond.Status).To(Equal(v13.ConditionTrue))
-				cond = objOVM.Status.Conditions[1]
-				Expect(cond.Reason).To(Equal("FailedDelete"))
-				Expect(cond.Message).To(Equal("Running"))
 				Expect(cond.Status).To(Equal(v13.ConditionTrue))
 			})
 
