@@ -176,7 +176,7 @@ func (c *OVMController) execute(key string) error {
 		}
 	}
 
-	var createErr error
+	var createErr, vmError error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if needsSync && OVM.ObjectMeta.DeletionTimestamp == nil {
@@ -197,7 +197,7 @@ func (c *OVMController) execute(key string) error {
 		logger.Reason(err).Error("Scaling the OfflineVirtualMachine failed.")
 	}
 
-	err = c.updateStatus(OVM.DeepCopy(), vm, createErr)
+	err = c.updateStatus(OVM.DeepCopy(), vm, createErr, vmError)
 	if err != nil {
 		logger.Reason(err).Error("Updating the OfflineVirtualMachine status failed.")
 	}
@@ -344,9 +344,11 @@ func (c *OVMController) restartVM(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 	}
 
 	if shouldRestart(vm) {
-		// stop VM
-		err := c.clientset.VM(vm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
-		return nil
+		// restarting VM by just stopping it. The controller will
+		// register stopping VM and will know that this OVM
+		// should run, so it will start it again
+		err := c.stopVM(ovm, vm)
+		return err
 	}
 
 	return nil
@@ -607,21 +609,20 @@ func (c *OVMController) removeCondition(ovm *virtv1.OfflineVirtualMachine, cond 
 	ovm.Status.Conditions = conds
 }
 
-func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) error {
+func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr, vmError error) error {
 
 	// Check if it is worth updating
-	runningMatch := ovm.Spec.Running == c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning) && !c.hasCondition(ovm, virtv1.OfflineVirtualMachineVMFailure)
+	runningMatch := ovm.Spec.Running == c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning)
 	errMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
-	vmMatch := true
-	if vm != nil {
-		log.Log.Object(ovm).Info("Everything up to date.")
-		vmMatch = c.hasCondition(ovm, virtv1.OfflineVirtualMachineVMFailure) == (vm.Status.Phase == virtv1.Unknown || vm.Status.Phase == virtv1.Failed)
+
+	log.Log.Object(ovm).Infof("Update: shouldRun: %t; shouldHaveErr: %t", runningMatch, errMatch)
+
+	if errMatch && runningMatch {
+		return nil
 	}
 
-	log.Log.Object(ovm).Infof("Update: runningMatch: %t; errMatch: %t; vmMatch: %t", runningMatch, errMatch, vmMatch)
-
 	// Add/Remove Failure condition if necessary
-	if !(errMatch && vmMatch) {
+	if !(errMatch) {
 		c.processFailure(ovm, vm, createErr)
 	}
 
@@ -632,11 +633,7 @@ func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virt
 
 	_, err := c.clientset.OfflineVirtualMachine(ovm.ObjectMeta.Namespace).Update(ovm)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (c *OVMController) getVirtualMachineBaseName(ovm *virtv1.OfflineVirtualMachine) string {
@@ -699,29 +696,6 @@ func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *vi
 		} else {
 			log.Log.Object(ovm).Info("Removing failure")
 			c.removeCondition(ovm, virtv1.OfflineVirtualMachineFailure)
-		}
-	}
-
-	if vm != nil {
-		if vm.Status.Phase == virtv1.Failed {
-			reason = "VMFailed"
-		} else if vm.Status.Phase == virtv1.Unknown {
-			reason = "VMUnknown"
-		}
-		message = string(vm.Status.Phase)
-
-		if !c.hasCondition(ovm, virtv1.OfflineVirtualMachineVMFailure) {
-			log.Log.Object(ovm).Infof("Reason to fail: %s", reason)
-			ovm.Status.Conditions = append(ovm.Status.Conditions, virtv1.OfflineVirtualMachineCondition{
-				Type:               virtv1.OfflineVirtualMachineVMFailure,
-				Reason:             reason,
-				Message:            message,
-				LastTransitionTime: v1.Now(),
-				Status:             k8score.ConditionTrue,
-			})
-		} else {
-			log.Log.Object(ovm).Info("Removing failure")
-			c.removeCondition(ovm, virtv1.OfflineVirtualMachineVMFailure)
 		}
 	}
 }

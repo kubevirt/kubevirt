@@ -699,9 +699,6 @@ const (
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "Failure"
 
-	// OfflineVirtualMachineVMFailure is added in case when the created VM fails.
-	OfflineVirtualMachineVMFailure OfflineVirtualMachineConditionType = "VMFailure"
-
 	// OfflineVirtualMachineRunning is added in a offline virtual machine when the VM succesfully runs.
 	// After this condition was added, the VM is up and running.
 	OfflineVirtualMachineRunning OfflineVirtualMachineConditionType = "Running"
