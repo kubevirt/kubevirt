@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -156,6 +157,11 @@ func initializeDirs(virtShareDir string,
 	}
 
 	err = registrydisk.SetLocalDirectory(ephemeralDiskDir + "/registry-disk-data")
+	if err != nil {
+		panic(err)
+	}
+
+	err = ephemeraldisk.SetLocalDirectory(ephemeralDiskDir + "/disk-data")
 	if err != nil {
 		panic(err)
 	}

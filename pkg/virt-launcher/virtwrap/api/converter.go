@@ -11,6 +11,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
@@ -107,6 +108,10 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Covert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
 
+	if source.Ephemeral != nil {
+		return Convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, source.Ephemeral, disk, c)
+	}
+
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
 
@@ -145,6 +150,25 @@ func Convert_v1_RegistryDiskSource_To_api_Disk(volumeName string, _ *v1.Registry
 	}
 	disk.Driver.Type = diskType
 	disk.Source.File = diskPath
+	return nil
+}
+
+func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.EphemeralVolumeSource, disk *Disk, c *ConverterContext) error {
+	disk.Type = "file"
+	disk.Driver.Type = "qcow2"
+	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
+	disk.BackingStore = &BackingStore{}
+
+	backingDisk := &Disk{Driver: &DiskDriver{}}
+	err := Covert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c)
+	if err != nil {
+		return err
+	}
+
+	disk.BackingStore.Format.Type = backingDisk.Driver.Type
+	disk.BackingStore.Source = &backingDisk.Source
+	disk.BackingStore.Type = backingDisk.Type
+
 	return nil
 }
 

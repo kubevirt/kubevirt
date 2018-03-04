@@ -214,16 +214,17 @@ type Devices struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
-	Device   string      `xml:"device,attr"`
-	Snapshot string      `xml:"snapshot,attr,omitempty"`
-	Type     string      `xml:"type,attr"`
-	Source   DiskSource  `xml:"source"`
-	Target   DiskTarget  `xml:"target"`
-	Serial   string      `xml:"serial,omitempty"`
-	Driver   *DiskDriver `xml:"driver,omitempty"`
-	ReadOnly *ReadOnly   `xml:"readonly,omitempty"`
-	Auth     *DiskAuth   `xml:"auth,omitempty"`
-	Alias    *Alias      `xml:"alias,omitmepty"`
+	Device       string        `xml:"device,attr"`
+	Snapshot     string        `xml:"snapshot,attr,omitempty"`
+	Type         string        `xml:"type,attr"`
+	Source       DiskSource    `xml:"source"`
+	Target       DiskTarget    `xml:"target"`
+	Serial       string        `xml:"serial,omitempty"`
+	Driver       *DiskDriver   `xml:"driver,omitempty"`
+	ReadOnly     *ReadOnly     `xml:"readonly,omitempty"`
+	Auth         *DiskAuth     `xml:"auth,omitempty"`
+	Alias        *Alias        `xml:"alias,omitempty"`
+	BackingStore *BackingStore `xml:"backingStore,omitempty"`
 }
 
 type DiskAuth struct {
@@ -265,6 +266,16 @@ type DiskSourceHost struct {
 	Port string `xml:"port,attr,omitempty"`
 }
 
+type BackingStore struct {
+	Type   string             `xml:"type,attr"`
+	Format BackingStoreFormat `xml:"format"`
+	Source *DiskSource        `xml:"source"`
+}
+
+type BackingStoreFormat struct {
+	Type string `xml:"type,attr"`
+}
+
 // END Disk -----------------------------
 
 // BEGIN Serial -----------------------------
@@ -273,7 +284,7 @@ type Serial struct {
 	Type   string        `xml:"type,attr"`
 	Target *SerialTarget `xml:"target,omitempty"`
 	Source *SerialSource `xml:"source,omitempty"`
-	Alias  *Alias        `xml:"alias,omitmepty"`
+	Alias  *Alias        `xml:"alias,omitempty"`
 }
 
 type SerialTarget struct {
@@ -293,7 +304,7 @@ type Console struct {
 	Type   string         `xml:"type,attr"`
 	Target *ConsoleTarget `xml:"target,omitempty"`
 	Source *ConsoleSource `xml:"source,omitempty"`
-	Alias  *Alias         `xml:"alias,omitmepty"`
+	Alias  *Alias         `xml:"alias,omitempty"`
 }
 
 type ConsoleTarget struct {
@@ -516,7 +527,7 @@ type RandomGenerator struct {
 type Watchdog struct {
 	Model  string `xml:"model,attr"`
 	Action string `xml:"action,attr"`
-	Alias  *Alias `xml:"alias,omitmepty"`
+	Alias  *Alias `xml:"alias,omitempty"`
 }
 
 // TODO ballooning, rng, cpu ...

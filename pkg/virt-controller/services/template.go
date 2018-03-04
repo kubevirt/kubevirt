@@ -89,6 +89,15 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 				},
 			})
 		}
+		if volume.Ephemeral != nil {
+			volumesMounts = append(volumesMounts, volumeMount)
+			volumes = append(volumes, kubev1.Volume{
+				Name: volume.Name,
+				VolumeSource: kubev1.VolumeSource{
+					PersistentVolumeClaim: volume.Ephemeral.PersistentVolumeClaim,
+				},
+			})
+		}
 	}
 
 	// Pad the virt-launcher grace period.

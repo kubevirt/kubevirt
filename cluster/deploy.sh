@@ -39,7 +39,7 @@ _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
 if [ "$PROVIDER" = "vagrant-openshift" ]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n kube-system
-    _kubectl adm policy add-scc-to-user hostmount-anyuid -z kubevirt-testing -n kube-system
+    _kubectl adm policy add-scc-to-user privileged -z kubevirt-testing -n kube-system
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n kube-system
 fi
 

@@ -22,6 +22,7 @@ script:
   `make`. Please run it and commit the changes"; git status --porcelain; false; fi
 - if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then make goveralls; else make test; fi
 - make apidocs
+- make client-python
 - make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
 
 deploy:
@@ -44,6 +45,7 @@ deploy:
   file:
   - _out/cmd/virtctl/virtctl-*
   - _out/manifests/release/kubevirt.yaml
+  - _out/manifests/release/demo-content.yaml
   prerelease: true
   overwrite: true
   on:
@@ -52,6 +54,11 @@ deploy:
 - provider: script
   skip_cleanup: true
   script: bash hack/gen-swagger-doc/deploy.sh
+  on:
+    branch: master
+- provider: script
+  skip_cleanup: true
+  script: bash hack/gen-client-python/deploy.sh
   on:
     branch: master
 

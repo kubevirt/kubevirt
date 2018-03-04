@@ -208,6 +208,17 @@ type VolumeSource struct {
 	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
 	// +optional
 	RegistryDisk *RegistryDiskSource `json:"registryDisk,omitempty"`
+	// Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
+	// +optional
+	Ephemeral *EphemeralVolumeSource `json:"ephemeral,omitempty"`
+}
+
+type EphemeralVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the vm via qemu.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 }
 
 // Represents a docker image with an embedded disk

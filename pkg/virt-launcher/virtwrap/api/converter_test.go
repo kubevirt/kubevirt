@@ -153,6 +153,10 @@ var _ = Describe("Converter", func() {
 					Name:       "should_default_to_disk",
 					VolumeName: "volume4",
 				},
+				{
+					Name:       "ephemeral_pvc",
+					VolumeName: "volume5",
+				},
 			}
 			vm.Spec.Volumes = []v1.Volume{
 				{
@@ -208,6 +212,16 @@ var _ = Describe("Converter", func() {
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testclaim",
+						},
+					},
+				},
+				{
+					Name: "volume5",
+					VolumeSource: v1.VolumeSource{
+						Ephemeral: &v1.EphemeralVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testclaim",
+							},
 						},
 					},
 				},
@@ -289,6 +303,16 @@ var _ = Describe("Converter", func() {
       <target bus="sata" dev="sdc"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="should_default_to_disk"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/volume5/disk.qcow2"></source>
+      <target bus="sata" dev="sdd"></target>
+      <driver name="qemu" type="qcow2"></driver>
+      <alias name="ephemeral_pvc"></alias>
+      <backingStore type="file">
+        <format type="raw"></format>
+        <source file="/var/run/kubevirt-private/vm-disks/volume5/disk.img"></source>
+      </backingStore>
     </disk>
     <serial type="unix">
       <target port="0"></target>

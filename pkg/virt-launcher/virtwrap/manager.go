@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -90,6 +91,12 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 
 	// setup networking
 	err = network.SetupPodNetwork(domain)
+	if err != nil {
+		return domain, err
+	}
+
+	// Create images for volumes that are marked ephemeral.
+	err = ephemeraldisk.CreateEphemeralImages(vm)
 	if err != nil {
 		return domain, err
 	}

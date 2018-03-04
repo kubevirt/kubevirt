@@ -1,3 +1,4 @@
+# Virtual Machine Presets
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachinePreset
 metadata:
@@ -6,7 +7,6 @@ metadata:
     matchLabels:
       kubevirt.io/os: win2k12r2
 spec:
-  terminationGracePeriodSeconds: 0
   domain:
     cpu:
       cores: 2
