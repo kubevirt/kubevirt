@@ -284,21 +284,12 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Obtaining the serial console")
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, err := tests.LoggedInCirrosExpecter(vm)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
 				By("Guest shutdown")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "cirros login:"},
-					&expect.BSnd{S: "cirros\n"},
-					&expect.BExp{R: "Password:"},
-					&expect.BSnd{S: "gocubsgo\n"},
-					&expect.BExp{R: "$"},
-					// keep the ordering!
 					&expect.BSnd{S: "sudo poweroff\n"},
 					&expect.BExp{R: "The system is going down NOW!"},
 				}, 240*time.Second)
