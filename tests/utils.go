@@ -861,3 +861,25 @@ func RegistryDiskFor(name RegistryDisk) string {
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
+
+func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	expecter, _, err := NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: vm.Name + " login:"},
+		&expect.BSnd{S: "cirros\n"},
+		&expect.BExp{R: "Password:"},
+		&expect.BSnd{S: "gocubsgo\n"},
+		&expect.BExp{R: "$"}})
+	res, err := expecter.ExpectBatch(b, 300*time.Second)
+	log.DefaultLogger().Object(vm).Infof("%v", res)
+	return expecter, err
+}

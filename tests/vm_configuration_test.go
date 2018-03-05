@@ -32,6 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -133,21 +134,15 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMStart(vm)
 
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+			expecter, err := tests.LoggedInCirrosExpecter(vm)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
-			_, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "cirros login:"},
-				&expect.BSnd{S: "cirros\n"},
-				&expect.BExp{R: "Password:"},
-				&expect.BSnd{S: "gocubsgo\n"},
-				&expect.BExp{R: "$"},
+			res, err := expecter.ExpectBatch([]expect.Batcher{
 				// keep the ordering!
 				&expect.BSnd{S: "ls /dev/sda  /dev/vda  /dev/vdb\n"},
 				&expect.BExp{R: "/dev/sda  /dev/vda  /dev/vdb"},
-			}, 150*time.Second)
+			}, 10*time.Second)
+			log.DefaultLogger().Object(vm).Infof("%v", res)
 
 			Expect(err).ToNot(HaveOccurred())
 		})
