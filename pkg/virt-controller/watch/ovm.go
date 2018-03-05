@@ -344,10 +344,13 @@ func (c *OVMController) restartVM(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 	}
 
 	if shouldRestart(vm) {
-		// restarting VM by just stopping it. The controller will
-		// register stopping VM and will know that this OVM
-		// should run, so it will start it again
+		// restarting VM by just stopping it.
 		err := c.stopVM(ovm, vm)
+		if err != nil {
+			log.Log.Object(ovm).Error("Cannot restart VM, the VM cannot be deleted.")
+			return err
+		}
+		err = c.startVM(ovm)
 		return err
 	}
 
