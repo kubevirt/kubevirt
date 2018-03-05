@@ -187,10 +187,10 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 			controller.Execute()
 
-			// testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+			testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 		})
 
-		It("should add a fail condition if scaling down fails", func() {
+		It("should add a fail condition if deletion fails", func() {
 			ovm, vm := DefaultOVM(false)
 
 			addOfflineVirtualMachine(ovm)
@@ -198,7 +198,6 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
 
-			// We should see the failed condition, replicas should stay at 2
 			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
 				objOVM := obj.(*v1.OfflineVirtualMachine)
 				Expect(objOVM.Status.Conditions).To(HaveLen(1))
