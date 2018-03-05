@@ -71,20 +71,9 @@ var _ = Describe("Networking", func() {
 			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+			// Lets make sure that the OS is up by waiting until we can login
+			expecter, err := tests.LoggedInCirrosExpecter(vm)
 			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "login as 'cirros' user"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "cirros login: "},
-				&expect.BSnd{S: "cirros\n"},
-				&expect.BExp{R: "Password: "},
-				&expect.BSnd{S: "gocubsgo\n"},
-				&expect.BExp{R: "\\$ "},
-			}, 180*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			return vm
 		}

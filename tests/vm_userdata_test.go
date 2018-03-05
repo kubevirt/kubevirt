@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -113,7 +114,7 @@ var _ = Describe("CloudInit UserData", func() {
 		})
 
 		Context("with cloudInitNoCloud userData source", func() {
-			It("should have cloud-init data", func(done Done) {
+			It("should process provided cloud-init data", func(done Done) {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
 				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
@@ -136,9 +137,22 @@ var _ = Describe("CloudInit UserData", func() {
 				})
 
 				LaunchVM(vm)
+
+				By("executing a user-data script")
 				VerifyUserDataVM(vm, []expect.Batcher{
 					&expect.BExp{R: expectedUserData},
 				}, time.Second*120)
+
+				By("applying the hostname from meta-data")
+				expecter, err := tests.LoggedInCirrosExpecter(vm)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "hostname\n"},
+					&expect.BExp{R: vm.Name},
+				}, time.Second*10)
+				log.DefaultLogger().Object(vm).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
 				close(done)
 			}, 180)
 		})
