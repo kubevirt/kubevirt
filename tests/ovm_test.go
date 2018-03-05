@@ -271,17 +271,24 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		It("should survive guest shutdown, multiple times", func() {
 			By("Creating new OVM, not running")
 			newOVM := newOfflineVirtualMachine(false)
+			newOVM = startOVM(newOVM)
+			var vm *v1.VirtualMachine
+			var err error
 
-			for i := 0; i < 1; i++ {
-				newOVM = startOVM(newOVM)
+			for i := 0; i < 3; i++ {
+				By("Getting the running VM")
+				Eventually(func() bool {
+					vm, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.Phase == v1.Running
+				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
-				By("Getting the VM")
-				vm, err := virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+				By("Obtaining the serial console")
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				By("Guest reboot")
+				By("Guest shutdown")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
@@ -297,15 +304,14 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				}, 240*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("OVM does not has running condition")
+				By("Testing the VM is not running")
 				Eventually(func() bool {
-					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
+					vm, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
-				}, 600*time.Second, 1*time.Second).ShouldNot(BeTrue())
+					return vm.Status.Phase != v1.Running
+				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
-				By("Stopping the OVM")
-				newOVM = stopOVM(newOVM)
+				By("OVM should run the VM again")
 			}
 		})
 	})
