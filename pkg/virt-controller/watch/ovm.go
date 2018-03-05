@@ -232,7 +232,7 @@ func (c *OVMController) orphan(cm *controller.VirtualMachineControllerRefManager
 }
 
 func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) error {
-	log.Log.Object(ovm).Infof("VM should be running: %t", ovm.Spec.Running)
+	log.Log.Object(ovm).V(4).Infof("Start the VM: %t", ovm.Spec.Running)
 
 	if ovm.Spec.Running == true {
 		if vm != nil {
