@@ -693,11 +693,13 @@ func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *vi
 				LastTransitionTime: v1.Now(),
 				Status:             k8score.ConditionTrue,
 			})
-		} else {
-			log.Log.Object(ovm).Info("Removing failure")
-			c.removeCondition(ovm, virtv1.OfflineVirtualMachineFailure)
 		}
+
+		return
 	}
+
+	log.Log.Object(ovm).Info("Removing failure")
+	c.removeCondition(ovm, virtv1.OfflineVirtualMachineFailure)
 }
 
 func OvmOwnerRef(ovm *virtv1.OfflineVirtualMachine) v1.OwnerReference {
