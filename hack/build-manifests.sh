@@ -34,5 +34,6 @@ for arg in $args; do
     manifest=$(basename -s .in ${arg})
     sed -e "s#{{ docker_tag }}#${docker_tag}#g" \
         -e "s#{{ docker_prefix }}#${manifest_docker_prefix}#g" \
+        -e "s#{{ namespace }}#${namespace}#g" \
         ${KUBEVIRT_DIR}/manifests/$arg >${final_out_dir}/${manifest}
 done

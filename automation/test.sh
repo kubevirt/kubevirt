@@ -30,6 +30,7 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 kubectl() { cluster/kubectl.sh "$@"; }
 
 export BUILDER_NAME=$TARGET
+export NAMESPACE="${NAMESPACE:-kube-system}"
 
 if [ "$TARGET" = "vagrant-dev"  ]; then
 cat > hack/config-local.sh <<EOF
@@ -87,14 +88,14 @@ kubectl get nodes
 
 # Wait for all kubernetes pods to become ready (dont't wait for kubevirt pods from previous deployments)
 sleep 10
-while [ -n "$(kubectl get pods -n kube-system -l '!kubevirt.io' --no-headers | grep -v Running)" ]; do
+while [ -n "$(kubectl get pods -n ${NAMESPACE} -l '!kubevirt.io' --no-headers | grep -v Running)" ]; do
     echo "Waiting for kubernetes pods to become ready ..."
-    kubectl get pods -n kube-system --no-headers | >&2 grep -v Running || true
+    kubectl get pods -n ${NAMESPACE} --no-headers | >&2 grep -v Running || true
     sleep 10
 done
 
 echo "Kubernetes is ready:"
-kubectl get pods -n kube-system -l '!kubevirt.io'
+kubectl get pods -n ${NAMESPACE} -l '!kubevirt.io'
 echo ""
 echo ""
 
@@ -108,27 +109,27 @@ elif [ "$TARGET" = "vagrant-release"  ]; then
 fi
 
 # Wait until kubevirt pods are running
-while [ -n "$(kubectl get pods -n kube-system --no-headers | grep -v Running)" ]; do
+while [ -n "$(kubectl get pods -n ${NAMESPACE} --no-headers | grep -v Running)" ]; do
     echo "Waiting for kubevirt pods to enter the Running state ..."
-    kubectl get pods -n kube-system --no-headers | >&2 grep -v Running || true
+    kubectl get pods -n ${NAMESPACE} --no-headers | >&2 grep -v Running || true
     sleep 10
 done
 
 # Make sure all containers except virt-controller are ready
-while [ -n "$(kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/')" ]; do
+while [ -n "$(kubectl get pods -n ${NAMESPACE} -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/')" ]; do
     echo "Waiting for KubeVirt containers to become ready ..."
-    kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/' || true
+    kubectl get pods -n ${NAMESPACE} -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/' || true
     sleep 10
 done
 
 # Make sure that at least one virt-controller container is ready
-while [ "$(kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l)" -lt "1" ]; do
+while [ "$(kubectl get pods -n ${NAMESPACE} -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l)" -lt "1" ]; do
     echo "Waiting for KubeVirt virt-controller container to become ready ..."
-    kubectl get pods -n kube-system -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l
+    kubectl get pods -n ${NAMESPACE} -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l
     sleep 10
 done
 
-kubectl get pods -n kube-system
+kubectl get pods -n ${NAMESPACE}
 kubectl version
 
 # Disable proxy configuration since it causes test issues

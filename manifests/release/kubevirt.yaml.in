@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: kubevirt-controller
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 rules:
@@ -46,7 +46,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubevirt-controller
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 ---
@@ -54,7 +54,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubevirt-privileged
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 ---
@@ -62,7 +62,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-controller
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -72,13 +72,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-controller
-    namespace: kube-system
+    namespace: {{ namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-controller-cluster-admin
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -88,13 +88,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-controller
-    namespace: kube-system
+    namespace: {{ namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-privileged-cluster-admin
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -104,7 +104,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-privileged
-    namespace: kube-system
+    namespace: {{ namespace }}
 ---
 # custom resource definitions
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -148,7 +148,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: virt-controller
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: "virt-controller"
 spec:
@@ -194,7 +194,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: virt-handler
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: "virt-handler"
 spec:
