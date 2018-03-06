@@ -78,7 +78,7 @@ func (s *BinaryReadWriter) Write(p []byte) (int, error) {
 	for i := 0; i < len(p); i += chunkSize {
 		w, err := s.Conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
-			return bytesWritten, err
+			return bytesWritten, s.err(err)
 		}
 		defer w.Close()
 
@@ -103,9 +103,14 @@ func (s *BinaryReadWriter) Read(p []byte) (int, error) {
 		if err != nil {
 			return 0, s.err(err)
 		}
-		if msgType == websocket.BinaryMessage {
+
+		switch msgType {
+		case websocket.BinaryMessage:
 			n, err := r.Read(p)
 			return n, s.err(err)
+
+		case websocket.CloseMessage:
+			return 0, io.EOF
 		}
 	}
 }
@@ -257,7 +262,7 @@ func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out 
 	response, err := wrappedRoundTripper.RoundTrip(req)
 
 	if err != nil {
-		return fmt.Errorf("round tripper failed: %v", err)
+		return err
 	}
 
 	if response != nil {

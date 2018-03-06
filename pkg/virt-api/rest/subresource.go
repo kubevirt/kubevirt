@@ -32,6 +32,13 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 	vmName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
+	podName, httpStatusCode, err := app.remoteExecInfo(vmName, namespace)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to gather remote exec info for subresource request.")
+		response.WriteError(httpStatusCode, err)
+		return
+	}
+
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
 		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
@@ -43,6 +50,7 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
+	defer clientSocket.Close()
 
 	log.Log.Infof("Websocket connection upgraded")
 	wsReadWriter := &kubecli.BinaryReadWriter{Conn: clientSocket}
@@ -53,7 +61,7 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 	httpResponseChan := make(chan int)
 	copyErr := make(chan error)
 	go func() {
-		httpCode, err := app.remoteExecHelper(vmName, namespace, cmd, inReader, outWriter)
+		httpCode, err := app.remoteExecHelper(podName, namespace, cmd, inReader, outWriter)
 		log.Log.Errorf("%v", err)
 		httpResponseChan <- httpCode
 	}()
@@ -124,25 +132,30 @@ func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, er
 	return podList.Items[0].ObjectMeta.Name, nil
 }
 
-func (app *SubresourceAPIApp) remoteExecHelper(name string, namespace string, cmd []string, in io.Reader, out io.Writer) (int, error) {
+func (app *SubresourceAPIApp) remoteExecInfo(name string, namespace string) (string, int, error) {
+	podName := ""
 
-	// ensure VM is in running phase before attempting to connect.
 	vm, err := app.VirtCli.VM(namespace).Get(name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return http.StatusNotFound, goerror.New(fmt.Sprintf("VM %s in namespace %s not found.", name, namespace))
+			return "", http.StatusNotFound, goerror.New(fmt.Sprintf("VM %s in namespace %s not found.", name, namespace))
 		}
-		return http.StatusNotFound, err
+		return podName, http.StatusInternalServerError, err
 	}
 
 	if vm.IsRunning() == false {
-		return http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VM because phase is %s instead of %s", vm.Status.Phase, v1.Running))
+		return podName, http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VM because phase is %s instead of %s", vm.Status.Phase, v1.Running))
 	}
 
-	podName, err := app.findPod(namespace, name)
+	podName, err = app.findPod(namespace, name)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("unable to find matching pod for remote execution: %v", err)
+		return podName, http.StatusBadRequest, fmt.Errorf("unable to find matching pod for remote execution: %v", err)
 	}
+
+	return podName, http.StatusOK, nil
+}
+
+func (app *SubresourceAPIApp) remoteExecHelper(podName string, namespace string, cmd []string, in io.Reader, out io.Writer) (int, error) {
 
 	config, err := kubecli.GetConfig()
 	if err != nil {
