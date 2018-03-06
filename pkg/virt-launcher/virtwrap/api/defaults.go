@@ -1,5 +1,7 @@
 package api
 
+const DefaultBridgeName = "br1"
+
 func SetDefaults_Devices(devices *Devices) {
 	// Use vga as video device, since it is better than cirrus
 	// and does not require guest drivers
@@ -20,9 +22,9 @@ func SetDefaults_Devices(devices *Devices) {
 		Model: &Model{
 			Type: "e1000",
 		},
-		Type: "network",
+		Type: "bridge",
 		Source: InterfaceSource{
-			Network: "default",
+			Bridge: DefaultBridgeName,
 		}},
 	}
 }

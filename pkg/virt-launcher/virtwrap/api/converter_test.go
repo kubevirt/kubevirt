@@ -250,8 +250,8 @@ var _ = Describe("Converter", func() {
     <baseBoard></baseBoard>
   </sysinfo>
   <devices>
-    <interface type="network">
-      <source network="default"></source>
+    <interface type="bridge">
+      <source bridge="br1"></source>
       <model type="e1000"></model>
     </interface>
     <video>

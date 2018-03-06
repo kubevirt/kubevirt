@@ -44,7 +44,6 @@ import (
 
 const (
 	podInterface = "eth0"
-	bridgeName   = "br1"
 	guestDNS     = "8.8.8.8"
 )
 
@@ -152,7 +151,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 		nic.MAC,
 		nic.IP.IP,
 		nic.IP.Mask,
-		bridgeName,
+		api.DefaultBridgeName,
 		serverAddr.IP,
 		nic.Gateway,
 		net.ParseIP(guestDNS),
@@ -181,6 +180,9 @@ func SetupDefaultPodNetwork(domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
 	initHandler()
 
+	// There should alway be a pre-configured interface for the default pod interface.
+	defaultIconf := domain.Spec.Devices.Interfaces[0]
+
 	ifconf, err := getCachedInterface()
 	if err != nil {
 		return err
@@ -204,8 +206,8 @@ func SetupDefaultPodNetwork(domain *api.Domain) error {
 
 		// After the network is configured, cache the result
 		// in case this function is called again.
-		ifconf = decorateInterfaceConfig(vif)
-		err = setCachedInterface(ifconf)
+		decorateInterfaceConfig(vif, &defaultIconf)
+		err = setCachedInterface(&defaultIconf)
 		if err != nil {
 			panic(err)
 		}
@@ -214,9 +216,9 @@ func SetupDefaultPodNetwork(domain *api.Domain) error {
 	// TODO:(vladikr) Currently we support only one interface per vm.
 	// Improve this once we'll start supporting more.
 	if len(domain.Spec.Devices.Interfaces) == 0 {
-		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, *ifconf)
+		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, defaultIconf)
 	} else {
-		domain.Spec.Devices.Interfaces[0] = *ifconf
+		domain.Spec.Devices.Interfaces[0] = defaultIconf
 	}
 
 	return nil
@@ -319,7 +321,7 @@ func preparePodNetworkInterfaces(nic *VIF, nicLink netlink.Link) error {
 	// Create a bridge
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: bridgeName,
+			Name: api.DefaultBridgeName,
 		},
 	}
 	err = Handler.LinkAdd(bridge)
@@ -331,14 +333,14 @@ func preparePodNetworkInterfaces(nic *VIF, nicLink netlink.Link) error {
 
 	err = Handler.LinkSetUp(bridge)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeName)
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", api.DefaultBridgeName)
 		return err
 	}
 
 	// set fake ip on a bridge
 	fakeaddr, err := Handler.ParseAddr(bridgeFakeIP)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeName)
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", api.DefaultBridgeName)
 		return err
 	}
 
@@ -350,13 +352,7 @@ func preparePodNetworkInterfaces(nic *VIF, nicLink netlink.Link) error {
 	return nil
 }
 
-func decorateInterfaceConfig(vif *VIF) *api.Interface {
+func decorateInterfaceConfig(vif *VIF, ifconf *api.Interface) {
 
-	inter := api.Interface{}
-	inter.Type = "bridge"
-	inter.Source = api.InterfaceSource{Bridge: bridgeName}
-	inter.MAC = &api.MAC{MAC: vif.MAC.String()}
-	inter.Model = &api.Model{Type: "virtio"}
-
-	return &inter
+	ifconf.MAC = &api.MAC{MAC: vif.MAC.String()}
 }
