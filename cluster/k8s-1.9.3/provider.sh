@@ -6,7 +6,7 @@ function _main_ip() {
     echo 127.0.0.1
 }
 
-_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest'
+_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli@sha256:bf31833995e4905f9c64ff0e76602b230516455a3ffca559eef17ad2b2b49a4a'
 
 function up() {
     # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
@@ -70,5 +70,5 @@ function _kubectl() {
 }
 
 function down() {
-    docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli:latest rm
+    ${_cli} rm
 }
