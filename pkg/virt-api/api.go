@@ -57,9 +57,10 @@ type VirtApi interface {
 
 type virtAPIApp struct {
 	service.ServiceListen
-	SwaggerUI      string
-	virtCli        kubecli.KubevirtClient
-	certsDirectory string
+	SwaggerUI        string
+	SubresourcesOnly bool
+	virtCli          kubecli.KubevirtClient
+	certsDirectory   string
 
 	signingCertBytes []byte
 	certBytes        []byte
@@ -163,7 +164,9 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 func (app *virtAPIApp) Compose() {
 	ctx := context.Background()
 
-	app.composeResources(ctx)
+	if app.SubresourcesOnly == false {
+		app.composeResources(ctx)
+	}
 	app.composeSubresources(ctx)
 
 	restful.Filter(filter.RequestLoggingFilter())
@@ -441,4 +444,6 @@ func (app *virtAPIApp) AddFlags() {
 
 	flag.StringVar(&app.SwaggerUI, "swagger-ui", "third_party/swagger-ui",
 		"swagger-ui location")
+	flag.BoolVar(&app.SubresourcesOnly, "subresources-only", false,
+		"Only serve subresource endpoints")
 }

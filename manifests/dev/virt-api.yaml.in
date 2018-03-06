@@ -36,6 +36,7 @@ spec:
               - "/virt-api"
               - "--port"
               - "8443"
+              - "--subresources-only"
           ports:
             - containerPort: 8443
               name: "virt-api"
