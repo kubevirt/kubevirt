@@ -39,6 +39,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
+const (
+	WebsocketMessageBufferSize = 10240
+)
+
 func (k *kubevirt) VM(namespace string) VMInterface {
 	return &vms{
 		restClient: k.restClient,
@@ -59,25 +63,41 @@ type vms struct {
 	kubeconfig string
 }
 
-type TextReadWriter struct {
+type BinaryReadWriter struct {
 	Conn *websocket.Conn
 }
 
-func (s *TextReadWriter) Write(p []byte) (int, error) {
-	w, err := s.Conn.NextWriter(websocket.BinaryMessage)
-	if err != nil {
-		return 0, err
-	}
-	defer w.Close()
+func (s *BinaryReadWriter) Write(p []byte) (int, error) {
+	wsFrameHeaderSize := 2 + 8 + 4
+	// our websocket package has an issue where it truncates messages
+	// when the message+header is greater than the buffer size we allocate.
+	// because of this, we have to chunk messages
+	chunkSize := WebsocketMessageBufferSize - wsFrameHeaderSize
+	bytesWritten := 0
 
-	n, err := w.Write(p)
-	if err != nil {
-		return n, err
+	for i := 0; i < len(p); i += chunkSize {
+		w, err := s.Conn.NextWriter(websocket.BinaryMessage)
+		if err != nil {
+			return bytesWritten, err
+		}
+		defer w.Close()
+
+		end := i + chunkSize
+		if end > len(p) {
+			end = len(p)
+		}
+		n, err := w.Write(p[i:end])
+		if err != nil {
+			return bytesWritten, err
+		}
+
+		bytesWritten = n + bytesWritten
 	}
-	return n, nil
+	return bytesWritten, nil
+
 }
 
-func (s *TextReadWriter) Read(p []byte) (int, error) {
+func (s *BinaryReadWriter) Read(p []byte) (int, error) {
 	for {
 		msgType, r, err := s.Conn.NextReader()
 		if err != nil {
@@ -90,7 +110,7 @@ func (s *TextReadWriter) Read(p []byte) (int, error) {
 	}
 }
 
-func (s *TextReadWriter) err(err error) error {
+func (s *BinaryReadWriter) err(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -133,7 +153,7 @@ func (obj *wsCallbackObj) WebsocketCallback(ws *websocket.Conn, resp *http.Respo
 		return fmt.Errorf("Can't connect to websocket: %s\n", err.Error())
 	}
 
-	wsReadWriter := &TextReadWriter{Conn: ws}
+	wsReadWriter := &BinaryReadWriter{Conn: ws}
 
 	copyErr := make(chan error)
 
@@ -163,8 +183,8 @@ func roundTripperFromConfig(config *rest.Config, in io.Reader, out io.Writer) (h
 	dialer := &websocket.Dialer{
 		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
-		WriteBufferSize: 10240,
-		ReadBufferSize:  10240,
+		WriteBufferSize: WebsocketMessageBufferSize,
+		ReadBufferSize:  WebsocketMessageBufferSize,
 	}
 
 	obj := &wsCallbackObj{

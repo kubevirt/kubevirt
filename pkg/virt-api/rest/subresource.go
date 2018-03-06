@@ -33,8 +33,8 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 	namespace := request.PathParameter("namespace")
 
 	var upgrader = websocket.Upgrader{
-		ReadBufferSize:  10240,
-		WriteBufferSize: 10240,
+		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
+		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
 	}
 
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
@@ -45,7 +45,7 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 	}
 
 	log.Log.Infof("Websocket connection upgraded")
-	wsReadWriter := &kubecli.TextReadWriter{Conn: clientSocket}
+	wsReadWriter := &kubecli.BinaryReadWriter{Conn: clientSocket}
 
 	inReader, inWriter := io.Pipe()
 	outReader, outWriter := io.Pipe()
