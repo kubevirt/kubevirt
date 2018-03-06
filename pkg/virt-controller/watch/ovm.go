@@ -182,9 +182,6 @@ func (c *OVMController) execute(key string) error {
 	if needsSync && OVM.ObjectMeta.DeletionTimestamp == nil {
 		logger.Infof("Creating or the VM: %t", OVM.Spec.Running)
 		createErr = c.startStop(OVM, vm)
-
-		// restart VM if the VM fails or is final
-		vmError = c.restartVM(OVM, vm)
 	}
 
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMs. Don't update the status
@@ -240,12 +237,23 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 			return nil
 		}
 
+		if shouldRestart(vm) {
+			// restarting VM by just stopping it.
+			// start follows
+			err := c.stopVM(ovm, vm)
+			if err != nil {
+				log.Log.Object(ovm).Error("Cannot restart VM, the VM cannot be deleted.")
+				return err
+			}
+			return err
+		}
+
 		err := c.startVM(ovm)
 		return err
 	}
 
 	if ovm.Spec.Running == false {
-		log.Log.Object(ovm).Info("It is false delete")
+		log.Log.Object(ovm).V(4).Info("It is false delete")
 		if vm == nil {
 			log.Log.Info("vm is nil")
 			// vm should not run and is not running
@@ -326,33 +334,6 @@ func (c *OVMController) stopVM(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.Vir
 
 	c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", vm.ObjectMeta.UID)
 	log.Log.Object(ovm).Info("Dispatching delete event")
-
-	return nil
-}
-
-// restartVM deletes the VM object and creates new one when the VM is in Failed or Final phase
-func (c *OVMController) restartVM(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) error {
-
-	if vm == nil {
-		// no vm do nothing
-		return nil
-	}
-
-	if ovm.Spec.Running != true {
-		// VM should not be running
-		return nil
-	}
-
-	if shouldRestart(vm) {
-		// restarting VM by just stopping it.
-		err := c.stopVM(ovm, vm)
-		if err != nil {
-			log.Log.Object(ovm).Error("Cannot restart VM, the VM cannot be deleted.")
-			return err
-		}
-		err = c.startVM(ovm)
-		return err
-	}
 
 	return nil
 }
