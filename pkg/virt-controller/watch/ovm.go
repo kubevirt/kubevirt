@@ -233,19 +233,19 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 
 	if ovm.Spec.Running == true {
 		if vm != nil {
-			// the VM should be running and is running
-			return nil
-		}
-
-		if shouldRestart(vm) {
-			// restarting VM by just stopping it.
-			// start follows
-			err := c.stopVM(ovm, vm)
-			if err != nil {
-				log.Log.Object(ovm).Error("Cannot restart VM, the VM cannot be deleted.")
-				return err
+			if vm.IsFinal() {
+				// The VM can fail od be finished. The job of this controller
+				// is keep the VM running, therefore it restarts it.
+				// restarting VM by stopping it and letting it start in next step
+				err := c.stopVM(ovm, vm)
+				if err != nil {
+					log.Log.Object(ovm).Error("Cannot restart VM, the VM cannot be deleted.")
+					return err
+				}
+			} else {
+				// VM is OK no need to do anything
+				return nil
 			}
-			return err
 		}
 
 		err := c.startVM(ovm)
@@ -259,7 +259,6 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 			// vm should not run and is not running
 			return nil
 		}
-
 		err := c.stopVM(ovm, vm)
 		return err
 	}
@@ -722,19 +721,4 @@ func (c *OVMController) resolveControllerRef(namespace string, controllerRef *v1
 		return nil
 	}
 	return ovm.(*virtv1.OfflineVirtualMachine)
-}
-
-// shouldRestart is helper function checking the VM phase
-// if VM is: Failed, Succeeded
-// it should be restarted
-func shouldRestart(vm *virtv1.VirtualMachine) bool {
-	if vm.Status.Phase == virtv1.Failed {
-		return true
-	}
-
-	if vm.Status.Phase == virtv1.Succeeded {
-		return true
-	}
-
-	return false
 }
