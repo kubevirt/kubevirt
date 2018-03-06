@@ -73,7 +73,7 @@ var _ = Describe("Network", func() {
 		// Create a bridge
 		bridgeTest = &netlink.Bridge{
 			LinkAttrs: netlink.LinkAttrs{
-				Name: bridgeName,
+				Name: api.DefaultBridgeName,
 			},
 		}
 		bridgeAddr, _ = netlink.ParseAddr(bridgeFakeIP)
@@ -81,7 +81,7 @@ var _ = Describe("Network", func() {
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="e1000"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
 	})
 
 	AfterEach(func() {
@@ -105,7 +105,7 @@ var _ = Describe("Network", func() {
 			mockNetwork.EXPECT().ChangeMacAddr(podInterface).Return(updateFakeMac, nil)
 			mockNetwork.EXPECT().LinkSetUp(dummy).Return(nil)
 			mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
-			mockNetwork.EXPECT().LinkByName(bridgeName).Return(bridgeTest, nil)
+			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
 			mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
 			mockNetwork.EXPECT().ParseAddr(bridgeFakeIP).Return(bridgeAddr, nil)
 			mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
