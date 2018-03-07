@@ -1,5 +1,33 @@
-The purpose of this folder is to hold all relevant stuff to deploy
-KubeVirt on OpenShift cluster in a vagrant box.
+# OpenShift 3.9.0-alpha.4 in vagrant VM
 
-Thus this folder primarily contains
-- The deployment scripts for master and nodes
+Start vagrant VM and deploy OpenShift Origin with version 3.9.0-alpha.4 on it.
+It will deploy OpenShift only first time when you start a VM.
+
+## Bringing the cluster up
+
+You will need to add line to `/etc/hosts` only once.
+
+```bash
+echo "192.168.200.2 master" >> /etc/hosts
+export PROVIDER=vagrant-openshift
+export VAGRANT_NUM_NODES=1
+make cluster-up
+```
+
+The cluster can be accessed as usual:
+
+```bash
+$ cluster/kubectl.sh get nodes
+NAME      STATUS    ROLES     AGE       VERSION
+master    Ready     master    8m        v1.9.1+a0ce1bc657
+node0     Ready     <none>    6m        v1.9.1+a0ce1bc657
+```
+
+## Bringing the cluster down
+
+```bash
+export PROVIDER=vagrant-openshift
+make cluster-down
+```
+
+It will shutdown vagrant VM without destroy it.

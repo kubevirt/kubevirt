@@ -20,9 +20,8 @@ function up() {
     scp $OPTIONS master:/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/vagrant-openshift/.oc
     chmod u+x cluster/vagrant-openshift/.oc
 
-    vagrant ssh master -c "sudo cat /etc/origin/master/openshift-master.kubeconfig" >${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubeconfig
-
     # Login to OpenShift
+    export KUBECONFIG=${KUBEVIRT_PATH}cluster/os-3.9.0-alpha.4/.kubeconfig
     cluster/vagrant-openshift/.oc login $(_main_ip):8443 --insecure-skip-tls-verify=true -u admin -p admin
 
     # Make sure that local config is correct
