@@ -31,7 +31,12 @@ echo "Deploying ..."
 if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev" ]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
 elif [ "$TARGET" = "vagrant-release" ]; then
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/release -R $i
+    for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
+        if [[ $manifest =~ .*demo.* ]]; then
+            continue
+        fi
+        _kubectl create -f $manifest
+    done
 fi
 
 # Deploy additional infra for testing
