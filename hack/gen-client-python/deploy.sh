@@ -24,7 +24,12 @@ git config --global user.email "travis@travis-ci.org"
 git config --global user.name "Travis CI"
 
 # Push only in case something got changed in code.
-if git status --porcelain | grep 'kubevirt/' | grep --quiet "^ [AM]"; then
+# Ignore api_client.py and configuration.py because it contains version,
+# which is getting updated regardless of changes in API.
+if git status --porcelain |
+    grep 'kubevirt/' |
+    grep -v 'kubevirt/\(api_client[.]py\|configuration[.]py\)' |
+    grep --quiet "^ [AM]"; then
     git add -A .
     git commit --message "Client Python update by Travis Build ${TRAVIS_BUILD_NUMBER}"
 
