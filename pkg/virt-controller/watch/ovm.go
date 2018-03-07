@@ -242,10 +242,10 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 					log.Log.Object(ovm).Error("Cannot restart VM, the VM cannot be deleted.")
 					return err
 				}
-			} else {
-				// VM is OK no need to do anything
-				return nil
+				// return to let the controller pick up the expected deletion
 			}
+			// VM is OK no need to do anything
+			return nil
 		}
 
 		err := c.startVM(ovm)
