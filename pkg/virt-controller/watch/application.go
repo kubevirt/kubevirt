@@ -70,6 +70,9 @@ type VirtControllerApp struct {
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
+	ovmController *OVMController
+	ovmInformer   cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
@@ -125,8 +128,11 @@ func Execute() {
 	app.rsInformer = app.informerFactory.VMReplicaSet()
 	app.vmPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
 
+	app.ovmInformer = app.informerFactory.OfflineVirtualMachine()
+
 	app.initCommon()
 	app.initReplicaSet()
+	app.initOfflineVirtualMachines()
 	app.Run()
 }
 
@@ -185,6 +191,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmPresetController.Run(controllerThreads, stop)
+					go vca.ovmController.Run(3, stop)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -225,6 +232,11 @@ func (vca *VirtControllerApp) initCommon() {
 func (vca *VirtControllerApp) initReplicaSet() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
 	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+}
+
+func (vca *VirtControllerApp) initOfflineVirtualMachines() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "offlinevirtualmachine-controller")
+	vca.ovmController = NewOVMController(vca.vmInformer, vca.ovmInformer, recorder, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restful.Response) {
