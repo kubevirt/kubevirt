@@ -45,7 +45,7 @@ kubectl create -f myofflinevm.yaml
 
 # Start an OfflineVirtualMachine:
 kubectl patch offlinevirtualmachine myvm -p \
-    '{"spec":{"running" :"true"}}'
+    '{"spec":{"running": true}}'
 
 # Look at OfflineVirtualMachine status and associated events:
 kubectl describe offlinevirtualmachine myvm
@@ -55,7 +55,7 @@ kubectl describe virtualmachine myvm
 
 # Stop an OfflineVirtualMachine:
 kubectl patch offlinevirtualmachine myvm -p \
-    '{"spec":{"running":"false"}}'
+    '{"spec":{"running": false}}'
 
 # Implicit cascade delete (first deletes the vm and then the ovm)
 kubectl delete offlinevirtualmachine myvm
