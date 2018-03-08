@@ -36,12 +36,12 @@ objects:
                 tickPolicy: catchup
               hyperv: {}
           cpu:
-            cores: ${CPU_CORES}
+            cores: ${{CPU_CORES}}
           machine:
             type: q35
           resources:
             requests:
-              memory: ${MEMORY}
+              memory: ${{MEMORY}}
           devices:
             disks:
               - name: disk0
@@ -69,4 +69,4 @@ parameters:
   value: 4096Mi
 - name: CPU_CORES
   description: Amount of cores
-  value: "4"
+  value: 4
