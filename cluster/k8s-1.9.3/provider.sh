@@ -2,75 +2,30 @@
 
 set -e
 
-prefix=kubevirt-k8s-1.9.3
+image="k8s-1.9.3@sha256:972483a8f2a1f3d1a3e4a921e316766ace87a1ec39e22be4d6bd8e29187ec570"
 
-function _main_ip() {
-    echo 127.0.0.1
-}
-
-_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock rmohr/cli@sha256:bf31833995e4905f9c64ff0e76602b230516455a3ffca559eef17ad2b2b49a4a'
+source cluster/ephemeral-provider-common.sh
 
 function up() {
     # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
     local num_nodes=${VAGRANT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
-    ${_cli} run --nodes ${num_nodes} --tls-port 127.0.0.1:8443 --ssh-port 127.0.0.1:2201 --background --registry-port 127.0.0.1:5000 --prefix $prefix --registry-volume kubevirt_registry --base "rmohr/kubeadm-1.9.3@sha256:d72fe14077e0a5fe47f917570e141536397feb92d5981333158178298396d01e"
-    ${_cli} ssh --prefix $prefix node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
+    ${_cli} run --nodes ${num_nodes} --k8s-port 127.0.0.1:8443 --ssh-port 127.0.0.1:2201 --background --registry-port 127.0.0.1:5000 --prefix $PROVIDER --registry-volume kubevirt_registry --base "kubevirtci/${image}"
+    ${_cli} ssh --prefix $PROVIDER node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
 
     chmod 0600 ${KUBEVIRT_PATH}cluster/vagrant.key
     OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/vagrant.key -P 2201"
 
     # Copy k8s config and kubectl
-    scp ${OPTIONS} vagrant@127.0.0.1:/usr/bin/kubectl ${KUBEVIRT_PATH}cluster/k8s-1.9.3/.kubectl
+    scp ${OPTIONS} vagrant@127.0.0.1:/usr/bin/kubectl ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl
     chmod u+x cluster/vagrant-kubernetes/.kubectl
-    scp ${OPTIONS} vagrant@127.0.0.1:/etc/kubernetes/admin.conf ${KUBEVIRT_PATH}cluster/k8s-1.9.3/.kubeconfig
+    scp ${OPTIONS} vagrant@127.0.0.1:/etc/kubernetes/admin.conf ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
 
     # Set server and disable tls check
-    export KUBECONFIG=${KUBEVIRT_PATH}cluster/k8s-1.9.3/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/k8s-1.9.3/.kubectl config set-cluster kubernetes --server=https://127.0.0.1:8443
-    ${KUBEVIRT_PATH}cluster/k8s-1.9.3/.kubectl config set-cluster kubernetes --insecure-skip-tls-verify=true
+    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
+    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster kubernetes --server=https://$(_main_ip):8443
+    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster kubernetes --insecure-skip-tls-verify=true
 
     # Make sure that local config is correct
     prepare_config
-}
-
-function prepare_config() {
-    BASE_PATH=${KUBEVIRT_PATH:-$PWD}
-    cat >hack/config-provider-k8s-1.9.3.sh <<EOF
-master_ip=$(_main_ip)
-docker_tag=devel
-kubeconfig=${BASE_PATH}/cluster/k8s-1.9.3/.kubeconfig
-docker_prefix=localhost:5000/kubevirt
-manifest_docker_prefix=registry:5000/kubevirt
-EOF
-}
-
-function build() {
-    # Build everyting and publish it
-    ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} PROVIDER=${PROVIDER} ./hack/build-manifests.sh"
-    make build docker publish
-
-    # Make sure that all nodes use the newest images
-    container=""
-    container_alias=""
-    for arg in ${docker_images}; do
-        local name=$(basename $arg)
-        container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
-        container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
-    done
-    local num_nodes=${VAGRANT_NUM_NODES-0}
-    num_nodes=$((num_nodes + 1))
-    for i in $(seq 1 ${num_nodes}); do
-        ${_cli} ssh --prefix $prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
-        ${_cli} ssh --prefix $prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs --max-args=2 sudo docker tag"
-    done
-}
-
-function _kubectl() {
-    export KUBECONFIG=${KUBEVIRT_PATH}cluster/k8s-1.9.3/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/k8s-1.9.3/.kubectl "$@"
-}
-
-function down() {
-    ${_cli} rm --prefix $prefix
 }

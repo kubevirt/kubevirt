@@ -5,13 +5,15 @@ It will deploy OpenShift only first time when you start a VM.
 
 ## Bringing the cluster up
 
-You will need to add line to `/etc/hosts` only once.
-
 ```bash
-echo "192.168.200.2 master" >> /etc/hosts
 export PROVIDER=vagrant-openshift
 export VAGRANT_NUM_NODES=1
 make cluster-up
+```
+
+If you want to get access to OpenShift web console you will need to add line to `/etc/hosts`
+```bash
+echo "127.0.0.1 node01" >> /etc/hosts
 ```
 
 The cluster can be accessed as usual:

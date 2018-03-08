@@ -17,12 +17,15 @@ function up() {
 
     OPTIONS=$(vagrant ssh-config master | grep -v '^Host ' | awk -v ORS=' ' 'NF{print "-o " $1 "=" $2}')
 
-    scp $OPTIONS master:/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/vagrant-openshift/.oc
-    chmod u+x cluster/vagrant-openshift/.oc
+    scp $OPTIONS master:/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubectl
+    chmod u+x cluster/vagrant-openshift/.kubectl
 
-    # Login to OpenShift
+    vagrant ssh master -c "sudo cat /etc/origin/master/openshift-master.kubeconfig" >${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubeconfig
+
+    # Update Kube config to support unsecured connection
     export KUBECONFIG=${KUBEVIRT_PATH}cluster/os-3.9.0-alpha.4/.kubeconfig
-    cluster/vagrant-openshift/.oc login $(_main_ip):8443 --insecure-skip-tls-verify=true -u admin -p admin
+    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster master:8443 --server=https://$(_main_ip):8443
+    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster master:8443 --insecure-skip-tls-verify=true
 
     # Make sure that local config is correct
     prepare_config
@@ -47,7 +50,7 @@ function build() {
 
 function _kubectl() {
     export KUBECONFIG=${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/vagrant-openshift/.oc "$@"
+    ${KUBEVIRT_PATH}cluster/vagrant-openshift/.kubectl "$@"
 }
 
 function down() {

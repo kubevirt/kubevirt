@@ -8,13 +8,15 @@ local machine and are the pushed to a registry which is exposed at
 
 ## Bringing the cluster up
 
-You will need to add line to `/etc/hosts` only once.
-
 ```bash
-echo "127.0.0.1 node01" >> /etc/hosts
 export PROVIDER=os-3.9.0-alpha.4
 export VAGRANT_NUM_NODES=0 # currently only one node supported
 make cluster-up
+```
+
+If you want to get access to OpenShift web console you will need to add line to `/etc/hosts`
+```bash
+echo "127.0.0.1 node01" >> /etc/hosts
 ```
 
 The cluster can be accessed as usual:
