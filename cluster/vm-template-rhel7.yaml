@@ -16,9 +16,6 @@ objects:
     labels:
       kubevirt-ovm: ovm-${NAME}
   spec:
-    selector:
-      matchLabels:
-        kubevirt-ovm: ovm-${NAME}
     template:
       metadata:
         labels:
