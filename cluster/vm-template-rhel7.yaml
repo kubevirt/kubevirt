@@ -13,8 +13,16 @@ objects:
   kind: OfflineVirtualMachine
   metadata:
     name: ${NAME}
+    labels:
+      kubevirt-ovm: ovm-${NAME}
   spec:
+    selector:
+      matchLabels:
+        kubevirt-ovm: ovm-${NAME}
     template:
+      metadata:
+        labels:
+          kubevirt-ovm: ovm-${NAME}
       spec:
         domain:
           cpu:
@@ -53,4 +61,4 @@ parameters:
   value: 4096Mi
 - name: CPU_CORES
   description: Amount of cores
-  value: 4
+  value: "4"
