@@ -135,6 +135,26 @@ func (app *virtAPIApp) composeResources(ctx context.Context) {
 	restful.Add(ws)
 }
 
+func subresourceAPIGroup() metav1.APIGroup {
+	apiGroup := metav1.APIGroup{
+		Name: "subresource.kubevirt.io",
+		PreferredVersion: metav1.GroupVersionForDiscovery{
+			GroupVersion: v1.SubresourceGroupVersion.Group + "/" + v1.SubresourceGroupVersion.Version,
+			Version:      v1.SubresourceGroupVersion.Version,
+		},
+	}
+	apiGroup.Versions = append(apiGroup.Versions, metav1.GroupVersionForDiscovery{
+		GroupVersion: v1.SubresourceGroupVersion.Group + "/" + v1.SubresourceGroupVersion.Version,
+		Version:      v1.SubresourceGroupVersion.Version,
+	})
+	apiGroup.ServerAddressByClientCIDRs = append(apiGroup.ServerAddressByClientCIDRs, metav1.ServerAddressByClientCIDR{
+		ClientCIDR:    "0.0.0.0/0",
+		ServerAddress: "",
+	})
+	apiGroup.Kind = "APIGroup"
+	return apiGroup
+}
+
 func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 
 	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
@@ -146,6 +166,7 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 	subresourceApp := &rest.SubresourceAPIApp{
 		VirtCli: app.virtCli,
 	}
+
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("console")).
 		To(subresourceApp.ConsoleRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
@@ -158,7 +179,51 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		Operation("vnc").
 		Doc("Open a websocket connection to connect to VNC on the specified VM."))
 
+	// Return empty api resource list.
+	// K8s expects to be able to retrieve a resource list for each aggregated
+	// app in order to discover what resources it provides. Without returning
+	// an empty list here, there's a bug in the k8s resource discovery that
+	// breaks kubectl's ability to reference short names for resources.
+	subws.Route(subws.GET("/").
+		Produces(restful.MIME_JSON).Writes(metav1.APIResourceList{}).
+		To(func(request *restful.Request, response *restful.Response) {
+			list := &metav1.APIResourceList{}
+
+			list.Kind = "APIResourceList"
+			list.GroupVersion = v1.SubresourceGroupVersion.Group + "/" + v1.SubresourceGroupVersion.Version
+			list.APIVersion = v1.SubresourceGroupVersion.Version
+
+			response.WriteAsJson(list)
+		}).
+		Operation("getAPIResources").
+		Doc("Get a KubeVirt API resources"))
+
 	restful.Add(subws)
+
+	ws := new(restful.WebService)
+
+	// K8s needs the ability to query info about a specific API group
+	ws.Route(ws.GET(rest.GroupBasePath(v1.SubresourceGroupVersion)).
+		Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).
+		To(func(request *restful.Request, response *restful.Response) {
+			response.WriteAsJson(subresourceAPIGroup())
+		}).
+		Operation("getAPIGroup").
+		Doc("Get a KubeVirt API Group"))
+
+	// K8s needs the ability to query the list of API groups this endpoint supports
+	ws.Route(ws.GET("apis").
+		Produces(restful.MIME_JSON).Writes(metav1.APIGroupList{}).
+		To(func(request *restful.Request, response *restful.Response) {
+			list := &metav1.APIGroupList{}
+			list.Kind = "APIGroupList"
+			list.Groups = append(list.Groups, subresourceAPIGroup())
+			response.WriteAsJson(list)
+		}).
+		Operation("getAPIGroup").
+		Doc("Get a KubeVirt API Group"))
+
+	restful.Add(ws)
 }
 
 func (app *virtAPIApp) Compose() {
