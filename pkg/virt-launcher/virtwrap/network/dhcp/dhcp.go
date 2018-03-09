@@ -46,12 +46,12 @@ func SingleClientDHCPServer(
 	handler := &DHCPHandler{
 		clientIP:      clientIP,
 		clientMAC:     clientMAC,
-		serverIP:      serverIP,
+		serverIP:      serverIP.To4(),
 		leaseDuration: infiniteLease,
 		options: dhcp.Options{
 			dhcp.OptionSubnetMask:       []byte(clientMask),
 			dhcp.OptionRouter:           []byte(routerIP),
-			dhcp.OptionDomainNameServer: []byte(dnsIP),
+			dhcp.OptionDomainNameServer: []byte(dnsIP.To4()),
 		},
 	}
 
