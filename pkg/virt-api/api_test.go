@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-var _ = Describe("VM watcher", func() {
+var _ = Describe("Virt-api", func() {
 	var tmpDir string
 	var server *ghttp.Server
 	subresourceAggregatedApiName := v1.SubresourceGroupVersion.Version + "." + v1.SubresourceGroupName
