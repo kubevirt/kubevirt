@@ -289,5 +289,5 @@ func hasCondition(ovm *v1.OfflineVirtualMachine, cond v1.OfflineVirtualMachineCo
 }
 
 func DefaultOVM(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
-	return DefaultOVMWithNames(started, "ovm", "testvm")
+	return DefaultOVMWithNames(started, "testvm", "testvm")
 }
