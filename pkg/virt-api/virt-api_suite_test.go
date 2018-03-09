@@ -26,7 +26,7 @@ import (
 	"testing"
 )
 
-func TestWatch(t *testing.T) {
+func TestVirtApi(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Virt_Api Suite")
 }

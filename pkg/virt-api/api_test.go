@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
+	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -41,7 +42,7 @@ import (
 var _ = Describe("VM watcher", func() {
 	var tmpDir string
 	var server *ghttp.Server
-	//var vmService services.VMService
+	subresourceAggregatedApiName := v1.SubresourceGroupVersion.Version + "." + v1.SubresourceGroupName
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -152,6 +153,126 @@ var _ = Describe("VM watcher", func() {
 			close(done)
 		})
 
+		It("should create apiservice endpoint if one doesn't exist", func(done Done) {
+			app.signingCertBytes = []byte("fake")
+			apiService := &apiregistrationv1beta1.APIService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: subresourceAggregatedApiName,
+					Labels: map[string]string{
+						v1.AppLabel: "virt-api-aggregator",
+					},
+				},
+				Spec: apiregistrationv1beta1.APIServiceSpec{
+					Service: &apiregistrationv1beta1.ServiceReference{
+						Namespace: "kube-system",
+						Name:      "virt-api",
+					},
+					Group:                v1.SubresourceGroupName,
+					Version:              v1.SubresourceGroupVersion.Version,
+					CABundle:             app.signingCertBytes,
+					GroupPriorityMinimum: 1000,
+					VersionPriority:      15,
+				},
+			}
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/apiservices/"+subresourceAggregatedApiName),
+					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
+				),
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", "/api/v1/namespaces/kube-system/apiservices"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, apiService),
+				),
+			)
+			app.createSubresourceApiservice()
+			close(done)
+		})
+
+		It("should not create apiservice endpoint if one does exist", func(done Done) {
+			app.signingCertBytes = []byte("fake")
+			apiService := &apiregistrationv1beta1.APIService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: subresourceAggregatedApiName,
+					Labels: map[string]string{
+						v1.AppLabel: "virt-api-aggregator",
+					},
+				},
+				Spec: apiregistrationv1beta1.APIServiceSpec{
+					Service: &apiregistrationv1beta1.ServiceReference{
+						Namespace: "kube-system",
+						Name:      "virt-api",
+					},
+					Group:                v1.SubresourceGroupName,
+					Version:              v1.SubresourceGroupVersion.Version,
+					CABundle:             app.signingCertBytes,
+					GroupPriorityMinimum: 1000,
+					VersionPriority:      15,
+				},
+			}
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/apiservices/"+subresourceAggregatedApiName),
+					ghttp.RespondWithJSONEncoded(http.StatusNotFound, apiService),
+				),
+			)
+			app.createSubresourceApiservice()
+
+			close(done)
+		})
+
+		It("should update apiservice endpoint if CA bundle changes", func(done Done) {
+			app.signingCertBytes = []byte("fake")
+			apiServiceDifferent := &apiregistrationv1beta1.APIService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: subresourceAggregatedApiName,
+					Labels: map[string]string{
+						v1.AppLabel: "virt-api-aggregator",
+					},
+				},
+				Spec: apiregistrationv1beta1.APIServiceSpec{
+					Service: &apiregistrationv1beta1.ServiceReference{
+						Namespace: "kube-system",
+						Name:      "virt-api",
+					},
+					Group:                v1.SubresourceGroupName,
+					Version:              v1.SubresourceGroupVersion.Version,
+					CABundle:             []byte("different"),
+					GroupPriorityMinimum: 1000,
+					VersionPriority:      15,
+				},
+			}
+			apiServiceFixed := &apiregistrationv1beta1.APIService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: subresourceAggregatedApiName,
+					Labels: map[string]string{
+						v1.AppLabel: "virt-api-aggregator",
+					},
+				},
+				Spec: apiregistrationv1beta1.APIServiceSpec{
+					Service: &apiregistrationv1beta1.ServiceReference{
+						Namespace: "kube-system",
+						Name:      "virt-api",
+					},
+					Group:                v1.SubresourceGroupName,
+					Version:              v1.SubresourceGroupVersion.Version,
+					CABundle:             []byte("fake"),
+					GroupPriorityMinimum: 1000,
+					VersionPriority:      15,
+				},
+			}
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/apiservices/"+subresourceAggregatedApiName),
+					ghttp.RespondWithJSONEncoded(http.StatusNotFound, apiServiceDifferent),
+				),
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/api/v1/namespaces/kube-system/apiservices"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, apiServiceFixed),
+				),
+			)
+			app.createSubresourceApiservice()
+			close(done)
+		})
 	})
 
 	AfterEach(func() {
