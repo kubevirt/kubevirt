@@ -120,6 +120,38 @@ var _ = Describe("VM watcher", func() {
 			Expect(app.keyBytes).To(Equal(keyBytes))
 			close(done)
 		})
+
+		It("should return error if client CA doesn't exist", func(done Done) {
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
+					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
+				),
+			)
+
+			err := app.getClientCert()
+			Expect(err).To(HaveOccurred())
+
+			close(done)
+		})
+		It("should retrieve client CA", func(done Done) {
+
+			configMap := &k8sv1.ConfigMap{}
+			configMap.Data = make(map[string]string)
+			configMap.Data["client-ca-file"] = "fakedata"
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, configMap),
+				),
+			)
+
+			err := app.getClientCert()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(app.clientCABytes).To(Equal([]byte("fakedata")))
+			close(done)
+		})
+
 	})
 
 	AfterEach(func() {
