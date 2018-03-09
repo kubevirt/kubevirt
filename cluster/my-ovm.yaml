@@ -6,9 +6,6 @@ metadata:
     my: label
 spec:
   running: false # equivalent to replicas 0
-  selector:
-    matchLabels:
-      my: label
   template:
     metadata:
       labels: 
