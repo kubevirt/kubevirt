@@ -23,13 +23,26 @@ cd "${CLIENT_PYTHON_DIR}"
 git config --global user.email "travis@travis-ci.org"
 git config --global user.name "Travis CI"
 
-# Push only in case something got changed in code.
-# Ignore api_client.py and configuration.py because it contains version,
-# which is getting updated regardless of changes in API.
+CLIENT_UPDATED="false"
+# Check api_client.py and configuration.py whether there are other changes
+# except a 'version', which is getting updated regardless of changes in API.
+for i in api_client.py configuration.py; do
+    if [ "$(git diff --numstat -- "kubevirt/${i}" | cut -f 1)" != "1" ] &&
+        [ -n "$(git diff --numstat -- "kubevirt/${i}" | cut -f 1)" ]; then
+        CLIENT_UPDATED="true"
+    fi
+done
+# Check if there are changes to commit, ignoring api_client.py & configuration.py
+# which were tested above.
 if git status --porcelain |
     grep 'kubevirt/' |
     grep -v 'kubevirt/\(api_client[.]py\|configuration[.]py\)' |
     grep --quiet "^ [AM]"; then
+
+    CLIENT_UPDATED="true"
+fi
+# Push only in case something got changed in code.
+if [ "${CLIENT_UPDATED}" = "true" ]; then
     git add -A .
     git commit --message "Client Python update by Travis Build ${TRAVIS_BUILD_NUMBER}"
 
