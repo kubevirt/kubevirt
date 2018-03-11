@@ -10,7 +10,7 @@ local machine and are the pushed to a registry which is exposed at
 
 ```bash
 export PROVIDER=os-3.9.0-alpha.4
-export VAGRANT_NUM_NODES=0 # currently only one node supported
+export VAGRANT_NUM_NODES=1 # master + one nodes
 make cluster-up
 ```
 
@@ -24,7 +24,8 @@ The cluster can be accessed as usual:
 ```bash
 $ cluster/kubectl.sh get nodes
 NAME      STATUS    ROLES     AGE       VERSION
-node01    Ready     master    11m       v1.9.1+a0ce1bc657
+node01    Ready     master    1h        v1.9.1+a0ce1bc657
+node02    Ready     <none>    46s       v1.9.1+a0ce1bc657
 ```
 
 ## Bringing the cluster down
