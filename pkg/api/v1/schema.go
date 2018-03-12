@@ -211,6 +211,9 @@ type VolumeSource struct {
 	// Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
 	// +optional
 	Ephemeral *EphemeralVolumeSource `json:"ephemeral,omitempty"`
+	// Mode indicates how the volume should be accessed by the VM. Supported values: block, filesystem (default).
+	// +optional
+	Mode string `json:"mode,omitempty"`
 }
 
 type EphemeralVolumeSource struct {
