@@ -54,7 +54,7 @@ var _ = Describe("Networking", func() {
 	var outboundVM *v1.VirtualMachine
 
 	// TODO this is not optimal, since the one test which will initiate this, will look slow
-	BeforeAll(func() {
+	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 
 		var wg sync.WaitGroup
@@ -186,13 +186,3 @@ var _ = Describe("Networking", func() {
 	})
 
 })
-
-func BeforeAll(fn func()) {
-	first := true
-	BeforeEach(func() {
-		if first {
-			fn()
-			first = false
-		}
-	})
-}
