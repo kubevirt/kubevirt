@@ -71,13 +71,27 @@ for arg in $args; do
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
         BIN_NAME=$(basename $arg)
-        ARCHBIN=${BIN_NAME}-$(git describe --always --tags)-${GOHOSTOS}-${GOHOSTARCH}
+        ARCH_BASENAME=${BIN_NAME}-$(git describe --always --tags)
+        ARCHBIN=${ARCH_BASENAME}-${GOHOSTOS}-${GOHOSTARCH}
         mkdir -p ${CMD_OUT_DIR}/${BIN_NAME}
         (
             cd $arg
             go vet ./...
             go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCHBIN}
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCHBIN} ${BIN_NAME})
+
+            # build virtctl binaries for other operating systems
+            if [ "${BIN_NAME}" = "virtctl" ]; then
+                if [[ "${GOHOSTOS}" != "linux" ]] || [[ "${GOHOSTARCH}" != "amd64" ]]; then
+                    GOOS=linux GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-linux-amd64
+                fi
+                if [[ "${GOHOSTOS}" != "darwin" ]] || [[ "${GOHOSTARCH}" != "amd64" ]]; then
+                    GOOS=darwin GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64
+                fi
+                if [[ "${GOHOSTOS}" != "windows" ]] || [[ "${GOHOSTARCH}" != "amd64" ]]; then
+                    GOOS=windows GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe
+                fi
+            fi
         )
     else
         (
