@@ -76,7 +76,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		}
 
 		It("should create missing VM", func() {
-			ovm, vm := DefaultOVM(true)
+			ovm, vm := DefaultOfflineVirtualMachine(true)
 
 			addOfflineVirtualMachine(ovm)
 
@@ -96,23 +96,23 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should have stable firmware UUIDs", func() {
-			ovm1, _ := DefaultOVMWithNames(true, "testovm1", "testvm1")
+			ovm1, _ := DefaultOfflineVirtualMachineWithNames(true, "testovm1", "testvm1")
 			vm1 := controller.setupVMFromOVM(ovm1)
 
 			// intentionally use the same names
-			ovm2, _ := DefaultOVMWithNames(true, "testovm1", "testvm1")
+			ovm2, _ := DefaultOfflineVirtualMachineWithNames(true, "testovm1", "testvm1")
 			vm2 := controller.setupVMFromOVM(ovm2)
 			Expect(vm1.Spec.Domain.Firmware.UUID).To(Equal(vm2.Spec.Domain.Firmware.UUID))
 
 			// now we want different names
-			ovm3, _ := DefaultOVMWithNames(true, "testovm3", "testvm3")
+			ovm3, _ := DefaultOfflineVirtualMachineWithNames(true, "testovm3", "testvm3")
 			vm3 := controller.setupVMFromOVM(ovm3)
 			Expect(vm1.Spec.Domain.Firmware.UUID).NotTo(Equal(vm3.Spec.Domain.Firmware.UUID))
 		})
 
 		It("should honour any firmware UUID present in the template", func() {
 			uid := uuid.NewRandom().String()
-			ovm1, _ := DefaultOVMWithNames(true, "testovm1", "testvm1")
+			ovm1, _ := DefaultOfflineVirtualMachineWithNames(true, "testovm1", "testvm1")
 			ovm1.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: types.UID(uid)}
 
 			vm1 := controller.setupVMFromOVM(ovm1)
@@ -120,7 +120,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should delete VM when stopped", func() {
-			ovm, vm := DefaultOVM(false)
+			ovm, vm := DefaultOfflineVirtualMachine(false)
 
 			addOfflineVirtualMachine(ovm)
 			vmFeeder.Add(vm)
@@ -136,7 +136,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should ignore non-matching VMs", func() {
-			ovm, vm := DefaultOVM(true)
+			ovm, vm := DefaultOfflineVirtualMachine(true)
 
 			nonMatchingVM := v1.NewMinimalVM("testvm1")
 			nonMatchingVM.ObjectMeta.Labels = map[string]string{"test": "test1"}
@@ -155,7 +155,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should detect that it is orphan deleted and remove the owner reference on the remaining VM", func() {
-			ovm, vm := DefaultOVM(true)
+			ovm, vm := DefaultOfflineVirtualMachine(true)
 
 			// Mark it as orphan deleted
 			now := v12.Now()
@@ -171,7 +171,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should detect that a VM already exists and adopt it", func() {
-			ovm, vm := DefaultOVM(true)
+			ovm, vm := DefaultOfflineVirtualMachine(true)
 			vm.OwnerReferences = []v12.OwnerReference{}
 
 			addOfflineVirtualMachine(ovm)
@@ -185,7 +185,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should detect that it has nothing to do beside updating the status", func() {
-			ovm, vm := DefaultOVM(true)
+			ovm, vm := DefaultOfflineVirtualMachine(true)
 
 			addOfflineVirtualMachine(ovm)
 			vmFeeder.Add(vm)
@@ -196,7 +196,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should add a fail condition if start up fails", func() {
-			ovm, vm := DefaultOVM(true)
+			ovm, vm := DefaultOfflineVirtualMachine(true)
 
 			addOfflineVirtualMachine(ovm)
 			// vmFeeder.Add(vm)
@@ -220,7 +220,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should add a fail condition if deletion fails", func() {
-			ovm, vm := DefaultOVM(false)
+			ovm, vm := DefaultOfflineVirtualMachine(false)
 
 			addOfflineVirtualMachine(ovm)
 			vmFeeder.Add(vm)
@@ -261,7 +261,7 @@ func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started boo
 	return ovm
 }
 
-func DefaultOVMWithNames(started bool, ovmName string, vmName string) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
+func DefaultOfflineVirtualMachineWithNames(started bool, ovmName string, vmName string) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
 	vm := v1.NewMinimalVM(vmName)
 	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 	vm.Status.Phase = v1.Running
@@ -288,6 +288,6 @@ func hasCondition(ovm *v1.OfflineVirtualMachine, cond v1.OfflineVirtualMachineCo
 	return false
 }
 
-func DefaultOVM(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
-	return DefaultOVMWithNames(started, "testvm", "testvm")
+func DefaultOfflineVirtualMachine(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
+	return DefaultOfflineVirtualMachineWithNames(started, "testvm", "testvm")
 }
