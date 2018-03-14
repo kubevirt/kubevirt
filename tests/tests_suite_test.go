@@ -30,7 +30,11 @@ import (
 
 func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Tests Suite")
+	reporters := make([]Reporter, 0)
+	if tests.Polarion.Run {
+		reporters = append(reporters, &tests.Polarion)
+	}
+	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", reporters)
 }
 
 var _ = BeforeSuite(func() {
