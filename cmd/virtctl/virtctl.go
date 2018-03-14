@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
+	"kubevirt.io/kubevirt/pkg/virtctl/offlinevm"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
 )
 
@@ -41,6 +42,8 @@ func main() {
 		"console": &console.Console{},
 		"options": &virtctl.Options{},
 		"vnc":     &vnc.VNC{},
+		offlinevm.COMMAND_START: offlinevm.NewCommand(offlinevm.COMMAND_START),
+		offlinevm.COMMAND_STOP:  offlinevm.NewCommand(offlinevm.COMMAND_STOP),
 	}
 
 	if len(os.Args) > 1 {
@@ -83,6 +86,8 @@ func Usage() {
 Basic Commands:
   console        Connect to a serial console on a VM
   vnc            Connect to a VNC display of a VM
+  start          Start an OfflineVirtualMachine
+  stop           Stop an OfflineVirtualMachine
 
 Use "virtctl <command> --help" for more information about a given command.
 Use "virtctl options" for a list of global command-line options (applies to all commands).
