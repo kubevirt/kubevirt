@@ -22,7 +22,8 @@ package tests_test
 import (
 	"flag"
 	"fmt"
-	//"time"
+	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -38,77 +40,74 @@ import (
 )
 
 const (
-	windowsDisk     = "windows-disk"
-	windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
-	windowsVm       = "windows-vm"
-	windowsVmUser   = "Administrator"
+	windowsDisk       = "windows-disk"
+	windowsFirmware   = "5d307ca9-b3ef-428c-8861-06e72d69f223"
+	windowsVmUser     = "Administrator"
 	windowsVmPassword = "Heslo123"
 )
 
 const (
 	winrmCli    = "winrmcli"
-	winrmCliCmd = "/go/bin/winrm-cli"
+	winrmCliCmd = "winrm-cli"
 )
 
-var _ = FDescribe("Windows VM", func() {
+var _ = Describe("Windows VM", func() {
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
+	var windowsVm *v1.VirtualMachine
+
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(windowsFirmware)
 	_false := false
-
-	windowsVm := &v1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{Name: windowsVm},
-		Spec: v1.VirtualMachineSpec{
-			TerminationGracePeriodSeconds: &gracePeriod,
-			Domain: v1.DomainSpec{
-				CPU: &v1.CPU{Cores: 2},
-				Features: &v1.Features{
-					ACPI: v1.FeatureState{},
-					APIC: &v1.FeatureAPIC{},
-					Hyperv: &v1.FeatureHyperv{
-						Relaxed:   &v1.FeatureState{},
-						VAPIC:     &v1.FeatureState{},
-						Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
-					},
+	windowsVmSpec := v1.VirtualMachineSpec{
+		TerminationGracePeriodSeconds: &gracePeriod,
+		Domain: v1.DomainSpec{
+			CPU: &v1.CPU{Cores: 2},
+			Features: &v1.Features{
+				ACPI: v1.FeatureState{},
+				APIC: &v1.FeatureAPIC{},
+				Hyperv: &v1.FeatureHyperv{
+					Relaxed:   &v1.FeatureState{},
+					VAPIC:     &v1.FeatureState{},
+					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
 				},
-				Clock: &v1.Clock{
-					ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
-					Timer: &v1.Timer{
-						HPET:   &v1.HPETTimer{Enabled: &_false},
-						PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
-						RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
-						Hyperv: &v1.HypervTimer{},
-					},
+			},
+			Clock: &v1.Clock{
+				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
+				Timer: &v1.Timer{
+					HPET:   &v1.HPETTimer{Enabled: &_false},
+					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
+					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
+					Hyperv: &v1.HypervTimer{},
 				},
-				Firmware: &v1.Firmware{UUID: firmware},
-				Resources: v1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						k8sv1.ResourceMemory: resource.MustParse("4096Mi"),
-					},
+			},
+			Firmware: &v1.Firmware{UUID: firmware},
+			Resources: v1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
 				},
-				Devices: v1.Devices{
-					Disks: []v1.Disk{
-						{
-							Name:       windowsDisk,
-							VolumeName: windowsDisk,
-							DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "sata"}},
-						},
+			},
+			Devices: v1.Devices{
+				Disks: []v1.Disk{
+					{
+						Name:       windowsDisk,
+						VolumeName: windowsDisk,
+						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "sata"}},
 					},
 				},
 			},
-			Volumes: []v1.Volume{
-				{
-					Name: windowsDisk,
-					VolumeSource: v1.VolumeSource{
-						Ephemeral: &v1.EphemeralVolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: tests.DiskWindows,
-							},
+		},
+		Volumes: []v1.Volume{
+			{
+				Name: windowsDisk,
+				VolumeSource: v1.VolumeSource{
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: tests.DiskWindows,
 						},
 					},
 				},
@@ -117,44 +116,42 @@ var _ = FDescribe("Windows VM", func() {
 	}
 
 	tests.BeforeAll(func() {
-		windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(tests.DiskWindows, metav1.GetOptions{})
-		if err != nil {
-			Skip(fmt.Sprintf("Skip Windows tests that requires PVC %s", tests.DiskWindows))
-		}
-		windowsPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(windowsPv)
-		Expect(err).ToNot(HaveOccurred())
+		tests.SkipIfNoWindowsImage(virtClient)
 	})
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+		windowsVm = tests.NewRandomVM()
+		windowsVm.Spec = windowsVmSpec
 	})
 
-	It("should success to start", func() {
+	It("should success to start a vm", func() {
 		vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(windowsVm)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
 	}, 300)
 
-	It("should success to stop", func() {
-		By("Starting a VM")
+	It("should success to stop a running vm", func() {
+		By("Starting the vm")
 		vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(windowsVm)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
 
-		By("Stopping the VM")
+		By("Stopping the vm")
 		err = virtClient.VM(tests.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil())
 	}, 300)
 
 	Context("with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
-		var cli string
+		var cli []string
+		var output string
+		var vmIp string
 
 		BeforeEach(func() {
-			tests.BeforeTestCleanup()
+			By("Creating winrm-cli pod for future use")
 			winrmcliPod = &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: winrmCli},
+				ObjectMeta: metav1.ObjectMeta{Name: winrmCli + rand.String(5)},
 				Spec: k8sv1.PodSpec{
 					Containers: []k8sv1.Container{
 						{
@@ -169,31 +166,55 @@ var _ = FDescribe("Windows VM", func() {
 			winrmcliPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(winrmcliPod)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("Starting the windows VM")
 			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(windowsVm)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
 
 			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.Name, metav1.GetOptions{})
-			cli = fmt.Sprintf("%s -hostname %s -username \"%s\" -password \"%s\"",
+			vmIp = vm.Status.Interfaces[0].IP
+			cli = []string{
 				winrmCliCmd,
-				vm.Status.Interfaces[0].IP,
+				"-hostname",
+				vmIp,
+				"-username",
 				windowsVmUser,
+				"-password",
 				windowsVmPassword,
-			)
+			}
 		})
 
-		XIt("should have correct UUID", func() {
-			command := fmt.Sprintf("%s 'wmic csproduct get \"UUID\"'", cli)
-			out, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				winrmcliPod,
-				winrmcliPod.Spec.Containers[0].Name,
-				command,
-			)
-			Expect(err).To(BeNil())
-			Expect(out).To(Equal(windowsFirmware))
-		}, 300)
+		It("should have correct UUID", func() {
+			command := append(cli, "wmic csproduct get \"UUID\"")
+			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
+			Eventually(func() error {
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					winrmcliPod,
+					winrmcliPod.Spec.Containers[0].Name,
+					command,
+				)
+				return err
+			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
+			By("Checking that the Windows VM has expected UUID")
+			Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
+		}, 360)
 
-		XIt("should have pod IP", func() {})
+		It("should have pod IP", func() {
+			command := append(cli, "ipconfig /all")
+			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
+			Eventually(func() error {
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					winrmcliPod,
+					winrmcliPod.Spec.Containers[0].Name,
+					command,
+				)
+				return err
+			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
+
+			By("Checking that the Windows VM has expected IP address")
+			Expect(output).Should(ContainSubstring(vmIp))
+		}, 360)
 	})
 })

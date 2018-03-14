@@ -16,9 +16,18 @@
 # Copyright 2018 Red Hat, Inc.
 #
 
-FROM golang:1.6
+FROM fedora:27
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
 
-RUN go get github.com/masterzen/winrm-cli
+RUN dnf -y install make git gcc && dnf -y clean all
+
+ENV GIMME_GO_VERSION=1.9.2
+RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
+
+ENV GOPATH="/go" GOBIN="/usr/bin"
+RUN \
+    mkdir -p /go && \
+    source /etc/profile.d/gimme.sh && \
+    go get github.com/masterzen/winrm-cli
