@@ -10,8 +10,8 @@ function up() {
     # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
     local num_nodes=${VAGRANT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
-    ${_cli} run --nodes ${num_nodes} --random-ports --prefix $PROVIDER --registry-volume $(_registry_volume) --base "kubevirtci/${image}"
-    ${_cli} ssh --prefix $PROVIDER node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
+    ${_cli} run --nodes ${num_nodes} --random-ports --prefix $_prefix --registry-volume $(_registry_volume) --base "kubevirtci/${image}"
+    ${_cli} ssh --prefix $_prefix node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
 
     chmod 0600 ${KUBEVIRT_PATH}cluster/vagrant.key
     OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/vagrant.key -P $(${_cli} port ssh)"

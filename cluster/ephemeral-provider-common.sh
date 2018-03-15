@@ -2,6 +2,9 @@
 
 set -e
 
+_prefix=${JOB_NAME:-${PROVIDER}}
+_prefix=${_prefix}${EXECUTOR_NUMBER}
+
 _cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/cli@sha256:c42004c9626e6a6e723a2107410694cb80864f3456725fdf945b1ca148ed6eaa'
 
 function _main_ip() {
@@ -43,8 +46,8 @@ function build() {
     local num_nodes=${VAGRANT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
     for i in $(seq 1 ${num_nodes}); do
-        ${_cli} ssh --prefix $PROVIDER "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
-        ${_cli} ssh --prefix $PROVIDER "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs --max-args=2 sudo docker tag"
+        ${_cli} ssh --prefix $_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
+        ${_cli} ssh --prefix $_prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs --max-args=2 sudo docker tag"
     done
 }
 
@@ -54,5 +57,5 @@ function _kubectl() {
 }
 
 function down() {
-    ${_cli} rm --prefix $PROVIDER
+    ${_cli} rm --prefix $_prefix
 }
