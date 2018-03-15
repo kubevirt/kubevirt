@@ -196,7 +196,9 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 			response.WriteAsJson(list)
 		}).
 		Operation("getAPIResources").
-		Doc("Get a KubeVirt API resources"))
+		Doc("Get a KubeVirt API resources").
+		Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
+		Returns(http.StatusNotFound, "Not Found", nil))
 
 	restful.Add(subws)
 
@@ -209,7 +211,9 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 			response.WriteAsJson(subresourceAPIGroup())
 		}).
 		Operation("getAPIGroup").
-		Doc("Get a KubeVirt API Group"))
+		Doc("Get a KubeVirt API Group").
+		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
+		Returns(http.StatusNotFound, "Not Found", nil))
 
 	// K8s needs the ability to query the list of API groups this endpoint supports
 	ws.Route(ws.GET("apis").
@@ -221,7 +225,9 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 			response.WriteAsJson(list)
 		}).
 		Operation("getAPIGroup").
-		Doc("Get a KubeVirt API Group"))
+		Doc("Get a KubeVirt API GroupList").
+		Returns(http.StatusOK, "OK", metav1.APIGroupList{}).
+		Returns(http.StatusNotFound, "Not Found", nil))
 
 	restful.Add(ws)
 }

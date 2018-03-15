@@ -20,16 +20,13 @@
 package rest
 
 import (
-	"io/ioutil"
 	"net/http"
-	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
