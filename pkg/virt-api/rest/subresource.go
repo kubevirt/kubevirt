@@ -127,7 +127,7 @@ func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, er
 	}
 
 	if len(podList.Items) == 0 {
-		return "", goerror.New("console connection failed. No VM pod is running")
+		return "", goerror.New("connection failed. No VM pod is running")
 	}
 	return podList.Items[0].ObjectMeta.Name, nil
 }
@@ -205,7 +205,7 @@ func (app *SubresourceAPIApp) remoteExecHelper(podName string, namespace string,
 	})
 
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("console connection failed: %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("connection failed: %v", err)
 	}
 	return http.StatusOK, nil
 }

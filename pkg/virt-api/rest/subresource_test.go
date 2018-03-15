@@ -82,15 +82,52 @@ var _ = Describe("VM Subresources", func() {
 			Expect(podName).To(Equal("madeup-name"))
 			Expect(httpStatusCode).To(Equal(http.StatusOK))
 			close(done)
-		})
+		}, 5)
+
 		It("should fail if VM is not in running state", func(done Done) {
-			// TODO
+			vm := v1.NewMinimalVM("testvm")
+			vm.Status.Phase = v1.Succeeded
+			vm.ObjectMeta.SetUID(uuid.NewUUID())
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			_, httpStatusCode, err := app.remoteExecInfo("testvm", "default")
+
+			Expect(err).To(HaveOccurred())
+			Expect(httpStatusCode).To(Equal(http.StatusBadRequest))
 			close(done)
-		})
+		}, 5)
+
 		It("should fail no matching pod is found", func(done Done) {
-			// TODO
+			vm := v1.NewMinimalVM("testvm")
+			vm.Status.Phase = v1.Running
+			vm.ObjectMeta.SetUID(uuid.NewUUID())
+
+			podList := k8sv1.PodList{}
+			podList.Items = []k8sv1.Pod{}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
+				),
+			)
+
+			_, httpStatusCode, err := app.remoteExecInfo("testvm", "default")
+
+			Expect(err).To(HaveOccurred())
+			Expect(httpStatusCode).To(Equal(http.StatusBadRequest))
 			close(done)
-		})
+		}, 5)
 	})
 
 	AfterEach(func() {
