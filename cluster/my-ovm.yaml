@@ -3,13 +3,13 @@ kind: OfflineVirtualMachine
 metadata:
   name: my-vm
   labels:
-    my: label
+    kubevirt.io/my: label
 spec:
   running: false # equivalent to replicas 0
   template:
     metadata:
-      labels: 
-        my: label
+      labels:
+        kubevirt.io/my: label
     spec:
       domain:
         resources:
@@ -31,4 +31,4 @@ spec:
             image: kubevirt/cirros-registry-disk-demo:devel
         - name: cloudinitvolume
           cloudInitNoCloud:
-            userDataBase64: SGkuXG4= 
+            userDataBase64: SGkuXG4=
