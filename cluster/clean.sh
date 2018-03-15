@@ -44,6 +44,8 @@ for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete customresourcedefinitions -l 'kubevirt.io'
     _kubectl -n ${i} delete pods -l 'kubevirt.io'
     _kubectl -n ${i} delete clusterrolebinding -l 'kubevirt.io'
+    _kubectl -n ${i} delete rolebinding -l 'kubevirt.io'
+    _kubectl -n ${i} delete roles -l 'kubevirt.io'
     _kubectl -n ${i} delete clusterroles -l 'kubevirt.io'
     _kubectl -n ${i} delete serviceaccounts -l 'kubevirt.io'
     # FIXME this is workaroung to make CI happy. Can be removed in few days.

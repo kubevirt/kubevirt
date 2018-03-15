@@ -27,7 +27,7 @@ spec:
       labels:
         kubevirt.io: virt-api
     spec:
-      serviceAccountName: kubevirt-controller
+      serviceAccountName: kubevirt-apiserver
       containers:
         - name: virt-api
           image: {{ docker_prefix }}/virt-api:{{ docker_tag }}

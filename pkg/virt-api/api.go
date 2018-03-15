@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"reflect"
 
@@ -83,7 +82,7 @@ func NewVirtApi() VirtApi {
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
 
-	app.certsDirectory, err = os.Getwd()
+	app.certsDirectory, err = ioutil.TempDir("", "certsdir")
 	if err != nil {
 		panic(err)
 	}
@@ -381,14 +380,15 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 	if registerApiService {
 		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Create(&apiregistrationv1beta1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: subresourceAggregatedApiName,
+				Name:      subresourceAggregatedApiName,
+				Namespace: metav1.NamespaceSystem,
 				Labels: map[string]string{
 					v1.AppLabel: "virt-api-aggregator",
 				},
 			},
 			Spec: apiregistrationv1beta1.APIServiceSpec{
 				Service: &apiregistrationv1beta1.ServiceReference{
-					Namespace: "kube-system",
+					Namespace: metav1.NamespaceSystem,
 					Name:      "virt-api",
 				},
 				Group:                v1.SubresourceGroupName,
