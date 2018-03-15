@@ -131,9 +131,16 @@ func (c *OVMController) execute(key string) error {
 
 	logger.Info("Started processing OVM")
 
+	//FIXME: An event in the user's namespace should be created if this condition applies
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
 	if OVM.Spec.Template == nil || len(OVM.Spec.Template.ObjectMeta.Labels) == 0 {
-		logger.Error("Invalid controller spec, will not re-enqueue.")
+		if OVM.Spec.Template == nil {
+			logger.Error("OVM controller spec is missing template.")
+		}
+		if len(OVM.Spec.Template.ObjectMeta.Labels) == 0 {
+			logger.Error("OVM controller spec is missing labels.")
+		}
+		logger.Error("Invalid OVM controller spec, will not re-enqueue.")
 		return nil
 	}
 
