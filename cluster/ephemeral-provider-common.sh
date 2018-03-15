@@ -19,6 +19,14 @@ manifest_docker_prefix=registry:5000/kubevirt
 EOF
 }
 
+function _registry_volume() {
+  if [ -n "${JOB_NAME}" ]; then
+    echo "${JOB_NAME}_${EXECUTOR_NUMBER}_registry"
+  else
+    echo "kubevirt_registry"
+  fi
+}
+
 function build() {
     # Build everyting and publish it
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} PROVIDER=${PROVIDER} ./hack/build-manifests.sh"
