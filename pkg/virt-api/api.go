@@ -500,7 +500,6 @@ func (app *virtAPIApp) Run() {
 		panic(err)
 	}
 
-	// TODO add readiness check
 	// start TLS server
 	err = app.startTLS()
 	if err != nil {

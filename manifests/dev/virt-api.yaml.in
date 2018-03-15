@@ -41,5 +41,10 @@ spec:
             - containerPort: 8443
               name: "virt-api"
               protocol: "TCP"
+          readinessProbe:
+            tcpSocket:
+              port: 8443
+            initialDelaySeconds: 5
+            periodSeconds: 10
       securityContext:
         runAsNonRoot: true
