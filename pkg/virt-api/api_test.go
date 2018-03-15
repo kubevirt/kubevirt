@@ -48,9 +48,9 @@ var _ = Describe("Virt-api", func() {
 
 	app := virtAPIApp{}
 	BeforeEach(func() {
+		server = ghttp.NewServer()
 		tmpDir, err := ioutil.TempDir("", "api_tmp_dir")
 		Expect(err).ToNot(HaveOccurred())
-		server = ghttp.NewServer()
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.certsDirectory = tmpDir
 	})
@@ -75,7 +75,7 @@ var _ = Describe("Virt-api", func() {
 			Expect(len(app.certBytes)).ToNot(Equal(0))
 			Expect(len(app.keyBytes)).ToNot(Equal(0))
 			close(done)
-		})
+		}, 5)
 
 		It("should not generate certs if secret already exists", func(done Done) {
 			caKeyPair, _ := triple.NewCA("kubevirt.io")
@@ -120,7 +120,7 @@ var _ = Describe("Virt-api", func() {
 			Expect(app.certBytes).To(Equal(certBytes))
 			Expect(app.keyBytes).To(Equal(keyBytes))
 			close(done)
-		})
+		}, 5)
 
 		It("should return error if client CA doesn't exist", func(done Done) {
 			server.AppendHandlers(
@@ -134,7 +134,8 @@ var _ = Describe("Virt-api", func() {
 			Expect(err).To(HaveOccurred())
 
 			close(done)
-		})
+		}, 5)
+
 		It("should retrieve client CA", func(done Done) {
 
 			configMap := &k8sv1.ConfigMap{}
@@ -151,7 +152,7 @@ var _ = Describe("Virt-api", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(app.clientCABytes).To(Equal([]byte("fakedata")))
 			close(done)
-		})
+		}, 5)
 
 		It("should create apiservice endpoint if one doesn't exist", func(done Done) {
 			app.signingCertBytes = []byte("fake")
@@ -186,7 +187,7 @@ var _ = Describe("Virt-api", func() {
 			)
 			app.createSubresourceApiservice()
 			close(done)
-		})
+		}, 5)
 
 		It("should not create apiservice endpoint if one does exist", func(done Done) {
 			app.signingCertBytes = []byte("fake")
@@ -218,7 +219,7 @@ var _ = Describe("Virt-api", func() {
 			app.createSubresourceApiservice()
 
 			close(done)
-		})
+		}, 5)
 
 		It("should update apiservice endpoint if CA bundle changes", func(done Done) {
 			app.signingCertBytes = []byte("fake")
@@ -272,7 +273,7 @@ var _ = Describe("Virt-api", func() {
 			)
 			app.createSubresourceApiservice()
 			close(done)
-		})
+		}, 5)
 	})
 
 	AfterEach(func() {
