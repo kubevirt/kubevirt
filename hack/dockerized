@@ -5,7 +5,9 @@ source $(dirname "$0")/common.sh
 
 DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
 
-BUILDER=${BUILDER_NAME:-kubevirtbuilder}
+BUILDER=${JOB_NAME:-kubevirtbuilder}
+BUILDER=${BUILDER}${EXECUTOR_NUMBER}
+
 SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"

@@ -29,7 +29,6 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 
 kubectl() { cluster/kubectl.sh "$@"; }
 
-export BUILDER_NAME=$TARGET
 export NAMESPACE="${NAMESPACE:-kube-system}"
 
 if [ "$TARGET" = "vagrant-dev"  ]; then
