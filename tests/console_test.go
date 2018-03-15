@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -42,8 +43,7 @@ var _ = Describe("Console", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	RunVMAndExpectConsoleOutput := func(image string, expected string) {
-		vm := tests.NewRandomVMWithEphemeralDiskHighMemory(image)
+	RunVMAndExpectConsoleOutput := func(vm *v1.VirtualMachine, expected string) {
 
 		By("Creating a new VM")
 		Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
@@ -65,17 +65,19 @@ var _ = Describe("Console", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
 				It("should return that we are running cirros", func() {
+					vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					RunVMAndExpectConsoleOutput(
-						tests.RegistryDiskFor(tests.RegistryDiskCirros),
-						"checking http://169.254.169.254/2009-04-04/instance-id",
+						vm,
+						"login as 'cirros' user",
 					)
 				}, 140)
 			})
 
 			Context("with a fedora image", func() {
 				It("should return that we are running fedora", func() {
+					vm := tests.NewRandomVMWithEphemeralDiskHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora))
 					RunVMAndExpectConsoleOutput(
-						tests.RegistryDiskFor(tests.RegistryDiskFedora),
+						vm,
 						"Welcome to",
 					)
 				}, 140)
