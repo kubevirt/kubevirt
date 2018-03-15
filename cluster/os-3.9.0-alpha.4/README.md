@@ -1,6 +1,6 @@
-# Kubernetes 1.9.3 in ephemeral containers
+# OpenShift 3.9.0-alpha.4 in ephemeral containers
 
-Provides a pre-deployed Kubernetes with version 1.9.3 purely in docker
+Provides a pre-deployed OpenShift Origin with version 3.9.0-alpha.4 purely in docker
 containers with qemu. The provided VMs are completely ephemeral and are
 recreated on every cluster restart. The KubeVirt containers are built on the
 local machine and are the pushed to a registry which is exposed at
@@ -9,29 +9,34 @@ local machine and are the pushed to a registry which is exposed at
 ## Bringing the cluster up
 
 ```bash
-export PROVIDER=k8s-1.9.3
+export PROVIDER=os-3.9.0-alpha.4
 export VAGRANT_NUM_NODES=1 # master + one nodes
 make cluster-up
+```
+
+If you want to get access to OpenShift web console you will need to add line to `/etc/hosts`
+```bash
+echo "127.0.0.1 node01" >> /etc/hosts
 ```
 
 The cluster can be accessed as usual:
 
 ```bash
 $ cluster/kubectl.sh get nodes
-NAME      STATUS     ROLES     AGE       VERSION
-node01    NotReady   master    31s       v1.9.3
-node02    NotReady   <none>    5s        v1.9.3
+NAME      STATUS    ROLES     AGE       VERSION
+node01    Ready     master    1h        v1.9.1+a0ce1bc657
+node02    Ready     <none>    46s       v1.9.1+a0ce1bc657
 ```
 
 ## Bringing the cluster down
 
 ```bash
-export PROVIDER=k8s-1.9.3
+export PROVIDER=os-3.9.0-alpha.4
 make cluster-down
 ```
 
-This destroys the whole cluster. Recreating the cluster is fast, since k8s is
-already pre-deployed. The only state which is kept is the state of the local
+This destroys the whole cluster. Recreating the cluster is fast, since OpenShift
+is already pre-deployed. The only state which is kept is the state of the local
 docker registry.
 
 ## Destroying the docker registry state
