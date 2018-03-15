@@ -66,6 +66,8 @@ func (o *Command) Run(flags *flag.FlagSet) int {
 		return 1
 	}
 	vmName := flags.Arg(1)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
@@ -79,14 +81,18 @@ func (o *Command) Run(flags *flag.FlagSet) int {
 		running = false
 	}
 
-	virtCli, err := kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
+	if (server == "") && (kubeconfig == "") {
+		virtClient, err = kubecli.GetKubevirtClient()
+	} else {
+		virtClient, err = kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
+	}
 	if err != nil {
 		log.Printf("Cannot obtain KubeVirt client: %v", err)
 		return 1
 	}
 
 	options := &k8smetav1.GetOptions{}
-	ovm, err := virtCli.OfflineVirtualMachine(namespace).Get(vmName, options)
+	ovm, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
 	if err != nil {
 		log.Printf("Error fetching OfflineVirtualMachine: %v", err)
 		return 1
@@ -94,7 +100,7 @@ func (o *Command) Run(flags *flag.FlagSet) int {
 
 	if ovm.Spec.Running != running {
 		ovm.Spec.Running = running
-		_, err := virtCli.OfflineVirtualMachine(namespace).Update(ovm)
+		_, err := virtClient.OfflineVirtualMachine(namespace).Update(ovm)
 		if err != nil {
 			log.Printf("Error updating OfflineVirtualMachine: %v", err)
 			return 1

@@ -37,6 +37,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl"
+	"kubevirt.io/kubevirt/pkg/virtctl/offlinevm"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -304,6 +306,68 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 				By("OVM should run the VM again")
 			}
+		})
+
+		Context("Using virtctl interface", func() {
+			It("should start a VM", func() {
+				var vm *v1.VirtualMachine
+				var err error
+				By("getting an OVM")
+				newOVM := newOfflineVirtualMachine(false)
+
+				By("Invoking virtctl start")
+				startCommandLine := []string{offlinevm.COMMAND_START, newOVM.Name, "--namespace", newOVM.Namespace}
+				startCmd := offlinevm.NewCommand(offlinevm.COMMAND_START)
+				startFlags := startCmd.FlagSet()
+				startFlags.AddFlagSet((&virtctl.Options{}).FlagSet())
+				startFlags.Parse(startCommandLine)
+
+				Expect(startFlags.NArg()).To(Equal(2))
+				startCmd.Run(startFlags)
+
+				By("Getting the status of the OVM")
+				Eventually(func() bool {
+					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+				}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Getting the running VM")
+				Eventually(func() bool {
+					vm, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status.Phase == v1.Running
+				}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+			})
+
+			It("should stop a VM", func() {
+				var err error
+				By("getting an OVM")
+				newOVM := newOfflineVirtualMachine(true)
+
+				By("Invoking virtctl stop")
+				stopCommandLine := []string{offlinevm.COMMAND_STOP, newOVM.Name, "--namespace", newOVM.Namespace}
+				stopCmd := offlinevm.NewCommand(offlinevm.COMMAND_STOP)
+				stopFlags := stopCmd.FlagSet()
+				stopFlags.AddFlagSet((&virtctl.Options{}).FlagSet())
+				stopFlags.Parse(stopCommandLine)
+				stopCmd.Run(stopFlags)
+
+				By("Ensuring OVM is not running")
+				Eventually(func() bool {
+					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return !hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+				}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Ensuring the VM is removed")
+				Eventually(func() error {
+					_, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+					// Expect a 404 error
+					return err
+				}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
+			})
 		})
 	})
 })
