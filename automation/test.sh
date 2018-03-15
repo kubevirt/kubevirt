@@ -36,12 +36,10 @@ if [ "$TARGET" = "vagrant-dev"  ]; then
 cat > hack/config-local.sh <<EOF
 master_ip=192.168.1.2
 EOF
-export RSYNCD_PORT=${RSYNCD_PORT:-10874}
 elif [ "$TARGET" = "vagrant-release"  ]; then
 cat > hack/config-local.sh <<EOF
 master_ip=192.168.2.2
 EOF
-export RSYNCD_PORT=${RSYNCD_PORT:-10875}
 fi
 
 export VAGRANT_PREFIX=${VARIABLE:-kubevirt}
