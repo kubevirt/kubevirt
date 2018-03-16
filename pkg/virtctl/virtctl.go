@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -24,6 +24,13 @@ import (
 	"os"
 
 	flag "github.com/spf13/pflag"
+
+	"kubevirt.io/kubevirt/pkg/kubecli"
+)
+
+const (
+	STATUS_OK    = 0
+	STATUS_ERROR = 1
 )
 
 type App interface {
@@ -53,4 +60,14 @@ func (o *Options) Usage() string {
 	usage := "The following options can be passed to any command:\n\n"
 	usage += o.FlagSet().FlagUsages()
 	return usage
+}
+
+func GetKubevirtClient(flags *flag.FlagSet) (kubecli.KubevirtClient, error) {
+	server, _ := flags.GetString("server")
+	kubeconfig, _ := flags.GetString("kubeconfig")
+	if (server == "") && (kubeconfig == "") {
+		return kubecli.GetKubevirtClient()
+	} else {
+		return kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
+	}
 }

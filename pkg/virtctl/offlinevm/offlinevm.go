@@ -31,6 +31,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
 const (
@@ -61,13 +62,14 @@ func (c *Command) Usage() string {
 }
 
 func (o *Command) Run(flags *flag.FlagSet) int {
-	if flags.NArg() != 2 {
-		log.Println("OfflineVirtualMachine name is missing")
-		return 1
-	}
-	vmName := flags.Arg(1)
 	var virtClient kubecli.KubevirtClient
 	var err error
+
+	if flags.NArg() != 2 {
+		log.Println("OfflineVirtualMachine name is missing")
+		return virtctl.STATUS_ERROR
+	}
+	vmName := flags.Arg(1)
 
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
@@ -81,21 +83,22 @@ func (o *Command) Run(flags *flag.FlagSet) int {
 		running = false
 	}
 
-	if (server == "") && (kubeconfig == "") {
-		virtClient, err = kubecli.GetKubevirtClient()
-	} else {
+	if (server != "") && (kubeconfig != "") {
 		virtClient, err = kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
+	} else
+	{
+		virtClient, err = kubecli.GetKubevirtClient()
 	}
 	if err != nil {
 		log.Printf("Cannot obtain KubeVirt client: %v", err)
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 
 	options := &k8smetav1.GetOptions{}
 	ovm, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
 	if err != nil {
 		log.Printf("Error fetching OfflineVirtualMachine: %v", err)
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 
 	if ovm.Spec.Running != running {
@@ -103,9 +106,16 @@ func (o *Command) Run(flags *flag.FlagSet) int {
 		_, err := virtClient.OfflineVirtualMachine(namespace).Update(ovm)
 		if err != nil {
 			log.Printf("Error updating OfflineVirtualMachine: %v", err)
-			return 1
+			return virtctl.STATUS_ERROR
 		}
+	} else {
+		stateMsg := "stopped"
+		if running {
+			stateMsg = "running"
+		}
+		log.Printf("Error: VirtualMachine '%s' is already %s", vmName, stateMsg)
+		return virtctl.STATUS_ERROR
 	}
 
-	return 0
+	return virtctl.STATUS_OK
 }

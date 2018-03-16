@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -31,6 +31,7 @@ import (
 	"k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
 type Console struct {
@@ -54,7 +55,6 @@ func (c *Console) Usage() string {
 }
 
 func (c *Console) Run(flags *flag.FlagSet) int {
-
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
 	namespace, _ := flags.GetString("namespace")
@@ -64,20 +64,20 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	}
 	if len(flags.Args()) != 2 {
 		log.Println("VM name is missing")
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 	vm := flags.Arg(1)
 
 	virtCli, err := kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
 	if err != nil {
 		log.Println(err)
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 
 	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		log.Printf("Make raw terminal failed: %s", err)
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 	fmt.Fprint(os.Stderr, "Escape sequence is ^]\n")
 
@@ -149,7 +149,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 
 	if err != nil {
 		log.Println(err)
-		return 1
+		return virtctl.STATUS_ERROR
 	}
-	return 0
+	return virtctl.STATUS_OK
 }
