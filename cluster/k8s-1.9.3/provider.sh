@@ -11,7 +11,6 @@ function up() {
     local num_nodes=${VAGRANT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
     ${_cli} run --nodes ${num_nodes} --random-ports --background --prefix $_prefix --registry-volume $(_registry_volume) --base "kubevirtci/${image}"
-    echo lala
     ${_cli} ssh --prefix $_prefix node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
 
     chmod 0600 ${KUBEVIRT_PATH}cluster/vagrant.key

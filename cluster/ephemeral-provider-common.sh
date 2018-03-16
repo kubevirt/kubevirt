@@ -35,6 +35,15 @@ function _registry_volume() {
 }
 
 function build() {
+    # Let's first prune old images, keep the last 5 iterations to improve the cache hit chance
+    for arg in ${docker_images}; do
+        local name=$(basename $arg)
+        images_to_prune= $(docker images --filter "label=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}" --filter "label=${name}" -q | cat -n | sort -uk2 | sort -nk1 | cut -f2- | tail -n +6)
+        if [ -n "${images_to_prune}" ]; then
+            docker rmi ${images_to_prune}
+        fi
+    done
+
     # Build everyting and publish it
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} PROVIDER=${PROVIDER} ./hack/build-manifests.sh"
     make build docker publish
