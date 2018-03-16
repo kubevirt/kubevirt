@@ -28,6 +28,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"fmt"
+	"os"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -38,6 +41,10 @@ var _ = Describe("Converter", func() {
 		var vm *v1.VirtualMachine
 		_false := false
 		_true := true
+		domainType := "kvm"
+		if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
+			domainType = "qemu"
+		}
 
 		BeforeEach(func() {
 
@@ -236,7 +243,7 @@ var _ = Describe("Converter", func() {
 			vm.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
 
-		var convertedDomain = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+		var convertedDomain = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvm</name>
   <memory unit="MB">9</memory>
   <os>
@@ -356,7 +363,7 @@ var _ = Describe("Converter", func() {
     </hyperv>
   </features>
   <cpu></cpu>
-</domain>`
+</domain>`, domainType)
 
 		var c *ConverterContext
 
@@ -377,6 +384,12 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachine(vm)
 			Expect(vmToDomainXML(vm, c)).To(Equal(convertedDomain))
 		})
+
+		It("should use kvm if present", func() {
+			v1.SetObjectDefaults_VirtualMachine(vm)
+			Expect(vmToDomainXMLToDomainSpec(vm, c).Type).To(Equal(domainType))
+		})
+
 		It("should convert CPU cores", func() {
 			v1.SetObjectDefaults_VirtualMachine(vm)
 			vm.Spec.Domain.CPU = &v1.CPU{
@@ -387,6 +400,7 @@ var _ = Describe("Converter", func() {
 			Expect(vmToDomainXMLToDomainSpec(vm, c).CPU.Topology.Threads).To(Equal(uint32(1)))
 			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.Placement).To(Equal("static"))
 			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.CPUs).To(Equal(uint32(3)))
+
 		})
 	})
 })

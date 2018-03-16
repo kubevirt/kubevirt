@@ -24,6 +24,6 @@ var _ = Describe("Defaults", func() {
 		domain := &Domain{}
 		SetDefaults_DomainSpec(&domain.Spec)
 		Expect(domain.Spec.XmlNS).To(Equal("http://libvirt.org/schemas/domain/qemu/1.0"))
-		Expect(domain.Spec.Type).To(Equal("qemu"))
+		Expect(domain.Spec.Type).To(Equal("kvm"))
 	})
 })

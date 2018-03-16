@@ -1,4 +1,15 @@
 #!/bin/bash
+set +e
+
+# HACK
+# Try to create /dev/kvm if not present
+if [ ! -e /dev/kvm ]; then
+   mknod /dev/kvm c 10 $(grep '\<kvm\>' /proc/misc | cut -f 1 -d' ')
+fi
+
+chown :qemu /dev/kvm
+chmod 660 /dev/kvm
+
 ./virt-launcher $@
 rc=$?
 

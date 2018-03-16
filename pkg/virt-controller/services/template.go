@@ -71,10 +71,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
-	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
-		Name:      "host-dev",
-		MountPath: "/host-dev",
-	})
 	for _, volume := range vm.Spec.Volumes {
 		volumeMount := kubev1.VolumeMount{
 			Name:      volume.Name,
@@ -187,14 +183,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		},
 	})
 
-	volumes = append(volumes, kubev1.Volume{
-		Name: "host-dev",
-		VolumeSource: kubev1.VolumeSource{
-			HostPath: &kubev1.HostPathVolumeSource{
-				Path: "/dev",
-			},
-		},
-	})
 	containers = append(containers, container)
 
 	// TODO use constants for labels

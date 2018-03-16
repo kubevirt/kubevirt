@@ -17,7 +17,7 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-# CI considerations: $TARGET is used by the jenkins vagrant build, to distinguish what to test
+# CI considerations: $TARGET is used by the jenkins build, to distinguish what to test
 # Currently considered $TARGET values:
 #     vagrant-dev: Runs all functional tests on a development vagrant setup
 #     vagrant-release: Runs all possible functional tests on a release deployment in vagrant
