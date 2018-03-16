@@ -15,16 +15,16 @@ function up() {
     ${_cli} ssh --prefix $_prefix node01 sudo chown vagrant:vagrant ~vagrant/admin.kubeconfig
 
     chmod 0600 ${KUBEVIRT_PATH}cluster/vagrant.key
-    OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/vagrant.key -P $(${_cli} port ssh)"
+    OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/vagrant.key -P $(_port ssh)"
 
     # Copy oc tool and configuration file
-    scp ${OPTIONS} vagrant@$(_master_ip):/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl
+    scp ${OPTIONS} vagrant@$(_main_ip):/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl
     chmod u+x ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl
-    scp ${OPTIONS} vagrant@$(_master_ip):~vagrant/admin.kubeconfig ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
+    scp ${OPTIONS} vagrant@$(_main_ip):~vagrant/admin.kubeconfig ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
 
     # Update Kube config to support unsecured connection
     export KUBECONFIG=${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster node01:8443 --server=https://$(_main_ip):$(${_cli} port osp)
+    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster node01:8443 --server=https://$(_main_ip):$(_port osp)
     ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster node01:8443 --insecure-skip-tls-verify=true
 
     # Make sure that local config is correct

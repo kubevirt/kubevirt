@@ -5,10 +5,14 @@ set -e
 _prefix=${JOB_NAME:-${PROVIDER}}
 _prefix=${_prefix}${EXECUTOR_NUMBER}
 
-_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/cli@sha256:c42004c9626e6a6e723a2107410694cb80864f3456725fdf945b1ca148ed6eaa'
+_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/cli@sha256:4f49fc59d3f79aa9873324b22de66aaf117eaa1431981205277181f58a5cd084'
 
 function _main_ip() {
     echo 127.0.0.1
+}
+
+function _port() {
+    ${_cli} port --prefix $_prefix "$@"
 }
 
 function prepare_config() {
@@ -17,17 +21,17 @@ function prepare_config() {
 master_ip=$(_main_ip)
 docker_tag=devel
 kubeconfig=${BASE_PATH}/cluster/$PROVIDER/.kubeconfig
-docker_prefix=localhost:5000/kubevirt
+docker_prefix=localhost:$(_port registry)/kubevirt
 manifest_docker_prefix=registry:5000/kubevirt
 EOF
 }
 
 function _registry_volume() {
-  if [ -n "${JOB_NAME}" ]; then
-    echo "${JOB_NAME}_${EXECUTOR_NUMBER}_registry"
-  else
-    echo "kubevirt_registry"
-  fi
+    if [ -n "${JOB_NAME}" ]; then
+        echo "${JOB_NAME}_${EXECUTOR_NUMBER}_registry"
+    else
+        echo "kubevirt_registry"
+    fi
 }
 
 function build() {
