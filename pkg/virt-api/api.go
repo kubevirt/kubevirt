@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -113,7 +112,7 @@ func (app *virtAPIApp) composeResources(ctx context.Context) {
 
 	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachinePreset{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachinePresetList{})
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	restful.Add(ws)
