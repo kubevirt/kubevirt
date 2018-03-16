@@ -309,7 +309,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		Context("Using virtctl interface", func() {
-			It("should start a VM", func() {
+			It("should start a VM once", func() {
 				var vm *v1.VirtualMachine
 				var err error
 				By("getting an OVM")
@@ -322,8 +322,8 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				startFlags.AddFlagSet((&virtctl.Options{}).FlagSet())
 				startFlags.Parse(startCommandLine)
 
-				Expect(startFlags.NArg()).To(Equal(2))
-				startCmd.Run(startFlags)
+				status := startCmd.Run(startFlags)
+				Expect(status).To(Equal(0))
 
 				By("Getting the status of the OVM")
 				Eventually(func() bool {
@@ -339,9 +339,12 @@ var _ = Describe("OfflineVirtualMachine", func() {
 					return vm.Status.Phase == v1.Running
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
+				By("Ensuring a second invocation should fail")
+				status = startCmd.Run(startFlags)
+				Expect(status).To(Equal(1))
 			})
 
-			It("should stop a VM", func() {
+			It("should stop a VM once", func() {
 				var err error
 				By("getting an OVM")
 				newOVM := newOfflineVirtualMachine(true)
@@ -352,7 +355,9 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				stopFlags := stopCmd.FlagSet()
 				stopFlags.AddFlagSet((&virtctl.Options{}).FlagSet())
 				stopFlags.Parse(stopCommandLine)
-				stopCmd.Run(stopFlags)
+
+				status := stopCmd.Run(stopFlags)
+				Expect(status).To(Equal(0))
 
 				By("Ensuring OVM is not running")
 				Eventually(func() bool {
@@ -367,6 +372,10 @@ var _ = Describe("OfflineVirtualMachine", func() {
 					// Expect a 404 error
 					return err
 				}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
+
+				By("Ensuring a second invocation should fail")
+				status = stopCmd.Run(stopFlags)
+				Expect(status).To(Equal(1))
 			})
 		})
 	})
