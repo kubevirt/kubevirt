@@ -20,9 +20,11 @@
 package services
 
 import (
+	"path/filepath"
 	"strconv"
 
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -54,10 +56,48 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	var volumes []kubev1.Volume
 	var userId int64 = 0
 	var privileged bool = true
+	var volumesMounts []kubev1.VolumeMount
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
 		gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+	}
+
+	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+		Name:      "virt-share-dir",
+		MountPath: t.virtShareDir,
+	})
+	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+		Name:      "libvirt-runtime",
+		MountPath: "/var/run/libvirt",
+	})
+	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+		Name:      "host-dev",
+		MountPath: "/host-dev",
+	})
+	for _, volume := range vm.Spec.Volumes {
+		volumeMount := kubev1.VolumeMount{
+			Name:      volume.Name,
+			MountPath: filepath.Join("/var/run/kubevirt-private", "vm-disks", volume.Name),
+		}
+		if volume.PersistentVolumeClaim != nil {
+			volumesMounts = append(volumesMounts, volumeMount)
+			volumes = append(volumes, kubev1.Volume{
+				Name: volume.Name,
+				VolumeSource: kubev1.VolumeSource{
+					PersistentVolumeClaim: volume.PersistentVolumeClaim,
+				},
+			})
+		}
+		if volume.Ephemeral != nil {
+			volumesMounts = append(volumesMounts, volumeMount)
+			volumes = append(volumes, kubev1.Volume{
+				Name: volume.Name,
+				VolumeSource: kubev1.VolumeSource{
+					PersistentVolumeClaim: volume.Ephemeral.PersistentVolumeClaim,
+				},
+			})
+		}
 	}
 
 	// Pad the virt-launcher grace period.
@@ -66,6 +106,28 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	// the vm down.
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
+
+	// Consider CPU and memory requests and limits for pod scheduling
+	resources := kubev1.ResourceRequirements{}
+	vmResources := vm.Spec.Domain.Resources
+
+	resources.Requests = make(kubev1.ResourceList)
+
+	// Copy vm resources requests to a container
+	for key, value := range vmResources.Requests {
+		resources.Requests[key] = value
+	}
+
+	// Copy vm resources limits to a container
+	if vmResources.Limits != nil {
+		resources.Limits = make(kubev1.ResourceList)
+	}
+	for key, value := range vmResources.Limits {
+		resources.Limits[key] = value
+	}
+
+	// Add memory overhead
+	setMemoryOverhead(vm.Spec.Domain, &resources)
 
 	// VM target container
 	container := kubev1.Container{
@@ -86,25 +148,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			"--readiness-file", "/tmp/healthy",
 			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		},
-		VolumeMounts: []kubev1.VolumeMount{
-			{
-				Name:      "virt-share-dir",
-				MountPath: t.virtShareDir,
-			},
-			{
-				// shared with registry disks on Pod shared volume
-				Name:      "libvirt-runtime",
-				MountPath: "/var/run/libvirt",
-			},
-			{
-				Name:      "host-dev",
-				MountPath: "/host-dev",
-			},
-			{
-				Name:      "host-sys",
-				MountPath: "/host-sys",
-			},
-		},
+		VolumeMounts: volumesMounts,
 		ReadinessProbe: &kubev1.Probe{
 			Handler: kubev1.Handler{
 				Exec: &kubev1.ExecAction{
@@ -120,6 +164,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			SuccessThreshold:    int32(successThreshold),
 			FailureThreshold:    int32(failureThreshold),
 		},
+		Resources: resources,
 	}
 
 	containers, err := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
@@ -150,20 +195,12 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			},
 		},
 	})
-	volumes = append(volumes, kubev1.Volume{
-		Name: "host-sys",
-		VolumeSource: kubev1.VolumeSource{
-			HostPath: &kubev1.HostPathVolumeSource{
-				Path: "/sys",
-			},
-		},
-	})
 	containers = append(containers, container)
 
 	// TODO use constants for labels
 	pod := kubev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "virt-launcher-" + domain + "-----",
+			GenerateName: "virt-launcher-" + domain + "-",
 			Labels: map[string]string{
 				v1.AppLabel:    "virt-launcher",
 				v1.DomainLabel: domain,
@@ -171,7 +208,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			},
 		},
 		Spec: kubev1.PodSpec{
-			HostNetwork: true,
 			SecurityContext: &kubev1.PodSecurityContext{
 				RunAsUser: &userId,
 			},
@@ -192,6 +228,57 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	}
 
 	return &pod, nil
+}
+
+// setMemoryOverhead computes the estimation of total
+// memory needed for the domain to operate properly.
+// This includes the memory needed for the guest and memory
+// for Qemu and OS overhead.
+//
+// The return values are requested memory and limit memory quantities
+//
+// Note: This is the best estimation we were able to come up with
+//       and is still not 100% accurate
+func setMemoryOverhead(domain v1.DomainSpec, resources *kubev1.ResourceRequirements) error {
+	vmMemoryReq := domain.Resources.Requests.Memory()
+
+	overhead := resource.NewScaledQuantity(0, resource.Kilo)
+
+	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
+	pagetableMemory := resource.NewScaledQuantity(vmMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
+	pagetableMemory.Set(pagetableMemory.Value() / 512)
+	overhead.Add(*pagetableMemory)
+
+	// Add fixed overhead for shared libraries and such
+	// TODO account for the overhead of kubevirt components running in the pod
+	overhead.Add(resource.MustParse("64M"))
+
+	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
+	// overhead per vcpu in MiB
+	coresMemory := uint32(8)
+	if domain.CPU != nil {
+		coresMemory *= domain.CPU.Cores
+	}
+	overhead.Add(resource.MustParse(strconv.Itoa(int(coresMemory)) + "Mi"))
+
+	// static overhead for IOThread
+	overhead.Add(resource.MustParse("8Mi"))
+
+	// Add video RAM overhead
+	overhead.Add(resource.MustParse("16Mi"))
+
+	// Add overhead to memory request
+	memoryRequest := resources.Requests[kubev1.ResourceMemory]
+	memoryRequest.Add(*overhead)
+	resources.Requests[kubev1.ResourceMemory] = memoryRequest
+
+	// Add overhead to memory limits, if exists
+	if memoryLimit, ok := resources.Limits[kubev1.ResourceMemory]; ok {
+		memoryLimit.Add(*overhead)
+		resources.Limits[kubev1.ResourceMemory] = memoryLimit
+	}
+
+	return nil
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string) (TemplateService, error) {

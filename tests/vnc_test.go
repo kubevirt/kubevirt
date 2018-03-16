@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Vmlifecycle", func() {
+var _ = Describe("VNC", func() {
 
 	flag.Parse()
 
@@ -43,53 +43,56 @@ var _ = Describe("Vmlifecycle", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Context("New VM with a vnc connection given", func() {
-		It("should allow accessing the vnc device on the VM", func(done Done) {
-			vm := tests.NewRandomVM()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
-			tests.WaitForSuccessfulVMStart(vm)
+	Describe("A new VM", func() {
+		Context("with VNC connection", func() {
+			It("should allow accessing the VNC device", func(done Done) {
+				By("Starting a VM")
+				vm := tests.NewRandomVM()
+				Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
+				tests.WaitForSuccessfulVMStart(vm)
 
-			tests.WaitForSuccessfulVMStart(vm)
+				pipeInReader, _ := io.Pipe()
+				pipeOutReader, pipeOutWriter := io.Pipe()
 
-			pipeInReader, _ := io.Pipe()
-			pipeOutReader, pipeOutWriter := io.Pipe()
+				k8ResChan := make(chan error)
+				readStop := make(chan string)
 
-			k8ResChan := make(chan error)
-			readStop := make(chan string)
+				go func() {
+					err := virtClient.VM(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
+					k8ResChan <- err
+				}()
+				// write to FD <- pipeOutReader
+				By("Reading from the VNC socket")
+				go func() {
+					buf := make([]byte, 1024, 1024)
+					// reading qemu vnc server
+					n, err := pipeOutReader.Read(buf)
+					if err != nil && err != io.EOF {
+						log.Log.Reason(err).Error("error while reading from vnc socket.")
+						return
+					}
+					if n == 0 && err == io.EOF {
+						log.Log.Error("zero bytes read from vnc socket.")
+						return
+					}
+					readStop <- strings.TrimSpace(string(buf[0:n]))
+				}()
 
-			go func() {
-				err := virtClient.VM(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
-				k8ResChan <- err
-			}()
-			// write to FD <- pipeOutReader
-			go func() {
-				buf := make([]byte, 1024, 1024)
-				// reading qemu vnc server
-				n, err := pipeOutReader.Read(buf)
-				if err != nil && err != io.EOF {
-					log.Log.Reason(err).Error("error while reading from vnc socket.")
-					return
+				response := ""
+
+				select {
+				case response = <-readStop:
+				case err = <-k8ResChan:
 				}
-				if n == 0 && err == io.EOF {
-					log.Log.Error("zero bytes read from vnc socket.")
-					return
-				}
-				readStop <- strings.TrimSpace(string(buf[0:n]))
-			}()
 
-			response := ""
-
-			select {
-			case response = <-readStop:
-			case err = <-k8ResChan:
-			}
-
-			// This is the response capture by wireshark when the VNC server is contacted.
-			// This verifies that the test is able to establish a connection with VNC and
-			// communicate.
-			Expect(response).To(Equal("RFB 003.008"))
-			Expect(err).To(BeNil())
-			close(done)
-		}, 45)
+				// This is the response capture by wireshark when the VNC server is contacted.
+				// This verifies that the test is able to establish a connection with VNC and
+				// communicate.
+				By("Checking the response from VNC server")
+				Expect(response).To(Equal("RFB 003.008"))
+				Expect(err).To(BeNil())
+				close(done)
+			}, 45)
+		})
 	})
 })

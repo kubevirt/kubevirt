@@ -40,6 +40,9 @@ type CloudInitNoCloudSource struct {
 	// UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string
 	// + optional
 	UserDataBase64 string `json:"userDataBase64,omitempty"`
+	// UserData contains NoCloud inline cloud-init userdata
+	// + optional
+	UserData string `json:"userData,omitempty"`
 }
 
 type DomainSpec struct {
@@ -50,7 +53,7 @@ type DomainSpec struct {
 	CPU *CPU `json:"cpu,omitempty"`
 	// Machine type
 	// +optional
-	Machine *Machine `json:"machine,omitempty"`
+	Machine Machine `json:"machine,omitempty"`
 	// Firmware
 	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`
@@ -69,6 +72,10 @@ type ResourceRequirements struct {
 	// Valid resource keys are "memory" and "cpu".
 	// +optional
 	Requests v1.ResourceList `json:"requests,omitempty"`
+	// Limits describes the maximum amount of compute resources allowed.
+	// Valid resource keys are "memory" and "cpu".
+	// +optional
+	Limits v1.ResourceList `json:"limits,omitempty"`
 }
 
 // CPU allow specifying the CPU topology
@@ -121,30 +128,24 @@ type DiskDevice struct {
 }
 
 type DiskTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type LunTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 type FloppyTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
 	// ReadOnly
 	// Defaults to false
 	ReadOnly bool `json:"readonly,omitempty"`
@@ -166,10 +167,9 @@ const (
 )
 
 type CDRomTarget struct {
-	// Device indicates the "logical" device name. The actual device name
-	// specified is not guaranteed to map to the device name in the guest OS. Treat
-	// it as a device ordering hint.
-	Device string `json:"dev,omitempty"`
+	// Bus indicates the type of disk device to emulate.
+	// supported values: virtio, sata, scsi, ide
+	Bus string `json:"bus,omitempty"`
 	// ReadOnly
 	// Defaults to true
 	ReadOnly *bool `json:"readonly,omitempty"`
@@ -194,9 +194,6 @@ type Volume struct {
 // Represents the source of a volume to mount.
 // Only one of its members may be specified.
 type VolumeSource struct {
-	// ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.
-	// +optional
-	ISCSI *v1.ISCSIVolumeSource `json:"iscsi,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the vm via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
@@ -211,6 +208,17 @@ type VolumeSource struct {
 	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
 	// +optional
 	RegistryDisk *RegistryDiskSource `json:"registryDisk,omitempty"`
+	// Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
+	// +optional
+	Ephemeral *EphemeralVolumeSource `json:"ephemeral,omitempty"`
+}
+
+type EphemeralVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the vm via qemu.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 }
 
 // Represents a docker image with an embedded disk
@@ -365,7 +373,7 @@ type Features struct {
 	ACPI FeatureState `json:"acpi,omitempty"`
 	// Defaults to the machine type setting
 	// +optional
-	APIC *FeatureState `json:"apic,omitempty"`
+	APIC *FeatureAPIC `json:"apic,omitempty"`
 	// Defaults to the machine type setting
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
@@ -418,7 +426,7 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting
 	// +optional
 	Relaxed *FeatureState `json:"relaxed,omitempty"`
-	// VAPIC indicates weather virtual APIC is enabled
+	// VAPIC indicates whether virtual APIC is enabled
 	// Defaults to the machine type setting
 	// +optional
 	VAPIC *FeatureState `json:"vapic,omitempty"`

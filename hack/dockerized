@@ -6,6 +6,7 @@ source $(dirname "$0")/common.sh
 DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
 
 BUILDER=${BUILDER_NAME:-kubevirtbuilder}
+SYNC_VENDOR=${SYNC_VENDOR:-false}
 RSYNCD_PORT=${RSYNCD_PORT:-10873}
 
 TEMPFILE=".rsynctemp"
@@ -38,14 +39,21 @@ _rsync() {
     rsync -al "$@"
 }
 
+# For backward compatibility. If vendorless branches are used we need to make sure
+# that they can sync again.
+rm -f ${KUBEVIRT_DIR}/.glide*.hash
+
 # Copy kubevirt into the persistent docker volume
-_rsync --delete --exclude '.glide*' --exclude "cluster/vagrant/.kubeconfig" --exclude "cluster/vagrant/.kubectl" --exclude "vendor" --exclude "_out" --exclude ".vagrant" ${KUBEVIRT_DIR}/ "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
+_rsync --delete --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exclude 'cluster/**/.kubeconfig' --exclude "_out" --exclude ".vagrant" ${KUBEVIRT_DIR}/ "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
 # Run the command
 test -t 1 && USE_TTY="-it"
 docker run --rm -v "${BUILDER}:/root:rw,z" ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
-_rsync --exclude '.glide*' --exclude "_out" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/
+_rsync --exclude '.glide*' --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exclude 'cluster/**/.kubeconfig' --exclude "_out" --exclude "vendor" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/
+if [ "$SYNC_VENDOR" = "true" ]; then
+    _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/vendor" "${VENDOR_DIR}/"
+fi
 # Copy the build output out of the container, make sure that _out exactly matches the build result
 _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}

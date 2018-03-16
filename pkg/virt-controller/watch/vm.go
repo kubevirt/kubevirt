@@ -120,6 +120,12 @@ func (c *VMController) execute(key string) error {
 	} else {
 		vm = obj.(*kubev1.VirtualMachine)
 	}
+
+	// don't process VM's that aren't fully initialized
+	if !isVirtualMachineInitialized(vm) {
+		return nil
+	}
+
 	logger := log.Log.Object(vm)
 
 	if !exists {
@@ -225,6 +231,11 @@ func (c *VMController) execute(key string) error {
 		}
 		vmCopy.ObjectMeta.Labels[kubev1.NodeNameLabel] = pods.Items[0].Spec.NodeName
 		vmCopy.Status.NodeName = pods.Items[0].Spec.NodeName
+		// Copy the POD IP address to the VM
+		iface := kubev1.VirtualMachineNetworkInterface{}
+		iface.IP = pods.Items[0].Status.PodIP
+		vmCopy.Status.Interfaces = []kubev1.VirtualMachineNetworkInterface{iface}
+
 		if _, err := c.vmService.PutVm(vmCopy); err != nil {
 			logger.Reason(err).Error("Updating the VM state to 'Scheduled' failed.")
 			return err

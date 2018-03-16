@@ -48,7 +48,7 @@ make cluster-up
 
 ## New Providers
 
- * Create a `cluster/$POVIDER` directory
+ * Create a `cluster/$PROVIDER` directory
  * Create a `cluster/$PROVIDER/provider.sh` files
  * This file has to contain the functions `up`, `build`, `down` and `_kubectl`
  * Have a look at `cluster/vagrant/provider.sh` for a reference implementation

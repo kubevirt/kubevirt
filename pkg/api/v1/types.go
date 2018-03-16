@@ -57,6 +57,10 @@ var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, V
 
 var VMReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineReplicaSet"}
 
+var VirtualMachinePresetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachinePreset"}
+
+var OfflineVirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "OfflineVirtualMachine"}
+
 var (
 	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
 	registry             = registered.NewOrDie(GroupVersion.String())
@@ -71,8 +75,12 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&metav1.DeleteOptions{},
 		&VirtualMachineReplicaSet{},
 		&VirtualMachineReplicaSetList{},
+		&VirtualMachinePreset{},
+		&VirtualMachinePresetList{},
 		&metav1.GetOptions{},
 		&Spice{},
+		&OfflineVirtualMachine{},
+		&OfflineVirtualMachineList{},
 	)
 	return nil
 }
@@ -143,6 +151,8 @@ type VirtualMachineStatus struct {
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.
 	Phase VMPhase `json:"phase,omitempty"`
+	// Interfaces represent the details of available network interfaces.
+	Interfaces []VirtualMachineNetworkInterface `json:"interfaces,omitempty"`
 }
 
 // Required to satisfy Object interface
@@ -232,6 +242,13 @@ type VirtualMachineCondition struct {
 	Message            string                      `json:"message,omitempty"`
 }
 
+type VirtualMachineNetworkInterface struct {
+	// IP address of a Virtual Machine interface
+	IP string `json:"ipAddress,omitempty"`
+	// Hardware address of a Virtual Machine interface
+	MAC string `json:"mac,omitempty"`
+}
+
 // VMPhase is a label for the condition of a VM at the current time.
 type VMPhase string
 
@@ -289,6 +306,8 @@ type SyncEvent string
 const (
 	Created      SyncEvent = "Created"
 	Deleted      SyncEvent = "Deleted"
+	PresetFailed SyncEvent = "PresetFailed"
+	Conflict     SyncEvent = "Conflict"
 	Started      SyncEvent = "Started"
 	ShuttingDown SyncEvent = "ShuttingDown"
 	Stopped      SyncEvent = "Stopped"
@@ -532,3 +551,155 @@ func (vl *VirtualMachineReplicaSetList) GetObjectKind() schema.ObjectKind {
 func (vl *VirtualMachineReplicaSetList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachinePreset struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// VM Spec contains the VM specification.
+	Spec VirtualMachinePresetSpec `json:"spec,omitempty" valid:"required"`
+}
+
+// Required to satisfy Object interface
+func (v *VirtualMachinePreset) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (v *VirtualMachinePreset) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
+
+// VirtualMachinePresetList is a list of VirtualMachinePresets
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachinePresetList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta        `json:"metadata,omitempty"`
+	Items           []VirtualMachinePreset `json:"items"`
+}
+
+type VirtualMachinePresetSpec struct {
+	// Selector is a label query over a set of VMs.
+	// Required.
+	Selector metav1.LabelSelector `json:"selector"`
+	// Domain is the same object type as contained in VirtualMachineSpec
+	Domain *DomainSpec `json:"domain,omitempty"`
+}
+
+func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *VirtualMachinePreset {
+	return &VirtualMachinePreset{
+		Spec: VirtualMachinePresetSpec{
+			Selector: selector,
+			Domain:   &DomainSpec{},
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: k8sv1.NamespaceDefault,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       VirtualMachinePresetGroupVersionKind.Kind,
+		},
+	}
+}
+
+func (vl *VirtualMachinePresetList) UnmarshalJSON(data []byte) error {
+	type VirtualMachinePresetListCopy VirtualMachinePresetList
+	tmp := VirtualMachinePresetListCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := VirtualMachinePresetList(tmp)
+	*vl = tmp2
+	return nil
+}
+
+// Required to satisfy Object interface
+func (vl *VirtualMachinePresetList) GetObjectKind() schema.ObjectKind {
+	return &vl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (vl *VirtualMachinePresetList) GetListMeta() meta.List {
+	return &vl.ListMeta
+}
+
+// OfflineVirtualMachine handles the VirtualMachines that are not running
+// or are in a stopped state
+// The OfflineVirtualMachine contains the template to create the
+// VirtualMachine. It also mirrors the running state of the created
+// VirtualMachine in its status.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type OfflineVirtualMachine struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec contains the specification of VirtualMachine created
+	Spec OfflineVirtualMachineSpec `json:"spec,omitempty"`
+	// Status holds the current state of the controller and brief information
+	// about its associated VirtualMachine
+	Status OfflineVirtualMachineStatus `json:"status,omitempty"`
+}
+
+// OfflineVirtualMachineList is a list of offlinevirtualmachines
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type OfflineVirtualMachineList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of OfflineVirtualMachines
+	Items []OfflineVirtualMachine `json:"items"`
+}
+
+// OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine
+// should look like
+type OfflineVirtualMachineSpec struct {
+	// Running controlls whether the associatied VirtualMachine is created or not
+	Running bool `json:"Running"`
+
+	// Template is the direct specification of VirtualMachine
+	Template *VMTemplateSpec `json:"Template"`
+}
+
+// OfflineVirtualMachineStatus represents the status returned by the
+// controller to describe how the OfflineVirtualMachine is doing
+type OfflineVirtualMachineStatus struct {
+	// VirtualMachineName is the name of created VirtualMachine
+	VirtualMachineName string `json:"VMname,omitempty"`
+	// Hold the state information of the OfflineVirtualMachine and its VirtualMachine
+	Conditions []OfflineVirtualMachineCondition `json:"conditions" optional:"true"`
+}
+
+// GetObjectKind is required to satisfy Object interface
+func (v *OfflineVirtualMachine) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// GetObjectMeta is required to satisfy ObjectMetaAccessor interface
+func (v *OfflineVirtualMachine) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
+
+// OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine
+type OfflineVirtualMachineCondition struct {
+	Type               OfflineVirtualMachineConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus              `json:"status"`
+	LastProbeTime      metav1.Time                        `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time                        `json:"lastTransitionTime,omitempty"`
+	Reason             string                             `json:"reason,omitempty"`
+	Message            string                             `json:"message,omitempty"`
+}
+
+type OfflineVirtualMachineConditionType string
+
+const (
+	// OfflineVirtualMachineFailure is added in a offline virtual machine when its vm
+	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
+	// etc. or deleted due to kubelet being down or finalizers are failing.
+	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "Failure"
+
+	// OfflineVirtualMachineRunning is added in a offline virtual machine when the VM succesfully runs.
+	// After this condition was added, the VM is up and running.
+	OfflineVirtualMachineRunning OfflineVirtualMachineConditionType = "Running"
+)

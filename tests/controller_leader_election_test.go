@@ -50,45 +50,50 @@ var _ = Describe("LeaderElection", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Context("Controller pod destroyed", func() {
-		It("should success to start VM", func() {
-			newLeaderPod := getNewLeaderPod(virtClient)
-			Expect(newLeaderPod).NotTo(BeNil())
+	Describe("Start a VM", func() {
+		Context("when the controller pod is not running", func() {
+			It("should success", func() {
+				newLeaderPod := getNewLeaderPod(virtClient)
+				Expect(newLeaderPod).NotTo(BeNil())
 
-			// TODO: It can be race condition when newly deployed pod receive leadership, in this case we will need
-			// to reduce Deployment replica before destroy the pod and restore it after the test
-			Eventually(func() string {
-				leaderPodName := getLeader()
+				// TODO: It can be race condition when newly deployed pod receive leadership, in this case we will need
+				// to reduce Deployment replica before destroy the pod and restore it after the test
+				By("Destroying the leading controller pod")
+				Eventually(func() string {
+					leaderPodName := getLeader()
 
-				Expect(virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Delete(leaderPodName, &metav1.DeleteOptions{})).To(BeNil())
+					Expect(virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Delete(leaderPodName, &metav1.DeleteOptions{})).To(BeNil())
 
-				Eventually(getLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
+					Eventually(getLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
 
-				leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(getLeader(), metav1.GetOptions{})
-				Expect(err).To(BeNil())
+					leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(getLeader(), metav1.GetOptions{})
+					Expect(err).To(BeNil())
 
-				return leaderPod.Name
-			}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
+					return leaderPod.Name
+				}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
 
-			Eventually(func() k8sv1.ConditionStatus {
-				leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(newLeaderPod.Name, metav1.GetOptions{})
-				Expect(err).To(BeNil())
+				Eventually(func() k8sv1.ConditionStatus {
+					leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(newLeaderPod.Name, metav1.GetOptions{})
+					Expect(err).To(BeNil())
 
-				for _, condition := range leaderPod.Status.Conditions {
-					if condition.Type == k8sv1.PodReady {
-						return condition.Status
+					for _, condition := range leaderPod.Status.Conditions {
+						if condition.Type == k8sv1.PodReady {
+							return condition.Status
+						}
 					}
-				}
-				return k8sv1.ConditionUnknown
-			},
-				30*time.Second,
-				5*time.Second).Should(Equal(k8sv1.ConditionTrue))
+					return k8sv1.ConditionUnknown
+				},
+					30*time.Second,
+					5*time.Second).Should(Equal(k8sv1.ConditionTrue))
 
-			vm := tests.NewRandomVM()
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
-			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStart(obj)
-		}, 150)
+				vm := tests.NewRandomVM()
+
+				By("Starting a new VM")
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				Expect(err).To(BeNil())
+				tests.WaitForSuccessfulVMStart(obj)
+			}, 150)
+		})
 	})
 })
 

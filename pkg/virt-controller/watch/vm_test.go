@@ -60,12 +60,43 @@ var _ = Describe("VM watcher", func() {
 	})
 
 	Context("Creating a VM ", func() {
+		It("should ignore uninitialized VM's", func(done Done) {
+			vm := v1.NewMinimalVM("testvm")
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+				),
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+				),
+
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			key, _ := cache.MetaNamespaceKeyFunc(vm)
+			app.vmCache.Add(vm)
+			app.vmQueue.Add(key)
+			app.vmController.Execute()
+
+			// VM's that aren't annotated that presets have been applied
+			// should not be acted upon, so 0 requests are expected
+			Expect(len(server.ReceivedRequests())).To(Equal(0))
+			close(done)
+		})
+
 		It("should should schedule a POD.", func(done Done) {
 
 			// Create a VM to be scheduled
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = ""
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			addInitializedAnnotation(vm)
 
 			// Create the expected VM after the update
 			obj, err := conversion.NewCloner().DeepCopy(vm)
@@ -135,6 +166,7 @@ var _ = Describe("VM watcher", func() {
 					},
 				},
 			})
+			addInitializedAnnotation(vm)
 
 			// Create a Pod for the VM
 			templateService, err := services.NewTemplateService("whatever", "whatever")
@@ -197,6 +229,7 @@ var _ = Describe("VM watcher", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = v1.Scheduling
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			addInitializedAnnotation(vm)
 
 			// Create a target Pod for the VM
 			temlateService, err := services.NewTemplateService("whatever", "whatever")
@@ -217,6 +250,8 @@ var _ = Describe("VM watcher", func() {
 			expectedVM := obj.(*v1.VirtualMachine)
 			expectedVM.Status.Phase = v1.Scheduled
 			expectedVM.Status.NodeName = pod.Spec.NodeName
+			expectedVM.Status.Interfaces = []v1.VirtualMachineNetworkInterface{
+				v1.VirtualMachineNetworkInterface{IP: pod.Status.PodIP}}
 			expectedVM.ObjectMeta.Labels = map[string]string{v1.NodeNameLabel: pod.Spec.NodeName}
 
 			// Register the expected REST call

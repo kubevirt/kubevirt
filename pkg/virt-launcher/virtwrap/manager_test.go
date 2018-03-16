@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 )
 
 var _ = Describe("Manager", func() {
@@ -67,6 +68,7 @@ var _ = Describe("Manager", func() {
 
 	Context("on successful VM sync", func() {
 		It("should define and start a new VM", func() {
+			StubOutNetworkForTest()
 			vm := newVM(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
@@ -74,13 +76,12 @@ var _ = Describe("Manager", func() {
 
 			xml, err := xml.Marshal(domainSpec)
 			Expect(err).To(BeNil())
-			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVM(vm, nil)
+			newspec, err := manager.SyncVM(vm)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -89,12 +90,11 @@ var _ = Describe("Manager", func() {
 			domainSpec := expectIsolationDetectionForVM(vm)
 			xml, err := xml.Marshal(domainSpec)
 
-			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVM(vm, nil)
+			newspec, err := manager.SyncVM(vm)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -104,14 +104,13 @@ var _ = Describe("Manager", func() {
 				domainSpec := expectIsolationDetectionForVM(vm)
 				xml, err := xml.Marshal(domainSpec)
 
-				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
-				newspec, err := manager.SyncVM(vm, nil)
+				newspec, err := manager.SyncVM(vm)
 				Expect(newspec).ToNot(BeNil())
 				Expect(err).To(BeNil())
 			},
@@ -125,13 +124,12 @@ var _ = Describe("Manager", func() {
 			domainSpec := expectIsolationDetectionForVM(vm)
 			xml, err := xml.Marshal(domainSpec)
 
-			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVM(vm, nil)
+			newspec, err := manager.SyncVM(vm)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -139,7 +137,6 @@ var _ = Describe("Manager", func() {
 	Context("on successful VM kill", func() {
 		table.DescribeTable("should try to undefine a VM in state",
 			func(state libvirt.DomainState) {
-				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
@@ -154,7 +151,6 @@ var _ = Describe("Manager", func() {
 		)
 		table.DescribeTable("should try to destroy and undefine a VM in state",
 			func(state libvirt.DomainState) {
-				mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Destroy().Return(nil)
@@ -178,7 +174,6 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
 			mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
-			mockConn.EXPECT().ListSecrets().Return(make([]string, 0, 0), nil)
 
 			manager, _ := NewLibvirtDomainManager(mockConn)
 			doms, err := manager.ListAllDomains()
@@ -212,4 +207,8 @@ func newVM(namespace string, name string) *v1.VirtualMachine {
 	}
 	v1.SetObjectDefaults_VirtualMachine(vm)
 	return vm
+}
+
+func StubOutNetworkForTest() {
+	network.SetupPodNetwork = func(domain *api.Domain) error { return nil }
 }

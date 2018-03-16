@@ -22,4 +22,6 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -test.timeout 30m ${FUNC_TEST_ARGS}
+functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
+
+${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -tag=${docker_tag} -prefix=${functest_docker_prefix} -test.timeout 60m ${FUNC_TEST_ARGS}

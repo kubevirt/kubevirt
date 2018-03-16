@@ -21,13 +21,14 @@ package tests_test
 
 import (
 	"flag"
-	"fmt"
 	"time"
 
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -36,6 +37,8 @@ import (
 
 var _ = Describe("Storage", func() {
 
+	nodeName := ""
+	nodeIp := ""
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -43,6 +46,18 @@ var _ = Describe("Storage", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+
+		nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(nodes.Items).ToNot(BeEmpty())
+		nodeName = nodes.Items[0].Name
+		for _, addr := range nodes.Items[0].Status.Addresses {
+			if addr.Type == k8sv1.NodeInternalIP {
+				nodeIp = addr.Address
+				break
+			}
+		}
+		Expect(nodeIp).ToNot(Equal(""))
 	})
 
 	getTargetLogs := func(tailLines int64) string {
@@ -53,12 +68,15 @@ var _ = Describe("Storage", func() {
 		podName := ""
 		for _, pod := range pods.Items {
 			if pod.ObjectMeta.DeletionTimestamp == nil {
-				podName = pod.ObjectMeta.Name
-				break
+				if pod.Status.HostIP == nodeIp {
+					podName = pod.ObjectMeta.Name
+					break
+				}
 			}
 		}
 		Expect(podName).ToNot(BeEmpty())
 
+		By("Getting the ISCSI pod logs")
 		logsRaw, err := virtClient.CoreV1().
 			Pods(metav1.NamespaceSystem).
 			GetLogs(podName,
@@ -69,95 +87,171 @@ var _ = Describe("Storage", func() {
 		return string(logsRaw)
 	}
 
-	BeforeEach(func() {
-		// Wait until there is no connection
-		logs := func() string { return getTargetLogs(70) }
-		Eventually(logs,
-			11*time.Second,
-			500*time.Millisecond).
-			Should(ContainSubstring("I_T nexus information:\n    LUN information:"))
-	})
-
-	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool) {
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
-		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulVMStart(obj)
-
-		if withAuth == false {
-			// Periodically check if we now have a connection on the target
-			// We don't check against the actual IP, since depending on the kubernetes proxy mode, and the network provider
-			// we will see different IPs here. The BeforeEach function makes sure that no other connections exist.
-			Eventually(func() string { return getTargetLogs(70) },
-				11*time.Second,
-				500*time.Millisecond).
-				Should(
-					MatchRegexp(fmt.Sprintf("IP Address: [0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")),
-				)
-		}
+	checkReadiness := func() {
+		logs := getTargetLogs(75)
+		By("Checking that ISCSI is ready")
+		Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
+		Expect(logs).To(ContainSubstring("Driver: iscsi"))
+		Expect(logs).To(ContainSubstring("State: ready"))
 	}
 
-	Context("Given a fresh iSCSI target", func() {
+	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) runtime.Object {
+		By("Starting a VM")
 
+		var obj runtime.Object
+		var err error
+		Eventually(func() error {
+			obj, err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+			return err
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+		By("Waiting until the VM will start")
+		tests.WaitForSuccessfulVMStartWithTimeout(obj, timeout)
+		return obj
+	}
+
+	Context("with fresh iSCSI target", func() {
 		It("should be available and ready", func() {
-			logs := getTargetLogs(75)
-			Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
-			Expect(logs).To(ContainSubstring("Driver: iscsi"))
-			Expect(logs).To(ContainSubstring("State: ready"))
-		})
-
-		It("should not have any connections", func() {
-			logs := getTargetLogs(70)
-			// Ensure that no connections are listed
-			Expect(logs).To(ContainSubstring("I_T nexus information:\n    LUN information:"))
+			checkReadiness()
 		})
 	})
 
-	Context("Given a VM and a directly connected Alpine LUN", func() {
+	Describe("Starting a VM", func() {
+		Context("with Alpine PVC", func() {
+			It("should be successfully started", func(done Done) {
+				checkReadiness()
 
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the LUN attached
-			vm := tests.NewRandomVMWithDirectLun(2, false)
-			RunVMAndExpectLaunch(vm, false)
-			close(done)
-		}, 30)
-	})
+				// Start the VM with the PVC attached
+				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				RunVMAndExpectLaunch(vm, false, 45)
 
-	Context("Given a VM and a directly connected Alpine LUN with CHAP auth", func() {
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				defer expecter.Close()
+				Expect(err).To(BeNil())
 
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the LUN attached
-			vm := tests.NewRandomVMWithDirectLun(2, true)
-			RunVMAndExpectLaunch(vm, true)
-			close(done)
-		}, 30)
-	})
+				By("Checking that the VM console has expected output")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+				}, 200*time.Second)
+				Expect(err).To(BeNil())
 
-	Context("Given a VM and an Alpine PVC", func() {
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the PVC attached
-			vm := tests.NewRandomVMWithPVC("disk-alpine")
-			RunVMAndExpectLaunch(vm, false)
-			close(done)
-		}, 30)
-	})
+				close(done)
+			}, 240)
 
-	Context("Given a VM and an Alpine PVC with CHAP auth", func() {
-		It("should be successfully started by libvirt", func(done Done) {
-			// Start the VM with the PVC attached
-			vm := tests.NewRandomVMWithPVC("disk-auth-alpine")
-			RunVMAndExpectLaunch(vm, true)
-			close(done)
-		}, 30)
+			It("should be successfully started and stopped multiple times", func(done Done) {
+				checkReadiness()
 
-		It("should not modify the VM spec on status update", func() {
-			vm := tests.NewRandomVMWithPVC("disk-auth-alpine")
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
-			startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
-			Expect(err).To(BeNil())
-			Expect(startedVM.Spec).To(Equal(vm.Spec))
+				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+
+				num := 3
+				By("Starting and stopping the VM number of times")
+				for i := 1; i <= num; i++ {
+					obj := RunVMAndExpectLaunch(vm, false, 90)
+
+					// Verify console on last iteration to verify the VM is still booting properly
+					// after being restarted multiple times
+					if i == num {
+						By("Checking that the VM console has expected output")
+						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+						defer expecter.Close()
+						Expect(err).To(BeNil())
+						_, err = expecter.ExpectBatch([]expect.Batcher{
+							&expect.BExp{R: "Welcome to Alpine"},
+						}, 200*time.Second)
+						Expect(err).To(BeNil())
+					}
+
+					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					Expect(err).To(BeNil())
+
+					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				}
+				close(done)
+			}, 240)
+		})
+
+		Context("With ephemeral alpine PVC", func() {
+			// The following case is mostly similar to the alpine PVC test above, except using different VM.
+			It("should be successfully started", func(done Done) {
+				checkReadiness()
+
+				// Start the VM with the PVC attached
+				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				RunVMAndExpectLaunch(vm, false, 45)
+
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				defer expecter.Close()
+				Expect(err).To(BeNil())
+
+				By("Checking that the VM console has expected output")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+				}, 200*time.Second)
+				Expect(err).To(BeNil())
+
+				close(done)
+			}, 240)
+
+			It("should not persist data", func(done Done) {
+				checkReadiness()
+				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+
+				By("Starting the VM")
+				obj := RunVMAndExpectLaunch(vm, false, 90)
+
+				By("Writing an arbitrary file to it's EFI partition")
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login"},
+					&expect.BSnd{S: "root\n"},
+					&expect.BExp{R: "#"},
+					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
+					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
+					// The QEMU process will be killed, therefore the write must be flushed to the disk.
+					&expect.BSnd{S: "sync\n"},
+				}, 200*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Killing a VM")
+				err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+
+				By("Starting the VM again")
+				RunVMAndExpectLaunch(vm, false, 90)
+
+				By("Making sure that the previously written file is not present")
+				expecter, _, err = tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BExp{R: "Welcome to Alpine"},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login"},
+					&expect.BSnd{S: "root\n"},
+					&expect.BExp{R: "#"},
+					// Same story as when first starting the VM - the checkpoint, if persisted, is located at /dev/sda2.
+					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "1"},
+				}, 200*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+				close(done)
+			}, 400)
 		})
 	})
 })

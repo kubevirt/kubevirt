@@ -79,7 +79,7 @@ pod "iscsi-demo-target-tgtd" created
 # Run a qemu instance to see if the target can be used
 # Note: This is not testing the PV or PVC, just the service and target
 # Use ctrl-a c quit to quit
-$ kubectl run --rm -it qemu-test --image=kubevirt/libvirtd -- \
+$ kubectl run --rm -it qemu-test --image=kubevirt/libvirt -- \
     qemu-system-x86_64 \
       -snapshot \
       -drive file=iscsi://iscsi-demo-target/iqn.2017-01.io.kubevirt:sn.42/2 \

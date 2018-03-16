@@ -36,16 +36,6 @@ mkdir -p /dev.container && {
     [[ -e /dev.container/kvm ]] && keep kvm
 }
 
-mkdir -p /sys.net.container && {
-    mount --rbind /sys/class/net /sys.net.container
-    mount --rbind /host-sys/class/net /sys/class/net
-}
-
-mkdir -p /sys.devices.container && {
-    mount --rbind /sys/devices /sys.devices.container
-    mount --rbind /host-sys/devices /sys/devices
-}
-
 mkdir -p /var/log/kubevirt
 touch /var/log/kubevirt/qemu-kube.log
 chown qemu:qemu /var/log/kubevirt/qemu-kube.log

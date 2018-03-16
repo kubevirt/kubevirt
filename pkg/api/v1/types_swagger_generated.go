@@ -40,11 +40,19 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"nodeName":   "NodeName is the name where the VM is currently running.",
 		"conditions": "Conditions are specific points in VM's pod runtime.",
 		"phase":      "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
+		"interfaces": "Interfaces represent the details of available network interfaces.",
 	}
 }
 
 func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (VirtualMachineNetworkInterface) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"ipAddress": "IP address of a Virtual Machine interface",
+		"mac":       "Hardware address of a Virtual Machine interface",
+	}
 }
 
 func (Spice) SwaggerDoc() map[string]string {
@@ -100,5 +108,62 @@ func (VMReplicaSetCondition) SwaggerDoc() map[string]string {
 func (VMTemplateSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"spec": "VM Spec contains the VM specification.",
+	}
+}
+
+func (VirtualMachinePreset) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"spec": "VM Spec contains the VM specification.",
+	}
+}
+
+func (VirtualMachinePresetList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachinePresetList is a list of VirtualMachinePresets\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}
+
+func (VirtualMachinePresetSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"selector": "Selector is a label query over a set of VMs.\nRequired.",
+		"domain":   "Domain is the same object type as contained in VirtualMachineSpec",
+	}
+}
+
+func (OfflineVirtualMachine) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"spec":   "Spec contains the specification of VirtualMachine created",
+		"status": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachine",
+	}
+}
+
+func (OfflineVirtualMachineList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "OfflineVirtualMachineList is a list of offlinevirtualmachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "Items is a list of OfflineVirtualMachines",
+	}
+}
+
+func (OfflineVirtualMachineSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
+		"Running":  "Running controlls whether the associatied VirtualMachine is created or not",
+		"Template": "Template is the direct specification of VirtualMachine",
+	}
+}
+
+func (OfflineVirtualMachineStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
+		"VMname":     "VirtualMachineName is the name of created VirtualMachine",
+		"conditions": "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
+	}
+}
+
+func (OfflineVirtualMachineCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine",
 	}
 }

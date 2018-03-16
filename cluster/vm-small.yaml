@@ -1,0 +1,19 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: smallvm
+  labels:
+    kubevirt.io/flavor: small
+spec:
+  terminationGracePeriodSeconds: 0
+  domain:
+    devices:
+      disks:
+      - name: registrydisk
+        volumeName: registryvolume
+        disk:
+          bus: virtio
+  volumes:
+    - name: registryvolume
+      registryDisk:
+        image: kubevirt/cirros-registry-disk-demo:devel

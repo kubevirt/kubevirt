@@ -1,9 +1,12 @@
 package watch
 
 import (
+	"io/ioutil"
 	golog "log"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/emicklei/go-restful"
 	flag "github.com/spf13/pflag"
@@ -37,6 +40,10 @@ const (
 	virtShareDir = "/var/run/kubevirt"
 
 	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
+
+	resyncPeriod = 30 * time.Second
+
+	controllerThreads = 3
 )
 
 type VirtControllerApp struct {
@@ -54,8 +61,17 @@ type VirtControllerApp struct {
 	vmInformer   cache.SharedIndexInformer
 	vmQueue      workqueue.RateLimitingInterface
 
+	vmPresetCache      cache.Store
+	vmPresetController *VirtualMachinePresetController
+	vmPresetQueue      workqueue.RateLimitingInterface
+	vmPresetInformer   cache.SharedIndexInformer
+	vmPresetRecorder   record.EventRecorder
+
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
+
+	ovmController *OVMController
+	ovmInformer   cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
 
@@ -103,12 +119,23 @@ func Execute() {
 	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
 	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
 
+	app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	app.vmPresetCache = app.vmInformer.GetStore()
+	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmPresetQueue))
+
+	app.vmPresetInformer = app.informerFactory.VirtualMachinePreset()
+
 	app.rsInformer = app.informerFactory.VMReplicaSet()
+	app.vmPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
+
+	app.ovmInformer = app.informerFactory.OfflineVirtualMachine()
 
 	app.initCommon()
 	app.initReplicaSet()
+	app.initOfflineVirtualMachines()
 	app.Run()
 }
+
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
 	stop := make(chan struct{})
@@ -128,8 +155,20 @@ func (vca *VirtControllerApp) Run() {
 		golog.Fatalf("unable to get hostname: %v", err)
 	}
 
+	var namespace string
+	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+			namespace = ns
+		}
+	} else if os.IsNotExist(err) {
+		// TODO: Replace leaderelectionconfig.DefaultNamespace with a flag
+		namespace = leaderelectionconfig.DefaultNamespace
+	} else {
+		golog.Fatalf("Error searching for namespace in /var/run/secrets/kubernetes.io/serviceaccount/namespace: %v", err)
+	}
+
 	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
-		leaderelectionconfig.DefaultNamespace,
+		namespace,
 		leaderelectionconfig.DefaultEndpointName,
 		vca.clientSet.CoreV1(),
 		resourcelock.ResourceLockConfig{
@@ -149,8 +188,10 @@ func (vca *VirtControllerApp) Run() {
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
 					vca.informerFactory.Start(stop)
-					go vca.vmController.Run(3, stop)
-					go vca.rsController.Run(3, stop)
+					go vca.vmController.Run(controllerThreads, stop)
+					go vca.rsController.Run(controllerThreads, stop)
+					go vca.vmPresetController.Run(controllerThreads, stop)
+					go vca.ovmController.Run(3, stop)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -185,11 +226,17 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
 	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
+	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
 	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+}
+
+func (vca *VirtControllerApp) initOfflineVirtualMachines() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "offlinevirtualmachine-controller")
+	vca.ovmController = NewOVMController(vca.vmInformer, vca.ovmInformer, recorder, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restful.Response) {

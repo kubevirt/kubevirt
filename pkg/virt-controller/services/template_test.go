@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -50,7 +51,7 @@ var _ = Describe("Template", func() {
 					v1.DomainLabel: "testvm",
 					v1.VMUIDLabel:  "1234",
 				}))
-				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-----"))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
 				Expect(pod.Spec.NodeSelector).To(BeEmpty())
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
 					"--qemu-timeout", "5m",
@@ -79,7 +80,7 @@ var _ = Describe("Template", func() {
 					v1.DomainLabel: "testvm",
 					v1.VMUIDLabel:  "1234",
 				}))
-				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-----"))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					"kubernetes.io/hostname": "master",
 				}))
@@ -123,6 +124,95 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity).To(BeNil())
 			})
 		})
-	})
+		Context("with cpu and memory constraints", func() {
+			It("should add cpu and memory constraints to a template", func() {
 
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvm",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("1m"),
+									kubev1.ResourceMemory: resource.MustParse("1G"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("2m"),
+									kubev1.ResourceMemory: resource.MustParse("2G"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+
+				Expect(err).To(BeNil())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("2m"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1099507557"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
+			})
+			It("should not add unset resources", func() {
+
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvm",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{Cores: 3},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("1m"),
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+
+				Expect(err).To(BeNil())
+				Expect(vm.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
+				Expect(pod.Spec.Containers[0].Resources.Limits).To(BeNil())
+			})
+		})
+
+		Context("with pvc source", func() {
+			It("should add pvc to template", func() {
+				volumes := []v1.Volume{
+					{
+						Name: "pvc-volume",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: "nfs-pvc"},
+						},
+					},
+				}
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvm", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).To(BeNil())
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
+			})
+		})
+	})
 })

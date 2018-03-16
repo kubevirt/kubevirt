@@ -170,9 +170,13 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 
 	userDataBase64, ok := secret.Data["userdata"]
 	if ok == false {
-		return errors.New(fmt.Sprintf("No password value found in k8s secret %s %v", secretID, err))
+		return errors.New(fmt.Sprintf("no user-data value found in k8s secret %s %v", secretID, err))
 	}
-	source.UserDataBase64 = string(userDataBase64)
+	userData, err := base64.StdEncoding.DecodeString(string(userDataBase64))
+	if err != nil {
+		return err
+	}
+	source.UserData = string(userData)
 	return nil
 }
 
@@ -180,13 +184,8 @@ func GenerateLocalData(vmName string, namespace string, source *v1.CloudInitNoCl
 	precond.MustNotBeEmpty(vmName)
 	precond.MustNotBeNil(source)
 
-	err := validateArgs(source)
-	if err != nil {
-		return err
-	}
-
 	domainBasePath := GetDomainBasePath(vmName, namespace)
-	err = os.MkdirAll(domainBasePath, 0755)
+	err := os.MkdirAll(domainBasePath, 0755)
 	if err != nil {
 		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
 		return err
@@ -196,28 +195,28 @@ func GenerateLocalData(vmName string, namespace string, source *v1.CloudInitNoCl
 	userFile := fmt.Sprintf("%s/%s", domainBasePath, "user-data")
 	iso := fmt.Sprintf("%s/%s", domainBasePath, NoCloudFile)
 	isoStaging := fmt.Sprintf("%s/%s.staging", domainBasePath, NoCloudFile)
-	userData64 := source.UserDataBase64
-	metaData := fmt.Sprintf("{ \"instance-id\": \"%s.%s\" }\n", vmName, namespace)
-	metaData64 := base64.StdEncoding.EncodeToString([]byte(metaData))
+	var userData []byte
+	if source.UserData != "" {
+		userData = []byte(source.UserData)
+	} else if source.UserDataBase64 != "" {
+		userData, err = base64.StdEncoding.DecodeString(source.UserDataBase64)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.New(fmt.Sprintf("userDataBase64 or userData is required for no-cloud data source"))
+	}
+	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmName, namespace, vmName))
 
 	diskutils.RemoveFile(userFile)
 	diskutils.RemoveFile(metaFile)
 	diskutils.RemoveFile(isoStaging)
 
-	userDataBytes, err := base64.StdEncoding.DecodeString(userData64)
+	err = ioutil.WriteFile(userFile, userData, 0644)
 	if err != nil {
 		return err
 	}
-	metaDataBytes, err := base64.StdEncoding.DecodeString(metaData64)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(userFile, userDataBytes, 0644)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(metaFile, metaDataBytes, 0644)
+	err = ioutil.WriteFile(metaFile, metaData, 0644)
 	if err != nil {
 		return err
 	}

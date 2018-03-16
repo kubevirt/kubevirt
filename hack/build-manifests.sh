@@ -19,8 +19,10 @@
 
 set -e
 
-source hack/config.sh
 source hack/common.sh
+source hack/config.sh
+
+manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
 args=$(cd ${KUBEVIRT_DIR}/manifests && find * -type f -name "*.yaml.in")
 
@@ -30,8 +32,8 @@ for arg in $args; do
     final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
     mkdir -p ${final_out_dir}
     manifest=$(basename -s .in ${arg})
-    sed -e "s/{{ master_ip }}/$master_ip/g" \
-        -e "s/{{ docker_tag }}/$docker_tag/g" \
-        -e "s/{{ docker_prefix }}/$docker_prefix/g" \
+    sed -e "s#{{ docker_tag }}#${docker_tag}#g" \
+        -e "s#{{ docker_prefix }}#${manifest_docker_prefix}#g" \
+        -e "s#{{ namespace }}#${namespace}#g" \
         ${KUBEVIRT_DIR}/manifests/$arg >${final_out_dir}/${manifest}
 done

@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: kubevirt-controller
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 rules:
@@ -32,6 +32,8 @@ rules:
     resources:
       - virtualmachines
       - virtualmachinereplicasets
+      - virtualmachinepresets
+      - offlinevirtualmachines
     verbs:
       - get
       - list
@@ -45,7 +47,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubevirt-controller
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 ---
@@ -53,7 +55,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubevirt-privileged
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 ---
@@ -61,7 +63,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-controller
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -71,13 +73,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-controller
-    namespace: kube-system
+    namespace: {{ namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-controller-cluster-admin
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -87,13 +89,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-controller
-    namespace: kube-system
+    namespace: {{ namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-privileged-cluster-admin
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -103,7 +105,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-privileged
-    namespace: kube-system
+    namespace: {{ namespace }}
 ---
 # custom resource definitions
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -147,7 +149,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: virt-controller
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: "virt-controller"
 spec:
@@ -165,7 +167,7 @@ spec:
           command:
               - "/virt-controller"
               - "--launcher-image"
-              - "kubevirt/virt-launcher:{{ docker_tag }}"
+              - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
               - "--port"
               - "8182"
           ports:
@@ -193,7 +195,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: virt-handler
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: "virt-handler"
 spec:
@@ -242,3 +244,39 @@ spec:
         - name: virt-private-dir
           hostPath:
             path: /var/run/kubevirt-private
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachinepresets.kubevirt.io
+  labels:
+    kubevirt.io: ""
+spec:
+  group: kubevirt.io
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    plural: virtualmachinepresets
+    singular: virtualmachinepreset
+    kind: VirtualMachinePreset
+    shortNames:
+      - vmpreset
+      - vmpresets
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: offlinevirtualmachines.kubevirt.io
+  label:
+    kubevirt.io: ""
+spec:
+  scope: Namespaced
+  group: kubevirt.io
+  version: v1alpha1
+  names:
+    kind: OfflineVirtualMachine
+    plural: offlinevirtualmachines
+    singular: offlinevirtualmachine
+    shortNames:
+    - ovm
+    - ovms

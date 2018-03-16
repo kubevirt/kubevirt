@@ -7,6 +7,7 @@ func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 		"":               "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 		"secretRef":      "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
 		"userDataBase64": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string\n+ optional",
+		"userData":       "UserData contains NoCloud inline cloud-init userdata\n+ optional",
 	}
 }
 
@@ -25,6 +26,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"requests": "Requests is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+		"limits":   "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
 	}
 }
 
@@ -73,21 +75,20 @@ func (DiskDevice) SwaggerDoc() map[string]string {
 
 func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
 		"readonly": "ReadOnly\nDefaults to false",
 	}
 }
 
 func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
 		"readonly": "ReadOnly\nDefaults to false",
 	}
 }
 
 func (FloppyTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
 		"readonly": "ReadOnly\nDefaults to false",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
 	}
@@ -95,7 +96,7 @@ func (FloppyTarget) SwaggerDoc() map[string]string {
 
 func (CDRomTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"dev":      "Device indicates the \"logical\" device name. The actual device name\nspecified is not guaranteed to map to the device name in the guest OS. Treat\nit as a device ordering hint.",
+		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
 		"readonly": "ReadOnly\nDefaults to true",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
 	}
@@ -110,11 +111,17 @@ func (Volume) SwaggerDoc() map[string]string {
 
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
-		"iscsi":                 "ISCSI represents an ISCSI Disk resource which is directly attached to the vm via qemu.\n+optional",
+		"": "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
+		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
+	}
+}
+
+func (EphemeralVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 	}
 }
 
@@ -232,7 +239,7 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "Hyperv specific features",
 		"relaxed":    "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
-		"vapic":      "VAPIC indicates weather virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
+		"vapic":      "VAPIC indicates whether virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
 		"spinlocks":  "Spinlocks indicates if spinlocks should be made available to the guest\n+optional",
 		"vpindex":    "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors\nDefaults to the machine type setting\n+optional",
 		"runtime":    "Runtime\nDefaults to the machine type setting\n+optional",

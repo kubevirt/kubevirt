@@ -30,11 +30,17 @@ import (
 
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
+)
+
+const (
+	sshAuthorizedKey = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"
+	fedoraPassword   = "fedora"
+	expectedUserData = "printed from cloud-init userdata"
 )
 
 var _ = Describe("CloudInit UserData", func() {
@@ -44,24 +50,25 @@ var _ = Describe("CloudInit UserData", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	LaunchVM := func(vm *v1.VirtualMachine) runtime.Object {
+	LaunchVM := func(vm *v1.VirtualMachine) {
+		By("Starting a VM")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
-		return obj
-	}
 
-	VerifyUserDataVM := func(vm *v1.VirtualMachine, obj runtime.Object, magicStr string) {
+		By("Waiting the VM start")
 		_, ok := obj.(*v1.VirtualMachine)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
-		tests.WaitForSuccessfulVMStart(obj)
+		Expect(tests.WaitForSuccessfulVMStart(obj)).ToNot(BeEmpty())
+	}
 
+	VerifyUserDataVM := func(vm *v1.VirtualMachine, commands []expect.Batcher, timeout time.Duration) {
+		By("Expecting the VM console")
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = expecter.ExpectBatch([]expect.Batcher{
-			&expect.BExp{R: magicStr},
-		}, 120*time.Second)
+		By("Checking that the VM serial console output equals to expected one")
+		_, err = expecter.ExpectBatch(commands, timeout)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -69,31 +76,90 @@ var _ = Describe("CloudInit UserData", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Context("CloudInit Data Source NoCloud", func() {
-		It("should launch vm with cloud-init data source NoCloud", func(done Done) {
-			magicStr := "printed from cloud-init userdata"
-			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
+	Describe("A new VM", func() {
+		Context("with cloudInitNoCloud userDataBase64 source", func() {
+			It("should have cloud-init data", func(done Done) {
+				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
-			vm := tests.NewRandomVMWithUserData(userData)
-			obj := LaunchVM(vm)
-			VerifyUserDataVM(vm, obj, magicStr)
-			close(done)
-		}, 180)
+				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
+				LaunchVM(vm)
+				VerifyUserDataVM(vm, []expect.Batcher{
+					&expect.BExp{R: expectedUserData},
+				}, time.Second*120)
+				close(done)
+			}, 180)
 
-		It("should launch ephemeral vm with cloud-init data source NoCloud", func(done Done) {
-			magicStr := "printed from cloud-init userdata"
-			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
+			Context("with injected ssh-key", func() {
+				It("should have ssh-key under authorized keys", func() {
+					userData := fmt.Sprintf(
+						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
+						fedoraPassword,
+						sshAuthorizedKey,
+					)
+					vm := tests.NewRandomVMWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
 
-			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata("kubevirt/cirros-registry-disk-demo:devel", userData)
-			obj := LaunchVM(vm)
-			VerifyUserDataVM(vm, obj, magicStr)
-			close(done)
-		}, 180)
+					LaunchVM(vm)
 
-		It("should launch VMs with user-data in k8s secret", func(done Done) {
-			magicStr := "printed from cloud-init userdata"
-			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", magicStr)
-			vm := tests.NewRandomVMWithUserData(userData)
+					VerifyUserDataVM(vm, []expect.Batcher{
+						&expect.BExp{R: "login:"},
+						&expect.BSnd{S: "fedora\n"},
+						&expect.BExp{R: "Password:"},
+						&expect.BSnd{S: fedoraPassword + "\n"},
+						&expect.BExp{R: "$"},
+						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+						&expect.BExp{R: "test-ssh-key"},
+					}, time.Second*300)
+				}, 360)
+			})
+		})
+
+		Context("with cloudInitNoCloud userData source", func() {
+			It("should process provided cloud-init data", func(done Done) {
+				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
+
+				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+					Name:       "disk1",
+					VolumeName: "disk1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				})
+				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+					Name: "disk1",
+					VolumeSource: v1.VolumeSource{
+						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+							UserData: userData,
+						},
+					},
+				})
+
+				LaunchVM(vm)
+
+				By("executing a user-data script")
+				VerifyUserDataVM(vm, []expect.Batcher{
+					&expect.BExp{R: expectedUserData},
+				}, time.Second*120)
+
+				By("applying the hostname from meta-data")
+				expecter, err := tests.LoggedInCirrosExpecter(vm)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "hostname\n"},
+					&expect.BExp{R: vm.Name},
+				}, time.Second*10)
+				log.DefaultLogger().Object(vm).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+				close(done)
+			}, 180)
+		})
+
+		It("should take user-data from k8s secret", func(done Done) {
+			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
+			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 
 			for _, volume := range vm.Spec.Volumes {
 				if volume.CloudInitNoCloud == nil {
@@ -107,6 +173,7 @@ var _ = Describe("CloudInit UserData", func() {
 				spec.UserDataBase64 = ""
 
 				// Store userdata as k8s secret
+				By("Creating a user-data secret")
 				secret := kubev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      secretID,
@@ -117,12 +184,14 @@ var _ = Describe("CloudInit UserData", func() {
 						"userdata": []byte(userData64),
 					},
 				}
-				_, err := virtClient.Core().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret)
+				_, err := virtClient.CoreV1().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret)
 				Expect(err).To(BeNil())
 				break
 			}
-			obj := LaunchVM(vm)
-			VerifyUserDataVM(vm, obj, magicStr)
+			LaunchVM(vm)
+			VerifyUserDataVM(vm, []expect.Batcher{
+				&expect.BExp{R: expectedUserData},
+			}, time.Second*120)
 
 			close(done)
 		}, 180)

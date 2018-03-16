@@ -46,9 +46,16 @@ type KubeInformerFactory interface {
 	// Watches for vm objects
 	VM() cache.SharedIndexInformer
 
+	// Watches for VirtualMachineReplicaSet objects
 	VMReplicaSet() cache.SharedIndexInformer
+
+	// Watches for VirtualMachinePreset objects
+	VirtualMachinePreset() cache.SharedIndexInformer
+
 	// Watches for pods related only to kubevirt
 	KubeVirtPod() cache.SharedIndexInformer
+	// OfflineVirtualMachine handles the VMs that are stopped or not running
+	OfflineVirtualMachine() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -122,6 +129,13 @@ func (f *kubeInformerFactory) VMReplicaSet() cache.SharedIndexInformer {
 	})
 }
 
+func (f *kubeInformerFactory) VirtualMachinePreset() cache.SharedIndexInformer {
+	return f.getInformer("vmPresetInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachinepresets", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachinePreset{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
 func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 	return f.getInformer("kubeVirtPodInformer", func() cache.SharedIndexInformer {
 		// Watch all pods with the kubevirt app label
@@ -132,6 +146,13 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) OfflineVirtualMachine() cache.SharedIndexInformer {
+	return f.getInformer("ovmInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "offlinevirtualmachines", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.OfflineVirtualMachine{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

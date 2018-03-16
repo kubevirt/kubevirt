@@ -31,16 +31,21 @@ echo "Deploying ..."
 if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev" ]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
 elif [ "$TARGET" = "vagrant-release" ]; then
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/release -R $i
+    for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
+        if [[ $manifest =~ .*demo.* ]]; then
+            continue
+        fi
+        _kubectl create -f $manifest
+    done
 fi
 
 # Deploy additional infra for testing
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
-if [ "$PROVIDER" = "vagrant-openshift" ]; then
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n kube-system
-    _kubectl adm policy add-scc-to-user hostmount-anyuid -z kubevirt-testing -n kube-system
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n kube-system
+if [ "$PROVIDER" = "vagrant-openshift" ] || [ "$PROVIDER" = "os-3.9.0-alpha.4" ]; then
+    _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
+    _kubectl adm policy add-scc-to-user privileged -z kubevirt-testing -n ${namespace}
+    _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
 fi
 
 echo "Done"

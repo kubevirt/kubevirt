@@ -2,7 +2,7 @@ FROM fedora:27
 
 ENV LIBVIRT_VERSION 3.7.0
 
-RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync && \
+RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img && \
     dnf -y clean all
 
 ENV GIMME_GO_VERSION=1.9.2
@@ -24,9 +24,14 @@ RUN \
     go get -u github.com/rmohr/mock/mockgen && \
     go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
     go get -u github.com/onsi/ginkgo/ginkgo && \
-    go get -u k8s.io/code-generator/cmd/deepcopy-gen && \
-    go get -u k8s.io/code-generator/cmd/defaulter-gen
-
+    go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
+    go get -u -d k8s.io/code-generator/cmd/defaulter-gen && \
+    cd /go/src/k8s.io/code-generator/cmd/deepcopy-gen && \
+    git checkout release-1.9 && \
+    go install && \
+    cd /go/src/k8s.io/code-generator/cmd/defaulter-gen && \
+    git checkout release-1.9 && \
+    go install
 
 ADD entrypoint.sh /entrypoint.sh
 

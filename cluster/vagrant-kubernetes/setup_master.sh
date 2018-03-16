@@ -19,6 +19,27 @@
 master_ip=$1
 network_provider=$3
 
+wait_for_kubernetes() {
+    local timeout="$1"
+    local start_time=$(date +%s)
+    local time_left=$timeout
+    local current_time
+
+    while [[ $time_left -gt 0 ]]; do
+        kubectl version && return 0
+        sleep 60
+        current_time=$(date +%s)
+        time_left=$((timeout - (current_time - start_time)))
+        echo \
+            "Waiting for Kubernetes cluster to become functional," \
+            "$time_left seconds left..."
+    done
+
+    echo "Failed to create Kubernetes cluster in $timeout seconds, aborting"
+
+    return 1
+}
+
 export KUBERNETES_MASTER=true
 bash /vagrant/cluster/vagrant-kubernetes/setup_common.sh
 
@@ -30,21 +51,20 @@ systemctl enable cockpit.socket && systemctl start cockpit.socket
 rm -rf /var/lib/kubelet
 
 # Create the master
-kubeadm init --pod-network-cidr=10.244.0.0/16 --token abcdef.1234567890123456
+cat >/etc/kubernetes/kubeadm.conf <<EOF
+apiVersion: kubeadm.k8s.io/v1alpha1
+kind: MasterConfiguration
+token: abcdef.1234567890123456
+networking:
+  podSubnet: 10.244.0.0/16
+EOF
+
+kubeadm init --config /etc/kubernetes/kubeadm.conf
 
 # Tell kubectl which config to use
 export KUBECONFIG=/etc/kubernetes/admin.conf
 
-set +e
-
-kubectl version
-while [ $? -ne 0 ]; do
-    sleep 60
-    echo 'Waiting for Kubernetes cluster to become functional...'
-    kubectl version
-done
-
-set -e
+wait_for_kubernetes $((60 * 15))
 
 # Additional network providers are available from
 # https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/#pod-network

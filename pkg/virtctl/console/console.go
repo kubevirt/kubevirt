@@ -79,7 +79,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 		log.Printf("Make raw terminal failed: %s", err)
 		return 1
 	}
-	fmt.Fprint(os.Stderr, "Escape sequence is ^]")
+	fmt.Fprint(os.Stderr, "Escape sequence is ^]\n")
 
 	in := os.Stdin
 	out := os.Stdout

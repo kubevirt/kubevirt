@@ -37,9 +37,9 @@ done
 openshift_ansible_dir="/root/openshift-ansible"
 inventory_file="/root/inventory"
 
-# Clone openshift-ansible repository and apply fix for https://github.com/openshift/openshift-ansible/issues/6756
 mkdir -p /root/openshift-ansible
-git clone https://github.com/openshift/openshift-ansible.git $openshift_ansible_dir
+# Checkout to the specific version as W/A for https://github.com/openshift/openshift-ansible/issues/6756
+git clone https://github.com/openshift/openshift-ansible.git $openshift_ansible_dir -b openshift-ansible-3.9.0-0.40.0
 
 # Create ansible inventory file
 cat >$inventory_file <<EOF
@@ -56,7 +56,7 @@ openshift_clock_enabled=true
 openshift_master_identity_providers=[{'name': 'allow_all_auth', 'login': 'true', 'challenge': 'true', 'kind': 'AllowAllPasswordIdentityProvider'}]
 openshift_disable_check=memory_availability,disk_availability,docker_storage,package_availability,docker_image_availability
 openshift_repos_enable_testing=True
-openshift_image_tag=latest
+openshift_image_tag=v3.9.0-alpha.4
 containerized=true
 enable_excluders=false
 
