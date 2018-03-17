@@ -5,7 +5,7 @@ set -e
 _prefix=${JOB_NAME:-${PROVIDER}}
 _prefix=${_prefix}${EXECUTOR_NUMBER}
 
-_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/cli@sha256:4f49fc59d3f79aa9873324b22de66aaf117eaa1431981205277181f58a5cd084'
+_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/cli@sha256:6d7380015a2743992a1b3e61dfe4e79925e825e40a93e4594c125822d36c56fc'
 
 function _main_ip() {
     echo 127.0.0.1
@@ -38,7 +38,7 @@ function build() {
     # Let's first prune old images, keep the last 5 iterations to improve the cache hit chance
     for arg in ${docker_images}; do
         local name=$(basename $arg)
-        images_to_prune= $(docker images --filter "label=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}" --filter "label=${name}" -q | cat -n | sort -uk2 | sort -nk1 | cut -f2- | tail -n +6)
+        images_to_prune="$(docker images --filter "label=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}" --filter "label=${name}" --format="{{.ID}} {{.Repository}}:{{.Tag}}" | cat -n | sort -uk2,2 | sort -k1 | tr -s ' ' | grep -v "<none>" | cut -d' ' -f3 | tail -n +6)"
         if [ -n "${images_to_prune}" ]; then
             docker rmi ${images_to_prune}
         fi
