@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -58,6 +59,7 @@ type virtAPIApp struct {
 	SwaggerUI        string
 	SubresourcesOnly bool
 	virtCli          kubecli.KubevirtClient
+	authorizor       rest.VirtApiAuthorizor
 	certsDirectory   string
 
 	signingCertBytes []byte
@@ -76,6 +78,13 @@ func NewVirtApi() VirtApi {
 	if err != nil {
 		panic(err)
 	}
+
+	authorizor, err := rest.NewAuthorizor()
+	if err != nil {
+		panic(err)
+	}
+
+	app.authorizor = authorizor
 
 	app.virtCli = virtCli
 	app.BindAddress = defaultHost
@@ -177,6 +186,14 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		Operation("vnc").
 		Doc("Open a websocket connection to connect to VNC on the specified VM."))
 
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("test")).
+		To(func(request *restful.Request, response *restful.Response) {
+			response.WriteHeader(http.StatusOK)
+		}).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("test").
+		Doc("Test endpoint verifying apiserver connectivity."))
+
 	// Return empty api resource list.
 	// K8s expects to be able to retrieve a resource list for each aggregated
 	// app in order to discover what resources it provides. Without returning
@@ -240,6 +257,20 @@ func (app *virtAPIApp) Compose() {
 
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
+	restful.Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+		allowed, reason, err := app.authorizor.Authorize(req)
+		if err != nil {
+
+			log.Log.Reason(err).Error("internal error during auth request")
+			resp.WriteHeader(http.StatusInternalServerError)
+			return
+		} else if allowed {
+			// request is permitted, so proceed with filter chain.
+			chain.ProcessFilter(req, resp)
+			return
+		}
+		resp.WriteErrorString(http.StatusUnauthorized, reason)
+	})
 }
 
 func (app *virtAPIApp) ConfigureOpenAPIService() {
