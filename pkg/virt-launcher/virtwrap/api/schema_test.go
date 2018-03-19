@@ -30,7 +30,7 @@ var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/dom
   <name>mynamespace_testvm</name>
   <memory unit="MB">9</memory>
   <os>
-    <type machine="q35">hvm</type>
+    <type arch="x86_64" machine="q35">hvm</type>
   </os>
   <sysinfo type="smbios">
     <system>
