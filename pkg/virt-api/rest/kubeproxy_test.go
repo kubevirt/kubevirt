@@ -20,9 +20,10 @@
 package rest_test
 
 import (
-	"flag"
 	"net/http"
 	"net/http/httptest"
+
+	flag "github.com/spf13/pflag"
 
 	"encoding/json"
 	"fmt"
@@ -71,7 +72,7 @@ var _ = Describe("Kubeproxy", func() {
 
 	BeforeSuite(func() {
 		apiserverMock = ghttp.NewServer()
-		flag.Lookup("master").Value.Set(apiserverMock.URL())
+		flag.Lookup("server").Value.Set(apiserverMock.URL())
 
 		ws, err := GroupVersionProxyBase(ctx, v1.GroupVersion)
 		Expect(err).ToNot(HaveOccurred())
@@ -83,7 +84,7 @@ var _ = Describe("Kubeproxy", func() {
 	BeforeEach(func() {
 		kubeproxy = httptest.NewServer(restful.DefaultContainer)
 		var err error
-		virtClient, err := kubecli.GetKubevirtClientFromFlags(kubeproxy.URL, "")
+		virtClient, err := kubecli.GetKubevirtClientFromConfig(kubeproxy.URL, "")
 		if err != nil {
 			Expect(err).ToNot(HaveOccurred())
 		}

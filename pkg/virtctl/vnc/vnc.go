@@ -52,7 +52,7 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 	}
 	vm := flags.Arg(1)
 
-	virtCli, err := kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
+	virtCli, err := kubecli.GetKubevirtClientFromConfig(server, kubeconfig)
 	if err != nil {
 		log.Println(err)
 		return 1

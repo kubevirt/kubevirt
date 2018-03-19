@@ -20,7 +20,9 @@
 package kubecli
 
 import (
-	"flag"
+	"fmt"
+
+	flag "github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -35,14 +37,16 @@ import (
 var (
 	kubeconfig string
 	master     string
+	server     string
 )
 
 func init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
-	flag.StringVar(&master, "master", "", "master url")
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file")
+	flag.StringVar(&master, "master", "", "Deprecated: use server instead")
+	flag.StringVarP(&server, "server", "s", "", "The address and port of the Kubernetes API server")
 }
 
-func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
+func GetKubevirtClientFromConfig(master string, kubeconfig string) (KubevirtClient, error) {
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		return nil, err
@@ -66,12 +70,39 @@ func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClien
 	return &kubevirt{master, kubeconfig, restClient, coreClient}, nil
 }
 
+func GetKubevirtClientFromFlags(flags *flag.FlagSet) (KubevirtClient, error) {
+	flagServer, _ := flags.GetString("server")
+	flagConfig, _ := flags.GetString("kubeconfig")
+	return GetKubevirtClientFromConfig(flagServer, flagConfig)
+}
+
+// the "master" command line flag is deprecated. Once it is removed, this entire
+// function should be deleted (just use server).
+func getServer() (string, error) {
+	if master != "" {
+		if server == "" {
+			return master, nil
+		} else {
+			return "", fmt.Errorf("'master' command line flag is deprecated, use 'server' instead.")
+		}
+	}
+	return server, nil
+}
+
 func GetKubevirtClient() (KubevirtClient, error) {
-	return GetKubevirtClientFromFlags(master, kubeconfig)
+	kubeServer, err := getServer()
+	if err != nil {
+		return nil, err
+	}
+	return GetKubevirtClientFromConfig(kubeServer, kubeconfig)
 }
 
 func GetKubevirtClientConfig() (*rest.Config, error) {
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
+	kubeServer, err := getServer()
+	if err != nil {
+		return nil, err
+	}
+	config, err := clientcmd.BuildConfigFromFlags(kubeServer, kubeconfig)
 	if err != nil {
 		return nil, err
 	}

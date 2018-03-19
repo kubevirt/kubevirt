@@ -45,7 +45,7 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 	BeforeEach(func() {
 		var err error
 		server = ghttp.NewServer()
-		client, err = GetKubevirtClientFromFlags(server.URL(), "")
+		client, err = GetKubevirtClientFromConfig(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
