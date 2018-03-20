@@ -22,3 +22,42 @@ subjects:
   - kind: ServiceAccount
     name: kubevirt-testing
     namespace: {{ namespace }}
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kubevirt-subresource-test-user
+  namespace: default
+  labels:
+    kubevirt.io: ""
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-subresource-test-user
+  namespace: default
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: kubevirt-subresource-test-user
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-subresource-test-user
+    namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubevirt-subresource-test-user
+  namespace: default
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups:
+      - subresources.kubevirt.io
+    resources:
+      - virtualmachines/test
+    verbs:
+      - get

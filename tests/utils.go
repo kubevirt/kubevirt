@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -65,6 +66,8 @@ const (
 )
 
 const defaultTestGracePeriod int64 = 0
+
+const SubresourceTestLabel = "subresource-access-test-pod"
 
 const (
 	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
@@ -446,6 +449,12 @@ func cleanNamespaces() {
 		// Remove all VM Presets
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachinepresets").Do().Error())
 	}
+
+	// Remove subresource access pods in Default namespace
+	labelSelector, err := labels.Parse(v1.AppLabel + "=" + SubresourceTestLabel)
+	PanicOnError(virtCli.CoreV1().Pods("default").DeleteCollection(nil,
+		metav1.ListOptions{FieldSelector: "",
+			LabelSelector: labelSelector.String()}))
 }
 
 func removeNamespaces() {

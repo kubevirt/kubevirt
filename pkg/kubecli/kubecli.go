@@ -94,6 +94,10 @@ func GetKubevirtClient() (KubevirtClient, error) {
 	return GetKubevirtClientFromFlags(master, kubeconfig)
 }
 
+func GetKubevirtSubresourceClient() (KubevirtClient, error) {
+	return GetKubevirtSubresourceClientFromFlags(master, kubeconfig)
+}
+
 func GetConfig() (*restclient.Config, error) {
 	return clientcmd.BuildConfigFromFlags(master, kubeconfig)
 }
