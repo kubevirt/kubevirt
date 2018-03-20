@@ -24,8 +24,6 @@ import (
 	"os"
 
 	flag "github.com/spf13/pflag"
-
-	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
 const (
@@ -60,14 +58,4 @@ func (o *Options) Usage() string {
 	usage := "The following options can be passed to any command:\n\n"
 	usage += o.FlagSet().FlagUsages()
 	return usage
-}
-
-func GetKubevirtClient(flags *flag.FlagSet) (kubecli.KubevirtClient, error) {
-	server, _ := flags.GetString("server")
-	kubeconfig, _ := flags.GetString("kubeconfig")
-	if (server == "") && (kubeconfig == "") {
-		return kubecli.GetKubevirtClient()
-	} else {
-		return kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
-	}
 }
