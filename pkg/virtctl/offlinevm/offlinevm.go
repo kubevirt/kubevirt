@@ -85,8 +85,7 @@ func (o *Command) Run(flags *flag.FlagSet) int {
 
 	if (server != "") && (kubeconfig != "") {
 		virtClient, err = kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
-	} else
-	{
+	} else {
 		virtClient, err = kubecli.GetKubevirtClient()
 	}
 	if err != nil {
