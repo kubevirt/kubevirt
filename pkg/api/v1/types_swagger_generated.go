@@ -149,15 +149,14 @@ func (OfflineVirtualMachineList) SwaggerDoc() map[string]string {
 func (OfflineVirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
-		"Running":  "Running controlls whether the associatied VirtualMachine is created or not",
-		"Template": "Template is the direct specification of VirtualMachine",
+		"running":  "Running controlls whether the associatied VirtualMachine is created or not",
+		"template": "Template is the direct specification of VirtualMachine",
 	}
 }
 
 func (OfflineVirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
-		"VMname":     "VirtualMachineName is the name of created VirtualMachine",
 		"conditions": "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
 	}
 }

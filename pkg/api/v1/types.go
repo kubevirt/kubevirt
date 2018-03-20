@@ -656,17 +656,15 @@ type OfflineVirtualMachineList struct {
 // should look like
 type OfflineVirtualMachineSpec struct {
 	// Running controlls whether the associatied VirtualMachine is created or not
-	Running bool `json:"Running"`
+	Running bool `json:"running"`
 
 	// Template is the direct specification of VirtualMachine
-	Template *VMTemplateSpec `json:"Template"`
+	Template *VMTemplateSpec `json:"template"`
 }
 
 // OfflineVirtualMachineStatus represents the status returned by the
 // controller to describe how the OfflineVirtualMachine is doing
 type OfflineVirtualMachineStatus struct {
-	// VirtualMachineName is the name of created VirtualMachine
-	VirtualMachineName string `json:"VMname,omitempty"`
 	// Hold the state information of the OfflineVirtualMachine and its VirtualMachine
 	Conditions []OfflineVirtualMachineCondition `json:"conditions" optional:"true"`
 }

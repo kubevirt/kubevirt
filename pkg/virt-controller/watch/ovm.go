@@ -135,7 +135,7 @@ func (c *OVMController) execute(key string) error {
 	logger.Info("Started processing OVM")
 
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
-	if OVM.Spec.Template == nil || len(OVM.Spec.Template.ObjectMeta.Labels) == 0 {
+	if OVM.Spec.Template == nil {
 		logger.Error("Invalid controller spec, will not re-enqueue.")
 		return nil
 	}

@@ -263,7 +263,6 @@ func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started boo
 
 func DefaultOfflineVirtualMachineWithNames(started bool, ovmName string, vmName string) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
 	vm := v1.NewMinimalVM(vmName)
-	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 	vm.Status.Phase = v1.Running
 	ovm := OfflineVirtualMachineFromVM(ovmName, vm, started)
 	t := true
