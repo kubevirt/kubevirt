@@ -131,6 +131,7 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 	// Collect all errors and defer returning until after the update
 	logger := log.Log
 	var err error
+	var success bool
 
 	logger.Object(vm).Info("Initializing VirtualMachine")
 
@@ -143,10 +144,16 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 	matchingPresets := filterPresets(allPresets, vm, c.recorder)
 
 	if len(matchingPresets) != 0 {
-		applyPresets(vm, matchingPresets, c.recorder)
+		success = applyPresets(vm, matchingPresets, c.recorder)
 	}
 
-	logger.Object(vm).Info("Marking VM as initialized and updating")
+	if !success {
+		logger.Object(vm).Warning("Marking VM as failed")
+		vm.Status.Phase = kubev1.Failed
+	}
+	// Even failed VM's need to be marked as initialized so they're
+	// not re-processed by this controller
+	logger.Object(vm).Info("Marking VM as initialized")
 	addInitializedAnnotation(vm)
 	_, err = c.clientset.VM(vm.Namespace).Update(vm)
 	if err != nil {
@@ -190,7 +197,7 @@ func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine
 	return matchingPresets
 }
 
-func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) error {
+func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) error {
 	errors := []error{}
 	if len(presetSpec.Resources.Requests) > 0 {
 		for key, presetReq := range presetSpec.Resources.Requests {
@@ -239,7 +246,7 @@ func checkPresetMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.Dom
 }
 
 func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (bool, error) {
-	presetConflicts := checkPresetMergeConflicts(presetSpec, vmSpec)
+	presetConflicts := checkMergeConflicts(presetSpec, vmSpec)
 	applied := false
 
 	if len(presetSpec.Resources.Requests) > 0 {
@@ -300,8 +307,35 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 	return applied, nil
 }
 
-func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset, recorder record.EventRecorder) {
+// Compare the domain of every preset to ensure they can all be applied cleanly
+func checkPresetConflicts(presets []kubev1.VirtualMachinePreset) error {
+	errors := []error{}
+	visitedPresets := []kubev1.VirtualMachinePreset{}
+	for _, preset := range presets {
+		for _, visited := range visitedPresets {
+			err := checkMergeConflicts(preset.Spec.Domain, visited.Spec.Domain)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("presets '%s' and '%s' conflict: %v", preset.Name, visited.Name, err))
+			}
+		}
+		visitedPresets = append(visitedPresets, preset)
+	}
+	if len(errors) > 0 {
+		return utilerrors.NewAggregate(errors)
+	}
+	return nil
+}
+
+func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset, recorder record.EventRecorder) bool {
 	logger := log.Log
+	err := checkPresetConflicts(presets)
+	if err != nil {
+		msg := fmt.Sprintf("VirtualMachinePresets cannot be applied due to conflicts: %v", err)
+		recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.Conflict.String(), msg)
+		logger.Object(vm).Error(msg)
+		return false
+	}
+
 	for _, preset := range presets {
 		applied, err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
 		if err != nil {
@@ -317,6 +351,7 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 			annotateVM(vm, preset)
 		}
 	}
+	return true
 }
 
 // isVirtualMachineInitialized checks if this module has applied presets
