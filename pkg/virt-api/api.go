@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
@@ -320,10 +321,21 @@ func (app *virtAPIApp) getClientCert() error {
 	return nil
 }
 
+func getNamespace() string {
+	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+			return ns
+		}
+	}
+	return metav1.NamespaceSystem
+}
+
 func (app *virtAPIApp) getSelfSignedCert() error {
 	var ok bool
+
+	namespace := getNamespace()
 	generateCerts := false
-	secret, err := app.virtCli.CoreV1().Secrets(metav1.NamespaceSystem).Get(virtApiCertSecretName, metav1.GetOptions{})
+	secret, err := app.virtCli.CoreV1().Secrets(namespace).Get(virtApiCertSecretName, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			generateCerts = true
@@ -337,9 +349,9 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 		caKeyPair, _ := triple.NewCA("kubevirt.io")
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			"virt-api.kube-system.pod.cluster.local",
+			"virt-api."+namespace+".pod.cluster.local",
 			"virt-api",
-			"kube-system",
+			namespace,
 			"cluster.local",
 			nil,
 			nil,
@@ -352,7 +364,7 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 		secret := k8sv1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      virtApiCertSecretName,
-				Namespace: metav1.NamespaceSystem,
+				Namespace: namespace,
 				Labels: map[string]string{
 					v1.AppLabel: "virt-api-aggregator",
 				},
@@ -364,7 +376,7 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 				signingCertBytesValue: app.signingCertBytes,
 			},
 		}
-		_, err := app.virtCli.CoreV1().Secrets(metav1.NamespaceSystem).Create(&secret)
+		_, err := app.virtCli.CoreV1().Secrets(namespace).Create(&secret)
 		if err != nil {
 			return err
 		}
@@ -388,6 +400,7 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 }
 
 func (app *virtAPIApp) createSubresourceApiservice() error {
+	namespace := getNamespace()
 	config, err := kubecli.GetConfig()
 	if err != nil {
 		return err
@@ -411,14 +424,14 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Create(&apiregistrationv1beta1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      subresourceAggregatedApiName,
-				Namespace: metav1.NamespaceSystem,
+				Namespace: namespace,
 				Labels: map[string]string{
 					v1.AppLabel: "virt-api-aggregator",
 				},
 			},
 			Spec: apiregistrationv1beta1.APIServiceSpec{
 				Service: &apiregistrationv1beta1.ServiceReference{
-					Namespace: metav1.NamespaceSystem,
+					Namespace: namespace,
 					Name:      "virt-api",
 				},
 				Group:                v1.SubresourceGroupName,
