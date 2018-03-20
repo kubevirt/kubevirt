@@ -47,7 +47,7 @@ for arg in $args; do
         cat $arg/Dockerfile | sed -e "s#kubevirt/registry-disk-v1alpha#${docker_prefix}/registry-disk-v1alpha\:${docker_tag}#g" >${CMD_OUT_DIR}/${BIN_NAME}/Dockerfile
         (
             cd ${CMD_OUT_DIR}/${BIN_NAME}/
-            docker $target -t ${docker_prefix}/${BIN_NAME}:${docker_tag} --label ${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER} --label ${BIN_NAME} .
+            docker $target -t ${docker_prefix}/${BIN_NAME}:${docker_tag} --label ${job_prefix} --label ${BIN_NAME} .
         )
     elif [ "${target}" = "push" ]; then
         (

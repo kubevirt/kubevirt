@@ -2,9 +2,6 @@
 
 set -e
 
-_prefix=${JOB_NAME:-${PROVIDER}}
-_prefix=${_prefix}${EXECUTOR_NUMBER}
-
 _cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/cli@sha256:6d7380015a2743992a1b3e61dfe4e79925e825e40a93e4594c125822d36c56fc'
 
 function _main_ip() {
@@ -12,7 +9,7 @@ function _main_ip() {
 }
 
 function _port() {
-    ${_cli} port --prefix $_prefix "$@"
+    ${_cli} port --prefix $provider_prefix "$@"
 }
 
 function prepare_config() {
@@ -27,18 +24,14 @@ EOF
 }
 
 function _registry_volume() {
-    if [ -n "${JOB_NAME}" ]; then
-        echo "${JOB_NAME}_${EXECUTOR_NUMBER}_registry"
-    else
-        echo "kubevirt_registry"
-    fi
+    echo ${job_prefix}_registry
 }
 
 function build() {
     # Let's first prune old images, keep the last 5 iterations to improve the cache hit chance
     for arg in ${docker_images}; do
         local name=$(basename $arg)
-        images_to_prune="$(docker images --filter "label=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}" --filter "label=${name}" --format="{{.ID}} {{.Repository}}:{{.Tag}}" | cat -n | sort -uk2,2 | sort -k1 | tr -s ' ' | grep -v "<none>" | cut -d' ' -f3 | tail -n +6)"
+        images_to_prune="$(docker images --filter "label=${job_prefix}" --filter "label=${name}" --format="{{.ID}} {{.Repository}}:{{.Tag}}" | cat -n | sort -uk2,2 | sort -k1 | tr -s ' ' | grep -v "<none>" | cut -d' ' -f3 | tail -n +6)"
         if [ -n "${images_to_prune}" ]; then
             docker rmi ${images_to_prune}
         fi
@@ -59,8 +52,8 @@ function build() {
     local num_nodes=${VAGRANT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
     for i in $(seq 1 ${num_nodes}); do
-        ${_cli} ssh --prefix $_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
-        ${_cli} ssh --prefix $_prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs --max-args=2 sudo docker tag"
+        ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
+        ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs --max-args=2 sudo docker tag"
     done
 }
 
@@ -70,5 +63,5 @@ function _kubectl() {
 }
 
 function down() {
-    ${_cli} rm --prefix $_prefix
+    ${_cli} rm --prefix $provider_prefix
 }

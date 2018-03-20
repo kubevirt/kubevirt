@@ -21,7 +21,6 @@ set -e
 
 source $(dirname "$0")/../hack/common.sh
 
-PROVIDER=${PROVIDER:-vagrant-kubernetes}
 source ${KUBEVIRT_DIR}/cluster/$PROVIDER/provider.sh
 source ${KUBEVIRT_DIR}/hack/config.sh
 

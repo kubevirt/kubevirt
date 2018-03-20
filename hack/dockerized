@@ -5,8 +5,7 @@ source $(dirname "$0")/common.sh
 
 DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
 
-BUILDER=${JOB_NAME:-kubevirtbuilder}
-BUILDER=${BUILDER}${EXECUTOR_NUMBER}
+BUILDER=${job_prefix}
 
 SYNC_VENDOR=${SYNC_VENDOR:-false}
 

@@ -19,8 +19,6 @@
 
 set -ex
 
-PROVIDER=${PROVIDER:-vagrant-kubernetes}
-
 source hack/common.sh
 source cluster/$PROVIDER/provider.sh
 source hack/config.sh
