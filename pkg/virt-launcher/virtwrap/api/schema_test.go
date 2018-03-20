@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var exampleXML = `<domain type="qemu" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvm</name>
   <memory unit="MB">9</memory>
   <os>

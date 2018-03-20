@@ -4,11 +4,11 @@
 # API_VERSION=v1
 # OUTPUT_FORMAT=html|markdown
 
+source $(dirname "$0")/../../hack/common.sh
+
 set -o errexit
 set -o nounset
 set -o pipefail
-
-source $(dirname "$0")/../../hack/common.sh
 
 VERSION="$1"
 OUTPUT_FORMAT="$2"

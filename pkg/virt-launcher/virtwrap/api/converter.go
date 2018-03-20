@@ -9,6 +9,8 @@ import (
 
 	"strconv"
 
+	"os"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
@@ -296,6 +298,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	domain.Spec.Name = VMNamespaceKeyFunc(vm)
 	domain.ObjectMeta.Name = vm.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
+
+	// XXX Fix me properly we don't want automatic fallback to qemu
+	// We will solve this properly in https://github.com/kubevirt/kubevirt/pull/804
+	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
+		domain.Spec.Type = "qemu"
+	} else if err != nil {
+		return err
+	}
 
 	// Spec metadata
 	domain.Spec.Metadata.KubeVirt.UID = vm.UID
