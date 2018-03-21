@@ -26,9 +26,9 @@ source hack/config.sh
 echo "Deploying ..."
 
 # Deploy the right manifests for the right target
-if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev" ]; then
+if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev" ] || [ "$TARGET" = "kubernetes-dev" ] ; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
-elif [ "$TARGET" = "vagrant-release" ]; then
+elif [ "$TARGET" = "vagrant-release" ] || [ "$TARGET" = "openshift-release" ] || [ "$TARGET" = "kubernetes-release" ] ; then
     for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
         if [[ $manifest =~ .*demo.* ]]; then
             continue
@@ -40,7 +40,7 @@ fi
 # Deploy additional infra for testing
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
-if [ "$PROVIDER" = "vagrant-openshift" ] || [ "$PROVIDER" = "os-3.9.0-alpha.4" ]; then
+if [ "$PROVIDER" = "vagrant-openshift" ] || [ "$PROVIDER" = "os-3.9.0-alpha.4" ] ; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-testing -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
