@@ -60,6 +60,7 @@ type VIF struct {
 	IP      netlink.Addr
 	MAC     net.HardwareAddr
 	Gateway net.IP
+	Routes  *[]netlink.Route
 }
 
 type NetworkHandler interface {
@@ -155,6 +156,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 		serverAddr.IP,
 		nic.Gateway,
 		net.ParseIP(guestDNS),
+		nic.Routes,
 	); err != nil {
 		log.Log.Errorf("failed to run DHCP: %v", err)
 		panic(err)
@@ -280,6 +282,16 @@ func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 		return nil, fmt.Errorf("No gateway address found in routes for %s", podInterface)
 	}
 	nic.Gateway = routes[0].Gw
+	var dhcpRoutes []netlink.Route
+	if len(routes) > 1 {
+		// Filter out irrelevant routes
+		for _, route := range routes[1:] {
+			if !route.Src.Equal(nic.IP.IP) {
+				dhcpRoutes = append(dhcpRoutes, route)
+			}
+		}
+		nic.Routes = &dhcpRoutes
+	}
 
 	// Get interface MAC address
 	mac, err := Handler.GetMacDetails(podInterface)
