@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -32,6 +32,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
 const FLAG = "vnc"
@@ -48,14 +49,14 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 
 	if len(flags.Args()) != 2 {
 		log.Println("VM name is missing")
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 	vm := flags.Arg(1)
 
 	virtCli, err := kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
 	if err != nil {
 		log.Println(err)
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 
 	//                                       -> pipeInWriter  -> pipeInReader
@@ -74,7 +75,7 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Printf("Can't listen on unix socket: %s", err.Error())
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 
 	port := ln.Addr().(*net.TCPAddr).Port
@@ -99,7 +100,7 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 	fd, err := ln.Accept()
 	if err != nil {
 		log.Printf("Failed to accept unix sock connection. %s", err.Error())
-		return 1
+		return virtctl.STATUS_ERROR
 	}
 	defer fd.Close()
 
@@ -133,9 +134,9 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 
 	if err != nil {
 		log.Printf("Error encountered: %s", err.Error())
-		return 1
+		return virtctl.STATUS_ERROR
 	}
-	return 0
+	return virtctl.STATUS_OK
 }
 
 func (o *VNC) Usage() string {
