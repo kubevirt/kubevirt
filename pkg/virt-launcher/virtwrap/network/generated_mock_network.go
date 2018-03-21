@@ -4,9 +4,10 @@
 package network
 
 import (
+	net "net"
+
 	gomock "github.com/golang/mock/gomock"
 	netlink "github.com/vishvananda/netlink"
-	net "net"
 )
 
 // Mock of NetworkHandler interface

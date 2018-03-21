@@ -159,7 +159,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 		api.DefaultBridgeName,
 		serverAddr.IP,
 		nic.Gateway,
-		net.ParseIP(guestDNS),
+		h.ReadDNSConfig(DNSConfigFile),
 		nic.Routes,
 	); err != nil {
 		log.Log.Errorf("failed to run DHCP: %v", err)
