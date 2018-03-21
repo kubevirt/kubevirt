@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -63,10 +64,11 @@ type virtAPIApp struct {
 	authorizor       rest.VirtApiAuthorizor
 	certsDirectory   string
 
-	signingCertBytes []byte
-	certBytes        []byte
-	keyBytes         []byte
-	clientCABytes    []byte
+	signingCertBytes           []byte
+	certBytes                  []byte
+	keyBytes                   []byte
+	clientCABytes              []byte
+	requestHeaderClientCABytes []byte
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -316,8 +318,14 @@ func (app *virtAPIApp) getClientCert() error {
 	if !ok {
 		return fmt.Errorf("client-ca-file value not found in auth config map.")
 	}
-
 	app.clientCABytes = []byte(clientCA)
+
+	// request-header-ca-file doesn't always exist in all deployments.
+	// set it if the value is set though.
+	requestHeaderClientCA, ok := authConfigMap.Data["requestheader-client-ca-file"]
+	if ok {
+		app.requestHeaderClientCABytes = []byte(requestHeaderClientCA)
+	}
 	return nil
 }
 
@@ -469,6 +477,20 @@ func (app *virtAPIApp) startTLS() error {
 	if err != nil {
 		return err
 	}
+
+	if len(app.requestHeaderClientCABytes) != 0 {
+		f, err := os.OpenFile(clientCAFile, os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = f.Write(app.requestHeaderClientCABytes)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = ioutil.WriteFile(keyFile, app.keyBytes, 0600)
 	if err != nil {
 		return err
