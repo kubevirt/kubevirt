@@ -4,10 +4,9 @@
 package network
 
 import (
-	net "net"
-
 	gomock "github.com/golang/mock/gomock"
 	netlink "github.com/vishvananda/netlink"
+	net "net"
 )
 
 // Mock of NetworkHandler interface
@@ -153,4 +152,14 @@ func (_m *MockNetworkHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 
 func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1)
+}
+
+func (_m *MockNetworkHandler) ReadDNSConfig(config string) []byte {
+	ret := _m.ctrl.Call(_m, "ReadDNSConfig", config)
+	ret0, _ := ret[0].([]byte)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ReadDNSConfig(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReadDNSConfig", arg0)
 }
