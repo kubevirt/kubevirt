@@ -111,12 +111,12 @@ var _ = Describe("VM Initializer", func() {
 		})
 	})
 
-	Context("Conflict detection", func() {
+	Context("Override detection", func() {
 		var vm v1.VirtualMachine
 		var preset v1.VirtualMachinePreset
 		truthy := true
 		falsy := false
-		recorder := &FakeRecorder{}
+		var recorder *FakeRecorder
 
 		memory, _ := resource.ParseQuantity("64M")
 
@@ -142,19 +142,20 @@ var _ = Describe("VM Initializer", func() {
 						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}}},
 			}}}
 			preset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
+			recorder = &FakeRecorder{}
 		})
 
-		It("Should detect CPU conflicts", func() {
+		It("Should detect CPU overrides", func() {
 			// Check without and then with a CPU conflict
-			err := checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			vm.Annotations = map[string]string{}
@@ -164,73 +165,203 @@ var _ = Describe("VM Initializer", func() {
 			Expect(len(vm.Annotations)).To(Equal(0))
 		})
 
-		It("Should detect Resource conflicts", func() {
+		It("Should detect Resource overrides", func() {
 			memory128, _ := resource.ParseQuantity("128M")
 			preset.Spec.Domain.Resources = v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 				"memory": memory128,
 			}}
 
-			err := checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			preset.Spec.Domain.Resources = v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 				"memory": memory,
 			}}
 
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should detect Firmware conflicts", func() {
+		It("Should detect Firmware overrides", func() {
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: types.UID("88887777-6666-5555-4444-333322221111")}
 
-			err := checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: types.UID("11112222-3333-4444-5555-666677778888")}
 
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should detect Clock conflicts", func() {
+		It("Should detect Clock overrides", func() {
 			preset.Spec.Domain.Clock = &v1.Clock{ClockOffset: v1.ClockOffset{},
 				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyCatchup}},
 			}
 
-			err := checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			preset.Spec.Domain.Clock = &v1.Clock{ClockOffset: v1.ClockOffset{},
 				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
 			}
 
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should detect Feature conflicts", func() {
+		It("Should detect Feature overrides", func() {
 			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &falsy}}
-			err := checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
 				APIC:   &v1.FeatureAPIC{Enabled: &falsy},
 				Hyperv: &v1.FeatureHyperv{},
 			}
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should detect Watchdog conflicts", func() {
+		It("Should detect Watchdog overrides", func() {
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "foo", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
-			err := checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "testcase", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}}
 
-			err = checkPresetMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("Conflict detection", func() {
+		var vm v1.VirtualMachine
+		var preset1 v1.VirtualMachinePreset
+		var preset2 v1.VirtualMachinePreset
+		var preset3 v1.VirtualMachinePreset
+		var preset4 v1.VirtualMachinePreset
+
+		m64, _ := resource.ParseQuantity("64M")
+		m128, _ := resource.ParseQuantity("128M")
+
+		var recorder *FakeRecorder
+
+		BeforeEach(func() {
+			vm = v1.VirtualMachine{ObjectMeta: k8smetav1.ObjectMeta{Name: "test-vm"}}
+
+			preset1 = v1.VirtualMachinePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{Name: "memory-64"},
+				Spec: v1.VirtualMachinePresetSpec{
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m64": "memory-64"}},
+					Domain: &v1.DomainSpec{
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{"memory": m64},
+						},
+					},
+				},
+			}
+			preset2 = v1.VirtualMachinePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{Name: "memory-128"},
+				Spec: v1.VirtualMachinePresetSpec{
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m128": "memory-128"}},
+					Domain: &v1.DomainSpec{
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{"memory": m128},
+						},
+					},
+				},
+			}
+			preset3 = v1.VirtualMachinePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{Name: "cpu-4"},
+				Spec: v1.VirtualMachinePresetSpec{
+					Selector:  k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/cpu": "cpu-4"}},
+					Domain: &v1.DomainSpec{
+						CPU: &v1.CPU{Cores: 4},
+					},
+				},
+			}
+			preset4 = v1.VirtualMachinePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{Name: "duplicate-mem"},
+				Spec: v1.VirtualMachinePresetSpec{
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m64": "memory-64"}},
+					Domain: &v1.DomainSpec{
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{"memory": m64},
+						},
+					},
+				},
+			}
+			recorder = &FakeRecorder{}
+		})
+
+		It("should detect conflicts between presets", func(){
+			presets := []v1.VirtualMachinePreset{preset1, preset2}
+			err := checkPresetConflicts(presets)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should not return an error for no conflict", func(){
+			presets := []v1.VirtualMachinePreset{preset1, preset3}
+			err := checkPresetConflicts(presets)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should not consider presets with same settings to conflict", func(){
+			presets := []v1.VirtualMachinePreset{preset1, preset4}
+			err := checkPresetConflicts(presets)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should not apply presets that conflict", func(){
+			presets := []v1.VirtualMachinePreset{preset1, preset2, preset3, preset4}
+			vm.Labels = map[string]string{
+				"kubevirt.io/m64": "memory-64",
+				"kubevirt.io/m128": "memory-128",
+			}
+			res := applyPresets(&vm, presets, recorder)
+			Expect(res).To(BeFalse())
+
+			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
+			Expect(annotation).To(Equal(""))
+			Expect(ok).To(BeFalse())
+		})
+
+		It("should not apply any presets if any conflict", func(){
+			presets := []v1.VirtualMachinePreset{preset1, preset2, preset3, preset4}
+			vm.Labels = map[string]string{
+				"kubevirt.io/m64": "memory-64",
+				"kubevirt.io/m128": "memory-128",
+				"kubevirt.io/cpu": "cpu-4",
+			}
+			res := applyPresets(&vm, presets, recorder)
+			Expect(res).To(BeFalse())
+
+			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
+			Expect(annotation).To(Equal(""))
+			Expect(ok).To(BeFalse())
+		})
+
+		It("should apply presets that don't conflict", func(){
+			presets := []v1.VirtualMachinePreset{preset1, preset3, preset4}
+			vm.Labels = map[string]string{
+				"kubevirt.io/m64": "memory-64",
+				"kubevirt.io/cpu": "cpu-4",
+			}
+			res := applyPresets(&vm, presets, recorder)
+			Expect(res).To(BeTrue())
+
+			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(ok).To(BeTrue())
+
+			annotation, ok = vm.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(ok).To(BeTrue())
+
+			annotation, ok = vm.Annotations["virtualmachinepreset.kubevirt.io/duplicate-mem"]
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(ok).To(BeTrue())
 		})
 	})
 
