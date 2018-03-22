@@ -37,8 +37,9 @@ type TemplateService interface {
 }
 
 type templateService struct {
-	launcherImage string
-	virtShareDir  string
+	launcherImage   string
+	virtShareDir    string
+	imagePullSecret string
 }
 
 func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.Pod, error) {
@@ -57,6 +58,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	var userId int64 = 0
 	var privileged bool = true
 	var volumesMounts []kubev1.VolumeMount
+	var imagePullSecrets []kubev1.LocalObjectReference
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
@@ -94,6 +96,17 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 				},
 			})
 		}
+		if volume.RegistryDisk != nil && volume.RegistryDisk.ImagePullSecret != "" {
+			imagePullSecrets = append(imagePullSecrets, kubev1.LocalObjectReference{
+				Name: volume.RegistryDisk.ImagePullSecret,
+			})
+		}
+	}
+
+	if t.imagePullSecret != "" {
+		imagePullSecrets = append(imagePullSecrets, kubev1.LocalObjectReference{
+			Name: t.imagePullSecret,
+		})
 	}
 
 	// Pad the virt-launcher grace period.
@@ -204,6 +217,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			Containers:                    containers,
 			NodeSelector:                  vm.Spec.NodeSelector,
 			Volumes:                       volumes,
+			ImagePullSecrets:              imagePullSecrets,
 		},
 	}
 
@@ -269,11 +283,12 @@ func setMemoryOverhead(domain v1.DomainSpec, resources *kubev1.ResourceRequireme
 	return nil
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string) (TemplateService, error) {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
-		launcherImage: launcherImage,
-		virtShareDir:  virtShareDir,
+		launcherImage:   launcherImage,
+		virtShareDir:    virtShareDir,
+		imagePullSecret: imagePullSecret,
 	}
 	return &svc, nil
 }

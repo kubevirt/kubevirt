@@ -224,7 +224,8 @@ type EphemeralVolumeSource struct {
 // Represents a docker image with an embedded disk
 type RegistryDiskSource struct {
 	// Image is the name of the image with the embedded disk
-	Image string `json:"image"`
+	Image           string `json:"image"`
+	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 }
 
 // Exactly one of its members must be set.

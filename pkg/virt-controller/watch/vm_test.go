@@ -103,7 +103,7 @@ var _ = Describe("VM watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Create a Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever")
+			temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
 			Expect(err).ToNot(HaveOccurred())
 			pod, err := temlateService.RenderLaunchManifest(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -169,7 +169,7 @@ var _ = Describe("VM watcher", func() {
 			addInitializedAnnotation(vm)
 
 			// Create a Pod for the VM
-			templateService, err := services.NewTemplateService("whatever", "whatever")
+			templateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
 			Expect(err).ToNot(HaveOccurred())
 
 			// We want to ensure the vm object we initially post
@@ -232,7 +232,7 @@ var _ = Describe("VM watcher", func() {
 			addInitializedAnnotation(vm)
 
 			// Create a target Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever")
+			temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
 			Expect(err).ToNot(HaveOccurred())
 			var pod *kubev1.Pod
 			pod, err = temlateService.RenderLaunchManifest(vm)
