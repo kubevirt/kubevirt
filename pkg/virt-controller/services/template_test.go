@@ -234,24 +234,46 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with RegistryDisk pull secrets", func() {
-			It("should add secret to pod spec", func() {
-				volumes := []v1.Volume{
-					{
-						Name: "registrydisk1",
-						VolumeSource: v1.VolumeSource{
-							RegistryDisk: &v1.RegistryDiskSource{
-								Image:           "my-image",
-								ImagePullSecret: "pull-secret-2",
-							},
+			volumes := []v1.Volume{
+				{
+					Name: "registrydisk1",
+					VolumeSource: v1.VolumeSource{
+						RegistryDisk: &v1.RegistryDiskSource{
+							Image:           "my-image-1",
+							ImagePullSecret: "pull-secret-2",
 						},
 					},
-				}
-				vm := v1.VirtualMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvm", Namespace: "default", UID: "1234",
+				},
+				{
+					Name: "registrydisk2",
+					VolumeSource: v1.VolumeSource{
+						RegistryDisk: &v1.RegistryDiskSource{
+							Image: "my-image-2",
+						},
 					},
-					Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
-				}
+				},
+			}
+
+			vm := v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvm", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+			}
+
+			It("should add secret to pod spec", func() {
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).To(BeNil())
+
+				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))
+
+				// RegistryDisk secrets come first
+				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-2"))
+				Expect(pod.Spec.ImagePullSecrets[1].Name).To(Equal("pull-secret-1"))
+			})
+
+			It("should deduplicate identical secrets", func() {
+				volumes[1].VolumeSource.RegistryDisk.ImagePullSecret = "pull-secret-2"
 
 				pod, err := svc.RenderLaunchManifest(&vm)
 				Expect(err).To(BeNil())

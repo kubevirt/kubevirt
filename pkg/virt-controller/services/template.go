@@ -97,14 +97,14 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			})
 		}
 		if volume.RegistryDisk != nil && volume.RegistryDisk.ImagePullSecret != "" {
-			imagePullSecrets = append(imagePullSecrets, kubev1.LocalObjectReference{
+			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, kubev1.LocalObjectReference{
 				Name: volume.RegistryDisk.ImagePullSecret,
 			})
 		}
 	}
 
 	if t.imagePullSecret != "" {
-		imagePullSecrets = append(imagePullSecrets, kubev1.LocalObjectReference{
+		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, kubev1.LocalObjectReference{
 			Name: t.imagePullSecret,
 		})
 	}
@@ -230,6 +230,15 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	}
 
 	return &pod, nil
+}
+
+func appendUniqueImagePullSecret(secrets []kubev1.LocalObjectReference, newsecret kubev1.LocalObjectReference) []kubev1.LocalObjectReference {
+	for _, oldsecret := range secrets {
+		if oldsecret == newsecret {
+			return secrets
+		}
+	}
+	return append(secrets, newsecret)
 }
 
 // setMemoryOverhead computes the estimation of total
