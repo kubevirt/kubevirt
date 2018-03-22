@@ -17,6 +17,8 @@ const (
 	userHeader            = "X-Remote-User"
 	groupHeader           = "X-Remote-Group"
 	userExtraHeaderPrefix = "X-Remote-Extra-"
+	clientQPS             = 200
+	clientBurst           = 400
 )
 
 type VirtApiAuthorizor interface {
@@ -149,11 +151,11 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 	// Endpoints related to getting information about
 	// what apis our server provides are authorized to
 	// all users.
-	if isInfoEndpoint(req) == true {
+	if isInfoEndpoint(req) {
 		return true, "", nil
 	}
 
-	if isAuthenticated(req) == false {
+	if !isAuthenticated(req) {
 		return false, "request is not authenticated", nil
 	}
 
@@ -172,7 +174,7 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 		return false, "internal server error", err
 	}
 
-	if result.Status.Allowed == true {
+	if result.Status.Allowed {
 		return true, "", nil
 	}
 
@@ -184,8 +186,8 @@ func NewAuthorizor() (VirtApiAuthorizor, error) {
 	if err != nil {
 		return nil, err
 	}
-	config.QPS = 200
-	config.Burst = 400
+	config.QPS = clientQPS
+	config.Burst = clientBurst
 
 	client, err := authorizationclient.NewForConfig(config)
 	if err != nil {

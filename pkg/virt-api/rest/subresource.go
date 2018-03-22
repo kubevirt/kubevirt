@@ -62,7 +62,7 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 	httpResponseChan := make(chan int)
 	copyErr := make(chan error)
 	go func() {
-		httpCode, err := app.remoteExecHelper(podName, namespace, cmd, inReader, outWriter)
+		httpCode, err := remoteExecHelper(podName, namespace, cmd, inReader, outWriter)
 		log.Log.Errorf("%v", err)
 		httpResponseChan <- httpCode
 	}()
@@ -151,7 +151,7 @@ func (app *SubresourceAPIApp) remoteExecInfo(name string, namespace string) (str
 	return podName, http.StatusOK, nil
 }
 
-func (app *SubresourceAPIApp) remoteExecHelper(podName string, namespace string, cmd []string, in io.Reader, out io.Writer) (int, error) {
+func remoteExecHelper(podName string, namespace string, cmd []string, in io.Reader, out io.Writer) (int, error) {
 
 	config, err := kubecli.GetConfig()
 	if err != nil {

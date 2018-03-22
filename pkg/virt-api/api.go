@@ -253,7 +253,7 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 func (app *virtAPIApp) Compose() {
 	ctx := context.Background()
 
-	if app.SubresourcesOnly == false {
+	if !app.SubresourcesOnly {
 		app.composeResources(ctx)
 	}
 	app.composeSubresources(ctx)

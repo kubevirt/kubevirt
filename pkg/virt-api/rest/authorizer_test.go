@@ -140,7 +140,7 @@ var _ = Describe("VM Subresources", func() {
 
 			close(done)
 		}, 5)
-		It("should not allow all users for info endpoints", func(done Done) {
+		It("should allow all users for info endpoints", func(done Done) {
 			req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha1"
 			allowed, _, err := app.Authorize(req)
 			Expect(err).ToNot(HaveOccurred())
