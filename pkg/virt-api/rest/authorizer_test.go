@@ -27,6 +27,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
@@ -140,25 +141,33 @@ var _ = Describe("VM Subresources", func() {
 
 			close(done)
 		}, 5)
-		It("should allow all users for info endpoints", func(done Done) {
-			req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha1"
+
+		table.DescribeTable("should allow all users for info endpoints", func(path string) {
+			req.Request.URL.Path = path
 			allowed, _, err := app.Authorize(req)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(allowed).To(Equal(true))
+		},
+			table.Entry("root", "/"),
+			table.Entry("apis", "/apis"),
+			table.Entry("group", "/apis/subresources.kubevirt.io"),
+			table.Entry("version", "/apis/subresources.kubevirt.io/version"),
+		)
 
-			close(done)
-		}, 5)
-
-		It("should reject all users for unknown endpoints", func(done Done) {
+		table.DescribeTable("should reject all users for unknown endpoint paths", func(path string) {
 			req.Request.TLS = &tls.ConnectionState{}
 			req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
-			req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha1/madethisup"
+			req.Request.URL.Path = path
 			allowed, _, err := app.Authorize(req)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(allowed).To(Equal(false))
 
-			close(done)
-		}, 5)
+		},
+			table.Entry("random1", "/apis/subresources.kubevirt.io/v1alpha1/madethisup"),
+			table.Entry("random2", "/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9"),
+			table.Entry("no subresource provided", "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+			table.Entry("invalid resource type", "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/madeupresource/testvm/console"),
+		)
 	})
 
 	AfterEach(func() {

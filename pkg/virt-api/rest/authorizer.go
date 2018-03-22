@@ -88,6 +88,10 @@ func generateAccessReview(req *restful.Request) (*authorization.SubjectAccessRev
 	subresource := pathSplit[8]
 	userExtras := getUserExtras(headers)
 
+	if resource != "virtualmachines" {
+		return nil, fmt.Errorf("unknown resource type %s", resource)
+	}
+
 	userName, err := getUserName(headers)
 	if err != nil {
 		return nil, err
