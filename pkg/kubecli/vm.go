@@ -68,7 +68,7 @@ type BinaryReadWriter struct {
 }
 
 func (s *BinaryReadWriter) Write(p []byte) (int, error) {
-	wsFrameHeaderSize := 2 + 8 + 4
+	wsFrameHeaderSize := 2 + 8 + 4 // Fixed header + length + mask (RFC 6455)
 	// our websocket package has an issue where it truncates messages
 	// when the message+header is greater than the buffer size we allocate.
 	// because of this, we have to chunk messages
