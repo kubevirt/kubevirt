@@ -255,6 +255,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 			for key, val := range presetSpec.Resources.Requests {
 				vmSpec.Resources.Requests[key] = val
 			}
+		}
+		if reflect.DeepEqual(vmSpec.Resources.Requests, presetSpec.Resources.Requests) {
 			applied = true
 		}
 	}
@@ -262,6 +264,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 		if vmSpec.CPU == nil {
 			vmSpec.CPU = &kubev1.CPU{}
 			presetSpec.CPU.DeepCopyInto(vmSpec.CPU)
+		}
+		if reflect.DeepEqual(vmSpec.CPU, presetSpec.CPU) {
 			applied = true
 		}
 	}
@@ -269,6 +273,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 		if vmSpec.Firmware == nil {
 			vmSpec.Firmware = &kubev1.Firmware{}
 			presetSpec.Firmware.DeepCopyInto(vmSpec.Firmware)
+		}
+		if reflect.DeepEqual(vmSpec.Firmware, presetSpec.Firmware) {
 			applied = true
 		}
 	}
@@ -276,6 +282,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 		if vmSpec.Clock == nil {
 			vmSpec.Clock = &kubev1.Clock{}
 			vmSpec.Clock.ClockOffset = presetSpec.Clock.ClockOffset
+		}
+		if reflect.DeepEqual(vmSpec.Clock, presetSpec.Clock) {
 			applied = true
 		}
 
@@ -283,6 +291,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 			if vmSpec.Clock.Timer == nil {
 				vmSpec.Clock.Timer = &kubev1.Timer{}
 				presetSpec.Clock.Timer.DeepCopyInto(vmSpec.Clock.Timer)
+			}
+			if reflect.DeepEqual(vmSpec.Clock.Timer, presetSpec.Clock.Timer) {
 				applied = true
 			}
 		}
@@ -291,6 +301,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 		if vmSpec.Features == nil {
 			vmSpec.Features = &kubev1.Features{}
 			presetSpec.Features.DeepCopyInto(vmSpec.Features)
+		}
+		if reflect.DeepEqual(vmSpec.Features, presetSpec.Features) {
 			applied = true
 		}
 	}
@@ -298,13 +310,12 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 		if vmSpec.Devices.Watchdog == nil {
 			vmSpec.Devices.Watchdog = &kubev1.Watchdog{}
 			presetSpec.Devices.Watchdog.DeepCopyInto(vmSpec.Devices.Watchdog)
+		}
+		if reflect.DeepEqual(vmSpec.Devices.Watchdog, presetSpec.Devices.Watchdog) {
 			applied = true
 		}
 	}
-	if presetConflicts != nil {
-		return applied, presetConflicts
-	}
-	return applied, nil
+	return applied, presetConflicts
 }
 
 // Compare the domain of every preset to ensure they can all be applied cleanly
