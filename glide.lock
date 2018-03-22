@@ -1,5 +1,5 @@
-hash: 3171c227013dc52779f9bcc0ce5bdea966d3998863e2762a53f39de1c27cfc74
-updated: 2018-03-22T07:13:51.328945581Z
+hash: 3607077064bf003c8eaaa2f615c5f1112c5aa61fd3e15e4f27c6ae5c5dd034fe
+updated: 2018-03-22T13:47:56.069155123Z
 imports:
 - name: github.com/asaskevich/govalidator
   version: 7d2e70ef918f16bd6455529af38304d6d025c952
@@ -105,7 +105,7 @@ imports:
   subpackages:
   - conn
 - name: github.com/libvirt/libvirt-go
-  version: d0e4392dfcc5489797a5f875cc3355b255612a18
+  version: 0822ea6d658d7a0deeaa2ce63ed3efd6306bee03
 - name: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
   subpackages:

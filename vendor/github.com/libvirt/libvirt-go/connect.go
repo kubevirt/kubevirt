@@ -1202,20 +1202,6 @@ func (c *Connect) LookupStoragePoolByUUID(uuid []byte) (*StoragePool, error) {
 	return &StoragePool{ptr: ptr}, nil
 }
 
-// See also https://libvirt.org/html/libvirt-libvirt-storage.html#virStoragePoolLookupByTargetPath
-func (c *Connect) LookupStoragePoolByTargetPath(path string) (*StoragePool, error) {
-	if C.LIBVIR_VERSION_NUMBER < 4001000 {
-		return nil, GetNotImplementedError("virStoragePoolLookupByTargetPath")
-	}
-	cPath := C.CString(path)
-	defer C.free(unsafe.Pointer(cPath))
-	ptr := C.virStoragePoolLookupByTargetPathCompat(c.ptr, cPath)
-	if ptr == nil {
-		return nil, GetLastError()
-	}
-	return &StoragePool{ptr: ptr}, nil
-}
-
 // See also https://libvirt.org/html/libvirt-libvirt-nwfilter.html#virNWFilterDefineXML
 func (c *Connect) NWFilterDefineXML(xmlConfig string) (*NWFilter, error) {
 	cXml := C.CString(string(xmlConfig))

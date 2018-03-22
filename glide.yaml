@@ -39,6 +39,8 @@ import:
 - package: github.com/emicklei/go-restful-swagger12
 - package: github.com/vishvananda/netlink
   version: d35d6b58e1cb692b27b94fc403170bf44058ac3e
+- package: github.com/libvirt/libvirt-go
+  version: v3.7.0
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92

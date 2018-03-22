@@ -167,7 +167,7 @@ func (c *Connect) DomainQemuMonitorEventRegister(dom *Domain, event string, call
 	}
 	ret := C.virConnectDomainQemuMonitorEventRegister_cgo(c.ptr, cdom,
 		cEvent,
-		C.virConnectDomainQemuMonitorEventCallback(callbackPtr),
+		C.virConnectDomainEventGenericCallback(callbackPtr),
 		C.long(goCallBackId),
 		C.uint(flags))
 	if ret == -1 {

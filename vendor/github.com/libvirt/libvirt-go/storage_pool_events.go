@@ -158,12 +158,6 @@ func (e StoragePoolEventLifecycle) String() string {
 	case STORAGE_POOL_EVENT_STOPPED:
 		event = "stopped"
 
-	case STORAGE_POOL_EVENT_CREATED:
-		event = "created"
-
-	case STORAGE_POOL_EVENT_DELETED:
-		event = "deleted"
-
 	default:
 		event = "unknown"
 	}
