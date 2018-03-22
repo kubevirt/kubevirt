@@ -3060,6 +3060,9 @@
      "image": {
       "description": "Image is the name of the image with the embedded disk",
       "type": "string"
+     },
+     "imagePullSecret": {
+      "type": "string"
      }
     }
    },
