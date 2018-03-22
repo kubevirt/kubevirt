@@ -184,12 +184,24 @@ func (v *VirtualMachine) IsReady() bool {
 	return v.IsRunning()
 }
 
+func (v *VirtualMachine) IsScheduling() bool {
+	return v.Status.Phase == Scheduling
+}
+
+func (v *VirtualMachine) IsScheduled() bool {
+	return v.Status.Phase == Scheduled
+}
+
 func (v *VirtualMachine) IsRunning() bool {
 	return v.Status.Phase == Running
 }
 
 func (v *VirtualMachine) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
+}
+
+func (v *VirtualMachine) IsUnprocessed() bool {
+	return v.Status.Phase == Pending || v.Status.Phase == VmPhaseUnset
 }
 
 // Required to satisfy Object interface
@@ -301,7 +313,6 @@ const (
 const (
 	AppLabel      string = "kubevirt.io"
 	DomainLabel   string = "kubevirt.io/domain"
-	VMUIDLabel    string = "kubevirt.io/vmUID"
 	NodeNameLabel string = "kubevirt.io/nodeName"
 )
 

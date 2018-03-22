@@ -188,7 +188,7 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
 
-	d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")
+	controller.NewVirtualMachineConditionManager().CheckFailure(vm, syncError, "Synchronizing with the Domain failed.")
 
 	if !reflect.DeepEqual(oldStatus, vm.Status) {
 		_, err = d.clientset.VM(vm.ObjectMeta.Namespace).Update(vm)
@@ -577,43 +577,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Created.String(), "VM defined.")
 
 	return err
-}
-
-func (d *VirtualMachineController) checkFailure(vm *v1.VirtualMachine, syncErr error, reason string) (changed bool) {
-	if syncErr != nil && !d.hasCondition(vm, v1.VirtualMachineSynchronized) {
-		vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
-			Type:               v1.VirtualMachineSynchronized,
-			Reason:             reason,
-			Message:            syncErr.Error(),
-			LastTransitionTime: metav1.Now(),
-			Status:             k8sv1.ConditionFalse,
-		})
-		return true
-	} else if syncErr == nil && d.hasCondition(vm, v1.VirtualMachineSynchronized) {
-		d.removeCondition(vm, v1.VirtualMachineSynchronized)
-		return true
-	}
-	return false
-}
-
-func (d *VirtualMachineController) hasCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) bool {
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			return true
-		}
-	}
-	return false
-}
-
-func (d *VirtualMachineController) removeCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
-	conds := []v1.VirtualMachineCondition{}
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	vm.Status.Conditions = conds
 }
 
 func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) {

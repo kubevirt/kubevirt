@@ -62,6 +62,7 @@ func (v *vmService) StartVMPod(vm *corev1.VirtualMachine) error {
 	precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
 
 	pod, err := v.TemplateService.RenderLaunchManifest(vm)
+	pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{VirtualMachineOwnerRef(vm)}
 	if err != nil {
 		return err
 	}
@@ -136,4 +137,17 @@ func UnfinishedVMPodSelector(vm *corev1.VirtualMachine) metav1.ListOptions {
 		panic(err)
 	}
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+}
+
+func VirtualMachineOwnerRef(vm *corev1.VirtualMachine) metav1.OwnerReference {
+	t := true
+	gvk := corev1.VirtualMachineGroupVersionKind
+	return metav1.OwnerReference{
+		APIVersion:         gvk.GroupVersion().String(),
+		Kind:               gvk.Kind,
+		Name:               vm.ObjectMeta.Name,
+		UID:                vm.ObjectMeta.UID,
+		Controller:         &t,
+		BlockOwnerDeletion: &t,
+	}
 }
