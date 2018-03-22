@@ -100,11 +100,15 @@ rules:
       - ''
     resources:
       - pods
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - ''
+    resources:
       - pods/exec
     verbs:
       - create
-      - get
-      - list
   - apiGroups:
       - kubevirt.io
     resources:
