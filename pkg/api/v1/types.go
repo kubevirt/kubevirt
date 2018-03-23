@@ -311,7 +311,7 @@ const (
 	Created      SyncEvent = "Created"
 	Deleted      SyncEvent = "Deleted"
 	PresetFailed SyncEvent = "PresetFailed"
-	Conflict     SyncEvent = "Conflict"
+	Override     SyncEvent = "Override"
 	Started      SyncEvent = "Started"
 	ShuttingDown SyncEvent = "ShuttingDown"
 	Stopped      SyncEvent = "Stopped"

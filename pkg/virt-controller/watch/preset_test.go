@@ -44,16 +44,43 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+type Event struct {
+	object    runtime.Object
+	eventtype string
+	reason    string
+	message   string
+}
+
+type Events struct {
+	eventList []Event
+}
+
 type FakeRecorder struct {
+	events *Events
 }
 
-func (recorder *FakeRecorder) Event(object runtime.Object, eventtype, reason, message string) {
+func NewFakeRecorder() FakeRecorder {
+	return FakeRecorder{events: &Events{}}
 }
 
-func (recorder *FakeRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (recorder FakeRecorder) Event(object runtime.Object, eventtype, reason, message string) {
+	event := Event{
+		object:    object,
+		eventtype: eventtype,
+		reason:    reason,
+		message:   message,
+	}
+	Expect(recorder.events).ToNot(BeNil())
+	recorder.events.eventList = append(recorder.events.eventList, event)
 }
 
-func (recorder *FakeRecorder) PastEventf(object runtime.Object, timestamp k8smetav1.Time, eventtype, reason, messageFmt string, args ...interface{}) {
+func (recorder FakeRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	msg := fmt.Sprintf(messageFmt, args...)
+	recorder.Event(object, eventtype, reason, msg)
+}
+
+func (recorder FakeRecorder) PastEventf(object runtime.Object, timestamp k8smetav1.Time, eventtype, reason, messageFmt string, args ...interface{}) {
+	recorder.Eventf(object, eventtype, reason, messageFmt, args...)
 }
 
 var _ = Describe("VM Initializer", func() {
@@ -116,7 +143,7 @@ var _ = Describe("VM Initializer", func() {
 		var preset v1.VirtualMachinePreset
 		truthy := true
 		falsy := false
-		var recorder *FakeRecorder
+		var recorder FakeRecorder
 
 		memory, _ := resource.ParseQuantity("64M")
 
@@ -142,7 +169,7 @@ var _ = Describe("VM Initializer", func() {
 						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}}},
 			}}}
 			preset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
-			recorder = &FakeRecorder{}
+			recorder = NewFakeRecorder()
 		})
 
 		It("Should detect CPU overrides", func() {
@@ -162,6 +189,7 @@ var _ = Describe("VM Initializer", func() {
 			By("checking annotations were applied and CPU count remains the same")
 			Expect(len(vm.Annotations)).To(Equal(1))
 			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 
 			By("showing an override occured")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
@@ -175,6 +203,9 @@ var _ = Describe("VM Initializer", func() {
 			By("checking annotations were not applied and CPU count remains the same")
 			Expect(len(vm.Annotations)).To(Equal(0))
 			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
+
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 		})
 
 		It("Should detect Resource overrides", func() {
@@ -196,6 +227,8 @@ var _ = Describe("VM Initializer", func() {
 			Expect(ok).To(BeTrue())
 			Expect(int(memory.Value())).To(Equal(64000000))
 			Expect(len(vm.Annotations)).To(Equal(0))
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
 			preset.Spec.Domain.Resources = v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 				"memory": memory,
@@ -206,6 +239,7 @@ var _ = Describe("VM Initializer", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("applying matching preset")
+			recorder = NewFakeRecorder()
 			vm.Annotations = map[string]string{}
 			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 
@@ -214,6 +248,7 @@ var _ = Describe("VM Initializer", func() {
 			Expect(ok).To(BeTrue())
 			Expect(int(memory.Value())).To(Equal(64000000))
 			Expect(len(vm.Annotations)).To(Equal(1))
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should detect Firmware overrides", func() {
@@ -232,6 +267,8 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(len(vm.Annotations)).To(Equal(0))
 			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(matchUuid))
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: matchUuid}
 
@@ -240,11 +277,13 @@ var _ = Describe("VM Initializer", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings did not change when preset is applied")
+			recorder = NewFakeRecorder()
 			vm.Annotations = map[string]string{}
 			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 
 			Expect(len(vm.Annotations)).To(Equal(1))
 			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(matchUuid))
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should detect Clock overrides", func() {
@@ -262,6 +301,8 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(len(vm.Annotations)).To(Equal(0))
 			Expect(vm.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
 			preset.Spec.Domain.Clock = &v1.Clock{ClockOffset: v1.ClockOffset{},
 				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
@@ -272,11 +313,13 @@ var _ = Describe("VM Initializer", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
+			recorder = NewFakeRecorder()
 			vm.Annotations = map[string]string{}
 			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 
 			Expect(len(vm.Annotations)).To(Equal(1))
 			Expect(vm.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should detect Feature overrides", func() {
@@ -292,6 +335,8 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(len(vm.Annotations)).To(Equal(0))
 			Expect(*vm.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
 			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
 				APIC:   &v1.FeatureAPIC{Enabled: &falsy},
@@ -303,11 +348,13 @@ var _ = Describe("VM Initializer", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
+			recorder = NewFakeRecorder()
 			vm.Annotations = map[string]string{}
 			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 
 			Expect(len(vm.Annotations)).To(Equal(1))
 			Expect(*vm.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should detect Watchdog overrides", func() {
@@ -323,6 +370,8 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(len(vm.Annotations)).To(Equal(0))
 			Expect(vm.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "testcase", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}}
 
@@ -331,11 +380,13 @@ var _ = Describe("VM Initializer", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
+			recorder = NewFakeRecorder()
 			vm.Annotations = map[string]string{}
 			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 
 			Expect(len(vm.Annotations)).To(Equal(1))
 			Expect(vm.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 	})
 
@@ -349,7 +400,7 @@ var _ = Describe("VM Initializer", func() {
 		m64, _ := resource.ParseQuantity("64M")
 		m128, _ := resource.ParseQuantity("128M")
 
-		var recorder *FakeRecorder
+		var recorder FakeRecorder
 
 		BeforeEach(func() {
 			vm = v1.VirtualMachine{ObjectMeta: k8smetav1.ObjectMeta{Name: "test-vm"}}
@@ -379,7 +430,7 @@ var _ = Describe("VM Initializer", func() {
 			preset3 = v1.VirtualMachinePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "cpu-4"},
 				Spec: v1.VirtualMachinePresetSpec{
-					Selector:  k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/cpu": "cpu-4"}},
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/cpu": "cpu-4"}},
 					Domain: &v1.DomainSpec{
 						CPU: &v1.CPU{Cores: 4},
 					},
@@ -396,31 +447,31 @@ var _ = Describe("VM Initializer", func() {
 					},
 				},
 			}
-			recorder = &FakeRecorder{}
+			recorder = NewFakeRecorder()
 		})
 
-		It("should detect conflicts between presets", func(){
+		It("should detect conflicts between presets", func() {
 			presets := []v1.VirtualMachinePreset{preset1, preset2}
 			err := checkPresetConflicts(presets)
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should not return an error for no conflict", func(){
+		It("should not return an error for no conflict", func() {
 			presets := []v1.VirtualMachinePreset{preset1, preset3}
 			err := checkPresetConflicts(presets)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should not consider presets with same settings to conflict", func(){
+		It("should not consider presets with same settings to conflict", func() {
 			presets := []v1.VirtualMachinePreset{preset1, preset4}
 			err := checkPresetConflicts(presets)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should not apply presets that conflict", func(){
+		It("should not apply presets that conflict", func() {
 			presets := []v1.VirtualMachinePreset{preset1, preset2, preset3, preset4}
 			vm.Labels = map[string]string{
-				"kubevirt.io/m64": "memory-64",
+				"kubevirt.io/m64":  "memory-64",
 				"kubevirt.io/m128": "memory-128",
 			}
 
@@ -432,17 +483,19 @@ var _ = Describe("VM Initializer", func() {
 			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
 			Expect(annotation).To(Equal(""))
 			Expect(ok).To(BeFalse())
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeWarning))
 
 			By("checking settings were not applied to VM")
 			Expect(vm.Spec.Domain.Resources.Requests).To(BeNil())
 		})
 
-		It("should not apply any presets if any conflict", func(){
+		It("should not apply any presets if any conflict", func() {
 			presets := []v1.VirtualMachinePreset{preset1, preset2, preset3, preset4}
 			vm.Labels = map[string]string{
-				"kubevirt.io/m64": "memory-64",
+				"kubevirt.io/m64":  "memory-64",
 				"kubevirt.io/m128": "memory-128",
-				"kubevirt.io/cpu": "cpu-4",
+				"kubevirt.io/cpu":  "cpu-4",
 			}
 
 			By("applying presets")
@@ -454,12 +507,15 @@ var _ = Describe("VM Initializer", func() {
 			Expect(annotation).To(Equal(""))
 			Expect(ok).To(BeFalse())
 
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeWarning))
+
 			By("checking settings were not applied to VM")
 			Expect(vm.Spec.Domain.Resources.Requests).To(BeNil())
 			Expect(vm.Spec.Domain.CPU).To(BeNil())
 		})
 
-		It("should apply presets that don't conflict", func(){
+		It("should apply presets that don't conflict", func() {
 			presets := []v1.VirtualMachinePreset{preset1, preset3, preset4}
 			vm.Labels = map[string]string{
 				"kubevirt.io/m64": "memory-64",
@@ -482,13 +538,16 @@ var _ = Describe("VM Initializer", func() {
 			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
 			Expect(ok).To(BeTrue())
 
-			By("Checking settings were applied")
+			By("checking settings were applied")
 			Expect(len(vm.Spec.Domain.Resources.Requests)).To(Equal(1))
 			memory := vm.Spec.Domain.Resources.Requests["memory"]
 			Expect(int(memory.Value())).To(Equal(64000000))
 
 			Expect(vm.Spec.Domain.CPU).ToNot(BeNil())
 			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 	})
 
@@ -497,13 +556,14 @@ var _ = Describe("VM Initializer", func() {
 		var preset v1.VirtualMachinePreset
 		truthy := true
 		falsy := false
-		recorder := &FakeRecorder{}
+		var recorder FakeRecorder
 
 		BeforeEach(func() {
 			vm = v1.VirtualMachine{Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}}
 			vm.ObjectMeta.Name = "testvm"
 			preset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 			preset.ObjectMeta.Name = "test-preset"
+			recorder = NewFakeRecorder()
 		})
 
 		It("Should apply CPU settings", func() {
@@ -513,6 +573,9 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(vm.Spec.Domain.CPU.Cores).To(Equal(uint32(4)))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should apply Resources", func() {
@@ -525,6 +588,9 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(vm.Spec.Domain.Resources.Requests["memory"]).To(Equal(memory))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should apply Firmware settings", func() {
@@ -536,6 +602,9 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(uuid))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should apply Clock settings", func() {
@@ -549,6 +618,9 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(vm.Spec.Domain.Clock).To(Equal(clock))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should apply Feature settings", func() {
@@ -564,6 +636,9 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(vm.Spec.Domain.Features).To(Equal(features))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should apply Watchdog settings", func() {
@@ -576,6 +651,9 @@ var _ = Describe("VM Initializer", func() {
 
 			Expect(vm.Spec.Domain.Devices.Watchdog).To(Equal(watchdog))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 	})
 
@@ -590,7 +668,7 @@ var _ = Describe("VM Initializer", func() {
 		mismatchLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "unrelated"}}
 		errorLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "!"}}
 
-		recorder := &FakeRecorder{}
+		var recorder FakeRecorder
 
 		BeforeEach(func() {
 			vm = v1.VirtualMachine{Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}}
@@ -608,6 +686,7 @@ var _ = Describe("VM Initializer", func() {
 			errorPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
 			errorPreset.ObjectMeta.Name = "broken-preset"
 			errorPreset.Spec.Selector = errorLabel
+			recorder = NewFakeRecorder()
 		})
 
 		It("Should match preset with the correct selector", func() {
@@ -615,12 +694,18 @@ var _ = Describe("VM Initializer", func() {
 			matchingPresets := filterPresets(allPresets, &vm, recorder)
 			Expect(len(matchingPresets)).To(Equal(1))
 			Expect(matchingPresets[0].Name).To(Equal(matchingPresetName))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should not match preset with the incorrect selector", func() {
 			allPresets := []v1.VirtualMachinePreset{nonmatchingPreset}
 			matchingPresets := filterPresets(allPresets, &vm, recorder)
 			Expect(len(matchingPresets)).To(Equal(0))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should ignore bogus selectors", func() {
@@ -628,6 +713,10 @@ var _ = Describe("VM Initializer", func() {
 			matchingPresets := filterPresets(allPresets, &vm, recorder)
 			Expect(len(matchingPresets)).To(Equal(1))
 			Expect(matchingPresets[0].Name).To(Equal(matchingPresetName))
+
+			By("checking that no events were recorded")
+			Expect(len(recorder.events.eventList)).To(Equal(1))
+			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeWarning))
 		})
 
 	})
@@ -644,7 +733,6 @@ var _ = Describe("VM Initializer", func() {
 
 		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 		presetFlavor := "test-case"
-		app.vmPresetRecorder = &FakeRecorder{}
 
 		BeforeEach(func() {
 			stopChan = make(chan struct{})
@@ -689,6 +777,9 @@ var _ = Describe("VM Initializer", func() {
 			app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmPresetQueue))
 			go app.vmInformer.Run(stopChan)
+
+			recorder := NewFakeRecorder()
+			app.vmPresetRecorder = &recorder
 
 			app.initCommon()
 			// Make sure the informers are synced before continuing -- avoid race conditions
