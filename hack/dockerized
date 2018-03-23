@@ -27,7 +27,7 @@ RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --expose 873 -P ${BUILDER} 
 
 function finish() {
     docker stop ${RSYNC_CID}
-    docker rm ${RSYNC_CID}
+    docker rm -f ${RSYNC_CID}
 }
 trap finish EXIT
 
