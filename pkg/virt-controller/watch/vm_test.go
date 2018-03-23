@@ -51,7 +51,7 @@ var _ = Describe("VM watcher", func() {
 	BeforeEach(func() {
 
 		server = ghttp.NewServer()
-		app.clientSet, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		app.clientSet, _ = kubecli.GetKubevirtClientFromConfig(server.URL(), "")
 		app.restClient = app.clientSet.RestClient()
 		app.vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())

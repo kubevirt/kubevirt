@@ -392,7 +392,7 @@ var _ = Describe("VM Initializer", func() {
 			stopChan = make(chan struct{})
 
 			server = ghttp.NewServer()
-			app.clientSet, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+			app.clientSet, _ = kubecli.GetKubevirtClientFromConfig(server.URL(), "")
 			app.restClient = app.clientSet.RestClient()
 
 			// create a reference preset
