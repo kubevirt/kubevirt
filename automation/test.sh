@@ -30,7 +30,7 @@ set -ex
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
 
-if [ "$TARGET" = "openshift-release" ]; then
+if [[ $TARGET =~ openshift-.* ]]; then
   export PROVIDER="os-3.9.0-alpha.4"
 else
   export PROVIDER="k8s-1.9.3"
