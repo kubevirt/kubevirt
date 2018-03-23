@@ -26,6 +26,7 @@ import (
 
 	dhcp "github.com/krolaw/dhcp4"
 	dhcpConn "github.com/krolaw/dhcp4/conn"
+	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -39,19 +40,22 @@ func SingleClientDHCPServer(
 	serverIface string,
 	serverIP net.IP,
 	routerIP net.IP,
-	dnsIP net.IP) error {
+	dnsIP net.IP,
+	routes *[]netlink.Route) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
+	netRoutes := FormClasslessRoutes(routes, routerIP)
 	handler := &DHCPHandler{
 		clientIP:      clientIP,
 		clientMAC:     clientMAC,
 		serverIP:      serverIP.To4(),
 		leaseDuration: infiniteLease,
 		options: dhcp.Options{
-			dhcp.OptionSubnetMask:       []byte(clientMask),
-			dhcp.OptionRouter:           []byte(routerIP),
-			dhcp.OptionDomainNameServer: []byte(dnsIP.To4()),
+			dhcp.OptionSubnetMask:           []byte(clientMask),
+			dhcp.OptionRouter:               []byte(routerIP),
+			dhcp.OptionDomainNameServer:     []byte(dnsIP.To4()),
+			dhcp.OptionClasslessRouteFormat: netRoutes,
 		},
 	}
 
@@ -99,4 +103,32 @@ func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, options
 		return nil // Ignored message type
 
 	}
+}
+
+func FormClasslessRoutes(routes *[]netlink.Route, routerIP net.IP) (formattedRoutes []byte) {
+	// See RFC4332 for additional information
+	// (https://tools.ietf.org/html/rfc3442)
+	// For example:
+	// 		routes:
+	//				10.0.0.0/8 ,  gateway: 10.1.2.3
+	//              192.168.1/24, gateway: 192.168.2.3
+	//		would result in the following structure:
+	//      []byte{8, 10, 10, 1, 2, 3, 24, 192, 168, 1, 192, 168, 2, 3}
+
+	for _, route := range *routes {
+		if route.Dst == nil {
+			continue
+		}
+		ip := route.Dst.IP.To4()
+		width, _ := route.Dst.Mask.Size()
+		octets := (width-1)/8 + 1
+		newRoute := append([]byte{byte(width)}, ip[0:octets]...)
+		gateway := route.Gw
+		if gateway == nil {
+			gateway = routerIP
+		}
+		newRoute = append(newRoute, gateway.To4()...)
+		formattedRoutes = append(formattedRoutes, newRoute...)
+	}
+	return
 }
