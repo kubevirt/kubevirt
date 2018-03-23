@@ -99,11 +99,13 @@ const (
 const (
 	osAlpineISCSI = "alpine-iscsi"
 	osWindows     = "windows"
+	CustomISCSI   = "custom-iscsi"
 )
 
 const (
 	DiskAlpineISCSI = "disk-alpine-iscsi"
 	DiskWindows     = "disk-windows"
+	DiskCustomISCSI = "disk-custom-iscsi"
 )
 
 const (
@@ -277,10 +279,10 @@ func AfterTestSuitCleanup() {
 	cleanNamespaces()
 	cleanupSubresourceServiceAccount()
 
-	deletePVC(osWindows)
+	DeletePVC(osWindows)
 
-	deletePVC(osAlpineISCSI)
-	deletePV(osAlpineISCSI)
+	DeletePVC(osAlpineISCSI)
+	DeletePV(osAlpineISCSI)
 
 	removeNamespaces()
 }
@@ -299,13 +301,13 @@ func BeforeTestSuitSetup() {
 	createSubresourceServiceAccount()
 	createIscsiSecrets()
 
-	createPvISCSI(osAlpineISCSI, 2)
-	createPVC(osAlpineISCSI, defaultDiskSize)
+	CreatePvISCSI(osAlpineISCSI, 2)
+	CreatePVC(osAlpineISCSI, defaultDiskSize)
 
-	createPVC(osWindows, defaultWindowsDiskSize)
+	CreatePVC(osWindows, defaultWindowsDiskSize)
 }
 
-func createPVC(os string, size string) {
+func CreatePVC(os string, size string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -338,7 +340,7 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 	}
 }
 
-func createPvISCSI(os string, lun int32) {
+func CreatePvISCSI(os string, lun int32) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -466,7 +468,7 @@ func createSubresourceServiceAccount() {
 	}
 }
 
-func deletePVC(os string) {
+func DeletePVC(os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -477,7 +479,7 @@ func deletePVC(os string) {
 	}
 }
 
-func deletePV(os string) {
+func DeletePV(os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -672,6 +674,28 @@ func AddEphemeralDisk(vm *v1.VirtualMachine, name string, bus string, image stri
 		VolumeSource: v1.VolumeSource{
 			RegistryDisk: &v1.RegistryDiskSource{
 				Image: image,
+			},
+		},
+	})
+
+	return vm
+}
+
+func AddPVCDisk(vm *v1.VirtualMachine, name string, bus string, claimName string) *v1.VirtualMachine {
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       name,
+		VolumeName: name,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: bus,
+			},
+		},
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
 			},
 		},
 	})

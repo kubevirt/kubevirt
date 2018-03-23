@@ -308,5 +308,55 @@ var _ = Describe("Storage", func() {
 				close(done)
 			}, 400)
 		})
+
+		Context("With VM with two PVCs", func() {
+			BeforeEach(func() {
+				// Setup second PVC to use in this context
+				tests.CreatePvISCSI(tests.CustomISCSI, 1)
+				tests.CreatePVC(tests.CustomISCSI, "1Gi")
+			}, 120)
+
+			AfterEach(func() {
+				tests.DeletePVC(tests.CustomISCSI)
+				tests.DeletePV(tests.CustomISCSI)
+			}, 120)
+
+			It("should start vm multiple times", func() {
+				checkReadiness()
+
+				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				tests.AddPVCDisk(vm, "disk1", "virtio", tests.DiskCustomISCSI)
+				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+
+				num := 3
+				By("Starting and stopping the VM number of times")
+				for i := 1; i <= num; i++ {
+					obj := RunVMAndExpectLaunch(vm, false, 120)
+
+					// Verify console on last iteration to verify the VM is still booting properly
+					// after being restarted multiple times
+					if i == num {
+						By("Checking that the second disk is present")
+						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+						defer expecter.Close()
+						Expect(err).To(BeNil())
+						_, err = expecter.ExpectBatch([]expect.Batcher{
+							&expect.BSnd{S: "\n"},
+							&expect.BExp{R: "Welcome to Alpine"},
+							&expect.BSnd{S: "root\n"},
+							&expect.BExp{R: "#"},
+							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
+							&expect.BExp{R: "1000000000"},
+						}, 200*time.Second)
+						Expect(err).ToNot(HaveOccurred())
+					}
+
+					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					Expect(err).To(BeNil())
+
+					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				}
+			})
+		})
 	})
 })
