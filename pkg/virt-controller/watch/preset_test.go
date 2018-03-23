@@ -150,19 +150,31 @@ var _ = Describe("VM Initializer", func() {
 			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("showing no merge conflict occurs for matching preset")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("applying matching preset")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			By("checking annotations were applied and CPU count remains the same")
+			Expect(len(vm.Annotations)).To(Equal(1))
+			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
+
+			By("showing an override occured")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
+			By("applying overriden preset")
 			vm.Annotations = map[string]string{}
-			presets := []v1.VirtualMachinePreset{preset}
-			applyPresets(&vm, presets, recorder)
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 
+			By("checking annotations were not applied and CPU count remains the same")
 			Expect(len(vm.Annotations)).To(Equal(0))
+			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
 		})
 
 		It("Should detect Resource overrides", func() {
@@ -171,27 +183,68 @@ var _ = Describe("VM Initializer", func() {
 				"memory": memory128,
 			}}
 
+			By("demonstrating that override occurs")
 			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
+
+			By("applying mismatch preset")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			By("checking preset was not applied")
+			memory, ok := vm.Spec.Domain.Resources.Requests["memory"]
+			Expect(ok).To(BeTrue())
+			Expect(int(memory.Value())).To(Equal(64000000))
+			Expect(len(vm.Annotations)).To(Equal(0))
 
 			preset.Spec.Domain.Resources = v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 				"memory": memory,
 			}}
 
+			By("demonstrating that no override occurs")
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("applying matching preset")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			By("checking vm settings remain the same")
+			memory, ok = vm.Spec.Domain.Resources.Requests["memory"]
+			Expect(ok).To(BeTrue())
+			Expect(int(memory.Value())).To(Equal(64000000))
+			Expect(len(vm.Annotations)).To(Equal(1))
 		})
 
 		It("Should detect Firmware overrides", func() {
-			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: types.UID("88887777-6666-5555-4444-333322221111")}
+			mismatchUuid := types.UID("88887777-6666-5555-4444-333322221111")
+			matchUuid := types.UID("11112222-3333-4444-5555-666677778888")
 
+			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: mismatchUuid}
+
+			By("showing that an override occurs")
 			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
-			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: types.UID("11112222-3333-4444-5555-666677778888")}
+			By("showing that presets are not applied")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 
+			Expect(len(vm.Annotations)).To(Equal(0))
+			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(matchUuid))
+
+			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: matchUuid}
+
+			By("showing that an override does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("showing settings did not change when preset is applied")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			Expect(len(vm.Annotations)).To(Equal(1))
+			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(matchUuid))
 		})
 
 		It("Should detect Clock overrides", func() {
@@ -199,39 +252,90 @@ var _ = Describe("VM Initializer", func() {
 				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyCatchup}},
 			}
 
+			By("showing that an override occurs")
 			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
+
+			By("showing presets are not applied")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			Expect(len(vm.Annotations)).To(Equal(0))
+			Expect(vm.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
 
 			preset.Spec.Domain.Clock = &v1.Clock{ClockOffset: v1.ClockOffset{},
 				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
 			}
 
+			By("showing that an ovveride does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("showing settings were not changed")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			Expect(len(vm.Annotations)).To(Equal(1))
+			Expect(vm.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
 		})
 
 		It("Should detect Feature overrides", func() {
 			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &falsy}}
+
+			By("showing that an override occurs")
 			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
+
+			By("showing presets are not applied")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			Expect(len(vm.Annotations)).To(Equal(0))
+			Expect(*vm.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
 
 			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
 				APIC:   &v1.FeatureAPIC{Enabled: &falsy},
 				Hyperv: &v1.FeatureHyperv{},
 			}
+
+			By("showing that an ovveride does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("showing settings were not changed")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			Expect(len(vm.Annotations)).To(Equal(1))
+			Expect(*vm.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
 		})
 
 		It("Should detect Watchdog overrides", func() {
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "foo", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
+
+			By("showing that an override occurs")
 			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
+			By("showing presets are not applied")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			Expect(len(vm.Annotations)).To(Equal(0))
+			Expect(vm.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
+
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "testcase", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}}
 
+			By("showing that an ovveride does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("showing settings were not changed")
+			vm.Annotations = map[string]string{}
+			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+
+			Expect(len(vm.Annotations)).To(Equal(1))
+			Expect(vm.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
 		})
 	})
 
@@ -319,12 +423,18 @@ var _ = Describe("VM Initializer", func() {
 				"kubevirt.io/m64": "memory-64",
 				"kubevirt.io/m128": "memory-128",
 			}
+
+			By("applying presets")
 			res := applyPresets(&vm, presets, recorder)
 			Expect(res).To(BeFalse())
 
+			By("checking annotations were not applied")
 			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
 			Expect(annotation).To(Equal(""))
 			Expect(ok).To(BeFalse())
+
+			By("checking settings were not applied to VM")
+			Expect(vm.Spec.Domain.Resources.Requests).To(BeNil())
 		})
 
 		It("should not apply any presets if any conflict", func(){
@@ -334,12 +444,19 @@ var _ = Describe("VM Initializer", func() {
 				"kubevirt.io/m128": "memory-128",
 				"kubevirt.io/cpu": "cpu-4",
 			}
+
+			By("applying presets")
 			res := applyPresets(&vm, presets, recorder)
 			Expect(res).To(BeFalse())
 
+			By("checking annotations were not applied")
 			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
 			Expect(annotation).To(Equal(""))
 			Expect(ok).To(BeFalse())
+
+			By("checking settings were not applied to VM")
+			Expect(vm.Spec.Domain.Resources.Requests).To(BeNil())
+			Expect(vm.Spec.Domain.CPU).To(BeNil())
 		})
 
 		It("should apply presets that don't conflict", func(){
@@ -348,9 +465,11 @@ var _ = Describe("VM Initializer", func() {
 				"kubevirt.io/m64": "memory-64",
 				"kubevirt.io/cpu": "cpu-4",
 			}
+			By("applying presets")
 			res := applyPresets(&vm, presets, recorder)
 			Expect(res).To(BeTrue())
 
+			By("checking annotations were applied")
 			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
 			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
 			Expect(ok).To(BeTrue())
@@ -362,6 +481,14 @@ var _ = Describe("VM Initializer", func() {
 			annotation, ok = vm.Annotations["virtualmachinepreset.kubevirt.io/duplicate-mem"]
 			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
 			Expect(ok).To(BeTrue())
+
+			By("Checking settings were applied")
+			Expect(len(vm.Spec.Domain.Resources.Requests)).To(Equal(1))
+			memory := vm.Spec.Domain.Resources.Requests["memory"]
+			Expect(int(memory.Value())).To(Equal(64000000))
+
+			Expect(vm.Spec.Domain.CPU).ToNot(BeNil())
+			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
 		})
 	})
 
