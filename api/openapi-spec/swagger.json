@@ -3062,6 +3062,7 @@
       "type": "string"
      },
      "imagePullSecret": {
+      "description": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
       "type": "string"
      }
     }

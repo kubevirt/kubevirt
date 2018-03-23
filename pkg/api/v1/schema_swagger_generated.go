@@ -127,8 +127,9 @@ func (EphemeralVolumeSource) SwaggerDoc() map[string]string {
 
 func (RegistryDiskSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "Represents a docker image with an embedded disk",
-		"image": "Image is the name of the image with the embedded disk",
+		"":                "Represents a docker image with an embedded disk",
+		"image":           "Image is the name of the image with the embedded disk",
+		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 	}
 }
 
