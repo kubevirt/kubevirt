@@ -266,7 +266,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: virt-api
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: "virt-api"
 spec:
@@ -281,7 +281,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: virt-api
-  namespace: kube-system
+  namespace: {{ namespace }}
   labels:
     kubevirt.io: "virt-api"
 spec:
