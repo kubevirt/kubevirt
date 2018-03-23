@@ -47,6 +47,7 @@ import (
 
 const (
 	podInterface = "eth0"
+	defaultDNS   = "8.8.8.8"
 	resolvConf   = "/etc/resolv.conf"
 )
 
@@ -150,7 +151,7 @@ func (h *NetworkUtilsHandler) ChangeMacAddr(iface string) (net.HardwareAddr, err
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 	nameservers, err := getNameserversFromPod()
 	if err != nil {
-		log.Log.Errorf("Failed to get DNS servers from resolv.ocnf: %v", err)
+		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 		panic(err)
 	}
 
@@ -201,6 +202,11 @@ func ParseNameservers(content string) ([][]byte, error) {
 
 	if err = scanner.Err(); err != nil {
 		return nameservers, err
+	}
+
+	// apply a default DNS if none found from pod
+	if len(nameservers) == 0 {
+		nameservers = append(nameservers, net.ParseIP(defaultDNS).To4())
 	}
 
 	return nameservers, nil

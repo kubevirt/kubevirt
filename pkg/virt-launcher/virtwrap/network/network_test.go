@@ -164,5 +164,12 @@ var _ = Describe("Network", func() {
 			Expect(nameservers).To(Equal([][]uint8{ns1, ns2}))
 			Expect(err).To(BeNil())
 		})
+
+		It("should return a default nameserver if none is parsed", func() {
+			nameservers, err := ParseNameservers("")
+			expectedDNS := net.ParseIP(defaultDNS).To4()
+			Expect(nameservers).To(Equal([][]uint8{expectedDNS}))
+			Expect(err).To(BeNil())
+		})
 	})
 })
