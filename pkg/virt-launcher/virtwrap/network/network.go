@@ -27,6 +27,7 @@ package network
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -46,9 +47,12 @@ import (
 )
 
 const (
-	podInterface = "eth0"
-	defaultDNS   = "8.8.8.8"
-	resolvConf   = "/etc/resolv.conf"
+	podInterface        = "eth0"
+	defaultDNS          = "8.8.8.8"
+	resolvConf          = "/etc/resolv.conf"
+	defaultSearchDomain = "local"
+	domainSearchPrefix  = "search"
+	nameserverPrefix    = "nameserver"
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
@@ -150,7 +154,7 @@ func (h *NetworkUtilsHandler) ChangeMacAddr(iface string) (net.HardwareAddr, err
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
-	nameservers, err := getNameserversFromPod()
+	nameservers, searchDomains, err := getResolvConfDetailsFromPod()
 	if err != nil {
 		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 		panic(err)
@@ -167,19 +171,34 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 		nic.Gateway,
 		nameservers,
 		nic.Routes,
+		searchDomains,
 	); err != nil {
 		log.Log.Errorf("failed to run DHCP: %v", err)
 		panic(err)
 	}
 }
 
-func getNameserversFromPod() ([][]byte, error) {
+// returns nameservers [][]byte, searchdomains []string, error
+func getResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	b, err := ioutil.ReadFile(resolvConf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return ParseNameservers(string(b))
+	nameservers, err := ParseNameservers(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	searchDomains, err := ParseSearchDomains(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.Log.Reason(err).Errorf("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
+	log.Log.Reason(err).Errorf("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
+
+	return nameservers, searchDomains, err
 }
 
 func ParseNameservers(content string) ([][]byte, error) {
@@ -194,7 +213,7 @@ func ParseNameservers(content string) ([][]byte, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "nameserver") {
+		if strings.HasPrefix(line, nameserverPrefix) {
 			nameserver := re.FindString(line)
 			if nameserver != "" {
 				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
@@ -212,6 +231,32 @@ func ParseNameservers(content string) ([][]byte, error) {
 	}
 
 	return nameservers, nil
+}
+
+func ParseSearchDomains(content string) ([]string, error) {
+	var searchDomains []string
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, domainSearchPrefix) {
+			doms := strings.Fields(strings.TrimLeft(line, domainSearchPrefix))
+			for _, dom := range doms {
+				searchDomains = append(searchDomains, dom)
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(searchDomains) == 0 {
+		searchDomains = append(searchDomains, defaultSearchDomain)
+	}
+
+	return searchDomains, nil
 }
 
 // Allow mocking for tests
