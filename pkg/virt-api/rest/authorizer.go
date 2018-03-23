@@ -9,6 +9,7 @@ import (
 
 	authorization "k8s.io/api/authorization/v1beta1"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
+	restclient "k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
@@ -23,43 +24,86 @@ const (
 
 type VirtApiAuthorizor interface {
 	Authorize(req *restful.Request) (bool, string, error)
+	AddUserHeaders(header []string)
+	GetUserHeaders() []string
+	AddGroupHeaders(header []string)
+	GetGroupHeaders() []string
+	AddExtraPrefixHeaders(header []string)
+	GetExtraPrefixHeaders() []string
 }
 
 type authorizor struct {
+	userHeaders             []string
+	groupHeaders            []string
+	userExtraHeaderPrefixes []string
+
 	subjectAccessReview authorizationclient.SubjectAccessReviewInterface
 }
 
-func getUserGroups(header http.Header) ([]string, error) {
-	groups, ok := header[groupHeader]
-	if ok == false {
-		return nil, fmt.Errorf("%s header is required for authorization", groupHeader)
+func (a *authorizor) getUserGroups(header http.Header) ([]string, error) {
+
+	for _, key := range a.groupHeaders {
+		groups, ok := header[key]
+		if ok {
+			return groups, nil
+		}
 	}
-	return groups, nil
+
+	return nil, fmt.Errorf("a valid group header is required for authorization")
 }
 
-func getUserName(header http.Header) (string, error) {
-	user, ok := header[userHeader]
-	if ok == false {
-		return "", fmt.Errorf("%s header is required for authorization", userHeader)
+func (a *authorizor) getUserName(header http.Header) (string, error) {
+	for _, key := range a.userHeaders {
+		user, ok := header[key]
+		if ok {
+			return user[0], nil
+		}
 	}
-	return user[0], nil
+
+	return "", fmt.Errorf("a valid user header is required for authorization")
 }
 
-func getUserExtras(header http.Header) map[string]authorization.ExtraValue {
+func (a *authorizor) getUserExtras(header http.Header) map[string]authorization.ExtraValue {
 
 	var extras map[string]authorization.ExtraValue
 
-	for k, v := range header {
-		if strings.HasPrefix(k, userExtraHeaderPrefix) {
-			extraKey := strings.TrimPrefix(k, userExtraHeaderPrefix)
-			extras[extraKey] = v
+	for _, prefix := range a.userExtraHeaderPrefixes {
+		for k, v := range header {
+			if strings.HasPrefix(k, prefix) {
+				extraKey := strings.TrimPrefix(k, prefix)
+				extras[extraKey] = v
+			}
 		}
 	}
 
 	return extras
 }
 
-func generateAccessReview(req *restful.Request) (*authorization.SubjectAccessReview, error) {
+func (a *authorizor) AddUserHeaders(headers []string) {
+	a.userHeaders = append(a.userHeaders, headers...)
+}
+
+func (a *authorizor) GetUserHeaders() []string {
+	return a.userHeaders
+}
+
+func (a *authorizor) AddGroupHeaders(headers []string) {
+	a.groupHeaders = append(a.groupHeaders, headers...)
+}
+
+func (a *authorizor) GetGroupHeaders() []string {
+	return a.groupHeaders
+}
+
+func (a *authorizor) AddExtraPrefixHeaders(headers []string) {
+	a.userExtraHeaderPrefixes = append(a.userExtraHeaderPrefixes, headers...)
+}
+
+func (a *authorizor) GetExtraPrefixHeaders() []string {
+	return a.userExtraHeaderPrefixes
+}
+
+func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.SubjectAccessReview, error) {
 
 	httpRequest := req.Request
 
@@ -86,18 +130,18 @@ func generateAccessReview(req *restful.Request) (*authorization.SubjectAccessRev
 	resource := pathSplit[6]
 	resourceName := pathSplit[7]
 	subresource := pathSplit[8]
-	userExtras := getUserExtras(headers)
+	userExtras := a.getUserExtras(headers)
 
 	if resource != "virtualmachines" {
 		return nil, fmt.Errorf("unknown resource type %s", resource)
 	}
 
-	userName, err := getUserName(headers)
+	userName, err := a.getUserName(headers)
 	if err != nil {
 		return nil, err
 	}
 
-	userGroups, err := getUserGroups(headers)
+	userGroups, err := a.getUserGroups(headers)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +207,7 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 		return false, "request is not authenticated", nil
 	}
 
-	r, err := generateAccessReview(req)
+	r, err := a.generateAccessReview(req)
 	if err != nil {
 		// only internal service errors are returned
 		// as an error.
@@ -185,6 +229,26 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 	return false, result.Status.Reason, nil
 }
 
+func NewAuthorizorFromConfig(config *restclient.Config) (VirtApiAuthorizor, error) {
+	client, err := authorizationclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	subjectAccessReview := client.SubjectAccessReviews()
+
+	a := &authorizor{
+		subjectAccessReview: subjectAccessReview,
+	}
+
+	// add default headers
+	a.userHeaders = append(a.userHeaders, userHeader)
+	a.groupHeaders = append(a.groupHeaders, groupHeader)
+	a.userExtraHeaderPrefixes = append(a.userExtraHeaderPrefixes, userExtraHeaderPrefix)
+
+	return a, nil
+}
+
 func NewAuthorizor() (VirtApiAuthorizor, error) {
 	config, err := kubecli.GetConfig()
 	if err != nil {
@@ -193,14 +257,5 @@ func NewAuthorizor() (VirtApiAuthorizor, error) {
 	config.QPS = clientQPS
 	config.Burst = clientBurst
 
-	client, err := authorizationclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	subjectAccessReview := client.SubjectAccessReviews()
-
-	return &authorizor{
-		subjectAccessReview: subjectAccessReview,
-	}, err
+	return NewAuthorizorFromConfig(config)
 }

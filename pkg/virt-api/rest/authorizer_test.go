@@ -62,7 +62,9 @@ var _ = Describe("VM Subresources", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		app.subjectAccessReview = client.SubjectAccessReviews()
-
+		app.userHeaders = append(app.userHeaders, userHeader)
+		app.groupHeaders = append(app.groupHeaders, groupHeader)
+		app.userExtraHeaderPrefixes = append(app.userExtraHeaderPrefixes, userExtraHeaderPrefix)
 	})
 
 	Context("Subresource api", func() {
@@ -80,7 +82,7 @@ var _ = Describe("VM Subresources", func() {
 			req.Request.TLS = &tls.ConnectionState{}
 			req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
 
-			result, err := generateAccessReview(req)
+			result, err := app.generateAccessReview(req)
 			Expect(err).ToNot(HaveOccurred())
 			result.Status.Allowed = false
 			result.Status.Reason = "just because"
@@ -105,7 +107,7 @@ var _ = Describe("VM Subresources", func() {
 			req.Request.TLS = &tls.ConnectionState{}
 			req.Request.TLS.PeerCertificates = append(req.Request.TLS.PeerCertificates, fakecert)
 
-			result, err := generateAccessReview(req)
+			result, err := app.generateAccessReview(req)
 			Expect(err).ToNot(HaveOccurred())
 			result.Status.Allowed = true
 

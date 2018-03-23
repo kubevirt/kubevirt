@@ -2,6 +2,7 @@ package virt_api
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -308,6 +309,17 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 	}
 }
 
+func deserializeStrings(in string) ([]string, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	var ret []string
+	if err := json.Unmarshal([]byte(in), &ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (app *virtAPIApp) getClientCert() error {
 	authConfigMap, err := app.virtCli.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
 	if err != nil {
@@ -325,6 +337,35 @@ func (app *virtAPIApp) getClientCert() error {
 	requestHeaderClientCA, ok := authConfigMap.Data["requestheader-client-ca-file"]
 	if ok {
 		app.requestHeaderClientCABytes = []byte(requestHeaderClientCA)
+	}
+
+	// This config map also contains information about what
+	// headers our authorizor should inspect
+	headers, ok := authConfigMap.Data["requestheader-username-headers"]
+	if ok {
+		headerList, err := deserializeStrings(headers)
+		if err != nil {
+			return err
+		}
+		app.authorizor.AddUserHeaders(headerList)
+	}
+
+	headers, ok = authConfigMap.Data["requestheader-group-headers"]
+	if ok {
+		headerList, err := deserializeStrings(headers)
+		if err != nil {
+			return err
+		}
+		app.authorizor.AddGroupHeaders(headerList)
+	}
+
+	headers, ok = authConfigMap.Data["requestheader-extra-headers-prefix"]
+	if ok {
+		headerList, err := deserializeStrings(headers)
+		if err != nil {
+			return err
+		}
+		app.authorizor.AddExtraPrefixHeaders(headerList)
 	}
 	return nil
 }

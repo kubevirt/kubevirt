@@ -30,6 +30,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
@@ -37,6 +38,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
 var _ = Describe("Virt-api", func() {
@@ -53,6 +55,10 @@ var _ = Describe("Virt-api", func() {
 		Expect(err).ToNot(HaveOccurred())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.certsDirectory = tmpDir
+		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
+		Expect(err).ToNot(HaveOccurred())
+		app.authorizor, err = rest.NewAuthorizorFromConfig(config)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("Virt api server", func() {
@@ -151,6 +157,29 @@ var _ = Describe("Virt-api", func() {
 			err := app.getClientCert()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(app.clientCABytes).To(Equal([]byte("fakedata")))
+			close(done)
+		}, 5)
+
+		It("should auto detect correct request headers from cert configmap", func(done Done) {
+			configMap := &k8sv1.ConfigMap{}
+			configMap.Data = make(map[string]string)
+			configMap.Data["client-ca-file"] = "fakedata"
+			configMap.Data["requestheader-username-headers"] = "[\"fakeheader1\"]"
+			configMap.Data["requestheader-group-headers"] = "[\"fakeheader2\"]"
+			configMap.Data["requestheader-extra-headers-prefix"] = "[\"fakeheader3-\"]"
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, configMap),
+				),
+			)
+
+			err := app.getClientCert()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(app.authorizor.GetUserHeaders()).To(Equal([]string{"X-Remote-User", "fakeheader1"}))
+			Expect(app.authorizor.GetGroupHeaders()).To(Equal([]string{"X-Remote-Group", "fakeheader2"}))
+			Expect(app.authorizor.GetExtraPrefixHeaders()).To(Equal([]string{"X-Remote-Extra-", "fakeheader3-"}))
+
 			close(done)
 		}, 5)
 
