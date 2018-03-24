@@ -54,7 +54,7 @@ func SingleClientDHCPServer(
 		options: dhcp.Options{
 			dhcp.OptionSubnetMask:           []byte(clientMask),
 			dhcp.OptionRouter:               []byte(routerIP),
-			dhcp.OptionDomainNameServer: bytes.Join(dnsIPs, nil),
+			dhcp.OptionDomainNameServer:     bytes.Join(dnsIPs, nil),
 			dhcp.OptionClasslessRouteFormat: netRoutes,
 		},
 	}
