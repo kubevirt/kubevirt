@@ -26,11 +26,13 @@ package network
 */
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 
@@ -43,8 +45,9 @@ import (
 )
 
 const (
-	podInterface = "eth0"
-	guestDNS     = "8.8.8.8"
+	podInterface  = "eth0"
+	guestDNS      = "8.8.8.8"
+	DNSConfigFile = "/etc/resolv.conf"
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
@@ -76,6 +79,7 @@ type NetworkHandler interface {
 	ChangeMacAddr(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr)
+	ReadDNSConfig(config string) []byte
 }
 
 type NetworkUtilsHandler struct{}
@@ -155,12 +159,42 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 		api.DefaultBridgeName,
 		serverAddr.IP,
 		nic.Gateway,
-		net.ParseIP(guestDNS),
+		h.ReadDNSConfig(DNSConfigFile),
 		nic.Routes,
 	); err != nil {
 		log.Log.Errorf("failed to run DHCP: %v", err)
 		panic(err)
 	}
+}
+
+// ReadDNSConfig will return all NS servers from resolv.conf or a default NS
+func (h *NetworkUtilsHandler) ReadDNSConfig(config string) []byte {
+	var servers []byte
+	var nameserver string
+
+	file, err := os.Open(config)
+	if err != nil {
+		log.Log.Warning("failed to open DNS config file")
+		return net.ParseIP(guestDNS).To4()
+	}
+	reader := bufio.NewReader(file)
+	defer file.Close()
+	for line, _, err := reader.ReadLine(); err == nil; line, _, err = reader.ReadLine() {
+		line := string(line)
+		if strings.HasPrefix(line, "nameserver") {
+			field := strings.SplitAfter(line, " ")
+			nameserver = field[1]
+		}
+		if len(servers) < 12 {
+			if ip := net.ParseIP(nameserver); ip != nil {
+				servers = append(servers, ip.To4()...)
+			}
+		}
+	}
+	if len(servers) == 0 {
+		servers = net.ParseIP(guestDNS).To4()
+	}
+	return servers
 }
 
 // Allow mocking for tests
