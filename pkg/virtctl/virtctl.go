@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -24,6 +24,11 @@ import (
 	"os"
 
 	flag "github.com/spf13/pflag"
+)
+
+const (
+	STATUS_OK    = 0
+	STATUS_ERROR = 1
 )
 
 type App interface {
