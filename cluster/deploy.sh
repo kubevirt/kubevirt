@@ -26,7 +26,7 @@ source hack/config.sh
 echo "Deploying ..."
 
 # Deploy the right manifests for the right target
-if [[ -z "$TARGET" ]] || [[ TARGET =~ .*-dev ]]; then
+if [[ -z $TARGET ]] || [[ $TARGET =~ .*-dev ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
 elif [[ $TARGET =~ .*-release ]]; then
     for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
