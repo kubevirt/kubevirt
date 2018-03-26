@@ -28,7 +28,7 @@ const (
 	TUNTAP_TUN_EXCL             TuntapFlag = unix.IFF_TUN_EXCL
 	TUNTAP_NO_PI                TuntapFlag = unix.IFF_NO_PI
 	TUNTAP_ONE_QUEUE            TuntapFlag = unix.IFF_ONE_QUEUE
-	TUNTAP_MULTI_QUEUE          TuntapFlag = unix.IFF_MULTI_QUEUE
+	TUNTAP_MULTI_QUEUE          TuntapFlag = 0x0100
 	TUNTAP_MULTI_QUEUE_DEFAULTS TuntapFlag = TUNTAP_MULTI_QUEUE | TUNTAP_NO_PI
 )
 

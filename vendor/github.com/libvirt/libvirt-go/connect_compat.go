@@ -116,16 +116,5 @@ virDomainPtr virDomainDefineXMLFlagsCompat(virConnectPtr conn,
 #endif
 }
 
-virStoragePoolPtr virStoragePoolLookupByTargetPathCompat(virConnectPtr conn,
-							 const char *path)
-{
-#if LIBVIR_VERSION_NUMBER < 4001000
-    assert(0); // Caller should have checked version
-#else
-    return virStoragePoolLookupByTargetPath(conn, path);
-#endif
-}
-
-
 */
 import "C"

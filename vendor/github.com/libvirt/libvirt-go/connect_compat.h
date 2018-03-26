@@ -212,9 +212,4 @@ virDomainPtr virDomainDefineXMLFlagsCompat(virConnectPtr conn,
 #define VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV 1 << 15
 #endif
 
-/* 4.1.0 */
-
-virStoragePoolPtr virStoragePoolLookupByTargetPathCompat(virConnectPtr conn,
-							 const char *path);
-
 #endif /* LIBVIRT_GO_CONNECT_COMPAT_H__ */

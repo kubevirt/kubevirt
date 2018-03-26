@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	clientv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -99,8 +98,7 @@ var _ = Describe("VM watcher", func() {
 			addInitializedAnnotation(vm)
 
 			// Create the expected VM after the update
-			obj, err := conversion.NewCloner().DeepCopy(vm)
-			Expect(err).ToNot(HaveOccurred())
+			expectedVM := vm.DeepCopy()
 
 			// Create a Pod for the VM
 			temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
@@ -116,7 +114,6 @@ var _ = Describe("VM watcher", func() {
 			podListPostCreate := clientv1.PodList{}
 			podListPostCreate.Items = []clientv1.Pod{*pod}
 
-			expectedVM := obj.(*v1.VirtualMachine)
 			expectedVM.Status.Phase = v1.Scheduling
 
 			// Register the expected REST call
@@ -244,10 +241,7 @@ var _ = Describe("VM watcher", func() {
 			}
 
 			// Create the expected VM after the update
-			obj, err := conversion.NewCloner().DeepCopy(vm)
-			Expect(err).ToNot(HaveOccurred())
-
-			expectedVM := obj.(*v1.VirtualMachine)
+			expectedVM := vm.DeepCopy()
 			expectedVM.Status.Phase = v1.Scheduled
 			expectedVM.Status.NodeName = pod.Spec.NodeName
 			expectedVM.Status.Interfaces = []v1.VirtualMachineNetworkInterface{
