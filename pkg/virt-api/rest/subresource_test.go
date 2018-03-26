@@ -51,7 +51,7 @@ var _ = Describe("VM Subresources", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = v1.Running
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
-			templateService, err := services.NewTemplateService("whatever", "whatever")
+			templateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
 			Expect(err).ToNot(HaveOccurred())
 
 			pod, err := templateService.RenderLaunchManifest(vm)
