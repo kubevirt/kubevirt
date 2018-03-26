@@ -1,5 +1,5 @@
-hash: 3607077064bf003c8eaaa2f615c5f1112c5aa61fd3e15e4f27c6ae5c5dd034fe
-updated: 2018-03-22T13:47:56.069155123Z
+hash: dffb8730cad7839d40d0601ee0fb26e151e1ffb710d28ee537c0f4d0c198ed6d
+updated: 2018-03-26T14:34:19.477269196Z
 imports:
 - name: github.com/asaskevich/govalidator
   version: 7d2e70ef918f16bd6455529af38304d6d025c952
@@ -49,7 +49,7 @@ imports:
   - proto
   - sortkeys
 - name: github.com/golang/glog
-  version: 44145f04b68cf362d9c4df2182967c2275eaefed
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/golang/groupcache
   version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
   subpackages:
@@ -82,6 +82,8 @@ imports:
   - OpenAPIv2
   - compiler
   - extensions
+- name: github.com/gorilla/websocket
+  version: 0647012449a1878977514a346b26637dd022446c
 - name: github.com/gregjones/httpcache
   version: 787624de3eb7bd915c329cba748687a3b22666a6
   subpackages:
@@ -157,7 +159,7 @@ imports:
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/spf13/pflag
-  version: ee5fd03fd6acfd43e44aea0b4135958546ed8e73
+  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - name: github.com/subgraph/libmacouflage
   version: 973191b8743358463d8f3abc9c6dc585f2c1e7fc
 - name: github.com/vishvananda/netlink
@@ -190,7 +192,6 @@ imports:
   - internal/socket
   - ipv4
   - lex/httplex
-  - websocket
 - name: golang.org/x/sys
   version: 95c6576299259db960f6c5b9b69ea52422860fce
   subpackages:
@@ -222,7 +223,7 @@ imports:
   - unicode/norm
   - width
 - name: google.golang.org/grpc
-  version: dfbefc6795cd46d1b52c409c02bcd4230fbf8cfd
+  version: d2e1b51f33ff8c5e4a15560ff049d200e83726c5
   subpackages:
   - codes
 - name: gopkg.in/inf.v0
@@ -401,11 +402,20 @@ imports:
   - transport/spdy
   - util/buffer
   - util/cert
+  - util/cert/triple
   - util/exec
   - util/flowcontrol
   - util/homedir
   - util/integer
   - util/workqueue
+- name: k8s.io/kube-aggregator
+  version: 505830b89d46ab904b2671e545e155a5ca97af82
+  subpackages:
+  - pkg/apis/apiregistration
+  - pkg/apis/apiregistration/v1beta1
+  - pkg/client/clientset_generated/clientset
+  - pkg/client/clientset_generated/clientset/scheme
+  - pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
 - name: k8s.io/kube-openapi
   version: 39a7bf85c140f972372c2a0d1ee40adbf0c8bfe1
   subpackages:

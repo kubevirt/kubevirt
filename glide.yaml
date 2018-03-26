@@ -30,6 +30,8 @@ import:
   version: v6.0.0
 - package: k8s.io/apimachinery
   version: 180eddb345a5be3a157cea1c624700ad5bd27b8f
+- package: k8s.io/kube-aggregator
+  version: 505830b89d46ab904b2671e545e155a5ca97af82
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
 - package: github.com/mailru/easyjson
@@ -41,6 +43,9 @@ import:
   version: d35d6b58e1cb692b27b94fc403170bf44058ac3e
 - package: github.com/libvirt/libvirt-go
   version: v3.7.0
+- package: github.com/gorilla/websocket
+  version: 0647012449a1878977514a346b26637dd022446c
+- package: google.golang.org/grpc
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
@@ -58,6 +63,5 @@ testImport:
 - package: gopkg.in/check.v1
 - package: github.com/google/goexpect
 - package: github.com/google/goterm
-- package: google.golang.org/grpc
 - package: github.com/krolaw/dhcp4
 - package: github.com/subgraph/libmacouflage
