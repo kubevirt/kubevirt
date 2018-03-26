@@ -35,7 +35,7 @@ import (
 var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
-	svc, err := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt")
+	svc, err := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1")
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
@@ -212,6 +212,77 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Volumes)).To(Equal(3))
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
+			})
+		})
+
+		Context("with launcher's pull secret", func() {
+			It("should contain launcher's secret in pod spec", func() {
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvm", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).To(BeNil())
+
+				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(1))
+				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-1"))
+			})
+
+		})
+
+		Context("with RegistryDisk pull secrets", func() {
+			volumes := []v1.Volume{
+				{
+					Name: "registrydisk1",
+					VolumeSource: v1.VolumeSource{
+						RegistryDisk: &v1.RegistryDiskSource{
+							Image:           "my-image-1",
+							ImagePullSecret: "pull-secret-2",
+						},
+					},
+				},
+				{
+					Name: "registrydisk2",
+					VolumeSource: v1.VolumeSource{
+						RegistryDisk: &v1.RegistryDiskSource{
+							Image: "my-image-2",
+						},
+					},
+				},
+			}
+
+			vm := v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvm", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+			}
+
+			It("should add secret to pod spec", func() {
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).To(BeNil())
+
+				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))
+
+				// RegistryDisk secrets come first
+				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-2"))
+				Expect(pod.Spec.ImagePullSecrets[1].Name).To(Equal("pull-secret-1"))
+			})
+
+			It("should deduplicate identical secrets", func() {
+				volumes[1].VolumeSource.RegistryDisk.ImagePullSecret = "pull-secret-2"
+
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).To(BeNil())
+
+				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))
+
+				// RegistryDisk secrets come first
+				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-2"))
+				Expect(pod.Spec.ImagePullSecrets[1].Name).To(Equal("pull-secret-1"))
 			})
 		})
 	})

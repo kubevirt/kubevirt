@@ -37,6 +37,8 @@ const (
 
 	launcherImage = "virt-launcher"
 
+	imagePullSecret = ""
+
 	virtShareDir = "/var/run/kubevirt"
 
 	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
@@ -76,6 +78,7 @@ type VirtControllerApp struct {
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
+	imagePullSecret  string
 	virtShareDir     string
 	ephemeralDiskDir string
 	readyChan        chan bool
@@ -220,7 +223,7 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.virtShareDir)
+	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -267,6 +270,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.launcherImage, "launcher-image", launcherImage,
 		"Shim container for containerized VMs")
+
+	flag.StringVar(&vca.imagePullSecret, "image-pull-secret", imagePullSecret,
+		"Secret to use for pulling virt-launcher and/or registry disks")
 
 	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
