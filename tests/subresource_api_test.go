@@ -60,7 +60,7 @@ var _ = Describe("Subresource Api", func() {
 })
 
 func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool) {
-	namespace := "default"
+	namespace := tests.NamespaceTestDefault
 	expectedPhase := k8sv1.PodFailed
 	name := "subresource-access-tester"
 	job := &k8sv1.Pod{
@@ -83,7 +83,7 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool) {
 	}
 
 	if withServiceAccount {
-		job.Spec.ServiceAccountName = "kubevirt-subresource-test-user"
+		job.Spec.ServiceAccountName = tests.SubresourceServiceAccountName
 		expectedPhase = k8sv1.PodSucceeded
 	}
 
