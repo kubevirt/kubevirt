@@ -45,18 +45,24 @@ func SingleClientDHCPServer(
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
+	dhcpOptions := dhcp.Options{
+		dhcp.OptionSubnetMask:       []byte(clientMask),
+		dhcp.OptionRouter:           []byte(routerIP),
+		dhcp.OptionDomainNameServer: bytes.Join(dnsIPs, nil),
+	}
+
 	netRoutes := FormClasslessRoutes(routes, routerIP)
+
+	if netRoutes != nil {
+		dhcpOptions[dhcp.OptionClasslessRouteFormat] = netRoutes
+	}
+
 	handler := &DHCPHandler{
 		clientIP:      clientIP,
 		clientMAC:     clientMAC,
 		serverIP:      serverIP.To4(),
 		leaseDuration: infiniteLease,
-		options: dhcp.Options{
-			dhcp.OptionSubnetMask:           []byte(clientMask),
-			dhcp.OptionRouter:               []byte(routerIP),
-			dhcp.OptionDomainNameServer:     bytes.Join(dnsIPs, nil),
-			dhcp.OptionClasslessRouteFormat: netRoutes,
-		},
+		options:       dhcpOptions,
 	}
 
 	l, err := dhcpConn.NewUDP4BoundListener(serverIface, ":67")

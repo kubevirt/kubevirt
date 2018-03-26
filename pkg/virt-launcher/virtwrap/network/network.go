@@ -337,7 +337,11 @@ func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 	if len(routes) > 1 {
 		// Filter out irrelevant routes
 		for _, route := range routes[1:] {
-			if !route.Src.Equal(nic.IP.IP) && !route.Dst.IP.Equal(nic.Gateway) {
+			if route.Dst.IP.Equal(nic.Gateway) && route.Src.Equal(nil) {
+				continue
+			}
+
+			if !route.Src.Equal(nic.IP.IP) {
 				dhcpRoutes = append(dhcpRoutes, route)
 			}
 		}
