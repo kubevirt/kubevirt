@@ -150,22 +150,22 @@ func FormClasslessRoutes(routes *[]netlink.Route, routerIP net.IP) (formattedRou
 
 func convertSearchDomainsToBytes(searchDomainStrings []string) ([]byte, error) {
 	/*
-        https://tools.ietf.org/html/rfc3397
-        https://tools.ietf.org/html/rfc1035
+	   https://tools.ietf.org/html/rfc3397
+	   https://tools.ietf.org/html/rfc1035
 
-        Option for search domain string is covered by RFC3397, option contains
-        RFC1035 domain data.
+	   Option for search domain string is covered by RFC3397, option contains
+	   RFC1035 domain data.
 
-        Convert domain strings to a DNS RFC1035 section 3.1 compatible byte slice.
-        This is basically just splitting the domain on dot and prepending each
-        substring with a byte that indicates its length. Then we join and null terminate.
+	   Convert domain strings to a DNS RFC1035 section 3.1 compatible byte slice.
+	   This is basically just splitting the domain on dot and prepending each
+	   substring with a byte that indicates its length. Then we join and null terminate.
 
-        "example.com" becomes:
-        []byte{7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0}
+	   "example.com" becomes:
+	   []byte{7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0}
 
-        Note that there is a compression scheme described in section 4.1.4 where pointers
-        can be used to avoid duplication. This is optional for servers, and resolv.conf
-        limits max search domain length anyway, so we can skip compression.
+	   Note that there is a compression scheme described in section 4.1.4 where pointers
+	   can be used to avoid duplication. This is optional for servers, and resolv.conf
+	   limits max search domain length anyway, so we can skip compression.
 	*/
 	var searchDomainBytes []byte
 	for _, domain := range searchDomainStrings {
