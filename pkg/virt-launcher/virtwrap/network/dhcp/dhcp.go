@@ -40,7 +40,7 @@ func SingleClientDHCPServer(
 	serverIface string,
 	serverIP net.IP,
 	routerIP net.IP,
-	dnsIP net.IP,
+	dnsIPs [][]byte,
 	routes *[]netlink.Route) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
@@ -54,7 +54,7 @@ func SingleClientDHCPServer(
 		options: dhcp.Options{
 			dhcp.OptionSubnetMask:           []byte(clientMask),
 			dhcp.OptionRouter:               []byte(routerIP),
-			dhcp.OptionDomainNameServer:     []byte(dnsIP.To4()),
+			dhcp.OptionDomainNameServer:     bytes.Join(dnsIPs, nil),
 			dhcp.OptionClasslessRouteFormat: netRoutes,
 		},
 	}

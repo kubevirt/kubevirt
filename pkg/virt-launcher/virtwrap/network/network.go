@@ -26,11 +26,14 @@ package network
 */
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 
@@ -44,7 +47,8 @@ import (
 
 const (
 	podInterface = "eth0"
-	guestDNS     = "8.8.8.8"
+	defaultDNS   = "8.8.8.8"
+	resolvConf   = "/etc/resolv.conf"
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
@@ -146,21 +150,68 @@ func (h *NetworkUtilsHandler) ChangeMacAddr(iface string) (net.HardwareAddr, err
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
+	nameservers, err := getNameserversFromPod()
+	if err != nil {
+		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
+		panic(err)
+	}
+
 	// panic in case the DHCP server failed during the vm creation
 	// but ignore dhcp errors when the vm is destroyed or shutting down
-	if err := DHCPServer(
+	if err = DHCPServer(
 		nic.MAC,
 		nic.IP.IP,
 		nic.IP.Mask,
 		api.DefaultBridgeName,
 		serverAddr.IP,
 		nic.Gateway,
-		net.ParseIP(guestDNS),
+		nameservers,
 		nic.Routes,
 	); err != nil {
 		log.Log.Errorf("failed to run DHCP: %v", err)
 		panic(err)
 	}
+}
+
+func getNameserversFromPod() ([][]byte, error) {
+	b, err := ioutil.ReadFile(resolvConf)
+	if err != nil {
+		return nil, err
+	}
+
+	return ParseNameservers(string(b))
+}
+
+func ParseNameservers(content string) ([][]byte, error) {
+	var nameservers [][]byte
+
+	re, err := regexp.Compile("([0-9]{1,3}.?){4}")
+	if err != nil {
+		return nameservers, err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "nameserver") {
+			nameserver := re.FindString(line)
+			if nameserver != "" {
+				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
+			}
+		}
+	}
+
+	if err = scanner.Err(); err != nil {
+		return nameservers, err
+	}
+
+	// apply a default DNS if none found from pod
+	if len(nameservers) == 0 {
+		nameservers = append(nameservers, net.ParseIP(defaultDNS).To4())
+	}
+
+	return nameservers, nil
 }
 
 // Allow mocking for tests

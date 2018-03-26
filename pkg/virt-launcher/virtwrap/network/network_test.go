@@ -147,4 +147,29 @@ var _ = Describe("Network", func() {
 			Expect(testNetworkPanic).To(Panic())
 		})
 	})
+
+	Context("Function ParseNameservers()", func() {
+		It("should return a byte array of nameservers", func() {
+			ns1, ns2 := []uint8{8, 8, 8, 8}, []uint8{8, 8, 4, 4}
+			resolvConf := "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
+			nameservers, err := ParseNameservers(resolvConf)
+			Expect(nameservers).To(Equal([][]uint8{ns1, ns2}))
+			Expect(err).To(BeNil())
+		})
+
+		It("should ignore non-nameserver lines and malformed nameserver lines", func() {
+			ns1, ns2 := []uint8{8, 8, 8, 8}, []uint8{8, 8, 4, 4}
+			resolvConf := "search example.com\nnameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver mynameserver\n"
+			nameservers, err := ParseNameservers(resolvConf)
+			Expect(nameservers).To(Equal([][]uint8{ns1, ns2}))
+			Expect(err).To(BeNil())
+		})
+
+		It("should return a default nameserver if none is parsed", func() {
+			nameservers, err := ParseNameservers("")
+			expectedDNS := net.ParseIP(defaultDNS).To4()
+			Expect(nameservers).To(Equal([][]uint8{expectedDNS}))
+			Expect(err).To(BeNil())
+		})
+	})
 })
