@@ -50,7 +50,7 @@ const (
 	podInterface        = "eth0"
 	defaultDNS          = "8.8.8.8"
 	resolvConf          = "/etc/resolv.conf"
-	defaultSearchDomain = "local"
+	defaultSearchDomain = "cluster.local"
 	domainSearchPrefix  = "search"
 	nameserverPrefix    = "nameserver"
 )
