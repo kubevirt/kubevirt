@@ -7,10 +7,7 @@ image="k8s-1.9.3@sha256:2f1600681800f70de293d2d35fa129bfd2c64e14ea01bab0284e4caf
 source cluster/ephemeral-provider-common.sh
 
 function up() {
-    # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
-    local num_nodes=${VAGRANT_NUM_NODES-0}
-    num_nodes=$((num_nodes + 1))
-    ${_cli} run --nodes ${num_nodes} --random-ports --nfs-data /home/rmohr --background --prefix $provider_prefix --registry-volume $(_registry_volume) --base "kubevirtci/${image}"
+    ${_cli} run $(_add_common_params)
     ${_cli} ssh --prefix $provider_prefix node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
 
     chmod 0600 ${KUBEVIRT_PATH}cluster/vagrant.key

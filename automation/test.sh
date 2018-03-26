@@ -37,6 +37,7 @@ else
 fi
 
 export VAGRANT_NUM_NODES=1
+export NFS_WINDOWS_DIR=${NFS_WINDOWS_DIR:-/home/nfs/images/windows2016}
 
 kubectl() { cluster/kubectl.sh "$@"; }
 
@@ -83,5 +84,29 @@ done
 kubectl get pods -n ${NAMESPACE}
 kubectl version
 
+ginko_params="--ginkgo.noColor"
+
+# Prepare PV for windows testing
+if [[ -d $NFS_WINDOWS_DIR ]] && [[ $TARGET == windows ]]; then
+    kubectl create -f - <<EOF
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: disk-windows
+  labels:
+    kubevirt.io/test: "windows"
+spec:
+  capacity:
+    storage: 30Gi
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    server: "nfs"
+    path: /
+EOF
+ginko_params="$ginko_params --ginkgo.focus=Windows"
+fi
+
 # Run functional tests
-FUNC_TEST_ARGS="--ginkgo.noColor" make functest
+FUNC_TEST_ARGS=$ginko_params make functest
