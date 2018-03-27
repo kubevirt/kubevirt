@@ -915,6 +915,28 @@ var _ = Describe("VM Initializer", func() {
 
 			_, found := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
 			Expect(found).To(BeFalse())
+
+			Expect(vm.Status.Phase).ToNot(Equal(v1.Failed))
+		})
+
+		It("should not mark a VM without presets as failed", func() {
+			vm := v1.NewMinimalVM("testvm")
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+			err := app.vmPresetController.initializeVirtualMachine(vm)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
+
+			_, found := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+			Expect(found).To(BeFalse())
+
+			Expect(vm.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 	})
 })

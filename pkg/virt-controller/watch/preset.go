@@ -131,7 +131,7 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 	// Collect all errors and defer returning until after the update
 	logger := log.Log
 	var err error
-	var success bool
+	success := true
 
 	logger.Object(vm).Info("Initializing VirtualMachine")
 

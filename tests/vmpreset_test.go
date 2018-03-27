@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -50,8 +51,10 @@ var _ = Describe("VMPreset", func() {
 
 	flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 	memoryFlavor := "memory-test"
+	memoryPrefix := "test-memory-"
 	memory, _ := resource.ParseQuantity("128M")
 
+	cpuPrefix := "test-cpu"
 	cpuFlavor := "cpu-test"
 	cores := 7
 
@@ -62,7 +65,7 @@ var _ = Describe("VMPreset", func() {
 
 		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: memoryFlavor}}
 		memoryPreset = &v1.VirtualMachinePreset{
-			ObjectMeta: k8smetav1.ObjectMeta{GenerateName: "test-memory-"},
+			ObjectMeta: k8smetav1.ObjectMeta{GenerateName: memoryPrefix},
 			Spec: v1.VirtualMachinePresetSpec{
 				Selector: selector,
 				Domain: &v1.DomainSpec{
@@ -74,7 +77,7 @@ var _ = Describe("VMPreset", func() {
 
 		selector = k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: cpuFlavor}}
 		cpuPreset = &v1.VirtualMachinePreset{
-			ObjectMeta: k8smetav1.ObjectMeta{GenerateName: "test-cpu-"},
+			ObjectMeta: k8smetav1.ObjectMeta{GenerateName: cpuPrefix},
 			Spec: v1.VirtualMachinePresetSpec{
 				Selector: selector,
 				Domain: &v1.DomainSpec{
@@ -82,6 +85,7 @@ var _ = Describe("VMPreset", func() {
 				},
 			},
 		}
+
 	})
 
 	Context("Preset Matching", func() {
@@ -93,11 +97,12 @@ var _ = Describe("VMPreset", func() {
 
 		It("Should reject a second submission of a VMPreset", func() {
 			// This test requires an explicit name or the resources won't conflict
-			memoryPreset.Name = "test-preset"
+			presetName := "test-preset"
+			memoryPreset.Name = presetName
 			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			waitForPreset(virtClient)
+			waitForPreset(virtClient, presetName)
 
 			b, err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).DoRaw()
 			Expect(err).To(HaveOccurred())
@@ -119,7 +124,7 @@ var _ = Describe("VMPreset", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newPreset := waitForPreset(virtClient)
+			newPreset := waitForPreset(virtClient, memoryPrefix)
 
 			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
@@ -139,7 +144,7 @@ var _ = Describe("VMPreset", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(cpuPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newPreset := waitForPreset(virtClient)
+			newPreset := waitForPreset(virtClient, cpuPrefix)
 
 			vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
 			vm.Labels = map[string]string{flavorKey: cpuFlavor}
@@ -164,7 +169,7 @@ var _ = Describe("VMPreset", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newPreset := waitForPreset(virtClient)
+			newPreset := waitForPreset(virtClient, memoryPrefix)
 
 			// reset the label so it will not match
 			vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
@@ -177,6 +182,8 @@ var _ = Describe("VMPreset", func() {
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
 			_, found := newVm.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
+
+			Expect(newVm.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
 		It("Should not be applied to existing VMs", func() {
@@ -189,25 +196,80 @@ var _ = Describe("VMPreset", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newPreset := waitForPreset(virtClient)
+			newPreset := waitForPreset(virtClient, memoryPrefix)
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
 			_, found := newVm.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
+			Expect(newVm.Status.Phase).ToNot(Equal(v1.Failed))
+		})
+	})
+
+	Context("Conflict", func() {
+		var conflictPreset *v1.VirtualMachinePreset
+
+		conflictKey := fmt.Sprintf("%s/conflict", v1.GroupName)
+		conflictFlavor := "conflict-test"
+		conflictMemory, _ := resource.ParseQuantity("256M")
+		conflictPrefix := "test-conflict-"
+
+		BeforeEach(func() {
+			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{conflictKey: conflictFlavor}}
+			conflictPreset = &v1.VirtualMachinePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: conflictPrefix},
+				Spec: v1.VirtualMachinePresetSpec{
+					Selector: selector,
+					Domain: &v1.DomainSpec{
+						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
+							"memory": conflictMemory}},
+					},
+				},
+			}
+		})
+
+		It("should not apply any presets in case of conflict", func() {
+			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(conflictPreset).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			newConflictPreset := waitForPreset(virtClient, conflictPrefix)
+
+			err = virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			newMemoryPreset := waitForPreset(virtClient, memoryPrefix)
+
+			vm.Labels = map[string]string{flavorKey: memoryFlavor, conflictKey: conflictFlavor}
+			By("creating the VM")
+			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			newVm := waitForVirtualMachine(virtClient)
+
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newMemoryPreset.Name)
+			_, found := newVm.Annotations[annotationKey]
+			Expect(found).To(BeFalse())
+
+			annotationKey = fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newConflictPreset.Name)
+			_, found = newVm.Annotations[annotationKey]
+			Expect(found).To(BeFalse())
+
+			Expect(newVm.Status.Phase).To(Equal(v1.Failed))
 		})
 	})
 })
 
-func waitForPreset(virtClient kubecli.KubevirtClient) v1.VirtualMachinePreset {
+func waitForPreset(virtClient kubecli.KubevirtClient, prefix string) v1.VirtualMachinePreset {
 	preset := v1.VirtualMachinePreset{}
 	Eventually(func() bool {
 		presetList := v1.VirtualMachinePresetList{}
 		err := virtClient.RestClient().Get().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Do().Into(&presetList)
 		Expect(err).ToNot(HaveOccurred())
-		if len(presetList.Items) == 1 {
-			preset = presetList.Items[0]
-			return true
+		for _, thisPreset := range presetList.Items {
+			if strings.HasPrefix(thisPreset.Name, prefix) {
+				preset = thisPreset
+				return true
+			}
 		}
 		return false
 	}, time.Duration(60)*time.Second).Should(Equal(true), "Timed out waiting for preset to appear")
