@@ -40,6 +40,7 @@ var _ = Describe("Network", func() {
 	var ctrl *gomock.Controller
 	var dummy *netlink.Dummy
 	var addrList []netlink.Addr
+	var staticRoute netlink.Route
 	var routeList []netlink.Route
 	var routeAddr netlink.Route
 	var fakeMac net.HardwareAddr
@@ -68,7 +69,13 @@ var _ = Describe("Network", func() {
 		fakeAddr = netlink.Addr{IPNet: address}
 		addrList = []netlink.Addr{fakeAddr}
 		routeAddr = netlink.Route{Gw: gw}
-		routeList = []netlink.Route{routeAddr}
+		staticRoute = netlink.Route{
+			Dst: &net.IPNet{IP: net.IPv4(10, 45, 0, 10), Mask: net.CIDRMask(32, 32)},
+			Gw:  net.IPv4(10, 25, 0, 1),
+		}
+		gwRoute := netlink.Route{Dst: &net.IPNet{IP: gw, Mask: net.CIDRMask(32, 32)}}
+		nicRoute := netlink.Route{Src: address.IP}
+		routeList = []netlink.Route{routeAddr, gwRoute, nicRoute, staticRoute}
 
 		// Create a bridge
 		bridgeTest = &netlink.Bridge{
@@ -145,6 +152,13 @@ var _ = Describe("Network", func() {
 				SetupPodNetwork(domain)
 			}
 			Expect(testNetworkPanic).To(Panic())
+		})
+	})
+
+	Context("func filterPodNetworkRoutes()", func() {
+		It("should remove default gateway and source IP from routes, leaving others intact", func() {
+			expected := []netlink.Route{staticRoute}
+			Expect(filterPodNetworkRoutes(routeList, testNic)).To(Equal(expected))
 		})
 	})
 
