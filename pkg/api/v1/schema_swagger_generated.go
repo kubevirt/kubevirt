@@ -4,7 +4,7 @@ package v1
 
 func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+		"":               "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+k8s:openapi-gen=true",
 		"secretRef":      "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
 		"userDataBase64": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string\n+ optional",
 		"userData":       "UserData contains NoCloud inline cloud-init userdata\n+ optional",
@@ -13,6 +13,7 @@ func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 
 func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":          "+k8s:openapi-gen=true",
 		"resources": "Resources describes the Compute Resources required by this vm.",
 		"cpu":       "CPU allow specified the detailed CPU topology inside the vm.\n+optional",
 		"machine":   "Machine type\n+optional",
@@ -25,6 +26,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"requests": "Requests is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
 		"limits":   "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
 	}
@@ -32,25 +34,28 @@ func (ResourceRequirements) SwaggerDoc() map[string]string {
 
 func (CPU) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "CPU allow specifying the CPU topology",
+		"":      "CPU allow specifying the CPU topology\n+k8s:openapi-gen=true",
 		"cores": "Cores specifies the number of cores inside the vm.\nMust be a value greater or equal 1.",
 	}
 }
 
 func (Machine) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":     "+k8s:openapi-gen=true",
 		"type": "QEMU machine type is the actual chipset of the VM.",
 	}
 }
 
 func (Firmware) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":     "+k8s:openapi-gen=true",
 		"uuid": "UUID reported by the vm bios\nDefaults to a random generated uid",
 	}
 }
 
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"disks":    "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
 		"watchdog": "Watchdog describes a watchdog device which can be added to the vm",
 	}
@@ -58,6 +63,7 @@ func (Devices) SwaggerDoc() map[string]string {
 
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":           "+k8s:openapi-gen=true",
 		"name":       "Name is the device name",
 		"volumeName": "Name of the volume which is referenced\nMust match the Name of a Volume.",
 	}
@@ -65,7 +71,7 @@ func (Disk) SwaggerDoc() map[string]string {
 
 func (DiskDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "Represents the target of a volume to mount.\nOnly one of its members may be specified.",
+		"":       "Represents the target of a volume to mount.\nOnly one of its members may be specified.\n+k8s:openapi-gen=true",
 		"disk":   "Attach a volume as a disk to the vm",
 		"lun":    "Attach a volume as a LUN to the vm",
 		"floppy": "Attach a volume as a floppy to the vm",
@@ -75,6 +81,7 @@ func (DiskDevice) SwaggerDoc() map[string]string {
 
 func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
 		"readonly": "ReadOnly\nDefaults to false",
 	}
@@ -82,6 +89,7 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 
 func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
 		"readonly": "ReadOnly\nDefaults to false",
 	}
@@ -89,6 +97,7 @@ func (LunTarget) SwaggerDoc() map[string]string {
 
 func (FloppyTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"readonly": "ReadOnly\nDefaults to false",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
 	}
@@ -96,6 +105,7 @@ func (FloppyTarget) SwaggerDoc() map[string]string {
 
 func (CDRomTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
 		"readonly": "ReadOnly\nDefaults to true",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
@@ -104,14 +114,14 @@ func (CDRomTarget) SwaggerDoc() map[string]string {
 
 func (Volume) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "Volume represents a named volume in a vm.",
+		"":     "Volume represents a named volume in a vm.\n+k8s:openapi-gen=true",
 		"name": "Volume's name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 	}
 }
 
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
+		"": "Represents the source of a volume to mount.\nOnly one of its members may be specified.\n+k8s:openapi-gen=true",
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
@@ -122,6 +132,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"": "+k8s:openapi-gen=true",
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 	}
 }
@@ -135,7 +146,7 @@ func (EmptyDiskSource) SwaggerDoc() map[string]string {
 
 func (RegistryDiskSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "Represents a docker image with an embedded disk",
+		"":                "Represents a docker image with an embedded disk\n+k8s:openapi-gen=true",
 		"image":           "Image is the name of the image with the embedded disk",
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 	}
@@ -143,7 +154,7 @@ func (RegistryDiskSource) SwaggerDoc() map[string]string {
 
 func (ClockOffset) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Exactly one of its members must be set.",
+		"":         "Exactly one of its members must be set.\n+k8s:openapi-gen=true",
 		"utc":      "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and are not reset.",
 		"timezone": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York')",
 	}
@@ -151,21 +162,21 @@ func (ClockOffset) SwaggerDoc() map[string]string {
 
 func (ClockOffsetUTC) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "UTC sets the guest clock to UTC on each boot.",
+		"":              "UTC sets the guest clock to UTC on each boot.\n+k8s:openapi-gen=true",
 		"offsetSeconds": "OffsetSeconds specifies an offset in seconds, relative to UTC. If set,\nguest changes to the clock will be kept during reboots and not reset.",
 	}
 }
 
 func (Clock) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "Represents the clock and timers of a vm",
+		"":      "Represents the clock and timers of a vm\n+k8s:openapi-gen=true",
 		"timer": "Timer specifies whih timers are attached to the vm",
 	}
 }
 
 func (Timer) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "Represents all available timers in a vm",
+		"":       "Represents all available timers in a vm\n+k8s:openapi-gen=true",
 		"hpet":   "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
 		"kvm":    "KVM \t(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.",
 		"pit":    "PIT (Programmable Interval Timer) - a timer with periodic interrupts.",
@@ -176,6 +187,7 @@ func (Timer) SwaggerDoc() map[string]string {
 
 func (RTCTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":           "+k8s:openapi-gen=true",
 		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\"",
 		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 		"track":      "Track the guest or the wall clock",
@@ -184,6 +196,7 @@ func (RTCTimer) SwaggerDoc() map[string]string {
 
 func (HPETTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":           "+k8s:openapi-gen=true",
 		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
 		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 	}
@@ -191,6 +204,7 @@ func (HPETTimer) SwaggerDoc() map[string]string {
 
 func (PITTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":           "+k8s:openapi-gen=true",
 		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"discard\"",
 		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 	}
@@ -198,18 +212,21 @@ func (PITTimer) SwaggerDoc() map[string]string {
 
 func (KVMTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":        "+k8s:openapi-gen=true",
 		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 	}
 }
 
 func (HypervTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":        "+k8s:openapi-gen=true",
 		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
 	}
 }
 
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":       "+k8s:openapi-gen=true",
 		"acpi":   "ACPI enables/disables ACPI insidejsondata guest\nDefaults to enabled\n+optional",
 		"apic":   "Defaults to the machine type setting\n+optional",
 		"hyperv": "Defaults to the machine type setting\n+optional",
@@ -218,13 +235,14 @@ func (Features) SwaggerDoc() map[string]string {
 
 func (FeatureState) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "Represents if a feature is enabled or disabled",
+		"":        "Represents if a feature is enabled or disabled\n+k8s:openapi-gen=true",
 		"enabled": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
 	}
 }
 
 func (FeatureAPIC) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":               "+k8s:openapi-gen=true",
 		"enabled":        "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
 		"endOfInterrupt": "EndOfInterrupt enables the end of interrupt notification in the guest\nDefaults to false\n+optional",
 	}
@@ -232,6 +250,7 @@ func (FeatureAPIC) SwaggerDoc() map[string]string {
 
 func (FeatureSpinlocks) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":          "+k8s:openapi-gen=true",
 		"enabled":   "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
 		"spinlocks": "Retries indicates the number of retries\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
 	}
@@ -239,6 +258,7 @@ func (FeatureSpinlocks) SwaggerDoc() map[string]string {
 
 func (FeatureVendorID) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"enabled":  "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
 		"vendorid": "VendorID sets the hypervisor vendor id, visible to the vm\nString up to twelve characters",
 	}
@@ -246,7 +266,7 @@ func (FeatureVendorID) SwaggerDoc() map[string]string {
 
 func (FeatureHyperv) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "Hyperv specific features",
+		"":           "Hyperv specific features\n+k8s:openapi-gen=true",
 		"relaxed":    "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
 		"vapic":      "VAPIC indicates whether virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
 		"spinlocks":  "Spinlocks indicates if spinlocks should be made available to the guest\n+optional",
@@ -261,21 +281,21 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 
 func (Watchdog) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "Named watchdog device",
+		"":     "Named watchdog device\n+k8s:openapi-gen=true",
 		"name": "Name of the watchdog",
 	}
 }
 
 func (WatchdogDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Hardware watchdog device\nExactly one of its members must be set.",
+		"":         "Hardware watchdog device\nExactly one of its members must be set.\n+k8s:openapi-gen=true",
 		"i6300esb": "i6300esb watchdog device\n+optional",
 	}
 }
 
 func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "i6300esb watchdog device",
+		"":       "i6300esb watchdog device\n+k8s:openapi-gen=true",
 		"action": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
 	}
 }

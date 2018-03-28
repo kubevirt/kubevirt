@@ -3158,7 +3158,7 @@
     }
    },
    "v1.Affinity": {
-    "description": "Affinity groups all the affinity rules related to a VM",
+    "description": "Affinity groups all the affinity rules related to a VM\n+k8s:openapi-gen=true",
     "properties": {
      "nodeAffinity": {
       "description": "Node affinity support",
@@ -3167,6 +3167,7 @@
     }
    },
    "v1.CDRomTarget": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "bus": {
       "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
@@ -3183,7 +3184,7 @@
     }
    },
    "v1.CPU": {
-    "description": "CPU allow specifying the CPU topology",
+    "description": "CPU allow specifying the CPU topology\n+k8s:openapi-gen=true",
     "properties": {
      "cores": {
       "description": "Cores specifies the number of cores inside the vm.\nMust be a value greater or equal 1.",
@@ -3192,7 +3193,7 @@
     }
    },
    "v1.Clock": {
-    "description": "Represents the clock and timers of a vm",
+    "description": "Represents the clock and timers of a vm\n+k8s:openapi-gen=true",
     "required": [
      "timer"
     ],
@@ -3213,7 +3214,7 @@
    },
    "v1.ClockOffsetTimezone": {},
    "v1.ClockOffsetUTC": {
-    "description": "UTC sets the guest clock to UTC on each boot.",
+    "description": "UTC sets the guest clock to UTC on each boot.\n+k8s:openapi-gen=true",
     "properties": {
      "offsetSeconds": {
       "description": "OffsetSeconds specifies an offset in seconds, relative to UTC. If set,\nguest changes to the clock will be kept during reboots and not reset.",
@@ -3223,7 +3224,7 @@
     }
    },
    "v1.CloudInitNoCloudSource": {
-    "description": "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+    "description": "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+k8s:openapi-gen=true",
     "properties": {
      "secretRef": {
       "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
@@ -3271,6 +3272,7 @@
    },
    "v1.DeletionPropagation": {},
    "v1.Devices": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "disks": {
       "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
@@ -3286,6 +3288,7 @@
     }
    },
    "v1.Disk": {
+    "description": "+k8s:openapi-gen=true",
     "required": [
      "name",
      "volumeName"
@@ -3318,6 +3321,7 @@
     }
    },
    "v1.DiskTarget": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "bus": {
       "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
@@ -3330,6 +3334,7 @@
     }
    },
    "v1.DomainSpec": {
+    "description": "+k8s:openapi-gen=true",
     "required": [
      "devices"
     ],
@@ -3377,6 +3382,7 @@
     }
    },
    "v1.EphemeralVolumeSource": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
@@ -3385,6 +3391,7 @@
     }
    },
    "v1.FeatureAPIC": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
@@ -3397,7 +3404,7 @@
     }
    },
    "v1.FeatureHyperv": {
-    "description": "Hyperv specific features",
+    "description": "Hyperv specific features\n+k8s:openapi-gen=true",
     "properties": {
      "relaxed": {
       "description": "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
@@ -3438,6 +3445,7 @@
     }
    },
    "v1.FeatureSpinlocks": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
@@ -3450,7 +3458,7 @@
     }
    },
    "v1.FeatureState": {
-    "description": "Represents if a feature is enabled or disabled",
+    "description": "Represents if a feature is enabled or disabled\n+k8s:openapi-gen=true",
     "properties": {
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
@@ -3459,6 +3467,7 @@
     }
    },
    "v1.FeatureVendorID": {
+    "description": "+k8s:openapi-gen=true",
     "required": [
      "vendorid"
     ],
@@ -3474,6 +3483,7 @@
     }
    },
    "v1.Features": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "acpi": {
       "description": "ACPI enables/disables ACPI insidejsondata guest\nDefaults to enabled\n+optional",
@@ -3490,6 +3500,7 @@
     }
    },
    "v1.Firmware": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "uuid": {
       "description": "UUID reported by the vm bios\nDefaults to a random generated uid",
@@ -3498,6 +3509,7 @@
     }
    },
    "v1.FloppyTarget": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "readonly": {
       "description": "ReadOnly\nDefaults to false",
@@ -3527,6 +3539,7 @@
     }
    },
    "v1.HPETTimer": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -3539,6 +3552,7 @@
     }
    },
    "v1.HypervTimer": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -3547,7 +3561,7 @@
     }
    },
    "v1.I6300ESBWatchdog": {
-    "description": "i6300esb watchdog device",
+    "description": "i6300esb watchdog device\n+k8s:openapi-gen=true",
     "properties": {
      "action": {
       "description": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
@@ -3587,6 +3601,7 @@
     }
    },
    "v1.KVMTimer": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -3661,6 +3676,7 @@
     }
    },
    "v1.LunTarget": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "bus": {
       "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
@@ -3673,6 +3689,7 @@
     }
    },
    "v1.Machine": {
+    "description": "+k8s:openapi-gen=true",
     "required": [
      "type"
     ],
@@ -3831,7 +3848,7 @@
     }
    },
    "v1.OfflineVirtualMachine": {
-    "description": "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "description": "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -3855,7 +3872,7 @@
     }
    },
    "v1.OfflineVirtualMachineCondition": {
-    "description": "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine",
+    "description": "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine\n+k8s:openapi-gen=true",
     "required": [
      "type",
      "status"
@@ -3882,7 +3899,7 @@
     }
    },
    "v1.OfflineVirtualMachineList": {
-    "description": "OfflineVirtualMachineList is a list of offlinevirtualmachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "description": "OfflineVirtualMachineList is a list of offlinevirtualmachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
     "required": [
      "metadata",
      "items"
@@ -3909,7 +3926,7 @@
     }
    },
    "v1.OfflineVirtualMachineSpec": {
-    "description": "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
+    "description": "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like\n+k8s:openapi-gen=true",
     "required": [
      "running",
      "template"
@@ -3926,7 +3943,7 @@
     }
    },
    "v1.OfflineVirtualMachineStatus": {
-    "description": "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
+    "description": "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing\n+k8s:openapi-gen=true",
     "properties": {
      "conditions": {
       "description": "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
@@ -3973,6 +3990,7 @@
     }
    },
    "v1.PITTimer": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -4031,6 +4049,7 @@
     }
    },
    "v1.RTCTimer": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -4047,7 +4066,7 @@
     }
    },
    "v1.RegistryDiskSource": {
-    "description": "Represents a docker image with an embedded disk",
+    "description": "Represents a docker image with an embedded disk\n+k8s:openapi-gen=true",
     "required": [
      "image"
     ],
@@ -4063,6 +4082,7 @@
     }
    },
    "v1.ResourceRequirements": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "limits": {
       "description": "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
@@ -4180,7 +4200,7 @@
     }
    },
    "v1.Timer": {
-    "description": "Represents all available timers in a vm",
+    "description": "Represents all available timers in a vm\n+k8s:openapi-gen=true",
     "properties": {
      "hpet": {
       "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
@@ -4205,6 +4225,7 @@
     }
    },
    "v1.VMReplicaSetCondition": {
+    "description": "+k8s:openapi-gen=true",
     "required": [
      "type",
      "status"
@@ -4231,6 +4252,7 @@
     }
    },
    "v1.VMReplicaSetSpec": {
+    "description": "+k8s:openapi-gen=true",
     "required": [
      "template"
     ],
@@ -4255,6 +4277,7 @@
     }
    },
    "v1.VMReplicaSetStatus": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "conditions": {
       "type": "array",
@@ -4275,6 +4298,7 @@
     }
    },
    "v1.VMTemplateSpec": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "metadata": {
       "$ref": "#/definitions/v1.ObjectMeta"
@@ -4286,7 +4310,7 @@
     }
    },
    "v1.VirtualMachine": {
-    "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -4310,6 +4334,7 @@
     }
    },
    "v1.VirtualMachineCondition": {
+    "description": "+k8s:openapi-gen=true",
     "required": [
      "type",
      "status"
@@ -4336,7 +4361,7 @@
     }
    },
    "v1.VirtualMachineList": {
-    "description": "VirtualMachineList is a list of VirtualMachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "description": "VirtualMachineList is a list of VirtualMachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
     "required": [
      "items"
     ],
@@ -4361,6 +4386,7 @@
     }
    },
    "v1.VirtualMachineNetworkInterface": {
+    "description": "+k8s:openapi-gen=true",
     "properties": {
      "ipAddress": {
       "description": "IP address of a Virtual Machine interface",
@@ -4373,7 +4399,7 @@
     }
    },
    "v1.VirtualMachinePreset": {
-    "description": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "description": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -4393,7 +4419,7 @@
     }
    },
    "v1.VirtualMachinePresetList": {
-    "description": "VirtualMachinePresetList is a list of VirtualMachinePresets\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "description": "VirtualMachinePresetList is a list of VirtualMachinePresets\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
     "required": [
      "items"
     ],
@@ -4418,6 +4444,7 @@
     }
    },
    "v1.VirtualMachinePresetSpec": {
+    "description": "+k8s:openapi-gen=true",
     "required": [
      "selector"
     ],
@@ -4433,7 +4460,7 @@
     }
    },
    "v1.VirtualMachineReplicaSet": {
-    "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -4457,7 +4484,7 @@
     }
    },
    "v1.VirtualMachineReplicaSetList": {
-    "description": "VMList is a list of VMs\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "description": "VMList is a list of VMs\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
     "required": [
      "items"
     ],
@@ -4482,7 +4509,7 @@
     }
    },
    "v1.VirtualMachineSpec": {
-    "description": "VirtualMachineSpec is a description of a VirtualMachine.",
+    "description": "VirtualMachineSpec is a description of a VirtualMachine.\n+k8s:openapi-gen=true",
     "required": [
      "domain"
     ],
@@ -4514,7 +4541,7 @@
     }
    },
    "v1.VirtualMachineStatus": {
-    "description": "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
+    "description": "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.\n+k8s:openapi-gen=true",
     "properties": {
      "conditions": {
       "description": "Conditions are specific points in VM's pod runtime.",
@@ -4541,7 +4568,7 @@
     }
    },
    "v1.Volume": {
-    "description": "Volume represents a named volume in a vm.",
+    "description": "Volume represents a named volume in a vm.\n+k8s:openapi-gen=true",
     "required": [
      "name"
     ],
@@ -4587,7 +4614,7 @@
     }
    },
    "v1.Watchdog": {
-    "description": "Named watchdog device",
+    "description": "Named watchdog device\n+k8s:openapi-gen=true",
     "required": [
      "name"
     ],
