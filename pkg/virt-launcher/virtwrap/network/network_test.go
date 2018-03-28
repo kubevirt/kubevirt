@@ -148,6 +148,21 @@ var _ = Describe("Network", func() {
 		})
 	})
 
+	Context("func filterPodNetworkRoutes()", func() {
+		staticRoute := netlink.Route{
+			Dst: &net.IPNet{IP: net.IPv4(10, 45, 0, 10), Mask: net.CIDRMask(32, 32)},
+			Gw:  net.IPv4(10, 25, 0, 1),
+		}
+		gwRoute := netlink.Route{Dst: &net.IPNet{IP: net.IPv4(10, 35, 0, 1), Mask: net.CIDRMask(32, 32)}}
+		nicRoute := netlink.Route{Src: net.IPv4(10, 35, 0, 6)}
+		staticRouteList := []netlink.Route{routeAddr, gwRoute, nicRoute, staticRoute}
+
+		It("should remove default gateway and source IP from routes, leaving others intact", func() {
+			expected := []netlink.Route{staticRoute}
+			Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expected))
+		})
+	})
+
 	Context("Function ParseNameservers()", func() {
 		It("should return a byte array of nameservers", func() {
 			ns1, ns2 := []uint8{8, 8, 8, 8}, []uint8{8, 8, 4, 4}

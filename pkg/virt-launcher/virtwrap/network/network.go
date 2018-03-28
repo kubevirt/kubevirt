@@ -333,14 +333,8 @@ func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 		return nil, fmt.Errorf("No gateway address found in routes for %s", podInterface)
 	}
 	nic.Gateway = routes[0].Gw
-	var dhcpRoutes []netlink.Route
 	if len(routes) > 1 {
-		// Filter out irrelevant routes
-		for _, route := range routes[1:] {
-			if !route.Src.Equal(nic.IP.IP) {
-				dhcpRoutes = append(dhcpRoutes, route)
-			}
-		}
+		dhcpRoutes := filterPodNetworkRoutes(routes, nic)
 		nic.Routes = &dhcpRoutes
 	}
 
@@ -352,6 +346,24 @@ func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 	}
 	nic.MAC = mac
 	return nicLink, nil
+}
+
+// filter out irrelevant routes
+func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
+	for _, route := range routes[1:] {
+		// don't create static route to default gateway
+		if route.Dst != nil && route.Dst.IP.Equal(nic.Gateway) && route.Src.Equal(nil) {
+			continue
+		}
+
+		// don't create static route for src == nic
+		if route.Src != nil && route.Src.Equal(nic.IP.IP) {
+			continue
+		}
+
+		filteredRoutes = append(filteredRoutes, route)
+	}
+	return
 }
 
 func preparePodNetworkInterfaces(nic *VIF, nicLink netlink.Link) error {
