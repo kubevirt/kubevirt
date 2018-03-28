@@ -14,6 +14,32 @@
    }
   },
   "paths": {
+   "/apis": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Get a KubeVirt API GroupList",
+     "operationId": "getAPIGroup",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIGroupList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIGroupList"
+       }
+      }
+     }
+    }
+   },
    "/apis/kubevirt.io": {
     "get": {
      "produces": [
@@ -2152,6 +2178,145 @@
       }
      }
     }
+   },
+   "/apis/subresources.kubevirt.io": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Get a KubeVirt API Group",
+     "operationId": "getAPIGroup",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIGroup"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIGroup"
+       }
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha1": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Get a KubeVirt API resources",
+     "operationId": "getAPIResources",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIResourceList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIResourceList"
+       }
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}/console": {
+    "get": {
+     "summary": "Open a websocket connection to a serial console on the specified VM.",
+     "operationId": "console",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}/test": {
+    "get": {
+     "summary": "Test endpoint verifying apiserver connectivity.",
+     "operationId": "test",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}/vnc": {
+    "get": {
+     "summary": "Open a websocket connection to connect to VNC on the specified VM.",
+     "operationId": "vnc",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK"
+      }
+     }
+    }
    }
   },
   "definitions": {
@@ -2193,6 +2358,29 @@
       "items": {
        "$ref": "#/definitions/v1.GroupVersionForDiscovery"
       }
+     }
+    }
+   },
+   "v1.APIGroupList": {
+    "description": "APIGroupList is a list of APIGroup, to allow clients to discover the API at /apis.",
+    "required": [
+     "groups"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "groups": {
+      "description": "groups is a list of APIGroup.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.APIGroup"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
      }
     }
    },

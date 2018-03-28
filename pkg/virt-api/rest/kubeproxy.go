@@ -210,7 +210,8 @@ func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionReso
 	}
 	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(virtClient.RestClient())).Build(ctx)
 	ws := new(restful.WebService)
-	ws.Route(ws.GET(GroupBasePath(gvr.GroupVersion())).
+	ws.Path(GroupBasePath(gvr.GroupVersion()))
+	ws.Route(ws.GET("/").
 		Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).
 		To(endpoints.MakeGoRestfulWrapper(autodiscover)).
 		Doc("Get a KubeVirt API group").

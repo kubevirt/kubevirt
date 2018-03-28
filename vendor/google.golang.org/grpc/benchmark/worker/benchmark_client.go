@@ -1,25 +1,39 @@
 /*
  *
- * Copyright 2016 gRPC authors.
+ * Copyright 2016, Google Inc.
+ * All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
 package main
 
 import (
-	"flag"
 	"math"
 	"runtime"
 	"sync"
@@ -34,11 +48,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/status"
-	"google.golang.org/grpc/testdata"
 )
 
-var caFile = flag.String("ca_file", "", "The file containing the CA root cert file")
+var (
+	caFile = "benchmark/server/testdata/ca.pem"
+)
 
 type lockingHistogram struct {
 	mu        sync.Mutex
@@ -118,17 +132,14 @@ func createConns(config *testpb.ClientConfig) ([]*grpc.ClientConn, func(), error
 	case testpb.ClientType_SYNC_CLIENT:
 	case testpb.ClientType_ASYNC_CLIENT:
 	default:
-		return nil, nil, status.Errorf(codes.InvalidArgument, "unknown client type: %v", config.ClientType)
+		return nil, nil, grpc.Errorf(codes.InvalidArgument, "unknow client type: %v", config.ClientType)
 	}
 
 	// Check and set security options.
 	if config.SecurityParams != nil {
-		if *caFile == "" {
-			*caFile = testdata.Path("ca.pem")
-		}
-		creds, err := credentials.NewClientTLSFromFile(*caFile, config.SecurityParams.ServerHostOverride)
+		creds, err := credentials.NewClientTLSFromFile(abs(caFile), config.SecurityParams.ServerHostOverride)
 		if err != nil {
-			return nil, nil, status.Errorf(codes.InvalidArgument, "failed to create TLS credentials %v", err)
+			return nil, nil, grpc.Errorf(codes.InvalidArgument, "failed to create TLS credentials %v", err)
 		}
 		opts = append(opts, grpc.WithTransportCredentials(creds))
 	} else {
@@ -139,10 +150,10 @@ func createConns(config *testpb.ClientConfig) ([]*grpc.ClientConn, func(), error
 	if config.PayloadConfig != nil {
 		switch config.PayloadConfig.Payload.(type) {
 		case *testpb.PayloadConfig_BytebufParams:
-			opts = append(opts, grpc.WithDefaultCallOptions(grpc.CallCustomCodec(byteBufCodec{})))
+			opts = append(opts, grpc.WithCodec(byteBufCodec{}))
 		case *testpb.PayloadConfig_SimpleParams:
 		default:
-			return nil, nil, status.Errorf(codes.InvalidArgument, "unknown payload config: %v", config.PayloadConfig)
+			return nil, nil, grpc.Errorf(codes.InvalidArgument, "unknow payload config: %v", config.PayloadConfig)
 		}
 	}
 
@@ -177,7 +188,7 @@ func performRPCs(config *testpb.ClientConfig, conns []*grpc.ClientConn, bc *benc
 			payloadRespSize = int(c.SimpleParams.RespSize)
 			payloadType = "protobuf"
 		default:
-			return status.Errorf(codes.InvalidArgument, "unknown payload config: %v", config.PayloadConfig)
+			return grpc.Errorf(codes.InvalidArgument, "unknow payload config: %v", config.PayloadConfig)
 		}
 	}
 
@@ -185,9 +196,9 @@ func performRPCs(config *testpb.ClientConfig, conns []*grpc.ClientConn, bc *benc
 	switch config.LoadParams.Load.(type) {
 	case *testpb.LoadParams_ClosedLoop:
 	case *testpb.LoadParams_Poisson:
-		return status.Errorf(codes.Unimplemented, "unsupported load params: %v", config.LoadParams)
+		return grpc.Errorf(codes.Unimplemented, "unsupported load params: %v", config.LoadParams)
 	default:
-		return status.Errorf(codes.InvalidArgument, "unknown load params: %v", config.LoadParams)
+		return grpc.Errorf(codes.InvalidArgument, "unknown load params: %v", config.LoadParams)
 	}
 
 	rpcCountPerConn := int(config.OutstandingRpcsPerChannel)
@@ -200,7 +211,7 @@ func performRPCs(config *testpb.ClientConfig, conns []*grpc.ClientConn, bc *benc
 		bc.doCloseLoopStreaming(conns, rpcCountPerConn, payloadReqSize, payloadRespSize, payloadType)
 		// TODO open loop.
 	default:
-		return status.Errorf(codes.InvalidArgument, "unknown rpc type: %v", config.RpcType)
+		return grpc.Errorf(codes.InvalidArgument, "unknown rpc type: %v", config.RpcType)
 	}
 
 	return nil

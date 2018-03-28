@@ -125,7 +125,7 @@ var _ = Describe("Storage", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				RunVMAndExpectLaunch(vm, false, 45)
 
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				defer expecter.Close()
 				Expect(err).To(BeNil())
 
@@ -153,7 +153,7 @@ var _ = Describe("Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VM console has expected output")
-						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 						defer expecter.Close()
 						Expect(err).To(BeNil())
 						_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -181,7 +181,7 @@ var _ = Describe("Storage", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				RunVMAndExpectLaunch(vm, false, 45)
 
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				defer expecter.Close()
 				Expect(err).To(BeNil())
 
@@ -203,7 +203,7 @@ var _ = Describe("Storage", func() {
 				obj := RunVMAndExpectLaunch(vm, false, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -231,7 +231,7 @@ var _ = Describe("Storage", func() {
 				RunVMAndExpectLaunch(vm, false, 90)
 
 				By("Making sure that the previously written file is not present")
-				expecter, _, err = tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, _, err = tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{

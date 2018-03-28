@@ -44,6 +44,7 @@ if [ "$PROVIDER" = "vagrant-openshift" ] || [ "$PROVIDER" = "os-3.9.0-alpha.4" ]
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-testing -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
+    _kubectl adm policy add-scc-to-user privileged -z kubevirt-apiserver -n ${namespace}
 fi
 
 echo "Done"

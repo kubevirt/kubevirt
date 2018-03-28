@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -42,6 +43,29 @@ func init() {
 	flag.StringVar(&master, "master", "", "master url")
 }
 
+func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
+	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	config.GroupVersion = &v1.SubresourceGroupVersion
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.APIPath = "/apis"
+	config.ContentType = runtime.ContentTypeJSON
+
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	coreClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kubevirt{master, kubeconfig, restClient, coreClient}, nil
+}
 func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
@@ -68,6 +92,14 @@ func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClien
 
 func GetKubevirtClient() (KubevirtClient, error) {
 	return GetKubevirtClientFromFlags(master, kubeconfig)
+}
+
+func GetKubevirtSubresourceClient() (KubevirtClient, error) {
+	return GetKubevirtSubresourceClientFromFlags(master, kubeconfig)
+}
+
+func GetConfig() (*restclient.Config, error) {
+	return clientcmd.BuildConfigFromFlags(master, kubeconfig)
 }
 
 func GetKubevirtClientConfig() (*rest.Config, error) {

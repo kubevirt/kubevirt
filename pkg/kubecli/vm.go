@@ -20,26 +20,27 @@
 package kubecli
 
 import (
-	goerror "errors"
+	"bytes"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/gorilla/websocket"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/remotecommand"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+)
+
+const (
+	WebsocketMessageBufferSize = 10240
 )
 
 func (k *kubevirt) VM(namespace string) VMInterface {
@@ -62,101 +63,222 @@ type vms struct {
 	kubeconfig string
 }
 
-func findPod(clientSet *kubernetes.Clientset, namespace string, name string) (string, error) {
-	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(k8sv1.PodRunning))
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", name))
-	if err != nil {
-		return "", err
-	}
-	selector := k8smetav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-
-	podList, err := clientSet.CoreV1().Pods(namespace).List(selector)
-	if err != nil {
-		return "", err
-	}
-
-	if len(podList.Items) == 0 {
-		return "", goerror.New("console connection failed. No VM pod is running")
-	}
-	return podList.Items[0].ObjectMeta.Name, nil
+type BinaryReadWriter struct {
+	Conn *websocket.Conn
 }
 
-func (v *vms) remoteExecHelper(name string, cmd []string, in io.Reader, out io.Writer) error {
+func (s *BinaryReadWriter) Write(p []byte) (int, error) {
+	wsFrameHeaderSize := 2 + 8 + 4 // Fixed header + length + mask (RFC 6455)
+	// our websocket package has an issue where it truncates messages
+	// when the message+header is greater than the buffer size we allocate.
+	// because of this, we have to chunk messages
+	chunkSize := WebsocketMessageBufferSize - wsFrameHeaderSize
+	bytesWritten := 0
 
-	// ensure VM is in running phase before attempting to connect.
-	vm, err := v.Get(name, k8smetav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return goerror.New(fmt.Sprintf("Unable to connect to VM %s in namespace %s does not exist.", name, v.namespace))
+	for i := 0; i < len(p); i += chunkSize {
+		w, err := s.Conn.NextWriter(websocket.BinaryMessage)
+		if err != nil {
+			return bytesWritten, s.err(err)
 		}
-		return err
-	}
+		defer w.Close()
 
-	if vm.IsRunning() == false {
-		return goerror.New(fmt.Sprintf("Unable to connect to VM because phase is %s instead of %s", vm.Status.Phase, v1.Running))
-	}
+		end := i + chunkSize
+		if end > len(p) {
+			end = len(p)
+		}
+		n, err := w.Write(p[i:end])
+		if err != nil {
+			return bytesWritten, err
+		}
 
-	podName, err := findPod(v.clientSet, v.namespace, name)
+		bytesWritten = n + bytesWritten
+	}
+	return bytesWritten, nil
+
+}
+
+func (s *BinaryReadWriter) Read(p []byte) (int, error) {
+	for {
+		msgType, r, err := s.Conn.NextReader()
+		if err != nil {
+			return 0, s.err(err)
+		}
+
+		switch msgType {
+		case websocket.BinaryMessage:
+			n, err := r.Read(p)
+			return n, s.err(err)
+
+		case websocket.CloseMessage:
+			return 0, io.EOF
+		}
+	}
+}
+
+func (s *BinaryReadWriter) err(err error) error {
+	if err == nil {
+		return nil
+	}
+	if e, ok := err.(*websocket.CloseError); ok {
+		if e.Code == websocket.CloseNormalClosure {
+			return io.EOF
+		}
+	}
+	return err
+}
+
+type RoundTripCallback func(conn *websocket.Conn, resp *http.Response, err error) error
+
+type WebsocketRoundTripper struct {
+	Dialer *websocket.Dialer
+	Do     RoundTripCallback
+}
+
+func (d *WebsocketRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	conn, resp, err := d.Dialer.Dial(r.URL.String(), r.Header)
+	if err == nil {
+		defer conn.Close()
+	}
+	return resp, d.Do(conn, resp, err)
+}
+
+type wsCallbackObj struct {
+	in  io.Reader
+	out io.Writer
+}
+
+func (obj *wsCallbackObj) WebsocketCallback(ws *websocket.Conn, resp *http.Response, err error) error {
+
 	if err != nil {
-		return fmt.Errorf("unable to find matching pod for remote execution: %v", err)
+		if resp != nil && resp.StatusCode != http.StatusOK {
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(resp.Body)
+			return fmt.Errorf("Can't connect to websocket (%d): %s\n", resp.StatusCode, buf.String())
+		}
+		return fmt.Errorf("Can't connect to websocket: %s\n", err.Error())
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags(v.master, v.kubeconfig)
+	wsReadWriter := &BinaryReadWriter{Conn: ws}
+
+	copyErr := make(chan error)
+
+	go func() {
+		_, err := io.Copy(wsReadWriter, obj.in)
+		copyErr <- err
+	}()
+
+	go func() {
+		_, err := io.Copy(obj.out, wsReadWriter)
+		copyErr <- err
+	}()
+
+	err = <-copyErr
+	return err
+}
+
+func roundTripperFromConfig(config *rest.Config, in io.Reader, out io.Writer) (http.RoundTripper, error) {
+
+	// Configure TLS
+	tlsConfig, err := rest.TLSConfigFor(config)
 	if err != nil {
-		return fmt.Errorf("unable to build api config for remote execution: %v", err)
+		return nil, err
 	}
 
-	gv := k8sv1.SchemeGroupVersion
-	config.GroupVersion = &gv
-	config.APIPath = "/api"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	// Configure the websocket dialer
+	dialer := &websocket.Dialer{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsConfig,
+		WriteBufferSize: WebsocketMessageBufferSize,
+		ReadBufferSize:  WebsocketMessageBufferSize,
+	}
 
-	restClient, err := restclient.RESTClientFor(config)
+	obj := &wsCallbackObj{
+		in:  in,
+		out: out,
+	}
+	// Create a roundtripper which will pass in the final underlying websocket connection to a callback
+	rt := &WebsocketRoundTripper{
+		Do:     obj.WebsocketCallback,
+		Dialer: dialer,
+	}
+
+	// Make sure we inherit all relevant security headers
+	return rest.HTTPWrappersForConfig(config, rt)
+}
+
+func RequestFromConfig(config *rest.Config, vm string, namespace string, resource string) (*http.Request, error) {
+
+	u, err := url.Parse(config.Host)
 	if err != nil {
-		return fmt.Errorf("unable to create restClient for remote execution: %v", err)
-	}
-	containerName := "compute"
-	req := restClient.Post().
-		Resource("pods").
-		Name(podName).
-		Namespace(v.namespace).
-		SubResource("exec").
-		Param("container", containerName)
-
-	req = req.VersionedParams(&k8sv1.PodExecOptions{
-		Container: containerName,
-		Command:   cmd,
-		Stdin:     true,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       true,
-	}, scheme.ParameterCodec)
-
-	// execute request
-	method := "POST"
-	url := req.URL()
-	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
-	if err != nil {
-		return fmt.Errorf("remote execution failed: %v", err)
+		return nil, err
 	}
 
-	return exec.Stream(remotecommand.StreamOptions{
-		Stdin:             in,
-		Stdout:            out,
-		Stderr:            out,
-		Tty:               false,
-		TerminalSizeQueue: nil,
-	})
+	switch u.Scheme {
+	case "https":
+		u.Scheme = "wss"
+	case "http":
+		u.Scheme = "ws"
+	default:
+		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
+	}
+
+	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/v1alpha1/namespaces/%s/virtualmachines/%s/%s", namespace, vm, resource)
+	req := &http.Request{
+		Method: http.MethodGet,
+		URL:    u,
+	}
+
+	return req, nil
 }
 
 func (v *vms) VNC(name string, in io.Reader, out io.Writer) error {
-	cmd := []string{"/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", v.namespace, name)}
-	return v.remoteExecHelper(name, cmd, in, out)
+	return v.subresourceHelper(name, "vnc", in, out)
+}
+func (v *vms) SerialConsole(name string, in io.Reader, out io.Writer) error {
+	return v.subresourceHelper(name, "console", in, out)
 }
 
-func (v *vms) SerialConsole(name string, device string, in io.Reader, out io.Writer) error {
-	cmd := []string{"/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", v.namespace, name, device)}
-	return v.remoteExecHelper(name, cmd, in, out)
+func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out io.Writer) error {
+
+	// creates the connection
+	config, err := clientcmd.BuildConfigFromFlags(v.master, v.kubeconfig)
+	if err != nil {
+		return fmt.Errorf("failed to create restClient for remote execution: %v", err)
+	}
+
+	// Create a round tripper with all necessary kubernetes security details
+	wrappedRoundTripper, err := roundTripperFromConfig(config, in, out)
+	if err != nil {
+		return fmt.Errorf("unable to create round tripper for remote execution: %v", err)
+	}
+
+	// Create a request out of config and the query parameters
+	req, err := RequestFromConfig(config, name, v.namespace, resource)
+	if err != nil {
+		return fmt.Errorf("unable to create request for remote execution: %v", err)
+	}
+
+	// Send the request and let the callback do its work
+	response, err := wrappedRoundTripper.RoundTrip(req)
+
+	if err != nil {
+		return err
+	}
+
+	if response != nil {
+		switch response.StatusCode {
+		case http.StatusOK:
+			return nil
+		case http.StatusNotFound:
+			return fmt.Errorf("Virtual Machine not found.")
+		case http.StatusInternalServerError:
+			return fmt.Errorf("Websocket failed due to internal server error.")
+		default:
+			return fmt.Errorf("Websocket failed with http status: %s", response.Status)
+		}
+	} else {
+		return fmt.Errorf("no response received")
+	}
 }
 
 func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMachine, err error) {

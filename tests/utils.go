@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -65,6 +66,10 @@ const (
 )
 
 const defaultTestGracePeriod int64 = 0
+
+const SubresourceServiceAccountName = "kubevirt-subresource-test-sa"
+
+const SubresourceTestLabel = "subresource-access-test-pod"
 
 const (
 	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
@@ -261,6 +266,7 @@ func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
 	cleanNamespaces()
+	cleanupSubresourceServiceAccount()
 
 	deletePVC(osAlpineISCSI)
 	deletePV(osAlpineISCSI)
@@ -279,6 +285,7 @@ func BeforeTestSuitSetup() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	createNamespaces()
+	createSubresourceServiceAccount()
 	createIscsiSecrets()
 
 	createPvISCSI(osAlpineISCSI, 2)
@@ -358,6 +365,92 @@ func newPvISCSI(os string, targetIp string, lun int32) *k8sv1.PersistentVolume {
 		},
 	}
 	return pv
+}
+
+func cleanupSubresourceServiceAccount() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	err = virtCli.CoreV1().ServiceAccounts(NamespaceTestDefault).Delete(SubresourceServiceAccountName, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+
+	err = virtCli.RbacV1().ClusterRoles().Delete(SubresourceServiceAccountName, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+
+	err = virtCli.RbacV1().ClusterRoleBindings().Delete(SubresourceServiceAccountName, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func createSubresourceServiceAccount() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	sa := k8sv1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SubresourceServiceAccountName,
+			Namespace: NamespaceTestDefault,
+			Labels: map[string]string{
+				"kubevirt.io/test": "sa",
+			},
+		},
+	}
+
+	_, err = virtCli.CoreV1().ServiceAccounts(NamespaceTestDefault).Create(&sa)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	role := rbacv1.ClusterRole{
+
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SubresourceServiceAccountName,
+			Namespace: NamespaceTestDefault,
+			Labels: map[string]string{
+				"kubevirt.io/test": "sa",
+			},
+		},
+	}
+	role.Rules = append(role.Rules, rbacv1.PolicyRule{
+		APIGroups: []string{"subresources.kubevirt.io"},
+		Resources: []string{"virtualmachines/test"},
+		Verbs:     []string{"get"},
+	})
+
+	_, err = virtCli.RbacV1().ClusterRoles().Create(&role)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	roleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SubresourceServiceAccountName,
+			Namespace: NamespaceTestDefault,
+			Labels: map[string]string{
+				"kubevirt.io/test": "sa",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     SubresourceServiceAccountName,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	roleBinding.Subjects = append(roleBinding.Subjects, rbacv1.Subject{
+		Kind:      "ServiceAccount",
+		Name:      SubresourceServiceAccountName,
+		Namespace: NamespaceTestDefault,
+	})
+
+	_, err = virtCli.RbacV1().ClusterRoleBindings().Create(&roleBinding)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
 }
 
 func deletePVC(os string) {
@@ -788,13 +881,13 @@ func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &job
 }
 
-func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, consoleName string, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
+func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
 	vmReader, vmWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 	stopChan := make(chan struct{})
 	go func() {
-		err := virtCli.VM(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, consoleName, vmReader, expecterWriter)
+		err := virtCli.VM(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, vmReader, expecterWriter)
 		resCh <- err
 	}()
 
@@ -834,7 +927,7 @@ func RegistryDiskFor(name RegistryDisk) string {
 func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+	expecter, _, err := NewConsoleExpecter(virtClient, vm, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}

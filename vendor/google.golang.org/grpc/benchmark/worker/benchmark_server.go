@@ -1,27 +1,39 @@
 /*
  *
- * Copyright 2016 gRPC authors.
+ * Copyright 2016, Google Inc.
+ * All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
 package main
 
 import (
-	"flag"
-	"fmt"
-	"net"
 	"runtime"
 	"strconv"
 	"strings"
@@ -35,13 +47,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/status"
-	"google.golang.org/grpc/testdata"
 )
 
 var (
-	certFile = flag.String("tls_cert_file", "", "The TLS cert file")
-	keyFile  = flag.String("tls_key_file", "", "The TLS key file")
+	// File path related to google.golang.org/grpc.
+	certFile = "benchmark/server/testdata/server1.pem"
+	keyFile  = "benchmark/server/testdata/server1.key"
 )
 
 type benchmarkServer struct {
@@ -89,18 +100,12 @@ func startBenchmarkServer(config *testpb.ServerConfig, serverPort int) (*benchma
 	case testpb.ServerType_ASYNC_SERVER:
 	case testpb.ServerType_ASYNC_GENERIC_SERVER:
 	default:
-		return nil, status.Errorf(codes.InvalidArgument, "unknown server type: %v", config.ServerType)
+		return nil, grpc.Errorf(codes.InvalidArgument, "unknow server type: %v", config.ServerType)
 	}
 
 	// Set security options.
 	if config.SecurityParams != nil {
-		if *certFile == "" {
-			*certFile = testdata.Path("server1.pem")
-		}
-		if *keyFile == "" {
-			*keyFile = testdata.Path("server1.key")
-		}
-		creds, err := credentials.NewServerTLSFromFile(*certFile, *keyFile)
+		creds, err := credentials.NewServerTLSFromFile(abs(certFile), abs(keyFile))
 		if err != nil {
 			grpclog.Fatalf("failed to generate credentials %v", err)
 		}
@@ -112,38 +117,37 @@ func startBenchmarkServer(config *testpb.ServerConfig, serverPort int) (*benchma
 	if port == 0 {
 		port = serverPort
 	}
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-	if err != nil {
-		grpclog.Fatalf("Failed to listen: %v", err)
-	}
-	addr := lis.Addr().String()
 
 	// Create different benchmark server according to config.
-	var closeFunc func()
+	var (
+		addr      string
+		closeFunc func()
+		err       error
+	)
 	if config.PayloadConfig != nil {
 		switch payload := config.PayloadConfig.Payload.(type) {
 		case *testpb.PayloadConfig_BytebufParams:
 			opts = append(opts, grpc.CustomCodec(byteBufCodec{}))
-			closeFunc = benchmark.StartServer(benchmark.ServerInfo{
+			addr, closeFunc = benchmark.StartServer(benchmark.ServerInfo{
+				Addr:     ":" + strconv.Itoa(port),
 				Type:     "bytebuf",
 				Metadata: payload.BytebufParams.RespSize,
-				Listener: lis,
 			}, opts...)
 		case *testpb.PayloadConfig_SimpleParams:
-			closeFunc = benchmark.StartServer(benchmark.ServerInfo{
-				Type:     "protobuf",
-				Listener: lis,
+			addr, closeFunc = benchmark.StartServer(benchmark.ServerInfo{
+				Addr: ":" + strconv.Itoa(port),
+				Type: "protobuf",
 			}, opts...)
 		case *testpb.PayloadConfig_ComplexParams:
-			return nil, status.Errorf(codes.Unimplemented, "unsupported payload config: %v", config.PayloadConfig)
+			return nil, grpc.Errorf(codes.Unimplemented, "unsupported payload config: %v", config.PayloadConfig)
 		default:
-			return nil, status.Errorf(codes.InvalidArgument, "unknown payload config: %v", config.PayloadConfig)
+			return nil, grpc.Errorf(codes.InvalidArgument, "unknow payload config: %v", config.PayloadConfig)
 		}
 	} else {
 		// Start protobuf server if payload config is nil.
-		closeFunc = benchmark.StartServer(benchmark.ServerInfo{
-			Type:     "protobuf",
-			Listener: lis,
+		addr, closeFunc = benchmark.StartServer(benchmark.ServerInfo{
+			Addr: ":" + strconv.Itoa(port),
+			Type: "protobuf",
 		}, opts...)
 	}
 

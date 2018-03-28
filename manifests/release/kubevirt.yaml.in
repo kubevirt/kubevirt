@@ -1,4 +1,122 @@
 # RBAC
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kubevirt-apiserver
+  namespace: {{ namespace }}
+  labels:
+    kubevirt.io: ""
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-apiserver
+  namespace: {{ namespace }}
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: kubevirt-apiserver
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-apiserver
+    namespace: {{ namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-apiserver-auth-delegator
+  namespace: {{ namespace }}
+  labels:
+    kubevirt.io: ""
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-apiserver
+  namespace: {{ namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: kubevirt-apiserver
+  namespace: {{ namespace }}
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: Role
+  name: kubevirt-apiserver
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-apiserver
+    namespace: {{ namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: kubevirt-apiserver
+  namespace: {{ namespace }}
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - delete
+      - update  
+      - create  
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubevirt-apiserver
+  namespace: {{ namespace }}
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups:
+      - apiregistration.k8s.io
+    resources:
+      - apiservices
+    verbs:
+      - get
+      - create
+      - update
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - ''
+    resources:
+      - pods/exec
+    verbs:
+      - create
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachines
+    verbs:
+      - get
+      - list
+---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
@@ -143,7 +261,58 @@ spec:
     shortNames:
       - vmrs
       - vmrss
----        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: virt-api
+  namespace: {{ namespace }}
+  labels:
+    kubevirt.io: "virt-api"
+spec:
+  ports:
+    - port: 443
+      targetPort: 8443
+      protocol: TCP
+  selector:
+    kubevirt.io: virt-api
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: virt-api
+  namespace: {{ namespace }}
+  labels:
+    kubevirt.io: "virt-api"
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        kubevirt.io: virt-api
+    spec:
+      serviceAccountName: kubevirt-controller
+      containers:
+        - name: virt-api
+          image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
+          imagePullPolicy: IfNotPresent
+          command:
+              - "/virt-api"
+              - "--port"
+              - "8443"
+              - "--subresources-only"
+          ports:
+            - containerPort: 8443
+              name: "virt-api"
+              protocol: "TCP"
+          readinessProbe:
+            tcpSocket:
+              port: 8443
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+---
 # kubevirt controller
 apiVersion: extensions/v1beta1
 kind: Deployment
