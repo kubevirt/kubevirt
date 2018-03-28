@@ -63,15 +63,15 @@ func SingleClientDHCPServer(
 
 	if netRoutes != nil {
 		dhcpOptions[dhcp.OptionClasslessRouteFormat] = netRoutes
-        }
+	}
 
 	searchDomainBytes, err := convertSearchDomainsToBytes(searchDomains)
 	if err != nil {
 		return err
 	}
-        if searchDomainBytes != nil {
-                dhcpOptions[dhcp.OptionDomainSearch] = searchDomainBytes
-        }
+	if searchDomainBytes != nil {
+		dhcpOptions[dhcp.OptionDomainSearch] = searchDomainBytes
+	}
 
 	handler := &DHCPHandler{
 		clientIP:      clientIP,

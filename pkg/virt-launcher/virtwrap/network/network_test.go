@@ -22,6 +22,7 @@ package network
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -211,7 +212,7 @@ var _ = Describe("Network", func() {
 		})
 
 		It("should handle non-presence of search domains by returning default search domain", func() {
-			resolvConf := "nameserver 8.8.8.8\n"
+			resolvConf := fmt.Sprintf("nameserver %s\n", defaultDNS)
 			searchDomains, err := ParseSearchDomains(resolvConf)
 			Expect(searchDomains).To(Equal([]string{defaultSearchDomain}))
 			Expect(err).To(BeNil())
