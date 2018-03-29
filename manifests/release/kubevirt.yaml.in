@@ -23,7 +23,7 @@ subjects:
     name: kubevirt-apiserver
     namespace: {{ namespace }}
 ---
-apiVersion: rbac.authorization.k8s.io/v1
+apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-apiserver-auth-delegator
