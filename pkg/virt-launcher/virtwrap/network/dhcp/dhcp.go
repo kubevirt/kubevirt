@@ -40,6 +40,10 @@ const (
 	errorSearchDomainTooLong  = "Search domains length exceeded allowable size"
 )
 
+// simple domain validation regex. Put it here to avoid compiling each time.
+// Note this requires that unicode domains be presented in their ASCII format
+var searchDomainValidationRegex = regexp.MustCompile(`^(?:[_a-z0-9](?:[_a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?)?$`)
+
 func SingleClientDHCPServer(
 	clientMAC net.HardwareAddr,
 	clientIP net.IP,
@@ -200,7 +204,5 @@ func isValidSearchDomain(domain string) bool {
 	if len(domain) > 253 {
 		return false
 	}
-	// simple domain validation regex. Note this requires that unicode domains be presented in their ASCII format
-	re := regexp.MustCompile(`^(?:[_a-z0-9](?:[_a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?)?$`)
-	return re.MatchString(domain)
+	return searchDomainValidationRegex.MatchString(domain)
 }
