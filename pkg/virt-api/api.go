@@ -126,6 +126,7 @@ func (app *virtAPIApp) composeResources(ctx context.Context) {
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
 	vmpGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinepresets"}
+	ovmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "offlinevirtualmachines"}
 
 	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
 	if err != nil {
@@ -143,6 +144,11 @@ func (app *virtAPIApp) composeResources(ctx context.Context) {
 	}
 
 	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachinePreset{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachinePresetList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = rest.GenericResourceProxy(ws, ctx, ovmGVR, &v1.OfflineVirtualMachine{}, v1.OfflineVirtualMachineGroupVersionKind.Kind, &v1.OfflineVirtualMachineList{})
 	if err != nil {
 		panic(err)
 	}
