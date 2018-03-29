@@ -356,6 +356,13 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				stopFlags.AddFlagSet((&virtctl.Options{}).FlagSet())
 				stopFlags.Parse(stopCommandLine)
 
+				By("Ensuring OVM is running")
+				Eventually(func() bool {
+					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+				}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
 				status := stopCmd.Run(stopFlags)
 				Expect(status).To(Equal(0))
 
