@@ -31,7 +31,7 @@ var _ = Describe("DHCP", func() {
 
 	Context("check routes", func() {
 		It("verify should form correctly", func() {
-			expected := []byte{4, 224, 192, 168, 1, 1, 24, 192, 168, 1, 192, 168, 2, 1}
+			expected := []byte{4, 224, 0, 0, 0, 0, 24, 192, 168, 1, 192, 168, 2, 1}
 			gateway := net.IPv4(192, 168, 1, 1)
 			routes := []netlink.Route{
 				netlink.Route{
