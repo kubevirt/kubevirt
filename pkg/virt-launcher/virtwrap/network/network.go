@@ -195,8 +195,8 @@ func getResolvConfDetailsFromPod() ([][]byte, []string, error) {
 		return nil, nil, err
 	}
 
-	log.Log.Reason(err).Errorf("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
-	log.Log.Reason(err).Errorf("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
+	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
+	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
 	return nameservers, searchDomains, err
 }
@@ -241,7 +241,7 @@ func ParseSearchDomains(content string) ([]string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, domainSearchPrefix) {
-			doms := strings.Fields(strings.TrimLeft(line, domainSearchPrefix))
+			doms := strings.Fields(strings.TrimPrefix(line, domainSearchPrefix))
 			for _, dom := range doms {
 				searchDomains = append(searchDomains, dom)
 			}
