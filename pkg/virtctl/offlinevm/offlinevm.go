@@ -21,7 +21,6 @@ package offlinevm
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -30,8 +29,11 @@ import (
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/spf13/cobra"
+
+	"k8s.io/client-go/tools/clientcmd"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
 const (
@@ -39,8 +41,35 @@ const (
 	COMMAND_STOP  = "stop"
 )
 
+func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	return &cobra.Command{
+		Use:   "start (vm)",
+		Short: "Start a virtual machine which is managed by an offline virtual machine.",
+		Long:  usage(COMMAND_START),
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_START, clientConfig: clientConfig}
+			return c.Run(cmd, args)
+		},
+	}
+}
+
+func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	return &cobra.Command{
+		Use:   "stop (vm)",
+		Short: "Stop a virtual machine which is managed by an offline virtual machine.",
+		Long:  usage(COMMAND_STOP),
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
+			return c.Run(cmd, args)
+		},
+	}
+}
+
 type Command struct {
-	command string
+	clientConfig clientcmd.ClientConfig
+	command      string
 }
 
 func (c *Command) FlagSet() *flag.FlagSet {
@@ -53,68 +82,54 @@ func NewCommand(command string) *Command {
 	return &Command{command: command}
 }
 
-func (c *Command) Usage() string {
+func usage(cmd string) string {
 	virtctlCmd := path.Base(os.Args[0])
-	usage := fmt.Sprintf("%s an OfflineVirtualMachine\n\n", strings.Title(c.command))
+	usage := fmt.Sprintf("%s a virtual machine which is managed by an offline virtual machine.\n\n", strings.Title(cmd))
 	usage += "Example:\n"
-	usage += fmt.Sprintf("%s %s myvm\n", virtctlCmd, c.command)
+	usage += fmt.Sprintf("%s %s myvm\n", virtctlCmd, cmd)
 	return usage
 }
 
-func (o *Command) Run(flags *flag.FlagSet) int {
-	var virtClient kubecli.KubevirtClient
-	var err error
+func (o *Command) Run(cmd *cobra.Command, args []string) error {
 
-	if flags.NArg() != 2 {
-		log.Println("OfflineVirtualMachine name is missing")
-		return virtctl.STATUS_ERROR
+	vmName := args[0]
+
+	namespace, _, err := o.clientConfig.Namespace()
+	if err != nil {
+		return err
 	}
-	vmName := flags.Arg(1)
-
-	server, _ := flags.GetString("server")
-	kubeconfig, _ := flags.GetString("kubeconfig")
-	namespace, _ := flags.GetString("namespace")
 
 	var running bool
-	command := flags.Arg(0)
-	if command == COMMAND_START {
+	if o.command == COMMAND_START {
 		running = true
-	} else if command == COMMAND_STOP {
+	} else if o.command == COMMAND_STOP {
 		running = false
 	}
 
-	if (server != "") && (kubeconfig != "") {
-		virtClient, err = kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
-	} else {
-		virtClient, err = kubecli.GetKubevirtClient()
-	}
+	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
 	if err != nil {
-		log.Printf("Cannot obtain KubeVirt client: %v", err)
-		return virtctl.STATUS_ERROR
+		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
 
 	options := &k8smetav1.GetOptions{}
 	ovm, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
 	if err != nil {
-		log.Printf("Error fetching OfflineVirtualMachine: %v", err)
-		return virtctl.STATUS_ERROR
+		return fmt.Errorf("Error fetching OfflineVirtualMachine: %v", err)
 	}
 
 	if ovm.Spec.Running != running {
 		ovm.Spec.Running = running
 		_, err := virtClient.OfflineVirtualMachine(namespace).Update(ovm)
 		if err != nil {
-			log.Printf("Error updating OfflineVirtualMachine: %v", err)
-			return virtctl.STATUS_ERROR
+			return fmt.Errorf("Error updating OfflineVirtualMachine: %v", err)
 		}
 	} else {
 		stateMsg := "stopped"
 		if running {
 			stateMsg = "running"
 		}
-		log.Printf("Error: VirtualMachine '%s' is already %s", vmName, stateMsg)
-		return virtctl.STATUS_ERROR
+		return fmt.Errorf("Error: VirtualMachine '%s' is already %s", vmName, stateMsg)
 	}
 
-	return virtctl.STATUS_OK
+	return nil
 }

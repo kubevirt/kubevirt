@@ -49,6 +49,7 @@ type kubevirt struct {
 	master     string
 	kubeconfig string
 	restClient *rest.RESTClient
+	config     *rest.Config
 	*kubernetes.Clientset
 }
 

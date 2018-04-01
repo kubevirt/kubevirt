@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virtctl"
 	"kubevirt.io/kubevirt/pkg/virtctl/offlinevm"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -316,14 +315,10 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				newOVM := newOfflineVirtualMachine(false)
 
 				By("Invoking virtctl start")
-				startCommandLine := []string{offlinevm.COMMAND_START, newOVM.Name, "--namespace", newOVM.Namespace}
-				startCmd := offlinevm.NewCommand(offlinevm.COMMAND_START)
-				startFlags := startCmd.FlagSet()
-				startFlags.AddFlagSet((&virtctl.Options{}).FlagSet())
-				startFlags.Parse(startCommandLine)
+				virtctl := tests.NewRepeatableVirtctlCommand(offlinevm.COMMAND_START, "--namespace", newOVM.Namespace, newOVM.Name)
 
-				status := startCmd.Run(startFlags)
-				Expect(status).To(Equal(0))
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting the status of the OVM")
 				Eventually(func() bool {
@@ -340,8 +335,8 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Ensuring a second invocation should fail")
-				status = startCmd.Run(startFlags)
-				Expect(status).To(Equal(1))
+				err = virtctl()
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("should stop a VM once", func() {
@@ -350,11 +345,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				newOVM := newOfflineVirtualMachine(true)
 
 				By("Invoking virtctl stop")
-				stopCommandLine := []string{offlinevm.COMMAND_STOP, newOVM.Name, "--namespace", newOVM.Namespace}
-				stopCmd := offlinevm.NewCommand(offlinevm.COMMAND_STOP)
-				stopFlags := stopCmd.FlagSet()
-				stopFlags.AddFlagSet((&virtctl.Options{}).FlagSet())
-				stopFlags.Parse(stopCommandLine)
+				virtctl := tests.NewRepeatableVirtctlCommand(offlinevm.COMMAND_STOP, "--namespace", newOVM.Namespace, newOVM.Name)
 
 				By("Ensuring OVM is running")
 				Eventually(func() bool {
@@ -363,8 +354,8 @@ var _ = Describe("OfflineVirtualMachine", func() {
 					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
-				status := stopCmd.Run(stopFlags)
-				Expect(status).To(Equal(0))
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Ensuring OVM is not running")
 				Eventually(func() bool {
@@ -381,8 +372,8 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
 
 				By("Ensuring a second invocation should fail")
-				status = stopCmd.Run(stopFlags)
-				Expect(status).To(Equal(1))
+				err = virtctl()
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
