@@ -1,6 +1,7 @@
 .idea
 *.iml
 tools/openapispec/openapispec
+tools/crd-generator/crd-generator
 **/bin
 bin/*
 .vagrant
