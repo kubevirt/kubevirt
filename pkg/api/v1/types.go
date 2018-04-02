@@ -174,7 +174,7 @@ func (v *VirtualMachine) IsReady() bool {
 }
 
 func (v *VirtualMachine) IsRunning() bool {
-	return v.Status.Phase == Running || v.Status.Phase == Migrating
+	return v.Status.Phase == Running
 }
 
 func (v *VirtualMachine) IsFinal() bool {
@@ -268,8 +268,6 @@ const (
 	Scheduled VMPhase = "Scheduled"
 	// VMRunning means the pod has been bound to a node and the VM is started.
 	Running VMPhase = "Running"
-	// VMMigrating means the VM is currently migrated by a controller.
-	Migrating VMPhase = "Migrating"
 	// VMSucceeded means that the VM stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
 	// inside the VM.
 	Succeeded VMPhase = "Succeeded"
