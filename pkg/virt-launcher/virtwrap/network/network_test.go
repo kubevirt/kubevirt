@@ -22,6 +22,7 @@ package network
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -184,6 +185,36 @@ var _ = Describe("Network", func() {
 			nameservers, err := ParseNameservers("")
 			expectedDNS := net.ParseIP(defaultDNS).To4()
 			Expect(nameservers).To(Equal([][]uint8{expectedDNS}))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("Function ParseSearchDomains()", func() {
+		It("should return a string of search domains", func() {
+			resolvConf := "search cluster.local svc.cluster.local example.com\nnameserver 8.8.8.8\n"
+			searchDomains, err := ParseSearchDomains(resolvConf)
+			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
+			Expect(err).To(BeNil())
+		})
+
+		It("should handle multi-line search domains", func() {
+			resolvConf := "search cluster.local\nsearch svc.cluster.local example.com\nnameserver 8.8.8.8\n"
+			searchDomains, err := ParseSearchDomains(resolvConf)
+			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
+			Expect(err).To(BeNil())
+		})
+
+		It("should clean up extra whitespace between search domains", func() {
+			resolvConf := "search cluster.local\tsvc.cluster.local    example.com\nnameserver 8.8.8.8\n"
+			searchDomains, err := ParseSearchDomains(resolvConf)
+			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
+			Expect(err).To(BeNil())
+		})
+
+		It("should handle non-presence of search domains by returning default search domain", func() {
+			resolvConf := fmt.Sprintf("nameserver %s\n", defaultDNS)
+			searchDomains, err := ParseSearchDomains(resolvConf)
+			Expect(searchDomains).To(Equal([]string{defaultSearchDomain}))
 			Expect(err).To(BeNil())
 		})
 	})

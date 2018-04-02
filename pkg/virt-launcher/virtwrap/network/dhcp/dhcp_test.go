@@ -56,4 +56,87 @@ var _ = Describe("DHCP", func() {
 			Expect(dhcpRoutes).To(Equal(expected))
 		})
 	})
+
+	Context("function convertSearchDomainsToBytes(searchDomainStrings []string) ([]byte, error)", func() {
+		It("should return RFC3397 compatible DNS search data", func() {
+			searchDomains := []string{"foo.com", "foo.local"}
+			expected := []byte{3, 'f', 'o', 'o', 3, 'c', 'o', 'm', 0, 3, 'f', 'o', 'o', 5, 'l', 'o', 'c', 'a', 'l', 0}
+			result, err := convertSearchDomainsToBytes(searchDomains)
+			Expect(result).To(Equal(expected))
+			Expect(err).To(BeNil())
+		})
+
+		It("should reject invalid domains", func() {
+			searchDomains := []string{"foo,com"}
+			_, err := convertSearchDomainsToBytes(searchDomains)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(HavePrefix(errorSearchDomainNotValid))
+		})
+
+		It("should reject search domains that exceed max length", func() {
+			// should result in 256 byte slice
+			searchDomains := []string{
+				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
+				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"38rfuqbyvkjg4z1f3aogul55wtgxrd9dlwzewqo0.com",
+				"yza01ojnzi0tkyjeusmlg728nqdqvz3domymifvq.com",
+				"m130lhs7a8yjgpn6almqggkqc222otedms6vslcd.com",
+				"t4lanpt7z4ix58nvxl4d.com",
+			}
+
+			_, err := convertSearchDomainsToBytes(searchDomains)
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(HavePrefix(errorSearchDomainTooLong))
+		})
+	})
+
+	Context("function isValidSearchDomain(domain string) bool", func() {
+		createBytes := func(size int) []byte {
+			b := make([]byte, size)
+			for i := range b {
+				b[i] = 'a'
+			}
+			return b
+		}
+
+		It("should reject domains that start with '-'", func() {
+			dom := "-foo.com"
+			Expect(isValidSearchDomain(dom)).To(BeFalse())
+		})
+
+		It("should reject domains with full length greater than 253 chars", func() {
+			b := append(createBytes(250), []byte(".com")...)
+			Expect(isValidSearchDomain(string(b))).To(BeFalse())
+		})
+
+		It("should accept domains with full length of 253 chars", func() {
+			b := append(createBytes(249), []byte(".com")...)
+			Expect(isValidSearchDomain(string(b))).To(BeFalse())
+		})
+
+		It("should reject domains that have labels longer than 63 chars", func() {
+			b := append(createBytes(64), []byte(".com")...)
+			Expect(isValidSearchDomain(string(b))).To(BeFalse())
+		})
+
+		It("should accept domains that have 63 character labels", func() {
+			b := append(createBytes(63), []byte(".com")...)
+			Expect(isValidSearchDomain(string(b))).To(BeTrue())
+		})
+
+		It("should reject domains with invalid characters", func() {
+			dom := "foo\n.com"
+			Expect(isValidSearchDomain(dom)).To(BeFalse())
+		})
+
+		It("should accept a valid domain", func() {
+			dom := "example.default.svc.cluster.local"
+			Expect(isValidSearchDomain(dom)).To(BeTrue())
+		})
+
+		It("should accept a valid FQDN", func() {
+			dom := "example.default.svc.cluster.local."
+			Expect(isValidSearchDomain(dom)).To(BeTrue())
+		})
+	})
 })
