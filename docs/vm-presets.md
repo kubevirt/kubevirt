@@ -35,21 +35,21 @@ elements of the `spec` section of a `VirtualMachinePreset` will be applied
 to the `VirtualMachine`.
 
 
-Conflicts
+Overrides
 ------------------------
 
 `VirtualMachinePresets` use a similar conflict resolution strategy to
 Kubernetes `PodPresets`. If a portion of the domain spec is present in both a
 `VirtualMachine` and a `VirtualMachinePreset` and both resources have the
-identical information, then no conflict will occur and `VirtualMachine` creation
-will continue normally. If however there is a conflict between the resources,
-an Event will be created indicating which `DomainSpec` element of which
-`VirtualMachinePreset` was problematic. For example: If both the `VirtualMachine`
-and `VirtualMachinePreset` define a `CPU`, but use a different number of `Cores`,
-KubeVirt will note the conflict.
+identical information, then creation of the `VirtualMachine` will continue
+normally. If however there is a difference between the resources, an Event will
+be created indicating which `DomainSpec` element of which `VirtualMachinePreset`
+was overridden. For example: If both the `VirtualMachine` and
+`VirtualMachinePreset` define a `CPU`, but use a different number of `Cores`,
+KubeVirt will note the difference.
 
 If any settings from the `VirtualMachinePreset` were successfully applied, the
-`VirtualMachine` will still be annotated.
+`VirtualMachine` will be annotated.
 
 Because `VirtualMachinePresets` are implemented within the `virt-controller` pod,
 log messages associated with resource conflicts will also be reflected there.
