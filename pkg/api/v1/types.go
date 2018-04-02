@@ -82,7 +82,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachinePreset{},
 		&VirtualMachinePresetList{},
 		&metav1.GetOptions{},
-		&Spice{},
 		&OfflineVirtualMachine{},
 		&OfflineVirtualMachineList{},
 	)
@@ -353,34 +352,6 @@ func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine
 	}
 	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VM", Version: GroupVersion.Version})
 	return vm
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type Spice struct {
-	metav1.TypeMeta `json:",inline" ini:"-"`
-	ObjectMeta      metav1.ObjectMeta `json:"metadata,omitempty" ini:"-"`
-	Info            SpiceInfo         `json:"info,omitempty" valid:"required" ini:"virt-viewer"`
-}
-
-type SpiceInfo struct {
-	Type  string `json:"type" ini:"type"`
-	Host  string `json:"host" ini:"host"`
-	Port  int32  `json:"port" ini:"port"`
-	Proxy string `json:"proxy,omitempty" ini:"proxy,omitempty"`
-}
-
-func NewSpice(namespace string, vmName string) *Spice {
-	return &Spice{
-		Info: SpiceInfo{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmName,
-			Namespace: namespace,
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: GroupVersion.String(),
-			Kind:       "Spice",
-		},
-	}
 }
 
 type VMSelector struct {

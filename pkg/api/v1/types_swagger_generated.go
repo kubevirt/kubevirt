@@ -55,16 +55,6 @@ func (VirtualMachineNetworkInterface) SwaggerDoc() map[string]string {
 	}
 }
 
-func (Spice) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-	}
-}
-
-func (SpiceInfo) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (VMSelector) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "Name of the VM to migrate",
