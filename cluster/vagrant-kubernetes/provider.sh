@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 function _main_ip() {
     echo 192.168.200.2
 }

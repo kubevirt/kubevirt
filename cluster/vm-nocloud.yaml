@@ -18,6 +18,10 @@ spec:
         volumeName: cloudinitvolume
         disk:
           bus: virtio
+      - name: emptydisk
+        volumeName: emptydiskvolume
+        disk:
+          bus: virtio
   volumes:
     - name: registryvolume
       registryDisk:
@@ -25,3 +29,6 @@ spec:
     - name: cloudinitvolume
       cloudInitNoCloud:
         userDataBase64: I2Nsb3VkLWNvbmZpZwpwYXNzd29yZDogYXRvbWljCnNzaF9wd2F1dGg6IFRydWUKY2hwYXNzd2Q6IHsgZXhwaXJlOiBGYWxzZSB9Cg==
+    - name: emptydiskvolume
+      emptyDisk:
+        capacity: 2Gi

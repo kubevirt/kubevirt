@@ -116,12 +116,20 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
 		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
+		"emptyDisk":             "EmptyDisk represents a temporary disk which shares the vms lifecycle\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
 	}
 }
 
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+	}
+}
+
+func (EmptyDiskSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "EmptyDisk represents a temporary disk which shares the vms lifecycle",
+		"capacity": "Capacity of the sparse disk.",
 	}
 }
 
