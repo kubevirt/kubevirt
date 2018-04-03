@@ -29,46 +29,39 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	return &cobra.Command{
-		Use:   "console (vm)",
-		Short: "Connect to a console of a virtual machine.",
-		Long:  usage(),
-		Args:  cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:     "console (vm)",
+		Short:   "Connect to a console of a virtual machine.",
+		Example: usage(),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Console{clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},
 	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
 }
 
 type Console struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-func (c *Console) FlagSet() *pflag.FlagSet {
-	cf := pflag.NewFlagSet("console", pflag.ExitOnError)
-
-	return cf
-}
-
 func usage() string {
-	usage := "Connect to a console of a virtual machine.\n\n"
-	usage += "Examples:\n"
-	usage += "# Connect to the console on VM 'myvm':\n"
-	usage += "virtctl console myvm\n\n"
+	usage := "# Connect to the console on VM 'myvm':\n"
+	usage += "virtctl console myvm"
 	return usage
 }
 
 func (c *Console) Run(cmd *cobra.Command, args []string) error {
-	kubecli.GetKubevirtClientConfig()
 	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {
 		return err
