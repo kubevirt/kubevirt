@@ -43,6 +43,7 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 	server, _ := flags.GetString("server")
 	kubeconfig, _ := flags.GetString("kubeconfig")
 	namespace, _ := flags.GetString("namespace")
+	listenPort, _ := flags.GetUInt32("listen")
 	if namespace == "" {
 		namespace = kubev1.NamespaceDefault
 	}
@@ -72,7 +73,7 @@ func (o *VNC) Run(flags *flag.FlagSet) int {
 	readStop := make(chan error)
 
 	// The local tcp server is used to proxy the podExec websock connection to remote-viewer
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp", fmt.Sprintf("vnc://127.0.0.1:%d", listenPort))
 	if err != nil {
 		log.Printf("Can't listen on unix socket: %s", err.Error())
 		return virtctl.STATUS_ERROR
