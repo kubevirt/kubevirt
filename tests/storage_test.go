@@ -176,7 +176,7 @@ var _ = Describe("Storage", func() {
 
 		Context("With an emptyDisk defined", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VM.
-			It("should create an emptyDisk with the right capacity", func(done Done) {
+			It("should create a writeable emptyDisk with the right capacity", func(done Done) {
 
 				// Start the VM with the empty disk attached
 				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
@@ -208,6 +208,16 @@ var _ = Describe("Storage", func() {
 					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
 					&expect.BExp{R: "2147483648"}, // 2Gi in bytes
 				}, 10*time.Second)
+				log.DefaultLogger().Object(vm).Infof("%v", res)
+				Expect(err).To(BeNil())
+
+				By("Checking if we can write to /dev/vdc")
+				res, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+				}, 20*time.Second)
 				log.DefaultLogger().Object(vm).Infof("%v", res)
 				Expect(err).To(BeNil())
 
