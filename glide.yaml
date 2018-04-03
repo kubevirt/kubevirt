@@ -27,11 +27,11 @@ import:
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: v6.0.0
+  version: kubernetes-1.9.6
 - package: k8s.io/apimachinery
-  version: 180eddb345a5be3a157cea1c624700ad5bd27b8f
+  version: kubernetes-1.9.6
 - package: k8s.io/kube-aggregator
-  version: 505830b89d46ab904b2671e545e155a5ca97af82
+  version: kubernetes-1.9.6
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
 - package: github.com/mailru/easyjson

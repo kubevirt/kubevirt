@@ -70,6 +70,7 @@ The enumprefix, getters and stringer extensions can be used to remove some of th
 <tr><td> goproto_extensions_map (beta) </td><td> Message </td><td> bool </td><td> if false, the extensions field is generated as type []byte instead of type map[int32]proto.Extension </td><td> true </td></tr>
 <tr><td> goproto_unrecognized (beta) </td><td> Message </td><td> bool </td><td>if false, XXX_unrecognized field is not generated. This is useful to reduce GC pressure at the cost of losing information about unrecognized fields. </td><td> true </td></tr>
 <tr><td> goproto_registration (beta) </td><td> File </td><td> bool </td><td>if true, the generated files will register all messages and types against both gogo/protobuf and golang/protobuf. This is necessary when using third-party packages which read registrations from golang/protobuf (such as the grpc-gateway). </td><td> false </td></tr>
+<tr><td> message_name </td><td> Message </td><td> bool </td><td>if true, a `XXX_MessageName()` method is generated that returns the message's name.  This is useful for grpc-gateway compatibility.</td><td> false </td></tr>
 </table>
 
 # Less Typing
@@ -148,6 +149,7 @@ Each of the boolean message and enum extensions also have a file extension:
   * `benchgen_all`
   * `enumdecl_all`
   * `typedecl_all`
+  * `messagename_all`
 
 Each of these are the same as their Message Option counterparts, except they apply to all messages in the file.  Their Message option counterparts can also be used to overwrite their effect.
 

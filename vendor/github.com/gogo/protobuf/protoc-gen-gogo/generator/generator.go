@@ -3059,6 +3059,14 @@ func (g *Generator) generateMessage(message *Descriptor) {
 	if gogoproto.ImportsGoGoProto(g.file.FileDescriptorProto) && gogoproto.RegistersGolangProto(g.file.FileDescriptorProto) {
 		g.addInitf("%s.RegisterType((*%s)(nil), %q)", g.Pkg["golang_proto"], ccTypeName, fullName)
 	}
+
+	if gogoproto.HasMessageName(g.file.FileDescriptorProto, message.DescriptorProto) {
+		g.P("func (*", ccTypeName, ") XXX_MessageName() string {")
+		g.In()
+		g.P("return ", strconv.Quote(fullName))
+		g.Out()
+		g.P("}")
+	}
 }
 
 var escapeChars = [256]byte{

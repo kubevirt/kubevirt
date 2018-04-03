@@ -1,5 +1,5 @@
-hash: dffb8730cad7839d40d0601ee0fb26e151e1ffb710d28ee537c0f4d0c198ed6d
-updated: 2018-03-26T14:34:19.477269196Z
+hash: 693cca56d3827d84c0218cba6feedd5a99a99fac6fca581e17ed66b5d840b9c4
+updated: 2018-04-03T13:58:43.736068987Z
 imports:
 - name: github.com/asaskevich/govalidator
   version: 7d2e70ef918f16bd6455529af38304d6d025c952
@@ -44,7 +44,7 @@ imports:
 - name: github.com/go-stack/stack
   version: 259ab82a6cad3992b4e21ff5cac294ccb06474bc
 - name: github.com/gogo/protobuf
-  version: 49944b4a4b085da44c43d4b233ea40787396371f
+  version: 1ef32a8b9fc3f8ec940126907cedb5998f6318e4
   subpackages:
   - proto
   - sortkeys
@@ -229,11 +229,11 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 6333e38ac20b8949a8dd68baa3650f4dee8f39f0
+  version: 5e9692864e22d02ac79e2fa499cffb00520b4fea
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/api
-  version: 11147472b7c934c474a2c484af3c0c5210b7a3af
+  version: acf347b865f29325eb61f4cd2df11e86e073a5ee
   subpackages:
   - admissionregistration/v1alpha1
   - admissionregistration/v1beta1
@@ -264,7 +264,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apimachinery
-  version: 180eddb345a5be3a157cea1c624700ad5bd27b8f
+  version: 19e3f5aa3adca672c153d324e6b7d82ff8935f03
   subpackages:
   - pkg/api/errors
   - pkg/api/meta
@@ -317,7 +317,7 @@ imports:
   - third_party/forked/golang/netutil
   - third_party/forked/golang/reflect
 - name: k8s.io/client-go
-  version: 78700dec6369ba22221b72770783300f143df150
+  version: e56f95336983131fc477c6c241502100c80b47f9
   subpackages:
   - discovery
   - discovery/fake
