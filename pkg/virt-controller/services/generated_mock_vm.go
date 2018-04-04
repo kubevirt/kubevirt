@@ -31,10 +31,11 @@ func (_m *MockVMService) EXPECT() *_MockVMServiceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVMService) StartVMPod(_param0 *v10.VirtualMachine) error {
+func (_m *MockVMService) StartVMPod(_param0 *v10.VirtualMachine) (*v1.Pod, error) {
 	ret := _m.ctrl.Call(_m, "StartVMPod", _param0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*v1.Pod)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 func (_mr *_MockVMServiceRecorder) StartVMPod(arg0 interface{}) *gomock.Call {
@@ -60,27 +61,4 @@ func (_m *MockVMService) GetRunningVMPods(_param0 *v10.VirtualMachine) (*v1.PodL
 
 func (_mr *_MockVMServiceRecorder) GetRunningVMPods(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetRunningVMPods", arg0)
-}
-
-func (_m *MockVMService) FetchVM(namespace string, vmName string) (*v10.VirtualMachine, bool, error) {
-	ret := _m.ctrl.Call(_m, "FetchVM", namespace, vmName)
-	ret0, _ := ret[0].(*v10.VirtualMachine)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-func (_mr *_MockVMServiceRecorder) FetchVM(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FetchVM", arg0, arg1)
-}
-
-func (_m *MockVMService) PutVm(vm *v10.VirtualMachine) (*v10.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "PutVm", vm)
-	ret0, _ := ret[0].(*v10.VirtualMachine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVMServiceRecorder) PutVm(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "PutVm", arg0)
 }

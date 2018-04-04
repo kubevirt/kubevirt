@@ -61,13 +61,13 @@ type VirtControllerApp struct {
 	vmCache      cache.Store
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
-	vmQueue      workqueue.RateLimitingInterface
 
 	vmPresetCache      cache.Store
 	vmPresetController *VirtualMachinePresetController
 	vmPresetQueue      workqueue.RateLimitingInterface
 	vmPresetInformer   cache.SharedIndexInformer
 	vmPresetRecorder   record.EventRecorder
+	vmRecorder         record.EventRecorder
 
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
@@ -117,10 +117,8 @@ func Execute() {
 	app.vmInformer = app.informerFactory.VM()
 	app.podInformer = app.informerFactory.KubeVirtPod()
 
-	app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmCache = app.vmInformer.GetStore()
-	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
-	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
+	app.vmRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmPresetCache = app.vmInformer.GetStore()
@@ -227,8 +225,8 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
-	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
+	vca.vmService = services.NewVMService(vca.clientSet, vca.templateService)
+	vca.vmController = NewVMController(vca.vmService, vca.vmCache, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
 }
 

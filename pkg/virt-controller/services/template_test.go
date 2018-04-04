@@ -49,7 +49,6 @@ var _ = Describe("Template", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:    "virt-launcher",
 					v1.DomainLabel: "testvm",
-					v1.VMUIDLabel:  "1234",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
 				Expect(pod.Spec.NodeSelector).To(BeEmpty())
@@ -78,7 +77,6 @@ var _ = Describe("Template", func() {
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:    "virt-launcher",
 					v1.DomainLabel: "testvm",
-					v1.VMUIDLabel:  "1234",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{

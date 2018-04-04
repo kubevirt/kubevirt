@@ -33,6 +33,7 @@ import (
 
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
+
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"

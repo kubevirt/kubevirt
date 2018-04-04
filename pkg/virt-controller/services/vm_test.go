@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -39,7 +38,6 @@ var _ = Describe("VM", func() {
 
 	var vmService VMService
 	var server *ghttp.Server
-	var restClient *rest.RESTClient
 
 	BeforeEach(func() {
 
@@ -47,8 +45,7 @@ var _ = Describe("VM", func() {
 		server = ghttp.NewServer()
 		virtClient, _ := kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		templateService, _ := NewTemplateService("kubevirt/virt-launcher", "/var/run/libvirt", "imagesecret")
-		restClient = virtClient.RestClient()
-		vmService = NewVMService(virtClient, restClient, templateService)
+		vmService = NewVMService(virtClient, templateService)
 
 	})
 
@@ -64,7 +61,7 @@ var _ = Describe("VM", func() {
 					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
 				),
 			)
-			err := vmService.StartVMPod(vm)
+			_, err := vmService.StartVMPod(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 		})

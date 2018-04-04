@@ -29,7 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
 type TemplateService interface {
@@ -46,7 +46,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
 
 	initialDelaySeconds := 2
 	timeoutSeconds := 5
@@ -56,7 +55,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 
 	var volumes []kubev1.Volume
 	var userId int64 = 0
-	var privileged bool = true
+	var privileged = true
 	var volumesMounts []kubev1.VolumeMount
 	var imagePullSecrets []kubev1.LocalObjectReference
 
@@ -205,7 +204,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			Labels: map[string]string{
 				v1.AppLabel:    "virt-launcher",
 				v1.DomainLabel: domain,
-				v1.VMUIDLabel:  uid,
 			},
 		},
 		Spec: kubev1.PodSpec{

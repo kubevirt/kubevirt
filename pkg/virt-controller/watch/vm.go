@@ -24,27 +24,43 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"fmt"
+	"reflect"
+	"sync"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"reflect"
-	"sync"
 )
 
-func NewVMController(restClient *rest.RESTClient, vmService services.VMService, queue workqueue.RateLimitingInterface, vmCache cache.Store, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
-	return &VMController{
-		restClient:   restClient,
+// Reasons for vm events
+const (
+	// FailedCreatePodReason is added in an event and in a vm controller condition
+	// when a pod for a vm controller is failed to be created.
+	FailedCreatePodReason = "FailedCreate"
+	// SuccessfulCreatePodReason is added in an event when a pod for a vm controller
+	// is successfully created.
+	SuccessfulCreatePodReason = "SuccessfulCreate"
+	// FailedDeletePodReason is added in an event and in a vm controller condition
+	// when a pod for a vm controller is failed to be deleted.
+	FailedDeletePodReason = "FailedDelete"
+	// SuccessfulDeletePodReason is added in an event when a pod for a vm controller
+	// is successfully deleted.
+	SuccessfulDeletePodReason = "SuccessfulDelete"
+)
+
+func NewVMController(vmService services.VMService, vmCache cache.Store, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
+	c := &VMController{
 		vmService:    vmService,
-		queue:        queue,
+		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		store:        vmCache,
 		vmInformer:   vmInformer,
 		podInformer:  podInformer,
@@ -52,10 +68,23 @@ func NewVMController(restClient *rest.RESTClient, vmService services.VMService, 
 		clientset:    clientset,
 		expectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
+
+	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addVirtualMachine,
+		DeleteFunc: c.deleteVirtualMachine,
+		UpdateFunc: c.updateVirtualMachine,
+	})
+
+	c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addPod,
+		DeleteFunc: c.deletePod,
+		UpdateFunc: c.updatePod,
+	})
+
+	return c
 }
 
 type VMController struct {
-	restClient   *rest.RESTClient
 	vmService    services.VMService
 	clientset    kubecli.KubevirtClient
 	queue        workqueue.RateLimitingInterface
@@ -121,9 +150,7 @@ func (c *VMController) execute(key string) error {
 		c.expectations.DeleteExpectations(key)
 		return nil
 	}
-	// Retrieve the VM
-	var vm *virtv1.VirtualMachine
-	vm = obj.(*virtv1.VirtualMachine)
+	vm := obj.(*virtv1.VirtualMachine)
 
 	// If the VM is exists still, don't process the VM until it is fully initialized.
 	// Initialization is handled by the initialization controller and must take place
@@ -177,35 +204,72 @@ func (c *VMController) execute(key string) error {
 
 func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod, syncErr error) error {
 
-	errorsMatch := (syncErr != nil) == controller.NewVirtualMachineConditionManager().HasCondition(vm, virtv1.VirtualMachineSynchronized)
+	vmCopy := vm.DeepCopy()
 
-	ownedByHandler := !vm.IsUnprocessed() && !vm.IsScheduling() && !vm.IsFinal()
+	errorsMatch := (syncErr != nil) == controller.NewVirtualMachineConditionManager().HasCondition(vmCopy, virtv1.VirtualMachineSynchronized)
 
-	podIsReady := verifyReadiness(pods[0])
+	ownedByHandler := !vmCopy.IsUnprocessed() && !vmCopy.IsScheduling() && !vmCopy.IsFinal()
 
-	if errorsMatch && ownedByHandler {
+	if ownedByHandler {
+		// TODO introduce unknown state if the node is down
 		return nil
 	}
 
-	if vm.IsUnprocessed() && len(pods) > 1 {
+	if len(pods) > 0 {
+		podIsReady := podIsReady(pods[0])
 
-	} else if vm.IsScheduling() && podIsReady {
-		vm.Status.Interfaces = []virtv1.VirtualMachineNetworkInterface{
-			{
-				IP: pods[0].Status.PodIP,
-			},
+		podIsTerminating := podIsDownOrGoingDown(pods[0])
+
+		podIsDown := podIsDown(pods[0])
+
+		if !podIsTerminating && !podIsReady {
+			vmCopy.Status.Phase = virtv1.Scheduling
+		} else if !podIsTerminating && podIsReady {
+			vmCopy.Status.Interfaces = []virtv1.VirtualMachineNetworkInterface{
+				{
+					IP: pods[0].Status.PodIP,
+				},
+			}
+			vmCopy.Status.Phase = virtv1.Scheduled
+			vmCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pods[0].Spec.NodeName
+		} else if podIsDown {
+			vmCopy.Status.Phase = virtv1.Failed
 		}
-		vm.Status.Phase = virtv1.Scheduled
-		vm.ObjectMeta.Labels[virtv1.NodeNameLabel] = pods[0].Spec.NodeName
 	} else {
 		// nothing to do we don't own the VM anymore
-		// TODO add unknown state handling here
+	}
+
+	if !errorsMatch {
+		reason := "FailedCreate"
+		if len(pods) > 0 {
+			reason = "FailedDelete"
+		}
+		if syncErr != nil {
+			vmCopy.Status.Conditions = append(vmCopy.Status.Conditions, virtv1.VirtualMachineCondition{
+				Type:               virtv1.VirtualMachineSynchronized,
+				Reason:             reason,
+				Message:            syncErr.Error(),
+				LastTransitionTime: v1.Now(),
+				Status:             k8sv1.ConditionTrue,
+			})
+
+		} else {
+			c.removeCondition(vmCopy, virtv1.VirtualMachineSynchronized)
+		}
+	}
+
+	// If we detect a change on the vm status, we update the vm
+	if !reflect.DeepEqual(vm.Status, vmCopy.Status) {
+		_, err := c.clientset.VM(vm.Namespace).Update(vmCopy)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func verifyReadiness(pod *k8sv1.Pod) bool {
+func podIsReady(pod *k8sv1.Pod) bool {
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		if containerStatus.Ready == false {
 			return false
@@ -215,17 +279,27 @@ func verifyReadiness(pod *k8sv1.Pod) bool {
 	return true
 }
 
+func podIsDownOrGoingDown(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed || pod.DeletionTimestamp != nil
+}
+
+func podIsDown(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
+}
+
 func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err error) {
 
 	vmKey := controller.VirtualMachineKey(vm)
 
 	if vm.IsUnprocessed() && len(pods) == 0 {
 		c.expectations.ExpectCreations(vmKey, 1)
-		err = c.vmService.StartVMPod(vm)
+		pod, err := c.vmService.StartVMPod(vm)
 		if err != nil {
+			c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
 			c.expectations.CreationObserved(vmKey)
 			return err
 		}
+		c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
 		return nil
 	} else if vm.IsFinal() && len(pods) > 0 {
 
@@ -239,7 +313,11 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 				err := c.clientset.CoreV1().Pods(vm.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
 				if err != nil {
 					c.expectations.DeleteExpectations(vmKey)
+					c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleting virtual machine pod %s: %v", pod.Name, err)
+					errChan <- err
+					return
 				}
+				c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted virtual machine pod: %v", pod.Name)
 			}(pods[i])
 		}
 		wg.Wait()
@@ -412,6 +490,18 @@ func (c *VMController) deletePod(obj interface{}) {
 	c.enqueueVirtualMachine(vm)
 }
 
+func (c *VMController) addVirtualMachine(obj interface{}) {
+	c.enqueueVirtualMachine(obj)
+}
+
+func (c *VMController) deleteVirtualMachine(obj interface{}) {
+	c.enqueueVirtualMachine(obj)
+}
+
+func (c *VMController) updateVirtualMachine(old, curr interface{}) {
+	c.enqueueVirtualMachine(curr)
+}
+
 func (c *VMController) enqueueVirtualMachine(obj interface{}) {
 	logger := log.Log
 	vm := obj.(*virtv1.VirtualMachine)
@@ -476,7 +566,7 @@ func (c *VMController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, er
 	return pods, nil
 }
 
-func (c *VMController) hasCondition(vm *virtv1.VirtualMachineReplicaSet, cond virtv1.VMReplicaSetConditionType) bool {
+func (c *VMController) hasCondition(vm *virtv1.VirtualMachine, cond virtv1.VirtualMachineConditionType) bool {
 	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
 			return true
@@ -485,13 +575,13 @@ func (c *VMController) hasCondition(vm *virtv1.VirtualMachineReplicaSet, cond vi
 	return false
 }
 
-func (c *VMController) removeCondition(rs *virtv1.VirtualMachineReplicaSet, cond virtv1.VMReplicaSetConditionType) {
-	var conds []virtv1.VMReplicaSetCondition
-	for _, c := range rs.Status.Conditions {
+func (c *VMController) removeCondition(vm *virtv1.VirtualMachine, cond virtv1.VirtualMachineConditionType) {
+	var conds []virtv1.VirtualMachineCondition
+	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
 			continue
 		}
 		conds = append(conds, c)
 	}
-	rs.Status.Conditions = conds
+	vm.Status.Conditions = conds
 }
