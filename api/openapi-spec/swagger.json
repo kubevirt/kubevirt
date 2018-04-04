@@ -3158,7 +3158,7 @@
     }
    },
    "v1.Affinity": {
-    "description": "Affinity groups all the affinity rules related to a VM\n",
+    "description": "Affinity groups all the affinity rules related to a VM",
     "properties": {
      "nodeAffinity": {
       "description": "Node affinity support",
@@ -3167,7 +3167,6 @@
     }
    },
    "v1.CDRomTarget": {
-    "description": "",
     "properties": {
      "bus": {
       "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
@@ -3184,7 +3183,7 @@
     }
    },
    "v1.CPU": {
-    "description": "CPU allow specifying the CPU topology\n",
+    "description": "CPU allow specifying the CPU topology",
     "properties": {
      "cores": {
       "description": "Cores specifies the number of cores inside the vm.\nMust be a value greater or equal 1.",
@@ -3193,7 +3192,7 @@
     }
    },
    "v1.Clock": {
-    "description": "Represents the clock and timers of a vm\n",
+    "description": "Represents the clock and timers of a vm",
     "required": [
      "timer"
     ],
@@ -3214,7 +3213,7 @@
    },
    "v1.ClockOffsetTimezone": {},
    "v1.ClockOffsetUTC": {
-    "description": "UTC sets the guest clock to UTC on each boot.\n",
+    "description": "UTC sets the guest clock to UTC on each boot.",
     "properties": {
      "offsetSeconds": {
       "description": "OffsetSeconds specifies an offset in seconds, relative to UTC. If set,\nguest changes to the clock will be kept during reboots and not reset.",
@@ -3224,7 +3223,7 @@
     }
    },
    "v1.CloudInitNoCloudSource": {
-    "description": "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n",
+    "description": "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "properties": {
      "secretRef": {
       "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
@@ -3272,7 +3271,6 @@
    },
    "v1.DeletionPropagation": {},
    "v1.Devices": {
-    "description": "",
     "properties": {
      "disks": {
       "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
@@ -3288,7 +3286,6 @@
     }
    },
    "v1.Disk": {
-    "description": "",
     "required": [
      "name",
      "volumeName"
@@ -3321,7 +3318,6 @@
     }
    },
    "v1.DiskTarget": {
-    "description": "",
     "properties": {
      "bus": {
       "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
@@ -3334,7 +3330,6 @@
     }
    },
    "v1.DomainSpec": {
-    "description": "",
     "required": [
      "devices"
     ],
@@ -3382,7 +3377,6 @@
     }
    },
    "v1.EphemeralVolumeSource": {
-    "description": "",
     "properties": {
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
@@ -3391,7 +3385,6 @@
     }
    },
    "v1.FeatureAPIC": {
-    "description": "",
     "properties": {
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
@@ -3404,7 +3397,7 @@
     }
    },
    "v1.FeatureHyperv": {
-    "description": "Hyperv specific features\n",
+    "description": "Hyperv specific features",
     "properties": {
      "relaxed": {
       "description": "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
@@ -3445,7 +3438,6 @@
     }
    },
    "v1.FeatureSpinlocks": {
-    "description": "",
     "properties": {
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
@@ -3458,7 +3450,7 @@
     }
    },
    "v1.FeatureState": {
-    "description": "Represents if a feature is enabled or disabled\n",
+    "description": "Represents if a feature is enabled or disabled",
     "properties": {
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
@@ -3467,7 +3459,6 @@
     }
    },
    "v1.FeatureVendorID": {
-    "description": "",
     "required": [
      "vendorid"
     ],
@@ -3483,7 +3474,6 @@
     }
    },
    "v1.Features": {
-    "description": "",
     "properties": {
      "acpi": {
       "description": "ACPI enables/disables ACPI insidejsondata guest\nDefaults to enabled\n+optional",
@@ -3500,7 +3490,6 @@
     }
    },
    "v1.Firmware": {
-    "description": "",
     "properties": {
      "uuid": {
       "description": "UUID reported by the vm bios\nDefaults to a random generated uid",
@@ -3509,7 +3498,6 @@
     }
    },
    "v1.FloppyTarget": {
-    "description": "",
     "properties": {
      "readonly": {
       "description": "ReadOnly\nDefaults to false",
@@ -3539,7 +3527,6 @@
     }
    },
    "v1.HPETTimer": {
-    "description": "",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -3552,7 +3539,6 @@
     }
    },
    "v1.HypervTimer": {
-    "description": "",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -3561,7 +3547,7 @@
     }
    },
    "v1.I6300ESBWatchdog": {
-    "description": "i6300esb watchdog device\n",
+    "description": "i6300esb watchdog device",
     "properties": {
      "action": {
       "description": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
@@ -3601,7 +3587,6 @@
     }
    },
    "v1.KVMTimer": {
-    "description": "",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -3676,7 +3661,6 @@
     }
    },
    "v1.LunTarget": {
-    "description": "",
     "properties": {
      "bus": {
       "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
@@ -3689,7 +3673,6 @@
     }
    },
    "v1.Machine": {
-    "description": "",
     "required": [
      "type"
     ],
@@ -3848,7 +3831,7 @@
     }
    },
    "v1.OfflineVirtualMachine": {
-    "description": "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.\n",
+    "description": "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -3872,7 +3855,7 @@
     }
    },
    "v1.OfflineVirtualMachineCondition": {
-    "description": "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine\n",
+    "description": "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine",
     "required": [
      "type",
      "status"
@@ -3899,7 +3882,7 @@
     }
    },
    "v1.OfflineVirtualMachineList": {
-    "description": "OfflineVirtualMachineList is a list of offlinevirtualmachines\n",
+    "description": "OfflineVirtualMachineList is a list of offlinevirtualmachines",
     "required": [
      "metadata",
      "items"
@@ -3926,7 +3909,7 @@
     }
    },
    "v1.OfflineVirtualMachineSpec": {
-    "description": "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like\n",
+    "description": "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
     "required": [
      "running",
      "template"
@@ -3943,7 +3926,7 @@
     }
    },
    "v1.OfflineVirtualMachineStatus": {
-    "description": "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing\n",
+    "description": "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
     "properties": {
      "conditions": {
       "description": "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
@@ -3990,7 +3973,6 @@
     }
    },
    "v1.PITTimer": {
-    "description": "",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -4049,7 +4031,6 @@
     }
    },
    "v1.RTCTimer": {
-    "description": "",
     "properties": {
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
@@ -4066,7 +4047,7 @@
     }
    },
    "v1.RegistryDiskSource": {
-    "description": "Represents a docker image with an embedded disk\n",
+    "description": "Represents a docker image with an embedded disk",
     "required": [
      "image"
     ],
@@ -4082,7 +4063,6 @@
     }
    },
    "v1.ResourceRequirements": {
-    "description": "",
     "properties": {
      "limits": {
       "description": "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
@@ -4200,7 +4180,7 @@
     }
    },
    "v1.Timer": {
-    "description": "Represents all available timers in a vm\n",
+    "description": "Represents all available timers in a vm",
     "properties": {
      "hpet": {
       "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
@@ -4225,7 +4205,6 @@
     }
    },
    "v1.VMReplicaSetCondition": {
-    "description": "",
     "required": [
      "type",
      "status"
@@ -4252,7 +4231,6 @@
     }
    },
    "v1.VMReplicaSetSpec": {
-    "description": "",
     "required": [
      "template"
     ],
@@ -4277,7 +4255,6 @@
     }
    },
    "v1.VMReplicaSetStatus": {
-    "description": "",
     "properties": {
      "conditions": {
       "type": "array",
@@ -4298,7 +4275,6 @@
     }
    },
    "v1.VMTemplateSpec": {
-    "description": "",
     "properties": {
      "metadata": {
       "$ref": "#/definitions/v1.ObjectMeta"
@@ -4310,7 +4286,7 @@
     }
    },
    "v1.VirtualMachine": {
-    "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n",
+    "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -4334,7 +4310,6 @@
     }
    },
    "v1.VirtualMachineCondition": {
-    "description": "",
     "required": [
      "type",
      "status"
@@ -4361,7 +4336,7 @@
     }
    },
    "v1.VirtualMachineList": {
-    "description": "VirtualMachineList is a list of VirtualMachines\n",
+    "description": "VirtualMachineList is a list of VirtualMachines",
     "required": [
      "items"
     ],
@@ -4386,7 +4361,6 @@
     }
    },
    "v1.VirtualMachineNetworkInterface": {
-    "description": "",
     "properties": {
      "ipAddress": {
       "description": "IP address of a Virtual Machine interface",
@@ -4399,7 +4373,6 @@
     }
    },
    "v1.VirtualMachinePreset": {
-    "description": "",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -4419,7 +4392,7 @@
     }
    },
    "v1.VirtualMachinePresetList": {
-    "description": "VirtualMachinePresetList is a list of VirtualMachinePresets\n",
+    "description": "VirtualMachinePresetList is a list of VirtualMachinePresets",
     "required": [
      "items"
     ],
@@ -4444,7 +4417,6 @@
     }
    },
    "v1.VirtualMachinePresetSpec": {
-    "description": "",
     "required": [
      "selector"
     ],
@@ -4460,7 +4432,7 @@
     }
    },
    "v1.VirtualMachineReplicaSet": {
-    "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n",
+    "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -4484,7 +4456,7 @@
     }
    },
    "v1.VirtualMachineReplicaSetList": {
-    "description": "VMList is a list of VMs\n",
+    "description": "VMList is a list of VMs",
     "required": [
      "items"
     ],
@@ -4509,7 +4481,7 @@
     }
    },
    "v1.VirtualMachineSpec": {
-    "description": "VirtualMachineSpec is a description of a VirtualMachine.\n",
+    "description": "VirtualMachineSpec is a description of a VirtualMachine.",
     "required": [
      "domain"
     ],
@@ -4541,7 +4513,7 @@
     }
    },
    "v1.VirtualMachineStatus": {
-    "description": "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.\n",
+    "description": "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
     "properties": {
      "conditions": {
       "description": "Conditions are specific points in VM's pod runtime.",
@@ -4568,7 +4540,7 @@
     }
    },
    "v1.Volume": {
-    "description": "Volume represents a named volume in a vm.\n",
+    "description": "Volume represents a named volume in a vm.",
     "required": [
      "name"
     ],
@@ -4614,7 +4586,7 @@
     }
    },
    "v1.Watchdog": {
-    "description": "Named watchdog device\n",
+    "description": "Named watchdog device",
     "required": [
      "name"
     ],

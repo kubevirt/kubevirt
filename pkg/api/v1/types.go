@@ -105,6 +105,7 @@ func init() {
 }
 
 // VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
+// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachine struct {
@@ -117,6 +118,7 @@ type VirtualMachine struct {
 }
 
 // VirtualMachineList is a list of VirtualMachines
+// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachineList struct {
@@ -126,6 +128,7 @@ type VirtualMachineList struct {
 }
 
 // VirtualMachineSpec is a description of a VirtualMachine.
+// ---
 // +k8s:openapi-gen=true
 type VirtualMachineSpec struct {
 	// Specification of the desired behavior of the VirtualMachine on the host.
@@ -144,6 +147,7 @@ type VirtualMachineSpec struct {
 }
 
 // Affinity groups all the affinity rules related to a VM
+// ---
 // +k8s:openapi-gen=true
 type Affinity struct {
 	// Node affinity support
@@ -152,6 +156,7 @@ type Affinity struct {
 
 // VirtualMachineStatus represents information about the status of a VM. Status may trail the actual
 // state of a system.
+// ---
 // +k8s:openapi-gen=true
 type VirtualMachineStatus struct {
 	// NodeName is the name where the VM is currently running.
@@ -229,6 +234,7 @@ func (v *VirtualMachine) UnmarshalBinary(data []byte) error {
 	return v.UnmarshalJSON(data)
 }
 
+// ---
 // +k8s:openapi-gen=true
 type VirtualMachineConditionType string
 
@@ -243,6 +249,7 @@ const (
 	VirtualMachineSynchronized VirtualMachineConditionType = "Synchronized"
 )
 
+// ---
 // +k8s:openapi-gen=true
 type VirtualMachineCondition struct {
 	Type               VirtualMachineConditionType `json:"type"`
@@ -253,6 +260,7 @@ type VirtualMachineCondition struct {
 	Message            string                      `json:"message,omitempty"`
 }
 
+// ---
 // +k8s:openapi-gen=true
 type VirtualMachineNetworkInterface struct {
 	// IP address of a Virtual Machine interface
@@ -262,6 +270,7 @@ type VirtualMachineNetworkInterface struct {
 }
 
 // VMPhase is a label for the condition of a VM at the current time.
+// ---
 // +k8s:openapi-gen=true
 type VMPhase string
 
@@ -312,6 +321,7 @@ func NewVM(name string, uid types.UID) *VirtualMachine {
 	}
 }
 
+// ---
 // +k8s:openapi-gen=true
 type SyncEvent string
 
@@ -415,6 +425,7 @@ func PrepareVMNodeAntiAffinitySelectorRequirement(vm *VirtualMachine) k8sv1.Node
 }
 
 // VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.
+// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachineReplicaSet struct {
@@ -427,6 +438,7 @@ type VirtualMachineReplicaSet struct {
 }
 
 // VMList is a list of VMs
+// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachineReplicaSetList struct {
@@ -435,6 +447,7 @@ type VirtualMachineReplicaSetList struct {
 	Items           []VirtualMachineReplicaSet `json:"items"`
 }
 
+// ---
 // +k8s:openapi-gen=true
 type VMReplicaSetSpec struct {
 	// Number of desired pods. This is a pointer to distinguish between explicit
@@ -455,6 +468,7 @@ type VMReplicaSetSpec struct {
 	Paused bool `json:"paused,omitempty" protobuf:"varint,7,opt,name=paused"`
 }
 
+// ---
 // +k8s:openapi-gen=true
 type VMReplicaSetStatus struct {
 	// Total number of non-terminated pods targeted by this deployment (their labels match the selector).
@@ -468,6 +482,7 @@ type VMReplicaSetStatus struct {
 	Conditions []VMReplicaSetCondition `json:"conditions,omitempty" optional:"true"`
 }
 
+// ---
 // +k8s:openapi-gen=true
 type VMReplicaSetCondition struct {
 	Type               VMReplicaSetConditionType `json:"type"`
@@ -478,6 +493,7 @@ type VMReplicaSetCondition struct {
 	Message            string                    `json:"message,omitempty"`
 }
 
+// ---
 // +k8s:openapi-gen=true
 type VMReplicaSetConditionType string
 
@@ -492,6 +508,7 @@ const (
 	VMReplicaSetReplicaPaused VMReplicaSetConditionType = "ReplicaPaused"
 )
 
+// ---
 // +k8s:openapi-gen=true
 type VMTemplateSpec struct {
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -543,6 +560,7 @@ func (vl *VirtualMachineReplicaSetList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
 
+// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachinePreset struct {
@@ -563,6 +581,7 @@ func (v *VirtualMachinePreset) GetObjectMeta() metav1.Object {
 }
 
 // VirtualMachinePresetList is a list of VirtualMachinePresets
+// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachinePresetList struct {
@@ -571,6 +590,7 @@ type VirtualMachinePresetList struct {
 	Items           []VirtualMachinePreset `json:"items"`
 }
 
+// ---
 // +k8s:openapi-gen=true
 type VirtualMachinePresetSpec struct {
 	// Selector is a label query over a set of VMs.
@@ -624,6 +644,7 @@ func (vl *VirtualMachinePresetList) GetListMeta() meta.List {
 // The OfflineVirtualMachine contains the template to create the
 // VirtualMachine. It also mirrors the running state of the created
 // VirtualMachine in its status.
+// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type OfflineVirtualMachine struct {
@@ -638,6 +659,7 @@ type OfflineVirtualMachine struct {
 }
 
 // OfflineVirtualMachineList is a list of offlinevirtualmachines
+// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineList struct {
@@ -650,6 +672,7 @@ type OfflineVirtualMachineList struct {
 
 // OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine
 // should look like
+// ---
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineSpec struct {
 	// Running controlls whether the associatied VirtualMachine is created or not
@@ -661,6 +684,7 @@ type OfflineVirtualMachineSpec struct {
 
 // OfflineVirtualMachineStatus represents the status returned by the
 // controller to describe how the OfflineVirtualMachine is doing
+// ---
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineStatus struct {
 	// Hold the state information of the OfflineVirtualMachine and its VirtualMachine
@@ -678,6 +702,7 @@ func (v *OfflineVirtualMachine) GetObjectMeta() metav1.Object {
 }
 
 // OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine
+// ---
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineCondition struct {
 	Type               OfflineVirtualMachineConditionType `json:"type"`
@@ -688,6 +713,7 @@ type OfflineVirtualMachineCondition struct {
 	Message            string                             `json:"message,omitempty"`
 }
 
+// ---
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineConditionType string
 

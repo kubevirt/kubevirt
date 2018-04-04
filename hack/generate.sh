@@ -11,14 +11,7 @@ ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 (cd ${KUBEVIRT_DIR}/tools/openapispec/ && go build)
 goimports -w -local kubevirt.io ${KUBEVIRT_DIR}/cmd/ ${KUBEVIRT_DIR}/pkg/ ${KUBEVIRT_DIR}/tests/
 
-tmp_file=$(mktemp)
-${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path $tmp_file
-
-# Strip out generation tags from descriptions.
-sed -e 's#\+k8s:openapi-gen=.*"#"#g' \
-    -e 's#\+k8s:deepcopy-gen:.*"#"#g' \
-    $tmp_file >${KUBEVIRT_DIR}/api/openapi-spec/swagger.json
-rm -rf $tmp_file
+${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DIR}/api/openapi-spec/swagger.json
 
 (cd ${KUBEVIRT_DIR}/tools/crd-generator/ && go build)
 ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=vm >${KUBEVIRT_DIR}/manifests/generated/vm-resource.yaml

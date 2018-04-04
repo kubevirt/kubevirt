@@ -376,6 +376,24 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.CPU", "kubevirt.io/kubevirt/pkg/api/v1.Clock", "kubevirt.io/kubevirt/pkg/api/v1.Devices", "kubevirt.io/kubevirt/pkg/api/v1.Features", "kubevirt.io/kubevirt/pkg/api/v1.Firmware", "kubevirt.io/kubevirt/pkg/api/v1.Machine", "kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "EmptyDisk represents a temporary disk which shares the vms lifecycle",
+					Properties: map[string]spec.Schema{
+						"capacity": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Capacity of the sparse disk.",
+								Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							},
+						},
+					},
+					Required: []string{"capacity"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{

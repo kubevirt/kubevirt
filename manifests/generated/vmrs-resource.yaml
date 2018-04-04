@@ -332,7 +332,13 @@ spec:
                                 description: UserDataBase64 contains NoCloud cloud-init
                                   userdata as a base64 encoded string
                                 type: string
-                          emptyDisk: {}
+                          emptyDisk:
+                            description: EmptyDisk represents a temporary disk which
+                              shares the vms lifecycle
+                            properties:
+                              capacity: {}
+                            required:
+                            - capacity
                           ephemeral:
                             properties:
                               persistentVolumeClaim: {}
