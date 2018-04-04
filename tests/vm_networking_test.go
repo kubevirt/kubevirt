@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"flag"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -40,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -107,26 +107,35 @@ var _ = Describe("Networking", func() {
 
 	Context("VirtualMachine with nodeNetwork definition given", func() {
 
-		It("should be able to reach the internet", func() {
-			_, exists := os.LookupEnv("JENKINS_HOME")
-			if exists {
-				Skip("Skip network test that requires DNS resolution in Jenkins environment")
-			}
+		table.DescribeTable("should be able to reach", func(destination string) {
+			var cmdCheck, addr string
 
 			// Wait until the VM is booted, ping google and check if we can reach the internet
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVM, 10*time.Second)
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
-			_, err = expecter.ExpectBatch([]expect.Batcher{
+
+			switch destination {
+			case "Internet":
+				addr = "www.google.com"
+			case "InboundVM":
+				addr = inboundVM.Status.Interfaces[0].IP
+			}
+			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5\n", addr)
+			out, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "ping www.google.com -c 1 -w 5\n"},
+				&expect.BSnd{S: cmdCheck},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: "0"},
-			}, 90*time.Second)
+			}, 180*time.Second)
+			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
-		}, 120)
+		},
+			table.Entry("the Inbound VM", "InboundVM"),
+			table.Entry("the internet", "Internet"),
+		)
 
 		table.DescribeTable("should be reachable via the propagated IP from a Pod", func(op v12.NodeSelectorOperator, hostNetwork bool) {
 
