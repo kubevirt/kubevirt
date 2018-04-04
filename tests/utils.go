@@ -45,9 +45,12 @@ import (
 
 	"flag"
 
+	"github.com/spf13/cobra"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
 var KubeVirtVersionTag = "latest"
@@ -944,4 +947,26 @@ func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
 	res, err := expecter.ExpectBatch(b, 300*time.Second)
 	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
 	return expecter, err
+}
+
+func NewVirtctlCommand(args ...string) *cobra.Command {
+	commandline := []string{}
+	master := flag.Lookup("master").Value
+	if master != nil && master.String() != "" {
+		commandline = append(commandline, "--server", master.String())
+	}
+	kubeconfig := flag.Lookup("kubeconfig").Value
+	if kubeconfig != nil && kubeconfig.String() != "" {
+		commandline = append(commandline, "--kubeconfig", kubeconfig.String())
+	}
+	cmd := virtctl.NewVirtctlCommand()
+	cmd.SetArgs(append(commandline, args...))
+	return cmd
+}
+
+func NewRepeatableVirtctlCommand(args ...string) func() error {
+	return func() error {
+		cmd := NewVirtctlCommand(args...)
+		return cmd.Execute()
+	}
 }

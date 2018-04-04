@@ -25,7 +25,7 @@ source ${KUBEVIRT_DIR}/cluster/$PROVIDER/provider.sh
 source ${KUBEVIRT_DIR}/hack/config.sh
 
 if [ "$1" == "console" ] || [ "$1" == "vnc" ]; then
-    ${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl "$@" --kubeconfig=${kubeconfig}
+    ${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl --kubeconfig=${kubeconfig} "$@"
 else
     _kubectl "$@"
 fi

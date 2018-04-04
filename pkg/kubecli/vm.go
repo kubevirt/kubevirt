@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -46,16 +45,16 @@ const (
 func (k *kubevirt) VM(namespace string) VMInterface {
 	return &vms{
 		restClient: k.restClient,
+		config:     k.config,
 		clientSet:  k.Clientset,
 		namespace:  namespace,
 		resource:   "virtualmachines",
-		master:     k.master,
-		kubeconfig: k.kubeconfig,
 	}
 }
 
 type vms struct {
 	restClient *rest.RESTClient
+	config     *rest.Config
 	clientSet  *kubernetes.Clientset
 	namespace  string
 	resource   string
@@ -240,20 +239,14 @@ func (v *vms) SerialConsole(name string, in io.Reader, out io.Writer) error {
 
 func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out io.Writer) error {
 
-	// creates the connection
-	config, err := clientcmd.BuildConfigFromFlags(v.master, v.kubeconfig)
-	if err != nil {
-		return fmt.Errorf("failed to create restClient for remote execution: %v", err)
-	}
-
 	// Create a round tripper with all necessary kubernetes security details
-	wrappedRoundTripper, err := roundTripperFromConfig(config, in, out)
+	wrappedRoundTripper, err := roundTripperFromConfig(v.config, in, out)
 	if err != nil {
 		return fmt.Errorf("unable to create round tripper for remote execution: %v", err)
 	}
 
 	// Create a request out of config and the query parameters
-	req, err := RequestFromConfig(config, name, v.namespace, resource)
+	req, err := RequestFromConfig(v.config, name, v.namespace, resource)
 	if err != nil {
 		return fmt.Errorf("unable to create request for remote execution: %v", err)
 	}

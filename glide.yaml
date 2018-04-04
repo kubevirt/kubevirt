@@ -46,6 +46,10 @@ import:
 - package: github.com/gorilla/websocket
   version: 0647012449a1878977514a346b26637dd022446c
 - package: google.golang.org/grpc
+- package: github.com/spf13/cobra
+  version: ^0.0.2
+  subpackages:
+  - cobra
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
