@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: virt-api
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "virt-api"
 spec:
@@ -17,7 +17,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: virt-api
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "virt-api"
 spec:
@@ -30,7 +30,7 @@ spec:
       serviceAccountName: kubevirt-apiserver
       containers:
         - name: virt-api
-          image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
+          image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
               - "/virt-api"
