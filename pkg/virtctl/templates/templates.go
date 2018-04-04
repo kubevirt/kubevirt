@@ -18,7 +18,7 @@ Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "he
 Flags:
 {{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
 
-Use "{{.CommandPath}} options" for a list of global command-line options (applies to all commands).{{end}}
+Use "virtctl options" for a list of global command-line options (applies to all commands).{{end}}
 `
 }
 

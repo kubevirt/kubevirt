@@ -22,7 +22,6 @@ package console
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 
@@ -147,7 +146,6 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	terminal.Restore(int(os.Stdin.Fd()), state)
 
 	if err != nil {
-		log.Println(err)
 		return err
 	}
 	return nil
