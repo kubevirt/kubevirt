@@ -32,7 +32,6 @@ var _ = Describe("DHCP", func() {
 	Context("check routes", func() {
 		It("verify should form correctly", func() {
 			expected := []byte{4, 224, 0, 0, 0, 0, 24, 192, 168, 1, 192, 168, 2, 1}
-			gateway := net.IPv4(192, 168, 1, 1)
 			routes := []netlink.Route{
 				netlink.Route{
 					LinkIndex: 3,
@@ -52,8 +51,43 @@ var _ = Describe("DHCP", func() {
 				},
 			}
 
-			dhcpRoutes := FormClasslessRoutes(&routes, gateway)
+			dhcpRoutes := formClasslessRoutes(&routes)
 			Expect(dhcpRoutes).To(Equal(expected))
+		})
+
+		It("should build OpenShift routes correctly", func() {
+			expected := []byte{0, 10, 129, 0, 1, 14, 10, 128, 0, 0, 0, 0, 4, 224, 0, 0, 0, 0}
+			gatewayRoute := netlink.Route{Gw: net.IPv4(10, 129, 0, 1)}
+			staticRoute1 := netlink.Route{
+				Dst: &net.IPNet{
+					IP:   net.IPv4(10, 128, 0, 0),
+					Mask: net.CIDRMask(14, 32),
+				},
+			}
+			staticRoute2 := netlink.Route{
+				Dst: &net.IPNet{
+					IP:   net.IPv4(224, 0, 0, 0),
+					Mask: net.CIDRMask(4, 32),
+				},
+			}
+			routes := []netlink.Route{gatewayRoute, staticRoute1, staticRoute2}
+			routeBytes := formClasslessRoutes(&routes)
+			Expect(routeBytes).To(Equal(expected))
+		})
+
+		It("should build Calico routes correctly", func() {
+			expected := []byte{0, 169, 254, 1, 1, 32, 169, 254, 1, 1, 0, 0, 0, 0}
+			gatewayRoute := netlink.Route{Gw: net.IPv4(169, 254, 1, 1)}
+			staticRoute1 := netlink.Route{
+				Dst: &net.IPNet{
+					IP:   net.IPv4(169, 254, 1, 1),
+					Mask: net.CIDRMask(32, 32),
+				},
+			}
+
+			routes := []netlink.Route{gatewayRoute, staticRoute1}
+			routeBytes := formClasslessRoutes(&routes)
+			Expect(routeBytes).To(Equal(expected))
 		})
 	})
 
