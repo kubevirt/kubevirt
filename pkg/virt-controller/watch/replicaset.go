@@ -415,7 +415,7 @@ func (c *VMReplicaSet) getMatchingControllers(vm *virtv1.VirtualMachine) (rss []
 	return rss
 }
 
-// When a vm is created, enqueue the replica set that manages it and update its expectations.
+// When a vm is created, enqueue the replica set that manages it and update its podExpectations.
 func (c *VMReplicaSet) addVirtualMachine(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 
@@ -520,7 +520,7 @@ func (c *VMReplicaSet) updateVirtualMachine(old, cur interface{}) {
 	}
 }
 
-// When a vm is deleted, enqueue the replica set that manages the vm and update its expectations.
+// When a vm is deleted, enqueue the replica set that manages the vm and update its podExpectations.
 // obj could be an *v1.VirtualMachine, or a DeletionFinalStateUnknown marker item.
 func (c *VMReplicaSet) deleteVirtualMachine(obj interface{}) {
 	vm, ok := obj.(*virtv1.VirtualMachine)

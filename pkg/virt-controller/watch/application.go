@@ -220,11 +220,8 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
-	if err != nil {
-		golog.Fatal(err)
-	}
-	vca.vmController = NewVMController(vca.templateService, vca.vmCache, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
+	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
+	vca.vmController = NewVMController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
 }
 

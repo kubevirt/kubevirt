@@ -200,6 +200,10 @@ func (v *VirtualMachine) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
 
+func (v *VirtualMachine) IsUnknown() bool {
+	return v.Status.Phase == Unknown
+}
+
 func (v *VirtualMachine) IsUnprocessed() bool {
 	return v.Status.Phase == Pending || v.Status.Phase == VmPhaseUnset
 }
@@ -311,9 +315,13 @@ const (
 )
 
 const (
-	AppLabel      string = "kubevirt.io"
-	DomainLabel   string = "kubevirt.io/domain"
-	NodeNameLabel string = "kubevirt.io/nodeName"
+	AppLabel            string = "kubevirt.io"
+	DomainLabel         string = "kubevirt.io/domain"
+	CreatedByAnnotation string = "kubevirt.io/created-by"
+	OwnedByAnnotation   string = "kubevirt.io/owned-by"
+	NodeNameLabel       string = "kubevirt.io/nodeName"
+
+	VirtualMachineFinalizer string = "foregroundDeleteVirtualMachine"
 )
 
 func NewVM(name string, uid types.UID) *VirtualMachine {

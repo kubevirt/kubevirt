@@ -20,300 +20,293 @@
 package watch
 
 import (
-	"net/http"
-	"strings"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
-	clientv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 
 	kubev1 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"github.com/golang/mock/gomock"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/record"
+
+	"fmt"
+	"github.com/onsi/ginkgo/extensions/table"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/testing"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 var _ = Describe("VM watcher", func() {
-	var server *ghttp.Server
-	//var vmService services.VMService
-
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	var app VirtControllerApp = VirtControllerApp{}
-	app.launcherImage = "kubevirt/virt-launcher"
+	var ctrl *gomock.Controller
+	var vmInterface *kubecli.MockVMInterface
+	var vmSource *framework.FakeControllerSource
+	var podSource *framework.FakeControllerSource
+	var vmInformer cache.SharedIndexInformer
+	var podInformer cache.SharedIndexInformer
+	var stop chan struct{}
+	var controller *VMController
+	var recorder *record.FakeRecorder
+	var mockQueue *testutils.MockWorkQueue
+	var podFeeder *testutils.PodFeeder
+	var virtClient *kubecli.MockKubevirtClient
+	var kubeClient *fake.Clientset
+
 	BeforeEach(func() {
+		stop = make(chan struct{})
+		ctrl = gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		vmInterface = kubecli.NewMockVMInterface(ctrl)
 
-		server = ghttp.NewServer()
-		app.clientSet, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-		app.restClient = app.clientSet.RestClient()
-		app.vmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-		app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+		podInformer, podSource = testutils.NewFakeInformerFor(&kubev1.Pod{})
+		recorder = record.NewFakeRecorder(100)
 
-		app.initCommon()
-	})
+		controller = NewVMController(services.NewTemplateService("a", "b", "c"), vmInformer, podInformer, recorder, virtClient)
+		// Wrap our workqueue to have a way to detect when we are done processing updates
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+		controller.Queue = mockQueue
+		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
 
-	Context("Creating a VM ", func() {
-		It("should ignore uninitialized VM's", func(done Done) {
-			vm := v1.NewMinimalVM("testvm")
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
-				),
+		// Set up mock client
+		virtClient.EXPECT().VM(kubev1.NamespaceDefault).Return(vmInterface).AnyTimes()
+		kubeClient = fake.NewSimpleClientset()
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
-
-			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmCache.Add(vm)
-			app.vmQueue.Add(key)
-			app.vmController.Execute()
-
-			// VM's that aren't annotated that presets have been applied
-			// should not be acted upon, so 0 requests are expected
-			Expect(len(server.ReceivedRequests())).To(Equal(0))
-			close(done)
+		// Make sure that all unexpected calls to kubeClient will fail
+		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Expect(action).To(BeNil())
+			return true, nil, nil
 		})
-
-		It("should schedule a POD.", func(done Done) {
-
-			// Create a VM to be scheduled
-			vm := v1.NewMinimalVM("testvm")
-			vm.Status.Phase = ""
-			vm.ObjectMeta.SetUID(uuid.NewUUID())
-			addInitializedAnnotation(vm)
-
-			// Create the expected VM after the update
-			expectedVM := vm.DeepCopy()
-
-			// Create a Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
-			Expect(err).ToNot(HaveOccurred())
-			pod, err := temlateService.RenderLaunchManifest(vm)
-			Expect(err).ToNot(HaveOccurred())
-			pod.Spec.NodeName = "mynode"
-			pod.Status.Phase = clientv1.PodSucceeded
-
-			podListInitial := clientv1.PodList{}
-			podListInitial.Items = []clientv1.Pod{}
-
-			expectedVM.Status.Phase = v1.Scheduling
-
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, podListInitial),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
-				),
-
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
-
-			// Tell the controller that there is a new VM
-			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmCache.Add(vm)
-			app.vmQueue.Add(key)
-			app.vmController.Execute()
-
-			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			close(done)
-		}, 10)
-
-		It("should not schedule a POD if pod already exists", func(done Done) {
-
-			// Create a VM to be scheduled
-			vm := v1.NewMinimalVM("testvm")
-			vm.Status.Phase = ""
-			vm.ObjectMeta.SetUID(uuid.NewUUID())
-			addInitializedAnnotation(vm)
-
-			// Create the expected VM after the update
-			expectedVM := vm.DeepCopy()
-
-			// Create a Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
-			Expect(err).ToNot(HaveOccurred())
-			pod, err := temlateService.RenderLaunchManifest(vm)
-			Expect(err).ToNot(HaveOccurred())
-			pod.Spec.NodeName = "mynode"
-			pod.Status.Phase = clientv1.PodPending
-
-			podListInitial := clientv1.PodList{}
-			podListInitial.Items = []clientv1.Pod{*pod}
-
-			expectedVM.Status.Phase = v1.Scheduling
-
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, podListInitial),
-				),
-
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
-
-			// Tell the controller that there is a new VM
-			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmCache.Add(vm)
-			app.vmQueue.Add(key)
-			app.vmController.Execute()
-
-			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			close(done)
-		}, 10)
-
-		It("should schedule a POD with Registry Disk.", func(done Done) {
-
-			// Create a VM to be scheduled
-			vm := v1.NewMinimalVM("testvm")
-			vm.Status.Phase = ""
-			vm.ObjectMeta.SetUID(uuid.NewUUID())
-			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "r0",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{},
-				},
-			})
-			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-				Name: "r0",
-				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{
-						Image: "someimage:v1.2.3.4",
-					},
-				},
-			})
-			addInitializedAnnotation(vm)
-
-			// Create a Pod for the VM
-			templateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
-			Expect(err).ToNot(HaveOccurred())
-
-			// We want to ensure the vm object we initially post
-			// doesn't have ports set, so we make a copy in order
-			// to render the pod object early for the test.
-			vmCopy := vm.DeepCopy()
-
-			pod, err := templateService.RenderLaunchManifest(vmCopy)
-			Expect(err).ToNot(HaveOccurred())
-
-			pod.Spec.NodeName = "mynode"
-			pod.Status.Phase = clientv1.PodSucceeded
-
-			for idx, _ := range pod.Status.ContainerStatuses {
-				if strings.Contains(pod.Status.ContainerStatuses[idx].Name, "disk") == false {
-					pod.Status.ContainerStatuses[idx].Ready = true
-				}
-			}
-
-			podListInitial := clientv1.PodList{}
-			podListInitial.Items = []clientv1.Pod{}
-
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, podListInitial),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, pod),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
-
-			// Tell the controller that there is a new VM
-			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmCache.Add(vm)
-			app.vmQueue.Add(key)
-			app.vmController.Execute()
-
-			Expect(len(server.ReceivedRequests())).To(Equal(3))
-			close(done)
-		}, 10)
 	})
-
-	Context("Running Pod for unscheduled VM given", func() {
-		It("should update the VM with the node of the running Pod", func(done Done) {
-
-			// Create a VM which is being scheduled
-			vm := v1.NewMinimalVM("testvm")
-			vm.Status.Phase = v1.Scheduling
-			vm.ObjectMeta.SetUID(uuid.NewUUID())
-			addInitializedAnnotation(vm)
-
-			// Create a target Pod for the VM
-			temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
-			Expect(err).ToNot(HaveOccurred())
-			var pod *kubev1.Pod
-			pod, err = temlateService.RenderLaunchManifest(vm)
-			Expect(err).ToNot(HaveOccurred())
-			pod.Spec.NodeName = "mynode"
-			pod.Status.Phase = kubev1.PodRunning
-			pods := clientv1.PodList{
-				Items: []kubev1.Pod{*pod},
-			}
-
-			// Create the expected VM after the update
-			expectedVM := vm.DeepCopy()
-			expectedVM.Status.Phase = v1.Scheduled
-			expectedVM.Status.NodeName = pod.Spec.NodeName
-			expectedVM.Status.Interfaces = []v1.VirtualMachineNetworkInterface{
-				v1.VirtualMachineNetworkInterface{IP: pod.Status.PodIP}}
-			expectedVM.ObjectMeta.Labels = map[string]string{v1.NodeNameLabel: pod.Spec.NodeName}
-
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, pods),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.VerifyJSONRepresenting(expectedVM),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedVM),
-				),
-			)
-
-			// Tell the controller that there is a new running Pod
-			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmCache.Add(vm)
-			app.vmQueue.Add(key)
-			app.vmController.Execute()
-
-			Expect(len(server.ReceivedRequests())).To(Equal(2))
-			close(done)
-		}, 10)
-	})
-
 	AfterEach(func() {
-		server.Close()
+		// Ensure that we add checks for expected events to every test
+		Expect(recorder.Events).To(BeEmpty())
+		ctrl.Finish()
+	})
+
+	syncCaches := func(stop chan struct{}) {
+		go vmInformer.Run(stop)
+		go podInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, podInformer.HasSynced)).To(BeTrue())
+	}
+
+	addVirtualMachine := func(vm *v1.VirtualMachine) {
+		syncCaches(stop)
+		mockQueue.ExpectAdds(1)
+		vmSource.Add(vm)
+		mockQueue.Wait()
+	}
+
+	Context("On valid VirtualMachine given", func() {
+		It("should create a corresponding Pod on VirtualMachineCreation", func() {
+			vm := NewPendingVirtualMachine("testvm")
+
+			addVirtualMachine(vm)
+
+			// Expect pod creation
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
+				Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(vm.UID)))
+				return true, update.GetObject(), nil
+			})
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+		It("should set an error condition if creating the pod fails", func() {
+			vm := NewPendingVirtualMachine("testvm")
+
+			addVirtualMachine(vm)
+
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("random error")
+			})
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
+			}).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedCreatePodReason)
+		})
+		It("should remove the error condition if the sync finally succeeds", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Conditions = []v1.VirtualMachineCondition{{Type: v1.VirtualMachineSynchronized}}
+
+			addVirtualMachine(vm)
+
+			// Expect pod creation
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
+				Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(vm.UID)))
+				return true, update.GetObject(), nil
+			})
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+			}).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+		It("should move the vm to scheduling state if a pod exists but is not yet ready", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
+			pod.Status.ContainerStatuses[0].Ready = false
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduling))
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+			}).Return(vm, nil)
+
+			controller.Execute()
+		})
+		It("should hand over pod to virt-handler if pod is ready and running", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
+
+			// Expect pod hand over
+			kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(testing.UpdateAction)
+				Expect(ok).To(BeTrue())
+				Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-handler"))
+				return true, update.GetObject(), nil
+			})
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+		})
+		It("should set an error condition if handing over the pod to virt-handler fails", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
+
+			// Expect pod hand over
+			kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("random error")
+			})
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedHandOver"))
+			}).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedHandOverPodReason)
+		})
+		It("should update the virtual machine to scheduled if pod is ready, runnning and handed over to virt-handler", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
+			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduled))
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+			}).Return(vm, nil)
+
+			controller.Execute()
+		})
+		table.DescribeTable("should do nothing if pod is handed to virt-handler", func(phase kubev1.PodPhase) {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = v1.Scheduled
+			pod := NewPodForVirtualMachine(vm, phase)
+			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			controller.Execute()
+		},
+			table.Entry("and in running state", kubev1.PodRunning),
+			table.Entry("and in unknown state", kubev1.PodUnknown),
+			table.Entry("and in succeeded state", kubev1.PodSucceeded),
+			table.Entry("and in failed state", kubev1.PodFailed),
+			table.Entry("and in pending state", kubev1.PodPending),
+		)
+		It("should do nothing if the vm is handed over to virt-handler and the pod disappears", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = v1.Scheduled
+
+			addVirtualMachine(vm)
+
+			controller.Execute()
+		})
+		table.DescribeTable("should move the vm to failed if pod is not handed over", func(phase kubev1.PodPhase) {
+			vm := NewPendingVirtualMachine("testvm")
+			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
+			pod := NewPodForVirtualMachine(vm, phase)
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Failed))
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+				Expect(arg.(*v1.VirtualMachine).Finalizers).ToNot(ContainElement(v1.VirtualMachineFinalizer))
+			}).Return(vm, nil)
+
+			controller.Execute()
+		},
+			table.Entry("and in succeeded state", kubev1.PodSucceeded),
+			table.Entry("and in failed state", kubev1.PodFailed),
+		)
 	})
 })
+
+func NewPendingVirtualMachine(name string) *v1.VirtualMachine {
+	vm := v1.NewMinimalVM(name)
+	vm.UID = "1234"
+	addInitializedAnnotation(vm)
+	return vm
+}
+
+func NewPodForVirtualMachine(vm *v1.VirtualMachine, phase kubev1.PodPhase) *kubev1.Pod {
+	return &kubev1.Pod{
+		ObjectMeta: v12.ObjectMeta{
+			Name:      "test",
+			Namespace: vm.Namespace,
+			Labels: map[string]string{
+				v1.AppLabel:    "virt-launcher",
+				v1.DomainLabel: vm.Name,
+			},
+			Annotations: map[string]string{
+				v1.CreatedByAnnotation: string(vm.UID),
+				v1.OwnedByAnnotation:   "virt-controller",
+			},
+		},
+		Status: kubev1.PodStatus{
+			Phase: phase,
+			ContainerStatuses: []kubev1.ContainerStatus{
+				{Ready: true},
+			},
+		},
+	}
+}

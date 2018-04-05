@@ -440,7 +440,7 @@ func (c *OVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (ovms 
 	return ovms
 }
 
-// When a vm is created, enqueue the OfflineVirtualMachine that manages it and update its expectations.
+// When a vm is created, enqueue the OfflineVirtualMachine that manages it and update its podExpectations.
 func (c *OVMController) addVirtualMachine(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 
@@ -550,7 +550,7 @@ func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
 	}
 }
 
-// When a vm is deleted, enqueue the OfflineVirtualMachine that manages the vm and update its expectations.
+// When a vm is deleted, enqueue the OfflineVirtualMachine that manages the vm and update its podExpectations.
 // obj could be an *v1.VirtualMachine, or a DeletionFinalStateUnknown marker item.
 func (c *OVMController) deleteVirtualMachine(obj interface{}) {
 	vm, ok := obj.(*virtv1.VirtualMachine)

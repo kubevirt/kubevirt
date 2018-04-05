@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("OfflineVirtualMachine", func() {
+var _ = FDescribe("OfflineVirtualMachine", func() {
 
 	flag.Parse()
 

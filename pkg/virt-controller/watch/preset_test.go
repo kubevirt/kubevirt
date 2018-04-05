@@ -773,6 +773,7 @@ var _ = Describe("VM Initializer", func() {
 				},
 			}
 			app.vmInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			app.podInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			app.vmPresetCache = app.vmInformer.GetStore()
 			app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmPresetQueue))
@@ -824,6 +825,7 @@ var _ = Describe("VM Initializer", func() {
 			// (and skip the update entirely). So zero requests are expected.
 			Expect(len(server.ReceivedRequests())).To(Equal(0))
 			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+			Expect(controller.HasFinalizer(vm, v1.VirtualMachineFinalizer)).To(BeTrue())
 		})
 
 		It("should initialize a VM if needed", func() {

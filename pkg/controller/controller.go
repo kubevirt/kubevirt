@@ -145,3 +145,13 @@ func HasFinalizer(object metav1.Object, finalizer string) bool {
 	}
 	return false
 }
+
+func RemoveFinalizer(object metav1.Object, finalizer string) {
+	filtered := []string{}
+	for _, f := range object.GetFinalizers() {
+		if f != finalizer {
+			filtered = append(filtered, f)
+		}
+	}
+	object.SetFinalizers(filtered)
+}

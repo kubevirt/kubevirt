@@ -28,7 +28,6 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -153,29 +152,6 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	return
 }
 
-func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
-	node, err := d.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
-	if err != nil {
-		log.Log.Reason(err).Errorf("fetching source node %s failed", vm.Status.NodeName)
-		return "", err
-	}
-
-	addrStr := ""
-	for _, addr := range node.Status.Addresses {
-		if (addr.Type == k8sv1.NodeInternalIP) && (addrStr == "") {
-			addrStr = addr.Address
-			break
-		}
-	}
-	if addrStr == "" {
-		err := fmt.Errorf("VM node is unreachable")
-		log.Log.Error("VM node is unreachable")
-		return "", err
-	}
-
-	return addrStr, nil
-}
-
 func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain *api.Domain, syncError error) (err error) {
 
 	// Don't update the VM if it is already in a final state
@@ -203,8 +179,10 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Started.String(), "VM started.")
 		case v1.Succeeded:
 			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Stopped.String(), "The VM was shut down.")
+			controller.RemoveFinalizer(vm, v1.VirtualMachineFinalizer)
 		case v1.Failed:
 			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.Stopped.String(), "The VM crashed.")
+			controller.RemoveFinalizer(vm, v1.VirtualMachineFinalizer)
 		}
 	}
 
@@ -362,6 +340,13 @@ func (d *VirtualMachineController) execute(key string) error {
 		if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) {
 			shouldUpdate = true
 		}
+	}
+
+	// If for instance an orphan delete was performed on a vm, a pod can still be in terminating state,
+	// make sure that we don't perform an update and instead try to make sure that the pod goes definitely away
+	if vmExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vm.UID {
+		log.Log.Object(vm).Errorf("WOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOW")
+		shouldShutdownAndDelete = true
 	}
 
 	var syncErr error
@@ -564,8 +549,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 		return err
 	}
 
-	// TODO check if found VM has the same UID like the domain,
-	// if not, delete the Domain firs
 	client, err := d.getLauncherClient(vm)
 	if err != nil {
 		return err

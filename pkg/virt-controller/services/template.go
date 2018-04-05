@@ -205,6 +205,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 				v1.AppLabel:    "virt-launcher",
 				v1.DomainLabel: domain,
 			},
+			Annotations: map[string]string{
+				v1.CreatedByAnnotation: string(vm.UID),
+				v1.OwnedByAnnotation:   "virt-controller",
+			},
 		},
 		Spec: kubev1.PodSpec{
 			SecurityContext: &kubev1.PodSecurityContext{
@@ -290,12 +294,12 @@ func setMemoryOverhead(domain v1.DomainSpec, resources *kubev1.ResourceRequireme
 	return nil
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string) TemplateService {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		launcherImage:   launcherImage,
 		virtShareDir:    virtShareDir,
 		imagePullSecret: imagePullSecret,
 	}
-	return &svc, nil
+	return &svc
 }
