@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -31,6 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -79,6 +81,36 @@ var _ = Describe("Vmlifecycle", func() {
 				Should(ContainSubstring("Found PID for qemu"))
 			close(done)
 		}, 50)
+
+		It("should reject POST if schema is invalid", func() {
+			jsonBytes, err := json.Marshal(vm)
+			Expect(err).To(BeNil())
+
+			// change the name of a required field (like domain) so validation will fail
+			jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
+
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
+
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+		})
+
+		It("should reject PATCH if schema is invalid", func() {
+			err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			Expect(err).To(BeNil())
+
+			// Add a disk without a volume reference (this is in valid)
+			patchStr := "{\"apiVersion\":\"kubevirt.io/v1alpha1\",\"kind\":\"VirtualMachine\",\"spec\":{\"domain\":{\"devices\":{\"disks\":[{\"disk\":{\"bus\":\"virtio\"},\"name\":\"fakedisk\"}]}}}}"
+
+			result := virtClient.RestClient().Patch(types.MergePatchType).Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Name(vm.Name).Body([]byte(patchStr)).Do()
+
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+		})
 
 		Context("when it already exist", func() {
 			It("should be rejected", func() {
