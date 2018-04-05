@@ -217,5 +217,12 @@ var _ = Describe("Network", func() {
 			Expect(searchDomains).To(Equal([]string{defaultSearchDomain}))
 			Expect(err).To(BeNil())
 		})
+
+		It("should allow partial search domains", func() {
+			resolvConf := "search local\nnameserver 8.8.8.8\n"
+			searchDomains, err := ParseSearchDomains(resolvConf)
+			Expect(searchDomains).To(Equal([]string{"local"}))
+			Expect(err).To(BeNil())
+		})
 	})
 })
