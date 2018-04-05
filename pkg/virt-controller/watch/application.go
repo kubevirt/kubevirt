@@ -54,7 +54,6 @@ type VirtControllerApp struct {
 	clientSet       kubecli.KubevirtClient
 	templateService services.TemplateService
 	restClient      *clientrest.RESTClient
-	vmService       services.VMService
 	informerFactory controller.KubeInformerFactory
 	podInformer     cache.SharedIndexInformer
 
@@ -225,8 +224,7 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.vmService = services.NewVMService(vca.clientSet, vca.templateService)
-	vca.vmController = NewVMController(vca.vmService, vca.vmCache, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
+	vca.vmController = NewVMController(vca.templateService, vca.vmCache, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
 }
 

@@ -57,9 +57,9 @@ const (
 	SuccessfulDeletePodReason = "SuccessfulDelete"
 )
 
-func NewVMController(vmService services.VMService, vmCache cache.Store, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
+func NewVMController(templateService services.TemplateService, vmCache cache.Store, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
 	c := &VMController{
-		vmService:    vmService,
+		vmService:    services.NewVMService(clientset, templateService),
 		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		store:        vmCache,
 		vmInformer:   vmInformer,
