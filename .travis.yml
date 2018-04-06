@@ -23,7 +23,7 @@ script:
 - if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" ]]; then make goveralls; else make test; fi
 - make apidocs
 - make client-python
-- make manifests DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
+- make manifests DOCKER_PREFIX="docker.io/kubevirt" DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
 
 deploy:
 - provider: script
