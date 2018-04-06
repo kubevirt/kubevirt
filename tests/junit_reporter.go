@@ -13,37 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
-package tests_test
+package tests
 
 import (
+	"flag"
+
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"testing"
-
-	"kubevirt.io/kubevirt/tests"
+	"github.com/onsi/ginkgo/reporters"
 )
 
-func TestTests(t *testing.T) {
-	RegisterFailHandler(Fail)
-	reporters := make([]Reporter, 0)
-	if tests.Polarion.Run {
-		reporters = append(reporters, &tests.Polarion)
-	}
-	if tests.KubeVirtJunitOutput != "" {
-		reporters = append(reporters, tests.NewKubeVirtJunitReporter())
-	}
-	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", reporters)
+var KubeVirtJunitOutput = ""
+
+func init() {
+	flag.StringVar(&KubeVirtJunitOutput, "junit-output", "", "Set path to Junit report.")
 }
 
-var _ = BeforeSuite(func() {
-	tests.BeforeTestSuitSetup()
-})
-
-var _ = AfterSuite(func() {
-	tests.AfterTestSuitCleanup()
-})
+func NewKubeVirtJunitReporter() Reporter {
+	return reporters.NewJUnitReporter(KubeVirtJunitOutput)
+}
