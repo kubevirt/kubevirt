@@ -395,9 +395,9 @@ func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 
 // filter out irrelevant routes
 func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
-	for _, route := range routes[1:] {
-		// don't create static route to default gateway
-		if route.Dst != nil && route.Dst.IP.Equal(nic.Gateway) && route.Src.Equal(nil) {
+	for _, route := range routes {
+		// don't create empty static routes
+		if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
 			continue
 		}
 

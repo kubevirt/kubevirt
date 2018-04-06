@@ -63,7 +63,7 @@ func SingleClientDHCPServer(
 		dhcp.OptionDomainNameServer: bytes.Join(dnsIPs, nil),
 	}
 
-	netRoutes := FormClasslessRoutes(routes, routerIP)
+	netRoutes := formClasslessRoutes(routes)
 
 	if netRoutes != nil {
 		dhcpOptions[dhcp.OptionClasslessRouteFormat] = netRoutes
@@ -131,7 +131,7 @@ func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, options
 	}
 }
 
-func FormClasslessRoutes(routes *[]netlink.Route, routerIP net.IP) (formattedRoutes []byte) {
+func formClasslessRoutes(routes *[]netlink.Route) (formattedRoutes []byte) {
 	// See RFC4332 for additional information
 	// (https://tools.ietf.org/html/rfc3442)
 	// For example:
@@ -143,11 +143,17 @@ func FormClasslessRoutes(routes *[]netlink.Route, routerIP net.IP) (formattedRou
 
 	for _, route := range *routes {
 		if route.Dst == nil {
-			continue
+			route.Dst = &net.IPNet{
+				IP:   net.IPv4(0, 0, 0, 0),
+				Mask: net.CIDRMask(0, 32),
+			}
 		}
 		ip := route.Dst.IP.To4()
 		width, _ := route.Dst.Mask.Size()
-		octets := (width-1)/8 + 1
+		octets := 0
+		if width > 0 {
+			octets = (width-1)/8 + 1
+		}
 		newRoute := append([]byte{byte(width)}, ip[0:octets]...)
 		gateway := route.Gw.To4()
 		if gateway == nil {
