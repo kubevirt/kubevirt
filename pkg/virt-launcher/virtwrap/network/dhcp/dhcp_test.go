@@ -172,5 +172,9 @@ var _ = Describe("DHCP", func() {
 			dom := "example.default.svc.cluster.local."
 			Expect(isValidSearchDomain(dom)).To(BeTrue())
 		})
+
+		It("should accept a partial search domain", func() {
+			Expect(isValidSearchDomain("local")).To(BeTrue())
+		})
 	})
 })
