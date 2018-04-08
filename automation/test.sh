@@ -84,7 +84,7 @@ done
 kubectl get pods -n ${NAMESPACE}
 kubectl version
 
-ginko_params="--ginkgo.noColor"
+ginko_params="--ginkgo.noColor --junit-output=$WORKSPACE/junit.xml"
 
 # Prepare PV for windows testing
 if [[ -d $NFS_WINDOWS_DIR ]] && [[ $TARGET == windows ]]; then
