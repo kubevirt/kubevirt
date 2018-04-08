@@ -3,7 +3,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: kubevirt-apiserver
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 ---
@@ -11,7 +11,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-apiserver
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -21,13 +21,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-apiserver
-    namespace: {{ namespace }}
+    namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-apiserver-auth-delegator
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -37,13 +37,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubevirt-apiserver
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
   name: kubevirt-apiserver
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -53,13 +53,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-apiserver
-    namespace: {{ namespace }}
+    namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
   name: kubevirt-apiserver
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 rules:
@@ -84,7 +84,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: kubevirt-apiserver
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 rules:
@@ -121,7 +121,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: kubevirt-controller
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 rules:
@@ -165,7 +165,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubevirt-controller
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 ---
@@ -173,7 +173,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubevirt-privileged
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 ---
@@ -181,7 +181,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-controller
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -191,13 +191,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-controller
-    namespace: {{ namespace }}
+    namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-controller-cluster-admin
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -207,13 +207,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-controller
-    namespace: {{ namespace }}
+    namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: kubevirt-privileged-cluster-admin
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -223,50 +223,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubevirt-privileged
-    namespace: {{ namespace }}
----
-# custom resource definitions
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: virtualmachines.kubevirt.io
-  labels:
-    kubevirt.io: ""
-spec:
-  group: kubevirt.io
-  version: v1alpha1
-  scope: Namespaced
-  names:
-    plural: virtualmachines
-    singular: virtualmachine
-    kind: VirtualMachine
-    shortNames:
-      - vm
-      - vms
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: virtualmachinereplicasets.kubevirt.io
-  labels:
-    kubevirt.io: ""
-spec:
-  scope: Namespaced
-  group: kubevirt.io
-  version: v1alpha1
-  names:
-    kind: VirtualMachineReplicaSet
-    plural: virtualmachinereplicasets
-    singular: virtualmachinereplicaset
-    shortNames:
-      - vmrs
-      - vmrss
+    namespace: {{.Namespace}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: virt-api
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "virt-api"
 spec:
@@ -281,7 +244,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: virt-api
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "virt-api"
 spec:
@@ -294,7 +257,7 @@ spec:
       serviceAccountName: kubevirt-controller
       containers:
         - name: virt-api
-          image: {{ docker_prefix }}/virt-api:{{ docker_tag }}
+          image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
               - "/virt-api"
@@ -318,7 +281,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: virt-controller
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "virt-controller"
 spec:
@@ -331,12 +294,12 @@ spec:
       serviceAccountName: kubevirt-controller
       containers:
         - name: virt-controller
-          image: {{ docker_prefix }}/virt-controller:{{ docker_tag }}
+          image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
               - "/virt-controller"
               - "--launcher-image"
-              - "{{ docker_prefix }}/virt-launcher:{{ docker_tag }}"
+              - "{{.DockerPrefix}}/virt-launcher:{{.DockerTag}}"
               - "--port"
               - "8182"
           ports:
@@ -364,7 +327,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: virt-handler
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "virt-handler"
 spec:
@@ -381,7 +344,7 @@ spec:
           ports:
             - containerPort: 8185
               hostPort: 8185
-          image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
+          image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
             - "/virt-handler"
@@ -413,39 +376,7 @@ spec:
         - name: virt-private-dir
           hostPath:
             path: /var/run/kubevirt-private
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: virtualmachinepresets.kubevirt.io
-  labels:
-    kubevirt.io: ""
-spec:
-  group: kubevirt.io
-  version: v1alpha1
-  scope: Namespaced
-  names:
-    plural: virtualmachinepresets
-    singular: virtualmachinepreset
-    kind: VirtualMachinePreset
-    shortNames:
-      - vmpreset
-      - vmpresets
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: offlinevirtualmachines.kubevirt.io
-  label:
-    kubevirt.io: ""
-spec:
-  scope: Namespaced
-  group: kubevirt.io
-  version: v1alpha1
-  names:
-    kind: OfflineVirtualMachine
-    plural: offlinevirtualmachines
-    singular: offlinevirtualmachine
-    shortNames:
-    - ovm
-    - ovms
+{{index .GeneratedManifests "vm-resource.yaml"}}
+{{index .GeneratedManifests "vmrs-resource.yaml"}}
+{{index .GeneratedManifests "vmpreset-resource.yaml"}}
+{{index .GeneratedManifests "ovm-resource.yaml"}}

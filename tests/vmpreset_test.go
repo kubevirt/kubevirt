@@ -85,9 +85,22 @@ var _ = Describe("VMPreset", func() {
 				},
 			},
 		}
-
 	})
 
+	Context("CRD Validation", func() {
+
+		It("Should reject POST if schema is invalid", func() {
+			// Preset with missing selector should fail CRD validation
+			jsonString := "{\"kind\":\"VirtualMachinePreset\",\"apiVersion\":\"kubevirt.io/v1alpha1\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}"
+
+			result := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
+
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+		})
+	})
 	Context("Preset Matching", func() {
 
 		It("Should be accepted on POST", func() {

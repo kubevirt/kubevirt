@@ -38,7 +38,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: iscsi-demo-target-tgtd
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "iscsi-demo-target"
 spec:
@@ -53,7 +53,7 @@ spec:
       serviceAccountName: kubevirt-testing
       containers:
         - name: target
-          image: {{ docker_prefix }}/iscsi-demo-target-tgtd:{{ docker_tag }}
+          image: {{.DockerPrefix}}/iscsi-demo-target-tgtd:{{.DockerTag}}
           volumeMounts:
           - name: host
             mountPath: /host

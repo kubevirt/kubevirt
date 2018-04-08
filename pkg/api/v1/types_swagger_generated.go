@@ -4,7 +4,7 @@ package v1
 
 func (VirtualMachine) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"":       "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
 		"spec":   "VM Spec contains the VM specification.",
 		"status": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
 	}
@@ -12,7 +12,7 @@ func (VirtualMachine) SwaggerDoc() map[string]string {
 
 func (VirtualMachineList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineList is a list of VirtualMachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"": "VirtualMachineList is a list of VirtualMachines",
 	}
 }
 
@@ -63,7 +63,7 @@ func (VMSelector) SwaggerDoc() map[string]string {
 
 func (VirtualMachineReplicaSet) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"":       "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
 		"spec":   "VM Spec contains the VM specification.",
 		"status": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
 	}
@@ -71,7 +71,7 @@ func (VirtualMachineReplicaSet) SwaggerDoc() map[string]string {
 
 func (VirtualMachineReplicaSetList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VMList is a list of VMs\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"": "VMList is a list of VMs",
 	}
 }
 
@@ -103,14 +103,13 @@ func (VMTemplateSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachinePreset) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"spec": "VM Spec contains the VM specification.",
 	}
 }
 
 func (VirtualMachinePresetList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachinePresetList is a list of VirtualMachinePresets\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"": "VirtualMachinePresetList is a list of VirtualMachinePresets",
 	}
 }
 
@@ -123,7 +122,7 @@ func (VirtualMachinePresetSpec) SwaggerDoc() map[string]string {
 
 func (OfflineVirtualMachine) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"":       "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.",
 		"spec":   "Spec contains the specification of VirtualMachine created",
 		"status": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachine",
 	}
@@ -131,7 +130,7 @@ func (OfflineVirtualMachine) SwaggerDoc() map[string]string {
 
 func (OfflineVirtualMachineList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "OfflineVirtualMachineList is a list of offlinevirtualmachines\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"":      "OfflineVirtualMachineList is a list of offlinevirtualmachines",
 		"items": "Items is a list of OfflineVirtualMachines",
 	}
 }

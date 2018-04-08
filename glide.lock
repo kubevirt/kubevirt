@@ -1,6 +1,8 @@
-hash: 49108d23315a04c54553052af149ffb31be8b2c69d7dee532688ef3cdc113b68
-updated: 2018-04-03T15:27:00.025679202Z
+hash: 7de723d8efc0667bccdbca4c831f1cb408700b853f669b684daf054bbecb1a69
+updated: 2018-04-04T14:05:20.714355494Z
 imports:
+- name: github.com/ant31/crd-validation
+  version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
 - name: github.com/asaskevich/govalidator
   version: 7d2e70ef918f16bd6455529af38304d6d025c952
 - name: github.com/davecgh/go-spew
@@ -55,7 +57,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 58cd061d09382b6011f84c1291ebe50ef2e25bab
+  version: 69521b3833175dfcfb1cc1fdb0c9be92e66faa81
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -270,6 +272,8 @@ imports:
   - storage/v1
   - storage/v1alpha1
   - storage/v1beta1
+- name: k8s.io/apiextensions-apiserver
+  version: 4b903ca6c8a2031b8f88c3d1fbefa8eb248b103c
 - name: k8s.io/apimachinery
   version: 19e3f5aa3adca672c153d324e6b7d82ff8935f03
   subpackages:

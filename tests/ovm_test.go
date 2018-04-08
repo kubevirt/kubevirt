@@ -22,6 +22,8 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,6 +36,7 @@ import (
 
 	"github.com/google/goexpect"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -50,6 +53,33 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+	})
+
+	Context("An invalid OfflineVirtualMachine given", func() {
+
+		It("should be rejected on POST", func() {
+			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
+			newOVM := NewRandomOfflineVirtualMachine(template, false)
+			newOVM.TypeMeta = v12.TypeMeta{
+				APIVersion: v1.GroupVersion.String(),
+				Kind:       "OfflineVirtualMachine",
+			}
+
+			jsonBytes, err := json.Marshal(newOVM)
+			Expect(err).To(BeNil())
+
+			// change the name of a required field (like domain) so validation will fail
+			jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
+
+			result := virtClient.RestClient().Post().Resource("offlinevirtualmachines").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
+
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+		})
 	})
 
 	Context("A valid OfflineVirtualMachine given", func() {
