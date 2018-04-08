@@ -20,32 +20,31 @@
 package tests
 
 import (
+	"bytes"
 	"encoding/base64"
+	"flag"
 	"fmt"
+	"io"
 	"reflect"
 	"time"
 
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
+
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-
-	"io"
-
-	"github.com/google/goexpect"
-
-	"flag"
-
-	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/remotecommand"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -76,9 +75,9 @@ const SubresourceTestLabel = "subresource-access-test-pod"
 
 const (
 	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
-	NamespaceTestDefault string = "kubevirt-test-default"
+	NamespaceTestDefault = "kubevirt-test-default"
 	// NamespaceTestAlternative is used to test controller-namespace independency.
-	NamespaceTestAlternative string = "kubevirt-test-alternative"
+	NamespaceTestAlternative = "kubevirt-test-alternative"
 )
 
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
@@ -99,15 +98,22 @@ const (
 
 const (
 	osAlpineISCSI = "alpine-iscsi"
+	osWindows     = "windows"
 )
 
 const (
 	DiskAlpineISCSI = "disk-alpine-iscsi"
+	DiskWindows     = "disk-windows"
 )
 
 const (
 	iscsiIqn        = "iqn.2017-01.io.kubevirt:sn.42"
 	iscsiSecretName = "iscsi-demo-secret"
+)
+
+const (
+	defaultDiskSize        = "1Gi"
+	defaultWindowsDiskSize = "30Gi"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -271,6 +277,8 @@ func AfterTestSuitCleanup() {
 	cleanNamespaces()
 	cleanupSubresourceServiceAccount()
 
+	deletePVC(osWindows)
+
 	deletePVC(osAlpineISCSI)
 	deletePV(osAlpineISCSI)
 
@@ -292,21 +300,23 @@ func BeforeTestSuitSetup() {
 	createIscsiSecrets()
 
 	createPvISCSI(osAlpineISCSI, 2)
-	createPVC(osAlpineISCSI)
+	createPVC(osAlpineISCSI, defaultDiskSize)
+
+	createPVC(osWindows, defaultWindowsDiskSize)
 }
 
-func createPVC(os string) {
+func createPVC(os string, size string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os, size))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newPVC(os string) *k8sv1.PersistentVolumeClaim {
-	quantity, err := resource.ParseQuantity("1Gi")
+func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
+	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	name := fmt.Sprintf("disk-%s", os)
@@ -968,5 +978,75 @@ func NewRepeatableVirtctlCommand(args ...string) func() error {
 	return func() error {
 		cmd := NewVirtctlCommand(args...)
 		return cmd.Execute()
+	}
+}
+
+func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
+	var (
+		stdout bytes.Buffer
+		stderr bytes.Buffer
+	)
+
+	req := virtCli.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod.Name).
+		Namespace(pod.Namespace).
+		SubResource("exec").
+		Param("container", containerName)
+
+	req.VersionedParams(&k8sv1.PodExecOptions{
+		Container: containerName,
+		Command:   command,
+		Stdin:     false,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
+	}, scheme.ParameterCodec)
+
+	config, err := kubecli.GetKubevirtClientConfig()
+	if err != nil {
+		return "", err
+	}
+
+	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		return "", err
+	}
+
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if stderr.Len() > 0 {
+		return "", fmt.Errorf("stderr: %v", stderr.String())
+	}
+
+	return stdout.String(), nil
+}
+
+func BeforeAll(fn func()) {
+	first := true
+	BeforeEach(func() {
+		if first {
+			fn()
+			first = false
+		}
+	})
+}
+
+func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
+	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(DiskWindows, metav1.GetOptions{})
+	if err != nil || (windowsPv.Status.Phase != k8sv1.VolumeAvailable && windowsPv.Status.Phase != k8sv1.VolumeReleased) {
+		Skip(fmt.Sprintf("Skip Windows tests that requires PVC %s", DiskWindows))
+	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
+		windowsPv.Spec.ClaimRef = nil
+		_, err = virtClient.CoreV1().PersistentVolumes().Update(windowsPv)
+		Expect(err).ToNot(HaveOccurred())
 	}
 }
