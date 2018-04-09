@@ -22,6 +22,8 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -36,6 +38,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -216,5 +220,53 @@ var _ = Describe("Windows VM", func() {
 			By("Checking that the Windows VM has expected IP address")
 			Expect(output).Should(ContainSubstring(vmIp))
 		}, 360)
+	})
+
+	Context("with kubectl command", func() {
+		var yamlFile string
+		BeforeEach(func() {
+			tests.SkipIfNoKubectl()
+			yamlFile, err = tests.GenerateVmJson(windowsVm)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if yamlFile != "" {
+				err = os.Remove(yamlFile)
+				Expect(err).ToNot(HaveOccurred())
+				yamlFile = ""
+			}
+		})
+
+		It("should success to start a vm", func() {
+			By("Starting the vm via kubectl command")
+			err = tests.RunKubectlCommand("create", "-f", yamlFile)
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
+		})
+
+		It("should success to stop a vm", func() {
+			By("Starting the vm via kubectl command")
+			err = tests.RunKubectlCommand("create", "-f", yamlFile)
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
+
+			By("Deleting the vm via kubectl command")
+			err = tests.RunKubectlCommand("delete", "-f", yamlFile)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking that the vm does not exist anymore")
+			result := virtClient.RestClient().Get().Resource(tests.VmResource).Namespace(k8sv1.NamespaceDefault).Name(windowsVm.Name).Do()
+			Expect(result).To(testutils.HaveStatusCode(http.StatusNotFound))
+
+			By("Checking that the vm pod terminated")
+			Eventually(func() int {
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(windowsVm))
+				Expect(err).ToNot(HaveOccurred())
+				return len(pods.Items)
+			}, 75, 0.5).Should(Equal(0))
+		})
 	})
 })

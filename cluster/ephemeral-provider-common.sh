@@ -18,6 +18,7 @@ function prepare_config() {
 master_ip=$(_main_ip)
 docker_tag=devel
 kubeconfig=${BASE_PATH}/cluster/$PROVIDER/.kubeconfig
+kubectl=${BASE_PATH}/cluster/$PROVIDER/.kubectl
 docker_prefix=localhost:$(_port registry)/kubevirt
 manifest_docker_prefix=registry:5000/kubevirt
 EOF
