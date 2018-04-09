@@ -161,11 +161,6 @@ func (c *VMController) execute(key string) error {
 		return nil
 	}
 
-	// Until we support "unknown" state, there is nothing to do for us
-	if c.isVirtualMachineOwnedByHandler(vm) {
-		return nil
-	}
-
 	logger := log.Log.Object(vm)
 
 	// Get all pods from the namespace
@@ -206,14 +201,18 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
 
+	if vm.IsRunning() || vm.IsFinal() || vm.IsScheduled() {
+		return nil
+	}
+
 	if len(pods) > 0 {
 
 		containersAreReady := podIsReady(pods[0])
 
 		podIsTerminating := podIsDownOrGoingDown(pods[0])
 
-		// We are only here if we still own the vm, so hand over the vm if the pod is already handed over
 		if c.isPodOwnedByHandler(pods[0]) {
+
 			vmCopy.Status.Interfaces = []virtv1.VirtualMachineNetworkInterface{
 				{
 					IP: pods[0].Status.PodIP,
@@ -503,11 +502,7 @@ func (c *VMController) filterMatchingPods(vm *virtv1.VirtualMachine, pods []*k8s
 			matchingPods = append(matchingPods, pod)
 		}
 	}
-	return pods, nil
-}
-
-func (c *VMController) isVirtualMachineOwnedByHandler(vm *virtv1.VirtualMachine) bool {
-	return !vm.IsUnprocessed() && !vm.IsScheduling() && !vm.IsFinal()
+	return matchingPods, nil
 }
 
 func (c *VMController) isPodOwnedByHandler(pod *k8sv1.Pod) bool {

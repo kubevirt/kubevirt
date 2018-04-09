@@ -24,6 +24,15 @@ source cluster/$PROVIDER/provider.sh
 source hack/config.sh
 
 echo "Cleaning up ..."
+
+# Remove finalizers from all running vms, to not block the cleanup
+cluster/kubectl.sh get vms --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeleteVirtualMachine | while read p; do
+    arr=($p)
+    name="${arr[0]}"
+    namespace="${arr[1]}"
+    _kubectl patch vm $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+done
+
 # Work around https://github.com/kubernetes/kubernetes/issues/33517
 _kubectl delete ds -l "kubevirt.io" -n ${namespace} --cascade=false --grace-period 0 2>/dev/null || :
 _kubectl delete pods -n ${namespace} -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :

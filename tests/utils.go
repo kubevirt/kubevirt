@@ -50,7 +50,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virtctl"
@@ -552,6 +555,14 @@ func cleanNamespaces() {
 
 		// Remove all VMs
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
+		vms, err := virtCli.VM(namespace).List(metav1.ListOptions{})
+		PanicOnError(err)
+		for _, vm := range vms.Items {
+			if controller.HasFinalizer(&vm, v1.VirtualMachineFinalizer) {
+				_, err := virtCli.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				PanicOnError(err)
+			}
+		}
 
 		// Remove all Pods
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())

@@ -163,6 +163,9 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
+	if vm.IsFinal() {
+		controller.RemoveFinalizer(vm, v1.VirtualMachineFinalizer)
+	}
 
 	controller.NewVirtualMachineConditionManager().CheckFailure(vm, syncError, "Synchronizing with the Domain failed.")
 
@@ -179,10 +182,8 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Started.String(), "VM started.")
 		case v1.Succeeded:
 			d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Stopped.String(), "The VM was shut down.")
-			controller.RemoveFinalizer(vm, v1.VirtualMachineFinalizer)
 		case v1.Failed:
 			d.recorder.Event(vm, k8sv1.EventTypeWarning, v1.Stopped.String(), "The VM crashed.")
-			controller.RemoveFinalizer(vm, v1.VirtualMachineFinalizer)
 		}
 	}
 

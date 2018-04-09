@@ -35,13 +35,12 @@ import (
 var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
-	svc, err := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1")
+	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1")
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
 
-				Expect(err).To(BeNil())
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "testns", UID: "1234"}, Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}})
 
 				Expect(err).To(BeNil())
