@@ -121,8 +121,10 @@ func (c *VMController) execute(key string) error {
 		vm = obj.(*kubev1.VirtualMachine)
 	}
 
-	// don't process VM's that aren't fully initialized
-	if !isVirtualMachineInitialized(vm) {
+	// If the VM is exists still, don't process the VM until it is fully initialized.
+	// Initialization is handled by the initialization controller and must take place
+	// before the VM is acted upon.
+	if exists && !isVirtualMachineInitialized(vm) {
 		return nil
 	}
 
