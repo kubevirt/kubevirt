@@ -345,8 +345,8 @@ func (d *VirtualMachineController) execute(key string) error {
 	// If for instance an orphan delete was performed on a vm, a pod can still be in terminating state,
 	// make sure that we don't perform an update and instead try to make sure that the pod goes definitely away
 	if vmExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vm.UID {
-		log.Log.Object(vm).Errorf("WOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOW")
-		shouldShutdownAndDelete = true
+		log.Log.Object(vm).Errorf("Libvirt domain seems to be from a wrong VirtualMachine instance. That should never happen. Manual intervention required.")
+		return nil
 	}
 
 	var syncErr error

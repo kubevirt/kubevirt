@@ -35,6 +35,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -160,7 +161,7 @@ func (c *VMController) execute(key string) error {
 		return nil
 	}
 
-	// Until we add the unknown state, there is nothing to do for us
+	// Until we support "unknown" state, there is nothing to do for us
 	if c.isVirtualMachineOwnedByHandler(vm) {
 		return nil
 	}
@@ -175,7 +176,7 @@ func (c *VMController) execute(key string) error {
 		return err
 	}
 
-	// Only consider pods which belong to this vm or to a previous run of this vm
+	// Only consider pods which belong to this vm
 	pods, err = c.filterMatchingPods(vm, pods)
 	if err != nil {
 		return err
@@ -189,9 +190,9 @@ func (c *VMController) execute(key string) error {
 		c.handoverExpectations.CreationObserved(key)
 	}
 
+	// If neddsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
 	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key)
 
-	// At this point we can make save assumptions if virt-handler or virt-controller owns the pod
 	var syncErr error
 	if needsSync && vm.ObjectMeta.DeletionTimestamp == nil {
 		syncErr = c.sync(vm, pods)
@@ -203,9 +204,9 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 
 	vmCopy := vm.DeepCopy()
 
-	errorsMatch := (syncErr != nil) == controller.NewVirtualMachineConditionManager().HasCondition(vmCopy, virtv1.VirtualMachineSynchronized)
+	conditionManager := controller.NewVirtualMachineConditionManager()
 
-	if len(pods) > 0 && string(vm.UID) == pods[0].Annotations[virtv1.CreatedByAnnotation] {
+	if len(pods) > 0 {
 
 		containersAreReady := podIsReady(pods[0])
 
@@ -230,30 +231,19 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 			vmCopy.Status.Phase = virtv1.Failed
 			controller.RemoveFinalizer(vmCopy, virtv1.VirtualMachineFinalizer)
 		}
+	} else if !vm.IsUnprocessed() {
+		vmCopy.Status.Phase = virtv1.Failed
+		controller.RemoveFinalizer(vmCopy, virtv1.VirtualMachineFinalizer)
+	}
+
+	// Select the right failure reason in case we have an error
+	reason := ""
+	if len(pods) == 0 {
+		reason = "FailedCreate"
 	} else {
-		// nothing to do we don't own the VM anymore
+		reason = "FailedHandOver"
 	}
-
-	if !errorsMatch {
-		reason := ""
-		if len(pods) == 0 {
-			reason = "FailedCreate"
-		} else {
-			reason = "FailedHandOver"
-		}
-		if syncErr != nil {
-			vmCopy.Status.Conditions = append(vmCopy.Status.Conditions, virtv1.VirtualMachineCondition{
-				Type:               virtv1.VirtualMachineSynchronized,
-				Reason:             reason,
-				Message:            syncErr.Error(),
-				LastTransitionTime: v1.Now(),
-				Status:             k8sv1.ConditionTrue,
-			})
-
-		} else {
-			c.removeCondition(vmCopy, virtv1.VirtualMachineSynchronized)
-		}
-	}
+	conditionManager.CheckFailure(vmCopy, syncErr, reason)
 
 	// If we detect a change on the vm status, we update the vm
 	if !reflect.DeepEqual(vm.Status, vmCopy.Status) {
@@ -288,7 +278,15 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 
 	vmKey := controller.VirtualMachineKey(vm)
 
+	if vm.IsFinal() {
+		return
+	}
+
 	if len(pods) == 0 {
+		// If we came ever that far to detect that we already created a pod, we don't create it again
+		if !vm.IsUnprocessed() {
+			return nil
+		}
 		c.podExpectations.ExpectCreations(vmKey, 1)
 		pod, err := c.vmService.StartVMPod(vm)
 		if err != nil {
@@ -313,18 +311,6 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 		c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Pod owner ship transfered to the node %s", pod.Name)
 	}
 	return nil
-}
-
-func extractKeyFromPod(pod *k8sv1.Pod) string {
-	namespace := pod.ObjectMeta.Namespace
-	appLabel, hasAppLabel := pod.ObjectMeta.Labels[virtv1.AppLabel]
-	domainLabel, hasDomainLabel := pod.ObjectMeta.Labels[virtv1.DomainLabel]
-
-	if hasDomainLabel == false || hasAppLabel == false || appLabel != "virt-launcher" {
-		// missing required labels
-		return ""
-	}
-	return namespace + "/" + domainLabel
 }
 
 // When a pod is created, enqueue the replica set that manages it and update its podExpectations.
@@ -352,19 +338,6 @@ func (c *VMController) addPod(obj interface{}) {
 		c.podExpectations.CreationObserved(vmKey)
 		c.enqueueVirtualMachine(vm)
 		return
-	}
-
-	// Otherwise, it's an orphan. Get a list of all matching vms and sync
-	// them to see if anyone wants to adopt it.
-	// DO NOT observe creation because no controller should be waiting for an
-	// orphan.
-	vms := c.getMatchingControllers(pod)
-	if len(vms) == 0 {
-		return
-	}
-	log.Log.V(4).Object(pod).Infof("Orphan Pod created")
-	for _, vm := range vms {
-		c.enqueueVirtualMachine(vm)
 	}
 }
 
@@ -416,19 +389,6 @@ func (c *VMController) updatePod(old, cur interface{}) {
 		// TODO: MinReadySeconds in the Pod will generate an Available condition to be added in
 		// Update once we support the available conect on the vm
 		return
-	}
-
-	// Otherwise, it's an orphan. If anything changed, sync matching controllers
-	// to see if anyone wants to adopt it now.
-	if labelChanged || controllerRefChanged {
-		vms := c.getMatchingControllers(curPod)
-		if len(vms) == 0 {
-			return
-		}
-		log.Log.V(4).Object(curPod).Infof("Orphan Pod updated")
-		for _, vm := range vms {
-			c.enqueueVirtualMachine(vm)
-		}
 	}
 }
 
@@ -493,21 +453,6 @@ func (c *VMController) enqueueVirtualMachine(obj interface{}) {
 	c.Queue.Add(key)
 }
 
-// getMatchingController returns the first vm which matches the labels of the VM from the listener cache.
-// If there are no matching controllers, a NotFound error is returned.
-func (c *VMController) getMatchingControllers(pod *k8sv1.Pod) (vms []*virtv1.VirtualMachine) {
-	var key string
-	if key = extractKeyFromPod(pod); key == "" {
-		return nil
-	}
-	obj, exists, err := c.vmInformer.GetStore().GetByKey(key)
-	if err != nil || !exists {
-		return nil
-	}
-	vm := obj.(*virtv1.VirtualMachine)
-	return []*virtv1.VirtualMachine{vm}
-}
-
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
@@ -545,26 +490,6 @@ func (c *VMController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, er
 		pods = append(pods, pod)
 	}
 	return pods, nil
-}
-
-func (c *VMController) hasCondition(vm *virtv1.VirtualMachine, cond virtv1.VirtualMachineConditionType) bool {
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *VMController) removeCondition(vm *virtv1.VirtualMachine, cond virtv1.VirtualMachineConditionType) {
-	var conds []virtv1.VirtualMachineCondition
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	vm.Status.Conditions = conds
 }
 
 func (c *VMController) filterMatchingPods(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {

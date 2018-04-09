@@ -33,9 +33,13 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"fmt"
+
 	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
+
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -59,6 +63,40 @@ var _ = Describe("VM watcher", func() {
 	var podFeeder *testutils.PodFeeder
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
+
+	shouldExpectPodCreation := func(uid types.UID) {
+		// Expect pod creation
+		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
+			Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(uid)))
+			return true, update.GetObject(), nil
+		})
+
+	}
+
+	shouldExpectVirtualMachineHandover := func(vm *v1.VirtualMachine) {
+		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduled))
+			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+		}).Return(vm, nil)
+	}
+
+	shouldExpectVirtualMachineSchedulingState := func(vm *v1.VirtualMachine) {
+		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduling))
+			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+		}).Return(vm, nil)
+	}
+
+	shouldExpectVirtualMachineFailedState := func(vm *v1.VirtualMachine) {
+		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Failed))
+			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachine).Finalizers).ToNot(ContainElement(v1.VirtualMachineFinalizer))
+		}).Return(vm, nil)
+	}
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
@@ -112,18 +150,20 @@ var _ = Describe("VM watcher", func() {
 
 			addVirtualMachine(vm)
 
-			// Expect pod creation
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
-				Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(vm.UID)))
-				return true, update.GetObject(), nil
-			})
+			shouldExpectPodCreation(vm.UID)
 
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+		It("should do nothing if the vm is in final state", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = v1.Failed
+			vm.Finalizers = []string{}
+
+			addVirtualMachine(vm)
+
+			controller.Execute()
 		})
 		It("should set an error condition if creating the pod fails", func() {
 			vm := NewPendingVirtualMachine("testvm")
@@ -173,10 +213,17 @@ var _ = Describe("VM watcher", func() {
 			addVirtualMachine(vm)
 			podFeeder.Add(pod)
 
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduling))
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			}).Return(vm, nil)
+			shouldExpectVirtualMachineSchedulingState(vm)
+
+			controller.Execute()
+		})
+		It("should move the vm to failed state if the pod disappears and the vm is in scheduling state", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = v1.Scheduling
+
+			addVirtualMachine(vm)
+
+			shouldExpectVirtualMachineFailedState(vm)
 
 			controller.Execute()
 		})
@@ -227,10 +274,43 @@ var _ = Describe("VM watcher", func() {
 			addVirtualMachine(vm)
 			podFeeder.Add(pod)
 
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduled))
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			}).Return(vm, nil)
+			shouldExpectVirtualMachineHandover(vm)
+
+			controller.Execute()
+		})
+		It("should update the virtual machine to scheduled if pod is ready, triggered by pod change", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			pod := NewPodForVirtualMachine(vm, kubev1.PodPending)
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			shouldExpectVirtualMachineSchedulingState(vm)
+
+			controller.Execute()
+
+			pod = NewPodForVirtualMachine(vm, kubev1.PodRunning)
+			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
+
+			podFeeder.Modify(pod)
+
+			shouldExpectVirtualMachineHandover(vm)
+
+			controller.Execute()
+		})
+		It("should update the virtual machine to failed if pod was not ready, triggered by pod delete", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			pod := NewPodForVirtualMachine(vm, kubev1.PodPending)
+			vm.Status.Phase = v1.Scheduling
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			controller.Execute()
+
+			podFeeder.Delete(pod)
+
+			shouldExpectVirtualMachineFailedState(vm)
 
 			controller.Execute()
 		})
@@ -267,11 +347,7 @@ var _ = Describe("VM watcher", func() {
 			addVirtualMachine(vm)
 			podFeeder.Add(pod)
 
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Failed))
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-				Expect(arg.(*v1.VirtualMachine).Finalizers).ToNot(ContainElement(v1.VirtualMachineFinalizer))
-			}).Return(vm, nil)
+			shouldExpectVirtualMachineFailedState(vm)
 
 			controller.Execute()
 		},
