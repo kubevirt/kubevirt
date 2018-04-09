@@ -1,8 +1,10 @@
-hash: 7de723d8efc0667bccdbca4c831f1cb408700b853f669b684daf054bbecb1a69
-updated: 2018-04-04T14:05:20.714355494Z
+hash: bf8ae5a5691b8a1187917a88e4b23d532611fee91300dda23ddf20aed1ddbc10
+updated: 2018-04-11T10:54:40.231595613Z
 imports:
 - name: github.com/ant31/crd-validation
   version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
+  subpackages:
+  - pkg
 - name: github.com/asaskevich/govalidator
   version: 7d2e70ef918f16bd6455529af38304d6d025c952
 - name: github.com/davecgh/go-spew
@@ -26,7 +28,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: 0ca9ea5df5451ffdf184b4428c902747c2c11cd7
 - name: github.com/go-kit/kit
   version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
   subpackages:
@@ -57,7 +59,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 69521b3833175dfcfb1cc1fdb0c9be92e66faa81
+  version: 8b2eeeb0ca5f56c78bec5efde9c4a21d9201126c
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -167,7 +169,7 @@ imports:
   subpackages:
   - cobra
 - name: github.com/spf13/pflag
-  version: 1ce0cc6db4029d97571db82f85092fccedb572ce
+  version: 329ebf1e04800d11a25047832495199d366580f3
 - name: github.com/subgraph/libmacouflage
   version: 973191b8743358463d8f3abc9c6dc585f2c1e7fc
 - name: github.com/vishvananda/netlink
@@ -274,6 +276,9 @@ imports:
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
   version: 4b903ca6c8a2031b8f88c3d1fbefa8eb248b103c
+  subpackages:
+  - pkg/apis/apiextensions
+  - pkg/apis/apiextensions/v1beta1
 - name: k8s.io/apimachinery
   version: 19e3f5aa3adca672c153d324e6b7d82ff8935f03
   subpackages:
