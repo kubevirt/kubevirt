@@ -44,7 +44,7 @@ Following are the examples of working with OfflineVirtualMachine and kubectl:
 kubectl create -f myofflinevm.yaml
 
 # Start an OfflineVirtualMachine:
-kubectl patch offlinevirtualmachine myvm -p \
+kubectl patch offlinevirtualmachine myvm --type=merge -p \
     '{"spec":{"running": true}}'
 
 # Look at OfflineVirtualMachine status and associated events:
@@ -54,7 +54,7 @@ kubectl describe offlinevirtualmachine myvm
 kubectl describe virtualmachine myvm
 
 # Stop an OfflineVirtualMachine:
-kubectl patch offlinevirtualmachine myvm -p \
+kubectl patch offlinevirtualmachine myvm --type=merge -p \
     '{"spec":{"running": false}}'
 
 # Implicit cascade delete (first deletes the vm and then the ovm)
