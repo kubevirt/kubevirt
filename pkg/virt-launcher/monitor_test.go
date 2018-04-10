@@ -145,6 +145,30 @@ var _ = Describe("VirtLauncher", func() {
 				Expect(exited).To(Equal(true))
 			})
 
+			It("verify monitor loop exits when signal arrives and no pid is present", func() {
+				signalChannel := make(chan os.Signal, 1)
+				done := make(chan string)
+
+				go func() {
+					mon.monitorLoop(1*time.Second, signalChannel)
+					done <- "exit"
+				}()
+
+				time.Sleep(time.Second)
+
+				signalChannel <- syscall.SIGQUIT
+				noExitCheck := time.After(5 * time.Second)
+				exited := false
+
+				select {
+				case <-noExitCheck:
+				case <-done:
+					exited = true
+				}
+
+				Expect(exited).To(Equal(true))
+			})
+
 			It("verify graceful shutdown trigger works", func() {
 				signalChannel := make(chan os.Signal, 1)
 				done := make(chan string)
