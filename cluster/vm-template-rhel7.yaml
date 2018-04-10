@@ -4,7 +4,7 @@ metadata:
   name: rhel7-vm-template
   annotations:
     description: "OCP KubeVirt Red Hat Enterprise Linux 7.4 VM template"
-    tags: "kubevirt,ocp,template,linux"
+    tags: "kubevirt,ocp,template,linux,virtualmachine"
   labels:
     kubevirt.io/os: rhel7.4
     miq.github.io/kubevirt-is-vm-template: "true"
