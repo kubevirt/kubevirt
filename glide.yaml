@@ -24,6 +24,8 @@ import:
   version: v2.6.0
   subpackages:
   - log
+- package: github.com/ghodss/yaml
+  version: v1.0.0
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
