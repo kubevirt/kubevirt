@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -351,6 +352,32 @@ var _ = Describe("Vmlifecycle", func() {
 	})
 
 	Describe("Delete a VM", func() {
+		Context("with an active pod.", func() {
+			It("should result in pod being terminated", func(done Done) {
+
+				By("Creating the VM")
+				obj, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMStart(obj)
+
+				By("Verifying VM's pod is active")
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(1))
+
+				By("Deleting the VM")
+				Expect(virtClient.VM(vm.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Verifying VM's pod terminates")
+				Eventually(func() int {
+					pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
+					Expect(err).ToNot(HaveOccurred())
+					return len(pods.Items)
+				}, 75, 0.5).Should(Equal(0))
+
+				close(done)
+			}, 90)
+		})
 		Context("with grace period greater than 0", func() {
 			It("should run graceful shutdown", func(done Done) {
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
