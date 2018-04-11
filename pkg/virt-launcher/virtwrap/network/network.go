@@ -56,7 +56,7 @@ const (
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
-var bridgeFakeIP = "10.11.12.13/24"
+var bridgeFakeIP = "169.254.75.86/32"
 
 // only used by unit test suite
 func setInterfaceCacheFile(path string) {
