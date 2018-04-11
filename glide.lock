@@ -1,5 +1,5 @@
-hash: bf8ae5a5691b8a1187917a88e4b23d532611fee91300dda23ddf20aed1ddbc10
-updated: 2018-04-11T10:54:40.231595613Z
+hash: 0e10879ff77d0264694c4345bde771d31663ed486b54ed79b50c17b0a0f0ef86
+updated: 2018-04-12T06:22:48.062633901Z
 imports:
 - name: github.com/ant31/crd-validation
   version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
@@ -112,6 +112,10 @@ imports:
   version: 4abfceffa76a675ea43d133e49aad64c821d32bf
   subpackages:
   - conn
+- name: github.com/kubevirt/qe-tools
+  version: 5891aede49ba383e4e53320ff46e6999dffde8c4
+  subpackages:
+  - ginkgo-reporters
 - name: github.com/libvirt/libvirt-go
   version: 0822ea6d658d7a0deeaa2ce63ed3efd6306bee03
 - name: github.com/mailru/easyjson

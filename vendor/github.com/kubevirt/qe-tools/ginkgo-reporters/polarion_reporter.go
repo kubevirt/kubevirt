@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package ginkgo_reporters
 
 import (
 	"encoding/xml"

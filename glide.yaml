@@ -56,6 +56,8 @@ import:
   version: kubernetes-1.9.6
 - package: github.com/ant31/crd-validation
   version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
+- package: github.com/kubevirt/qe-tools
+  version: v0.1.0
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
