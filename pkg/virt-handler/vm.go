@@ -541,7 +541,6 @@ func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachine, doma
 			return err
 		}
 	}
-	d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Deleted.String(), "VM stopping")
 
 	return d.processVmCleanup(vm)
 
@@ -574,8 +573,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	if err != nil {
 		return err
 	}
-	d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Created.String(), "VM defined.")
-
 	return err
 }
 
