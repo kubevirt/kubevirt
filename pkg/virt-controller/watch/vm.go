@@ -46,11 +46,17 @@ import (
 // Reasons for vm events
 const (
 	// FailedCreatePodReason is added in an event and in a vm controller condition
-	// when a pod for a vm controller is failed to be created.
+	// when a pod for a vm controller failed to be created.
 	FailedCreatePodReason = "FailedCreate"
 	// SuccessfulCreatePodReason is added in an event when a pod for a vm controller
 	// is successfully created.
 	SuccessfulCreatePodReason = "SuccessfulCreate"
+	// FailedDeletePodReason is added in an event and in a vm controller condition
+	// when a pod for a vm controller failed to be deleted.
+	FailedDeletePodReason = "FailedDelete"
+	// SuccessfulDeletePodReason is added in an event when a pod for a vm controller
+	// is successfully deleted.
+	SuccessfulDeletePodReason = "SuccessfulDelete"
 	// FailedHandOverPodReason is added in an event and in a vm controller condition
 	// when transferring the pod ownership from the controller to virt-hander fails.
 	FailedHandOverPodReason = "FailedHandOver"
@@ -157,7 +163,7 @@ func (c *VMController) execute(key string) error {
 	// If the VM is exists still, don't process the VM until it is fully initialized.
 	// Initialization is handled by the initialization controller and must take place
 	// before the VM is acted upon.
-	if exists && !isVirtualMachineInitialized(vm) {
+	if !isVirtualMachineInitialized(vm) {
 		return nil
 	}
 
@@ -189,7 +195,7 @@ func (c *VMController) execute(key string) error {
 	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key)
 
 	var syncErr error
-	if needsSync && vm.ObjectMeta.DeletionTimestamp == nil {
+	if needsSync {
 		syncErr = c.sync(vm, pods)
 	}
 	return c.updateStatus(vm, pods, syncErr)
@@ -201,51 +207,58 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
 
-	if vm.IsRunning() || vm.IsFinal() || vm.IsScheduled() {
+	if vm.IsRunning() || vm.IsScheduled() {
 		return nil
 	}
 
-	if len(pods) > 0 {
+	if vm.IsUnprocessed() || vm.IsScheduling() {
+		if len(pods) > 0 {
 
-		containersAreReady := podIsReady(pods[0])
+			containersAreReady := podIsReady(pods[0])
 
-		podIsTerminating := podIsDownOrGoingDown(pods[0])
+			podIsTerminating := podIsDownOrGoingDown(pods[0])
 
-		if c.isPodOwnedByHandler(pods[0]) {
+			if c.isPodOwnedByHandler(pods[0]) {
 
-			vmCopy.Status.Interfaces = []virtv1.VirtualMachineNetworkInterface{
-				{
-					IP: pods[0].Status.PodIP,
-				},
+				vmCopy.Status.Interfaces = []virtv1.VirtualMachineNetworkInterface{
+					{
+						IP: pods[0].Status.PodIP,
+					},
+				}
+				vmCopy.Status.Phase = virtv1.Scheduled
+				if vmCopy.Labels == nil {
+					vmCopy.Labels = map[string]string{}
+				}
+				vmCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pods[0].Spec.NodeName
+				vmCopy.Status.NodeName = pods[0].Spec.NodeName
+			} else if !podIsTerminating && !containersAreReady {
+				vmCopy.Status.Phase = virtv1.Scheduling
+			} else if podIsTerminating {
+				vmCopy.Status.Phase = virtv1.Failed
 			}
-			vmCopy.Status.Phase = virtv1.Scheduled
-			if vmCopy.Labels == nil {
-				vmCopy.Labels = map[string]string{}
-			}
-			vmCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pods[0].Spec.NodeName
-			vmCopy.Status.NodeName = pods[0].Spec.NodeName
-		} else if !podIsTerminating && !containersAreReady {
-			vmCopy.Status.Phase = virtv1.Scheduling
-		} else if podIsDown(pods[0]) {
+		} else if len(pods) == 0 && vm.IsScheduling() {
+			// someone deleted the pod while it is still owned by us
 			vmCopy.Status.Phase = virtv1.Failed
+		}
+	} else if vm.IsFinal() {
+		if len(pods) == 0 {
 			controller.RemoveFinalizer(vmCopy, virtv1.VirtualMachineFinalizer)
 		}
-	} else if !vm.IsUnprocessed() {
-		vmCopy.Status.Phase = virtv1.Failed
-		controller.RemoveFinalizer(vmCopy, virtv1.VirtualMachineFinalizer)
 	}
 
 	// Select the right failure reason in case we have an error
 	reason := ""
 	if len(pods) == 0 {
 		reason = "FailedCreate"
+	} else if len(pods) == 1 && vm.IsFinal() {
+		reason = "FailedDelete"
 	} else {
 		reason = "FailedHandOver"
 	}
 	conditionManager.CheckFailure(vmCopy, syncErr, reason)
 
 	// If we detect a change on the vm status, we update the vm
-	if !reflect.DeepEqual(vm.Status, vmCopy.Status) {
+	if !reflect.DeepEqual(vm.Status, vmCopy.Status) || !reflect.DeepEqual(vm.Finalizers, vmCopy.Finalizers) {
 		_, err := c.clientset.VM(vm.Namespace).Update(vmCopy)
 		if err != nil {
 			return err
@@ -277,8 +290,21 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 
 	vmKey := controller.VirtualMachineKey(vm)
 
-	if vm.IsFinal() {
-		return
+	if vm.IsFinal() || vm.DeletionTimestamp != nil {
+		if len(pods) == 0 {
+			return
+		} else if pods[0].DeletionTimestamp == nil {
+			c.podExpectations.ExpectDeletions(vmKey, []string{controller.PodKey(pods[0])})
+			err := c.clientset.CoreV1().Pods(vm.Namespace).Delete(pods[0].Name, &v1.DeleteOptions{})
+			if err != nil {
+				c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleting pod: %v", err)
+				c.podExpectations.DeletionObserved(vmKey, controller.PodKey(pods[0]))
+				return err
+			}
+			c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pods[0].Name)
+			return nil
+		}
+		return nil
 	}
 
 	if len(pods) == 0 {

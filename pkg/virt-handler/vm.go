@@ -163,9 +163,6 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
-	if vm.IsFinal() {
-		controller.RemoveFinalizer(vm, v1.VirtualMachineFinalizer)
-	}
 
 	controller.NewVirtualMachineConditionManager().CheckFailure(vm, syncError, "Synchronizing with the Domain failed.")
 
