@@ -176,7 +176,7 @@ var _ = Describe("Storage", func() {
 
 		Context("With an emptyDisk defined", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VM.
-			FIt("should create a writeable emptyDisk with the right capacity", func(done Done) {
+			It("should create a writeable emptyDisk with the right capacity", func(done Done) {
 
 				// Start the VM with the empty disk attached
 				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
