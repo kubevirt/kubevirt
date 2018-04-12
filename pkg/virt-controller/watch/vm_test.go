@@ -89,7 +89,7 @@ var _ = Describe("VM watcher", func() {
 			close(done)
 		})
 
-		It("should should schedule a POD.", func(done Done) {
+		It("should schedule a POD.", func(done Done) {
 
 			// Create a VM to be scheduled
 			vm := v1.NewMinimalVM("testvm")
@@ -110,9 +110,6 @@ var _ = Describe("VM watcher", func() {
 
 			podListInitial := clientv1.PodList{}
 			podListInitial.Items = []clientv1.Pod{}
-
-			podListPostCreate := clientv1.PodList{}
-			podListPostCreate.Items = []clientv1.Pod{*pod}
 
 			expectedVM.Status.Phase = v1.Scheduling
 
@@ -143,7 +140,54 @@ var _ = Describe("VM watcher", func() {
 			close(done)
 		}, 10)
 
-		It("should should schedule a POD with Registry Disk.", func(done Done) {
+		It("should not schedule a POD if pod already exists", func(done Done) {
+
+			// Create a VM to be scheduled
+			vm := v1.NewMinimalVM("testvm")
+			vm.Status.Phase = ""
+			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			addInitializedAnnotation(vm)
+
+			// Create the expected VM after the update
+			expectedVM := vm.DeepCopy()
+
+			// Create a Pod for the VM
+			temlateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
+			Expect(err).ToNot(HaveOccurred())
+			pod, err := temlateService.RenderLaunchManifest(vm)
+			Expect(err).ToNot(HaveOccurred())
+			pod.Spec.NodeName = "mynode"
+			pod.Status.Phase = clientv1.PodPending
+
+			podListInitial := clientv1.PodList{}
+			podListInitial.Items = []clientv1.Pod{*pod}
+
+			expectedVM.Status.Phase = v1.Scheduling
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, podListInitial),
+				),
+
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			// Tell the controller that there is a new VM
+			key, _ := cache.MetaNamespaceKeyFunc(vm)
+			app.vmCache.Add(vm)
+			app.vmQueue.Add(key)
+			app.vmController.Execute()
+
+			Expect(len(server.ReceivedRequests())).To(Equal(2))
+			close(done)
+		}, 10)
+
+		It("should schedule a POD with Registry Disk.", func(done Done) {
 
 			// Create a VM to be scheduled
 			vm := v1.NewMinimalVM("testvm")
@@ -188,9 +232,6 @@ var _ = Describe("VM watcher", func() {
 
 			podListInitial := clientv1.PodList{}
 			podListInitial.Items = []clientv1.Pod{}
-
-			podListPostCreate := clientv1.PodList{}
-			podListPostCreate.Items = []clientv1.Pod{*pod}
 
 			// Register the expected REST call
 			server.AppendHandlers(
