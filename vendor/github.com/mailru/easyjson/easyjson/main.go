@@ -54,13 +54,8 @@ func generate(fname string) (err error) {
 		outName = *specifiedName
 	}
 
-	var trimmedBuildTags string
-	if *buildTags != "" {
-		trimmedBuildTags = strings.TrimSpace(*buildTags)
-	}
-
 	g := bootstrap.Generator{
-		BuildTags:       trimmedBuildTags,
+		BuildTags:       *buildTags,
 		PkgPath:         p.PkgPath,
 		PkgName:         p.PkgName,
 		Types:           p.StructNames,

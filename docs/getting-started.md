@@ -2,64 +2,37 @@
 
 A quick start guide to get KubeVirt up and running inside Vagrant.
 
-**Note**: This guide was tested on Fedora 23 and Fedora 25.
-
-**Note:** Fedora 24 is known to have a bug which affects our vagrant setup.
-
 ## Building
 
 The KubeVirt build system runs completely inside docker. In order to build
 KubeVirt you need to have `docker` and `rsync` installed.
 
-### Vagrant
+### Dockerizied environment
 
-[Vagrant](https://www.vagrantup.com/) is used to bring up a development and
-demo environment:
-
-```bash
-    sudo dnf install vagrant vagrant-libvirt
-    sudo systemctl enable --now libvirtd
-    sudo systemctl restart virtlogd # Work around rpm packaging bug
-```
-
-On some systems Vagrant will always ask you for your sudo password when you try
-to do something with a VM. To avoid retyping your password all the time you can
-add yourself to the `libvirt` group.
-
-```bash
-sudo gpasswd -a ${USER} libvirt
-newgrp libvirt
-```
-
-On CentOS/RHEL 7 you might also need to change the libvirt connection string to be able to see all libvirt information:
-
-```
-export LIBVIRT_DEFAULT_URI=qemu:///system
-```
+Runs master and nodes containers, when each one of them run virtual machine via QEMU.
+In additional it runs dnsmasq and docker registry containers.
 
 ### Compile and run it
 
 Build all required artifacts and launch the
-Vagrant environment:
+dockerizied environment:
 
 ```bash
     # Building and deploying kubevirt in Vagrant
+    export PROVIDER=k8s-1.9.3
     make cluster-up
     make cluster-sync
 ```
 
-This will create a VM called `master` which acts as Kubernetes master and then
-deploy Kubevirt there. To create one or more nodes which will register
+This will create a VM called `node01` which acts as Kubernetes master and then
+deploy KubeVirt there. To create one or more nodes which will register
 themselves on master, you can use the `VAGRANT_NUM_NODES` environment variable.
 This would create a master and one node:
 
 ```bash
-    VAGRANT_NUM_NODES=1 make cluster-up
+    export VAGRANT_NUM_NODES=1
+    make cluster-up
 ```
-
-If you decide to use separate nodes, pass `VAGRANT_NUM_NODES` variable to all
-vagrant interacting commands. However, just running `master` is enough for most
-development tasks.
 
 You could also run some build steps individually:
 
@@ -92,8 +65,8 @@ After a successful build you can run the *unit tests*:
     make test
 ```
 
-They don't require vagrant. To run the *functional tests*, make sure you have set
-up [Vagrant](#vagrant). Then run
+They don't real environment. To run the *functional tests*, make sure you have set
+up dockerizied environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
@@ -106,30 +79,21 @@ Congratulations you are still with us and you have build KubeVirt.
 
 Now it's time to get hands on and give it a try.
 
-### Cockpit
-
-Cockpit is exposed on <http://192.168.200.2:9090>
-The default login is `root:vagrant`
-
-It can be used to view the cluster and verify the running state of
-components within the cluster.
-More information can be found on that [project's site](http://cockpit-project.org/guide/latest/feature-kubernetes.html).
-
 ### Create a first Virtual Machine
 
-Finally start a VM called `testvm`:
+Finally start a VM called `vm-ephemeral`:
 
 ```bash
     # This can be done from your GIT repo, no need to log into a vagrant VM
 
     # Create a VM
-    ./cluster/kubectl.sh create -f cluster/vm.yaml
+    ./cluster/kubectl.sh create -f cluster/examples/vm-ephemeral.yaml
 
     # Sure? Let's list all created VMs
     ./cluster/kubectl.sh get vms
 
     # Enough, let's get rid of it
-    ./cluster/kubectl.sh delete -f cluster/vm.yaml
+    ./cluster/kubectl.sh delete -f cluster/examples/vm-ephemeral.yaml
 
 
     # You can actually use kubelet.sh to introspect the cluster in general
@@ -142,19 +106,19 @@ tap networking device attached.
 #### Example
 
 ```bash
-$ ./cluster/kubectl.sh create -f cluster/vm.yaml
-vm "testvm" created
+$ ./cluster/kubectl.sh create -f cluster/examples/vm-ephemeral.yaml
+vm "vm-ephemeral" created
 
 $ ./cluster/kubectl.sh get pods
-NAME                        READY     STATUS    RESTARTS   AGE
-virt-api                    1/1       Running   1          10h
-virt-controller             1/1       Running   1          10h
-virt-handler-z90mp          1/1       Running   1          10h
-virt-launcher-testvm9q7es   1/1       Running   0          10s
+NAME                              READY     STATUS    RESTARTS   AGE
+virt-api                          1/1       Running   1          10h
+virt-controller                   1/1       Running   1          10h
+virt-handler-z90mp                1/1       Running   1          10h
+virt-launcher-vm-ephemeral9q7es   1/1       Running   0          10s
 
 $ ./cluster/kubectl.sh get vms
-NAME      LABELS                        DATA
-testvm    kubevirt.io/nodeName=master   {"apiVersion":"kubevirt.io/v1alpha1","kind":"VM","...
+NAME           LABELS                        DATA
+vm-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha1","kind":"VM","...
 
 $ ./cluster/kubectl.sh get vms -o json
 {
@@ -170,7 +134,7 @@ $ ./cluster/kubectl.sh get vms -o json
                 "labels": {
                     "kubevirt.io/nodeName": "master"
                 },
-                "name": "testvm",
+                "name": "vm-ephemeral",
                 "namespace": "default",
                 "resourceVersion": "102534",
                 "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
@@ -188,10 +152,10 @@ First make sure you have `remote-viewer` installed. On Fedora run
 dnf install virt-viewer
 ```
 
-Then, after you made sure that the VM `testvm` is running, type
+Then, after you made sure that the VM `vm-ephemeral` is running, type
 
 ```
-cluster/kubectl.sh vnc testvm
+cluster/kubectl.sh vnc vm-ephemeral
 ```
 
 to start a remote session with `remote-viewer`.

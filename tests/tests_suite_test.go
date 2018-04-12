@@ -25,12 +25,21 @@ import (
 
 	"testing"
 
+	"github.com/kubevirt/qe-tools/ginkgo-reporters"
+
 	"kubevirt.io/kubevirt/tests"
 )
 
 func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Tests Suite")
+	reporters := make([]Reporter, 0)
+	if ginkgo_reporters.Polarion.Run {
+		reporters = append(reporters, &ginkgo_reporters.Polarion)
+	}
+	if ginkgo_reporters.JunitOutput != "" {
+		reporters = append(reporters, ginkgo_reporters.NewJunitReporter())
+	}
+	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", reporters)
 }
 
 var _ = BeforeSuite(func() {

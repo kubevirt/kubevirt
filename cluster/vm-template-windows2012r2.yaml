@@ -4,7 +4,7 @@ metadata:
   name: windows2012r2-vm-template
   annotations:
     description: "OCP KubeVirt Microsoft Windows Server 2012 R2 VM template"
-    tags: "kubevirt,ocp,template,windows"
+    tags: "kubevirt,ocp,template,windows,virtualmachine"
   labels:
     kubevirt.io/os: win2k12r2
     miq.github.io/kubevirt-is-vm-template: "true"
@@ -13,8 +13,13 @@ objects:
   kind: OfflineVirtualMachine
   metadata:
     name: ${NAME}
+    labels:
+      kubevirt-ovm: ovm-${NAME}
   spec:
     template:
+      metadata:
+        labels:
+          kubevirt-ovm: ovm-${NAME}
       spec:
         domain:
           features:
@@ -36,12 +41,12 @@ objects:
                 tickPolicy: catchup
               hyperv: {}
           cpu:
-            cores: ${CPU_CORES}
+            cores: ${{CPU_CORES}}
           machine:
             type: q35
           resources:
             requests:
-              memory: ${MEMORY}
+              memory: ${{MEMORY}}
           devices:
             disks:
               - name: disk0

@@ -7,6 +7,12 @@ import (
 
 var _ = Describe("Defaults", func() {
 
+	It("should set architecture", func() {
+		domain := &Domain{}
+		SetDefaults_OSType(&domain.Spec.OS.Type)
+		Expect(domain.Spec.OS.Type.Arch).To(Equal("x86_64"))
+	})
+
 	It("should set q35 machine type and hvm domain type", func() {
 		domain := &Domain{}
 		SetDefaults_OSType(&domain.Spec.OS.Type)
@@ -18,6 +24,6 @@ var _ = Describe("Defaults", func() {
 		domain := &Domain{}
 		SetDefaults_DomainSpec(&domain.Spec)
 		Expect(domain.Spec.XmlNS).To(Equal("http://libvirt.org/schemas/domain/qemu/1.0"))
-		Expect(domain.Spec.Type).To(Equal("qemu"))
+		Expect(domain.Spec.Type).To(Equal("kvm"))
 	})
 })

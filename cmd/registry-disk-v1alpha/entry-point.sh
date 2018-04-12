@@ -19,6 +19,8 @@
 
 # https://fedoraproject.org/wiki/Scsi-target-utils_Quickstart_Guide
 
+trap 'echo "Graceful exit"; exit 0' SIGINT SIGQUIT SIGTERM
+
 if [ -z "$COPY_PATH" ]; then
 	echo "COPY_PATH variable not set"
 	exit 1

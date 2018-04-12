@@ -27,7 +27,7 @@ node02    NotReady   <none>    5s        v1.9.3
 
 ```bash
 export PROVIDER=k8s-1.9.3
-make cluster-up
+make cluster-down
 ```
 
 This destroys the whole cluster. Recreating the cluster is fast, since k8s is

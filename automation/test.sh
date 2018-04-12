@@ -17,65 +17,37 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-# CI considerations: $TARGET is used by the jenkins vagrant build, to distinguish what to test
+# CI considerations: $TARGET is used by the jenkins build, to distinguish what to test
 # Currently considered $TARGET values:
-#     vagrant-dev: Runs all functional tests on a development vagrant setup
-#     vagrant-release: Runs all possible functional tests on a release deployment in vagrant
+#     vagrant-dev: Runs all functional tests on a development vagrant setup (deprecated)
+#     vagrant-release: Runs all possible functional tests on a release deployment in vagrant (deprecated)
+#     kubernetes-dev: Runs all functional tests on a development kubernetes setup
+#     kubernetes-release: Runs all functional tests on a release kubernetes setup
+#     openshift-release: Runs all functional tests on a release openshift setup
 #     TODO: vagrant-tagged-release: Runs all possible functional tests on a release deployment in vagrant on a tagged release
 
 set -ex
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
 
-kubectl() { cluster/kubectl.sh "$@"; }
-
-export BUILDER_NAME=$TARGET
-export NAMESPACE="${NAMESPACE:-kube-system}"
-
-if [ "$TARGET" = "vagrant-dev"  ]; then
-cat > hack/config-local.sh <<EOF
-master_ip=192.168.1.2
-EOF
-export RSYNCD_PORT=${RSYNCD_PORT:-10874}
-elif [ "$TARGET" = "vagrant-release"  ]; then
-cat > hack/config-local.sh <<EOF
-master_ip=192.168.2.2
-EOF
-export RSYNCD_PORT=${RSYNCD_PORT:-10875}
+if [[ $TARGET =~ openshift-.* ]]; then
+  export PROVIDER="os-3.9.0-alpha.4"
+else
+  export PROVIDER="k8s-1.9.3"
 fi
 
-export VAGRANT_PREFIX=${VARIABLE:-kubevirt}
-export VAGRANT_NUM_NODES="${VAGRANT_NUM_NODES:-1}"
-# Keep .vagrant files between builds
-export VAGRANT_DOTFILE_PATH="${VAGRANT_DOTFILE_PATH:-$WORKSPACE/.vagrant}"
+export VAGRANT_NUM_NODES=1
+export NFS_WINDOWS_DIR=${NFS_WINDOWS_DIR:-/home/nfs/images/windows2016}
 
-# Install dockerize
-export DOCKERIZE_VERSION=v0.3.0
-curl -LO https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && tar -C $WORKSPACE -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+kubectl() { cluster/kubectl.sh "$@"; }
+
+export NAMESPACE="${NAMESPACE:-kube-system}"
 
 # Make sure that the VM is properly shut down on exit
 trap '{ make cluster-down; }' EXIT
 
-# TODO handle complete workspace removal on CI
-set +e
+make cluster-down
 make cluster-up
-if [ $? -ne 0 ]; then
-  vagrant destroy
-  set -e
-  make cluster-up
-fi
-set -e
-
-# Build KubeVirt
-make
-
-# Make sure we can connect to kubernetes
-export APISERVER=$(cat cluster/vagrant-kubernetes/.kubeconfig | grep server | sed -e 's# \+server: https://##' | sed -e 's/\r//')
-$WORKSPACE/dockerize -wait tcp://$APISERVER -timeout 300s
-# Make sure we don't try to talk to Vagrant host via a proxy
-export no_proxy="${APISERVER%:*}"
 
 # Wait for nodes to become ready
 while [ -n "$(kubectl get nodes --no-headers | grep -v Ready)" ]; do
@@ -86,27 +58,7 @@ done
 echo "Nodes are ready:"
 kubectl get nodes
 
-# Wait for all kubernetes pods to become ready (dont't wait for kubevirt pods from previous deployments)
-sleep 10
-while [ -n "$(kubectl get pods -n ${NAMESPACE} -l '!kubevirt.io' --no-headers | grep -v Running)" ]; do
-    echo "Waiting for kubernetes pods to become ready ..."
-    kubectl get pods -n ${NAMESPACE} --no-headers | >&2 grep -v Running || true
-    sleep 10
-done
-
-echo "Kubernetes is ready:"
-kubectl get pods -n ${NAMESPACE} -l '!kubevirt.io'
-echo ""
-echo ""
-
-# delete all old traces of kubevirt on the cluster
-make cluster-clean
-
-if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev"  ]; then
-    make cluster-sync
-elif [ "$TARGET" = "vagrant-release"  ]; then
-    make cluster-sync
-fi
+make cluster-sync
 
 # Wait until kubevirt pods are running
 while [ -n "$(kubectl get pods -n ${NAMESPACE} --no-headers | grep -v Running)" ]; do
@@ -132,7 +84,29 @@ done
 kubectl get pods -n ${NAMESPACE}
 kubectl version
 
-# Disable proxy configuration since it causes test issues
-export -n http_proxy
+ginko_params="--ginkgo.noColor --junit-output=$WORKSPACE/junit.xml"
+
+# Prepare PV for windows testing
+if [[ -d $NFS_WINDOWS_DIR ]] && [[ $TARGET == windows ]]; then
+    kubectl create -f - <<EOF
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: disk-windows
+  labels:
+    kubevirt.io/test: "windows"
+spec:
+  capacity:
+    storage: 30Gi
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    server: "nfs"
+    path: /
+EOF
+ginko_params="$ginko_params --ginkgo.focus=Windows"
+fi
+
 # Run functional tests
-FUNC_TEST_ARGS="--ginkgo.noColor" make functest
+FUNC_TEST_ARGS=$ginko_params make functest

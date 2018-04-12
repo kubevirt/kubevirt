@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -22,62 +22,60 @@ package console
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 
-	flag "github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
-	"k8s.io/api/core/v1"
+
+	"github.com/spf13/cobra"
+
+	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
+func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "console (vm)",
+		Short:   "Connect to a console of a virtual machine.",
+		Example: usage(),
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Console{clientConfig: clientConfig}
+			return c.Run(cmd, args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
 type Console struct {
+	clientConfig clientcmd.ClientConfig
 }
 
-func (c *Console) FlagSet() *flag.FlagSet {
-	cf := flag.NewFlagSet("console", flag.ExitOnError)
-	cf.StringP("device", "d", "serial0", "Console to connect to")
-
-	return cf
-}
-
-func (c *Console) Usage() string {
-	usage := "Connect to a serial console on a VM:\n\n"
-	usage += "Examples:\n"
-	usage += "# Connect to the console on VM 'myvm':\n"
-	usage += "virtctl console myvm\n\n"
-	usage += "Options:\n"
-	usage += c.FlagSet().FlagUsages()
+func usage() string {
+	usage := "# Connect to the console on VM 'myvm':\n"
+	usage += "virtctl console myvm"
 	return usage
 }
 
-func (c *Console) Run(flags *flag.FlagSet) int {
-
-	server, _ := flags.GetString("server")
-	kubeconfig, _ := flags.GetString("kubeconfig")
-	namespace, _ := flags.GetString("namespace")
-	device := "serial0"
-	if namespace == "" {
-		namespace = v1.NamespaceDefault
-	}
-	if len(flags.Args()) != 2 {
-		log.Println("VM name is missing")
-		return 1
-	}
-	vm := flags.Arg(1)
-
-	virtCli, err := kubecli.GetKubevirtClientFromFlags(server, kubeconfig)
+func (c *Console) Run(cmd *cobra.Command, args []string) error {
+	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {
-		log.Println(err)
-		return 1
+		return err
+	}
+
+	vm := args[0]
+
+	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
+	if err != nil {
+		return err
 	}
 
 	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
-		log.Printf("Make raw terminal failed: %s", err)
-		return 1
+		return fmt.Errorf("Make raw terminal failed: %s", err)
 	}
 	fmt.Fprint(os.Stderr, "Escape sequence is ^]\n")
 
@@ -96,7 +94,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	readStop := make(chan error)
 
 	go func() {
-		err := virtCli.VM(namespace).SerialConsole(vm, device, stdinReader, stdoutWriter)
+		err := virtCli.VM(namespace).SerialConsole(vm, stdinReader, stdoutWriter)
 		resChan <- err
 	}()
 
@@ -148,8 +146,7 @@ func (c *Console) Run(flags *flag.FlagSet) int {
 	terminal.Restore(int(os.Stdin.Fd()), state)
 
 	if err != nil {
-		log.Println(err)
-		return 1
+		return err
 	}
-	return 0
+	return nil
 }

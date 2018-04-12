@@ -23,8 +23,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"encoding/json"
 	"net/http"
-
 	"net/http/httptest"
 	"net/url"
 
@@ -52,25 +52,32 @@ var _ = Describe("Application", func() {
 			ws := new(restful.WebService)
 			ws.Produces(restful.MIME_JSON)
 			handler = http.Handler(restful.NewContainer().Add(ws))
-			ws.Route(ws.GET("/leader").Produces(rest.MIME_JSON).To(app.readinessProbe))
+			ws.Route(ws.GET("/leader").Produces(rest.MIME_JSON).To(app.leaderProbe))
 
 			request = newValidGetRequest()
 			recorder = httptest.NewRecorder()
 		})
 
 		Context("with closed channel", func() {
-			It("should return 200", func() {
+			It("should return 200 and that it is the leader", func() {
+
 				close(app.readyChan)
 				request.URL, _ = url.Parse("/leader")
 				handler.ServeHTTP(recorder, request)
+				var x map[string]interface{}
+				Expect(json.Unmarshal(recorder.Body.Bytes(), &x)).To(Succeed())
 				Expect(recorder.Code).To(Equal(http.StatusOK))
+				Expect(x["apiserver"].(map[string]interface{})["leader"]).To(Equal("true"))
 			})
 		})
 		Context("with opened channel", func() {
-			It("should return 503", func() {
+			It("should return 200 and that it is not the leader", func() {
 				request.URL, _ = url.Parse("/leader")
 				handler.ServeHTTP(recorder, request)
-				Expect(recorder.Code).To(Equal(http.StatusServiceUnavailable))
+				var x map[string]interface{}
+				Expect(json.Unmarshal(recorder.Body.Bytes(), &x)).To(Succeed())
+				Expect(recorder.Code).To(Equal(http.StatusOK))
+				Expect(x["apiserver"].(map[string]interface{})["leader"]).To(Equal("false"))
 			})
 		})
 	})

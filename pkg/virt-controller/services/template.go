@@ -37,8 +37,9 @@ type TemplateService interface {
 }
 
 type templateService struct {
-	launcherImage string
-	virtShareDir  string
+	launcherImage   string
+	virtShareDir    string
+	imagePullSecret string
 }
 
 func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.Pod, error) {
@@ -57,6 +58,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	var userId int64 = 0
 	var privileged bool = true
 	var volumesMounts []kubev1.VolumeMount
+	var imagePullSecrets []kubev1.LocalObjectReference
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
@@ -70,10 +72,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
-	})
-	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
-		Name:      "host-dev",
-		MountPath: "/host-dev",
 	})
 	for _, volume := range vm.Spec.Volumes {
 		volumeMount := kubev1.VolumeMount{
@@ -98,6 +96,17 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 				},
 			})
 		}
+		if volume.RegistryDisk != nil && volume.RegistryDisk.ImagePullSecret != "" {
+			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, kubev1.LocalObjectReference{
+				Name: volume.RegistryDisk.ImagePullSecret,
+			})
+		}
+	}
+
+	if t.imagePullSecret != "" {
+		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, kubev1.LocalObjectReference{
+			Name: t.imagePullSecret,
+		})
 	}
 
 	// Pad the virt-launcher grace period.
@@ -187,14 +196,6 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		},
 	})
 
-	volumes = append(volumes, kubev1.Volume{
-		Name: "host-dev",
-		VolumeSource: kubev1.VolumeSource{
-			HostPath: &kubev1.HostPathVolumeSource{
-				Path: "/dev",
-			},
-		},
-	})
 	containers = append(containers, container)
 
 	// TODO use constants for labels
@@ -216,6 +217,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			Containers:                    containers,
 			NodeSelector:                  vm.Spec.NodeSelector,
 			Volumes:                       volumes,
+			ImagePullSecrets:              imagePullSecrets,
 		},
 	}
 
@@ -228,6 +230,15 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 	}
 
 	return &pod, nil
+}
+
+func appendUniqueImagePullSecret(secrets []kubev1.LocalObjectReference, newsecret kubev1.LocalObjectReference) []kubev1.LocalObjectReference {
+	for _, oldsecret := range secrets {
+		if oldsecret == newsecret {
+			return secrets
+		}
+	}
+	return append(secrets, newsecret)
 }
 
 // setMemoryOverhead computes the estimation of total
@@ -281,11 +292,12 @@ func setMemoryOverhead(domain v1.DomainSpec, resources *kubev1.ResourceRequireme
 	return nil
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string) (TemplateService, error) {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
-		launcherImage: launcherImage,
-		virtShareDir:  virtShareDir,
+		launcherImage:   launcherImage,
+		virtShareDir:    virtShareDir,
+		imagePullSecret: imagePullSecret,
 	}
 	return &svc, nil
 }

@@ -329,7 +329,7 @@ func domainEventGraphicsCallback(c C.virConnectPtr, d C.virDomainPtr,
 	domain := &Domain{ptr: d}
 	connection := &Connect{ptr: c}
 
-	subjectGo := make([]DomainEventGraphicsSubjectIdentity, 0)
+	subjectGo := make([]DomainEventGraphicsSubjectIdentity, subject.nidentity)
 	nidentities := int(subject.nidentity)
 	identities := (*[1 << 30]C.virDomainEventGraphicsSubjectIdentity)(unsafe.Pointer(&subject.identities))[:nidentities:nidentities]
 	for _, identity := range identities {
@@ -588,7 +588,7 @@ func getDomainTuneSchedulerParametersFieldInfo(params *DomainSchedulerParameters
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_GLOBAL_QUOTA: typedParamsFieldInfo{
 			set: &params.GlobalQuotaSet,
-			l:   &params.GlobalQuota,
+			ul:  &params.GlobalQuota,
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_EMULATOR_PERIOD: typedParamsFieldInfo{
 			set: &params.EmulatorPeriodSet,
@@ -596,7 +596,7 @@ func getDomainTuneSchedulerParametersFieldInfo(params *DomainSchedulerParameters
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_EMULATOR_QUOTA: typedParamsFieldInfo{
 			set: &params.EmulatorQuotaSet,
-			l:   &params.EmulatorQuota,
+			ul:  &params.EmulatorQuota,
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_VCPU_PERIOD: typedParamsFieldInfo{
 			set: &params.VcpuPeriodSet,
@@ -604,7 +604,7 @@ func getDomainTuneSchedulerParametersFieldInfo(params *DomainSchedulerParameters
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_VCPU_QUOTA: typedParamsFieldInfo{
 			set: &params.VcpuQuotaSet,
-			l:   &params.VcpuQuota,
+			ul:  &params.VcpuQuota,
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_IOTHREAD_PERIOD: typedParamsFieldInfo{
 			set: &params.IothreadPeriodSet,
@@ -612,7 +612,7 @@ func getDomainTuneSchedulerParametersFieldInfo(params *DomainSchedulerParameters
 		},
 		C.VIR_DOMAIN_TUNABLE_CPU_IOTHREAD_QUOTA: typedParamsFieldInfo{
 			set: &params.IothreadQuotaSet,
-			l:   &params.IothreadQuota,
+			ul:  &params.IothreadQuota,
 		},
 	}
 }
@@ -724,7 +724,7 @@ func getDomainPinTempFieldInfo(numvcpu int, numiothread int, params *domainEvent
 		}
 	}
 	for i := 0; i < numiothread; i++ {
-		ret[fmt.Sprintf("cputune.iothreadpin%d", i)] = typedParamsFieldInfo{
+		ret[fmt.Sprintf("cputune.iothreadpin%u", i)] = typedParamsFieldInfo{
 			s: &params.IOThreadPin[i],
 		}
 	}

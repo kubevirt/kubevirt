@@ -17,3 +17,9 @@ function build_func_tests() {
     ginkgo build ${KUBEVIRT_DIR}/tests
     mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
 }
+
+#If run on jenkins, let us create isolated environments based on the job and
+# the executor number
+PROVIDER=${PROVIDER:-vagrant-kubernetes}
+provider_prefix=${JOB_NAME:-${PROVIDER}}${EXECUTOR_NUMBER}
+job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}

@@ -5,9 +5,9 @@ source $(dirname "$0")/common.sh
 
 DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
 
-BUILDER=${BUILDER_NAME:-kubevirtbuilder}
+BUILDER=${job_prefix}
+
 SYNC_VENDOR=${SYNC_VENDOR:-false}
-RSYNCD_PORT=${RSYNCD_PORT:-10873}
 
 TEMPFILE=".rsynctemp"
 
@@ -23,12 +23,15 @@ fi
 docker run -v "${BUILDER}:/root:rw,z" --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
-RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" -p 127.0.0.1:${RSYNCD_PORT}:873 ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
+RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --expose 873 -P ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
+
 function finish() {
     docker stop ${RSYNC_CID}
-    docker rm ${RSYNC_CID}
+    docker rm -f ${RSYNC_CID}
 }
 trap finish EXIT
+
+RSYNCD_PORT=$(docker port $RSYNC_CID 873 | cut -d':' -f2)
 
 rsynch_fail_count=0
 

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
@@ -40,6 +40,7 @@ import (
 type KubevirtClient interface {
 	VM(namespace string) VMInterface
 	ReplicaSet(namespace string) ReplicaSetInterface
+	OfflineVirtualMachine(namespace string) OfflineVirtualMachineInterface
 	RestClient() *rest.RESTClient
 	kubernetes.Interface
 }
@@ -48,6 +49,7 @@ type kubevirt struct {
 	master     string
 	kubeconfig string
 	restClient *rest.RESTClient
+	config     *rest.Config
 	*kubernetes.Clientset
 }
 
@@ -62,7 +64,7 @@ type VMInterface interface {
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
-	SerialConsole(name string, device string, in io.Reader, out io.Writer) error
+	SerialConsole(name string, in io.Reader, out io.Writer) error
 	VNC(name string, in io.Reader, out io.Writer) error
 }
 
@@ -81,4 +83,14 @@ type VMPresetInterface interface {
 	Update(*v1.VirtualMachinePreset) (*v1.VirtualMachinePreset, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachinePreset, err error)
+}
+
+// OfflineVirtualMachineInterface provides convenience methods to work with
+// offline virtual machines inside the cluster
+type OfflineVirtualMachineInterface interface {
+	Get(name string, options *k8smetav1.GetOptions) (*v1.OfflineVirtualMachine, error)
+	List(opts *k8smetav1.ListOptions) (*v1.OfflineVirtualMachineList, error)
+	Create(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
+	Update(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
+	Delete(name string, options *k8smetav1.DeleteOptions) error
 }

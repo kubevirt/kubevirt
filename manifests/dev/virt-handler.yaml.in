@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: virt-handler
-  namespace: {{ namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "virt-handler"
 spec:
@@ -19,7 +19,7 @@ spec:
           ports:
             - containerPort: 8185
               hostPort: 8185
-          image: {{ docker_prefix }}/virt-handler:{{ docker_tag }}
+          image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
             - "/virt-handler"

@@ -179,6 +179,16 @@ func NewProcessMonitor(commandPrefix string,
 	}
 }
 
+func (mon *monitor) isGracePeriodExpired() bool {
+	if mon.gracePeriodStartTime != 0 {
+		now := time.Now().UTC().Unix()
+		if (now - mon.gracePeriodStartTime) > int64(mon.gracePeriod) {
+			return true
+		}
+	}
+	return false
+}
+
 func (mon *monitor) refresh() {
 	if mon.isDone {
 		log.Log.Error("Called refresh after done!")
@@ -186,6 +196,8 @@ func (mon *monitor) refresh() {
 	}
 
 	log.Log.Debugf("Refreshing. CommandPrefix %s pid %d", mon.commandPrefix, mon.pid)
+
+	expired := mon.isGracePeriodExpired()
 
 	// is the process there?
 	if mon.pid == 0 {
@@ -199,6 +211,9 @@ func (mon *monitor) refresh() {
 			elapsed := time.Since(mon.start)
 			if mon.timeout > 0 && elapsed >= mon.timeout {
 				log.Log.Infof("%s not found after timeout", mon.commandPrefix)
+				mon.isDone = true
+			} else if expired {
+				log.Log.Infof("%s not found after grace period expired", mon.commandPrefix)
 				mon.isDone = true
 			}
 			return
@@ -219,12 +234,9 @@ func (mon *monitor) refresh() {
 		return
 	}
 
-	if mon.gracePeriodStartTime != 0 {
-		now := time.Now().UTC().Unix()
-		if (now - mon.gracePeriodStartTime) > int64(mon.gracePeriod) {
-			log.Log.Infof("Grace Period expired, shutting down.")
-			mon.shutdownCallback(mon.pid)
-		}
+	if expired {
+		log.Log.Infof("Grace Period expired, shutting down.")
+		mon.shutdownCallback(mon.pid)
 	}
 
 	return
@@ -252,9 +264,6 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 			mon.refresh()
 		case s := <-signalChan:
 			log.Log.Infof("Received signal %d.", s)
-			if mon.pid == 0 {
-				continue
-			}
 
 			if mon.gracePeriodStartTime != 0 {
 				continue

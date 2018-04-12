@@ -224,6 +224,52 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
+// ClaimVirtualMachineByName tries to take ownership of a VirtualMachine.
+//
+// It will reconcile the following:
+//   * Adopt orphans if the selector matches.
+//   * Release owned objects if the selector no longer matches.
+//
+// Optional: If one or more filters are specified, a VirtualMachine will only be claimed if
+// all filters return true.
+//
+// A non-nil error is returned if some form of reconciliation was attempted and
+// failed. Usually, controllers should try again later in case reconciliation
+// is still needed.
+//
+// If the error is nil, either the reconciliation succeeded, or no
+// reconciliation was necessary. The list of VirtualMachines that you now own is returned.
+func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vm *virtv1.VirtualMachine, filters ...func(machine *virtv1.VirtualMachine) bool) (*virtv1.VirtualMachine, error) {
+	match := func(obj metav1.Object) bool {
+		vm := obj.(*virtv1.VirtualMachine)
+		// Check selector first so filters only run on potentially matching VirtualMachines.
+		if m.Controller.GetName() != vm.Name {
+			return false
+		}
+		for _, filter := range filters {
+			if !filter(vm) {
+				return false
+			}
+		}
+		return true
+	}
+	adopt := func(obj metav1.Object) error {
+		return m.AdoptVirtualMachine(obj.(*virtv1.VirtualMachine))
+	}
+	release := func(obj metav1.Object) error {
+		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachine))
+	}
+
+	ok, err := m.ClaimObject(vm, match, adopt, release)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return vm, nil
+	}
+	return nil, nil
+}
+
 // AdoptVirtualMachine sends a patch to take control of the vm. It returns the error if
 // the patching fails.
 func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vm *virtv1.VirtualMachine) error {

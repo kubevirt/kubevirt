@@ -4,7 +4,7 @@ metadata:
   name: rhel7-vm-template
   annotations:
     description: "OCP KubeVirt Red Hat Enterprise Linux 7.4 VM template"
-    tags: "kubevirt,ocp,template,linux"
+    tags: "kubevirt,ocp,template,linux,virtualmachine"
   labels:
     kubevirt.io/os: rhel7.4
     miq.github.io/kubevirt-is-vm-template: "true"
@@ -13,15 +13,20 @@ objects:
   kind: OfflineVirtualMachine
   metadata:
     name: ${NAME}
+    labels:
+      kubevirt-ovm: ovm-${NAME}
   spec:
     template:
+      metadata:
+        labels:
+          kubevirt-ovm: ovm-${NAME}
       spec:
         domain:
           cpu:
-            cores: ${CPU_CORES}
+            cores: ${{CPU_CORES}}
           resources:
             requests:
-              memory: ${MEMORY}
+              memory: ${{MEMORY}}
           machine:
             type: q35
           devices:

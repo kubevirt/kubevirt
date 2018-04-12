@@ -19,8 +19,6 @@
 
 set -ex
 
-PROVIDER=${PROVIDER:-vagrant-kubernetes}
-
 source hack/common.sh
 source cluster/$PROVIDER/provider.sh
 source hack/config.sh
@@ -28,19 +26,27 @@ source hack/config.sh
 echo "Deploying ..."
 
 # Deploy the right manifests for the right target
-if [ -z "$TARGET" ] || [ "$TARGET" = "vagrant-dev" ]; then
+if [[ -z $TARGET ]] || [[ $TARGET =~ .*-dev ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
-elif [ "$TARGET" = "vagrant-release" ]; then
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/release -R $i
+elif [[ $TARGET =~ .*-release ]] || [[ $TARGET == windows ]]; then
+    for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
+        if [[ $manifest =~ .*demo.* ]]; then
+            continue
+        fi
+        _kubectl create -f $manifest
+    done
 fi
 
 # Deploy additional infra for testing
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
-if [ "$PROVIDER" = "vagrant-openshift" ]; then
+if [ "$PROVIDER" = "vagrant-openshift" ] || [ "$PROVIDER" = "os-3.9.0-alpha.4" ]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-testing -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
+    _kubectl adm policy add-scc-to-user privileged -z kubevirt-apiserver -n ${namespace}
+    # Helpful for development. Allows admin to access everything KubeVirt creates in the web console
+    _kubectl adm policy add-scc-to-user privileged admin
 fi
 
 echo "Done"

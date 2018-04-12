@@ -1,0 +1,4 @@
+package: kubevirt.io/qe-tools
+import:
+- package: github.com/onsi/ginkgo
+  version: v1.4.0

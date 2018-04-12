@@ -28,12 +28,18 @@ args=$(cd ${KUBEVIRT_DIR}/manifests && find * -type f -name "*.yaml.in")
 
 rm -rf ${MANIFESTS_OUT_DIR}
 
+(cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go build)
+
 for arg in $args; do
     final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
     mkdir -p ${final_out_dir}
     manifest=$(basename -s .in ${arg})
-    sed -e "s#{{ docker_tag }}#${docker_tag}#g" \
-        -e "s#{{ docker_prefix }}#${manifest_docker_prefix}#g" \
-        -e "s#{{ namespace }}#${namespace}#g" \
-        ${KUBEVIRT_DIR}/manifests/$arg >${final_out_dir}/${manifest}
+    outfile=${final_out_dir}/${manifest}
+
+    ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+        --namespace=${namespace} \
+        --docker-prefix=${manifest_docker_prefix} \
+        --docker-tag=${docker_tag} \
+        --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
+        --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
 done

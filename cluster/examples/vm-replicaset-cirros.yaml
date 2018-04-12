@@ -1,0 +1,34 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachineReplicaSet
+metadata:
+  creationTimestamp: null
+  name: vm-replicaset-cirros
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      kubevirt.io/vmReplicaSet: vm-replicaset-cirros
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubevirt.io/vmReplicaSet: vm-replicaset-cirros
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: registrydisk
+            volumeName: registryvolume
+        machine:
+          type: ""
+        resources:
+          requests:
+            memory: 64M
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - name: registryvolume
+        registryDisk:
+          image: kubevirt/cirros-registry-disk-demo:devel
+status: {}

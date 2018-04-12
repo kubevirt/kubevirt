@@ -1,0 +1,24 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  creationTimestamp: null
+  name: vm-pvc
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: pvcdisk
+        volumeName: pvcvolume
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 64M
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: pvcvolume
+    persistentVolumeClaim:
+      claimName: disk-alpine
+status: {}

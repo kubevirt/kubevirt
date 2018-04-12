@@ -26,11 +26,15 @@ package network
 */
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 
@@ -43,12 +47,16 @@ import (
 )
 
 const (
-	podInterface = "eth0"
-	guestDNS     = "8.8.8.8"
+	podInterface        = "eth0"
+	defaultDNS          = "8.8.8.8"
+	resolvConf          = "/etc/resolv.conf"
+	defaultSearchDomain = "cluster.local"
+	domainSearchPrefix  = "search"
+	nameserverPrefix    = "nameserver"
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
-var bridgeFakeIP = "10.11.12.13/24"
+var bridgeFakeIP = "169.254.75.86/32"
 
 // only used by unit test suite
 func setInterfaceCacheFile(path string) {
@@ -60,6 +68,7 @@ type VIF struct {
 	IP      netlink.Addr
 	MAC     net.HardwareAddr
 	Gateway net.IP
+	Routes  *[]netlink.Route
 }
 
 type NetworkHandler interface {
@@ -145,20 +154,109 @@ func (h *NetworkUtilsHandler) ChangeMacAddr(iface string) (net.HardwareAddr, err
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
+	nameservers, searchDomains, err := getResolvConfDetailsFromPod()
+	if err != nil {
+		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
+		panic(err)
+	}
+
 	// panic in case the DHCP server failed during the vm creation
 	// but ignore dhcp errors when the vm is destroyed or shutting down
-	if err := DHCPServer(
+	if err = DHCPServer(
 		nic.MAC,
 		nic.IP.IP,
 		nic.IP.Mask,
 		api.DefaultBridgeName,
 		serverAddr.IP,
 		nic.Gateway,
-		net.ParseIP(guestDNS),
+		nameservers,
+		nic.Routes,
+		searchDomains,
 	); err != nil {
 		log.Log.Errorf("failed to run DHCP: %v", err)
 		panic(err)
 	}
+}
+
+// returns nameservers [][]byte, searchdomains []string, error
+func getResolvConfDetailsFromPod() ([][]byte, []string, error) {
+	b, err := ioutil.ReadFile(resolvConf)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nameservers, err := ParseNameservers(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	searchDomains, err := ParseSearchDomains(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
+	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
+
+	return nameservers, searchDomains, err
+}
+
+func ParseNameservers(content string) ([][]byte, error) {
+	var nameservers [][]byte
+
+	re, err := regexp.Compile("([0-9]{1,3}.?){4}")
+	if err != nil {
+		return nameservers, err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, nameserverPrefix) {
+			nameserver := re.FindString(line)
+			if nameserver != "" {
+				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
+			}
+		}
+	}
+
+	if err = scanner.Err(); err != nil {
+		return nameservers, err
+	}
+
+	// apply a default DNS if none found from pod
+	if len(nameservers) == 0 {
+		nameservers = append(nameservers, net.ParseIP(defaultDNS).To4())
+	}
+
+	return nameservers, nil
+}
+
+func ParseSearchDomains(content string) ([]string, error) {
+	var searchDomains []string
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, domainSearchPrefix) {
+			doms := strings.Fields(strings.TrimPrefix(line, domainSearchPrefix))
+			for _, dom := range doms {
+				searchDomains = append(searchDomains, dom)
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(searchDomains) == 0 {
+		searchDomains = append(searchDomains, defaultSearchDomain)
+	}
+
+	return searchDomains, nil
 }
 
 // Allow mocking for tests
@@ -280,6 +378,10 @@ func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 		return nil, fmt.Errorf("No gateway address found in routes for %s", podInterface)
 	}
 	nic.Gateway = routes[0].Gw
+	if len(routes) > 1 {
+		dhcpRoutes := filterPodNetworkRoutes(routes, nic)
+		nic.Routes = &dhcpRoutes
+	}
 
 	// Get interface MAC address
 	mac, err := Handler.GetMacDetails(podInterface)
@@ -289,6 +391,24 @@ func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 	}
 	nic.MAC = mac
 	return nicLink, nil
+}
+
+// filter out irrelevant routes
+func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
+	for _, route := range routes {
+		// don't create empty static routes
+		if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
+			continue
+		}
+
+		// don't create static route for src == nic
+		if route.Src != nil && route.Src.Equal(nic.IP.IP) {
+			continue
+		}
+
+		filteredRoutes = append(filteredRoutes, route)
+	}
+	return
 }
 
 func preparePodNetworkInterfaces(nic *VIF, nicLink netlink.Link) error {

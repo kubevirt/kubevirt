@@ -37,6 +37,8 @@ const (
 
 	launcherImage = "virt-launcher"
 
+	imagePullSecret = ""
+
 	virtShareDir = "/var/run/kubevirt"
 
 	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
@@ -70,9 +72,13 @@ type VirtControllerApp struct {
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
+	ovmController *OVMController
+	ovmInformer   cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
+	imagePullSecret  string
 	virtShareDir     string
 	ephemeralDiskDir string
 	readyChan        chan bool
@@ -101,7 +107,7 @@ func Execute() {
 	app.restClient = app.clientSet.RestClient()
 
 	webService := rest.WebService
-	webService.Route(webService.GET("/leader").To(app.readinessProbe).Doc("Leader endpoint"))
+	webService.Route(webService.GET("/leader").To(app.leaderProbe).Doc("Leader endpoint"))
 	restful.Add(webService)
 
 	// Bootstrapping. From here on the initialization order is important
@@ -125,8 +131,11 @@ func Execute() {
 	app.rsInformer = app.informerFactory.VMReplicaSet()
 	app.vmPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
 
+	app.ovmInformer = app.informerFactory.OfflineVirtualMachine()
+
 	app.initCommon()
 	app.initReplicaSet()
+	app.initOfflineVirtualMachines()
 	app.Run()
 }
 
@@ -185,6 +194,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmPresetController.Run(controllerThreads, stop)
+					go vca.ovmController.Run(3, stop)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -213,7 +223,7 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.virtShareDir)
+	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -227,7 +237,12 @@ func (vca *VirtControllerApp) initReplicaSet() {
 	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 }
 
-func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restful.Response) {
+func (vca *VirtControllerApp) initOfflineVirtualMachines() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "offlinevirtualmachine-controller")
+	vca.ovmController = NewOVMController(vca.vmInformer, vca.ovmInformer, recorder, vca.clientSet)
+}
+
+func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
 	res := map[string]interface{}{}
 
 	select {
@@ -239,8 +254,8 @@ func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restf
 		}
 	default:
 	}
-	res["apiserver"] = map[string]interface{}{"leader": "false", "error": "current pod is not leader"}
-	response.WriteHeaderAndJson(http.StatusServiceUnavailable, res, restful.MIME_JSON)
+	res["apiserver"] = map[string]interface{}{"leader": "false"}
+	response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
 }
 
 func (vca *VirtControllerApp) AddFlags() {
@@ -255,6 +270,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.launcherImage, "launcher-image", launcherImage,
 		"Shim container for containerized VMs")
+
+	flag.StringVar(&vca.imagePullSecret, "image-pull-secret", imagePullSecret,
+		"Secret to use for pulling virt-launcher and/or registry disks")
 
 	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")

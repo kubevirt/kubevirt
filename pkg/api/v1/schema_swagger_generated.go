@@ -116,6 +116,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
 		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
+		"emptyDisk":             "EmptyDisk represents a temporary disk which shares the vms lifecycle\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
 	}
 }
 
@@ -125,10 +126,18 @@ func (EphemeralVolumeSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (EmptyDiskSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "EmptyDisk represents a temporary disk which shares the vms lifecycle",
+		"capacity": "Capacity of the sparse disk.",
+	}
+}
+
 func (RegistryDiskSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "Represents a docker image with an embedded disk",
-		"image": "Image is the name of the image with the embedded disk",
+		"":                "Represents a docker image with an embedded disk",
+		"image":           "Image is the name of the image with the embedded disk",
+		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 	}
 }
 

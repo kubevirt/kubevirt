@@ -30,8 +30,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -125,7 +128,7 @@ var _ = Describe("Storage", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				RunVMAndExpectLaunch(vm, false, 45)
 
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				defer expecter.Close()
 				Expect(err).To(BeNil())
 
@@ -153,7 +156,7 @@ var _ = Describe("Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VM console has expected output")
-						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 						defer expecter.Close()
 						Expect(err).To(BeNil())
 						_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -171,6 +174,58 @@ var _ = Describe("Storage", func() {
 			}, 240)
 		})
 
+		Context("With an emptyDisk defined", func() {
+			// The following case is mostly similar to the alpine PVC test above, except using different VM.
+			It("should create a writeable emptyDisk with the right capacity", func(done Done) {
+
+				// Start the VM with the empty disk attached
+				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+					Name:       "emptydisk1",
+					VolumeName: "emptydiskvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				})
+				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+					Name: "emptydiskvolume1",
+					VolumeSource: v1.VolumeSource{
+						EmptyDisk: &v1.EmptyDiskSource{
+							Capacity: resource.MustParse("2Gi"),
+						},
+					},
+				})
+				RunVMAndExpectLaunch(vm, false, 45)
+
+				expecter, err := tests.LoggedInCirrosExpecter(vm)
+				defer expecter.Close()
+				Expect(err).To(BeNil())
+
+				By("Checking that /dev/vdc has a capacity of 2Gi")
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
+					&expect.BExp{R: "2147483648"}, // 2Gi in bytes
+				}, 10*time.Second)
+				log.DefaultLogger().Object(vm).Infof("%v", res)
+				Expect(err).To(BeNil())
+
+				By("Checking if we can write to /dev/vdc")
+				res, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+				}, 20*time.Second)
+				log.DefaultLogger().Object(vm).Infof("%v", res)
+				Expect(err).To(BeNil())
+
+				close(done)
+			}, 240)
+
+		})
+
 		Context("With ephemeral alpine PVC", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VM.
 			It("should be successfully started", func(done Done) {
@@ -181,7 +236,7 @@ var _ = Describe("Storage", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				RunVMAndExpectLaunch(vm, false, 45)
 
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				defer expecter.Close()
 				Expect(err).To(BeNil())
 
@@ -203,7 +258,7 @@ var _ = Describe("Storage", func() {
 				obj := RunVMAndExpectLaunch(vm, false, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -231,7 +286,7 @@ var _ = Describe("Storage", func() {
 				RunVMAndExpectLaunch(vm, false, 90)
 
 				By("Making sure that the previously written file is not present")
-				expecter, _, err = tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+				expecter, _, err = tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{

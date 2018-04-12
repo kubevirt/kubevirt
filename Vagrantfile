@@ -41,8 +41,8 @@ sudo ifup eth1
 SCRIPT
 
 Vagrant.configure(2) do |config|
-  config.vm.box = "centos7"
-  config.vm.box_url = "http://cloud.centos.org/centos/7/vagrant/x86_64/images/CentOS-7-x86_64-Vagrant-1608_01.LibVirt.box"
+  config.vm.box = "centos/7"
+  config.vm.box_url = "http://cloud.centos.org/centos/7/vagrant/x86_64/images/CentOS-7-x86_64-Vagrant-1802_01.Libvirt.box"
 
   if Vagrant.has_plugin?("vagrant-cachier") and $cache_rpm then
       config.cache.scope = :machine

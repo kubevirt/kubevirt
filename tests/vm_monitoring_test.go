@@ -60,7 +60,7 @@ var _ = Describe("Health Monitoring", func() {
 			launchVM(vm)
 
 			By("Expecting the VM console")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, "serial0", 10*time.Second)
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 

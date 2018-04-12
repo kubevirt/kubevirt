@@ -1,0 +1,38 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  creationTimestamp: null
+  name: vm-nocloud
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: registrydisk
+        volumeName: registryvolume
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+        volumeName: cloudinitvolume
+      - disk:
+          bus: virtio
+        name: emptydisk
+        volumeName: emptydiskvolume
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 64M
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: registryvolume
+    registryDisk:
+      image: kubevirt/cirros-registry-disk-demo:devel
+  - cloudInitNoCloud:
+      userDataBase64: IyEvYmluL3NoCgplY2hvICdwcmludGVkIGZyb20gY2xvdWQtaW5pdCB1c2VyZGF0YScK
+    name: cloudinitvolume
+  - emptyDisk:
+      capacity: 2Gi
+    name: emptydiskvolume
+status: {}

@@ -21,6 +21,8 @@ package tests_test
 
 import (
 	"flag"
+	"net/http"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -30,6 +32,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	"time"
 
@@ -99,6 +102,27 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		table.Entry("to four, to six and then to zero replicas", 5, 6),
 	)
 
+	It("should be rejected on POST if spec is invalid", func() {
+		newRS := newReplicaSet()
+		newRS.TypeMeta = v12.TypeMeta{
+			APIVersion: v1.GroupVersion.String(),
+			Kind:       "VirtualMachineReplicaSet",
+		}
+
+		jsonBytes, err := json.Marshal(newRS)
+		Expect(err).To(BeNil())
+
+		// change the name of a required field (like domain) so validation will fail
+		jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
+
+		result := virtClient.RestClient().Post().Resource("virtualmachinereplicasets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
+
+		// Verify validation failed.
+		statusCode := 0
+		result.StatusCode(&statusCode)
+		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+	})
 	It("should update readyReplicas once VMs are up", func() {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
