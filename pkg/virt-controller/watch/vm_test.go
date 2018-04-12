@@ -73,13 +73,24 @@ var _ = Describe("VM watcher", func() {
 			Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(uid)))
 			return true, update.GetObject(), nil
 		})
+	}
 
+	shouldExpectPodDeletion := func(pod *kubev1.Pod) {
+		// Expect pod creation
+		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			Expect(pod.Namespace).To(Equal(update.GetNamespace()))
+			Expect(pod.Name).To(Equal(update.GetName()))
+			return true, nil, nil
+		})
 	}
 
 	shouldExpectVirtualMachineHandover := func(vm *v1.VirtualMachine) {
 		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduled))
 			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
 		}).Return(vm, nil)
 	}
 
@@ -87,6 +98,7 @@ var _ = Describe("VM watcher", func() {
 		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduling))
 			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
 		}).Return(vm, nil)
 	}
 
@@ -94,7 +106,7 @@ var _ = Describe("VM watcher", func() {
 		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Failed))
 			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachine).Finalizers).ToNot(ContainElement(v1.VirtualMachineFinalizer))
+			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
 		}).Return(vm, nil)
 	}
 
@@ -145,7 +157,7 @@ var _ = Describe("VM watcher", func() {
 	}
 
 	Context("On valid VirtualMachine given", func() {
-		It("should create a corresponding Pod on VirtualMachineCreation", func() {
+		It("should create a corresponding Pod on VirtualMachine creation", func() {
 			vm := NewPendingVirtualMachine("testvm")
 
 			addVirtualMachine(vm)
@@ -156,6 +168,38 @@ var _ = Describe("VM watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
+		It("should delete the corresponding Pod on VirtualMachine deletion", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			now := v12.Now()
+			vm.DeletionTimestamp = &now
+			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			shouldExpectPodDeletion(pod)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+		})
+		table.DescribeTable("should delete the corresponding Pod if the vm is", func(phase v1.VMPhase) {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = phase
+			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			shouldExpectPodDeletion(pod)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+		},
+			table.Entry("succeeded state", v1.Failed),
+			table.Entry("failed state", v1.Succeeded),
+		)
 		It("should do nothing if the vm is in final state", func() {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = v1.Failed
@@ -314,6 +358,24 @@ var _ = Describe("VM watcher", func() {
 
 			controller.Execute()
 		})
+		table.DescribeTable("should remove the finalizer if no pod is present and the vm is in ", func(phase v1.VMPhase) {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = phase
+			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
+
+			addVirtualMachine(vm)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(phase))
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+				Expect(arg.(*v1.VirtualMachine).Finalizers).ToNot(ContainElement(v1.VirtualMachineFinalizer))
+			}).Return(vm, nil)
+
+			controller.Execute()
+		},
+			table.Entry("failed state", v1.Succeeded),
+			table.Entry("succeeded state", v1.Failed),
+		)
 		table.DescribeTable("should do nothing if pod is handed to virt-handler", func(phase kubev1.PodPhase) {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = v1.Scheduled

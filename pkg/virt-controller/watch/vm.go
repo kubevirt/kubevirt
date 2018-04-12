@@ -203,13 +203,12 @@ func (c *VMController) execute(key string) error {
 
 func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod, syncErr error) error {
 
-	vmCopy := vm.DeepCopy()
-
-	conditionManager := controller.NewVirtualMachineConditionManager()
-
+	// Don't process states where the vm is clearly owned by virt-handler
 	if vm.IsRunning() || vm.IsScheduled() {
 		return nil
 	}
+
+	vmCopy := vm.DeepCopy()
 
 	if vm.IsUnprocessed() || vm.IsScheduling() {
 		if len(pods) > 0 {
@@ -218,6 +217,8 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 
 			podIsTerminating := podIsDownOrGoingDown(pods[0])
 
+			// vm is still owned by the controller but pod is already handed over,
+			// so let's hand over the vm too
 			if c.isPodOwnedByHandler(pods[0]) {
 
 				vmCopy.Status.Interfaces = []virtv1.VirtualMachineNetworkInterface{
@@ -237,7 +238,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 				vmCopy.Status.Phase = virtv1.Failed
 			}
 		} else if len(pods) == 0 && vm.IsScheduling() {
-			// someone deleted the pod while it is still owned by us
+			// someone other then the controller deleted the pod unexpectedly
 			vmCopy.Status.Phase = virtv1.Failed
 		}
 	} else if vm.IsFinal() {
@@ -255,7 +256,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 	} else {
 		reason = "FailedHandOver"
 	}
-	conditionManager.CheckFailure(vmCopy, syncErr, reason)
+	controller.NewVirtualMachineConditionManager().CheckFailure(vmCopy, syncErr, reason)
 
 	// If we detect a change on the vm status, we update the vm
 	if !reflect.DeepEqual(vm.Status, vmCopy.Status) || !reflect.DeepEqual(vm.Finalizers, vmCopy.Finalizers) {
