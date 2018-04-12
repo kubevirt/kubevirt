@@ -22,9 +22,13 @@ package tests
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"os/exec"
 	"reflect"
 	"time"
 
@@ -54,10 +58,12 @@ import (
 
 var KubeVirtVersionTag = "latest"
 var KubeVirtRepoPrefix = "kubevirt"
+var KubeVirtKubectlPath = ""
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
+	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 }
 
 type EventType string
@@ -115,6 +121,8 @@ const (
 	defaultDiskSize        = "1Gi"
 	defaultWindowsDiskSize = "30Gi"
 )
+
+const VmResource = "virtualmachines"
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
@@ -798,12 +806,12 @@ func waitForVmStart(vm runtime.Object, seconds int, ignoreWarnings bool) (nodeNa
 	vmMeta := vm.(*v1.VirtualMachine).ObjectMeta
 	obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
 
-	if ignoreWarnings == true {
-		NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(NormalEvent, v1.Started)
-	} else {
-		NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().FailOnWarnings().WaitFor(NormalEvent, v1.Started)
-
+	objectEventWatcher := NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds) * time.Second)
+	if ignoreWarnings != true {
+		objectEventWatcher.FailOnWarnings()
 	}
+	objectEventWatcher.WaitFor(NormalEvent, v1.Started)
+
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() bool {
 		obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
@@ -1049,4 +1057,46 @@ func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
 		_, err = virtClient.CoreV1().PersistentVolumes().Update(windowsPv)
 		Expect(err).ToNot(HaveOccurred())
 	}
+}
+
+func SkipIfNoKubectl() {
+	if KubeVirtKubectlPath == "" {
+		Skip("Skip test that requires kubectl binary")
+	}
+}
+
+func RunKubectlCommand(args ...string) error {
+	kubeconfig := flag.Lookup("kubeconfig").Value
+	if kubeconfig == nil || kubeconfig.String() == "" {
+		return fmt.Errorf("can not find kubeconfig")
+	}
+
+	master := flag.Lookup("master").Value
+	if master != nil && master.String() != "" {
+		args = append(args, "--server", master.String())
+	}
+
+	cmd := exec.Command(KubeVirtKubectlPath, args...)
+	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
+	cmd.Env = append(os.Environ(), kubeconfEnv)
+
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GenerateVmJson(vm *v1.VirtualMachine) (string, error) {
+	data, err := json.Marshal(vm)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
+	}
+
+	yamlFile := fmt.Sprintf("%s.json", vm.Name)
+	err = ioutil.WriteFile(yamlFile, data, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write json file %s", yamlFile)
+	}
+	return yamlFile, nil
 }
