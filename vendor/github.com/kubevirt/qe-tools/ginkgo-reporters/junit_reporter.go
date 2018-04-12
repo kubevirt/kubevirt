@@ -17,21 +17,20 @@
  *
  */
 
-package tests
+package ginkgo_reporters
 
 import (
 	"flag"
 
-	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 )
 
-var KubeVirtJunitOutput = ""
+var JunitOutput = ""
 
 func init() {
-	flag.StringVar(&KubeVirtJunitOutput, "junit-output", "", "Set path to Junit report.")
+	flag.StringVar(&JunitOutput, "junit-output", "", "Set path to Junit report.")
 }
 
-func NewKubeVirtJunitReporter() Reporter {
-	return reporters.NewJUnitReporter(KubeVirtJunitOutput)
+func NewJunitReporter() *reporters.JUnitReporter {
+	return reporters.NewJUnitReporter(JunitOutput)
 }
