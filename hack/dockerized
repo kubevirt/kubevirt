@@ -33,10 +33,25 @@ trap finish EXIT
 
 RSYNCD_PORT=$(docker port $RSYNC_CID 873 | cut -d':' -f2)
 
-while ! rsync ${KUBEVIRT_DIR}/${RSYNCTEMP} "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/${RSYNCTEMP}"; do
-    echo "Waiting for rsyncd to be ready"
-    sleep .1
+rsynch_fail_count=0
+
+while ! rsync ${KUBEVIRT_DIR}/${RSYNCTEMP} "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/${RSYNCTEMP}" &>/dev/null; do
+    if [[ "$rsynch_fail_count" -eq 0 ]]; then
+        printf "Waiting for rsyncd to be ready"
+        sleep .1
+    elif [[ "$rsynch_fail_count" -lt 30 ]]; then
+        printf "."
+        sleep 1
+    else
+        printf "failed"
+        break
+    fi
+    rsynch_fail_count=$((rsynch_fail_count + 1))
 done
+
+printf "\n"
+
+rsynch_fail_count=0
 
 _rsync() {
     rsync -al "$@"
