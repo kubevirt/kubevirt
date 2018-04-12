@@ -72,7 +72,7 @@ var _ = Describe("LeaderElection", func() {
 					return leaderPod.Name
 				}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
 
-				Eventually(func() k8sv1.ConditionStatus {
+				Expect(func() k8sv1.ConditionStatus {
 					leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(newLeaderPod.Name, metav1.GetOptions{})
 					Expect(err).To(BeNil())
 
@@ -82,9 +82,7 @@ var _ = Describe("LeaderElection", func() {
 						}
 					}
 					return k8sv1.ConditionUnknown
-				},
-					30*time.Second,
-					5*time.Second).Should(Equal(k8sv1.ConditionTrue))
+				}()).To(Equal(k8sv1.ConditionTrue))
 
 				vm := tests.NewRandomVM()
 

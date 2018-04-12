@@ -107,7 +107,7 @@ func Execute() {
 	app.restClient = app.clientSet.RestClient()
 
 	webService := rest.WebService
-	webService.Route(webService.GET("/leader").To(app.readinessProbe).Doc("Leader endpoint"))
+	webService.Route(webService.GET("/leader").To(app.leaderProbe).Doc("Leader endpoint"))
 	restful.Add(webService)
 
 	// Bootstrapping. From here on the initialization order is important
@@ -242,7 +242,7 @@ func (vca *VirtControllerApp) initOfflineVirtualMachines() {
 	vca.ovmController = NewOVMController(vca.vmInformer, vca.ovmInformer, recorder, vca.clientSet)
 }
 
-func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restful.Response) {
+func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
 	res := map[string]interface{}{}
 
 	select {
@@ -254,8 +254,8 @@ func (vca *VirtControllerApp) readinessProbe(_ *restful.Request, response *restf
 		}
 	default:
 	}
-	res["apiserver"] = map[string]interface{}{"leader": "false", "error": "current pod is not leader"}
-	response.WriteHeaderAndJson(http.StatusServiceUnavailable, res, restful.MIME_JSON)
+	res["apiserver"] = map[string]interface{}{"leader": "false"}
+	response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
 }
 
 func (vca *VirtControllerApp) AddFlags() {
