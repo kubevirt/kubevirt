@@ -129,13 +129,13 @@ var _ = Describe("Windows VM", func() {
 		windowsVm.Spec = windowsVmSpec
 	})
 
-	It("should success to start a vm", func() {
+	It("should succeed to start a vm", func() {
 		vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(windowsVm)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
 	}, 300)
 
-	It("should success to stop a running vm", func() {
+	It("should succeed to stop a running vm", func() {
 		By("Starting the vm")
 		vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(windowsVm)
 		Expect(err).To(BeNil())
@@ -153,7 +153,7 @@ var _ = Describe("Windows VM", func() {
 		var vmIp string
 
 		BeforeEach(func() {
-			By("Creating winrm-cli pod for future use")
+			By("Creating winrm-cli pod for the future use")
 			winrmcliPod = &k8sv1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: winrmCli + rand.String(5)},
 				Spec: k8sv1.PodSpec{
@@ -238,7 +238,7 @@ var _ = Describe("Windows VM", func() {
 			}
 		})
 
-		It("should success to start a vm", func() {
+		It("should succeed to start a vm", func() {
 			By("Starting the vm via kubectl command")
 			err = tests.RunKubectlCommand("create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
@@ -246,7 +246,7 @@ var _ = Describe("Windows VM", func() {
 			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
 		})
 
-		It("should success to stop a vm", func() {
+		It("should succeed to stop a vm", func() {
 			By("Starting the vm via kubectl command")
 			err = tests.RunKubectlCommand("create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
