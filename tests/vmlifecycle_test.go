@@ -428,7 +428,7 @@ var _ = Describe("Vmlifecycle", func() {
 				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())))
 
 				close(done)
-			}, 45)
+			}, 60)
 		})
 	})
 

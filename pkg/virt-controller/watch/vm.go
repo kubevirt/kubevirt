@@ -144,6 +144,7 @@ func (c *VMController) execute(key string) error {
 	switch vm.Status.Phase {
 	case kubev1.VmPhaseUnset, kubev1.Pending:
 		// Schedule the VM
+		hasPod := false
 
 		// Deep copy the object, so that we can safely manipulate it
 		vmCopy := vm.DeepCopy()
@@ -156,8 +157,18 @@ func (c *VMController) execute(key string) error {
 			return err
 		}
 
-		// If there are already pods, delete them before continuing ...
-		if len(pods.Items) > 0 {
+		if len(pods.Items) == 1 {
+			pod := pods.Items[0]
+			vmUID, ok := pod.ObjectMeta.Labels[kubev1.VMUIDLabel]
+			if ok && vmUID == string(vm.GetObjectMeta().GetUID()) {
+				// this is our pod, ignore this and fall through
+				hasPod = true
+			}
+		}
+
+		// If there are already pods that aren't created in response to this
+		// unique VM instance, delete them before continuing ...
+		if len(pods.Items) > 0 && hasPod == false {
 			logger.Error("VM Pods do already exist, will clean up before continuing.")
 			if err := c.vmService.DeleteVMPod(vmCopy); err != nil {
 				logger.Reason(err).Error("Deleting VM pods failed.")
@@ -171,10 +182,12 @@ func (c *VMController) execute(key string) error {
 		// TODO move defaulting to virt-api
 		kubev1.SetObjectDefaults_VirtualMachine(vmCopy)
 
-		// Create a Pod which will be the VM destination
-		if err := c.vmService.StartVMPod(vmCopy); err != nil {
-			logger.Reason(err).Error("Defining a target pod for the VM failed.")
-			return err
+		if hasPod == false {
+			// Create a Pod which will be the VM destination
+			if err := c.vmService.StartVMPod(vmCopy); err != nil {
+				logger.Reason(err).Error("Defining a target pod for the VM failed.")
+				return err
+			}
 		}
 
 		// Mark the VM as "initialized". After the created Pod above is scheduled by
