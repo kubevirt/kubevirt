@@ -21,6 +21,8 @@ function build_func_tests() {
 #If run on jenkins, let us create isolated environments based on the job and
 # the executor number
 PROVIDER=${PROVIDER:-k8s-1.9.3}
+# For backward compatibility
+KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-${VAGRANT_NUM_NODES}}
 provider_prefix=${JOB_NAME:-${PROVIDER}}${EXECUTOR_NUMBER}
 job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}
 
