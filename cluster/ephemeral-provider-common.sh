@@ -14,11 +14,11 @@ function _port() {
 
 function prepare_config() {
     BASE_PATH=${KUBEVIRT_PATH:-$PWD}
-    cat >hack/config-provider-$PROVIDER.sh <<EOF
+    cat >hack/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
-kubeconfig=${BASE_PATH}/cluster/$PROVIDER/.kubeconfig
-kubectl=${BASE_PATH}/cluster/$PROVIDER/.kubectl
+kubeconfig=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubeconfig
+kubectl=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubectl
 docker_prefix=localhost:$(_port registry)/kubevirt
 manifest_docker_prefix=registry:5000/kubevirt
 EOF
@@ -50,7 +50,7 @@ function build() {
     done
 
     # Build everyting and publish it
-    ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} PROVIDER=${PROVIDER} ./hack/build-manifests.sh"
+    ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/build-manifests.sh"
     make build docker publish
 
     # Make sure that all nodes use the newest images
@@ -70,8 +70,8 @@ function build() {
 }
 
 function _kubectl() {
-    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl "$@"
+    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
+    ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl "$@"
 }
 
 function down() {

@@ -9,7 +9,7 @@ local machine and are the pushed to a registry which is exposed at
 ## Bringing the cluster up
 
 ```bash
-export PROVIDER=os-3.9.0
+export KUBEVIRT_PROVIDER=os-3.9.0
 export KUBEVIRT_NUM_NODES=1 # master + one nodes
 make cluster-up
 ```

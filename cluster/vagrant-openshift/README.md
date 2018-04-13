@@ -6,7 +6,7 @@ It will deploy OpenShift only first time when you start a VM.
 ## Bringing the cluster up
 
 ```bash
-export PROVIDER=vagrant-openshift
+export KUBEVIRT_PROVIDER=vagrant-openshift
 export KUBEVIRT_NUM_NODES=1
 make cluster-up
 ```
@@ -28,7 +28,7 @@ node0     Ready     <none>    6m        v1.9.1+a0ce1bc657
 ## Bringing the cluster down
 
 ```bash
-export PROVIDER=vagrant-openshift
+export KUBEVIRT_PROVIDER=vagrant-openshift
 make cluster-down
 ```
 
