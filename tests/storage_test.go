@@ -27,10 +27,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -98,13 +96,13 @@ var _ = Describe("Storage", func() {
 		Expect(logs).To(ContainSubstring("State: ready"))
 	}
 
-	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) runtime.Object {
+	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) *v1.VirtualMachine {
 		By("Starting a VM")
 
-		var obj runtime.Object
+		var obj *v1.VirtualMachine
 		var err error
 		Eventually(func() error {
-			obj, err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+			obj, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VM will start")
@@ -150,7 +148,7 @@ var _ = Describe("Storage", func() {
 				num := 3
 				By("Starting and stopping the VM number of times")
 				for i := 1; i <= num; i++ {
-					obj := RunVMAndExpectLaunch(vm, false, 90)
+					vm := RunVMAndExpectLaunch(vm, false, 90)
 
 					// Verify console on last iteration to verify the VM is still booting properly
 					// after being restarted multiple times
@@ -167,8 +165,7 @@ var _ = Describe("Storage", func() {
 
 					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
-
-					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 				}
 				close(done)
 			}, 240)
@@ -255,7 +252,7 @@ var _ = Describe("Storage", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				By("Starting the VM")
-				obj := RunVMAndExpectLaunch(vm, false, 90)
+				createdVM := RunVMAndExpectLaunch(vm, false, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
@@ -280,7 +277,7 @@ var _ = Describe("Storage", func() {
 				By("Killing a VM")
 				err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVM, 120)
 
 				By("Starting the VM again")
 				RunVMAndExpectLaunch(vm, false, 90)

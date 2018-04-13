@@ -303,9 +303,9 @@ var _ = Describe("Vmlifecycle", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 
 				// Start the VM and wait for the confirmation of the start
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Body(vm).Do().Get()
+				vm, err = virtClient.VM(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMStart(obj)
+				tests.WaitForSuccessfulVMStart(vm)
 
 				// Check if the start event was logged
 				By("Checking that virt-handler logs VM creation")
@@ -321,7 +321,8 @@ var _ = Describe("Vmlifecycle", func() {
 				By("Deleting the VM")
 				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.NewObjectEventWatcher(vm).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 
 				// Check if the stop event was logged
 				By("Checking that virt-handler logs VM deletion")

@@ -872,6 +872,15 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 	return waitForVmStart(vm, seconds, false)
 }
 
+func WaitForVirtualMachineToDisappearWithTimeout(vm *v1.VirtualMachine, seconds int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() bool {
+		_, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, seconds, 1*time.Second).Should(BeTrue())
+}
+
 func WaitForSuccessfulVMStart(vm runtime.Object) string {
 	return waitForVmStart(vm, 30, false)
 }
@@ -1134,4 +1143,13 @@ func GenerateVmJson(vm *v1.VirtualMachine) (string, error) {
 		return "", fmt.Errorf("failed to write json file %s", yamlFile)
 	}
 	return yamlFile, nil
+}
+
+func NotDeleted(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
+	for _, vm := range vms.Items {
+		if vm.DeletionTimestamp == nil {
+			notDeleted = append(notDeleted, vm)
+		}
+	}
+	return
 }

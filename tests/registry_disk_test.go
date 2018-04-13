@@ -33,12 +33,10 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
-	"time"
 )
 
 var _ = Describe("RegistryDisk", func() {
@@ -105,10 +103,7 @@ var _ = Describe("RegistryDisk", func() {
 					_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
 					Expect(err).To(BeNil())
 					By("Waiting until the VM is gone")
-					Eventually(func() bool {
-						_, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
-						return errors.IsNotFound(err)
-					}, 120*time.Second, 1*time.Second).Should(BeTrue())
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 				}
 				close(done)
 			}, 140)
