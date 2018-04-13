@@ -105,7 +105,7 @@ var _ = Describe("Networking", func() {
 		wg.Wait()
 	})
 
-	Context("VirtualMachine with nodeNetwork definition given", func() {
+	Context("VirtualMachine attached to the pod network", func() {
 
 		table.DescribeTable("should be able to reach", func(destination string) {
 			var cmdCheck, addr string

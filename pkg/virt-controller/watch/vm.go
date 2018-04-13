@@ -248,10 +248,11 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 	}
 
 	// Select the right failure reason in case we have an error
+	// TODO this reason detetion is not 100 % accurate
 	reason := ""
 	if len(pods) == 0 {
 		reason = "FailedCreate"
-	} else if len(pods) == 1 && vm.IsFinal() {
+	} else if len(pods) == 1 && vm.IsFinal() || vm.DeletionTimestamp != nil {
 		reason = "FailedDelete"
 	} else {
 		reason = "FailedHandOver"

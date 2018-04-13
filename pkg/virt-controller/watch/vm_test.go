@@ -170,8 +170,7 @@ var _ = Describe("VM watcher", func() {
 		})
 		It("should delete the corresponding Pod on VirtualMachine deletion", func() {
 			vm := NewPendingVirtualMachine("testvm")
-			now := v12.Now()
-			vm.DeletionTimestamp = &now
+			vm.DeletionTimestamp = now()
 			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
 
 			addVirtualMachine(vm)
@@ -183,7 +182,35 @@ var _ = Describe("VM watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 		})
-		table.DescribeTable("should delete the corresponding Pod if the vm is", func(phase v1.VMPhase) {
+		table.DescribeTable("should not try to delete a pod again, which is already marked for deletion and go to failed state, when", func(phase v1.VMPhase) {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = phase
+			vm.DeletionTimestamp = now()
+			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			shouldExpectPodDeletion(pod)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+
+			modifiedPod := pod.DeepCopy()
+			modifiedPod.DeletionTimestamp = now()
+
+			podFeeder.Modify(modifiedPod)
+
+			shouldExpectVirtualMachineFailedState(vm)
+
+			controller.Execute()
+		},
+			table.Entry("sheduling state", v1.Scheduling),
+			table.Entry("pending state", v1.Pending),
+			table.Entry("unstet state", v1.VmPhaseUnset),
+		)
+		table.DescribeTable("should delete the corresponding Pod if the vm is in", func(phase v1.VMPhase) {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = phase
 			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
@@ -290,6 +317,27 @@ var _ = Describe("VM watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		})
+		It("should set an error condition if deleting the virtual machine pod fails", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.DeletionTimestamp = now()
+			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
+
+			// Expect pod delete
+			kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("random error")
+			})
+
+			addVirtualMachine(vm)
+			podFeeder.Add(pod)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedDelete"))
+			}).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedDeletePodReason)
+		})
 		It("should set an error condition if handing over the pod to virt-handler fails", func() {
 			vm := NewPendingVirtualMachine("testvm")
 			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
@@ -309,6 +357,24 @@ var _ = Describe("VM watcher", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, FailedHandOverPodReason)
+		})
+		It("should set an error condition if creating the virtual machine pod fails", func() {
+			vm := NewPendingVirtualMachine("testvm")
+
+			// Expect pod creation
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("random error")
+			})
+
+			addVirtualMachine(vm)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
+			}).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedCreatePodReason)
 		})
 		It("should update the virtual machine to scheduled if pod is ready, runnning and handed over to virt-handler", func() {
 			vm := NewPendingVirtualMachine("testvm")
@@ -447,4 +513,9 @@ func NewPodForVirtualMachine(vm *v1.VirtualMachine, phase kubev1.PodPhase) *kube
 			},
 		},
 	}
+}
+
+func now() *v12.Time {
+	now := v12.Now()
+	return &now
 }
