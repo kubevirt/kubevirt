@@ -19,7 +19,7 @@ dockerizied environment:
 
 ```bash
     # Build and deploy KubeVirt on Kubernetes 1.9.3 in our vms inside containers
-    export PROVIDER=k8s-1.9.3
+    export KUBEVIRT_PROVIDER=k8s-1.9.3
     make cluster-up
     make cluster-sync
 ```

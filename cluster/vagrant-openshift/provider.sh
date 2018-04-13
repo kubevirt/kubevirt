@@ -17,15 +17,15 @@ function up() {
 
     OPTIONS=$(vagrant ssh-config master | grep -v '^Host ' | awk -v ORS=' ' 'NF{print "-o " $1 "=" $2}')
 
-    scp $OPTIONS master:/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl
-    chmod u+x cluster/$PROVIDER/.kubectl
+    scp $OPTIONS master:/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl
+    chmod u+x cluster/$KUBEVIRT_PROVIDER/.kubectl
 
-    vagrant ssh master -c "sudo cat /etc/origin/master/openshift-master.kubeconfig" >${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
+    vagrant ssh master -c "sudo cat /etc/origin/master/openshift-master.kubeconfig" >${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
 
     # Update Kube config to support unsecured connection
-    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster master:8443 --server=https://$(_main_ip):8443
-    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl config set-cluster master:8443 --insecure-skip-tls-verify=true
+    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
+    ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl config set-cluster master:8443 --server=https://$(_main_ip):8443
+    ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl config set-cluster master:8443 --insecure-skip-tls-verify=true
 
     # Make sure that local config is correct
     prepare_config
@@ -33,10 +33,10 @@ function up() {
 
 function prepare_config() {
     BASE_PATH=${KUBEVIRT_PATH:-$PWD}
-    cat >hack/config-provider-$PROVIDER.sh <<EOF
+    cat >hack/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
-kubeconfig=${BASE_PATH}/cluster/$PROVIDER/.kubeconfig
+kubeconfig=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubeconfig
 EOF
 }
 
@@ -49,8 +49,8 @@ function build() {
 }
 
 function _kubectl() {
-    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl "$@"
+    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
+    ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl "$@"
 }
 
 function down() {

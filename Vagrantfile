@@ -5,12 +5,12 @@ if ARGV.first == "up" && ENV['USING_KUBE_SCRIPTS'] != 'true'
   raise Vagrant::Errors::VagrantError.new, <<END
 Calling 'vagrant up' directly is not supported.  Instead, please run the following:
 
-  export PROVIDER=vagrant-kubernetes
+  export KUBEVIRT_PROVIDER=vagrant-kubernetes
   make cluster-up
 END
 end
 
-$provider = ENV['PROVIDER'] || "vagrant-kubernetes"
+$provider = ENV['KUBEVIRT_PROVIDER'] || "vagrant-kubernetes"
 $use_nfs = ENV['VAGRANT_USE_NFS'] == 'true'
 $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'
 $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
