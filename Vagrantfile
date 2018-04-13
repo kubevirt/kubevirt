@@ -15,7 +15,7 @@ $use_nfs = ENV['VAGRANT_USE_NFS'] == 'true'
 $use_rng = ENV['VAGRANT_USE_RNG'] == 'true'
 $cache_docker = ENV['VAGRANT_CACHE_DOCKER'] == 'true'
 $cache_rpm = ENV['VAGRANT_CACHE_RPM'] == 'true'
-$nodes = (ENV['VAGRANT_NUM_NODES'] || 0).to_i
+$nodes = (ENV['KUBEVIRT_NUM_NODES'] || 0).to_i
 $vagrant_pool = (ENV['VAGRANT_POOL'] unless
                   (ENV['VAGRANT_POOL'].nil? or ENV['VAGRANT_POOL'].empty?))
 # Used for matrix builds to similar setups on the same node without vagrant

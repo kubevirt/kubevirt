@@ -30,7 +30,7 @@ function _registry_volume() {
 
 function _add_common_params() {
     # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
-    local num_nodes=${VAGRANT_NUM_NODES-0}
+    local num_nodes=${KUBEVIRT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
     local params="--nodes ${num_nodes} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) --base "kubevirtci/${image}""
     if [ -d "$NFS_WINDOWS_DIR" ]; then
@@ -61,7 +61,7 @@ function build() {
         container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
         container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
     done
-    local num_nodes=${VAGRANT_NUM_NODES-0}
+    local num_nodes=${KUBEVIRT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
     for i in $(seq 1 ${num_nodes}); do
         ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"

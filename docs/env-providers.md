@@ -26,7 +26,7 @@ Usage:
 
 ```bash
 export PROVIDER=vagrant-kubernetes # choose this provider
-export VAGRANT_NUM_NODES=2 # master + two nodes
+export KUBEVIRT_NUM_NODES=2 # master + two nodes
 make cluster-up
 ```
 
