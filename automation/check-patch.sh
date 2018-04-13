@@ -64,7 +64,7 @@ setup_vagrant_env() {
     export VAGRANT_USE_NFS=false
     export VAGRANT_CACHE_RPM=true
     export VAGRANT_CACHE_DOCKER=true
-    export VAGRANT_NUM_NODES=1
+    export KUBEVIRT_NUM_NODES=1
 }
 
 setup_go_dirs() {

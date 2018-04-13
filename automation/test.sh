@@ -40,7 +40,7 @@ else
   export PROVIDER="k8s-1.9.3"
 fi
 
-export VAGRANT_NUM_NODES=1
+export KUBEVIRT_NUM_NODES=1
 export NFS_WINDOWS_DIR=${NFS_WINDOWS_DIR:-/home/nfs/images/windows2016}
 
 kubectl() { cluster/kubectl.sh "$@"; }

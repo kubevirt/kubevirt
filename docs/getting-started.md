@@ -26,11 +26,11 @@ dockerizied environment:
 
 This will create a VM called `node01` which acts as Kubernetes master and then
 deploy KubeVirt there. To create one or more nodes which will register
-themselves on master, you can use the `VAGRANT_NUM_NODES` environment variable.
+themselves on master, you can use the `KUBEVIRT_NUM_NODES` environment variable.
 This would create a master and one node:
 
 ```bash
-    export VAGRANT_NUM_NODES=1
+    export KUBEVIRT_NUM_NODES=1
     make cluster-up
 ```
 
