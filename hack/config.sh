@@ -1,7 +1,7 @@
 unset binaries docker_images docker_prefix docker_tag manifest_templates \
     master_ip network_provider kubeconfig manifest_docker_prefix namespace
 
-PROVIDER=${PROVIDER:-vagrant-kubernetes}
+PROVIDER=${PROVIDER:-k8s-1.9.3}
 
 source ${KUBEVIRT_PATH}hack/config-default.sh source ${KUBEVIRT_PATH}hack/config-${PROVIDER}.sh
 

@@ -1,6 +1,6 @@
 # Getting Started
 
-A quick start guide to get KubeVirt up and running inside Vagrant.
+A quick start guide to get KubeVirt up and running inside our container based development cluster.
 
 ## Building
 
@@ -18,7 +18,7 @@ Build all required artifacts and launch the
 dockerizied environment:
 
 ```bash
-    # Building and deploying kubevirt in Vagrant
+    # Build and deploy KubeVirt on Kubernetes 1.9.3 in our vms inside containers
     export PROVIDER=k8s-1.9.3
     make cluster-up
     make cluster-sync
@@ -70,7 +70,7 @@ up dockerizied environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
-    make functest # run the functional tests against the Vagrant VMs
+    make functest # run the functional tests against the VMs
 ```
 
 ## Use
@@ -84,7 +84,7 @@ Now it's time to get hands on and give it a try.
 Finally start a VM called `vm-ephemeral`:
 
 ```bash
-    # This can be done from your GIT repo, no need to log into a vagrant VM
+    # This can be done from your GIT repo, no need to log into a VM
 
     # Create a VM
     ./cluster/kubectl.sh create -f cluster/examples/vm-ephemeral.yaml
