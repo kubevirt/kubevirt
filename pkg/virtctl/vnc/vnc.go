@@ -100,7 +100,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		cmnd := exec.Command("remote-viewer", fmt.Sprintf("vnc://127.0.0.1:%d", port))
 		err := cmnd.Run()
 		if err != nil {
-			glog.Error(err)
+			glog.Errorf("remote-viewer execution encountered an error: %v", err)
 		}
 		viewResChan <- err
 	}()
