@@ -203,16 +203,11 @@ func (c *VMController) execute(key string) error {
 
 func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod, syncErr error) error {
 
-	// Don't process states where the vm is clearly owned by virt-handler
-	if vm.IsRunning() || vm.IsScheduled() {
-		return nil
-	}
-
 	vmCopy := vm.DeepCopy()
 
-	if vm.IsUnprocessed() || vm.IsScheduling() {
+	switch {
+	case vm.IsUnprocessed() || vm.IsScheduling():
 		if len(pods) > 0 {
-
 			containersAreReady := podIsReady(pods[0])
 
 			podIsTerminating := podIsDownOrGoingDown(pods[0])
@@ -241,17 +236,22 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 			// someone other than the controller deleted the pod unexpectedly
 			vmCopy.Status.Phase = virtv1.Failed
 		}
-	} else if vm.IsFinal() {
+	case vm.IsFinal():
 		if len(pods) == 0 {
 			controller.RemoveFinalizer(vmCopy, virtv1.VirtualMachineFinalizer)
 		}
+	case vm.IsRunning() || vm.IsScheduled():
+		// Don't process states where the vm is clearly owned by virt-handler
+		return nil
+	default:
+		return fmt.Errorf("unknown vm phase %v", vm.Status.Phase)
 	}
 
 	// Select the right failure reason in case we have an error
 	reason := ""
 	if len(pods) == 0 {
 		reason = "FailedCreate"
-	} else if vm.IsFinal() || vm.DeletionTimestamp != nil {
+	} else if vm.DeletionTimestamp != nil {
 		reason = "FailedDelete"
 	} else {
 		reason = "FailedHandOver"
