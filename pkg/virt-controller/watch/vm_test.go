@@ -210,7 +210,7 @@ var _ = Describe("VM watcher", func() {
 			table.Entry("pending state", v1.Pending),
 			table.Entry("unstet state", v1.VmPhaseUnset),
 		)
-		table.DescribeTable("should delete the corresponding Pod if the vm is in", func(phase v1.VMPhase) {
+		table.DescribeTable("should not delete the corresponding Pod if the vm is in", func(phase v1.VMPhase) {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = phase
 			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
@@ -218,11 +218,7 @@ var _ = Describe("VM watcher", func() {
 			addVirtualMachine(vm)
 			podFeeder.Add(pod)
 
-			shouldExpectPodDeletion(pod)
-
 			controller.Execute()
-
-			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 		},
 			table.Entry("succeeded state", v1.Failed),
 			table.Entry("failed state", v1.Succeeded),

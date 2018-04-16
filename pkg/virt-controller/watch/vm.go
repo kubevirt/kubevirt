@@ -291,7 +291,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 
 	vmKey := controller.VirtualMachineKey(vm)
 
-	if vm.IsFinal() || vm.DeletionTimestamp != nil {
+	if vm.DeletionTimestamp != nil {
 		if len(pods) == 0 {
 			return nil
 		} else if pods[0].DeletionTimestamp == nil {
@@ -306,6 +306,8 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 			return nil
 		}
 		return nil
+	} else if vm.IsFinal() {
+		return
 	}
 
 	if len(pods) == 0 {
