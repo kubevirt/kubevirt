@@ -238,7 +238,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 				vmCopy.Status.Phase = virtv1.Failed
 			}
 		} else if len(pods) == 0 && vm.IsScheduling() {
-			// someone other then the controller deleted the pod unexpectedly
+			// someone other than the controller deleted the pod unexpectedly
 			vmCopy.Status.Phase = virtv1.Failed
 		}
 	} else if vm.IsFinal() {
@@ -248,11 +248,10 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 	}
 
 	// Select the right failure reason in case we have an error
-	// TODO this reason detetion is not 100 % accurate
 	reason := ""
 	if len(pods) == 0 {
 		reason = "FailedCreate"
-	} else if len(pods) == 1 && vm.IsFinal() || vm.DeletionTimestamp != nil {
+	} else if vm.IsFinal() || vm.DeletionTimestamp != nil {
 		reason = "FailedDelete"
 	} else {
 		reason = "FailedHandOver"
@@ -294,7 +293,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 
 	if vm.IsFinal() || vm.DeletionTimestamp != nil {
 		if len(pods) == 0 {
-			return
+			return nil
 		} else if pods[0].DeletionTimestamp == nil {
 			c.podExpectations.ExpectDeletions(vmKey, []string{controller.PodKey(pods[0])})
 			err := c.clientset.CoreV1().Pods(vm.Namespace).Delete(pods[0].Name, &v1.DeleteOptions{})
@@ -351,21 +350,18 @@ func (c *VMController) addPod(obj interface{}) {
 		return
 	}
 
-	// If it has a ControllerRef, that's all that matters.
-	if controllerRef := c.getControllerOf(pod); controllerRef != nil {
-		vm := c.resolveControllerRef(pod.Namespace, controllerRef)
-		if vm == nil {
-			return
-		}
-		vmKey, err := controller.KeyFunc(vm)
-		if err != nil {
-			return
-		}
-		log.Log.V(4).Object(pod).Infof("Pod created")
-		c.podExpectations.CreationObserved(vmKey)
-		c.enqueueVirtualMachine(vm)
+	controllerRef := c.getControllerOf(pod)
+	vm := c.resolveControllerRef(pod.Namespace, controllerRef)
+	if vm == nil {
 		return
 	}
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return
+	}
+	log.Log.V(4).Object(pod).Infof("Pod created")
+	c.podExpectations.CreationObserved(vmKey)
+	c.enqueueVirtualMachine(vm)
 }
 
 // When a pod is updated, figure out what replica set/s manage it and wake them
@@ -405,18 +401,15 @@ func (c *VMController) updatePod(old, cur interface{}) {
 		}
 	}
 
-	// If it has a ControllerRef, that's all that matters.
-	if curControllerRef != nil {
-		vm := c.resolveControllerRef(curPod.Namespace, curControllerRef)
-		if vm == nil {
-			return
-		}
-		log.Log.V(4).Object(curPod).Infof("Pod updated")
-		c.enqueueVirtualMachine(vm)
-		// TODO: MinReadySeconds in the Pod will generate an Available condition to be added in
-		// Update once we support the available conect on the vm
+	vm := c.resolveControllerRef(curPod.Namespace, curControllerRef)
+	if vm == nil {
 		return
 	}
+	log.Log.V(4).Object(curPod).Infof("Pod updated")
+	c.enqueueVirtualMachine(vm)
+	// TODO: MinReadySeconds in the Pod will generate an Available condition to be added in
+	// Update once we support the available conect on the vm
+	return
 }
 
 // When a pod is deleted, enqueue the replica set that manages the pod and update its podExpectations.
@@ -442,10 +435,6 @@ func (c *VMController) deletePod(obj interface{}) {
 	}
 
 	controllerRef := c.getControllerOf(pod)
-	if controllerRef == nil {
-		// No controller should care about orphans being deleted.
-		return
-	}
 	vm := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vm == nil {
 		return

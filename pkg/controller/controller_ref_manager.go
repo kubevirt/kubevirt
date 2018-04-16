@@ -31,9 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	"github.com/golang/glog"
-	"k8s.io/api/core/v1"
-
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -320,10 +317,6 @@ type VirtualMachineControlInterface interface {
 	PatchVirtualMachine(namespace, name string, data []byte) error
 }
 
-type PodControlInterface interface {
-	PatchPod(namespace, name string, data []byte) error
-}
-
 type RealVirtualMachineControl struct {
 	Clientset kubecli.KubevirtClient
 }
@@ -331,144 +324,6 @@ type RealVirtualMachineControl struct {
 func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
 	_, err := r.Clientset.VM(namespace).Patch(name, types.MergePatchType, data)
-	return err
-}
-
-type RealPodControl struct {
-	Clientset kubecli.KubevirtClient
-}
-
-func (r RealPodControl) PatchPod(namespace, name string, data []byte) error {
-	_, err := r.Clientset.CoreV1().Pods(namespace).Patch(name, types.StrategicMergePatchType, data)
-	return err
-}
-
-type PodControllerRefManager struct {
-	BaseControllerRefManager
-	controllerKind schema.GroupVersionKind
-	podControl     PodControlInterface
-}
-
-// NewPodControllerRefManager returns a PodControllerRefManager that exposes
-// methods to manage the controllerRef of pods.
-//
-// The CanAdopt() function can be used to perform a potentially expensive check
-// (such as a live GET from the API server) prior to the first adoption.
-// It will only be called (at most once) if an adoption is actually attempted.
-// If CanAdopt() returns a non-nil error, all adoptions will fail.
-//
-// NOTE: Once CanAdopt() is called, it will not be called again by the same
-//       PodControllerRefManager instance. Create a new instance if it makes
-//       sense to check CanAdopt() again (e.g. in a different sync pass).
-func NewPodControllerRefManager(
-	podControl PodControlInterface,
-	controller metav1.Object,
-	selector labels.Selector,
-	controllerKind schema.GroupVersionKind,
-	canAdopt func() error,
-) *PodControllerRefManager {
-	return &PodControllerRefManager{
-		BaseControllerRefManager: BaseControllerRefManager{
-			Controller:   controller,
-			Selector:     selector,
-			CanAdoptFunc: canAdopt,
-		},
-		controllerKind: controllerKind,
-		podControl:     podControl,
-	}
-}
-
-// ClaimPods tries to take ownership of a list of Pods.
-//
-// It will reconcile the following:
-//   * Adopt orphans if the selector matches.
-//   * Release owned objects if the selector no longer matches.
-//
-// Optional: If one or more filters are specified, a Pod will only be claimed if
-// all filters return true.
-//
-// A non-nil error is returned if some form of reconciliation was attempted and
-// failed. Usually, controllers should try again later in case reconciliation
-// is still needed.
-//
-// If the error is nil, either the reconciliation succeeded, or no
-// reconciliation was necessary. The list of Pods that you now own is returned.
-func (m *PodControllerRefManager) ClaimPods(pods []*v1.Pod, filters ...func(*v1.Pod) bool) ([]*v1.Pod, error) {
-	var claimed []*v1.Pod
-	var errlist []error
-
-	match := func(obj metav1.Object) bool {
-		pod := obj.(*v1.Pod)
-		// Check selector first so filters only run on potentially matching Pods.
-		if !m.Selector.Matches(labels.Set(pod.Labels)) {
-			return false
-		}
-		for _, filter := range filters {
-			if !filter(pod) {
-				return false
-			}
-		}
-		return true
-	}
-	adopt := func(obj metav1.Object) error {
-		return m.AdoptPod(obj.(*v1.Pod))
-	}
-	release := func(obj metav1.Object) error {
-		return m.ReleasePod(obj.(*v1.Pod))
-	}
-
-	for _, pod := range pods {
-		ok, err := m.ClaimObject(pod, match, adopt, release)
-		if err != nil {
-			errlist = append(errlist, err)
-			continue
-		}
-		if ok {
-			claimed = append(claimed, pod)
-		}
-	}
-	return claimed, utilerrors.NewAggregate(errlist)
-}
-
-// AdoptPod sends a patch to take control of the pod. It returns the error if
-// the patching fails.
-func (m *PodControllerRefManager) AdoptPod(pod *v1.Pod) error {
-	if err := m.CanAdopt(); err != nil {
-		return fmt.Errorf("can't adopt Pod %v/%v (%v): %v", pod.Namespace, pod.Name, pod.UID, err)
-	}
-	// Note that ValidateOwnerReferences() will reject this patch if another
-	// OwnerReference exists with controller=true.
-	addControllerPatch := fmt.Sprintf(
-		`{"metadata":{"ownerReferences":[{"apiVersion":"%s","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"uid":"%s"}}`,
-		m.controllerKind.GroupVersion(), m.controllerKind.Kind,
-		m.Controller.GetName(), m.Controller.GetUID(), pod.UID)
-	return m.podControl.PatchPod(pod.Namespace, pod.Name, []byte(addControllerPatch))
-}
-
-// ReleasePod sends a patch to free the pod from the control of the controller.
-// It returns the error if the patching fails. 404 and 422 errors are ignored.
-func (m *PodControllerRefManager) ReleasePod(pod *v1.Pod) error {
-	glog.V(2).Infof("patching pod %s_%s to remove its controllerRef to %s/%s:%s",
-		pod.Namespace, pod.Name, m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
-	deleteOwnerRefPatch := fmt.Sprintf(`{"metadata":{"ownerReferences":[{"$patch":"delete","uid":"%s"}],"uid":"%s"}}`, m.Controller.GetUID(), pod.UID)
-	err := m.podControl.PatchPod(pod.Namespace, pod.Name, []byte(deleteOwnerRefPatch))
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// If the pod no longer exists, ignore it.
-			return nil
-		}
-		if errors.IsInvalid(err) {
-			// Invalid error will be returned in two cases: 1. the pod
-			// has no owner reference, 2. the uid of the pod doesn't
-			// match, which means the pod is deleted and then recreated.
-			// In both cases, the error can be ignored.
-
-			// TODO: If the pod has owner references, but none of them
-			// has the owner.UID, server will silently ignore the patch.
-			// Investigate why.
-			return nil
-		}
-	}
 	return err
 }
 
