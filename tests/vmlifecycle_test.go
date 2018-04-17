@@ -379,7 +379,7 @@ var _ = Describe("Vmlifecycle", func() {
 			}, 90)
 		})
 		Context("with grace period greater than 0", func() {
-			It("should run graceful shutdown", func(done Done) {
+			It("should run graceful shutdown", func() {
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
@@ -426,9 +426,7 @@ var _ = Describe("Vmlifecycle", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return string(data)
 				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())))
-
-				close(done)
-			}, 60)
+			})
 		})
 	})
 
