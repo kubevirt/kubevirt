@@ -362,7 +362,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, podds []*k8sv1.Pod) (err 
 	return nil
 }
 
-// When a pod is created, enqueue the replica set that manages it and update its podExpectations.
+// When a pod is created, enqueue the vm that manages it and update its podExpectations.
 func (c *VMController) addPod(obj interface{}) {
 	pod := obj.(*k8sv1.Pod)
 
@@ -387,9 +387,9 @@ func (c *VMController) addPod(obj interface{}) {
 	c.enqueueVirtualMachine(vm)
 }
 
-// When a pod is updated, figure out what replica set/s manage it and wake them
+// When a pod is updated, figure out what vm/s manage it and wake them
 // up. If the labels of the pod have changed we need to awaken both the old
-// and new replica set. old and cur must be *v1.Pod types.
+// and new vm. old and cur must be *v1.Pod types.
 func (c *VMController) updatePod(old, cur interface{}) {
 	curPod := cur.(*k8sv1.Pod)
 	oldPod := old.(*k8sv1.Pod)
@@ -401,11 +401,7 @@ func (c *VMController) updatePod(old, cur interface{}) {
 
 	labelChanged := !reflect.DeepEqual(curPod.Labels, oldPod.Labels)
 	if curPod.DeletionTimestamp != nil {
-		// when a pod is deleted gracefully it's deletion timestamp is first modified to reflect a grace period,
-		// and after such time has passed, the virt-handler actually deletes it from the store. We receive an update
-		// for modification of the deletion timestamp and expect an rs to create more replicas asap, not wait
-		// until the virt-handler actually deletes the pod. This is different from the Phase of a pod changing, because
-		// an rs never initiates a phase change, and so is never asleep waiting for the same.
+		// having a pod marked for deletion is enough to count as a deletion expectation
 		c.deletePod(curPod)
 		if labelChanged {
 			// we don't need to check the oldPod.DeletionTimestamp because DeletionTimestamp cannot be unset.
@@ -433,7 +429,7 @@ func (c *VMController) updatePod(old, cur interface{}) {
 	return
 }
 
-// When a pod is deleted, enqueue the replica set that manages the pod and update its podExpectations.
+// When a pod is deleted, enqueue the vm that manages the pod and update its podExpectations.
 // obj could be an *v1.Pod, or a DeletionFinalStateUnknown marker item.
 func (c *VMController) deletePod(obj interface{}) {
 	pod, ok := obj.(*k8sv1.Pod)
