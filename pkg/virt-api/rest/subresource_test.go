@@ -53,9 +53,8 @@ var _ = Describe("VM Subresources", func() {
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 			templateService := services.NewTemplateService("whatever", "whatever", "whatever")
 
-			pod, err := templateService.RenderLaunchManifest(vm)
+			pod := templateService.RenderLaunchManifest(vm)
 			pod.ObjectMeta.Name = "madeup-name"
-			Expect(err).ToNot(HaveOccurred())
 
 			pod.Spec.NodeName = "mynode"
 			pod.Status.Phase = k8sv1.PodRunning

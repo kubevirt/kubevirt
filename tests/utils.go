@@ -52,6 +52,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -1152,4 +1154,15 @@ func NotDeleted(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
 		}
 	}
 	return
+}
+
+func UnfinishedVMPodSelector(vm *v1.VirtualMachine) metav1.ListOptions {
+	fieldSelector := fields.ParseSelectorOrDie(
+		"status.phase!=" + string(k8sv1.PodFailed) +
+			",status.phase!=" + string(k8sv1.PodSucceeded))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", vm.GetName()))
+	if err != nil {
+		panic(err)
+	}
+	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }

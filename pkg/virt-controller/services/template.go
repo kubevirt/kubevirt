@@ -33,7 +33,7 @@ import (
 )
 
 type TemplateService interface {
-	RenderLaunchManifest(*v1.VirtualMachine) (*kubev1.Pod, error)
+	RenderLaunchManifest(*v1.VirtualMachine) *kubev1.Pod
 }
 
 type templateService struct {
@@ -42,7 +42,7 @@ type templateService struct {
 	imagePullSecret string
 }
 
-func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.Pod, error) {
+func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Pod {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -175,10 +175,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		Resources: resources,
 	}
 
-	containers, err := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
-	if err != nil {
-		return nil, err
-	}
+	containers := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
 
 	volumes = append(volumes, kubev1.Volume{
 		Name: "virt-share-dir",
@@ -231,7 +228,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		}
 	}
 
-	return &pod, nil
+	return &pod
 }
 
 func appendUniqueImagePullSecret(secrets []kubev1.LocalObjectReference, newsecret kubev1.LocalObjectReference) []kubev1.LocalObjectReference {

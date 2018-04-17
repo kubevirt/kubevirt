@@ -41,9 +41,8 @@ var _ = Describe("Template", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
 
-				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "testns", UID: "1234"}, Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}})
+				pod := svc.RenderLaunchManifest(&v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "testns", UID: "1234"}, Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}})
 
-				Expect(err).To(BeNil())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:    "virt-launcher",
@@ -69,9 +68,8 @@ var _ = Describe("Template", func() {
 				}
 				vm := v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}, Spec: v1.VirtualMachineSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{}}}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod := svc.RenderLaunchManifest(&vm)
 
-				Expect(err).To(BeNil())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:    "virt-launcher",
@@ -102,9 +100,8 @@ var _ = Describe("Template", func() {
 						Domain:   v1.DomainSpec{},
 					},
 				}
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod := svc.RenderLaunchManifest(&vm)
 
-				Expect(err).To(BeNil())
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{NodeAffinity: &nodeAffinity}))
 			})
 
@@ -115,9 +112,8 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{},
 					},
 				}
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod := svc.RenderLaunchManifest(&vm)
 
-				Expect(err).To(BeNil())
 				Expect(pod.Spec.Affinity).To(BeNil())
 			})
 		})
@@ -146,9 +142,8 @@ var _ = Describe("Template", func() {
 					},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod := svc.RenderLaunchManifest(&vm)
 
-				Expect(err).To(BeNil())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("2m"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1099507557"))
@@ -175,9 +170,8 @@ var _ = Describe("Template", func() {
 					},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod := svc.RenderLaunchManifest(&vm)
 
-				Expect(err).To(BeNil())
 				Expect(vm.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
@@ -202,8 +196,7 @@ var _ = Describe("Template", func() {
 					Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
-				Expect(err).To(BeNil())
+				pod := svc.RenderLaunchManifest(&vm)
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 				Expect(len(pod.Spec.Volumes)).To(Equal(3))
@@ -221,8 +214,7 @@ var _ = Describe("Template", func() {
 					Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
-				Expect(err).To(BeNil())
+				pod := svc.RenderLaunchManifest(&vm)
 
 				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(1))
 				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-1"))
@@ -259,8 +251,7 @@ var _ = Describe("Template", func() {
 			}
 
 			It("should add secret to pod spec", func() {
-				pod, err := svc.RenderLaunchManifest(&vm)
-				Expect(err).To(BeNil())
+				pod := svc.RenderLaunchManifest(&vm)
 
 				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))
 
@@ -272,8 +263,7 @@ var _ = Describe("Template", func() {
 			It("should deduplicate identical secrets", func() {
 				volumes[1].VolumeSource.RegistryDisk.ImagePullSecret = "pull-secret-2"
 
-				pod, err := svc.RenderLaunchManifest(&vm)
-				Expect(err).To(BeNil())
+				pod := svc.RenderLaunchManifest(&vm)
 
 				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))
 

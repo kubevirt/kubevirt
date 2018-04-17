@@ -67,7 +67,7 @@ const (
 
 func NewVMController(templateService services.TemplateService, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
 	c := &VMController{
-		vmService:            services.NewVMService(clientset, templateService),
+		templateService:      templateService,
 		Queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		vmInformer:           vmInformer,
 		podInformer:          podInformer,
@@ -93,7 +93,7 @@ func NewVMController(templateService services.TemplateService, vmInformer cache.
 }
 
 type VMController struct {
-	vmService            services.VMService
+	templateService      services.TemplateService
 	clientset            kubecli.KubevirtClient
 	Queue                workqueue.RateLimitingInterface
 	vmInformer           cache.SharedIndexInformer
@@ -205,7 +205,6 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 
 	var pod *k8sv1.Pod = nil
 	podExists := false
-
 	if len(pods) > 0 {
 		podExists = true
 		pod = pods[0]
@@ -281,6 +280,9 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 }
 
 func isPodReady(pod *k8sv1.Pod) bool {
+	if isPodDownOrGoingDown(pod) {
+		return false
+	}
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		if containerStatus.Ready == false {
 			return false
@@ -298,36 +300,44 @@ func podIsDown(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
-func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err error) {
+func (c *VMController) sync(vm *virtv1.VirtualMachine, podds []*k8sv1.Pod) (err error) {
+
+	var pod *k8sv1.Pod = nil
+	podExists := false
+	if len(podds) > 0 {
+		podExists = true
+		pod = podds[0]
+	}
 
 	vmKey := controller.VirtualMachineKey(vm)
 
 	if vm.DeletionTimestamp != nil {
-		if len(pods) == 0 {
+		if !podExists {
 			return nil
-		} else if pods[0].DeletionTimestamp == nil {
-			c.podExpectations.ExpectDeletions(vmKey, []string{controller.PodKey(pods[0])})
-			err := c.clientset.CoreV1().Pods(vm.Namespace).Delete(pods[0].Name, &v1.DeleteOptions{})
+		} else if pod.DeletionTimestamp == nil {
+			c.podExpectations.ExpectDeletions(vmKey, []string{controller.PodKey(pod)})
+			err := c.clientset.CoreV1().Pods(vm.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
 			if err != nil {
 				c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleting pod: %v", err)
-				c.podExpectations.DeletionObserved(vmKey, controller.PodKey(pods[0]))
+				c.podExpectations.DeletionObserved(vmKey, controller.PodKey(pod))
 				return err
 			}
-			c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pods[0].Name)
+			c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pod.Name)
 			return nil
 		}
 		return nil
 	} else if vm.IsFinal() {
-		return
+		return nil
 	}
 
-	if len(pods) == 0 {
+	if !podExists {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vm.IsUnprocessed() {
 			return nil
 		}
 		c.podExpectations.ExpectCreations(vmKey, 1)
-		pod, err := c.vmService.StartVMPod(vm)
+		templatePod := c.templateService.RenderLaunchManifest(vm)
+		pod, err := c.clientset.CoreV1().Pods(vm.GetNamespace()).Create(templatePod)
 		if err != nil {
 			c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
 			c.podExpectations.CreationObserved(vmKey)
@@ -335,10 +345,8 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 		}
 		c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
 		return nil
-	} else if len(pods) > 1 {
-		return fmt.Errorf("Found %d matching pods where only one should exist", len(pods))
-	} else if isPodReady(pods[0]) && !isPodDownOrGoingDown(pods[0]) && !isPodOwnedByHandler(pods[0]) {
-		pod := pods[0].DeepCopy()
+	} else if isPodReady(pod) && !isPodOwnedByHandler(pod) {
+		pod := pod.DeepCopy()
 		pod.Annotations[virtv1.OwnedByAnnotation] = "virt-handler"
 		c.handoverExpectations.ExpectCreations(controller.VirtualMachineKey(vm), 1)
 		_, err := c.clientset.CoreV1().Pods(vm.Namespace).Update(pod)
