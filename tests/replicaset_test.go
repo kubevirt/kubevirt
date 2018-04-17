@@ -77,7 +77,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
-		}, 10, 1).Should(Equal(int32(scale)))
+		}, 60, 1).Should(Equal(int32(scale)))
 
 		vms, err := virtClient.VM(tests.NamespaceTestDefault).List(v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())

@@ -331,6 +331,16 @@ var _ = Describe("VM watcher", func() {
 
 			controller.Execute()
 		})
+		It("should move the vm to failed state if the vm is pending, no pod exists yet and gets deleted", func() {
+			vm := NewPendingVirtualMachine("testvm")
+			vm.DeletionTimestamp = now()
+
+			addVirtualMachine(vm)
+
+			shouldExpectVirtualMachineFailedState(vm)
+
+			controller.Execute()
+		})
 		It("should hand over pod to virt-handler if pod is ready and running", func() {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = v1.Scheduling

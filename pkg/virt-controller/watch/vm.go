@@ -217,6 +217,8 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 	case vm.IsUnprocessed():
 		if podExists {
 			vmCopy.Status.Phase = virtv1.Scheduling
+		} else if vm.DeletionTimestamp != nil {
+			vmCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmCopy.Status.Phase = virtv1.Pending
 		}
