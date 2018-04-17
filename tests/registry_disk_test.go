@@ -89,7 +89,7 @@ var _ = Describe("RegistryDisk", func() {
 
 	Describe("Starting and stopping the same VM", func() {
 		Context("with ephemeral registry disk", func() {
-			It("should success multiple times", func(done Done) {
+			It("should success multiple times", func() {
 				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 				num := 2
 				for i := 0; i < num; i++ {
@@ -104,8 +104,7 @@ var _ = Describe("RegistryDisk", func() {
 					By("Waiting until the VM is gone")
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 				}
-				close(done)
-			}, 140)
+			})
 		})
 	})
 
