@@ -47,7 +47,7 @@ publish: docker
 	hack/build-docker.sh push ${WHAT}
 
 manifests:
-	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
 
 .release-functest:
 	make functest > .release-functest 2>&1
