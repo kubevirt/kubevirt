@@ -214,16 +214,19 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 	vmCopy := vm.DeepCopy()
 
 	switch {
-	case vm.IsUnprocessed() || vm.IsScheduling():
+
+	case vm.IsUnprocessed():
+		if podExists {
+			vmCopy.Status.Phase = virtv1.Scheduling
+		} else {
+			vmCopy.Status.Phase = virtv1.Pending
+		}
+	case vm.IsScheduling():
 		switch {
 		case podExists:
-			containersAreReady := podIsReady(pod)
-			podIsTerminating := podIsDownOrGoingDown(pod)
-			podNotReadyYet := !podIsTerminating && !containersAreReady
-
-			// vm is still owned by the controller but pod is already handed over,
-			// so let's hand over the vm too
-			if c.isPodOwnedByHandler(pod) {
+			if isPodOwnedByHandler(pod) {
+				// vm is still owned by the controller but pod is already handed over,
+				// so let's hand over the vm too
 				vmCopy.Status.Interfaces = []virtv1.VirtualMachineNetworkInterface{
 					{
 						IP: pod.Status.PodIP,
@@ -235,16 +238,12 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 				}
 				vmCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
 				vmCopy.Status.NodeName = pod.Spec.NodeName
-			} else if podNotReadyYet {
-				vmCopy.Status.Phase = virtv1.Scheduling
-			} else if podIsTerminating {
+			} else if isPodDownOrGoingDown(pod) {
 				vmCopy.Status.Phase = virtv1.Failed
 			}
 		case !podExists:
-			if vm.IsScheduling() {
-				// someone other than the controller deleted the pod unexpectedly
-				vmCopy.Status.Phase = virtv1.Failed
-			}
+			// someone other than the controller deleted the pod unexpectedly
+			vmCopy.Status.Phase = virtv1.Failed
 		}
 	case vm.IsFinal():
 		if !podExists {
@@ -281,7 +280,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 	return nil
 }
 
-func podIsReady(pod *k8sv1.Pod) bool {
+func isPodReady(pod *k8sv1.Pod) bool {
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		if containerStatus.Ready == false {
 			return false
@@ -291,7 +290,7 @@ func podIsReady(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodRunning
 }
 
-func podIsDownOrGoingDown(pod *k8sv1.Pod) bool {
+func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
 	return podIsDown(pod) || pod.DeletionTimestamp != nil
 }
 
@@ -338,7 +337,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err e
 		return nil
 	} else if len(pods) > 1 {
 		return fmt.Errorf("Found %d matching pods where only one should exist", len(pods))
-	} else if podIsReady(pods[0]) && !podIsDownOrGoingDown(pods[0]) && !c.isPodOwnedByHandler(pods[0]) {
+	} else if isPodReady(pods[0]) && !isPodDownOrGoingDown(pods[0]) && !isPodOwnedByHandler(pods[0]) {
 		pod := pods[0].DeepCopy()
 		pod.Annotations[virtv1.OwnedByAnnotation] = "virt-handler"
 		c.handoverExpectations.ExpectCreations(controller.VirtualMachineKey(vm), 1)
@@ -421,8 +420,6 @@ func (c *VMController) updatePod(old, cur interface{}) {
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
 	c.enqueueVirtualMachine(vm)
-	// TODO: MinReadySeconds in the Pod will generate an Available condition to be added in
-	// Update once we support the available conect on the vm
 	return
 }
 
@@ -536,7 +533,7 @@ func (c *VMController) filterMatchingPods(vm *virtv1.VirtualMachine, pods []*k8s
 	return matchingPods, nil
 }
 
-func (c *VMController) isPodOwnedByHandler(pod *k8sv1.Pod) bool {
+func isPodOwnedByHandler(pod *k8sv1.Pod) bool {
 	if pod.Annotations != nil && pod.Annotations[virtv1.OwnedByAnnotation] == "virt-handler" {
 		return true
 	}

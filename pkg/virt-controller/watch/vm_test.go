@@ -94,6 +94,15 @@ var _ = Describe("VM watcher", func() {
 		}).Return(vm, nil)
 	}
 
+	shouldExpectPodHandover := func() {
+		kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-handler"))
+			return true, update.GetObject(), nil
+		})
+	}
+
 	shouldExpectVirtualMachineSchedulingState := func(vm *v1.VirtualMachine) {
 		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduling))
@@ -168,8 +177,9 @@ var _ = Describe("VM watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
-		It("should delete the corresponding Pod on VirtualMachine deletion", func() {
+		table.DescribeTable("should delete the corresponding Pod on VirtualMachine deletion with vm", func(phase v1.VMPhase) {
 			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = phase
 			vm.DeletionTimestamp = now()
 			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
 
@@ -178,13 +188,25 @@ var _ = Describe("VM watcher", func() {
 
 			shouldExpectPodDeletion(pod)
 
+			if vm.IsUnprocessed() {
+				shouldExpectVirtualMachineSchedulingState(vm)
+			}
+
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
-		})
-		table.DescribeTable("should not try to delete a pod again, which is already marked for deletion and go to failed state, when", func(phase v1.VMPhase) {
+		},
+			table.Entry("in running state", v1.Running),
+			table.Entry("in unset state", v1.VmPhaseUnset),
+			table.Entry("in pending state", v1.Pending),
+			table.Entry("in succeeded state", v1.Succeeded),
+			table.Entry("in failed state", v1.Failed),
+			table.Entry("in scheduled state", v1.Scheduled),
+			table.Entry("in scheduling state", v1.Scheduling),
+		)
+		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in sheduling state", func() {
 			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = phase
+			vm.Status.Phase = v1.Scheduling
 			vm.DeletionTimestamp = now()
 			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
 
@@ -205,11 +227,7 @@ var _ = Describe("VM watcher", func() {
 			shouldExpectVirtualMachineFailedState(vm)
 
 			controller.Execute()
-		},
-			table.Entry("sheduling state", v1.Scheduling),
-			table.Entry("pending state", v1.Pending),
-			table.Entry("unstet state", v1.VmPhaseUnset),
-		)
+		})
 		table.DescribeTable("should not delete the corresponding Pod if the vm is in", func(phase v1.VMPhase) {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = phase
@@ -272,18 +290,37 @@ var _ = Describe("VM watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
-		It("should move the vm to scheduling state if a pod exists but is not yet ready", func() {
+		table.DescribeTable("should move the vm to scheduling state if a pod exists", func(phase kubev1.PodPhase, isReady bool) {
 			vm := NewPendingVirtualMachine("testvm")
-			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
-			pod.Status.ContainerStatuses[0].Ready = false
+			pod := NewPodForVirtualMachine(vm, phase)
+			pod.Status.ContainerStatuses[0].Ready = isReady
 
 			addVirtualMachine(vm)
 			podFeeder.Add(pod)
 
 			shouldExpectVirtualMachineSchedulingState(vm)
 
+			if phase == kubev1.PodRunning && isReady {
+				shouldExpectPodHandover()
+			}
+
 			controller.Execute()
-		})
+
+			if phase == kubev1.PodRunning && isReady {
+				testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			}
+		},
+			table.Entry(", not ready and in running state", kubev1.PodRunning, false),
+			table.Entry(", not ready and in unknown state", kubev1.PodUnknown, false),
+			table.Entry(", not ready and in succeeded state", kubev1.PodSucceeded, false),
+			table.Entry(", not ready and in failed state", kubev1.PodFailed, false),
+			table.Entry(", not ready and in pending state", kubev1.PodPending, false),
+			table.Entry(", ready and in running state", kubev1.PodRunning, true),
+			table.Entry(", ready and in unknown state", kubev1.PodUnknown, true),
+			table.Entry(", ready and in succeeded state", kubev1.PodSucceeded, true),
+			table.Entry(", ready and in failed state", kubev1.PodFailed, true),
+			table.Entry(", ready and in pending state", kubev1.PodPending, true),
+		)
 		It("should move the vm to failed state if the pod disappears and the vm is in scheduling state", func() {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = v1.Scheduling
@@ -296,18 +333,13 @@ var _ = Describe("VM watcher", func() {
 		})
 		It("should hand over pod to virt-handler if pod is ready and running", func() {
 			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
-
-			// Expect pod hand over
-			kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				Expect(update.GetObject().(*kubev1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-handler"))
-				return true, update.GetObject(), nil
-			})
 
 			addVirtualMachine(vm)
 			podFeeder.Add(pod)
+
+			shouldExpectPodHandover()
 
 			controller.Execute()
 
@@ -374,6 +406,7 @@ var _ = Describe("VM watcher", func() {
 		})
 		It("should update the virtual machine to scheduled if pod is ready, runnning and handed over to virt-handler", func() {
 			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vm, kubev1.PodRunning)
 			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
 
@@ -386,12 +419,11 @@ var _ = Describe("VM watcher", func() {
 		})
 		It("should update the virtual machine to scheduled if pod is ready, triggered by pod change", func() {
 			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vm, kubev1.PodPending)
 
 			addVirtualMachine(vm)
 			podFeeder.Add(pod)
-
-			shouldExpectVirtualMachineSchedulingState(vm)
 
 			controller.Execute()
 
@@ -465,6 +497,7 @@ var _ = Describe("VM watcher", func() {
 		})
 		table.DescribeTable("should move the vm to failed if pod is not handed over", func(phase kubev1.PodPhase) {
 			vm := NewPendingVirtualMachine("testvm")
+			vm.Status.Phase = v1.Scheduling
 			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
 			pod := NewPodForVirtualMachine(vm, phase)
 
@@ -484,6 +517,7 @@ var _ = Describe("VM watcher", func() {
 func NewPendingVirtualMachine(name string) *v1.VirtualMachine {
 	vm := v1.NewMinimalVM(name)
 	vm.UID = "1234"
+	vm.Status.Phase = v1.Pending
 	addInitializedAnnotation(vm)
 	return vm
 }
