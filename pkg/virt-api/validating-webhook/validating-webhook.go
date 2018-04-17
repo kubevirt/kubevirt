@@ -20,6 +20,7 @@
 package validating_webhook
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -28,9 +29,14 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+)
+
+const (
+	cloudInitMaxLen = 2048
 )
 
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
@@ -95,12 +101,121 @@ func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
 	resp.WriteHeader(http.StatusOK)
 }
 
+func validateDisks(vm *v1.VirtualMachine) []error {
+	errors := []error{}
+	for idx, disk := range vm.Spec.Domain.Devices.Disks {
+		var matchingVolume *v1.Volume
+
+		// Verify disks and volume names line up.
+		for _, volume := range vm.Spec.Volumes {
+			if disk.VolumeName == volume.Name {
+				matchingVolume = &volume
+				break
+			}
+		}
+
+		if matchingVolume == nil {
+			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].volumeName '%s' not found.", idx, disk.VolumeName))
+		}
+
+		// Verify only a single device type is set.
+		deviceTargetSetCount := 0
+		if disk.Disk != nil {
+			deviceTargetSetCount++
+		}
+		if disk.LUN != nil {
+			deviceTargetSetCount++
+		}
+		if disk.Floppy != nil {
+			deviceTargetSetCount++
+		}
+		if disk.CDRom != nil {
+			deviceTargetSetCount++
+		}
+
+		// NOTE: not setting a device target is okay. We default to Disk.
+		// However, only a single device target is allowed to be set at a time.
+		if deviceTargetSetCount > 1 {
+			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d] can only have a single target type defined", idx))
+		}
+
+		// Verify Lun disks are only mapped to network/block devices.
+		if disk.LUN != nil && (matchingVolume == nil || matchingVolume.PersistentVolumeClaim == nil) {
+			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].lun can only be mapped to a PersistentVolumeClaim volume.", idx))
+		}
+	}
+
+	return errors
+}
+
+func validateVolumes(vm *v1.VirtualMachine) []error {
+	errors := []error{}
+
+	for idx, volume := range vm.Spec.Volumes {
+		// Verify exactly one source is set
+		volumeSourceSetCount := 0
+		if volume.PersistentVolumeClaim != nil {
+			volumeSourceSetCount++
+		}
+		if volume.CloudInitNoCloud != nil {
+			volumeSourceSetCount++
+		}
+		if volume.RegistryDisk != nil {
+			volumeSourceSetCount++
+		}
+		if volume.Ephemeral != nil {
+			volumeSourceSetCount++
+		}
+		if volume.EmptyDisk != nil {
+			volumeSourceSetCount++
+		}
+
+		if volumeSourceSetCount != 1 {
+			errors = append(errors, fmt.Errorf("spec.volumes[%d] must have exactly one source type set", idx))
+		}
+
+		// Verify cloud init data is within size limits
+		if volume.CloudInitNoCloud != nil {
+			noCloud := volume.CloudInitNoCloud
+			userDataLen := 0
+
+			userDataSourceCount := 0
+			if noCloud.UserDataSecretRef != nil && noCloud.UserDataSecretRef.Name != "" {
+				userDataSourceCount++
+			}
+			if noCloud.UserDataBase64 != "" {
+				userDataSourceCount++
+				userData, err := base64.StdEncoding.DecodeString(noCloud.UserDataBase64)
+				if err != nil {
+					errors = append(errors, fmt.Errorf("spec.volumes[%d].cloudInitNoCloud.userDataBase64 is not a valid base64 value.", idx))
+				}
+				userDataLen = len(userData)
+			}
+			if noCloud.UserData != "" {
+				userDataSourceCount++
+				userDataLen = len(noCloud.UserData)
+			}
+
+			if userDataSourceCount != 1 {
+				errors = append(errors, fmt.Errorf("spec.volumes[%d].cloudInitNoCloud must have one exactly one userdata source set.", idx))
+			}
+
+			if userDataLen > cloudInitMaxLen {
+				errors = append(errors, fmt.Errorf("spec.volumes[%d].cloudInitNoCloud userdata exceeds %d byte limit", idx, cloudInitMaxLen))
+			}
+		}
+	}
+	return errors
+}
+
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	errors := []error{}
+
 	log.Log.Info("admitting vms")
 
 	vmResource := metav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"}
 	if ar.Request.Resource != vmResource {
-		err := fmt.Errorf("expect resource to be %s", vmResource)
+		err := fmt.Errorf("expect resource to be '%s'", vmResource)
 		return toAdmissionResponse(err)
 	}
 
@@ -112,11 +227,16 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponse(err)
 	}
 
+	errors = append(errors, validateDisks(&vm)...)
+	errors = append(errors, validateVolumes(&vm)...)
+
+	if len(errors) > 0 {
+		err := utilerrors.NewAggregate(errors)
+		return toAdmissionResponse(err)
+	}
+
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
-
-	// TODO add a check here for disks and volumes
-
 	return &reviewResponse
 }
 
