@@ -204,9 +204,6 @@ func (c *VMController) execute(key string) error {
 	if len(pods) > 1 {
 		logger.Reason(fmt.Errorf("More than one pod detected")).Error("That should not be possible, will not requeue")
 		return nil
-	} else if len(pods) == 1 && pods[0].Annotations[virtv1.OwnedByAnnotation] == "virt-handler" {
-		// Whenever we see that a matching pod is owned by virt-handler, we can mak handover as fulfilled
-		c.handoverExpectations.CreationObserved(key)
 	}
 
 	// If neddsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
@@ -428,6 +425,7 @@ func (c *VMController) updatePod(old, cur interface{}) {
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vm := c.resolveControllerRef(oldPod.Namespace, oldControllerRef); vm != nil {
+			c.checkHandOverExpectation(oldPod, vm)
 			c.enqueueVirtualMachine(vm)
 		}
 	}
@@ -437,6 +435,7 @@ func (c *VMController) updatePod(old, cur interface{}) {
 		return
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
+	c.checkHandOverExpectation(curPod, vm)
 	c.enqueueVirtualMachine(vm)
 	return
 }
@@ -473,6 +472,7 @@ func (c *VMController) deletePod(obj interface{}) {
 		return
 	}
 	c.podExpectations.DeletionObserved(vmKey, controller.PodKey(pod))
+	c.checkHandOverExpectation(pod, vm)
 	c.enqueueVirtualMachine(vm)
 }
 
@@ -556,6 +556,14 @@ func isPodOwnedByHandler(pod *k8sv1.Pod) bool {
 		return true
 	}
 	return false
+}
+
+// checkHandOverExpectation checks if a pod is owned by virt-handler and marks the
+// handover expectation as observed, if so.
+func (c *VMController) checkHandOverExpectation(pod *k8sv1.Pod, vm *virtv1.VirtualMachine) {
+	if isPodOwnedByHandler(pod) {
+		c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vm))
+	}
 }
 
 func (c *VMController) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
