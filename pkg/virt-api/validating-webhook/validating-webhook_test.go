@@ -20,6 +20,7 @@
 package validating_webhook
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -33,17 +34,45 @@ import (
 
 var _ = Describe("Validating Webhook", func() {
 	Context("with VM disk", func() {
-		It("should accept a valid disk", func() {
+		table.DescribeTable("should accept a valid disk",
+			func(disk v1.Disk, volume v1.Volume) {
+				vm := v1.NewMinimalVM("testvm")
+
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, disk)
+				vm.Spec.Volumes = append(vm.Spec.Volumes, volume)
+
+				errors := validateDisks(vm)
+				Expect(len(errors)).To(Equal(0))
+			},
+			table.Entry("with Disk target",
+				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}},
+				v1.Volume{Name: "testvolume", VolumeSource: v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{Image: "fake"}}},
+			),
+			table.Entry("with LUN target",
+				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{}}},
+				v1.Volume{Name: "testvolume", VolumeSource: v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}},
+			),
+			table.Entry("with Floppy target",
+				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Floppy: &v1.FloppyTarget{}}},
+				v1.Volume{Name: "testvolume", VolumeSource: v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{Image: "fake"}}},
+			),
+			table.Entry("with CDRom target",
+				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{}}},
+				v1.Volume{Name: "testvolume", VolumeSource: v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{Image: "fake"}}},
+			),
+		)
+		It("should allow disk without a target", func() {
 			vm := v1.NewMinimalVM("testvm")
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
+				// disk without a target defaults to DiskTarget
 			})
 			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+					RegistryDisk: &v1.RegistryDiskSource{Image: "fake"},
 				},
 			})
 
@@ -72,9 +101,30 @@ var _ = Describe("Validating Webhook", func() {
 					Floppy: &v1.FloppyTarget{},
 				},
 			})
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{Image: "fake"},
+				},
+			})
 
 			errors := validateDisks(vm)
-			// len  == 2 because missing volume and multiple targets set
+			Expect(len(errors)).To(Equal(1))
+		})
+		It("should generate multiple errors", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk:   &v1.DiskTarget{},
+					Floppy: &v1.FloppyTarget{},
+				},
+			})
+
+			errors := validateDisks(vm)
+			// missing volume and multiple targets set. should result in 2 errors
 			Expect(len(errors)).To(Equal(2))
 		})
 		table.DescribeTable("should verify LUN is mapped to PVC volume",
@@ -109,19 +159,24 @@ var _ = Describe("Validating Webhook", func() {
 		)
 	})
 	Context("with VM volume", func() {
-		It("should accept valid volume", func() {
-			vm := v1.NewMinimalVM("testvm")
+		table.DescribeTable("should accept valid volume",
+			func(volumeSource v1.VolumeSource) {
+				vm := v1.NewMinimalVM("testvm")
 
-			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-				Name: "testvolume",
-				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
-				},
-			})
+				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+					Name:         "testvolume",
+					VolumeSource: volumeSource,
+				})
 
-			errors := validateVolumes(vm)
-			Expect(len(errors)).To(Equal(0))
-		})
+				errors := validateVolumes(vm)
+				Expect(len(errors)).To(Equal(0))
+			},
+			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
+			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake"}}),
+			table.Entry("with registryDisk volume source", v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{}}),
+			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
+			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
+		)
 		It("should reject volume no volume source set", func() {
 			vm := v1.NewMinimalVM("testvm")
 
@@ -146,7 +201,7 @@ var _ = Describe("Validating Webhook", func() {
 			errors := validateVolumes(vm)
 			Expect(len(errors)).To(Equal(1))
 		})
-		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int) {
+		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
 			vm := v1.NewMinimalVM("testvm")
 
 			// generate fake userdata
@@ -155,20 +210,38 @@ var _ = Describe("Validating Webhook", func() {
 				userdata = fmt.Sprintf("%sa", userdata)
 			}
 
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{VolumeSource: v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{}}})
+
+			if base64Encode {
+				vm.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userdata))
+			} else {
+				vm.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData = userdata
+			}
+
+			errors := validateVolumes(vm)
+			Expect(len(errors)).To(Equal(expectedErrors))
+		},
+			table.Entry("should accept userdata under max limit", 10, 0, false),
+			table.Entry("should accept userdata equal max limit", cloudInitMaxLen, 0, false),
+			table.Entry("should reject userdata greater than max limit", cloudInitMaxLen+1, 1, false),
+			table.Entry("should accept userdata base64 under max limit", 10, 0, true),
+			table.Entry("should accept userdata base64 equal max limit", cloudInitMaxLen, 0, true),
+			table.Entry("should reject userdata base64 greater than max limit", cloudInitMaxLen+1, 1, true),
+		)
+
+		It("should reject cloud-init with invalid base64 data", func() {
+			vm := v1.NewMinimalVM("testvm")
+
 			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-						UserData: userdata,
+						UserDataBase64: "#######garbage******",
 					},
 				},
 			})
 
 			errors := validateVolumes(vm)
-			Expect(len(errors)).To(Equal(expectedErrors))
-		},
-			table.Entry("should accept userdata under max limit", 10, 0),
-			table.Entry("should accept userdata equal max limit", cloudInitMaxLen, 0),
-			table.Entry("should reject userdata greater than max limit", cloudInitMaxLen+1, 1),
-		)
+			Expect(len(errors)).To(Equal(1))
+		})
 	})
 })
