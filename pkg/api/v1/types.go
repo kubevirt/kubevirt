@@ -296,20 +296,19 @@ const (
 	VmPhaseUnset VMPhase = ""
 	// Pending means the VM has been accepted by the system.
 	Pending VMPhase = "Pending"
-	// Either a target pod does not yet exist or a target Pod exists but is not yet scheduled and in running state.
+	// A target Pod exists but is not yet scheduled and in running state.
 	Scheduling VMPhase = "Scheduling"
 	// A target pod was scheduled and the system saw that Pod in runnig state.
 	// Here is where the responsibility of virt-controller ends and virt-handler takes over.
 	Scheduled VMPhase = "Scheduled"
-	// VMRunning means the pod has been bound to a node and the VM is started.
+	// Running means the pod has been bound to a node and the VM is started.
 	Running VMPhase = "Running"
-	// VMSucceeded means that the VM stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
+	// Succeeded means that the VM stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
 	// inside the VM.
 	Succeeded VMPhase = "Succeeded"
-	// VMFailed means that associated Pod is in failure state (exited with a non-zero exit code or was stopped by
-	// the system).
+	// Failed means that the vm crashed, disappeared unexpectedly or got deleted from the cluster before it was ever started.
 	Failed VMPhase = "Failed"
-	// VMUnknown means that for some reason the state of the VM could not be obtained, typically due
+	// Unknown means that for some reason the state of the VM could not be obtained, typically due
 	// to an error in communicating with the host of the VM.
 	Unknown VMPhase = "Unknown"
 )
