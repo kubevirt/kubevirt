@@ -132,6 +132,7 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VM console has expected output")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 				}, 200*time.Second)
 				Expect(err).To(BeNil())
@@ -156,6 +157,7 @@ var _ = Describe("Storage", func() {
 						defer expecter.Close()
 						Expect(err).To(BeNil())
 						_, err = expecter.ExpectBatch([]expect.Batcher{
+							&expect.BSnd{S: "\n"},
 							&expect.BExp{R: "Welcome to Alpine"},
 						}, 200*time.Second)
 						Expect(err).To(BeNil())
@@ -234,6 +236,7 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VM console has expected output")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 				}, 200*time.Second)
 				Expect(err).To(BeNil())
@@ -252,6 +255,7 @@ var _ = Describe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "login"},
@@ -280,6 +284,7 @@ var _ = Describe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "login"},
