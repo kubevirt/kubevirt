@@ -63,6 +63,7 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 	return &v1beta1.AdmissionResponse{
 		Result: &metav1.Status{
 			Message: err.Error(),
+			Code:    http.StatusUnprocessableEntity,
 		},
 	}
 }
