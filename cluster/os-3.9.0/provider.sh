@@ -2,7 +2,7 @@
 
 set -e
 
-image="os-3.9@sha256:c214267c1252e51f5ea845ac7868dbc219c63627e9f96ec30cc0a8e9e6e9fc0d"
+image="os-3.9.0@sha256:416e63f01ede46bd669f58b6e65c403dc5d1c560159950943491a7d06683321b"
 
 source cluster/ephemeral-provider-common.sh
 
@@ -15,7 +15,7 @@ function up() {
     OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/vagrant.key -P $(_port ssh)"
 
     # Copy oc tool and configuration file
-    scp ${OPTIONS} vagrant@$(_main_ip):/usr/local/bin/oc ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl
+    scp ${OPTIONS} vagrant@$(_main_ip):/usr/bin/oc ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl
     chmod u+x ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl
     scp ${OPTIONS} vagrant@$(_main_ip):~vagrant/admin.kubeconfig ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
 
