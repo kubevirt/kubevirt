@@ -369,7 +369,7 @@ var _ = Describe("VM watcher", func() {
 			podFeeder.Add(pod)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedDelete"))
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedDeletePodReason))
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -389,7 +389,7 @@ var _ = Describe("VM watcher", func() {
 			podFeeder.Add(pod)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedHandOver"))
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedHandOverPodReason))
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -407,7 +407,7 @@ var _ = Describe("VM watcher", func() {
 			addVirtualMachine(vm)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
+				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedCreatePodReason))
 			}).Return(vm, nil)
 
 			controller.Execute()

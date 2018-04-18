@@ -92,6 +92,24 @@ func NewVMController(templateService services.TemplateService, vmInformer cache.
 	return c
 }
 
+type syncError interface {
+	error
+	Reason() string
+}
+
+type syncErrorImpl struct {
+	err    error
+	reason string
+}
+
+func (e *syncErrorImpl) Error() string {
+	return e.err.Error()
+}
+
+func (e *syncErrorImpl) Reason() string {
+	return e.reason
+}
+
 type VMController struct {
 	templateService      services.TemplateService
 	clientset            kubecli.KubevirtClient
@@ -194,19 +212,18 @@ func (c *VMController) execute(key string) error {
 	// If neddsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
 	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key)
 
-	var syncErr error
+	var syncErr syncError = nil
 	if needsSync {
 		syncErr = c.sync(vm, pods)
 	}
 	return c.updateStatus(vm, pods, syncErr)
 }
 
-func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod, syncErr error) error {
+func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod, syncErr syncError) error {
 
 	var pod *k8sv1.Pod = nil
-	podExists := false
-	if len(pods) > 0 {
-		podExists = true
+	podExists := len(pods) > 0
+	if podExists {
 		pod = pods[0]
 	}
 
@@ -257,15 +274,11 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 		return fmt.Errorf("unknown vm phase %v", vm.Status.Phase)
 	}
 
-	// Select the right failure reason in case we have an error
 	reason := ""
-	if !podExists {
-		reason = "FailedCreate"
-	} else if vm.DeletionTimestamp != nil {
-		reason = "FailedDelete"
-	} else {
-		reason = "FailedHandOver"
+	if syncErr != nil {
+		reason = syncErr.Reason()
 	}
+
 	controller.NewVirtualMachineConditionManager().CheckFailure(vmCopy, syncErr, reason)
 
 	// If we detect a change on the vm we update the vm
@@ -302,13 +315,12 @@ func podIsDown(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
-func (c *VMController) sync(vm *virtv1.VirtualMachine, podds []*k8sv1.Pod) (err error) {
+func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err syncError) {
 
 	var pod *k8sv1.Pod = nil
-	podExists := false
-	if len(podds) > 0 {
-		podExists = true
-		pod = podds[0]
+	podExists := len(pods) > 0
+	if podExists {
+		pod = pods[0]
 	}
 
 	vmKey := controller.VirtualMachineKey(vm)
@@ -322,7 +334,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, podds []*k8sv1.Pod) (err 
 			if err != nil {
 				c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleting pod: %v", err)
 				c.podExpectations.DeletionObserved(vmKey, controller.PodKey(pod))
-				return err
+				return &syncErrorImpl{fmt.Errorf("failed to delete virtual machine pod: %v", err), FailedDeletePodReason}
 			}
 			c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pod.Name)
 			return nil
@@ -343,7 +355,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, podds []*k8sv1.Pod) (err 
 		if err != nil {
 			c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
 			c.podExpectations.CreationObserved(vmKey)
-			return err
+			return &syncErrorImpl{fmt.Errorf("failed to create virtual machine pod: %v", err), FailedCreatePodReason}
 		}
 		c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
 		return nil
@@ -355,7 +367,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, podds []*k8sv1.Pod) (err 
 		if err != nil {
 			c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vm))
 			c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedHandOverPodReason, "Error on handing over pod: %v", err)
-			return fmt.Errorf("failed to hand over pod to virt-handler: %v", err)
+			return &syncErrorImpl{fmt.Errorf("failed to hand over pod to virt-handler: %v", err), FailedHandOverPodReason}
 		}
 		c.recorder.Eventf(vm, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Pod owner ship transfered to the node %s", pod.Name)
 	}

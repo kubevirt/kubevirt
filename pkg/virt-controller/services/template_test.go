@@ -48,6 +48,10 @@ var _ = Describe("Template", func() {
 					v1.AppLabel:    "virt-launcher",
 					v1.DomainLabel: "testvm",
 				}))
+				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
+					v1.CreatedByAnnotation: "1234",
+					v1.OwnedByAnnotation:   "virt-controller",
+				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
 				Expect(pod.Spec.NodeSelector).To(BeEmpty())
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
