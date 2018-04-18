@@ -884,7 +884,7 @@ func WaitForVirtualMachineToDisappearWithTimeout(vm *v1.VirtualMachine, seconds 
 }
 
 func WaitForSuccessfulVMStart(vm runtime.Object) string {
-	return waitForVmStart(vm, 30, false)
+	return waitForVmStart(vm, 90, false)
 }
 
 func NewInt32(x int32) *int32 {
