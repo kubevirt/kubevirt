@@ -485,7 +485,7 @@ func (app *virtAPIApp) createWebhook() error {
 	registerWebhook := false
 	vmPath := vmValidatePath
 
-	_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
+	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			registerWebhook = true
@@ -494,7 +494,28 @@ func (app *virtAPIApp) createWebhook() error {
 		}
 	}
 
-	// TODO update webhook if it is different than what we generate
+	webHooks := []admissionregistrationv1beta1.Webhook{
+		{
+			Name: "virtualmachine-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineGroupVersionKind.Version},
+					Resources:   []string{"virtualmachines"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+	}
+
 	if registerWebhook {
 		_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -503,28 +524,15 @@ func (app *virtAPIApp) createWebhook() error {
 					v1.AppLabel: virtWebhookValidator,
 				},
 			},
-			Webhooks: []admissionregistrationv1beta1.Webhook{
-				{
-					Name: "virtualmachine-validator.kubevirt.io",
-					Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-						Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
-						Rule: admissionregistrationv1beta1.Rule{
-							APIGroups:   []string{v1.GroupName},
-							APIVersions: []string{v1.VirtualMachineGroupVersionKind.Version},
-							Resources:   []string{"virtualmachines"},
-						},
-					}},
-					ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-						Service: &admissionregistrationv1beta1.ServiceReference{
-							Namespace: namespace,
-							Name:      virtApiServiceName,
-							Path:      &vmPath,
-						},
-						CABundle: app.signingCertBytes,
-					},
-				},
-			},
+			Webhooks: webHooks,
 		})
+		if err != nil {
+			return err
+		}
+	} else {
+		// update registered webhook with our data
+		webhookRegistration.Webhooks = webHooks
+		_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(webhookRegistration)
 		if err != nil {
 			return err
 		}
