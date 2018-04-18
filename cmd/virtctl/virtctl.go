@@ -23,6 +23,9 @@ import (
 	"os"
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
+
+	// Import to initialize client auth plugins.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 func main() {
