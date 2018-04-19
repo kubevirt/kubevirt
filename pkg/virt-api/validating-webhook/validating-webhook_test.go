@@ -84,6 +84,151 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})
+	Context("with VMRS admission review", func() {
+		It("reject invalid VM spec", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			vmrs := &v1.VirtualMachineReplicaSet{
+				Spec: v1.VMReplicaSetSpec{
+					Template: &v1.VMTemplateSpec{
+						Spec: vm.Spec,
+					},
+				},
+			}
+			vmrsBytes, _ := json.Marshal(&vmrs)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{
+						Group:    v1.VMReplicaSetGroupVersionKind.Group,
+						Version:  v1.VMReplicaSetGroupVersionKind.Version,
+						Resource: "virtualmachinereplicasets",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmrsBytes,
+					},
+				},
+			}
+
+			resp := admitVMRS(ar)
+			Expect(resp.Allowed).To(Equal(false))
+		})
+		It("should accept valid vm spec", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{},
+				},
+			})
+
+			vmrs := &v1.VirtualMachineReplicaSet{
+				Spec: v1.VMReplicaSetSpec{
+					Template: &v1.VMTemplateSpec{
+						Spec: vm.Spec,
+					},
+				},
+			}
+			vmrsBytes, _ := json.Marshal(&vmrs)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{
+						Group:    v1.VMReplicaSetGroupVersionKind.Group,
+						Version:  v1.VMReplicaSetGroupVersionKind.Version,
+						Resource: "virtualmachinereplicasets",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmrsBytes,
+					},
+				},
+			}
+
+			resp := admitVMRS(ar)
+			Expect(resp.Allowed).To(Equal(true))
+		})
+	})
+
+	Context("with OVM admission review", func() {
+		It("reject invalid VM spec", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			ovm := &v1.OfflineVirtualMachine{
+				Spec: v1.OfflineVirtualMachineSpec{
+					Running: false,
+					Template: &v1.VMTemplateSpec{
+						Spec: vm.Spec,
+					},
+				},
+			}
+			ovmBytes, _ := json.Marshal(&ovm)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{
+						Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
+						Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
+						Resource: "offlinevirtualmachines",
+					},
+					Object: runtime.RawExtension{
+						Raw: ovmBytes,
+					},
+				},
+			}
+
+			resp := admitOVMs(ar)
+			Expect(resp.Allowed).To(Equal(false))
+		})
+		It("should accept valid vm spec", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{},
+				},
+			})
+
+			ovm := &v1.OfflineVirtualMachine{
+				Spec: v1.OfflineVirtualMachineSpec{
+					Running: false,
+					Template: &v1.VMTemplateSpec{
+						Spec: vm.Spec,
+					},
+				},
+			}
+			ovmBytes, _ := json.Marshal(&ovm)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{
+						Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
+						Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
+						Resource: "offlinevirtualmachines",
+					},
+					Object: runtime.RawExtension{
+						Raw: ovmBytes,
+					},
+				},
+			}
+
+			resp := admitOVMs(ar)
+			Expect(resp.Allowed).To(Equal(true))
+		})
+	})
 
 	Context("with VM spec", func() {
 		It("should reject disk with missing volume", func() {

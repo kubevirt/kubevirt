@@ -241,6 +241,17 @@ func validateOfflineVirtualMachineSpec(spec *v1.OfflineVirtualMachineSpec) []err
 	return errors
 }
 
+func validateVMRSSpec(spec *v1.VMReplicaSetSpec) []error {
+	errors := []error{}
+
+	if spec.Template == nil {
+		return append(errors, fmt.Errorf("missing virtual machine template."))
+	}
+
+	errors = append(errors, validateVirtualMachineSpec(&spec.Template.Spec)...)
+	return errors
+}
+
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	errors := []error{}
 
@@ -311,4 +322,40 @@ func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 func ServeOVMs(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitOVMs)
+}
+
+func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	errors := []error{}
+
+	resource := metav1.GroupVersionResource{
+		Group:    v1.VMReplicaSetGroupVersionKind.Group,
+		Version:  v1.VMReplicaSetGroupVersionKind.Version,
+		Resource: "virtualmachinereplicasets",
+	}
+	if ar.Request.Resource != resource {
+		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+		return toAdmissionResponse(err)
+	}
+
+	raw := ar.Request.Object.Raw
+	vmrs := v1.VirtualMachineReplicaSet{}
+
+	err := json.Unmarshal(raw, &vmrs)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+
+	errors = append(errors, validateVMRSSpec(&vmrs.Spec)...)
+	if len(errors) > 0 {
+		err := utilerrors.NewAggregate(errors)
+		return toAdmissionResponse(err)
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeVMRS(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMRS)
 }

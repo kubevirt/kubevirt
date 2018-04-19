@@ -69,8 +69,9 @@ const (
 
 	virtApiServiceName = "virt-api"
 
-	vmValidatePath  = "/virtualmachines-validate"
-	ovmValidatePath = "/offlinevirtualmachines-validate"
+	vmValidatePath   = "/virtualmachines-validate"
+	ovmValidatePath  = "/offlinevirtualmachines-validate"
+	vmrsValidatePath = "/virtualmachinereplicaset-validate"
 
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
@@ -486,6 +487,7 @@ func (app *virtAPIApp) createWebhook() error {
 	registerWebhook := false
 	vmPath := vmValidatePath
 	ovmPath := ovmValidatePath
+	vmrsPath := vmrsValidatePath
 
 	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
 	if err != nil {
@@ -535,6 +537,25 @@ func (app *virtAPIApp) createWebhook() error {
 				CABundle: app.signingCertBytes,
 			},
 		},
+		{
+			Name: "virtualmachinereplicaset-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VMReplicaSetGroupVersionKind.Version},
+					Resources:   []string{"virtualmachinereplicasets"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmrsPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
 	}
 
 	if registerWebhook {
@@ -564,6 +585,9 @@ func (app *virtAPIApp) createWebhook() error {
 	})
 	http.HandleFunc(ovmValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeOVMs(w, r)
+	})
+	http.HandleFunc(vmrsValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMRS(w, r)
 	})
 
 	return nil
