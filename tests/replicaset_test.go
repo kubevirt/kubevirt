@@ -125,6 +125,30 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 	})
+	FIt("should reject POST if validation webhoook deems the spec is invalid", func() {
+		newRS := newReplicaSet()
+		newRS.TypeMeta = v12.TypeMeta{
+			APIVersion: v1.GroupVersion.String(),
+			Kind:       "VirtualMachineReplicaSet",
+		}
+
+		// Add a disk that doesn't map to a volume.
+		// This should get rejected which tells us the webhook validator is working.
+		newRS.Spec.Template.Spec.Domain.Devices.Disks = append(newRS.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name:       "testdisk",
+			VolumeName: "testvolume",
+		})
+		jsonBytes, err := json.Marshal(newRS)
+		Expect(err).To(BeNil())
+
+		result := virtClient.RestClient().Post().Resource("virtualmachinereplicasets").Namespace(tests.NamespaceTestDefault).Body(jsonBytes).SetHeader("Content-Type", "application/json").Do()
+
+		// Verify validation failed.
+		statusCode := 0
+		result.StatusCode(&statusCode)
+		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+	})
 	It("should update readyReplicas once VMs are up", func() {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
