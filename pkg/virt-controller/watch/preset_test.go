@@ -774,6 +774,7 @@ var _ = Describe("VM Initializer", func() {
 			}
 			app.vmInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			app.podInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			app.nodeInformer = cache.NewSharedIndexInformer(vmListWatch, &k8sv1.Node{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			app.vmPresetCache = app.vmInformer.GetStore()
 			app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmPresetQueue))
