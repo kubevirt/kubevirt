@@ -314,11 +314,13 @@ const (
 )
 
 const (
-	AppLabel            string = "kubevirt.io"
-	DomainLabel         string = "kubevirt.io/domain"
-	CreatedByAnnotation string = "kubevirt.io/created-by"
-	OwnedByAnnotation   string = "kubevirt.io/owned-by"
-	NodeNameLabel       string = "kubevirt.io/nodeName"
+	AppLabel             string = "kubevirt.io"
+	DomainLabel          string = "kubevirt.io/domain"
+	CreatedByAnnotation  string = "kubevirt.io/created-by"
+	OwnedByAnnotation    string = "kubevirt.io/owned-by"
+	NodeNameLabel        string = "kubevirt.io/nodeName"
+	NodeSchedulable      string = "kubevirt.io/schedulable"
+	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 
 	VirtualMachineFinalizer string = "foregroundDeleteVirtualMachine"
 )

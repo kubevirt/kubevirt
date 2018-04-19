@@ -34,6 +34,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"encoding/json"
+
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -67,6 +72,7 @@ func NewController(
 		vmInformer:               vmInformer,
 		domainInformer:           domainInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
+		heartBeatInterval:        1 * time.Minute,
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -103,6 +109,7 @@ type VirtualMachineController struct {
 	gracefulShutdownInformer cache.SharedIndexInformer
 	launcherClients          map[string]cmdclient.LauncherClient
 	launcherClientLock       sync.Mutex
+	heartBeatInterval        time.Duration
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -204,6 +211,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.vmInformer.Run(stopCh)
 	go c.gracefulShutdownInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+
+	go c.heartBeat(c.heartBeatInterval, stopCh)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -646,5 +655,24 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)
+	}
+}
+
+func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan struct{}) {
+	for {
+		wait.JitterUntil(func() {
+			now, err := json.Marshal(v12.Now())
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
+				return
+			}
+			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}, "annotations": {"%s": %s}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, string(now)))
+			_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", d.host)
+				return
+			}
+			log.DefaultLogger().V(4).Infof("Heartbeat sent")
+		}, interval, 1.2, true, stopCh)
 	}
 }

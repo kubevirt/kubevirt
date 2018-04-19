@@ -57,6 +57,9 @@ type VirtControllerApp struct {
 	informerFactory controller.KubeInformerFactory
 	podInformer     cache.SharedIndexInformer
 
+	nodeInformer   cache.SharedIndexInformer
+	nodeController *NodeController
+
 	vmCache      cache.Store
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
@@ -115,6 +118,7 @@ func Execute() {
 
 	app.vmInformer = app.informerFactory.VM()
 	app.podInformer = app.informerFactory.KubeVirtPod()
+	app.nodeInformer = app.informerFactory.KubeVirtNode()
 
 	app.vmCache = app.vmInformer.GetStore()
 	app.vmRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
@@ -188,6 +192,7 @@ func (vca *VirtControllerApp) Run() {
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
 					vca.informerFactory.Start(stop)
+					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmPresetController.Run(controllerThreads, stop)
@@ -223,6 +228,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
 	vca.vmController = NewVMController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
+	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, nil)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

@@ -124,7 +124,7 @@ type VMController struct {
 func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
-	log.Log.Info("Starting controller.")
+	log.Log.Info("Starting vm controller.")
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.podInformer.HasSynced)
@@ -135,7 +135,7 @@ func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	<-stopCh
-	log.Log.Info("Stopping controller.")
+	log.Log.Info("Stopping vm controller.")
 }
 
 func (c *VMController) runWorker() {
