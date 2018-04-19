@@ -69,7 +69,8 @@ const (
 
 	virtApiServiceName = "virt-api"
 
-	vmValidatePath = "/virtualmachines-validate"
+	vmValidatePath  = "/virtualmachines-validate"
+	ovmValidatePath = "/offlinevirtualmachines-validate"
 
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
@@ -484,6 +485,7 @@ func (app *virtAPIApp) createWebhook() error {
 	namespace := getNamespace()
 	registerWebhook := false
 	vmPath := vmValidatePath
+	ovmPath := ovmValidatePath
 
 	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
 	if err != nil {
@@ -514,6 +516,25 @@ func (app *virtAPIApp) createWebhook() error {
 				CABundle: app.signingCertBytes,
 			},
 		},
+		{
+			Name: "offlinevirtualmachine-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.OfflineVirtualMachineGroupVersionKind.Version},
+					Resources:   []string{"offlinevirtualmachines"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &ovmPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
 	}
 
 	if registerWebhook {
@@ -540,6 +561,9 @@ func (app *virtAPIApp) createWebhook() error {
 
 	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r)
+	})
+	http.HandleFunc(ovmValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeOVMs(w, r)
 	})
 
 	return nil

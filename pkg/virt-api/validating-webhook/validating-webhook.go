@@ -102,23 +102,9 @@ func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
 	resp.WriteHeader(http.StatusOK)
 }
 
-func validateDisks(vm *v1.VirtualMachine) []error {
+func validateDisks(disks []v1.Disk) []error {
 	errors := []error{}
-	for idx, disk := range vm.Spec.Domain.Devices.Disks {
-		var matchingVolume *v1.Volume
-
-		// Verify disks and volume names line up.
-		for _, volume := range vm.Spec.Volumes {
-			if disk.VolumeName == volume.Name {
-				matchingVolume = &volume
-				break
-			}
-		}
-
-		if matchingVolume == nil {
-			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].volumeName '%s' not found.", idx, disk.VolumeName))
-		}
-
+	for idx, disk := range disks {
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
 		if disk.Disk != nil {
@@ -140,19 +126,15 @@ func validateDisks(vm *v1.VirtualMachine) []error {
 			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d] can only have a single target type defined", idx))
 		}
 
-		// Verify Lun disks are only mapped to network/block devices.
-		if disk.LUN != nil && (matchingVolume == nil || matchingVolume.PersistentVolumeClaim == nil) {
-			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].lun can only be mapped to a PersistentVolumeClaim volume.", idx))
-		}
 	}
 
 	return errors
 }
 
-func validateVolumes(vm *v1.VirtualMachine) []error {
+func validateVolumes(volumes []v1.Volume) []error {
 	errors := []error{}
 
-	for idx, volume := range vm.Spec.Volumes {
+	for idx, volume := range volumes {
 		// Verify exactly one source is set
 		volumeSourceSetCount := 0
 		if volume.PersistentVolumeClaim != nil {
@@ -209,14 +191,66 @@ func validateVolumes(vm *v1.VirtualMachine) []error {
 	return errors
 }
 
+func validateDevices(devices *v1.Devices) []error {
+	errors := []error{}
+	errors = append(errors, validateDisks(devices.Disks)...)
+	return errors
+}
+
+func validateDomainSpec(spec *v1.DomainSpec) []error {
+	errors := []error{}
+	errors = append(errors, validateDevices(&spec.Devices)...)
+	return errors
+}
+
+func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []error {
+	errors := []error{}
+
+	// Validate disks and VolumeNames match up correctly
+	for idx, disk := range spec.Domain.Devices.Disks {
+		var matchingVolume *v1.Volume
+		for _, volume := range spec.Volumes {
+			if disk.VolumeName == volume.Name {
+				matchingVolume = &volume
+				break
+			}
+		}
+
+		if matchingVolume == nil {
+			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].volumeName '%s' not found.", idx, disk.VolumeName))
+		}
+		// Verify Lun disks are only mapped to network/block devices.
+		if disk.LUN != nil && (matchingVolume == nil || matchingVolume.PersistentVolumeClaim == nil) {
+			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].lun can only be mapped to a PersistentVolumeClaim volume.", idx))
+		}
+	}
+
+	errors = append(errors, validateDomainSpec(&spec.Domain)...)
+	errors = append(errors, validateVolumes(spec.Volumes)...)
+	return errors
+}
+
+func validateOfflineVirtualMachineSpec(spec *v1.OfflineVirtualMachineSpec) []error {
+	errors := []error{}
+
+	if spec.Template == nil {
+		return append(errors, fmt.Errorf("missing virtual machine template."))
+	}
+
+	errors = append(errors, validateVirtualMachineSpec(&spec.Template.Spec)...)
+	return errors
+}
+
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	errors := []error{}
 
-	log.Log.Info("admitting vms")
-
-	vmResource := metav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"}
+	vmResource := metav1.GroupVersionResource{
+		Group:    v1.VirtualMachineGroupVersionKind.Group,
+		Version:  v1.VirtualMachineGroupVersionKind.Version,
+		Resource: "virtualmachines",
+	}
 	if ar.Request.Resource != vmResource {
-		err := fmt.Errorf("expect resource to be '%s'", vmResource)
+		err := fmt.Errorf("expect resource to be '%s'", vmResource.Resource)
 		return toAdmissionResponse(err)
 	}
 
@@ -228,9 +262,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponse(err)
 	}
 
-	errors = append(errors, validateDisks(&vm)...)
-	errors = append(errors, validateVolumes(&vm)...)
-
+	errors = append(errors, validateVirtualMachineSpec(&vm.Spec)...)
 	if len(errors) > 0 {
 		err := utilerrors.NewAggregate(errors)
 		return toAdmissionResponse(err)
@@ -243,4 +275,40 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMs)
+}
+
+func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	errors := []error{}
+
+	resource := metav1.GroupVersionResource{
+		Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
+		Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
+		Resource: "offlinevirtualmachines",
+	}
+	if ar.Request.Resource != resource {
+		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+		return toAdmissionResponse(err)
+	}
+
+	raw := ar.Request.Object.Raw
+	ovm := v1.OfflineVirtualMachine{}
+
+	err := json.Unmarshal(raw, &ovm)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+
+	errors = append(errors, validateOfflineVirtualMachineSpec(&ovm.Spec)...)
+	if len(errors) > 0 {
+		err := utilerrors.NewAggregate(errors)
+		return toAdmissionResponse(err)
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeOVMs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitOVMs)
 }
