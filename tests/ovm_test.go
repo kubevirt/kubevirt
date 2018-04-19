@@ -80,7 +80,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 		})
-		FIt("should reject POST if validation webhoook deems the spec is invalid", func() {
+		It("should reject POST if validation webhoook deems the spec is invalid", func() {
 			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
 			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
 			// Add a disk that doesn't map to a volume.

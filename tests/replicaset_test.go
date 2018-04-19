@@ -125,7 +125,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 	})
-	FIt("should reject POST if validation webhoook deems the spec is invalid", func() {
+	It("should reject POST if validation webhoook deems the spec is invalid", func() {
 		newRS := newReplicaSet()
 		newRS.TypeMeta = v12.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
