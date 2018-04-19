@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -33,8 +33,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 )
 
+type ServerOptions struct {
+	allowEmulation bool
+}
+
+func NewServerOptions(allowEmulation bool) *ServerOptions {
+	return &ServerOptions{allowEmulation: allowEmulation}
+}
+
 type Launcher struct {
-	domainManager virtwrap.DomainManager
+	domainManager  virtwrap.DomainManager
+	allowEmulation bool
 }
 
 func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachine, error) {
@@ -54,7 +63,7 @@ func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	_, err = s.domainManager.SyncVM(vm)
+	_, err = s.domainManager.SyncVM(vm, s.allowEmulation)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Failed to sync vm")
 		reply.Success = false
@@ -150,11 +159,17 @@ func createSocket(socketPath string) (net.Listener, error) {
 
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
-	stopChan chan struct{}) error {
+	stopChan chan struct{},
+	options *ServerOptions) error {
 
+	allowEmulation := false
+	if options != nil {
+		allowEmulation = options.allowEmulation
+	}
 	rpcServer := rpc.NewServer()
 	server := &Launcher{
-		domainManager: domainManager,
+		domainManager:  domainManager,
+		allowEmulation: allowEmulation,
 	}
 	rpcServer.Register(server)
 	sock, err := createSocket(socketPath)

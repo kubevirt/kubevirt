@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2017, 2018 Red Hat, Inc.
+ *
+ */
+
 package watch
 
 import (
@@ -71,6 +90,9 @@ type VirtControllerApp struct {
 	vmPresetRecorder   record.EventRecorder
 	vmRecorder         record.EventRecorder
 
+	configMapCache    cache.Store
+	configMapInformer cache.SharedIndexInformer
+
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
@@ -131,6 +153,9 @@ func Execute() {
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
 	app.vmPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
+
+	app.configMapInformer = app.informerFactory.ConfigMap()
+	app.configMapCache = app.configMapInformer.GetStore()
 
 	app.ovmInformer = app.informerFactory.OfflineVirtualMachine()
 
@@ -196,7 +221,8 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmPresetController.Run(controllerThreads, stop)
-					go vca.ovmController.Run(3, stop)
+					go vca.ovmController.Run(controllerThreads, stop)
+					go vca.configMapInformer.Run(stop)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -225,8 +251,8 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
-	vca.vmController = NewVMController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
+	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
+	vca.vmController = NewVMController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet, vca.configMapInformer)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmInformer, nil)
 }

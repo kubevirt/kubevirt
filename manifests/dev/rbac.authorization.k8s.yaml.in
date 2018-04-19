@@ -70,14 +70,16 @@ rules:
       - get
       - list
       - delete
-      - update  
-      - create  
+      - update
+      - create
   - apiGroups:
       - ''
     resources:
       - configmaps
     verbs:
       - get
+      - list
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -133,13 +135,13 @@ rules:
       - list
       - watch
       - delete
-      - update  
-      - create  
+      - update
+      - create
   - apiGroups:
       - ''
     resources:
       - nodes
-      - persistentvolumeclaims  
+      - persistentvolumeclaims
     verbs:
       - get
       - list
@@ -148,14 +150,14 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - virtualmachinereplicasets  
+      - virtualmachinereplicasets
     verbs:
       - get
       - list
       - watch
       - delete
-      - update  
-      - create  
+      - update
+      - create
       - deletecollection
 ---
 apiVersion: v1

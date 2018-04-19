@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -22,27 +22,52 @@ package services
 import (
 	"path/filepath"
 	"strconv"
+	"strings"
 
-	kubev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/registry-disk"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
+const configMapKey = "kube-system/virt-controller"
+
 type TemplateService interface {
-	RenderLaunchManifest(*v1.VirtualMachine) *kubev1.Pod
+	RenderLaunchManifest(*v1.VirtualMachine) *k8sv1.Pod
 }
 
 type templateService struct {
 	launcherImage   string
 	virtShareDir    string
 	imagePullSecret string
+	store           cache.Store
 }
 
-func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Pod {
+func isEmulationAllowed(store cache.Store) (bool, error) {
+	obj, exists, err := store.GetByKey(configMapKey)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return exists, nil
+	}
+	var cm *k8sv1.ConfigMap
+	allowEmulation := false
+	cm = obj.(*k8sv1.ConfigMap)
+	emu, ok := cm.Data["allowEmulation"]
+	if ok {
+		// TODO: is this too specific? should we just look for the existence of
+		// the 'allowEmulation' key itself regardless of content?
+		allowEmulation = (strings.ToLower(emu) == "true")
+	}
+	return allowEmulation, nil
+}
+
+func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *k8sv1.Pod {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -53,57 +78,57 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 	successThreshold := 1
 	failureThreshold := 5
 
-	var volumes []kubev1.Volume
+	var volumes []k8sv1.Volume
 	var userId int64 = 0
-	var privileged = true
-	var volumesMounts []kubev1.VolumeMount
-	var imagePullSecrets []kubev1.LocalObjectReference
+	var privileged bool = true
+	var volumesMounts []k8sv1.VolumeMount
+	var imagePullSecrets []k8sv1.LocalObjectReference
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vm.Spec.TerminationGracePeriodSeconds != nil {
 		gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
 	}
 
-	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
 		Name:      "virt-share-dir",
 		MountPath: t.virtShareDir,
 	})
-	volumesMounts = append(volumesMounts, kubev1.VolumeMount{
+	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
 	for _, volume := range vm.Spec.Volumes {
-		volumeMount := kubev1.VolumeMount{
+		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: filepath.Join("/var/run/kubevirt-private", "vm-disks", volume.Name),
 		}
 		if volume.PersistentVolumeClaim != nil {
 			volumesMounts = append(volumesMounts, volumeMount)
-			volumes = append(volumes, kubev1.Volume{
+			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
-				VolumeSource: kubev1.VolumeSource{
+				VolumeSource: k8sv1.VolumeSource{
 					PersistentVolumeClaim: volume.PersistentVolumeClaim,
 				},
 			})
 		}
 		if volume.Ephemeral != nil {
 			volumesMounts = append(volumesMounts, volumeMount)
-			volumes = append(volumes, kubev1.Volume{
+			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
-				VolumeSource: kubev1.VolumeSource{
+				VolumeSource: k8sv1.VolumeSource{
 					PersistentVolumeClaim: volume.Ephemeral.PersistentVolumeClaim,
 				},
 			})
 		}
 		if volume.RegistryDisk != nil && volume.RegistryDisk.ImagePullSecret != "" {
-			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, kubev1.LocalObjectReference{
+			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 				Name: volume.RegistryDisk.ImagePullSecret,
 			})
 		}
 	}
 
 	if t.imagePullSecret != "" {
-		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, kubev1.LocalObjectReference{
+		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 			Name: t.imagePullSecret,
 		})
 	}
@@ -116,10 +141,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Consider CPU and memory requests and limits for pod scheduling
-	resources := kubev1.ResourceRequirements{}
+	resources := k8sv1.ResourceRequirements{}
 	vmResources := vm.Spec.Domain.Resources
 
-	resources.Requests = make(kubev1.ResourceList)
+	resources.Requests = make(k8sv1.ResourceList)
 
 	// Copy vm resources requests to a container
 	for key, value := range vmResources.Requests {
@@ -128,7 +153,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 
 	// Copy vm resources limits to a container
 	if vmResources.Limits != nil {
-		resources.Limits = make(kubev1.ResourceList)
+		resources.Limits = make(k8sv1.ResourceList)
 	}
 	for key, value := range vmResources.Limits {
 		resources.Limits[key] = value
@@ -137,29 +162,36 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 	// Add memory overhead
 	setMemoryOverhead(vm.Spec.Domain, &resources)
 
+	command := []string{"/entrypoint.sh",
+		"--qemu-timeout", "5m",
+		"--name", domain,
+		"--namespace", namespace,
+		"--kubevirt-share-dir", t.virtShareDir,
+		"--readiness-file", "/tmp/healthy",
+		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
+	}
+
+	allowEmulation, err := isEmulationAllowed(t.store)
+	if allowEmulation {
+		command = append(command, "--allow-emulation")
+	}
+
 	// VM target container
-	container := kubev1.Container{
+	container := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
-		ImagePullPolicy: kubev1.PullIfNotPresent,
+		ImagePullPolicy: k8sv1.PullIfNotPresent,
 		// Privileged mode is required for /dev/kvm and the
 		// ability to create macvtap devices
-		SecurityContext: &kubev1.SecurityContext{
+		SecurityContext: &k8sv1.SecurityContext{
 			RunAsUser:  &userId,
 			Privileged: &privileged,
 		},
-		Command: []string{"/entrypoint.sh",
-			"--qemu-timeout", "5m",
-			"--name", domain,
-			"--namespace", namespace,
-			"--kubevirt-share-dir", t.virtShareDir,
-			"--readiness-file", "/tmp/healthy",
-			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
-		},
+		Command:      command,
 		VolumeMounts: volumesMounts,
-		ReadinessProbe: &kubev1.Probe{
-			Handler: kubev1.Handler{
-				Exec: &kubev1.ExecAction{
+		ReadinessProbe: &k8sv1.Probe{
+			Handler: k8sv1.Handler{
+				Exec: &k8sv1.ExecAction{
 					Command: []string{
 						"cat",
 						"/tmp/healthy",
@@ -177,18 +209,18 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 
 	containers := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
 
-	volumes = append(volumes, kubev1.Volume{
+	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
-		VolumeSource: kubev1.VolumeSource{
-			HostPath: &kubev1.HostPathVolumeSource{
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
 				Path: t.virtShareDir,
 			},
 		},
 	})
-	volumes = append(volumes, kubev1.Volume{
+	volumes = append(volumes, k8sv1.Volume{
 		Name: "libvirt-runtime",
-		VolumeSource: kubev1.VolumeSource{
-			EmptyDir: &kubev1.EmptyDirVolumeSource{},
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
 
@@ -210,7 +242,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 	containers = append(containers, container)
 
 	// TODO use constants for podLabels
-	pod := kubev1.Pod{
+	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
@@ -219,12 +251,12 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 				v1.OwnedByAnnotation:   "virt-controller",
 			},
 		},
-		Spec: kubev1.PodSpec{
-			SecurityContext: &kubev1.PodSecurityContext{
+		Spec: k8sv1.PodSpec{
+			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
-			RestartPolicy:                 kubev1.RestartPolicyNever,
+			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
 			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
@@ -233,7 +265,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 	}
 
 	if vm.Spec.Affinity != nil {
-		pod.Spec.Affinity = &kubev1.Affinity{}
+		pod.Spec.Affinity = &k8sv1.Affinity{}
 
 		if vm.Spec.Affinity.NodeAffinity != nil {
 			pod.Spec.Affinity.NodeAffinity = vm.Spec.Affinity.NodeAffinity
@@ -243,7 +275,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 	return &pod
 }
 
-func appendUniqueImagePullSecret(secrets []kubev1.LocalObjectReference, newsecret kubev1.LocalObjectReference) []kubev1.LocalObjectReference {
+func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
 	for _, oldsecret := range secrets {
 		if oldsecret == newsecret {
 			return secrets
@@ -261,7 +293,7 @@ func appendUniqueImagePullSecret(secrets []kubev1.LocalObjectReference, newsecre
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func setMemoryOverhead(domain v1.DomainSpec, resources *kubev1.ResourceRequirements) error {
+func setMemoryOverhead(domain v1.DomainSpec, resources *k8sv1.ResourceRequirements) error {
 	vmMemoryReq := domain.Resources.Requests.Memory()
 
 	overhead := resource.NewScaledQuantity(0, resource.Kilo)
@@ -290,25 +322,26 @@ func setMemoryOverhead(domain v1.DomainSpec, resources *kubev1.ResourceRequireme
 	overhead.Add(resource.MustParse("16Mi"))
 
 	// Add overhead to memory request
-	memoryRequest := resources.Requests[kubev1.ResourceMemory]
+	memoryRequest := resources.Requests[k8sv1.ResourceMemory]
 	memoryRequest.Add(*overhead)
-	resources.Requests[kubev1.ResourceMemory] = memoryRequest
+	resources.Requests[k8sv1.ResourceMemory] = memoryRequest
 
 	// Add overhead to memory limits, if exists
-	if memoryLimit, ok := resources.Limits[kubev1.ResourceMemory]; ok {
+	if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
 		memoryLimit.Add(*overhead)
-		resources.Limits[kubev1.ResourceMemory] = memoryLimit
+		resources.Limits[k8sv1.ResourceMemory] = memoryLimit
 	}
 
 	return nil
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string) TemplateService {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		launcherImage:   launcherImage,
 		virtShareDir:    virtShareDir,
 		imagePullSecret: imagePullSecret,
+		store:           configMapCache,
 	}
 	return &svc
 }

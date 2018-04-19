@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -35,6 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
+
+const systemNamespace = "kube-system"
 
 type newSharedInformer func() cache.SharedIndexInformer
 
@@ -60,6 +62,9 @@ type KubeInformerFactory interface {
 
 	// OfflineVirtualMachine handles the VMs that are stopped or not running
 	OfflineVirtualMachine() cache.SharedIndexInformer
+
+	// Watches for ConfigMap objects
+	ConfigMap() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -164,6 +169,15 @@ func (f *kubeInformerFactory) OfflineVirtualMachine() cache.SharedIndexInformer 
 	return f.getInformer("ovmInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "offlinevirtualmachines", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.OfflineVirtualMachine{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
+	// We currently only monitor configmaps in the kube-system namespace
+	return f.getInformer("configMapInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CoreV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "configmaps", systemNamespace, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
