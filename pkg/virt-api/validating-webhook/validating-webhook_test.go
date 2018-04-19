@@ -37,9 +37,8 @@ import (
 )
 
 var _ = Describe("Validating Webhook", func() {
-
-	Context("with admission review", func() {
-		It("reject invalid disk", func() {
+	Context("with VM admission review", func() {
+		It("reject invalid VM spec", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -59,13 +58,16 @@ var _ = Describe("Validating Webhook", func() {
 			resp := admitVMs(ar)
 			Expect(resp.Allowed).To(Equal(false))
 		})
-		It("reject invalid volume", func() {
+		It("should accept valid vm spec", func() {
 			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
 			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk:          &v1.RegistryDiskSource{},
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
+					RegistryDisk: &v1.RegistryDiskSource{},
 				},
 			})
 			vmBytes, _ := json.Marshal(&vm)
@@ -78,97 +80,12 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				},
 			}
-
 			resp := admitVMs(ar)
-			Expect(resp.Allowed).To(Equal(false))
+			Expect(resp.Allowed).To(Equal(true))
 		})
-		table.DescribeTable("should accept valid volumes",
-			func(volumeSource v1.VolumeSource) {
-				vm := v1.NewMinimalVM("testvm")
-
-				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-					Name:         "testvolume",
-					VolumeSource: volumeSource,
-				})
-
-				vmBytes, _ := json.Marshal(&vm)
-
-				ar := &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
-						Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
-						Object: runtime.RawExtension{
-							Raw: vmBytes,
-						},
-					},
-				}
-
-				resp := admitVMs(ar)
-				Expect(resp.Allowed).To(Equal(true))
-			},
-			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
-			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake"}}),
-			table.Entry("with registryDisk volume source", v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{}}),
-			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
-			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
-		)
-		table.DescribeTable("should accept valid disks",
-			func(disk v1.Disk, volume v1.Volume) {
-				vm := v1.NewMinimalVM("testvm")
-
-				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, disk)
-				vm.Spec.Volumes = append(vm.Spec.Volumes, volume)
-
-				vmBytes, _ := json.Marshal(&vm)
-
-				ar := &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
-						Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
-						Object: runtime.RawExtension{
-							Raw: vmBytes,
-						},
-					},
-				}
-
-				resp := admitVMs(ar)
-				Expect(resp.Allowed).To(Equal(true))
-			},
-			table.Entry("with Disk target",
-				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}},
-				v1.Volume{Name: "testvolume", VolumeSource: v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{Image: "fake"}}},
-			),
-			table.Entry("with LUN target",
-				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{}}},
-				v1.Volume{Name: "testvolume", VolumeSource: v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}},
-			),
-			table.Entry("with Floppy target",
-				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Floppy: &v1.FloppyTarget{}}},
-				v1.Volume{Name: "testvolume", VolumeSource: v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{Image: "fake"}}},
-			),
-			table.Entry("with CDRom target",
-				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{}}},
-				v1.Volume{Name: "testvolume", VolumeSource: v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{Image: "fake"}}},
-			),
-		)
 	})
-	Context("with VM disk", func() {
-		It("should allow disk without a target", func() {
-			vm := v1.NewMinimalVM("testvm")
 
-			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk",
-				VolumeName: "testvolume",
-				// disk without a target defaults to DiskTarget
-			})
-			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-				Name: "testvolume",
-				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{Image: "fake"},
-				},
-			})
-
-			errors := validateDisks(vm)
-			Expect(len(errors)).To(Equal(0))
-		})
+	Context("with VM spec", func() {
 		It("should reject disk with missing volume", func() {
 			vm := v1.NewMinimalVM("testvm")
 
@@ -177,28 +94,7 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeName: "testvolume",
 			})
 
-			errors := validateDisks(vm)
-			Expect(len(errors)).To(Equal(1))
-		})
-		It("should reject disk with multiple targets ", func() {
-			vm := v1.NewMinimalVM("testvm")
-
-			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk",
-				VolumeName: "testvolume",
-				DiskDevice: v1.DiskDevice{
-					Disk:   &v1.DiskTarget{},
-					Floppy: &v1.FloppyTarget{},
-				},
-			})
-			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-				Name: "testvolume",
-				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{Image: "fake"},
-				},
-			})
-
-			errors := validateDisks(vm)
+			errors := validateVirtualMachineSpec(&vm.Spec)
 			Expect(len(errors)).To(Equal(1))
 		})
 		It("should generate multiple errors", func() {
@@ -213,7 +109,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateDisks(vm)
+			errors := validateVirtualMachineSpec(&vm.Spec)
 			// missing volume and multiple targets set. should result in 2 errors
 			Expect(len(errors)).To(Equal(2))
 		})
@@ -229,7 +125,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 				vm.Spec.Volumes = append(vm.Spec.Volumes, *volume)
 
-				errors := validateDisks(vm)
+				errors := validateVirtualMachineSpec(&vm.Spec)
 				Expect(len(errors)).To(Equal(expectedErrors))
 			},
 			table.Entry("and reject non PVC sources",
@@ -247,16 +143,34 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				}, 0),
 		)
+
 	})
-	Context("with VM volume", func() {
-		It("should reject volume no volume source set", func() {
+	Context("with Volume", func() {
+		table.DescribeTable("should accept valid volumes",
+			func(volumeSource v1.VolumeSource) {
+				vm := v1.NewMinimalVM("testvm")
+				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+					Name:         "testvolume",
+					VolumeSource: volumeSource,
+				})
+
+				errors := validateVolumes(vm.Spec.Volumes)
+				Expect(len(errors)).To(Equal(0))
+			},
+			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
+			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake"}}),
+			table.Entry("with registryDisk volume source", v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{}}),
+			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
+			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
+		)
+		It("should reject volume with no volume source set", func() {
 			vm := v1.NewMinimalVM("testvm")
 
 			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 			})
 
-			errors := validateVolumes(vm)
+			errors := validateVolumes(vm.Spec.Volumes)
 			Expect(len(errors)).To(Equal(1))
 		})
 		It("should reject volume with multiple volume sources set", func() {
@@ -270,7 +184,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateVolumes(vm)
+			errors := validateVolumes(vm.Spec.Volumes)
 			Expect(len(errors)).To(Equal(1))
 		})
 		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
@@ -290,7 +204,7 @@ var _ = Describe("Validating Webhook", func() {
 				vm.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData = userdata
 			}
 
-			errors := validateVolumes(vm)
+			errors := validateVolumes(vm.Spec.Volumes)
 			Expect(len(errors)).To(Equal(expectedErrors))
 		},
 			table.Entry("should accept userdata under max limit", 10, 0, false),
@@ -312,7 +226,71 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateVolumes(vm)
+			errors := validateVolumes(vm.Spec.Volumes)
+			Expect(len(errors)).To(Equal(1))
+		})
+	})
+	Context("with Disk", func() {
+		table.DescribeTable("should accept valid disks",
+			func(disk v1.Disk) {
+				vm := v1.NewMinimalVM("testvm")
+
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, disk)
+
+				errors := validateDisks(vm.Spec.Domain.Devices.Disks)
+				Expect(len(errors)).To(Equal(0))
+
+			},
+			table.Entry("with Disk target",
+				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}},
+			),
+			table.Entry("with LUN target",
+				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{}}},
+			),
+			table.Entry("with Floppy target",
+				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{Floppy: &v1.FloppyTarget{}}},
+			),
+			table.Entry("with CDRom target",
+				v1.Disk{Name: "testdisk", VolumeName: "testvolume", DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{}}},
+			),
+		)
+		It("should allow disk without a target", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+				// disk without a target defaults to DiskTarget
+			})
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{Image: "fake"},
+				},
+			})
+
+			errors := validateDisks(vm.Spec.Domain.Devices.Disks)
+			Expect(len(errors)).To(Equal(0))
+		})
+		It("should reject disk with multiple targets ", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk:   &v1.DiskTarget{},
+					Floppy: &v1.FloppyTarget{},
+				},
+			})
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{Image: "fake"},
+				},
+			})
+
+			errors := validateDisks(vm.Spec.Domain.Devices.Disks)
 			Expect(len(errors)).To(Equal(1))
 		})
 	})
