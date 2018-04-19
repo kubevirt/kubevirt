@@ -20,3 +20,16 @@ taken from hack/config.sh:
 # from the git repo root folder
 make functest
 ```
+
+## Run them anywhere inside of container
+
+```
+# Create directory for data
+mkdir -p /tmp/kubevirt-tests-data
+# Put kubeconfig into data directory
+cp ~/.kube/config /tmp/kubevirt-tests-data/kubeconfig
+# Run container with data volume
+docker run --rm \
+    -v /tmp/kubevirt-tests-data:/kubevirt-testing/data:rw,z \
+    kubevirt/tests:latest
+```
