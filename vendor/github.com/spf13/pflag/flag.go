@@ -279,7 +279,7 @@ func (f *FlagSet) VisitAll(fn func(*Flag)) {
 	}
 }
 
-// HasFlags returns a bool to indicate if the FlagSet has any flags definied.
+// HasFlags returns a bool to indicate if the FlagSet has any flags defined.
 func (f *FlagSet) HasFlags() bool {
 	return len(f.formal) > 0
 }

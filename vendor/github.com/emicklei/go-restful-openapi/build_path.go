@@ -199,7 +199,14 @@ func buildResponse(e restful.ResponseError, cfg Config) (r spec.Response) {
 			}
 		} else {
 			modelName := definitionBuilder{}.keyFrom(st)
-			r.Schema.Ref = spec.MustCreateRef("#/definitions/" + modelName)
+			if isPrimitiveType(modelName) {
+				// If the response is a primitive type, then don't reference any definitions.
+				// Instead, set the schema's "type" to the model name.
+				r.Schema.AddType(modelName, "")
+			} else {
+				modelName := definitionBuilder{}.keyFrom(st)
+				r.Schema.Ref = spec.MustCreateRef("#/definitions/" + modelName)
+			}
 		}
 	}
 	return r
