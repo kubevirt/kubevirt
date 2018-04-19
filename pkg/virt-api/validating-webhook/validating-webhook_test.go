@@ -229,6 +229,69 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})
+	Context("with VMPreset admission review", func() {
+		It("reject invalid VM spec", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk:   &v1.DiskTarget{},
+					Floppy: &v1.FloppyTarget{},
+				},
+			})
+			vmPreset := &v1.VirtualMachinePreset{
+				Spec: v1.VirtualMachinePresetSpec{},
+			}
+			vmPresetBytes, _ := json.Marshal(&vmPreset)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{
+						Group:    v1.VirtualMachinePresetGroupVersionKind.Group,
+						Version:  v1.VirtualMachinePresetGroupVersionKind.Version,
+						Resource: "virtualmachinepresets",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmPresetBytes,
+					},
+				},
+			}
+
+			resp := admitVMPreset(ar)
+			Expect(resp.Allowed).To(Equal(false))
+		})
+		It("should accept valid vm spec", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+
+			vmPreset := &v1.VirtualMachinePreset{
+				Spec: v1.VirtualMachinePresetSpec{
+					Domain: &v1.DomainSpec{},
+				},
+			}
+			vmPresetBytes, _ := json.Marshal(&vmPreset)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{
+						Group:    v1.VirtualMachinePresetGroupVersionKind.Group,
+						Version:  v1.VirtualMachinePresetGroupVersionKind.Version,
+						Resource: "virtualmachinepresets",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmPresetBytes,
+					},
+				},
+			}
+
+			resp := admitVMPreset(ar)
+			Expect(resp.Allowed).To(Equal(true))
+		})
+	})
 
 	Context("with VM spec", func() {
 		It("should reject disk with missing volume", func() {

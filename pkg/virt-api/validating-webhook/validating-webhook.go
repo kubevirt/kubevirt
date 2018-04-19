@@ -241,6 +241,16 @@ func validateOfflineVirtualMachineSpec(spec *v1.OfflineVirtualMachineSpec) []err
 	return errors
 }
 
+func validateVMPresetSpec(spec *v1.VirtualMachinePresetSpec) []error {
+	errors := []error{}
+
+	if spec.Domain == nil {
+		return append(errors, fmt.Errorf("missing domain."))
+	}
+
+	errors = append(errors, validateDomainSpec(spec.Domain)...)
+	return errors
+}
 func validateVMRSSpec(spec *v1.VMReplicaSetSpec) []error {
 	errors := []error{}
 
@@ -358,4 +368,39 @@ func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 func ServeVMRS(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMRS)
+}
+func admitVMPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	errors := []error{}
+
+	resource := metav1.GroupVersionResource{
+		Group:    v1.VMReplicaSetGroupVersionKind.Group,
+		Version:  v1.VMReplicaSetGroupVersionKind.Version,
+		Resource: "virtualmachinepresets",
+	}
+	if ar.Request.Resource != resource {
+		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+		return toAdmissionResponse(err)
+	}
+
+	raw := ar.Request.Object.Raw
+	vmpreset := v1.VirtualMachinePreset{}
+
+	err := json.Unmarshal(raw, &vmpreset)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+
+	errors = append(errors, validateVMPresetSpec(&vmpreset.Spec)...)
+	if len(errors) > 0 {
+		err := utilerrors.NewAggregate(errors)
+		return toAdmissionResponse(err)
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeVMPreset(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMPreset)
 }

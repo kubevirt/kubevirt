@@ -69,9 +69,10 @@ const (
 
 	virtApiServiceName = "virt-api"
 
-	vmValidatePath   = "/virtualmachines-validate"
-	ovmValidatePath  = "/offlinevirtualmachines-validate"
-	vmrsValidatePath = "/virtualmachinereplicaset-validate"
+	vmValidatePath       = "/virtualmachines-validate"
+	ovmValidatePath      = "/offlinevirtualmachines-validate"
+	vmrsValidatePath     = "/virtualmachinereplicaset-validate"
+	vmpresetValidatePath = "/vmpreset-validate"
 
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
@@ -488,6 +489,7 @@ func (app *virtAPIApp) createWebhook() error {
 	vmPath := vmValidatePath
 	ovmPath := ovmValidatePath
 	vmrsPath := vmrsValidatePath
+	vmpresetPath := vmpresetValidatePath
 
 	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
 	if err != nil {
@@ -556,6 +558,25 @@ func (app *virtAPIApp) createWebhook() error {
 				CABundle: app.signingCertBytes,
 			},
 		},
+		{
+			Name: "virtualmachinepreset-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachinePresetGroupVersionKind.Version},
+					Resources:   []string{"virtualmachinepresets"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmpresetPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
 	}
 
 	if registerWebhook {
@@ -588,6 +609,9 @@ func (app *virtAPIApp) createWebhook() error {
 	})
 	http.HandleFunc(vmrsValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMRS(w, r)
+	})
+	http.HandleFunc(vmpresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMPreset(w, r)
 	})
 
 	return nil
