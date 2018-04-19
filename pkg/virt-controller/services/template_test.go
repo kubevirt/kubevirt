@@ -53,7 +53,9 @@ var _ = Describe("Template", func() {
 					v1.OwnedByAnnotation:   "virt-controller",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
-				Expect(pod.Spec.NodeSelector).To(BeEmpty())
+				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
+					v1.NodeSchedulable: "true",
+				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
 					"--qemu-timeout", "5m",
 					"--name", "testvm",
@@ -69,6 +71,7 @@ var _ = Describe("Template", func() {
 
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
+					v1.NodeSchedulable:       "true",
 				}
 				vm := v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}, Spec: v1.VirtualMachineSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{}}}
 
@@ -82,6 +85,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					"kubernetes.io/hostname": "master",
+					v1.NodeSchedulable:       "true",
 				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
 					"--qemu-timeout", "5m",

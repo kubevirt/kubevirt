@@ -192,6 +192,13 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 		},
 	})
 
+	nodeSelector := map[string]string{}
+	for k, v := range vm.Spec.NodeSelector {
+		nodeSelector[k] = v
+
+	}
+	nodeSelector[v1.NodeSchedulable] = "true"
+
 	containers = append(containers, container)
 
 	// TODO use constants for labels
@@ -214,7 +221,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 kubev1.RestartPolicyNever,
 			Containers:                    containers,
-			NodeSelector:                  vm.Spec.NodeSelector,
+			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,
 		},
