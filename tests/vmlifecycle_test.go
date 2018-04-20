@@ -35,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -304,6 +306,79 @@ var _ = Describe("Vmlifecycle", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return n.Labels[v1.VirtHandlerHeartbeat]
 				}()).ShouldNot(Equal(timestamp))
+			})
+		})
+
+		Context("when virt-handler is not responsive", func() {
+
+			var vm *v1.VirtualMachine
+			var nodeName string
+			var virtHandler *k8sv1.Pod
+
+			BeforeEach(func() {
+				// schdule a vm and make sure that virt-handler gets evicted from the node where the vm was started
+				vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
+				vm, err = virtClient.VM(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				nodeName = tests.WaitForSuccessfulVMStart(vm)
+				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred())
+				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
+				ds.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+								{MatchExpressions: []k8sv1.NodeSelectorRequirement{
+									{Key: "kubernetes.io/hostname", Operator: "NotIn", Values: []string{nodeName}},
+								}},
+							},
+						},
+					},
+				}
+				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					_, err := virtClient.CoreV1().Pods(virtHandler.Namespace).Get(virtHandler.Name, metav1.GetOptions{})
+					return errors.IsNotFound(err)
+				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+			})
+			It("the node controller should react", func() {
+
+				// Update virt-handler heartbeat, to trigger a timeout
+				data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, v1.VirtHandlerHeartbeat, nowAsJSONWithOffset(-10*time.Minute)))
+				_, err = virtClient.CoreV1().Nodes().Patch(nodeName, types.StrategicMergePatchType, data)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Delete vm pod
+				pods, err := virtClient.CoreV1().Pods(vm.Namespace).List(metav1.ListOptions{
+					LabelSelector: v1.DomainLabel + " = " + vm.Name,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pods.Items).To(HaveLen(1))
+				Expect(virtClient.CoreV1().Pods(vm.Namespace).Delete(pods.Items[0].Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				// it will take at least 45 seconds until the vm is gone, check the schedulable state in the meantime
+				By("marking the node as not schedulable")
+				Eventually(func() string {
+					node, err := virtClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return node.Labels[v1.NodeSchedulable]
+				}, 20*time.Second, 1*time.Second).Should(Equal("false"))
+
+				By("moving stuck vms to failed state")
+				Eventually(func() v1.VMPhase {
+					failedVM, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return failedVM.Status.Phase
+				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+			})
+			AfterEach(func() {
+				// Restore virt-handler daemonset
+				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				ds.Spec.Template.Spec.Affinity = nil
+				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -584,4 +659,13 @@ func pkillAllVms(virtCli kubecli.KubevirtClient, node string) error {
 	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
 
 	return err
+}
+
+func nowAsJSONWithOffset(offset time.Duration) string {
+	now := metav1.Now()
+	now = metav1.NewTime(now.Add(offset))
+
+	data, err := json.Marshal(now)
+	Expect(err).ToNot(HaveOccurred())
+	return strings.Trim(string(data), `"`)
 }
