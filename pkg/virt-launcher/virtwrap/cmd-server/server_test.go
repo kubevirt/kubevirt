@@ -45,6 +45,8 @@ var _ = Describe("Virt remote commands", func() {
 	var shareDir string
 	var stop chan struct{}
 	var stopped bool
+	var allowEmulation bool
+	var options *ServerOptions
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -57,7 +59,9 @@ var _ = Describe("Virt remote commands", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
 
-		RunServer(shareDir+"/server.sock", domainManager, stop)
+		allowEmulation = true
+		options = NewServerOptions(allowEmulation)
+		RunServer(shareDir+"/server.sock", domainManager, stop, options)
 		client, err = cmdclient.GetClient(shareDir + "/server.sock")
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -74,7 +78,7 @@ var _ = Describe("Virt remote commands", func() {
 		It("should start a vm", func() {
 			vm := v1.NewVMReferenceFromName("testvm")
 			domain := api.NewMinimalDomain("testvm")
-			domainManager.EXPECT().SyncVM(vm).Return(&domain.Spec, nil)
+			domainManager.EXPECT().SyncVM(vm, allowEmulation).Return(&domain.Spec, nil)
 
 			err := client.SyncVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred())

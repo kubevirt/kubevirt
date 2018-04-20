@@ -27,6 +27,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -35,7 +36,7 @@ import (
 var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
-	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1")
+	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache)
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {

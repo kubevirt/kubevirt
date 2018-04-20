@@ -98,7 +98,7 @@ var _ = Describe("Domain informer", func() {
 			socketPath := filepath.Join(socketsDir, "default_testvm1_sock")
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
-			cmdserver.RunServer(socketPath, domainManager, stopChan)
+			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
 			client, err := cmdclient.GetClient(socketPath)
@@ -124,7 +124,7 @@ var _ = Describe("Domain informer", func() {
 			socketPath := filepath.Join(socketsDir, "default_test_sock")
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
-			cmdserver.RunServer(socketPath, domainManager, stopChan)
+			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
 			client, err := cmdclient.GetClient(socketPath)
@@ -183,7 +183,7 @@ var _ = Describe("Domain informer", func() {
 			// verify list still completes regardless
 			f, err := os.Create(filepath.Join(socketsDir, "default_fakevm_sock"))
 			f.Close()
-			cmdserver.RunServer(socketPath, domainManager, stopChan)
+			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
 			client, err := cmdclient.GetClient(socketPath)

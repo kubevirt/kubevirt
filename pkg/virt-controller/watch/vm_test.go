@@ -63,6 +63,7 @@ var _ = Describe("VM watcher", func() {
 	var podFeeder *testutils.PodFeeder
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
+        var configMapCache cache.Indexer
 
 	shouldExpectPodCreation := func(uid types.UID) {
 		// Expect pod creation
@@ -135,7 +136,8 @@ var _ = Describe("VM watcher", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 
-		controller = NewVMController(services.NewTemplateService("a", "b", "c"), vmInformer, podInformer, recorder, virtClient)
+		configMapCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		controller = NewVMController(services.NewTemplateService("a", "b", "c", configMapCache), vmInformer, podInformer, recorder, virtClient)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
