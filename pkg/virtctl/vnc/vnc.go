@@ -37,6 +37,8 @@ import (
 
 const FLAG = "vnc"
 
+var debug bool
+
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "vnc (vm)",
@@ -49,6 +51,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().BoolVarP(&debug, "debug", "D", false, "enable debug output")
 	return cmd
 }
 
@@ -97,13 +100,26 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 	// execute remote viewer
 	go func() {
-		cmnd := exec.Command("remote-viewer", fmt.Sprintf("vnc://127.0.0.1:%d", port))
-		err := cmnd.Run()
+		args := []string{fmt.Sprintf("vnc://127.0.0.1:%d", port)}
+		if debug {
+			args = append(args, "--debug")
+		}
+
+		cmnd := exec.Command("remote-viewer", args...)
+		output, err := cmnd.CombinedOutput()
 		if err != nil {
 			glog.Errorf("remote-viewer execution encountered an error: %v", err)
+			glog.Errorf("remote-viewer: %v", string(output))
 		}
 		viewResChan <- err
 	}()
+
+	select {
+	case err = <-viewResChan:
+		if err != nil {
+			return err
+		}
+	}
 
 	// wait for remote-viewer to connect to our local proxy server
 	fd, err := ln.Accept()
@@ -148,6 +164,6 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 func usage() string {
 	usage := "# Connect to testvm via remote-viewer:\n"
-	usage += "./virtctl vnc testvm"
+	usage += "./virtctl vnc testvm [--debug]"
 	return usage
 }
