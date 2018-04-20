@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v12 "kubevirt.io/kubevirt/pkg/api/v1"
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -55,7 +55,7 @@ var _ = Describe("Node controller with", func() {
 		vmInterface = kubecli.NewMockVMInterface(ctrl)
 
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8sv1.Node{})
-		vmInformer, vmSource = testutils.NewFakeInformerFor(&v12.VirtualMachine{})
+		vmInformer, vmSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
 		recorder = record.NewFakeRecorder(100)
 
 		controller = NewNodeController(virtClient, nodeInformer, vmInformer, recorder)
@@ -97,7 +97,7 @@ var _ = Describe("Node controller with", func() {
 	Context("unresponsive virt-handler given", func() {
 		It("should set the node to unschedulable", func() {
 			node := NewHealthyNode("testnode")
-			node.Annotations[v12.VirtHandlerHeartbeat] = nowAsJSONWithOffset(-10 * time.Minute)
+			node.Annotations[virtv1.VirtHandlerHeartbeat] = nowAsJSONWithOffset(-10 * time.Minute)
 
 			addNode(node)
 
@@ -105,11 +105,11 @@ var _ = Describe("Node controller with", func() {
 				return true, nil, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&v12.VirtualMachineList{}, nil)
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{}, nil)
 
 			controller.Execute()
 		})
-		table.DescribeTable("should set a vm without a pod to failed state if the vm is in ", func(phase v12.VMPhase) {
+		table.DescribeTable("should set a vm without a pod to failed state if the vm is in ", func(phase virtv1.VMPhase) {
 			node := NewUnhealthyNode("testnode")
 			vm := NewRunningVirtualMachine("vm1", node)
 			vm.Status.Phase = phase
@@ -119,13 +119,13 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&v12.VirtualMachineList{Items: []v12.VirtualMachine{*vm}}, nil)
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
 			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		},
-			table.Entry("running state", v12.Running),
-			table.Entry("scheduled state", v12.Scheduled),
+			table.Entry("running state", virtv1.Running),
+			table.Entry("scheduled state", virtv1.Scheduled),
 		)
 		It("should set a vm without a pod to failed state, triggered by vm add event", func() {
 			node := NewUnhealthyNode("testnode")
@@ -136,7 +136,7 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&v12.VirtualMachineList{Items: []v12.VirtualMachine{*vm}}, nil)
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
 			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
@@ -151,12 +151,12 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&v12.VirtualMachineList{Items: []v12.VirtualMachine{*vm}}, nil)
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
 			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		})
-		table.DescribeTable("should ignore a vm without a pod if the vm is in ", func(phase v12.VMPhase) {
+		table.DescribeTable("should ignore a vm without a pod if the vm is in ", func(phase virtv1.VMPhase) {
 			node := NewUnhealthyNode("testnode")
 			vm := NewRunningVirtualMachine("vm1", node)
 			vm.Status.Phase = phase
@@ -166,17 +166,17 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&v12.VirtualMachineList{Items: []v12.VirtualMachine{*vm}}, nil)
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
 
 			controller.Execute()
 		},
-			table.Entry("unprocessed state", v12.VmPhaseUnset),
-			table.Entry("pending state", v12.Pending),
-			table.Entry("scheduling state", v12.Scheduling),
-			table.Entry("failed state", v12.Failed),
-			table.Entry("failed state", v12.Succeeded),
+			table.Entry("unprocessed state", virtv1.VmPhaseUnset),
+			table.Entry("pending state", virtv1.Pending),
+			table.Entry("scheduling state", virtv1.Scheduling),
+			table.Entry("failed state", virtv1.Failed),
+			table.Entry("failed state", virtv1.Succeeded),
 		)
-		table.DescribeTable("should ignore a vm which still has a pod in", func(phase v12.VMPhase) {
+		table.DescribeTable("should ignore a vm which still has a pod in", func(phase virtv1.VMPhase) {
 			node := NewUnhealthyNode("testnode")
 			vm := NewRunningVirtualMachine("vm", node)
 			vm.Status.Phase = phase
@@ -190,20 +190,20 @@ var _ = Describe("Node controller with", func() {
 						Name:      "whatever",
 						Namespace: k8sv1.NamespaceDefault,
 						Labels: map[string]string{
-							v12.DomainLabel: vm1.Name,
+							virtv1.DomainLabel: vm1.Name,
 						},
 					},
 				}}}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&v12.VirtualMachineList{Items: []v12.VirtualMachine{*vm}}, nil)
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
 			By("checking that only a vm with a pod gets removed")
 			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		},
-			table.Entry("running state", v12.Running),
-			table.Entry("scheduled state", v12.Scheduled),
+			table.Entry("running state", virtv1.Running),
+			table.Entry("scheduled state", virtv1.Scheduled),
 		)
 	})
 
@@ -221,10 +221,10 @@ func NewHealthyNode(nodeName string) *k8sv1.Node {
 		ObjectMeta: v1.ObjectMeta{
 			Name: nodeName,
 			Annotations: map[string]string{
-				v12.VirtHandlerHeartbeat: nowAsJSONWithOffset(0),
+				virtv1.VirtHandlerHeartbeat: nowAsJSONWithOffset(0),
 			},
 			Labels: map[string]string{
-				v12.NodeSchedulable: "true",
+				virtv1.NodeSchedulable: "true",
 			},
 		},
 	}
@@ -232,8 +232,8 @@ func NewHealthyNode(nodeName string) *k8sv1.Node {
 
 func NewUnhealthyNode(nodeName string) *k8sv1.Node {
 	node := NewHealthyNode(nodeName)
-	node.Annotations[v12.VirtHandlerHeartbeat] = nowAsJSONWithOffset(-10 * time.Minute)
-	node.Labels[v12.NodeSchedulable] = "false"
+	node.Annotations[virtv1.VirtHandlerHeartbeat] = nowAsJSONWithOffset(-10 * time.Minute)
+	node.Labels[virtv1.NodeSchedulable] = "false"
 	return node
 }
 
@@ -246,14 +246,14 @@ func nowAsJSONWithOffset(offset time.Duration) string {
 	return strings.Trim(string(data), `"`)
 }
 
-func NewRunningVirtualMachine(vmName string, node *k8sv1.Node) *v12.VirtualMachine {
-	vm := v12.NewMinimalVM(vmName)
+func NewRunningVirtualMachine(vmName string, node *k8sv1.Node) *virtv1.VirtualMachine {
+	vm := virtv1.NewMinimalVM(vmName)
 	vm.UID = "1234"
-	vm.Status.Phase = v12.Running
+	vm.Status.Phase = virtv1.Running
 	vm.Status.NodeName = node.Name
 	addInitializedAnnotation(vm)
 	vm.Labels = map[string]string{
-		v12.NodeNameLabel: node.Name,
+		virtv1.NodeNameLabel: node.Name,
 	}
 	return vm
 }

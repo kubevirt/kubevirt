@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"k8s.io/api/core/v1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,7 +17,7 @@ import (
 
 	"strings"
 
-	v12 "kubevirt.io/kubevirt/pkg/api/v1"
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -82,14 +82,14 @@ func (c *NodeController) enqueueNode(obj interface{}) {
 }
 
 func (c *NodeController) addVirtualMachine(obj interface{}) {
-	vm := obj.(*v12.VirtualMachine)
+	vm := obj.(*virtv1.VirtualMachine)
 	if vm.Status.NodeName != "" {
 		c.Queue.Add(vm.Status.NodeName)
 	}
 }
 
 func (c *NodeController) updateVirtualMachine(old, curr interface{}) {
-	currVM := curr.(*v12.VirtualMachine)
+	currVM := curr.(*virtv1.VirtualMachine)
 	if currVM.Status.NodeName != "" {
 		c.Queue.Add(currVM.Status.NodeName)
 	}
@@ -157,8 +157,8 @@ func (c *NodeController) execute(key string) error {
 		logger.Reason(err).Error("Failed to dermine if node is responsive")
 		return fmt.Errorf("failed to determine if node %s is responsive: %v", nodeName, err)
 	} else if unresponsive {
-		if nodeExists && node.Labels[v12.NodeSchedulable] == "true" {
-			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v12.NodeSchedulable))
+		if nodeExists && node.Labels[virtv1.NodeSchedulable] == "true" {
+			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, virtv1.NodeSchedulable))
 			_, err = c.clientset.CoreV1().Nodes().Patch(nodeName, types.StrategicMergePatchType, data)
 			if err != nil {
 				logger.Reason(err).Error("Failed to mark node as unschedulable")
@@ -181,7 +181,7 @@ func (c *NodeController) execute(key string) error {
 		// Do sequential updates, we don't want to create update storms in situations where something might already be wrong
 		for _, vm := range vms {
 			logger.V(2).Infof("Moving vm %s in namespace %s on unresponsive node to failed state", vm.Name, vm.Namespace)
-			_, err := c.clientset.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/status/phase\", \"value\": \"%s\" }]", v12.Failed)))
+			_, err := c.clientset.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/status/phase\", \"value\": \"%s\" }]", virtv1.Failed)))
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("failed to move vm %s in namespace %s to final state: %v", vm.Name, vm.Namespace, err))
 				logger.Reason(err).Errorf("Failed to move vm %s in namespace %s to final state", vm.Name, vm.Namespace)
@@ -198,12 +198,12 @@ func (c *NodeController) execute(key string) error {
 	return nil
 }
 
-func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*v12.VirtualMachine, error) {
-	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v12.NodeNameLabel, nodeName))
+func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*virtv1.VirtualMachine, error) {
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", virtv1.NodeNameLabel, nodeName))
 	if err != nil {
 		return nil, err
 	}
-	list, err := c.clientset.VM(v1.NamespaceAll).List(v13.ListOptions{
+	list, err := c.clientset.VM(v1.NamespaceAll).List(metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 
@@ -211,7 +211,7 @@ func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*v12.VirtualMa
 		return nil, err
 	}
 
-	vms := []*v12.VirtualMachine{}
+	vms := []*virtv1.VirtualMachine{}
 
 	for i, _ := range list.Items {
 		vms = append(vms, &list.Items[i])
@@ -220,12 +220,12 @@ func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*v12.VirtualMa
 }
 
 func (c *NodeController) podsOnNode(nodeName string) ([]*v1.Pod, error) {
-	labelSelector, err := labels.Parse(v12.DomainLabel)
+	labelSelector, err := labels.Parse(virtv1.DomainLabel)
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
 	if err != nil {
 		return nil, err
 	}
-	list, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(v13.ListOptions{
+	list, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 		FieldSelector: handlerNodeSelector.String(),
 	})
@@ -238,7 +238,7 @@ func (c *NodeController) podsOnNode(nodeName string) ([]*v1.Pod, error) {
 	return pods, nil
 }
 
-func filterStuckVirtualMachinesWithoutPods(vms []*v12.VirtualMachine, pods []*v1.Pod) []*v12.VirtualMachine {
+func filterStuckVirtualMachinesWithoutPods(vms []*virtv1.VirtualMachine, pods []*v1.Pod) []*virtv1.VirtualMachine {
 	podsPerNamespace := map[string]map[string]*v1.Pod{}
 
 	for _, pod := range pods {
@@ -246,7 +246,7 @@ func filterStuckVirtualMachinesWithoutPods(vms []*v12.VirtualMachine, pods []*v1
 		if !ok {
 			podsForVM = map[string]*v1.Pod{}
 		}
-		name := pod.Labels[v12.DomainLabel]
+		name := pod.Labels[virtv1.DomainLabel]
 		if len(name) == 0 {
 			continue
 		}
@@ -254,7 +254,7 @@ func filterStuckVirtualMachinesWithoutPods(vms []*v12.VirtualMachine, pods []*v1
 		podsPerNamespace[pod.Namespace] = podsForVM
 	}
 
-	filtered := []*v12.VirtualMachine{}
+	filtered := []*virtv1.VirtualMachine{}
 	for _, vm := range vms {
 		if vm.IsScheduled() || vm.IsRunning() {
 			if podsForVM, exists := podsPerNamespace[vm.Namespace]; exists {
@@ -272,13 +272,13 @@ func isNodeUnresponsive(node *v1.Node, timeout time.Duration) (bool, error) {
 	if node == nil {
 		return true, nil
 	}
-	if lastHeartBeat, exists := node.Annotations[v12.VirtHandlerHeartbeat]; exists {
+	if lastHeartBeat, exists := node.Annotations[virtv1.VirtHandlerHeartbeat]; exists {
 
-		timestamp := v13.Time{}
+		timestamp := metav1.Time{}
 		if err := json.Unmarshal([]byte(`"`+lastHeartBeat+`"`), &timestamp); err != nil {
 			return false, err
 		}
-		if timestamp.Time.Before(v13.Now().Add(-timeout)) {
+		if timestamp.Time.Before(metav1.Now().Add(-timeout)) {
 			return true, nil
 		}
 	}
