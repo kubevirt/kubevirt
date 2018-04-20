@@ -95,10 +95,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Kind:       "OfflineVirtualMachine",
 			}
 
-			jsonBytes, err := json.Marshal(newOVM)
-			Expect(err).To(BeNil())
-
-			result := virtClient.RestClient().Post().Resource("offlinevirtualmachines").Namespace(tests.NamespaceTestDefault).Body(jsonBytes).SetHeader("Content-Type", "application/json").Do()
+			result := virtClient.RestClient().Post().Resource("offlinevirtualmachines").Namespace(tests.NamespaceTestDefault).Body(newOVM).Do()
 
 			// Verify validation failed.
 			statusCode := 0

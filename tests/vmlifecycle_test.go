@@ -106,10 +106,8 @@ var _ = Describe("Vmlifecycle", func() {
 				Name:       "testdisk",
 				VolumeName: "testvolume",
 			})
-			jsonBytes, err := json.Marshal(vm)
-			Expect(err).To(BeNil())
 
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(jsonBytes).SetHeader("Content-Type", "application/json").Do()
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
 
 			// Verify validation failed.
 			statusCode := 0

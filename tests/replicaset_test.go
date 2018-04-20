@@ -138,10 +138,8 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 			Name:       "testdisk",
 			VolumeName: "testvolume",
 		})
-		jsonBytes, err := json.Marshal(newRS)
-		Expect(err).To(BeNil())
 
-		result := virtClient.RestClient().Post().Resource("virtualmachinereplicasets").Namespace(tests.NamespaceTestDefault).Body(jsonBytes).SetHeader("Content-Type", "application/json").Do()
+		result := virtClient.RestClient().Post().Resource("virtualmachinereplicasets").Namespace(tests.NamespaceTestDefault).Body(newRS).Do()
 
 		// Verify validation failed.
 		statusCode := 0
