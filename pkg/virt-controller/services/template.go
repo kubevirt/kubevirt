@@ -35,6 +35,7 @@ import (
 )
 
 const configMapKey = "kube-system/virt-controller"
+const allowEmulationKey = "debug.allowEmulation"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachine) *k8sv1.Pod
@@ -47,7 +48,7 @@ type templateService struct {
 	store           cache.Store
 }
 
-func isEmulationAllowed(store cache.Store) (bool, error) {
+func IsEmulationAllowed(store cache.Store) (bool, error) {
 	obj, exists, err := store.GetByKey(configMapKey)
 	if err != nil {
 		return false, err
@@ -58,7 +59,7 @@ func isEmulationAllowed(store cache.Store) (bool, error) {
 	var cm *k8sv1.ConfigMap
 	allowEmulation := false
 	cm = obj.(*k8sv1.ConfigMap)
-	emu, ok := cm.Data["allowEmulation"]
+	emu, ok := cm.Data[allowEmulationKey]
 	if ok {
 		// TODO: is this too specific? should we just look for the existence of
 		// the 'allowEmulation' key itself regardless of content?
@@ -171,7 +172,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *k8sv1.Pod
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 	}
 
-	allowEmulation, err := isEmulationAllowed(t.store)
+	allowEmulation, err := IsEmulationAllowed(t.store)
 	if allowEmulation {
 		command = append(command, "--allow-emulation")
 	}

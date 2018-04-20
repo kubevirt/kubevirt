@@ -20,6 +20,8 @@
 package services_test
 
 import (
+	"time"
+
 	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	. "github.com/onsi/ginkgo"
@@ -27,6 +29,8 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -307,4 +311,75 @@ var _ = Describe("Template", func() {
 			})
 		})
 	})
+	Describe("ConfigMap", func() {
+		var cmListWatch *cache.ListWatch
+		var cmInformer cache.SharedIndexInformer
+		var cmStore cache.Store
+		var stopChan chan struct{}
+
+		BeforeEach(func() {
+			stopChan = make(chan struct{})
+		})
+
+		AfterEach(func() {
+			close(stopChan)
+		})
+
+		It("Should return false if configmap is not present", func() {
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+
+			result, err := IsEmulationAllowed(cmStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeFalse())
+		})
+
+		It("Should return false if configmap doesn't have allowEmulation set", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "kube-system/virt-controller"},
+				Data: map[string]string{},
+			}
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+
+			result, err := IsEmulationAllowed(cmStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeFalse())
+		})
+
+		It("Should return true if allowEmulation = true", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "kube-system/virt-controller"},
+				Data: map[string]string{"debug.allowEmulation": "true"},
+			}
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+
+			result, err := IsEmulationAllowed(cmStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeTrue())
+		})
+	})
 })
+
+func MakeFakeConfigMapWatcher(configMaps []kubev1.ConfigMap) *cache.ListWatch {
+	cmListWatch := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			return &kubev1.ConfigMapList{Items: configMaps}, nil
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			fakeWatch := watch.NewFake()
+			for _, cfgMap := range configMaps {
+				fakeWatch.Add(&cfgMap)
+			}
+			return watch.NewFake(), nil
+		},
+	}
+	return cmListWatch
+}
