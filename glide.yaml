@@ -29,11 +29,11 @@ import:
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: kubernetes-1.9.6
+  version: kubernetes-1.9.7
 - package: k8s.io/apimachinery
-  version: kubernetes-1.9.6
+  version: kubernetes-1.9.7
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.9.6
+  version: kubernetes-1.9.7
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
 - package: github.com/mailru/easyjson
@@ -53,7 +53,7 @@ import:
   subpackages:
   - cobra
 - package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.9.6
+  version: kubernetes-1.9.7
 - package: github.com/ant31/crd-validation
   version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
 - package: github.com/kubevirt/qe-tools
