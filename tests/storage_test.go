@@ -347,7 +347,7 @@ var _ = Describe("Storage", func() {
 					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
 
-					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+					tests.WaitForVirtualMachineToDisappearWithTimeout(obj, 120)
 				}
 			})
 		})
