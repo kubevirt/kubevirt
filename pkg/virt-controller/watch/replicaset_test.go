@@ -71,10 +71,10 @@ var _ = Describe("Replicaset", func() {
 			// Set up mock client
 			virtClient.EXPECT().VM(v12.NamespaceDefault).Return(vmInterface).AnyTimes()
 			virtClient.EXPECT().ReplicaSet(v12.NamespaceDefault).Return(rsInterface).AnyTimes()
+			syncCaches(stop)
 		})
 
 		addReplicaSet := func(rs *v1.VirtualMachineReplicaSet) {
-			syncCaches(stop)
 			mockQueue.ExpectAdds(1)
 			rsSource.Add(rs)
 			mockQueue.Wait()
@@ -489,6 +489,7 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		AfterEach(func() {
+			close(stop)
 			// Ensure that we add checks for expected events to every test
 			Expect(recorder.Events).To(BeEmpty())
 			ctrl.Finish()

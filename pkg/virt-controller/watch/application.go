@@ -228,7 +228,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
 	vca.vmController = NewVMController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
-	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, nil)
+	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmInformer, nil)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

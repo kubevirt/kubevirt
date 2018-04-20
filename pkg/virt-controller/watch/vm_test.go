@@ -119,6 +119,12 @@ var _ = Describe("VM watcher", func() {
 		}).Return(vm, nil)
 	}
 
+	syncCaches := func(stop chan struct{}) {
+		go vmInformer.Run(stop)
+		go podInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, podInformer.HasSynced)).To(BeTrue())
+	}
+
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
@@ -145,21 +151,16 @@ var _ = Describe("VM watcher", func() {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
+		syncCaches(stop)
 	})
 	AfterEach(func() {
+		close(stop)
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
 		ctrl.Finish()
 	})
 
-	syncCaches := func(stop chan struct{}) {
-		go vmInformer.Run(stop)
-		go podInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, podInformer.HasSynced)).To(BeTrue())
-	}
-
 	addVirtualMachine := func(vm *v1.VirtualMachine) {
-		syncCaches(stop)
 		mockQueue.ExpectAdds(1)
 		vmSource.Add(vm)
 		mockQueue.Wait()
