@@ -19,6 +19,8 @@ import (
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	"fmt"
+
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -173,6 +175,24 @@ var _ = Describe("Node controller with", func() {
 			table.Entry("running state", virtv1.Running),
 			table.Entry("scheduled state", virtv1.Scheduled),
 		)
+		It("should set multiple vms to failed in one go, even if some updates fail", func() {
+			node := NewUnhealthyNode("testnode")
+			vm := NewRunningVirtualMachine("vm", node)
+			vm1 := NewRunningVirtualMachine("vm1", node)
+			vm2 := NewRunningVirtualMachine("vm2", node)
+
+			addNode(node)
+			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, &k8sv1.PodList{}, nil
+			})
+
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm, *vm1, *vm2}}, nil)
+			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any()).Times(1)
+			vmInterface.EXPECT().Patch(vm1.Name, types.JSONPatchType, gomock.Any()).Return(nil, fmt.Errorf("some error")).Times(1)
+			vmInterface.EXPECT().Patch(vm2.Name, types.JSONPatchType, gomock.Any()).Times(1)
+
+			controller.Execute()
+		})
 		It("should set a vm without a pod to failed state, triggered by vm add event", func() {
 			node := NewUnhealthyNode("testnode")
 			vm := NewRunningVirtualMachine("vm1", node)
