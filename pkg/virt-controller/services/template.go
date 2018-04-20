@@ -34,7 +34,7 @@ import (
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
-const configMapKey = "kube-system/virt-controller"
+const configMapName = "kube-system/virt-controller"
 const allowEmulationKey = "debug.allowEmulation"
 
 type TemplateService interface {
@@ -49,7 +49,7 @@ type templateService struct {
 }
 
 func IsEmulationAllowed(store cache.Store) (bool, error) {
-	obj, exists, err := store.GetByKey(configMapKey)
+	obj, exists, err := store.GetByKey(configMapName)
 	if err != nil {
 		return false, err
 	}
