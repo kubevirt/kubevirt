@@ -96,6 +96,40 @@ var _ = Describe("Node controller with", func() {
 		mockQueue.Wait()
 	}
 
+	Context("pods and vms given", func() {
+		It("should only select stuck vms", func() {
+			node := NewHealthyNode("test")
+			finalVM := NewRunningVirtualMachine("finalVM", node)
+			finalVM.Status.Phase = virtv1.Succeeded
+			vmWithPod := NewRunningVirtualMachine("vmWithPod", node)
+			podForVM := NewHealthyPodForVirtualMachine("podForVM", vmWithPod)
+			vmWithPodInDifferentNamespace := NewRunningVirtualMachine("vmWithPodInDifferentNamespace", node)
+			podInDifferentNamespace := NewHealthyPodForVirtualMachine("podInDifferentnamespace", vmWithPodInDifferentNamespace)
+			podInDifferentNamespace.Namespace = "wrong"
+			vmWithoutPod := NewRunningVirtualMachine("vmWithoutPod", node)
+
+			vms := filterStuckVirtualMachinesWithoutPods([]*virtv1.VirtualMachine{
+				finalVM,
+				vmWithPod,
+				vmWithPodInDifferentNamespace,
+				vmWithoutPod,
+			}, []*k8sv1.Pod{
+				podForVM,
+				podInDifferentNamespace,
+			})
+
+			By("filtering out vms in final state")
+			Expect(vms).ToNot(ContainElement(finalVM))
+
+			By("filtering out vms which have a pod")
+			Expect(vms).ToNot(ContainElement(vmWithPod))
+
+			By("keeping vms which are running und have no pod in their namespace")
+			Expect(vms).To(ContainElement(vmWithoutPod))
+			Expect(vms).To(ContainElement(vmWithPodInDifferentNamespace))
+		})
+	})
+
 	Context("responsive virt-handler given", func() {
 		It("should do nothing", func() {
 			node := NewHealthyNode("testnode")
@@ -227,15 +261,7 @@ var _ = Describe("Node controller with", func() {
 
 			addNode(node)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, &k8sv1.PodList{Items: []k8sv1.Pod{{
-					ObjectMeta: v1.ObjectMeta{
-						Name:      "whatever",
-						Namespace: k8sv1.NamespaceDefault,
-						Labels: map[string]string{
-							virtv1.DomainLabel: vm1.Name,
-						},
-					},
-				}}}, nil
+				return true, &k8sv1.PodList{Items: []k8sv1.Pod{*NewHealthyPodForVirtualMachine("whatever", vm1)}}, nil
 			})
 
 			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
@@ -298,4 +324,16 @@ func NewRunningVirtualMachine(vmName string, node *k8sv1.Node) *virtv1.VirtualMa
 		virtv1.NodeNameLabel: node.Name,
 	}
 	return vm
+}
+
+func NewHealthyPodForVirtualMachine(podName string, vm *virtv1.VirtualMachine) *k8sv1.Pod {
+	return &k8sv1.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      podName,
+			Namespace: k8sv1.NamespaceDefault,
+			Labels: map[string]string{
+				virtv1.DomainLabel: vm.Name,
+			},
+		},
+		Spec: k8sv1.PodSpec{NodeName: vm.Status.NodeName}}
 }
