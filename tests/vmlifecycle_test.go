@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -31,6 +31,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -441,6 +442,61 @@ var _ = Describe("Vmlifecycle", func() {
 				table.Entry(tests.NamespaceTestDefault, tests.NamespaceTestDefault),
 				table.Entry(tests.NamespaceTestAlternative, tests.NamespaceTestAlternative),
 			)
+		})
+
+		Context("VM Emulation Mode", func() {
+			BeforeEach(func() {
+				allowEmuation := false
+				options := metav1.GetOptions{}
+				cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("virt-controller", options)
+				if err == nil {
+					val, ok := cfgMap.Data["debug.allowEmulation"]
+					allowEmuation = ok && (val == "true")
+				} else {
+					// If the cfgMap is missing, default to allowEmulation=false
+					// no other error is expected
+					if !errors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+				}
+				if !allowEmuation {
+					Skip("Software emulation is not enabled on this cluster")
+				}
+			})
+
+			It("should enable emulation in virt-launcher", func() {
+				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+				Expect(err).To(BeNil())
+
+				listOptions := metav1.ListOptions{}
+				var pod k8sv1.Pod
+
+				Eventually(func() int {
+					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
+					Expect(err).ToNot(HaveOccurred())
+					if len(podList.Items) == 1 {
+						pod = podList.Items[0]
+					}
+					return len(podList.Items)
+				}, 75, 0.5).Should(Equal(1))
+
+				emulationFlagFound := false
+				computeContainerFound := false
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						computeContainerFound = true
+						for _, cmd := range container.Command {
+							By(cmd)
+							if cmd == "--allow-emulation" {
+								emulationFlagFound = true
+							}
+						}
+					}
+				}
+
+				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
+				Expect(emulationFlagFound).To(BeTrue(), "Expected VM pod to have '--allow-emulation' flag")
+			})
 		})
 	})
 
