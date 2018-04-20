@@ -276,6 +276,37 @@ var _ = Describe("Vmlifecycle", func() {
 			}, 120)
 		})
 
+		Context("when virt-handler is responsive", func() {
+			It("should indicate that a node is ready for vms", func() {
+
+				By("adding a heartbeat annotation and a schedulable label to the node")
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).ToNot(BeEmpty())
+				for _, node := range nodes.Items {
+					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(HaveLen(0))
+				}
+
+				node := &nodes.Items[0]
+				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)))
+				Expect(err).ToNot(HaveOccurred())
+				timestamp := node.Annotations[v1.VirtHandlerHeartbeat]
+
+				By("setting the schedulable label back to true")
+				Eventually(func() string {
+					n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return n.Labels[v1.NodeSchedulable]
+				}, 2*time.Minute, 2*time.Second).Should(Equal("true"))
+				By("updating the heartbeat roughly every minute")
+				Expect(func() string {
+					n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return n.Labels[v1.VirtHandlerHeartbeat]
+				}()).ShouldNot(Equal(timestamp))
+			})
+		})
+
 		Context("with non default namespace", func() {
 			table.DescribeTable("should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 
