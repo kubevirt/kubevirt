@@ -84,6 +84,18 @@ var _ = Describe("Node controller with", func() {
 		mockQueue.Wait()
 	}
 
+	modifyNode := func(node *k8sv1.Node) {
+		mockQueue.ExpectAdds(1)
+		nodeSource.Modify(node)
+		mockQueue.Wait()
+	}
+
+	deleteNode := func(node *k8sv1.Node) {
+		mockQueue.ExpectAdds(1)
+		nodeSource.Delete(node)
+		mockQueue.Wait()
+	}
+
 	Context("responsive virt-handler given", func() {
 		It("should do nothing", func() {
 			node := NewHealthyNode("testnode")
@@ -132,6 +144,36 @@ var _ = Describe("Node controller with", func() {
 			vm := NewRunningVirtualMachine("vm1", node)
 
 			vmFeeder.Add(vm)
+			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, &k8sv1.PodList{}, nil
+			})
+
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
+			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
+
+			controller.Execute()
+		})
+		It("should set a vm without a pod to failed state, triggered by node update", func() {
+			node := NewUnhealthyNode("testnode")
+			vm := NewRunningVirtualMachine("vm1", node)
+
+			nodeInformer.GetStore().Add(node)
+			modifyNode(node.DeepCopy())
+			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, &k8sv1.PodList{}, nil
+			})
+
+			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
+			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
+
+			controller.Execute()
+		})
+		It("should set a vm without a pod to failed state, triggered by node delete", func() {
+			node := NewUnhealthyNode("testnode")
+			vm := NewRunningVirtualMachine("vm1", node)
+
+			nodeInformer.GetStore().Add(node)
+			deleteNode(node.DeepCopy())
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, &k8sv1.PodList{}, nil
 			})

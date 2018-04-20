@@ -154,7 +154,7 @@ func (c *NodeController) execute(key string) error {
 	}
 
 	if unresponsive, err := isNodeUnresponsive(node, c.heartBeatTimeout); err != nil {
-		logger.Reason(err).Error("Failed to dermine if node is responsive")
+		logger.Reason(err).Error("Failed to dermine if node is responsive, will not reenqueue")
 		return fmt.Errorf("failed to determine if node %s is responsive: %v", nodeName, err)
 	} else if unresponsive {
 		if nodeExists && node.Labels[virtv1.NodeSchedulable] == "true" {
@@ -166,9 +166,14 @@ func (c *NodeController) execute(key string) error {
 			}
 		}
 		vms, err := c.virtalMachinesOnNode(nodeName)
-		if err != nil || len(vms) == 0 {
+		if err != nil {
 			logger.Reason(err).Error("Failed fetch vms for node")
 			return err
+		} else if len(vms) == 0 {
+			if nodeExists {
+				c.Queue.AddAfter(key, c.recheckInterval)
+			}
+			return nil
 		}
 		pods, err := c.podsOnNode(nodeName)
 		if err != nil {
