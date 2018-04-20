@@ -370,7 +370,7 @@ var _ = Describe("Vmlifecycle", func() {
 					failedVM, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return failedVM.Status.Phase
-				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
 			})
 			AfterEach(func() {
 				// Restore virt-handler daemonset
