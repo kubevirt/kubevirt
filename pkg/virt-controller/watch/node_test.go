@@ -150,6 +150,9 @@ var _ = Describe("Node controller with", func() {
 			addNode(node)
 
 			kubeClient.Fake.PrependReactor("patch", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				patch, ok := action.(testing.PatchAction)
+				Expect(ok).To(BeTrue())
+				Expect(string(patch.GetPatch())).To(Equal(`{"metadata": { "labels": {"kubevirt.io/schedulable": "false"}}}`))
 				return true, nil, nil
 			})
 
