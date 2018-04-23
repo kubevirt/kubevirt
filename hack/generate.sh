@@ -21,4 +21,4 @@ ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=vmpreset >${KUBEVIR
 ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=ovm >${KUBEVIRT_DIR}/manifests/generated/ovm-resource.yaml
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
-${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --docker-prefix=$docker_prefix --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples
+${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples

@@ -144,6 +144,15 @@ type VirtualMachineSpec struct {
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vm.
 	Volumes []Volume `json:"volumes,omitempty"`
+	// Specifies the hostname of the vm
+	// If not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.
+	// +optional
+	Hostname string `json:"hostname,omitempty"`
+	// If specified, the fully qualified vm hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
+	// If not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm,
+	// no matter if the vm itself can pick up a hostname.
+	// +optional
+	Subdomain string `json:"subdomain,omitempty"`
 }
 
 // Affinity groups all the affinity rules related to a VM

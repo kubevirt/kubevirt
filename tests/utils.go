@@ -998,12 +998,16 @@ func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
 	if err != nil {
 		return nil, err
 	}
+	vmName := vm.Name
+	if vm.Spec.Hostname != "" {
+		vmName = vm.Spec.Hostname
+	}
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: vm.Name + " login:"},
+		&expect.BExp{R: vmName + " login:"},
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},

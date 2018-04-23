@@ -85,7 +85,12 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	// generate cloud-init data
 	cloudInitData := cloudinit.GetCloudInitNoCloudSource(vm)
 	if cloudInitData != nil {
-		err := cloudinit.GenerateLocalData(vm.Name, vm.Namespace, cloudInitData)
+		hostname := vm.Name
+		if vm.Spec.Hostname != "" {
+			hostname = vm.Spec.Hostname
+		}
+
+		err := cloudinit.GenerateLocalData(vm.Name, hostname, vm.Namespace, cloudInitData)
 		if err != nil {
 			return domain, err
 		}

@@ -92,9 +92,11 @@ var _ = Describe("Networking", func() {
 
 		var wg sync.WaitGroup
 
-		createAndLogin := func(labels map[string]string) (vm *v1.VirtualMachine) {
+		createAndLogin := func(labels map[string]string, hostname string, subdomain string) (vm *v1.VirtualMachine) {
 			vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vm.Labels = labels
+			vm.Spec.Subdomain = subdomain
+			vm.Spec.Hostname = hostname
 
 			// Start VM
 			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
@@ -117,7 +119,7 @@ var _ = Describe("Networking", func() {
 		go func() {
 			defer wg.Done()
 			defer GinkgoRecover()
-			inboundVM = createAndLogin(map[string]string{"expose": "me"})
+			inboundVM = createAndLogin(map[string]string{"expose": "me"}, "myvm", "my-subdomain")
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVM, 10*time.Second)
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
@@ -137,7 +139,7 @@ var _ = Describe("Networking", func() {
 		go func() {
 			defer wg.Done()
 			defer GinkgoRecover()
-			outboundVM = createAndLogin(nil)
+			outboundVM = createAndLogin(nil, "", "")
 		}()
 
 		wg.Wait()
@@ -259,6 +261,45 @@ var _ = Describe("Networking", func() {
 
 			AfterEach(func() {
 				Expect(virtClient.CoreV1().Services(inboundVM.Namespace).Delete("myservice", &v13.DeleteOptions{})).To(Succeed())
+			})
+		})
+
+		Context("with a subdomain and a headless service given", func() {
+			BeforeEach(func() {
+				service := &v12.Service{
+					ObjectMeta: v13.ObjectMeta{
+						Name: inboundVM.Spec.Subdomain,
+					},
+					Spec: v12.ServiceSpec{
+						ClusterIP: v12.ClusterIPNone,
+						Selector: map[string]string{
+							"expose": "me",
+						},
+						/* Normally ports are not required on headless services, but there is a bug in kubedns:
+						https://github.com/kubernetes/kubernetes/issues/55158
+						*/
+						Ports: []v12.ServicePort{
+							{Protocol: v12.ProtocolTCP, Port: 1500, TargetPort: intstr.FromInt(1500)},
+						},
+					},
+				}
+				_, err := virtClient.CoreV1().Services(inboundVM.Namespace).Create(service)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should be able to reach the vm via its unique fully qualified domain name", func() {
+				By("starting a pod which tries to reach the vm via the defined service")
+				job := newHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVM.Spec.Hostname, inboundVM.Spec.Subdomain, inboundVM.Namespace))
+				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("waiting for the pod to report a successful connection attempt")
+				phase := waitForPodToFinish(job)
+				Expect(phase).To(Equal(v12.PodSucceeded))
+			})
+
+			AfterEach(func() {
+				Expect(virtClient.CoreV1().Services(inboundVM.Namespace).Delete(inboundVM.Spec.Subdomain, &v13.DeleteOptions{})).To(Succeed())
 			})
 		})
 	})
