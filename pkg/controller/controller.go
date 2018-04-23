@@ -32,6 +32,8 @@ import (
 
 	"fmt"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -115,10 +117,22 @@ func VirtualMachineKey(vm *v1.VirtualMachine) string {
 	return fmt.Sprintf("%v/%v", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name)
 }
 
+func PodKey(pod *k8sv1.Pod) string {
+	return fmt.Sprintf("%v/%v", pod.Namespace, pod.Name)
+}
+
 func VirtualMachineKeys(vms []*v1.VirtualMachine) []string {
 	keys := []string{}
 	for _, vm := range vms {
 		keys = append(keys, VirtualMachineKey(vm))
+	}
+	return keys
+}
+
+func PodKeys(pods []*k8sv1.Pod) []string {
+	keys := []string{}
+	for _, pod := range pods {
+		keys = append(keys, PodKey(pod))
 	}
 	return keys
 }
@@ -130,4 +144,14 @@ func HasFinalizer(object metav1.Object, finalizer string) bool {
 		}
 	}
 	return false
+}
+
+func RemoveFinalizer(object metav1.Object, finalizer string) {
+	filtered := []string{}
+	for _, f := range object.GetFinalizers() {
+		if f != finalizer {
+			filtered = append(filtered, f)
+		}
+	}
+	object.SetFinalizers(filtered)
 }

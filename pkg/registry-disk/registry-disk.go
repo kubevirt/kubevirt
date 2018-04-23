@@ -95,7 +95,7 @@ func SetFilePermissions(vm *v1.VirtualMachine) error {
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vm *v1.VirtualMachine, podVolumeName string, podVolumeMountDir string) ([]kubev1.Container, error) {
+func GenerateContainers(vm *v1.VirtualMachine, podVolumeName string, podVolumeMountDir string) []kubev1.Container {
 	var containers []kubev1.Container
 
 	initialDelaySeconds := 2
@@ -149,5 +149,5 @@ func GenerateContainers(vm *v1.VirtualMachine, podVolumeName string, podVolumeMo
 			})
 		}
 	}
-	return containers, nil
+	return containers
 }

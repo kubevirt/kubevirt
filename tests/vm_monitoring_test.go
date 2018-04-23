@@ -66,6 +66,7 @@ var _ = Describe("Health Monitoring", func() {
 
 			By("Killing the watchdog device")
 			_, err = expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "Welcome to Alpine"},
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "login"},

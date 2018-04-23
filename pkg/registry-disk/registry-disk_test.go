@@ -88,7 +88,7 @@ var _ = Describe("RegistryDisk", func() {
 				vm := v1.NewMinimalVM("fake-vm")
 				appendRegistryDisk(vm, "r1")
 				appendRegistryDisk(vm, "r0")
-				containers, err := GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
+				containers := GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(containers)).To(Equal(2))

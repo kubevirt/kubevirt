@@ -7,8 +7,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	v13 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
@@ -69,12 +69,12 @@ var _ = Describe("Replicaset", func() {
 			vmFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmSource)
 
 			// Set up mock client
-			virtClient.EXPECT().VM(v12.NamespaceDefault).Return(vmInterface).AnyTimes()
-			virtClient.EXPECT().ReplicaSet(v12.NamespaceDefault).Return(rsInterface).AnyTimes()
+			virtClient.EXPECT().VM(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
+			virtClient.EXPECT().ReplicaSet(metav1.NamespaceDefault).Return(rsInterface).AnyTimes()
+			syncCaches(stop)
 		})
 
 		addReplicaSet := func(rs *v1.VirtualMachineReplicaSet) {
-			syncCaches(stop)
 			mockQueue.ExpectAdds(1)
 			rsSource.Add(rs)
 			mockQueue.Wait()
@@ -102,7 +102,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Conditions = []v1.VMReplicaSetCondition{
 				{
 					Type:               v1.VMReplicaSetReplicaPaused,
-					LastTransitionTime: v12.Now(),
+					LastTransitionTime: metav1.Now(),
 				},
 			}
 
@@ -183,7 +183,7 @@ var _ = Describe("Replicaset", func() {
 			for x := 0; x < 15; x++ {
 				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
 				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-				vm.OwnerReferences = []v12.OwnerReference{OwnerRef(rs)}
+				vm.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmFeeder.Add(vm)
 			}
 
@@ -247,9 +247,9 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 
 			// Mark it as orphan deleted
-			now := v12.Now()
+			now := metav1.Now()
 			rs.ObjectMeta.DeletionTimestamp = &now
-			rs.ObjectMeta.Finalizers = []string{v12.FinalizerOrphanDependents}
+			rs.ObjectMeta.Finalizers = []string{metav1.FinalizerOrphanDependents}
 
 			addReplicaSet(rs)
 			vmFeeder.Add(vm)
@@ -261,7 +261,7 @@ var _ = Describe("Replicaset", func() {
 
 		It("should detect that a VM already exists and adopt it", func() {
 			rs, vm := DefaultReplicaSet(1)
-			vm.OwnerReferences = []v12.OwnerReference{}
+			vm.OwnerReferences = []metav1.OwnerReference{}
 
 			rs.Status.Replicas = 1
 
@@ -390,7 +390,7 @@ var _ = Describe("Replicaset", func() {
 				Expect(cond.Type).To(Equal(v1.VMReplicaSetReplicaFailure))
 				Expect(cond.Reason).To(Equal("FailedCreate"))
 				Expect(cond.Message).To(Equal("failure"))
-				Expect(cond.Status).To(Equal(v13.ConditionTrue))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
 			controller.Execute()
@@ -421,7 +421,7 @@ var _ = Describe("Replicaset", func() {
 				Expect(cond.Type).To(Equal(v1.VMReplicaSetReplicaFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("failure"))
-				Expect(cond.Status).To(Equal(v13.ConditionTrue))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
 			controller.Execute()
@@ -434,7 +434,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Conditions = []v1.VMReplicaSetCondition{
 				{
 					Type:               v1.VMReplicaSetReplicaFailure,
-					LastTransitionTime: v12.Now(),
+					LastTransitionTime: metav1.Now(),
 					Message:            "test",
 				},
 			}
@@ -466,7 +466,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Conditions = []v1.VMReplicaSetCondition{
 				{
 					Type:               v1.VMReplicaSetReplicaFailure,
-					LastTransitionTime: v12.Now(),
+					LastTransitionTime: metav1.Now(),
 					Message:            "test",
 				},
 			}
@@ -489,6 +489,7 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		AfterEach(func() {
+			close(stop)
 			// Ensure that we add checks for expected events to every test
 			Expect(recorder.Events).To(BeEmpty())
 			ctrl.Finish()
@@ -498,14 +499,14 @@ var _ = Describe("Replicaset", func() {
 
 func ReplicaSetFromVM(name string, vm *v1.VirtualMachine, replicas int32) *v1.VirtualMachineReplicaSet {
 	rs := &v1.VirtualMachineReplicaSet{
-		ObjectMeta: v12.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
 		Spec: v1.VMReplicaSetSpec{
 			Replicas: &replicas,
-			Selector: &v12.LabelSelector{
+			Selector: &metav1.LabelSelector{
 				MatchLabels: vm.ObjectMeta.Labels,
 			},
 			Template: &v1.VMTemplateSpec{
-				ObjectMeta: v12.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   vm.ObjectMeta.Name,
 					Labels: vm.ObjectMeta.Labels,
 				},
@@ -520,6 +521,6 @@ func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineReplicaSet, *v1.Virtua
 	vm := v1.NewMinimalVM("testvm")
 	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 	rs := ReplicaSetFromVM("rs", vm, replicas)
-	vm.OwnerReferences = []v12.OwnerReference{OwnerRef(rs)}
+	vm.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 	return rs, vm
 }

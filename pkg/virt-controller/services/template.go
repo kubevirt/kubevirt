@@ -29,11 +29,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
 type TemplateService interface {
-	RenderLaunchManifest(*v1.VirtualMachine) (*kubev1.Pod, error)
+	RenderLaunchManifest(*v1.VirtualMachine) *kubev1.Pod
 }
 
 type templateService struct {
@@ -42,11 +42,10 @@ type templateService struct {
 	imagePullSecret string
 }
 
-func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.Pod, error) {
+func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Pod {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-	uid := precond.MustNotBeEmpty(string(vm.GetObjectMeta().GetUID()))
 
 	initialDelaySeconds := 2
 	timeoutSeconds := 5
@@ -56,7 +55,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 
 	var volumes []kubev1.Volume
 	var userId int64 = 0
-	var privileged bool = true
+	var privileged = true
 	var volumesMounts []kubev1.VolumeMount
 	var imagePullSecrets []kubev1.LocalObjectReference
 
@@ -176,10 +175,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		Resources: resources,
 	}
 
-	containers, err := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
-	if err != nil {
-		return nil, err
-	}
+	containers := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
 
 	volumes = append(volumes, kubev1.Volume{
 		Name: "virt-share-dir",
@@ -196,6 +192,13 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		},
 	})
 
+	nodeSelector := map[string]string{}
+	for k, v := range vm.Spec.NodeSelector {
+		nodeSelector[k] = v
+
+	}
+	nodeSelector[v1.NodeSchedulable] = "true"
+
 	containers = append(containers, container)
 
 	// TODO use constants for labels
@@ -205,7 +208,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			Labels: map[string]string{
 				v1.AppLabel:    "virt-launcher",
 				v1.DomainLabel: domain,
-				v1.VMUIDLabel:  uid,
+			},
+			Annotations: map[string]string{
+				v1.CreatedByAnnotation: string(vm.UID),
+				v1.OwnedByAnnotation:   "virt-controller",
 			},
 		},
 		Spec: kubev1.PodSpec{
@@ -215,7 +221,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 kubev1.RestartPolicyNever,
 			Containers:                    containers,
-			NodeSelector:                  vm.Spec.NodeSelector,
+			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,
 		},
@@ -229,7 +235,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*kubev1.P
 		}
 	}
 
-	return &pod, nil
+	return &pod
 }
 
 func appendUniqueImagePullSecret(secrets []kubev1.LocalObjectReference, newsecret kubev1.LocalObjectReference) []kubev1.LocalObjectReference {
@@ -292,12 +298,12 @@ func setMemoryOverhead(domain v1.DomainSpec, resources *kubev1.ResourceRequireme
 	return nil
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string) (TemplateService, error) {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string) TemplateService {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		launcherImage:   launcherImage,
 		virtShareDir:    virtShareDir,
 		imagePullSecret: imagePullSecret,
 	}
-	return &svc, nil
+	return &svc
 }

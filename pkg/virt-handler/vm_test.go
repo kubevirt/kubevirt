@@ -41,8 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
@@ -308,7 +308,7 @@ var _ = Describe("VM", func() {
 			}
 
 			updatedVM := vm.DeepCopy()
-			updatedVM.Status.Conditions = []v1.VirtualMachineCondition{}
+			updatedVM.Status.Conditions = nil
 
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)

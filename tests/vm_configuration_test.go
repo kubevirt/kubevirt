@@ -76,6 +76,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking the number of CPU cores under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "login"},

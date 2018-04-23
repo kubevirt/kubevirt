@@ -379,6 +379,9 @@ func addInitializedAnnotation(vm *kubev1.VirtualMachine) {
 		vm.Annotations = map[string]string{}
 	}
 	vm.Annotations[initializerMarking] = kubev1.GroupVersion.String()
+	if !controller.HasFinalizer(vm, kubev1.VirtualMachineFinalizer) {
+		vm.Finalizers = append(vm.Finalizers, kubev1.VirtualMachineFinalizer)
+	}
 }
 
 func annotateVM(vm *kubev1.VirtualMachine, preset kubev1.VirtualMachinePreset) {

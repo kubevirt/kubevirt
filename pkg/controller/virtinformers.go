@@ -54,6 +54,10 @@ type KubeInformerFactory interface {
 
 	// Watches for pods related only to kubevirt
 	KubeVirtPod() cache.SharedIndexInformer
+
+	// Watches for nodes
+	KubeVirtNode() cache.SharedIndexInformer
+
 	// OfflineVirtualMachine handles the VMs that are stopped or not running
 	OfflineVirtualMachine() cache.SharedIndexInformer
 }
@@ -145,7 +149,14 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 		}
 
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
-		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{})
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) KubeVirtNode() cache.SharedIndexInformer {
+	return f.getInformer("kubeVirtNodeInformer", func() cache.SharedIndexInformer {
+		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "nodes", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Node{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

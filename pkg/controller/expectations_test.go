@@ -35,14 +35,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// PodKey returns a key unique to the given pod within a cluster.
-// It's used so we consistently use the same key scheme in this module.
-// It does exactly what cache.MetaNamespaceKeyFunc would have done
-// except there's not possibility for error since we know the exact type.
-func PodKey(pod *v1.Pod) string {
-	return fmt.Sprintf("%v/%v", pod.Namespace, pod.Name)
-}
-
 // ValidSecurityContextWithContainerDefaults creates a valid security context provider based on
 // empty container defaults.  Used for testing.
 func ValidSecurityContextWithContainerDefaults() *v1.SecurityContext {

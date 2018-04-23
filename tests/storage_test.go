@@ -27,10 +27,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -98,13 +96,13 @@ var _ = Describe("Storage", func() {
 		Expect(logs).To(ContainSubstring("State: ready"))
 	}
 
-	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) runtime.Object {
+	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) *v1.VirtualMachine {
 		By("Starting a VM")
 
-		var obj runtime.Object
+		var obj *v1.VirtualMachine
 		var err error
 		Eventually(func() error {
-			obj, err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+			obj, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VM will start")
@@ -120,13 +118,13 @@ var _ = Describe("Storage", func() {
 
 	Describe("Starting a VM", func() {
 		Context("with Alpine PVC", func() {
-			It("should be successfully started", func(done Done) {
+			It("should be successfully started", func() {
 				checkReadiness()
 
 				// Start the VM with the PVC attached
 				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				RunVMAndExpectLaunch(vm, false, 45)
+				RunVMAndExpectLaunch(vm, false, 90)
 
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				defer expecter.Close()
@@ -134,14 +132,13 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VM console has expected output")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 				}, 200*time.Second)
 				Expect(err).To(BeNil())
+			})
 
-				close(done)
-			}, 240)
-
-			It("should be successfully started and stopped multiple times", func(done Done) {
+			It("should be successfully started and stopped multiple times", func() {
 				checkReadiness()
 
 				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
@@ -150,7 +147,7 @@ var _ = Describe("Storage", func() {
 				num := 3
 				By("Starting and stopping the VM number of times")
 				for i := 1; i <= num; i++ {
-					obj := RunVMAndExpectLaunch(vm, false, 90)
+					vm := RunVMAndExpectLaunch(vm, false, 90)
 
 					// Verify console on last iteration to verify the VM is still booting properly
 					// after being restarted multiple times
@@ -160,6 +157,7 @@ var _ = Describe("Storage", func() {
 						defer expecter.Close()
 						Expect(err).To(BeNil())
 						_, err = expecter.ExpectBatch([]expect.Batcher{
+							&expect.BSnd{S: "\n"},
 							&expect.BExp{R: "Welcome to Alpine"},
 						}, 200*time.Second)
 						Expect(err).To(BeNil())
@@ -167,16 +165,14 @@ var _ = Describe("Storage", func() {
 
 					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
-
-					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 				}
-				close(done)
-			}, 240)
+			})
 		})
 
 		Context("With an emptyDisk defined", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VM.
-			It("should create a writeable emptyDisk with the right capacity", func(done Done) {
+			It("should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VM with the empty disk attached
 				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
@@ -197,7 +193,7 @@ var _ = Describe("Storage", func() {
 						},
 					},
 				})
-				RunVMAndExpectLaunch(vm, false, 45)
+				RunVMAndExpectLaunch(vm, false, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vm)
 				defer expecter.Close()
@@ -220,21 +216,19 @@ var _ = Describe("Storage", func() {
 				}, 20*time.Second)
 				log.DefaultLogger().Object(vm).Infof("%v", res)
 				Expect(err).To(BeNil())
-
-				close(done)
-			}, 240)
+			})
 
 		})
 
 		Context("With ephemeral alpine PVC", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VM.
-			It("should be successfully started", func(done Done) {
+			It("should be successfully started", func() {
 				checkReadiness()
 
 				// Start the VM with the PVC attached
 				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				RunVMAndExpectLaunch(vm, false, 45)
+				RunVMAndExpectLaunch(vm, false, 90)
 
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				defer expecter.Close()
@@ -242,26 +236,26 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VM console has expected output")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 				}, 200*time.Second)
 				Expect(err).To(BeNil())
+			})
 
-				close(done)
-			}, 240)
-
-			It("should not persist data", func(done Done) {
+			It("should not persist data", func() {
 				checkReadiness()
 				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				By("Starting the VM")
-				obj := RunVMAndExpectLaunch(vm, false, 90)
+				createdVM := RunVMAndExpectLaunch(vm, false, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "login"},
@@ -280,7 +274,7 @@ var _ = Describe("Storage", func() {
 				By("Killing a VM")
 				err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVM, 120)
 
 				By("Starting the VM again")
 				RunVMAndExpectLaunch(vm, false, 90)
@@ -290,6 +284,7 @@ var _ = Describe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "login"},
@@ -304,9 +299,7 @@ var _ = Describe("Storage", func() {
 					&expect.BExp{R: "1"},
 				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred())
-
-				close(done)
-			}, 400)
+			})
 		})
 
 		Context("With VM with two PVCs", func() {
@@ -354,7 +347,7 @@ var _ = Describe("Storage", func() {
 					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
 
-					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+					tests.WaitForVirtualMachineToDisappearWithTimeout(obj, 120)
 				}
 			})
 		})

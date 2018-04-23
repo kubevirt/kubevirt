@@ -28,12 +28,16 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	"encoding/json"
+
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
@@ -68,6 +72,7 @@ func NewController(
 		vmInformer:               vmInformer,
 		domainInformer:           domainInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
+		heartBeatInterval:        1 * time.Minute,
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -104,6 +109,7 @@ type VirtualMachineController struct {
 	gracefulShutdownInformer cache.SharedIndexInformer
 	launcherClients          map[string]cmdclient.LauncherClient
 	launcherClientLock       sync.Mutex
+	heartBeatInterval        time.Duration
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -153,29 +159,6 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	return
 }
 
-func (d *VirtualMachineController) getVMNodeAddress(vm *v1.VirtualMachine) (string, error) {
-	node, err := d.clientset.CoreV1().Nodes().Get(vm.Status.NodeName, metav1.GetOptions{})
-	if err != nil {
-		log.Log.Reason(err).Errorf("fetching source node %s failed", vm.Status.NodeName)
-		return "", err
-	}
-
-	addrStr := ""
-	for _, addr := range node.Status.Addresses {
-		if (addr.Type == k8sv1.NodeInternalIP) && (addrStr == "") {
-			addrStr = addr.Address
-			break
-		}
-	}
-	if addrStr == "" {
-		err := fmt.Errorf("VM node is unreachable")
-		log.Log.Error("VM node is unreachable")
-		return "", err
-	}
-
-	return addrStr, nil
-}
-
 func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain *api.Domain, syncError error) (err error) {
 
 	// Don't update the VM if it is already in a final state
@@ -188,7 +171,7 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	// Calculate the new VM state based on what libvirt reported
 	d.setVmPhaseForStatusReason(domain, vm)
 
-	d.checkFailure(vm, syncError, "Synchronizing with the Domain failed.")
+	controller.NewVirtualMachineConditionManager().CheckFailure(vm, syncError, "Synchronizing with the Domain failed.")
 
 	if !reflect.DeepEqual(oldStatus, vm.Status) {
 		_, err = d.clientset.VM(vm.ObjectMeta.Namespace).Update(vm)
@@ -228,6 +211,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.vmInformer.Run(stopCh)
 	go c.gracefulShutdownInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+
+	go c.heartBeat(c.heartBeatInterval, stopCh)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -362,6 +347,13 @@ func (d *VirtualMachineController) execute(key string) error {
 		if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) {
 			shouldUpdate = true
 		}
+	}
+
+	// If for instance an orphan delete was performed on a vm, a pod can still be in terminating state,
+	// make sure that we don't perform an update and instead try to make sure that the pod goes definitely away
+	if vmExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vm.UID {
+		log.Log.Object(vm).Errorf("Libvirt domain seems to be from a wrong VirtualMachine instance. That should never happen. Manual intervention required.")
+		return nil
 	}
 
 	var syncErr error
@@ -564,8 +556,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 		return err
 	}
 
-	// TODO check if found VM has the same UID like the domain,
-	// if not, delete the Domain firs
 	client, err := d.getLauncherClient(vm)
 	if err != nil {
 		return err
@@ -577,43 +567,6 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	d.recorder.Event(vm, k8sv1.EventTypeNormal, v1.Created.String(), "VM defined.")
 
 	return err
-}
-
-func (d *VirtualMachineController) checkFailure(vm *v1.VirtualMachine, syncErr error, reason string) (changed bool) {
-	if syncErr != nil && !d.hasCondition(vm, v1.VirtualMachineSynchronized) {
-		vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
-			Type:               v1.VirtualMachineSynchronized,
-			Reason:             reason,
-			Message:            syncErr.Error(),
-			LastTransitionTime: metav1.Now(),
-			Status:             k8sv1.ConditionFalse,
-		})
-		return true
-	} else if syncErr == nil && d.hasCondition(vm, v1.VirtualMachineSynchronized) {
-		d.removeCondition(vm, v1.VirtualMachineSynchronized)
-		return true
-	}
-	return false
-}
-
-func (d *VirtualMachineController) hasCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) bool {
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			return true
-		}
-	}
-	return false
-}
-
-func (d *VirtualMachineController) removeCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
-	conds := []v1.VirtualMachineCondition{}
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	vm.Status.Conditions = conds
 }
 
 func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) {
@@ -702,5 +655,24 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)
+	}
+}
+
+func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan struct{}) {
+	for {
+		wait.JitterUntil(func() {
+			now, err := json.Marshal(v12.Now())
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
+				return
+			}
+			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}, "annotations": {"%s": %s}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, string(now)))
+			_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", d.host)
+				return
+			}
+			log.DefaultLogger().V(4).Infof("Heartbeat sent")
+		}, interval, 1.2, true, stopCh)
 	}
 }

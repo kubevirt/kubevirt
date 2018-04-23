@@ -270,6 +270,9 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	// TODO: Graceful shutdown
 	domState, _, err := dom.GetState()
 	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			return nil
+		}
 		log.Log.Object(vm).Reason(err).Error("Getting the domain state failed.")
 		return err
 	}
@@ -277,6 +280,9 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
 		err = dom.Destroy()
 		if err != nil {
+			if domainerrors.IsNotFound(err) {
+				return nil
+			}
 			log.Log.Object(vm).Reason(err).Error("Destroying the domain state failed.")
 			return err
 		}
@@ -285,6 +291,9 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 
 	err = dom.Undefine()
 	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			return nil
+		}
 		log.Log.Object(vm).Reason(err).Error("Undefining the domain state failed.")
 		return err
 	}

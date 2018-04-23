@@ -54,20 +54,22 @@ type VirtControllerApp struct {
 	clientSet       kubecli.KubevirtClient
 	templateService services.TemplateService
 	restClient      *clientrest.RESTClient
-	vmService       services.VMService
 	informerFactory controller.KubeInformerFactory
 	podInformer     cache.SharedIndexInformer
+
+	nodeInformer   cache.SharedIndexInformer
+	nodeController *NodeController
 
 	vmCache      cache.Store
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
-	vmQueue      workqueue.RateLimitingInterface
 
 	vmPresetCache      cache.Store
 	vmPresetController *VirtualMachinePresetController
 	vmPresetQueue      workqueue.RateLimitingInterface
 	vmPresetInformer   cache.SharedIndexInformer
 	vmPresetRecorder   record.EventRecorder
+	vmRecorder         record.EventRecorder
 
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
@@ -116,11 +118,10 @@ func Execute() {
 
 	app.vmInformer = app.informerFactory.VM()
 	app.podInformer = app.informerFactory.KubeVirtPod()
+	app.nodeInformer = app.informerFactory.KubeVirtNode()
 
-	app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmCache = app.vmInformer.GetStore()
-	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
-	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
+	app.vmRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmPresetCache = app.vmInformer.GetStore()
@@ -191,6 +192,7 @@ func (vca *VirtControllerApp) Run() {
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
 					vca.informerFactory.Start(stop)
+					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmPresetController.Run(controllerThreads, stop)
@@ -223,13 +225,10 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
-	if err != nil {
-		golog.Fatal(err)
-	}
-	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
-	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
+	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
+	vca.vmController = NewVMController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
+	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmInformer, nil)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

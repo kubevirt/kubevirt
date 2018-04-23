@@ -70,7 +70,7 @@ func newVirtualMachine(virtualmachineName string, label map[string]string, owner
 	return vm
 }
 
-func TestClaimPods(t *testing.T) {
+func TestClaimVirtualMachine(t *testing.T) {
 	controllerKind := schema.GroupVersionKind{}
 	type test struct {
 		name            string

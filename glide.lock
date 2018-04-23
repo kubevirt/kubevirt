@@ -1,5 +1,5 @@
-hash: 0e10879ff77d0264694c4345bde771d31663ed486b54ed79b50c17b0a0f0ef86
-updated: 2018-04-19T17:39:05.061554508Z
+hash: 43bf5b9efcb1e998f16311fea749ec295c39564482781cdccb5724e57ecb5f24
+updated: 2018-04-20T09:53:00.832005531Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -321,7 +321,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 4b903ca6c8a2031b8f88c3d1fbefa8eb248b103c
+  version: ce97df4801e4c2c08188f5ea3bdea37f8e3b6472
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
@@ -379,7 +379,7 @@ imports:
   - third_party/forked/golang/netutil
   - third_party/forked/golang/reflect
 - name: k8s.io/client-go
-  version: e56f95336983131fc477c6c241502100c80b47f9
+  version: 90539b4e75a8daaf7f67c3874c6180bfb1a63936
   subpackages:
   - discovery
   - discovery/fake
@@ -478,7 +478,7 @@ imports:
   - util/jsonpath
   - util/workqueue
 - name: k8s.io/kube-aggregator
-  version: 505830b89d46ab904b2671e545e155a5ca97af82
+  version: f2179cbd9d5726787907db25bd3a034229d87635
   subpackages:
   - pkg/apis/apiregistration
   - pkg/apis/apiregistration/v1beta1

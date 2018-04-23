@@ -29,7 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -51,12 +51,10 @@ var _ = Describe("VM Subresources", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = v1.Running
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
-			templateService, err := services.NewTemplateService("whatever", "whatever", "whatever")
-			Expect(err).ToNot(HaveOccurred())
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever")
 
-			pod, err := templateService.RenderLaunchManifest(vm)
+			pod := templateService.RenderLaunchManifest(vm)
 			pod.ObjectMeta.Name = "madeup-name"
-			Expect(err).ToNot(HaveOccurred())
 
 			pod.Spec.NodeName = "mynode"
 			pod.Status.Phase = k8sv1.PodRunning

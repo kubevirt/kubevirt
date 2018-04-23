@@ -50,7 +50,12 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"k8s.io/apimachinery/pkg/labels"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virtctl"
@@ -552,6 +557,14 @@ func cleanNamespaces() {
 
 		// Remove all VMs
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
+		vms, err := virtCli.VM(namespace).List(metav1.ListOptions{})
+		PanicOnError(err)
+		for _, vm := range vms.Items {
+			if controller.HasFinalizer(&vm, v1.VirtualMachineFinalizer) {
+				_, err := virtCli.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				PanicOnError(err)
+			}
+		}
 
 		// Remove all Pods
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
@@ -861,8 +874,17 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 	return waitForVmStart(vm, seconds, false)
 }
 
+func WaitForVirtualMachineToDisappearWithTimeout(vm *v1.VirtualMachine, seconds int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() bool {
+		_, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, seconds, 1*time.Second).Should(BeTrue())
+}
+
 func WaitForSuccessfulVMStart(vm runtime.Object) string {
-	return waitForVmStart(vm, 30, false)
+	return waitForVmStart(vm, 90, false)
 }
 
 func NewInt32(x int32) *int32 {
@@ -986,7 +1008,7 @@ func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: "$"}})
-	res, err := expecter.ExpectBatch(b, 300*time.Second)
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
 	return expecter, err
 }
@@ -1123,4 +1145,24 @@ func GenerateVmJson(vm *v1.VirtualMachine) (string, error) {
 		return "", fmt.Errorf("failed to write json file %s", yamlFile)
 	}
 	return yamlFile, nil
+}
+
+func NotDeleted(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
+	for _, vm := range vms.Items {
+		if vm.DeletionTimestamp == nil {
+			notDeleted = append(notDeleted, vm)
+		}
+	}
+	return
+}
+
+func UnfinishedVMPodSelector(vm *v1.VirtualMachine) metav1.ListOptions {
+	fieldSelector := fields.ParseSelectorOrDie(
+		"status.phase!=" + string(k8sv1.PodFailed) +
+			",status.phase!=" + string(k8sv1.PodSucceeded))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", vm.GetName()))
+	if err != nil {
+		panic(err)
+	}
+	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }

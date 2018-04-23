@@ -36,6 +36,8 @@ import (
 
 	"time"
 
+	"fmt"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -55,7 +57,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 	doScale := func(name string, scale int32) {
 
 		// Status updates can conflict with our desire to change the spec
-		By("Scaling")
+		By(fmt.Sprintf("Scaling to %d", scale))
 		var rs *v1.VirtualMachineReplicaSet
 		for {
 			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(name, v12.GetOptions{})
@@ -75,11 +77,11 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
-		}, 10, 1).Should(Equal(int32(scale)))
+		}, 60, 1).Should(Equal(int32(scale)))
 
 		vms, err := virtClient.VM(tests.NamespaceTestDefault).List(v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vms.Items).To(HaveLen(int(scale)))
+		Expect(tests.NotDeleted(vms)).To(HaveLen(int(scale)))
 	}
 
 	newReplicaSet := func() *v1.VirtualMachineReplicaSet {
@@ -99,7 +101,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 
 	},
 		table.Entry("to three, to two and then to zero replicas", 3, 2),
-		table.Entry("to four, to six and then to zero replicas", 5, 6),
+		table.Entry("to five, to six and then to zero replicas", 5, 6),
 	)
 
 	It("should be rejected on POST if spec is invalid", func() {

@@ -35,9 +35,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -277,6 +278,110 @@ var _ = Describe("Vmlifecycle", func() {
 			}, 120)
 		})
 
+		Context("when virt-handler is responsive", func() {
+			It("should indicate that a node is ready for vms", func() {
+
+				By("adding a heartbeat annotation and a schedulable label to the node")
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).ToNot(BeEmpty())
+				for _, node := range nodes.Items {
+					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(HaveLen(0))
+				}
+
+				node := &nodes.Items[0]
+				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)))
+				Expect(err).ToNot(HaveOccurred())
+				timestamp := node.Annotations[v1.VirtHandlerHeartbeat]
+
+				By("setting the schedulable label back to true")
+				Eventually(func() string {
+					n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return n.Labels[v1.NodeSchedulable]
+				}, 2*time.Minute, 2*time.Second).Should(Equal("true"))
+				By("updating the heartbeat roughly every minute")
+				Expect(func() string {
+					n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return n.Labels[v1.VirtHandlerHeartbeat]
+				}()).ShouldNot(Equal(timestamp))
+			})
+		})
+
+		Context("when virt-handler is not responsive", func() {
+
+			var vm *v1.VirtualMachine
+			var nodeName string
+			var virtHandler *k8sv1.Pod
+
+			BeforeEach(func() {
+				// schdule a vm and make sure that virt-handler gets evicted from the node where the vm was started
+				vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
+				vm, err = virtClient.VM(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				nodeName = tests.WaitForSuccessfulVMStart(vm)
+				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred())
+				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
+				ds.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+								{MatchExpressions: []k8sv1.NodeSelectorRequirement{
+									{Key: "kubernetes.io/hostname", Operator: "NotIn", Values: []string{nodeName}},
+								}},
+							},
+						},
+					},
+				}
+				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					_, err := virtClient.CoreV1().Pods(virtHandler.Namespace).Get(virtHandler.Name, metav1.GetOptions{})
+					return errors.IsNotFound(err)
+				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+			})
+			It("the node controller should react", func() {
+
+				// Update virt-handler heartbeat, to trigger a timeout
+				data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, v1.VirtHandlerHeartbeat, nowAsJSONWithOffset(-10*time.Minute)))
+				_, err = virtClient.CoreV1().Nodes().Patch(nodeName, types.StrategicMergePatchType, data)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Delete vm pod
+				pods, err := virtClient.CoreV1().Pods(vm.Namespace).List(metav1.ListOptions{
+					LabelSelector: v1.DomainLabel + " = " + vm.Name,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pods.Items).To(HaveLen(1))
+				Expect(virtClient.CoreV1().Pods(vm.Namespace).Delete(pods.Items[0].Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				// it will take at least 45 seconds until the vm is gone, check the schedulable state in the meantime
+				By("marking the node as not schedulable")
+				Eventually(func() string {
+					node, err := virtClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return node.Labels[v1.NodeSchedulable]
+				}, 20*time.Second, 1*time.Second).Should(Equal("false"))
+
+				By("moving stuck vms to failed state")
+				Eventually(func() v1.VMPhase {
+					failedVM, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return failedVM.Status.Phase
+				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+			})
+			AfterEach(func() {
+				// Restore virt-handler daemonset
+				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				ds.Spec.Template.Spec.Affinity = nil
+				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
 		Context("with non default namespace", func() {
 			table.DescribeTable("should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 
@@ -303,9 +408,9 @@ var _ = Describe("Vmlifecycle", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 
 				// Start the VM and wait for the confirmation of the start
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Body(vm).Do().Get()
+				vm, err = virtClient.VM(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMStart(obj)
+				tests.WaitForSuccessfulVMStart(vm)
 
 				// Check if the start event was logged
 				By("Checking that virt-handler logs VM creation")
@@ -321,7 +426,8 @@ var _ = Describe("Vmlifecycle", func() {
 				By("Deleting the VM")
 				_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.NewObjectEventWatcher(vm).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 
 				// Check if the stop event was logged
 				By("Checking that virt-handler logs VM deletion")
@@ -361,7 +467,7 @@ var _ = Describe("Vmlifecycle", func() {
 				tests.WaitForSuccessfulVMStart(obj)
 
 				By("Verifying VM's pod is active")
-				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(vm))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
@@ -370,7 +476,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 				By("Verifying VM's pod terminates")
 				Eventually(func() int {
-					pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
+					pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(vm))
 					Expect(err).ToNot(HaveOccurred())
 					return len(pods.Items)
 				}, 75, 0.5).Should(Equal(0))
@@ -379,7 +485,7 @@ var _ = Describe("Vmlifecycle", func() {
 			}, 90)
 		})
 		Context("with grace period greater than 0", func() {
-			It("should run graceful shutdown", func(done Done) {
+			It("should run graceful shutdown", func() {
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
@@ -426,9 +532,7 @@ var _ = Describe("Vmlifecycle", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return string(data)
 				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("grace period expired, killing deleted VM %s", vm.GetObjectMeta().GetName())))
-
-				close(done)
-			}, 60)
+			})
 		})
 	})
 
@@ -555,4 +659,13 @@ func pkillAllVms(virtCli kubecli.KubevirtClient, node string) error {
 	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
 
 	return err
+}
+
+func nowAsJSONWithOffset(offset time.Duration) string {
+	now := metav1.Now()
+	now = metav1.NewTime(now.Add(offset))
+
+	data, err := json.Marshal(now)
+	Expect(err).ToNot(HaveOccurred())
+	return strings.Trim(string(data), `"`)
 }
