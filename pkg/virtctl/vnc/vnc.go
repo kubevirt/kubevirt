@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -34,6 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
+
+const LISTEN_TIMEOUT = 60 * time.Second
 
 const FLAG = "vnc"
 
@@ -81,14 +84,20 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	writeStop := make(chan error)
 	readStop := make(chan error)
 
+	lnAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	if err != nil {
+		return fmt.Errorf("Can't resolve the address: %s", err.Error())
+	}
+
 	// The local tcp server is used to proxy the podExec websock connection to remote-viewer
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.ListenTCP("tcp", lnAddr)
 	if err != nil {
 		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
 	}
 
 	port := ln.Addr().(*net.TCPAddr).Port
 
+	start := time.Now()
 	// setup connection with VM
 	go func() {
 		err := virtCli.VM(namespace).VNC(vm, pipeInReader, pipeOutWriter)
@@ -112,12 +121,9 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		viewResChan <- err
 	}()
 
-	select {
-	case err = <-viewResChan:
-		if err != nil {
-			return err
-		}
-	}
+	glog.Infof("connection timeout: %v", LISTEN_TIMEOUT)
+	// exit early if spawning remote-viewer fails
+	ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
 
 	// wait for remote-viewer to connect to our local proxy server
 	fd, err := ln.Accept()
@@ -126,7 +132,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	}
 	defer fd.Close()
 
-	glog.V(2).Infof("remote-viewer connected")
+	glog.V(2).Infof("remote-viewer connected in %v", time.Now().Sub(start))
 	go func() {
 		interrupt := make(chan os.Signal, 1)
 		signal.Notify(interrupt, os.Interrupt)
