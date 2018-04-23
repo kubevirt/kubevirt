@@ -55,6 +55,8 @@ var _ = Describe("Networking", func() {
 	var inboundVM *v1.VirtualMachine
 	var outboundVM *v1.VirtualMachine
 
+	// newHelloWorldJob takes a dns entry or an IP which it will use create a pod
+	// which tries to contact the host on port 1500. It expects to receive "Hello World!" to succeed.
 	newHelloWorldJob := func(host string) *v12.Pod {
 		check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s 1500 -i 1 -w 1))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host)}
 		job := tests.RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
@@ -62,7 +64,7 @@ var _ = Describe("Networking", func() {
 		return job
 	}
 
-	logPod := func(pod *v12.Pod) {
+	logPodLogs := func(pod *v12.Pod) {
 		defer GinkgoRecover()
 
 		var s int64 = 500
@@ -80,6 +82,7 @@ var _ = Describe("Networking", func() {
 		}, 30*time.Second, 1*time.Second).Should(Or(Equal(v12.PodSucceeded), Equal(v12.PodFailed)))
 		j, err := virtClient.Core().Pods(inboundVM.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		logPodLogs(pod)
 		return j.Status.Phase
 	}
 
@@ -204,7 +207,6 @@ var _ = Describe("Networking", func() {
 			job, err = virtClient.CoreV1().Pods(inboundVM.ObjectMeta.Namespace).Create(job)
 			Expect(err).ToNot(HaveOccurred())
 			phase := waitForPodToFinish(job)
-			logPod(job)
 			Expect(phase).To(Equal(v12.PodSucceeded))
 		},
 			table.Entry("on the same node from Pod", v12.NodeSelectorOpIn, false),
@@ -235,21 +237,23 @@ var _ = Describe("Networking", func() {
 			})
 			It(" should be able to reach the vm based on labels specified on the vm", func() {
 
+				By("starting a pod which tries to reach the vm via the defined service")
 				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVM.Namespace))
 				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
+				By("waiting for the pod to report a successful connection attempt")
 				phase := waitForPodToFinish(job)
-				logPod(job)
 				Expect(phase).To(Equal(v12.PodSucceeded))
 			})
 			It("should fail to reach the vm if an invalid servicename is used", func() {
 
+				By("starting a pod which tries to reach the vm via a non-existent service")
 				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVM.Namespace))
 				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
+				By("waiting for the pod to report an  unsuccessful connection attempt")
 				phase := waitForPodToFinish(job)
-				logPod(job)
 				Expect(phase).To(Equal(v12.PodFailed))
 			})
 
