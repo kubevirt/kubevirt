@@ -116,6 +116,8 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		output, err := cmnd.CombinedOutput()
 		if err != nil {
 			glog.Errorf("remote-viewer execution encountered an error: %v", err)
+		}
+		if err != nil || glog.V(2) {
 			glog.Errorf("remote-viewer: %v", string(output))
 		}
 		viewResChan <- err
