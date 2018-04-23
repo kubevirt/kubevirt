@@ -23,3 +23,20 @@ function build_func_tests() {
 PROVIDER=${PROVIDER:-vagrant-kubernetes}
 provider_prefix=${JOB_NAME:-${PROVIDER}}${EXECUTOR_NUMBER}
 job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}
+
+# Populate an environment variable with the version info needed.
+# It should be used for everything which needs a version when building (not generating)
+# IMPORTANT:
+# RIGHT NOW ONLY RELEVANT FOR BUILDING, GENERATING CODE OUTSIDE OF GIT
+# IS NOT NEEDED NOR RECOMMENDED AT THIS STAGE.
+
+function kubevirt_version() {
+    if [ -n "${KUBEVIRT_VERSION}" ]; then
+        echo ${KUBEVIRT_VERSION}
+    elif [ -d ${KUBEVIRT_DIR}/.git ]; then
+        echo "$(git describe --always --tags)"
+    else
+        echo "undefined"
+    fi
+}
+KUBEVIRT_VERSION="$(kubevirt_version)"
