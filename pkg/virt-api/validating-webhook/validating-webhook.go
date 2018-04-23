@@ -37,6 +37,7 @@ import (
 
 const (
 	cloudInitMaxLen = 2048
+	arrayLenMax     = 256
 )
 
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
@@ -104,7 +105,21 @@ func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
 
 func validateDisks(disks []v1.Disk) []error {
 	errors := []error{}
+	nameMap := make(map[string]int)
+
+	if len(disks) > arrayLenMax {
+		errors = append(errors, fmt.Errorf("spec.domain.devices.disks list exceeds the %d element limit in length", arrayLenMax))
+
+	}
+
 	for idx, disk := range disks {
+		// verify name is unique
+		otherIdx, ok := nameMap[disk.Name]
+		if !ok {
+			nameMap[disk.Name] = idx
+		} else {
+			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d] and spec.domain.devices.disks[%d] must not have the same Name.", idx, otherIdx))
+		}
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
 		if disk.Disk != nil {
@@ -133,8 +148,20 @@ func validateDisks(disks []v1.Disk) []error {
 
 func validateVolumes(volumes []v1.Volume) []error {
 	errors := []error{}
+	nameMap := make(map[string]int)
 
+	if len(volumes) > arrayLenMax {
+		errors = append(errors, fmt.Errorf("spec.volumes list exceeds the %d element limit in length", arrayLenMax))
+	}
 	for idx, volume := range volumes {
+		// verify name is unique
+		otherIdx, ok := nameMap[volume.Name]
+		if !ok {
+			nameMap[volume.Name] = idx
+		} else {
+			errors = append(errors, fmt.Errorf("spec.volumes[%d] and spec.volumes[%d] must not have the same Name.", idx, otherIdx))
+		}
+
 		// Verify exactly one source is set
 		volumeSourceSetCount := 0
 		if volume.PersistentVolumeClaim != nil {
@@ -205,6 +232,14 @@ func validateDomainSpec(spec *v1.DomainSpec) []error {
 
 func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []error {
 	errors := []error{}
+	volumeNameMap := make(map[string]int)
+
+	if len(spec.Domain.Devices.Disks) > arrayLenMax {
+		errors = append(errors, fmt.Errorf("spec.domain.devices.disks list exceeds the %d element limit in length", arrayLenMax))
+	} else if len(spec.Volumes) > arrayLenMax {
+		errors = append(errors, fmt.Errorf("spec.volumes list exceeds the %d element limit in length", arrayLenMax))
+
+	}
 
 	// Validate disks and VolumeNames match up correctly
 	for idx, disk := range spec.Domain.Devices.Disks {
@@ -219,6 +254,15 @@ func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []error {
 		if matchingVolume == nil {
 			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].volumeName '%s' not found.", idx, disk.VolumeName))
 		}
+
+		// verify no other disk maps to this volume
+		otherIdx, ok := volumeNameMap[disk.VolumeName]
+		if !ok {
+			volumeNameMap[disk.VolumeName] = idx
+		} else {
+			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d] and spec.domain.devices.disks[%d] reference the same volumeName.", idx, otherIdx))
+		}
+
 		// Verify Lun disks are only mapped to network/block devices.
 		if disk.LUN != nil && (matchingVolume == nil || matchingVolume.PersistentVolumeClaim == nil) {
 			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].lun can only be mapped to a PersistentVolumeClaim volume.", idx))
