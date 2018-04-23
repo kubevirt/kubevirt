@@ -37,8 +37,6 @@ import (
 
 const FLAG = "vnc"
 
-var debug bool
-
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "vnc (vm)",
@@ -51,7 +49,6 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().BoolVarP(&debug, "debug", "D", false, "enable debug output")
 	return cmd
 }
 
@@ -101,8 +98,9 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	// execute remote viewer
 	go func() {
 		args := []string{fmt.Sprintf("vnc://127.0.0.1:%d", port)}
-		if debug {
+		if glog.V(4) {
 			args = append(args, "--debug")
+			glog.Infof("remote-viewer commandline: %v", args)
 		}
 
 		cmnd := exec.Command("remote-viewer", args...)
@@ -164,6 +162,6 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 func usage() string {
 	usage := "# Connect to testvm via remote-viewer:\n"
-	usage += "./virtctl vnc testvm [--debug]"
+	usage += "./virtctl vnc testvm"
 	return usage
 }
