@@ -294,6 +294,63 @@ var _ = Describe("Validating Webhook", func() {
 	})
 
 	Context("with VM spec", func() {
+		It("should accept disk and volume lists equal to max element length", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			for i := 0; i < arrayLenMax; i++ {
+				diskName := fmt.Sprintf("testDisk%d", i)
+				volumeName := fmt.Sprintf("testVolume%d", i)
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+					Name:       diskName,
+					VolumeName: volumeName,
+				})
+				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+					Name: volumeName,
+					VolumeSource: v1.VolumeSource{
+						RegistryDisk: &v1.RegistryDiskSource{},
+					},
+				})
+			}
+
+			errors := validateVirtualMachineSpec(&vm.Spec)
+			Expect(len(errors)).To(Equal(0))
+		})
+		It("should reject disk lists greater than max element length", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			for i := 0; i <= arrayLenMax; i++ {
+				diskName := "testDisk"
+				volumeName := "testVolume"
+				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+					Name:       diskName,
+					VolumeName: volumeName,
+				})
+			}
+
+			errors := validateVirtualMachineSpec(&vm.Spec)
+			// if this is processed correctly, it should result in a single error
+			// If multiple errors occurred, then the spec was processed too far.
+			Expect(len(errors)).To(Equal(1))
+		})
+		It("should reject volume lists greater than max element length", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			for i := 0; i <= arrayLenMax; i++ {
+				volumeName := "testVolume"
+				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+					Name: volumeName,
+					VolumeSource: v1.VolumeSource{
+						RegistryDisk: &v1.RegistryDiskSource{},
+					},
+				})
+			}
+
+			errors := validateVirtualMachineSpec(&vm.Spec)
+			// if this is processed correctly, it should result in a single error
+			// If multiple errors occurred, then the spec was processed too far.
+			Expect(len(errors)).To(Equal(1))
+		})
+
 		It("should reject disk with missing volume", func() {
 			vm := v1.NewMinimalVM("testvm")
 
@@ -302,6 +359,28 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeName: "testvolume",
 			})
 
+			errors := validateVirtualMachineSpec(&vm.Spec)
+			Expect(len(errors)).To(Equal(1))
+		})
+		It("should reject multiple disks referencing same volume", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			// verify two disks referencing the same volume are rejected
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume",
+			})
+
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{},
+				},
+			})
 			errors := validateVirtualMachineSpec(&vm.Spec)
 			Expect(len(errors)).To(Equal(1))
 		})
@@ -395,6 +474,25 @@ var _ = Describe("Validating Webhook", func() {
 			errors := validateVolumes(vm.Spec.Volumes)
 			Expect(len(errors)).To(Equal(1))
 		})
+		It("should reject volumes with duplicate names", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{},
+				},
+			})
+			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{},
+				},
+			})
+
+			errors := validateVolumes(vm.Spec.Volumes)
+			Expect(len(errors)).To(Equal(1))
+		})
 		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
 			vm := v1.NewMinimalVM("testvm")
 
@@ -480,6 +578,27 @@ var _ = Describe("Validating Webhook", func() {
 			errors := validateDisks(vm.Spec.Domain.Devices.Disks)
 			Expect(len(errors)).To(Equal(0))
 		})
+		It("should reject disks with duplicate names ", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume1",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume2",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+			errors := validateDisks(vm.Spec.Domain.Devices.Disks)
+			Expect(len(errors)).To(Equal(1))
+		})
+
 		It("should reject disk with multiple targets ", func() {
 			vm := v1.NewMinimalVM("testvm")
 

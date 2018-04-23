@@ -109,7 +109,8 @@ func validateDisks(disks []v1.Disk) []error {
 
 	if len(disks) > arrayLenMax {
 		errors = append(errors, fmt.Errorf("spec.domain.devices.disks list exceeds the %d element limit in length", arrayLenMax))
-
+		// We won't process anything over the limit
+		return errors
 	}
 
 	for idx, disk := range disks {
@@ -152,6 +153,8 @@ func validateVolumes(volumes []v1.Volume) []error {
 
 	if len(volumes) > arrayLenMax {
 		errors = append(errors, fmt.Errorf("spec.volumes list exceeds the %d element limit in length", arrayLenMax))
+		// We won't process anything over the limit
+		return errors
 	}
 	for idx, volume := range volumes {
 		// verify name is unique
@@ -236,9 +239,12 @@ func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []error {
 
 	if len(spec.Domain.Devices.Disks) > arrayLenMax {
 		errors = append(errors, fmt.Errorf("spec.domain.devices.disks list exceeds the %d element limit in length", arrayLenMax))
+		// We won't process anything over the limit
+		return errors
 	} else if len(spec.Volumes) > arrayLenMax {
 		errors = append(errors, fmt.Errorf("spec.volumes list exceeds the %d element limit in length", arrayLenMax))
-
+		// We won't process anything over the limit
+		return errors
 	}
 
 	// Validate disks and VolumeNames match up correctly
