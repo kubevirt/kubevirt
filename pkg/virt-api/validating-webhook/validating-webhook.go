@@ -235,7 +235,8 @@ func validateDomainSpec(spec *v1.DomainSpec) []error {
 
 func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []error {
 	errors := []error{}
-	volumeNameMap := make(map[string]int)
+	volumeToDiskIndexMap := make(map[string]int)
+	volumeNameMap := make(map[string]*v1.Volume)
 
 	if len(spec.Domain.Devices.Disks) > arrayLenMax {
 		errors = append(errors, fmt.Errorf("spec.domain.devices.disks list exceeds the %d element limit in length", arrayLenMax))
@@ -247,30 +248,30 @@ func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []error {
 		return errors
 	}
 
+	for _, volume := range spec.Volumes {
+		volumeNameMap[volume.Name] = &volume
+	}
+
 	// Validate disks and VolumeNames match up correctly
 	for idx, disk := range spec.Domain.Devices.Disks {
 		var matchingVolume *v1.Volume
-		for _, volume := range spec.Volumes {
-			if disk.VolumeName == volume.Name {
-				matchingVolume = &volume
-				break
-			}
-		}
 
-		if matchingVolume == nil {
+		matchingVolume, volumeExists := volumeNameMap[disk.VolumeName]
+
+		if !volumeExists {
 			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].volumeName '%s' not found.", idx, disk.VolumeName))
 		}
 
 		// verify no other disk maps to this volume
-		otherIdx, ok := volumeNameMap[disk.VolumeName]
+		otherIdx, ok := volumeToDiskIndexMap[disk.VolumeName]
 		if !ok {
-			volumeNameMap[disk.VolumeName] = idx
+			volumeToDiskIndexMap[disk.VolumeName] = idx
 		} else {
 			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d] and spec.domain.devices.disks[%d] reference the same volumeName.", idx, otherIdx))
 		}
 
 		// Verify Lun disks are only mapped to network/block devices.
-		if disk.LUN != nil && (matchingVolume == nil || matchingVolume.PersistentVolumeClaim == nil) {
+		if disk.LUN != nil && volumeExists && matchingVolume.PersistentVolumeClaim == nil {
 			errors = append(errors, fmt.Errorf("spec.domain.devices.disks[%d].lun can only be mapped to a PersistentVolumeClaim volume.", idx))
 		}
 	}
