@@ -593,8 +593,16 @@ func (app *virtAPIApp) createWebhook() error {
 			return err
 		}
 	} else {
+
+		for _, webhook := range webhookRegistration.Webhooks {
+			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != namespace {
+				return fmt.Errorf("ValidatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookValidator)
+			}
+		}
+
 		// update registered webhook with our data
 		webhookRegistration.Webhooks = webHooks
+
 		_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(webhookRegistration)
 		if err != nil {
 			return err
