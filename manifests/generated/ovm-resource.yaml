@@ -301,12 +301,24 @@ spec:
                               type: object
                       required:
                       - devices
+                    hostname:
+                      description: Specifies the hostname of the vm If not specified,
+                        the hostname will be set to the name of the vm, if dhcp or
+                        cloud-init is configured properly.
+                      type: string
                     nodeSelector:
                       description: 'NodeSelector is a selector which must be true
                         for the vm to fit on a node. Selector which must match a node''s
                         labels for the vm to be scheduled on that node. More info:
                         https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                       type: object
+                    subdomain:
+                      description: If specified, the fully qualified vm hostname will
+                        be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
+                        If not specified, the vm will not have a domainname at all.
+                        The DNS entry will resolve to the vm, no matter if the vm
+                        itself can pick up a hostname.
+                      type: string
                     terminationGracePeriodSeconds:
                       description: Grace period observed after signalling a VM to
                         stop after which the VM is force terminated.

@@ -24,6 +24,8 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vm.",
+		"hostname":                      "Specifies the hostname of the vm\nIf not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.\n+optional",
+		"subdomain":                     "If specified, the fully qualified vm hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\".\nIf not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm,\nno matter if the vm itself can pick up a hostname.\n+optional",
 	}
 }
 

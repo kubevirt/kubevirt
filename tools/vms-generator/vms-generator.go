@@ -20,7 +20,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -32,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"encoding/base64"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -130,6 +131,10 @@ func addRegistryDisk(spec *v1.VirtualMachineSpec, image string, bus string) *v1.
 }
 
 func addNoCloudDisk(spec *v1.VirtualMachineSpec) *v1.VirtualMachineSpec {
+	return addNoCloudDiskWitUserData(spec, "#!/bin/sh\n\necho 'printed from cloud-init userdata'\n")
+}
+
+func addNoCloudDiskWitUserData(spec *v1.VirtualMachineSpec, data string) *v1.VirtualMachineSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "cloudinitdisk",
 		VolumeName: "cloudinitvolume",
@@ -140,12 +145,11 @@ func addNoCloudDisk(spec *v1.VirtualMachineSpec) *v1.VirtualMachineSpec {
 		},
 	})
 
-	userData := fmt.Sprint("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n")
 	spec.Volumes = append(spec.Volumes, v1.Volume{
 		Name: "cloudinitvolume",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(data)),
 			},
 		},
 	})
@@ -215,7 +219,7 @@ func getVmEphemeralFedora() *v1.VirtualMachine {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
-	addNoCloudDisk(&vm.Spec)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora:fedora\" | chpasswd\n")
 	return vm
 }
 

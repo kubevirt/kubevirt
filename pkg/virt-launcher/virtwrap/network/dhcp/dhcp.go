@@ -32,6 +32,8 @@ import (
 	dhcpConn "github.com/krolaw/dhcp4/conn"
 	"github.com/vishvananda/netlink"
 
+	"os"
+
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
@@ -82,6 +84,12 @@ func SingleClientDHCPServer(
 	if searchDomainBytes != nil {
 		dhcpOptions[dhcp.OptionDomainSearch] = searchDomainBytes
 	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("reading the pods hostname failed: %v", err)
+	}
+	dhcpOptions[dhcp.OptionHostName] = []byte(hostname)
 
 	handler := &DHCPHandler{
 		clientIP:      clientIP,
