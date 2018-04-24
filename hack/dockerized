@@ -5,6 +5,8 @@ source $(dirname "$0")/common.sh
 
 DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
 
+SYNC_OUT=${SYNC_OUT:-true}
+
 BUILDER=${job_prefix}
 
 SYNC_VENDOR=${SYNC_VENDOR:-false}
@@ -26,8 +28,8 @@ docker run -v "${BUILDER}:/root:rw,z" --rm ${BUILDER} mkdir -p /root/go/src/kube
 RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --expose 873 -P ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
-    docker stop ${RSYNC_CID}
-    docker rm -f ${RSYNC_CID}
+    docker stop ${RSYNC_CID} >/dev/null 2>&1 &
+    docker rm -f ${RSYNC_CID} >/dev/null 2>&1 &
 }
 trap finish EXIT
 
@@ -74,4 +76,6 @@ if [ "$SYNC_VENDOR" = "true" ]; then
     _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/vendor" "${VENDOR_DIR}/"
 fi
 # Copy the build output out of the container, make sure that _out exactly matches the build result
-_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
+if [ "$SYNC_OUT" = "true" ]; then
+    _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
+fi
