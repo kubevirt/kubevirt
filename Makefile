@@ -15,7 +15,7 @@ build:
 	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install ${WHAT}"
 
 goveralls:
-	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
+	SYNC_OUT=false hack/dockerized "./hack/check.sh && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
 
 test:
 	SYNC_OUT=false hack/dockerized "./hack/check.sh && ./hack/build-go.sh test ${WHAT}"
