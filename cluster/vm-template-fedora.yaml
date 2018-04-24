@@ -4,7 +4,7 @@ metadata:
   name: fedora-vm-template
   console.openshift.io/iconClass: icon-fedora
   annotations:
-    description: "OCP KubeVirt Red Hat Enterprise Linux 7.4 VM template"
+    description: "OCP KubeVirt Fedora 27 VM template"
     tags: "kubevirt,ocp,template,linux"
   labels:
     kubevirt.io/os: fedora27
