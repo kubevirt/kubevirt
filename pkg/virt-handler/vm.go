@@ -74,6 +74,7 @@ func NewController(
 		domainInformer:           domainInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
 		heartBeatInterval:        1 * time.Minute,
+		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
