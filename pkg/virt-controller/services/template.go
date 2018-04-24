@@ -56,9 +56,8 @@ func IsEmulationAllowed(store cache.Store) (bool, error) {
 	if !exists {
 		return exists, nil
 	}
-	var cm *k8sv1.ConfigMap
 	allowEmulation := false
-	cm = obj.(*k8sv1.ConfigMap)
+	cm := obj.(*k8sv1.ConfigMap)
 	emu, ok := cm.Data[allowEmulationKey]
 	if ok {
 		// TODO: is this too specific? should we just look for the existence of
