@@ -506,7 +506,7 @@ type FeatureVendorID struct {
 	Enabled *bool `json:"enabled,omitempty"`
 	// VendorID sets the hypervisor vendor id, visible to the vm
 	// String up to twelve characters
-	VendorID string `json:"vendorid, omitempty"`
+	VendorID string `json:"vendorid,omitempty"`
 }
 
 // Hyperv specific features

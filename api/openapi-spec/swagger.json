@@ -3459,9 +3459,6 @@
     }
    },
    "v1.FeatureVendorID": {
-    "required": [
-     "vendorid"
-    ],
     "properties": {
      "enabled": {
       "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",

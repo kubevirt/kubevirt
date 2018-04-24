@@ -5,7 +5,7 @@ ENV LIBVIRT_VERSION 3.7.0
 RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img && \
     dnf -y clean all
 
-ENV GIMME_GO_VERSION=1.9.2
+ENV GIMME_GO_VERSION=1.10
 
 RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
 
