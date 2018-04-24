@@ -349,7 +349,10 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err s
 			return nil
 		}
 		c.podExpectations.ExpectCreations(vmKey, 1)
-		templatePod := c.templateService.RenderLaunchManifest(vm)
+		templatePod, err := c.templateService.RenderLaunchManifest(vm)
+		if err != nil {
+			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedCreatePodReason}
+		}
 		pod, err := c.clientset.CoreV1().Pods(vm.GetNamespace()).Create(templatePod)
 		if err != nil {
 			c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)

@@ -38,7 +38,7 @@ const configMapName = "kube-system/virt-controller"
 const allowEmulationKey = "debug.allowEmulation"
 
 type TemplateService interface {
-	RenderLaunchManifest(*v1.VirtualMachine) *k8sv1.Pod
+	RenderLaunchManifest(*v1.VirtualMachine) (*k8sv1.Pod, error)
 }
 
 type templateService struct {
@@ -67,7 +67,7 @@ func IsEmulationAllowed(store cache.Store) (bool, error) {
 	return allowEmulation, nil
 }
 
-func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *k8sv1.Pod {
+func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -172,6 +172,9 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *k8sv1.Pod
 	}
 
 	allowEmulation, err := IsEmulationAllowed(t.store)
+	if err != nil {
+		return nil, err
+	}
 	if allowEmulation {
 		command = append(command, "--allow-emulation")
 	}
@@ -272,7 +275,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *k8sv1.Pod
 		}
 	}
 
-	return &pod
+	return &pod, nil
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
