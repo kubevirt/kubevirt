@@ -1,0 +1,40 @@
+apiVersion: kubevirt.io/v1alpha1
+kind: OfflineVirtualMachine
+metadata:
+  creationTimestamp: null
+  labels:
+    kubevirt.io/ovm: ovm-alpine-multipvc
+  name: ovm-alpine-multipvc
+spec:
+  running: false
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubevirt.io/ovm: ovm-alpine-multipvc
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: pvcdisk
+            volumeName: pvcvolume
+          - disk:
+              bus: virtio
+            name: pvcdisk
+            volumeName: pvcvolume
+        machine:
+          type: ""
+        resources:
+          requests:
+            memory: 64M
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - name: pvcvolume
+        persistentVolumeClaim:
+          claimName: disk-alpine
+      - name: pvcvolume
+        persistentVolumeClaim:
+          claimName: disk-custom
+status: {}
