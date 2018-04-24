@@ -199,16 +199,21 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) *kubev1.Po
 	}
 	nodeSelector[v1.NodeSchedulable] = "true"
 
+	podLabels := map[string]string{}
+
+	for k, v := range vm.Labels {
+		podLabels[k] = v
+	}
+	podLabels[v1.AppLabel] = "virt-launcher"
+	podLabels[v1.DomainLabel] = domain
+
 	containers = append(containers, container)
 
-	// TODO use constants for labels
+	// TODO use constants for podLabels
 	pod := kubev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
-			Labels: map[string]string{
-				v1.AppLabel:    "virt-launcher",
-				v1.DomainLabel: domain,
-			},
+			Labels:       podLabels,
 			Annotations: map[string]string{
 				v1.CreatedByAnnotation: string(vm.UID),
 				v1.OwnedByAnnotation:   "virt-controller",

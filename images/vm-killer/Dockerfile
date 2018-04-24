@@ -21,5 +21,5 @@ FROM fedora:27
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
 
-RUN dnf -y install procps-ng \
+RUN dnf -y install procps-ng nmap-ncat \
     && dnf -y clean all

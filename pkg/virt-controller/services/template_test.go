@@ -113,6 +113,31 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{NodeAffinity: &nodeAffinity}))
 			})
 
+			It("should add vm labels to pod", func() {
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
+						Namespace: "default",
+						UID:       "1234",
+						Labels: map[string]string{
+							"key1": "val1",
+							"key2": "val2",
+						},
+					},
+					Spec: v1.VirtualMachineSpec{
+						Domain: v1.DomainSpec{},
+					},
+				}
+				pod := svc.RenderLaunchManifest(&vm)
+				Expect(pod.Labels).To(Equal(
+					map[string]string{
+						"key1":         "val1",
+						"key2":         "val2",
+						v1.AppLabel:    "virt-launcher",
+						v1.DomainLabel: "testvm",
+					},
+				))
+			})
+
 			It("should not add empty node affinity to pod", func() {
 				vm := v1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
