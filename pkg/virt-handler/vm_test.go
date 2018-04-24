@@ -58,7 +58,6 @@ var _ = Describe("VM", func() {
 	var vmInformer cache.SharedIndexInformer
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
-	var gracefulShutdownSource *framework.FakeControllerSource
 	var gracefulShutdownInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
@@ -86,7 +85,7 @@ var _ = Describe("VM", func() {
 
 		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
-		gracefulShutdownInformer, gracefulShutdownSource = testutils.NewFakeInformerFor(&api.Domain{})
+		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 
 		ctrl = gomock.NewController(GinkgoT())
