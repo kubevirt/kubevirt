@@ -36,10 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -496,6 +495,39 @@ var _ = Describe("Vmlifecycle", func() {
 
 				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
 				Expect(emulationFlagFound).To(BeTrue(), "Expected VM pod to have '--allow-emulation' flag")
+			})
+
+			It("should be reflected in domain XML", func() {
+				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+				Expect(err).To(BeNil())
+
+				listOptions := metav1.ListOptions{}
+
+				Eventually(func() int {
+					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
+					Expect(err).ToNot(HaveOccurred())
+					return len(podList.Items)
+				}, 75, 0.5).Should(Equal(1))
+
+				getOptions := metav1.GetOptions{}
+				var newVm *v1.VirtualMachine
+
+				newVm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.Name, getOptions)
+				Expect(err).ToNot(HaveOccurred())
+
+				domain := &api.Domain{}
+				context := &api.ConverterContext{
+					AllowEmulation: true,
+					VirtualMachine: newVm,
+				}
+				api.Convert_v1_VirtualMachine_To_api_Domain(newVm, domain, context)
+
+				expectedType := ""
+				if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
+					expectedType = "qemu"
+				}
+
+				Expect(domain.Spec.Type).To(Equal(expectedType))
 			})
 		})
 	})
