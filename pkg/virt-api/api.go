@@ -27,7 +27,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/emicklei/go-restful"
@@ -494,33 +493,39 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 		}
 	}
 
-	if registerApiService {
-		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Create(&apiregistrationv1beta1.APIService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      subresourceAggregatedApiName,
+	newApiService := &apiregistrationv1beta1.APIService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      subresourceAggregatedApiName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				v1.AppLabel: "virt-api-aggregator",
+			},
+		},
+		Spec: apiregistrationv1beta1.APIServiceSpec{
+			Service: &apiregistrationv1beta1.ServiceReference{
 				Namespace: namespace,
-				Labels: map[string]string{
-					v1.AppLabel: "virt-api-aggregator",
-				},
+				Name:      "virt-api",
 			},
-			Spec: apiregistrationv1beta1.APIServiceSpec{
-				Service: &apiregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
-					Name:      "virt-api",
-				},
-				Group:                v1.SubresourceGroupName,
-				Version:              v1.SubresourceGroupVersion.Version,
-				CABundle:             app.signingCertBytes,
-				GroupPriorityMinimum: 1000,
-				VersionPriority:      15,
-			},
-		})
+			Group:                v1.SubresourceGroupName,
+			Version:              v1.SubresourceGroupVersion.Version,
+			CABundle:             app.signingCertBytes,
+			GroupPriorityMinimum: 1000,
+			VersionPriority:      15,
+		},
+	}
+
+	if registerApiService {
+		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Create(newApiService)
 		if err != nil {
 			return err
 		}
-	} else if reflect.DeepEqual(apiService.Spec.CABundle, app.signingCertBytes) == false {
-		// Update apiService if CA bundle doesn't match ours
-		apiService.Spec.CABundle = app.signingCertBytes
+	} else {
+		if apiService.Spec.Service != nil && apiService.Spec.Service.Namespace != namespace {
+			return fmt.Errorf("apiservice [%s] is already registered in a different namespace. Existing apiservice registration must be deleted before virt-api can proceed.", subresourceAggregatedApiName)
+		}
+
+		// Always update spec to latest.
+		apiService.Spec = newApiService.Spec
 		_, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Update(apiService)
 		if err != nil {
 			return err
