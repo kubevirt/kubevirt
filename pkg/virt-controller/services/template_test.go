@@ -343,6 +343,7 @@ var _ = Describe("Template", func() {
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			cmStore = cmInformer.GetStore()
 			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 
 			result, err := IsEmulationAllowed(cmStore)
 			Expect(err).ToNot(HaveOccurred())
@@ -358,6 +359,7 @@ var _ = Describe("Template", func() {
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			cmStore = cmInformer.GetStore()
 			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 
 			result, err := IsEmulationAllowed(cmStore)
 			Expect(err).ToNot(HaveOccurred())
@@ -373,6 +375,7 @@ var _ = Describe("Template", func() {
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			cmStore = cmInformer.GetStore()
 			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 
 			result, err := IsEmulationAllowed(cmStore)
 			Expect(err).ToNot(HaveOccurred())
