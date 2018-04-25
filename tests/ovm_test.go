@@ -494,14 +494,19 @@ var _ = Describe("OfflineVirtualMachine", func() {
 // NewRandomOfflineVirtualMachine creates new OfflineVirtualMachine
 func NewRandomOfflineVirtualMachine(vm *v1.VirtualMachine, running bool) *v1.OfflineVirtualMachine {
 	name := vm.Name
+	namespace := vm.Namespace
 	ovm := &v1.OfflineVirtualMachine{
-		ObjectMeta: v12.ObjectMeta{Name: name},
+		ObjectMeta: v12.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
 		Spec: v1.OfflineVirtualMachineSpec{
 			Running: running,
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: v12.ObjectMeta{
-					Labels: map[string]string{"name": name},
-					Name:   vm.ObjectMeta.Name,
+					Labels:    map[string]string{"name": name},
+					Name:      name,
+					Namespace: namespace,
 				},
 				Spec: vm.Spec,
 			},
