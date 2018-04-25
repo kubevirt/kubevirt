@@ -244,7 +244,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("shloud recreate VM if it gets deleted", func() {
+		It("should recreate VM if it gets deleted", func() {
 			newOVM := newOfflineVirtualMachine(true)
 			// Delete the VM
 			Eventually(func() error {
@@ -258,6 +258,65 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				}
 				return true
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+		})
+
+		It("should recreate VM if the VM's pod gets deleted", func() {
+			var firstVM *v1.VirtualMachine
+			var curVM *v1.VirtualMachine
+			var err error
+
+			By("Creating a new OVM")
+			newOVM := newOfflineVirtualMachine(true)
+
+			// wait for a running VM.
+			By("Waiting for the OVM's VM to start")
+			Eventually(func() bool {
+				firstVM, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+				if err != nil {
+					return false
+				}
+				if !firstVM.IsRunning() {
+					return false
+				}
+				return true
+			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+
+			// get the pod backing the VM
+			pods, err := virtClient.CoreV1().Pods(newOVM.Namespace).List(tests.UnfinishedVMPodSelector(firstVM))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(1))
+			firstPod := pods.Items[0]
+
+			// Delete the Pod
+			By("Deleting the VM's pod")
+			Eventually(func() error {
+				return virtClient.CoreV1().Pods(newOVM.Namespace).Delete(firstPod.Name, &v12.DeleteOptions{})
+			}, 120*time.Second, 1*time.Second).Should(Succeed())
+
+			// Wait on the OVM controller to create a new VM
+			By("Waiting for a new VM to spawn")
+			Eventually(func() bool {
+				curVM, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+
+				// verify a new VM gets created for the OVM after the Pod is deleted.
+				if errors.IsNotFound(err) {
+					return false
+				} else if string(curVM.UID) == string(firstVM.UID) {
+					return false
+				} else if !curVM.IsRunning() {
+					return false
+				}
+				return true
+			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+
+			// sanity check that the test ran correctly by
+			// verifying a different Pod backs the OVM as well.
+			By("Verifying a new pod backs the OVM")
+			pods, err = virtClient.CoreV1().Pods(newOVM.Namespace).List(tests.UnfinishedVMPodSelector(curVM))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(1))
+			pod := pods.Items[0]
+			Expect(pod.Name).ToNot(Equal(firstPod.Name))
 		})
 
 		It("should stop VM if running set to false", func() {
