@@ -55,6 +55,17 @@ Vagrant.configure(2) do |config|
       domain.nested = true  # enable nested virtualization
       domain.cpu_mode = "host-model"
 
+      # We need 3 bricks, let us create 500G disks for that.
+      # NOTE: if size is changed, edit storage/gluster-deploy.sh
+      "bcd".split("").each do |i|
+        domain.storage :file,
+        :device         => "vd#{i}",
+        :size           => "500G",
+        :type           => "qcow2",
+        :bus            => "virtio",
+        :cache          => "default"
+      end
+
       if $use_rng then
           # Will be part of vagrant-libvirt 0.0.36:
           #     https://github.com/vagrant-libvirt/vagrant-libvirt/pull/654
@@ -88,6 +99,7 @@ Vagrant.configure(2) do |config|
       master.vm.provider :libvirt do |domain|
           domain.memory = 3000
           if $cache_docker then
+            # NOTE: if size is changed, edit cluster/vagrant-kubernetes/setup_common.sh also
             domain.storage :file, :size => '10G', :path => $libvirt_prefix.to_s + '_master_docker.img', :allow_existing => true
           end
       end
@@ -107,6 +119,7 @@ Vagrant.configure(2) do |config|
       node.vm.provider :libvirt do |domain|
         domain.memory = 2048
         if $cache_docker then
+          # NOTE: if size is changed, edit cluster/vagrant-kubernetes/setup_common.sh also
           domain.storage :file, :size => '10G', :path => $libvirt_prefix.to_s + '_node_docker' + suffix.to_s + '.img', :allow_existing => true
         end
       end

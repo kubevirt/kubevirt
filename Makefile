@@ -67,9 +67,12 @@ cluster-build:
 cluster-clean:
 	./cluster/clean.sh
 
+cluster-storage-deploy:
+	./storage/deploy.sh
+
 cluster-deploy: cluster-clean
 	./cluster/deploy.sh
 
 cluster-sync: cluster-build cluster-deploy
 
-.PHONY: build test clean distclean checksync sync docker manifests publish functest release-announce cluster-up cluster-down cluster-clean cluster-deploy cluster-sync
+.PHONY: build test clean distclean checksync sync docker manifests publish functest release-announce cluster-up cluster-down cluster-clean cluster-deploy cluster-sync cluster-storage-deploy

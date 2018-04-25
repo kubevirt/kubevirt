@@ -41,13 +41,14 @@ yum -y install centos-release-gluster
 yum -y install --nogpgcheck -y glusterfs-fuse
 yum -y install iscsi-initiator-utils
 
-# if there is a second disk, use it for docker
-if ls /dev/*db; then
+# this is still a hack, we are looking disk size to find docker disk
+docker_disk=$(fdisk -l | grep "/dev/vd.:" | grep "10\.7" | awk '{print $2}' | cut -d":" -f1)
+if [[ -n "$docker_disk" ]]; then
     # We use the loopback docker dm support, and not a VG for now
     mkdir -p /var/lib/docker/
     restorecon -r /var/lib/docker
     mount LABEL=dockerdata /var/lib/docker/ || {
-        mkfs.xfs -L dockerdata -f /dev/?db
+        mkfs.xfs -L dockerdata -f $docker_disk
     }
     # FAILS because of vdsms multpoath stuff
     #echo -e "\nLABEL=dockerdata /var/lib/docker/ xfs defaults 0 0" >> /etc/fstab
@@ -98,3 +99,7 @@ systemctl enable kubelet && systemctl start kubelet
 modprobe bridge
 sysctl -w net.bridge.bridge-nf-call-iptables=1
 sysctl -w net.bridge.bridge-nf-call-ip6tables=1
+
+# Storage
+yum install centos-release-gluster
+yum install --nogpgcheck -y glusterfs-fuse

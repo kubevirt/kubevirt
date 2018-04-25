@@ -37,3 +37,7 @@ yum install -y centos-release-openshift-origin
 yum install -y yum-utils ansible wget git net-tools bind-utils iptables-services bridge-utils bash-completion kexec-tools sos psacct docker
 systemctl start docker
 systemctl enable docker
+
+# Storage
+yum install centos-release-gluster
+yum install --nogpgcheck -y glusterfs-fuse

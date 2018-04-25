@@ -1,0 +1,26 @@
+{
+  "clusters": [
+    {
+      "nodes": [
+        {
+          "node": {
+            "hostnames": {
+              "manage": [
+                "master"
+              ],
+              "storage": [
+                "{master_ip}"
+              ]
+            },
+            "zone": 1
+          },
+          "devices": [
+            "{DISK1}",
+            "{DISK2}",
+            "{DISK3}"
+          ]
+        }
+      ]
+    }
+  ]
+}
