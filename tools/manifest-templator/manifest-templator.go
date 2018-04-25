@@ -25,6 +25,8 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/spf13/pflag"
 )
 
 type templateData struct {
@@ -44,7 +46,9 @@ func main() {
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	genDir := flag.String("generated-manifests-dir", "", "")
 	inputFile := flag.String("input-file", "", "")
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
+	pflag.Parse()
 
 	data := templateData{
 		Namespace:          *namespace,
