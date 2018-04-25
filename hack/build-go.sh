@@ -71,7 +71,7 @@ for arg in $args; do
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
         BIN_NAME=$(basename $arg)
-        ARCH_BASENAME=${BIN_NAME}-$(git describe --always --tags)
+        ARCH_BASENAME=${BIN_NAME}-${KUBEVIRT_VERSION}
         mkdir -p ${CMD_OUT_DIR}/${BIN_NAME}
         (
             cd $arg
