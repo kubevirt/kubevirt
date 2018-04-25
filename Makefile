@@ -25,8 +25,8 @@ functest:
 	hack/functests.sh
 
 clean:
-	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf && rm tools/openapispec/openapispec -rf"
-	rm tools/openapispec/openapispec -rf
+	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
+	rm -f tools/openapispec/openapispec tools/crd-generator/crd-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator
 
 distclean: clean
 	hack/dockerized "rm -rf vendor/ && rm -f .glide.*.hash && glide cc"
