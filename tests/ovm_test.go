@@ -80,6 +80,29 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 		})
+		It("should reject POST if validation webhoook deems the spec is invalid", func() {
+			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
+			// Add a disk that doesn't map to a volume.
+			// This should get rejected which tells us the webhook validator is working.
+			template.Spec.Domain.Devices.Disks = append(template.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			newOVM := NewRandomOfflineVirtualMachine(template, false)
+			newOVM.TypeMeta = v12.TypeMeta{
+				APIVersion: v1.GroupVersion.String(),
+				Kind:       "OfflineVirtualMachine",
+			}
+
+			result := virtClient.RestClient().Post().Resource("offlinevirtualmachines").Namespace(tests.NamespaceTestDefault).Body(newOVM).Do()
+
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+		})
 	})
 
 	Context("A valid OfflineVirtualMachine given", func() {

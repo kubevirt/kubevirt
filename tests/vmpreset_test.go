@@ -100,6 +100,29 @@ var _ = Describe("VMPreset", func() {
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 		})
+		It("should reject POST if validation webhoook deems the spec is invalid", func() {
+			preset := &v1.VirtualMachinePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: "fake"},
+				Spec: v1.VirtualMachinePresetSpec{
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"fake": "fake"}},
+					Domain:   &v1.DomainSpec{},
+				},
+			}
+			// disk with two targets is invalid
+			preset.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk:   &v1.DiskTarget{},
+					Floppy: &v1.FloppyTarget{},
+				},
+			})
+			result := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(preset).Do()
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+		})
 	})
 	Context("Preset Matching", func() {
 

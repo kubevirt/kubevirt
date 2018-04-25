@@ -88,6 +88,14 @@ metadata:
     kubevirt.io: ""
 rules:
   - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - get
+      - create
+      - update
+  - apiGroups:
       - apiregistration.k8s.io
     resources:
       - apiservices

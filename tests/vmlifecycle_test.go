@@ -98,6 +98,22 @@ var _ = Describe("Vmlifecycle", func() {
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 		})
+		It("should reject POST if validation webhook deems the spec invalid", func() {
+
+			// Add a disk that doesn't map to a volume.
+			// This should get rejected which tells us the webhook validator is working.
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
+
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+		})
 
 		It("should reject PATCH if schema is invalid", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()

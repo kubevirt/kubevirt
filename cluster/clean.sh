@@ -46,6 +46,7 @@ for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete rs -l 'kubevirt.io'
     _kubectl -n ${i} delete services -l 'kubevirt.io'
     _kubectl -n ${i} delete apiservices -l 'kubevirt.io'
+    _kubectl -n ${i} delete validatingwebhookconfiguration -l 'kubevirt.io'
     _kubectl -n ${i} delete secrets -l 'kubevirt.io'
     _kubectl -n ${i} delete pv -l 'kubevirt.io'
     _kubectl -n ${i} delete pvc -l 'kubevirt.io'

@@ -35,6 +35,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
 
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
+	"kubevirt.io/kubevirt/pkg/virt-api/validating-webhook"
 )
 
 const (
@@ -62,6 +64,15 @@ const (
 
 	// selfsigned cert secret name
 	virtApiCertSecretName = "kubevirt-virt-api-certs"
+
+	virtWebhookValidator = "virt-api-validator"
+
+	virtApiServiceName = "virt-api"
+
+	vmValidatePath       = "/virtualmachines-validate"
+	ovmValidatePath      = "/offlinevirtualmachines-validate"
+	vmrsValidatePath     = "/virtualmachinereplicaset-validate"
+	vmpresetValidatePath = "/vmpreset-validate"
 
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
@@ -472,6 +483,148 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 	return nil
 }
 
+func (app *virtAPIApp) createWebhook() error {
+	namespace := getNamespace()
+	registerWebhook := false
+	vmPath := vmValidatePath
+	ovmPath := ovmValidatePath
+	vmrsPath := vmrsValidatePath
+	vmpresetPath := vmpresetValidatePath
+
+	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			registerWebhook = true
+		} else {
+			return err
+		}
+	}
+
+	webHooks := []admissionregistrationv1beta1.Webhook{
+		{
+			Name: "virtualmachine-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineGroupVersionKind.Version},
+					Resources:   []string{"virtualmachines"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+		{
+			Name: "offlinevirtualmachine-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.OfflineVirtualMachineGroupVersionKind.Version},
+					Resources:   []string{"offlinevirtualmachines"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &ovmPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+		{
+			Name: "virtualmachinereplicaset-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VMReplicaSetGroupVersionKind.Version},
+					Resources:   []string{"virtualmachinereplicasets"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmrsPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+		{
+			Name: "virtualmachinepreset-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachinePresetGroupVersionKind.Version},
+					Resources:   []string{"virtualmachinepresets"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmpresetPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+	}
+
+	if registerWebhook {
+		_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: virtWebhookValidator,
+				Labels: map[string]string{
+					v1.AppLabel: virtWebhookValidator,
+				},
+			},
+			Webhooks: webHooks,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+
+		for _, webhook := range webhookRegistration.Webhooks {
+			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != namespace {
+				return fmt.Errorf("ValidatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookValidator)
+			}
+		}
+
+		// update registered webhook with our data
+		webhookRegistration.Webhooks = webHooks
+
+		_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(webhookRegistration)
+		if err != nil {
+			return err
+		}
+	}
+
+	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMs(w, r)
+	})
+	http.HandleFunc(ovmValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeOVMs(w, r)
+	})
+	http.HandleFunc(vmrsValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMRS(w, r)
+	})
+	http.HandleFunc(vmpresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMPreset(w, r)
+	})
+
+	return nil
+}
+
 func (app *virtAPIApp) createSubresourceApiservice() error {
 	namespace := getNamespace()
 	config, err := kubecli.GetConfig()
@@ -504,7 +657,7 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 		Spec: apiregistrationv1beta1.APIServiceSpec{
 			Service: &apiregistrationv1beta1.ServiceReference{
 				Namespace: namespace,
-				Name:      "virt-api",
+				Name:      virtApiServiceName,
 			},
 			Group:                v1.SubresourceGroupName,
 			Version:              v1.SubresourceGroupVersion.Version,
@@ -632,6 +785,12 @@ func (app *virtAPIApp) Run() {
 
 	// Verify/create aggregator endpoint.
 	err = app.createSubresourceApiservice()
+	if err != nil {
+		panic(err)
+	}
+
+	// Verify/create webhook endpoint.
+	err = app.createWebhook()
 	if err != nil {
 		panic(err)
 	}
