@@ -24,12 +24,20 @@ make functest
 ## Run them anywhere inside of container
 
 ```
-# Create directory for data
+# Create directory for data / results / kubectl binary
 mkdir -p /tmp/kubevirt-tests-data
-# Put kubeconfig into data directory
-cp ~/.kube/config /tmp/kubevirt-tests-data/kubeconfig
-# Run container with data volume
-docker run --rm \
-    -v /tmp/kubevirt-tests-data:/kubevirt-testing/data:rw,z \
-    kubevirt/tests:latest
+# Make sure that eveybody can write there
+setfacl -m d:o:rwx /tmp/kubevirt-tests-data
+setfacl -m o:rwx /tmp/kubevirt-tests-data
+
+docker run \
+    -v /tmp/kubevirt-tests-data:/home/kubevirt-tests/data:rw,z --rm \
+    kubevirt/tests:latest \
+        --kubeconfig=data/openshift-master.kubeconfig \
+        --docker-tag=latest \
+        --docker-prefix=docker.io/kubevirt \
+        --test.timeout 180m \
+        --junit-output=data/results/junit.xml \
+        --deploy-testing-infra \
+        --path-to-testing-infra-manifests=data/manifests
 ```

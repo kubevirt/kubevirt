@@ -41,7 +41,6 @@ _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-testing -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-apiserver -n ${namespace}
     # Helpful for development. Allows admin to access everything KubeVirt creates in the web console
