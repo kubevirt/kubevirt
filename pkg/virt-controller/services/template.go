@@ -34,7 +34,7 @@ import (
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
-const configMapName = "kube-system/virt-controller"
+const configMapName = "kube-system/kubevirt-config"
 const allowEmulationKey = "debug.allowEmulation"
 
 type TemplateService interface {
