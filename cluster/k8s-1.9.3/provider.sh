@@ -8,7 +8,7 @@ source cluster/ephemeral-provider-common.sh
 
 function up() {
     ${_cli} run $(_add_common_params)
-    ${_cli} ssh --prefix $provider_prefix node01 sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
+    ${_cli} ssh --prefix $provider_prefix node01 -- sudo chown vagrant:vagrant /etc/kubernetes/admin.conf
 
     chmod 0600 ${KUBEVIRT_PATH}cluster/vagrant.key
     OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/vagrant.key -P $(_port ssh)"
