@@ -270,18 +270,19 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 			// wait for a running VM.
 			By("Waiting for the OVM's VM to start")
-			Eventually(func() bool {
+			Eventually(func() error {
 				firstVM, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
 				if err != nil {
-					return false
+					return err
 				}
 				if !firstVM.IsRunning() {
-					return false
+					return fmt.Errorf("vm still isn't running")
 				}
-				return true
-			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+				return nil
+			}, 120*time.Second, 1*time.Second).Should(Succeed())
 
 			// get the pod backing the VM
+			By("Getting the pod backing the VM")
 			pods, err := virtClient.CoreV1().Pods(newOVM.Namespace).List(tests.UnfinishedVMPodSelector(firstVM))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(pods.Items)).To(Equal(1))

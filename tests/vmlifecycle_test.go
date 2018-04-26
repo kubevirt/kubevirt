@@ -494,15 +494,15 @@ var _ = Describe("Vmlifecycle", func() {
 
 			// Wait for VM to finalize
 			By("Waiting for the VM to move to a finalized state")
-			Eventually(func() bool {
+			Eventually(func() error {
 				curVm, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
 				if err != nil {
-					return false
+					return err
 				} else if !curVm.IsFinal() {
-					return false
+					return fmt.Errorf("VM has not reached a finalized state yet")
 				}
-				return true
-			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+				return nil
+			}, 60*time.Second, 1*time.Second).Should(Succeed())
 			close(done)
 		}, 90)
 	})
