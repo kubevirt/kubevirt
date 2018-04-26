@@ -473,6 +473,39 @@ var _ = Describe("Vmlifecycle", func() {
 		})
 	})
 
+	Describe("Delete a VM's Pod", func() {
+		It("should result in the VM moving to a finalized state", func(done Done) {
+			By("Creating the VM")
+			obj, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMStart(obj)
+
+			By("Verifying VM's pod is active")
+			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(vm))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(1))
+			pod := pods.Items[0]
+
+			// Delete the Pod
+			By("Deleting the VM's pod")
+			Eventually(func() error {
+				return virtClient.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
+			}, 10*time.Second, 1*time.Second).Should(Succeed())
+
+			// Wait for VM to finalize
+			By("Waiting for the VM to move to a finalized state")
+			Eventually(func() error {
+				curVm, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				} else if !curVm.IsFinal() {
+					return fmt.Errorf("VM has not reached a finalized state yet")
+				}
+				return nil
+			}, 60*time.Second, 1*time.Second).Should(Succeed())
+			close(done)
+		}, 90)
+	})
 	Describe("Delete a VM", func() {
 		Context("with an active pod.", func() {
 			It("should result in pod being terminated", func(done Done) {
