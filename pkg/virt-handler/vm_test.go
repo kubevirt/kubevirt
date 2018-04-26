@@ -305,7 +305,7 @@ var _ = Describe("VM", func() {
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
 				Expect(vm.Status.Phase).To(Equal(v1.Failed))
 			})
-			time.Sleep(1500 * time.Millisecond)
+			time.Sleep(2 * time.Second)
 			controller.Execute()
 		}, 2)
 
