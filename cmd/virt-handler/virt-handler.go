@@ -133,6 +133,7 @@ func (app *virtHandlerApp) Run() {
 		vmSharedInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
+		int(app.WatchdogTimeoutDuration.Seconds()),
 	)
 
 	// Bootstrapping. From here on the startup order matters

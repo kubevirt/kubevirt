@@ -59,6 +59,7 @@ func NewController(
 	vmInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
+	watchdogTimeoutSeconds int,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -73,6 +74,7 @@ func NewController(
 		domainInformer:           domainInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
 		heartBeatInterval:        1 * time.Minute,
+		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 	}
 
 	vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -110,6 +112,7 @@ type VirtualMachineController struct {
 	launcherClients          map[string]cmdclient.LauncherClient
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
+	watchdogTimeoutSeconds   int
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -169,7 +172,10 @@ func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachine, domain 
 	oldStatus := vm.DeepCopy().Status
 
 	// Calculate the new VM state based on what libvirt reported
-	d.setVmPhaseForStatusReason(domain, vm)
+	err = d.setVmPhaseForStatusReason(domain, vm)
+	if err != nil {
+		return err
+	}
 
 	controller.NewVirtualMachineConditionManager().CheckFailure(vm, syncError, "Synchronizing with the Domain failed.")
 
@@ -344,7 +350,11 @@ func (d *VirtualMachineController) execute(key string) error {
 	if vmExists && !vm.IsFinal() {
 		// requiring the phase of the domain and VM to be in sync is an
 		// optimization that prevents unnecessary re-processing VMs during the start flow.
-		if vm.Status.Phase == d.calculateVmPhaseForStatusReason(domain, vm) {
+		phase, err := d.calculateVmPhaseForStatusReason(domain, vm)
+		if err != nil {
+			return err
+		}
+		if vm.Status.Phase == phase {
 			shouldUpdate = true
 		}
 	}
@@ -569,33 +579,51 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	return err
 }
 
-func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) {
-	vm.Status.Phase = d.calculateVmPhaseForStatusReason(domain, vm)
+func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) error {
+	phase, err := d.calculateVmPhaseForStatusReason(domain, vm)
+	if err != nil {
+		return err
+	}
+	vm.Status.Phase = phase
+	return nil
 }
-func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) v1.VMPhase {
+func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vm *v1.VirtualMachine) (v1.VMPhase, error) {
 
 	if domain == nil {
-		if !vm.IsRunning() && !vm.IsFinal() {
-			return v1.Scheduled
+		if vm.IsScheduled() {
+			isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
+
+			if err != nil {
+				return vm.Status.Phase, err
+			}
+
+			if isExpired {
+				// virt-launcher is gone and VM never transitioned
+				// from scheduled to Running.
+				return v1.Failed, nil
+			}
+			return v1.Scheduled, nil
+		} else if !vm.IsRunning() && !vm.IsFinal() {
+			return v1.Scheduled, nil
 		} else if !vm.IsFinal() {
 			// That is unexpected. We should not be able to delete a VM before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
-			return v1.Failed
+			return v1.Failed, nil
 		}
 	} else {
 		switch domain.Status.Status {
 		case api.Shutoff, api.Crashed:
 			switch domain.Status.Reason {
 			case api.ReasonCrashed, api.ReasonPanicked:
-				return v1.Failed
+				return v1.Failed, nil
 			case api.ReasonShutdown, api.ReasonDestroyed, api.ReasonSaved, api.ReasonFromSnapshot:
-				return v1.Succeeded
+				return v1.Succeeded, nil
 			}
 		case api.Running, api.Paused, api.Blocked, api.PMSuspended:
-			return v1.Running
+			return v1.Running, nil
 		}
 	}
-	return vm.Status.Phase
+	return vm.Status.Phase, nil
 }
 
 func (d *VirtualMachineController) addFunc(obj interface{}) {
