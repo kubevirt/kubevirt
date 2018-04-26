@@ -352,8 +352,11 @@ var _ = Describe("Template", func() {
 
 		It("Should return false if configmap doesn't have allowEmulation set", func() {
 			cfgMap := kubev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: "kube-system/virt-controller"},
-				Data:       map[string]string{},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{},
 			}
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
@@ -368,8 +371,11 @@ var _ = Describe("Template", func() {
 
 		It("Should return true if allowEmulation = true", func() {
 			cfgMap := kubev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: "kube-system/virt-controller"},
-				Data:       map[string]string{"debug.allowEmulation": "true"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{"debug.allowEmulation": "true"},
 			}
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})

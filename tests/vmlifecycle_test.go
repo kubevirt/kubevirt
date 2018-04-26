@@ -447,7 +447,7 @@ var _ = Describe("Vmlifecycle", func() {
 			BeforeEach(func() {
 				allowEmuation := false
 				options := metav1.GetOptions{}
-				cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("virt-controller", options)
+				cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
 				if err == nil {
 					val, ok := cfgMap.Data["debug.allowEmulation"]
 					allowEmuation = ok && (val == "true")
@@ -470,14 +470,17 @@ var _ = Describe("Vmlifecycle", func() {
 				listOptions := metav1.ListOptions{}
 				var pod k8sv1.Pod
 
-				Eventually(func() int {
+				Eventually(func() error {
 					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
 					Expect(err).ToNot(HaveOccurred())
-					if len(podList.Items) == 1 {
-						pod = podList.Items[0]
+					for _, item := range podList.Items {
+						if strings.HasPrefix(item.Name, vm.ObjectMeta.GenerateName) {
+							pod = item
+							return nil
+						}
 					}
-					return len(podList.Items)
-				}, 75, 0.5).Should(Equal(1))
+					return fmt.Errorf("Associated pod for VM '%s' not found", vm.Name)
+				}, 75, 0.5).Should(Succeed())
 
 				emulationFlagFound := false
 				computeContainerFound := false
@@ -508,6 +511,17 @@ var _ = Describe("Vmlifecycle", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return len(podList.Items)
 				}, 75, 0.5).Should(Equal(1))
+
+				Eventually(func() error {
+					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, item := range podList.Items {
+						if strings.HasPrefix(item.Name, vm.ObjectMeta.GenerateName) {
+							return nil
+						}
+					}
+					return fmt.Errorf("Associated pod for VM '%s' not found", vm.Name)
+				}, 75, 0.5).Should(Succeed())
 
 				getOptions := metav1.GetOptions{}
 				var newVm *v1.VirtualMachine
