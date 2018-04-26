@@ -7,7 +7,7 @@ A quick start guide to get KubeVirt up and running inside our container based de
 The KubeVirt build system runs completely inside docker. In order to build
 KubeVirt you need to have `docker` and `rsync` installed.
 
-### Dockerizied environment
+### Dockerized environment
 
 Runs master and nodes containers, when each one of them run virtual machine via QEMU.
 In additional it runs dnsmasq and docker registry containers.
@@ -18,10 +18,10 @@ Build all required artifacts and launch the
 dockerizied environment:
 
 ```bash
-    # Build and deploy KubeVirt on Kubernetes 1.9.3 in our vms inside containers
-    export KUBEVIRT_PROVIDER=k8s-1.9.3
-    make cluster-up
-    make cluster-sync
+# Build and deploy KubeVirt on Kubernetes 1.9.3 in our vms inside containers
+export KUBEVIRT_PROVIDER=k8s-1.9.3
+make cluster-up
+make cluster-sync
 ```
 
 This will create a VM called `node01` which acts as Kubernetes master and then
@@ -30,21 +30,38 @@ themselves on master, you can use the `KUBEVIRT_NUM_NODES` environment variable.
 This would create a master and one node:
 
 ```bash
-    export KUBEVIRT_NUM_NODES=1
-    make cluster-up
+export KUBEVIRT_NUM_NODES=1
+make cluster-up
 ```
 
 You could also run some build steps individually:
 
 ```bash
-    # To build all binaries
-    make
+# To build all binaries
+make
 
-    # Or to build just one binary
-    make build WHAT=cmd/virt-controller
+# Or to build just one binary
+make build WHAT=cmd/virt-controller
 
-    # To build all docker images
-    make docker
+# To build all docker images
+make docker
+```
+
+### Accessing the containerized nodes via ssh
+
+The containerized nodes are named starting from `node01`, `node02`, and so
+forth. `node01` is always the master of the cluster.
+
+Every node can be accessed via its name:
+
+```bash
+cluster/cli.sh ssh node01
+```
+
+To execute a remote command, e.g `ls`, simply type
+
+```bash
+cluster/cli.sh ssh node01 -- ls -lh
 ```
 
 ### Code generation
