@@ -2,14 +2,14 @@
 
 set -e
 
-_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/cli@sha256:b0023d1863338ef04fa0b8a8ee5956ae08616200d89ffd2e230668ea3deeaff4'
+_cli='cli'
 
 function _main_ip() {
     echo 127.0.0.1
 }
 
 function _port() {
-    ${_cli} port --prefix $provider_prefix "$@"
+    ${_cli} ports --prefix $provider_prefix "$@"
 }
 
 function prepare_config() {
@@ -32,7 +32,7 @@ function _add_common_params() {
     # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
     local num_nodes=${KUBEVIRT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
-    local params="--nodes ${num_nodes} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) --base "kubevirtci/${image}""
+    local params="--nodes ${num_nodes} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) "kubevirtci/${image}""
     if [ -d "$NFS_WINDOWS_DIR" ]; then
         params="--memory 8192M --nfs-data $NFS_WINDOWS_DIR $params"
     fi
