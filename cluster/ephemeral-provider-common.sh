@@ -32,7 +32,7 @@ function _add_common_params() {
     # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
     local num_nodes=${KUBEVIRT_NUM_NODES-0}
     num_nodes=$((num_nodes + 1))
-    local params="--nodes ${num_nodes} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) "kubevirtci/${image}""
+    local params="--nodes ${num_nodes} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
     if [ -d "$NFS_WINDOWS_DIR" ]; then
         params="--memory 8192M --nfs-data $NFS_WINDOWS_DIR $params"
     fi
