@@ -551,14 +551,12 @@ func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachine, doma
 
 func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error {
 
-	hasWatchdog, err := watchdog.WatchdogFileExists(d.virtShareDir, vm)
+	isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
+
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Error accessing virt-launcher watchdog file.")
 		return err
-	}
-	if hasWatchdog == false {
-		log.Log.Object(vm).Reason(err).Error("Could not detect virt-launcher watchdog file.")
-		return goerror.New(fmt.Sprintf("No watchdog file found for vm"))
+	} else if isExpired {
+		return goerror.New(fmt.Sprintf("Can not update a VM with expired watchdog."))
 	}
 
 	err = d.injectCloudInitSecrets(vm)
