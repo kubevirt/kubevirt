@@ -1,6 +1,7 @@
 # Getting Started
 
-A quick start guide to get KubeVirt up and running inside our container based development cluster.
+A quick start guide to get KubeVirt up and running inside our container based
+development cluster.
 
 ## Building
 
@@ -19,15 +20,15 @@ dockerizied environment:
 
 ```bash
 # Build and deploy KubeVirt on Kubernetes 1.9.3 in our vms inside containers
-export KUBEVIRT_PROVIDER=k8s-1.9.3
+export KUBEVIRT_PROVIDER=k8s-1.9.3 # this is also the default if no KUBEVIRT_PROVIDER is set
 make cluster-up
 make cluster-sync
 ```
 
 This will create a VM called `node01` which acts as Kubernetes master and then
 deploy KubeVirt there. To create one or more nodes which will register
-themselves on master, you can use the `KUBEVIRT_NUM_NODES` environment variable.
-This would create a master and one node:
+themselves on master, you can use the `KUBEVIRT_NUM_NODES` environment
+variable.  This would create a master and one node:
 
 ```bash
 export KUBEVIRT_NUM_NODES=1
@@ -43,9 +44,18 @@ make
 # Or to build just one binary
 make build WHAT=cmd/virt-controller
 
-# To build all docker images
+# To build all kubevirt containers
 make docker
 ```
+
+To destroy the created cluster, type
+
+```
+make cluster-down
+```
+
+**Note:** Whenever you type `make cluster-down && make cluster-up`, you will
+have a completely fresh cluster to play with.
 
 ### Accessing the containerized nodes via ssh
 
@@ -66,13 +76,21 @@ cluster/cli.sh ssh node01 -- ls -lh
 
 ### Code generation
 
-**Note:** This is only important if you plan to modify sources, you don't need code generators just for building
+**Note:** This is only important if you plan to modify sources, you don't need
+code generators just for building
 
 To invoke all code-generators and regenerate generated code, run:
 
 ```bash
 make generate
 ```
+
+Typical code changes where running the generators is needed:
+
+ * When changing APIs, REST paths or their comments (gets reflected in the api documentation, clients, generated cloners, ...)
+ * When changing mocked interfaces (the mock generator needs to update the generated mocks then)
+
+ We have a check in our CI system, so that you don't miss when `make generate` needs to be called.
 
 ### Testing
 
@@ -172,9 +190,10 @@ dnf install virt-viewer
 Then, after you made sure that the VM `vm-ephemeral` is running, type
 
 ```
-cluster/kubectl.sh vnc vm-ephemeral
+cluster/virtctl.sh vnc vm-ephemeral
 ```
 
 to start a remote session with `remote-viewer`.
 
-Since `kubectl` does not support TPR subresources yet, the above `cluster/kubectl.sh vnc` magic is just a wrapper.
+`cluster/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
+virtual machine specific commands with it. It is supplement to `kubectl`.
