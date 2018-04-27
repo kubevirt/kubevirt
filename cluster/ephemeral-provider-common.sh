@@ -29,10 +29,7 @@ function _registry_volume() {
 }
 
 function _add_common_params() {
-    # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
-    local num_nodes=${KUBEVIRT_NUM_NODES-0}
-    num_nodes=$((num_nodes + 1))
-    local params="--nodes ${num_nodes} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
+    local params="--nodes ${KUBEVIRT_NUM_NODES} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
     if [ -d "$NFS_WINDOWS_DIR" ]; then
         params="--memory 8192M --nfs-data $NFS_WINDOWS_DIR $params"
     fi
@@ -61,9 +58,7 @@ function build() {
         container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
         container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
     done
-    local num_nodes=${KUBEVIRT_NUM_NODES-0}
-    num_nodes=$((num_nodes + 1))
-    for i in $(seq 1 ${num_nodes}); do
+    for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
         ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
         ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs --max-args=2 sudo docker tag"
     done
