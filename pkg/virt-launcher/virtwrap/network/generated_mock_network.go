@@ -4,153 +4,47 @@
 package network
 
 import (
-	net "net"
-
 	gomock "github.com/golang/mock/gomock"
-	netlink "github.com/vishvananda/netlink"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-// Mock of NetworkHandler interface
-type MockNetworkHandler struct {
+// Mock of NetworkInterface interface
+type MockNetworkInterface struct {
 	ctrl     *gomock.Controller
-	recorder *_MockNetworkHandlerRecorder
+	recorder *_MockNetworkInterfaceRecorder
 }
 
-// Recorder for MockNetworkHandler (not exported)
-type _MockNetworkHandlerRecorder struct {
-	mock *MockNetworkHandler
+// Recorder for MockNetworkInterface (not exported)
+type _MockNetworkInterfaceRecorder struct {
+	mock *MockNetworkInterface
 }
 
-func NewMockNetworkHandler(ctrl *gomock.Controller) *MockNetworkHandler {
-	mock := &MockNetworkHandler{ctrl: ctrl}
-	mock.recorder = &_MockNetworkHandlerRecorder{mock}
+func NewMockNetworkInterface(ctrl *gomock.Controller) *MockNetworkInterface {
+	mock := &MockNetworkInterface{ctrl: ctrl}
+	mock.recorder = &_MockNetworkInterfaceRecorder{mock}
 	return mock
 }
 
-func (_m *MockNetworkHandler) EXPECT() *_MockNetworkHandlerRecorder {
+func (_m *MockNetworkInterface) EXPECT() *_MockNetworkInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockNetworkHandler) LinkByName(name string) (netlink.Link, error) {
-	ret := _m.ctrl.Call(_m, "LinkByName", name)
-	ret0, _ := ret[0].(netlink.Link)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockNetworkHandlerRecorder) LinkByName(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkByName", arg0)
-}
-
-func (_m *MockNetworkHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
-	ret := _m.ctrl.Call(_m, "AddrList", link, family)
-	ret0, _ := ret[0].([]netlink.Addr)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockNetworkHandlerRecorder) AddrList(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddrList", arg0, arg1)
-}
-
-func (_m *MockNetworkHandler) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
-	ret := _m.ctrl.Call(_m, "RouteList", link, family)
-	ret0, _ := ret[0].([]netlink.Route)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockNetworkHandlerRecorder) RouteList(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RouteList", arg0, arg1)
-}
-
-func (_m *MockNetworkHandler) AddrDel(link netlink.Link, addr *netlink.Addr) error {
-	ret := _m.ctrl.Call(_m, "AddrDel", link, addr)
+func (_m *MockNetworkInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error {
+	ret := _m.ctrl.Call(_m, "Plug", iface, network, domain)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) AddrDel(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddrDel", arg0, arg1)
+func (_mr *_MockNetworkInterfaceRecorder) Plug(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Plug", arg0, arg1, arg2)
 }
 
-func (_m *MockNetworkHandler) AddrAdd(link netlink.Link, addr *netlink.Addr) error {
-	ret := _m.ctrl.Call(_m, "AddrAdd", link, addr)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (_m *MockNetworkInterface) Unplug() {
+	_m.ctrl.Call(_m, "Unplug")
 }
 
-func (_mr *_MockNetworkHandlerRecorder) AddrAdd(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddrAdd", arg0, arg1)
-}
-
-func (_m *MockNetworkHandler) LinkSetDown(link netlink.Link) error {
-	ret := _m.ctrl.Call(_m, "LinkSetDown", link)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) LinkSetDown(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetDown", arg0)
-}
-
-func (_m *MockNetworkHandler) LinkSetUp(link netlink.Link) error {
-	ret := _m.ctrl.Call(_m, "LinkSetUp", link)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) LinkSetUp(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetUp", arg0)
-}
-
-func (_m *MockNetworkHandler) LinkAdd(link netlink.Link) error {
-	ret := _m.ctrl.Call(_m, "LinkAdd", link)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) LinkAdd(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkAdd", arg0)
-}
-
-func (_m *MockNetworkHandler) ParseAddr(s string) (*netlink.Addr, error) {
-	ret := _m.ctrl.Call(_m, "ParseAddr", s)
-	ret0, _ := ret[0].(*netlink.Addr)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockNetworkHandlerRecorder) ParseAddr(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ParseAddr", arg0)
-}
-
-func (_m *MockNetworkHandler) ChangeMacAddr(iface string) (net.HardwareAddr, error) {
-	ret := _m.ctrl.Call(_m, "ChangeMacAddr", iface)
-	ret0, _ := ret[0].(net.HardwareAddr)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockNetworkHandlerRecorder) ChangeMacAddr(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ChangeMacAddr", arg0)
-}
-
-func (_m *MockNetworkHandler) GetMacDetails(iface string) (net.HardwareAddr, error) {
-	ret := _m.ctrl.Call(_m, "GetMacDetails", iface)
-	ret0, _ := ret[0].(net.HardwareAddr)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockNetworkHandlerRecorder) GetMacDetails(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMacDetails", arg0)
-}
-
-func (_m *MockNetworkHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
-	_m.ctrl.Call(_m, "StartDHCP", nic, serverAddr)
-}
-
-func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1)
+func (_mr *_MockNetworkInterfaceRecorder) Unplug() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unplug")
 }

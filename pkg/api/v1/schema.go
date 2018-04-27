@@ -647,9 +647,7 @@ type InterfaceProxy struct {
 	// accessible from the network.
 	// Cannot be updated.
 	// +optional
-	// +patchMergeKey=containerPort
-	// +patchStrategy=merge
-	Ports []v1.ContainerPort `json:ports`
+	Ports []v1.ContainerPort `json:"ports"`
 }
 
 // ---
