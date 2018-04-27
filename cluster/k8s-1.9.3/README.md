@@ -10,7 +10,7 @@ local machine and are the pushed to a registry which is exposed at
 
 ```bash
 export KUBEVIRT_PROVIDER=k8s-1.9.3
-export KUBEVIRT_NUM_NODES=1 # master + one nodes
+export KUBEVIRT_NUM_NODES=2 # master + one nodes
 make cluster-up
 ```
 

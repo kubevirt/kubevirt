@@ -10,7 +10,7 @@ local machine and are the pushed to a registry which is exposed at
 
 ```bash
 export KUBEVIRT_PROVIDER=os-3.9.0
-export KUBEVIRT_NUM_NODES=1 # master + one nodes
+export KUBEVIRT_NUM_NODES=2 # master + one nodes
 make cluster-up
 ```
 
@@ -35,7 +35,7 @@ and run your cluster like this:
 
 ```bash
 export KUBEVIRT_PROVIDER=os-3.9.0
-export KUBEVIRT_NUM_NODES=1 # master + one nodes
+export KUBEVIRT_NUM_NODES=2 # master + one nodes
 export KUBEVIRT_PROVIDER_EXTRA_ARGS="--ocp-port 8443"
 make cluster-up
 ```

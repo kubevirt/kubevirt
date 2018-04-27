@@ -25,13 +25,13 @@ make cluster-up
 make cluster-sync
 ```
 
-This will create a VM called `node01` which acts as Kubernetes master and then
-deploy KubeVirt there. To create one or more nodes which will register
-themselves on master, you can use the `KUBEVIRT_NUM_NODES` environment
-variable.  This would create a master and one node:
+This will create a VM called `node01` which acts as node and master. To create
+more nodes which will register themselves on master, you can use the
+`KUBEVIRT_NUM_NODES` environment variable. This would create a master and one
+node:
 
 ```bash
-export KUBEVIRT_NUM_NODES=1
+export KUBEVIRT_NUM_NODES=2 # schedulable master + one additional node
 make cluster-up
 ```
 

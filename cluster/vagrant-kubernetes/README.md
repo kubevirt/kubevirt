@@ -7,7 +7,7 @@ It will deploy k8s only first time when you start a VM.
 
 ```bash
 export KUBEVIRT_PROVIDER=vagrant-kubernetes
-export KUBEVIRT_NUM_NODES=1
+export KUBEVIRT_NUM_NODES=2
 make cluster-up
 ```
 
