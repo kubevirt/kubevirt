@@ -11,13 +11,10 @@ function up() {
     ${_cli} ssh --prefix $provider_prefix node01 -- sudo cp /etc/origin/master/admin.kubeconfig ~vagrant/
     ${_cli} ssh --prefix $provider_prefix node01 -- sudo chown vagrant:vagrant ~vagrant/admin.kubeconfig
 
-    chmod 0600 ${KUBEVIRT_PATH}cluster/vagrant.key
-    OPTIONS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ${KUBEVIRT_PATH}cluster/vagrant.key -P $(_port ssh)"
-
     # Copy oc tool and configuration file
-    scp ${OPTIONS} vagrant@$(_main_ip):/usr/bin/oc ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl
+    ${_cli} scp --prefix $provider_prefix /usr/bin/oc - >${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl
-    scp ${OPTIONS} vagrant@$(_main_ip):~vagrant/admin.kubeconfig ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
+    ${_cli} scp --prefix $provider_prefix /etc/origin/master/admin.kubeconfig - >${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
 
     # Update Kube config to support unsecured connection
     export KUBECONFIG=${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
