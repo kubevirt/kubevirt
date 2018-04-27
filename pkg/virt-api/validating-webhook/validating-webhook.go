@@ -121,15 +121,15 @@ func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
 	resp.WriteHeader(http.StatusOK)
 }
 
-func validateDisks(disks []v1.Disk) []metav1.StatusCause {
+func validateDisks(fieldPrefix string, disks []v1.Disk) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	nameMap := make(map[string]int)
 
 	if len(disks) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("spec.domain.devices.disks list exceeds the %d element limit in length", arrayLenMax),
-			Field:   "spec.domain.devices.disks",
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", fieldPrefix, arrayLenMax),
+			Field:   fmt.Sprintf("%s", fieldPrefix),
 		})
 		// We won't process anything over the limit
 		return causes
@@ -143,8 +143,8 @@ func validateDisks(disks []v1.Disk) []metav1.StatusCause {
 		} else {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("spec.domain.devices.disks[%d] and spec.domain.devices.disks[%d] must not have the same Name.", idx, otherIdx),
-				Field:   fmt.Sprintf("spec.domain.devices.disks[%d]", idx),
+				Message: fmt.Sprintf("%s[%d] and %sdisks[%d] must not have the same Name.", fieldPrefix, idx, fieldPrefix, otherIdx),
+				Field:   fmt.Sprintf("%s[%d]", fieldPrefix, idx),
 			})
 		}
 		// Verify only a single device type is set.
@@ -167,25 +167,24 @@ func validateDisks(disks []v1.Disk) []metav1.StatusCause {
 		if deviceTargetSetCount > 1 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("spec.domain.devices.disks[%d] can only have a single target type defined", idx),
-				Field:   fmt.Sprintf("spec.domain.devices.disks[%d]", idx),
+				Message: fmt.Sprintf("%s[%d] can only have a single target type defined", fieldPrefix, idx),
+				Field:   fmt.Sprintf("%s[%d]", fieldPrefix, idx),
 			})
 		}
-
 	}
 
 	return causes
 }
 
-func validateVolumes(volumes []v1.Volume) []metav1.StatusCause {
+func validateVolumes(fieldPrefix string, volumes []v1.Volume) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	nameMap := make(map[string]int)
 
 	if len(volumes) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("spec.volumes list exceeds the %d element limit in length", arrayLenMax),
-			Field:   "spec.volumes",
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", fieldPrefix, arrayLenMax),
+			Field:   fmt.Sprintf("%s", fieldPrefix),
 		})
 		// We won't process anything over the limit
 		return causes
@@ -198,8 +197,8 @@ func validateVolumes(volumes []v1.Volume) []metav1.StatusCause {
 		} else {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("spec.volumes[%d] and spec.volumes[%d] must not have the same Name.", idx, otherIdx),
-				Field:   fmt.Sprintf("spec.volumes[%d]", idx),
+				Message: fmt.Sprintf("%s[%d] and %s[%d] must not have the same Name.", fieldPrefix, idx, fieldPrefix, otherIdx),
+				Field:   fmt.Sprintf("%s[%d]", fieldPrefix, idx),
 			})
 		}
 
@@ -224,8 +223,8 @@ func validateVolumes(volumes []v1.Volume) []metav1.StatusCause {
 		if volumeSourceSetCount != 1 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("spec.volumes[%d] must have exactly one source type set", idx),
-				Field:   fmt.Sprintf("spec.volumes[%d]", idx),
+				Message: fmt.Sprintf("%s[%d] must have exactly one source type set", fieldPrefix, idx),
+				Field:   fmt.Sprintf("%s[%d]", fieldPrefix, idx),
 			})
 		}
 
@@ -244,8 +243,8 @@ func validateVolumes(volumes []v1.Volume) []metav1.StatusCause {
 				if err != nil {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("spec.volumes[%d].cloudInitNoCloud.userDataBase64 is not a valid base64 value.", idx),
-						Field:   fmt.Sprintf("spec.volumes[%d].cloudInitNoCloud.userDataBase64", idx),
+						Message: fmt.Sprintf("%s[%d].cloudInitNoCloud.userDataBase64 is not a valid base64 value.", fieldPrefix, idx),
+						Field:   fmt.Sprintf("%s[%d].cloudInitNoCloud.userDataBase64", fieldPrefix, idx),
 					})
 				}
 				userDataLen = len(userData)
@@ -258,16 +257,16 @@ func validateVolumes(volumes []v1.Volume) []metav1.StatusCause {
 			if userDataSourceCount != 1 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("spec.volumes[%d].cloudInitNoCloud must have one exactly one userdata source set.", idx),
-					Field:   fmt.Sprintf("spec.volumes[%d].cloudInitNoCloud", idx),
+					Message: fmt.Sprintf("%s[%d].cloudInitNoCloud must have one exactly one userdata source set.", fieldPrefix, idx),
+					Field:   fmt.Sprintf("%s[%d].cloudInitNoCloud", fieldPrefix, idx),
 				})
 			}
 
 			if userDataLen > cloudInitMaxLen {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("spec.volumes[%d].cloudInitNoCloud userdata exceeds %d byte limit", idx, cloudInitMaxLen),
-					Field:   fmt.Sprintf("spec.volumes[%d].cloudInitNoCloud", idx),
+					Message: fmt.Sprintf("%s[%d].cloudInitNoCloud userdata exceeds %d byte limit", fieldPrefix, idx, cloudInitMaxLen),
+					Field:   fmt.Sprintf("%s[%d].cloudInitNoCloud", fieldPrefix, idx),
 				})
 			}
 		}
@@ -275,19 +274,19 @@ func validateVolumes(volumes []v1.Volume) []metav1.StatusCause {
 	return causes
 }
 
-func validateDevices(devices *v1.Devices) []metav1.StatusCause {
+func validateDevices(fieldPrefix string, devices *v1.Devices) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	causes = append(causes, validateDisks(devices.Disks)...)
+	causes = append(causes, validateDisks(fmt.Sprintf("%sdisks", fieldPrefix), devices.Disks)...)
 	return causes
 }
 
-func validateDomainSpec(spec *v1.DomainSpec) []metav1.StatusCause {
+func validateDomainSpec(fieldPrefix string, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	causes = append(causes, validateDevices(&spec.Devices)...)
+	causes = append(causes, validateDevices(fmt.Sprintf("%sdevices.", fieldPrefix), &spec.Devices)...)
 	return causes
 }
 
-func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []metav1.StatusCause {
+func validateVirtualMachineSpec(fieldPrefix string, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
 	volumeNameMap := make(map[string]*v1.Volume)
@@ -295,16 +294,16 @@ func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []metav1.StatusCaus
 	if len(spec.Domain.Devices.Disks) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("spec.domain.devices.disks list exceeds the %d element limit in length", arrayLenMax),
-			Field:   "spec.domain.devices.disks",
+			Message: fmt.Sprintf("%sdomain.devices.disks list exceeds the %d element limit in length", fieldPrefix, arrayLenMax),
+			Field:   fmt.Sprintf("%sdomain.devices.disks", fieldPrefix),
 		})
 		// We won't process anything over the limit
 		return causes
 	} else if len(spec.Volumes) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("spec.volumes list exceeds the %d element limit in length", arrayLenMax),
-			Field:   "spec.volumes",
+			Message: fmt.Sprintf("%svolumes list exceeds the %d element limit in length", fieldPrefix, arrayLenMax),
+			Field:   fmt.Sprintf("%svolumes", fieldPrefix),
 		})
 		// We won't process anything over the limit
 		return causes
@@ -323,8 +322,8 @@ func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []metav1.StatusCaus
 		if !volumeExists {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("spec.domain.devices.disks[%d].volumeName '%s' not found.", idx, disk.VolumeName),
-				Field:   fmt.Sprintf("spec.domain.devices.disks[%d].volumeName", idx),
+				Message: fmt.Sprintf("%sdomain.devices.disks[%d].volumeName '%s' not found.", fieldPrefix, idx, disk.VolumeName),
+				Field:   fmt.Sprintf("%sdomain.devices.disks[%d].volumeName", fieldPrefix, idx),
 			})
 		}
 
@@ -335,8 +334,8 @@ func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []metav1.StatusCaus
 		} else {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("spec.domain.devices.disks[%d] and spec.domain.devices.disks[%d] reference the same volumeName.", idx, otherIdx),
-				Field:   fmt.Sprintf("spec.domain.devices.disks[%d].volumeName", idx),
+				Message: fmt.Sprintf("%sdomain.devices.disks[%d] and %sdomain.devices.disks[%d] reference the same volumeName.", fieldPrefix, idx, fieldPrefix, otherIdx),
+				Field:   fmt.Sprintf("%sdomain.devices.disks[%d].volumeName", fieldPrefix, idx),
 			})
 		}
 
@@ -344,58 +343,59 @@ func validateVirtualMachineSpec(spec *v1.VirtualMachineSpec) []metav1.StatusCaus
 		if disk.LUN != nil && volumeExists && matchingVolume.PersistentVolumeClaim == nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("spec.domain.devices.disks[%d].lun can only be mapped to a PersistentVolumeClaim volume.", idx),
-				Field:   fmt.Sprintf("spec.domain.devices.disks[%d].lun", idx),
+				Message: fmt.Sprintf("%sdomain.devices.disks[%d].lun can only be mapped to a PersistentVolumeClaim volume.", fieldPrefix, idx),
+				Field:   fmt.Sprintf("%sdomain.devices.disks[%d].lun", fieldPrefix, idx),
 			})
 		}
 	}
 
-	causes = append(causes, validateDomainSpec(&spec.Domain)...)
-	causes = append(causes, validateVolumes(spec.Volumes)...)
+	causes = append(causes, validateDomainSpec(fmt.Sprintf("%sdomain.", fieldPrefix), &spec.Domain)...)
+	causes = append(causes, validateVolumes(fmt.Sprintf("%svolumes", fieldPrefix), spec.Volumes)...)
 	return causes
 }
 
-func validateOfflineVirtualMachineSpec(spec *v1.OfflineVirtualMachineSpec) []metav1.StatusCause {
+func validateOfflineVirtualMachineSpec(fieldPrefix string, spec *v1.OfflineVirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
 		return append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: fmt.Sprintf("missing virtual machine template."),
-			Field:   "spec.template",
+			Field:   fmt.Sprintf("%stemplate", fieldPrefix),
 		})
 	}
 
-	causes = append(causes, validateVirtualMachineSpec(&spec.Template.Spec)...)
+	causes = append(causes, validateVirtualMachineSpec(fmt.Sprintf("%stemplate.spec.", fieldPrefix), &spec.Template.Spec)...)
 	return causes
 }
 
-func validateVMPresetSpec(spec *v1.VirtualMachinePresetSpec) []metav1.StatusCause {
+func validateVMPresetSpec(fieldPrefix string, spec *v1.VirtualMachinePresetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Domain == nil {
 		return append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: fmt.Sprintf("missing domain."),
-			Field:   "spec.domain",
+			Field:   fmt.Sprintf("%sdomain", fieldPrefix),
 		})
 	}
 
-	causes = append(causes, validateDomainSpec(spec.Domain)...)
+	causes = append(causes, validateDomainSpec(fmt.Sprintf("%sdomain.", fieldPrefix), spec.Domain)...)
 	return causes
 }
-func validateVMRSSpec(spec *v1.VMReplicaSetSpec) []metav1.StatusCause {
+
+func validateVMRSSpec(fieldPrefix string, spec *v1.VMReplicaSetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
 		return append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: fmt.Sprintf("missing virtual machine template."),
-			Field:   "spec.template",
+			Field:   fmt.Sprintf("%stemplate.", fieldPrefix),
 		})
 	}
 
-	causes = append(causes, validateVirtualMachineSpec(&spec.Template.Spec)...)
+	causes = append(causes, validateVirtualMachineSpec(fmt.Sprintf("%stemplate.spec.", fieldPrefix), &spec.Template.Spec)...)
 	return causes
 }
 
@@ -418,7 +418,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVirtualMachineSpec(&vm.Spec)
+	causes := validateVirtualMachineSpec("spec.", &vm.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -451,7 +451,7 @@ func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateOfflineVirtualMachineSpec(&ovm.Spec)
+	causes := validateOfflineVirtualMachineSpec("spec.", &ovm.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -484,7 +484,7 @@ func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMRSSpec(&vmrs.Spec)
+	causes := validateVMRSSpec("spec.", &vmrs.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -516,7 +516,7 @@ func admitVMPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMPresetSpec(&vmpreset.Spec)
+	causes := validateVMPresetSpec("spec.", &vmpreset.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
