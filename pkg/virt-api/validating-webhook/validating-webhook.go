@@ -144,7 +144,7 @@ func validateDisks(fieldPrefix string, disks []v1.Disk) []metav1.StatusCause {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s[%d] and %sdisks[%d] must not have the same Name.", fieldPrefix, idx, fieldPrefix, otherIdx),
-				Field:   fmt.Sprintf("%s[%d]", fieldPrefix, idx),
+				Field:   fmt.Sprintf("%s[%d].name", fieldPrefix, idx),
 			})
 		}
 		// Verify only a single device type is set.
@@ -198,7 +198,7 @@ func validateVolumes(fieldPrefix string, volumes []v1.Volume) []metav1.StatusCau
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s[%d] and %s[%d] must not have the same Name.", fieldPrefix, idx, fieldPrefix, otherIdx),
-				Field:   fmt.Sprintf("%s[%d]", fieldPrefix, idx),
+				Field:   fmt.Sprintf("%s[%d].name", fieldPrefix, idx),
 			})
 		}
 
