@@ -312,7 +312,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := validateVirtualMachineSpec(&vm.Spec)
+			causes := validateVirtualMachineSpec("fake.", &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject disk lists greater than max element length", func() {
@@ -327,7 +327,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := validateVirtualMachineSpec(&vm.Spec)
+			causes := validateVirtualMachineSpec("fake.", &vm.Spec)
 			// if this is processed correctly, it should result in a single error
 			// If multiple causes occurred, then the spec was processed too far.
 			Expect(len(causes)).To(Equal(1))
@@ -345,7 +345,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := validateVirtualMachineSpec(&vm.Spec)
+			causes := validateVirtualMachineSpec("fake.", &vm.Spec)
 			// if this is processed correctly, it should result in a single error
 			// If multiple causes occurred, then the spec was processed too far.
 			Expect(len(causes)).To(Equal(1))
@@ -359,7 +359,7 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeName: "testvolume",
 			})
 
-			causes := validateVirtualMachineSpec(&vm.Spec)
+			causes := validateVirtualMachineSpec("fake.", &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
 		})
 		It("should reject multiple disks referencing same volume", func() {
@@ -381,7 +381,7 @@ var _ = Describe("Validating Webhook", func() {
 					RegistryDisk: &v1.RegistryDiskSource{},
 				},
 			})
-			causes := validateVirtualMachineSpec(&vm.Spec)
+			causes := validateVirtualMachineSpec("fake.", &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
 		})
 		It("should generate multiple causes", func() {
@@ -396,7 +396,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVirtualMachineSpec(&vm.Spec)
+			causes := validateVirtualMachineSpec("fake.", &vm.Spec)
 			// missing volume and multiple targets set. should result in 2 causes
 			Expect(len(causes)).To(Equal(2))
 		})
@@ -412,7 +412,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 				vm.Spec.Volumes = append(vm.Spec.Volumes, *volume)
 
-				causes := validateVirtualMachineSpec(&vm.Spec)
+				causes := validateVirtualMachineSpec("fake.", &vm.Spec)
 				Expect(len(causes)).To(Equal(expectedErrors))
 			},
 			table.Entry("and reject non PVC sources",
@@ -441,7 +441,7 @@ var _ = Describe("Validating Webhook", func() {
 					VolumeSource: volumeSource,
 				})
 
-				causes := validateVolumes(vm.Spec.Volumes)
+				causes := validateVolumes("fake.", vm.Spec.Volumes)
 				Expect(len(causes)).To(Equal(0))
 			},
 			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
@@ -457,7 +457,7 @@ var _ = Describe("Validating Webhook", func() {
 				Name: "testvolume",
 			})
 
-			causes := validateVolumes(vm.Spec.Volumes)
+			causes := validateVolumes("fake.", vm.Spec.Volumes)
 			Expect(len(causes)).To(Equal(1))
 		})
 		It("should reject volume with multiple volume sources set", func() {
@@ -471,7 +471,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(vm.Spec.Volumes)
+			causes := validateVolumes("fake.", vm.Spec.Volumes)
 			Expect(len(causes)).To(Equal(1))
 		})
 		It("should reject volumes with duplicate names", func() {
@@ -490,7 +490,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(vm.Spec.Volumes)
+			causes := validateVolumes("fake.", vm.Spec.Volumes)
 			Expect(len(causes)).To(Equal(1))
 		})
 		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
@@ -510,7 +510,7 @@ var _ = Describe("Validating Webhook", func() {
 				vm.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData = userdata
 			}
 
-			causes := validateVolumes(vm.Spec.Volumes)
+			causes := validateVolumes("fake.", vm.Spec.Volumes)
 			Expect(len(causes)).To(Equal(expectedErrors))
 		},
 			table.Entry("should accept userdata under max limit", 10, 0, false),
@@ -532,7 +532,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(vm.Spec.Volumes)
+			causes := validateVolumes("fake.", vm.Spec.Volumes)
 			Expect(len(causes)).To(Equal(1))
 		})
 	})
@@ -543,7 +543,7 @@ var _ = Describe("Validating Webhook", func() {
 
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, disk)
 
-				causes := validateDisks(vm.Spec.Domain.Devices.Disks)
+				causes := validateDisks("fake.", vm.Spec.Domain.Devices.Disks)
 				Expect(len(causes)).To(Equal(0))
 
 			},
@@ -575,7 +575,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateDisks(vm.Spec.Domain.Devices.Disks)
+			causes := validateDisks("fake.", vm.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject disks with duplicate names ", func() {
@@ -595,7 +595,7 @@ var _ = Describe("Validating Webhook", func() {
 					Disk: &v1.DiskTarget{},
 				},
 			})
-			causes := validateDisks(vm.Spec.Domain.Devices.Disks)
+			causes := validateDisks("fake.", vm.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(1))
 		})
 
@@ -617,7 +617,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateDisks(vm.Spec.Domain.Devices.Disks)
+			causes := validateDisks("fake.", vm.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(1))
 		})
 	})
