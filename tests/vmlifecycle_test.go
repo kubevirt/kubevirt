@@ -106,6 +106,10 @@ var _ = Describe("Vmlifecycle", func() {
 				Name:       "testdisk",
 				VolumeName: "testvolume",
 			})
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume2",
+			})
 
 			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do()
 
@@ -113,6 +117,15 @@ var _ = Describe("Vmlifecycle", func() {
 			statusCode := 0
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+			reviewResponse := &metav1.Status{}
+			body, _ := result.Raw()
+			err = json.Unmarshal(body, reviewResponse)
+			Expect(err).To(BeNil())
+
+			Expect(len(reviewResponse.Details.Causes)).To(Equal(2))
+			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[1].volumeName"))
+			Expect(reviewResponse.Details.Causes[1].Field).To(Equal("spec.domain.devices.disks[2].volumeName"))
 		})
 
 		It("should reject PATCH if schema is invalid", func() {
