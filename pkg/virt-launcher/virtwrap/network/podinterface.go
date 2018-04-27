@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/proxy"
 )
 
 const CommonFakeVMIP = "169.254.12.12"
@@ -280,10 +281,9 @@ func (b *ProxyPodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	// port forwarding implementation TBD
-	/*if err := b.proxyRequestedPorts(); err != nil {
-		log.Log.Reason(err).Errorf("failed to proxy ports")
-		return err
-	}*/
+	// Forward requested ports
+	portForwarding := proxy.NewService(b.iface.Proxy.Ports)
+	portForwarding.Start()
+
 	return nil
 }
