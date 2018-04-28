@@ -342,6 +342,18 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 			},
 		},
 	}
+	swo.SecurityDefinitions = openapispec.SecurityDefinitions{
+		"BearerToken": &openapispec.SecurityScheme{
+			SecuritySchemeProps: openapispec.SecuritySchemeProps{
+				Type:        "apiKey",
+				Name:        "authorization",
+				In:          "header",
+				Description: "Bearer Token authentication",
+			},
+		},
+	}
+	swo.Security = make([]map[string][]string, 1)
+	swo.Security[0] = map[string][]string{"BearerToken": []string{}}
 }
 
 func deserializeStrings(in string) ([]string, error) {
