@@ -26,10 +26,6 @@ source ${KUBEVIRT_DIR}/hack/config.sh
 
 if [ "$1" == "console" ] || [ "$1" == "vnc" ]; then
     ${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl --kubeconfig=${kubeconfig} "$@"
-elif [ "$1" == "start" ] || [ "$1" == "stop" ]; then
-    ${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl --kubeconfig=${kubeconfig} "$@"
-elif [ "$1" == "expose" ] && [ "$2" != "pod" ]; then
-    ${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl --kubeconfig=${kubeconfig} "$@"
 else
     _kubectl "$@"
 fi

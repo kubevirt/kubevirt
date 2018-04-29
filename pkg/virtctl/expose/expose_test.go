@@ -28,7 +28,7 @@ func Test_Run(t *testing.T) {
 		t.Error("'expose' command creation failure")
 	}
 	// TODO: mock the client to not communicate with the server
-	err := cmd.RunE(cmd, []string{"testvm"})
+	err := cmd.RunE(cmd, []string{"vm", "testvm"})
 	if err != nil {
 		// this is currently failing, uncomment once client is mocked
 		//t.Error("'expose' command execution failure: ", err)
