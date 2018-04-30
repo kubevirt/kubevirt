@@ -31,13 +31,13 @@ set -ex
 export WORKSPACE="${WORKSPACE:-$PWD}"
 
 if [[ $TARGET =~ openshift-.* ]]; then
-  export PROVIDER="os-3.9.0"
+  if [[ $TARGET =~ .*-crio ]]; then
+    export PROVIDER="os-3.9.0-crio"
+  else
+    export PROVIDER="os-3.9.0"
+  fi
 else
   export PROVIDER="k8s-1.9.3"
-fi
-
-if [[ $TARGET =~ .*-crio ]]; then
-    export CRIO="true"
 fi
 
 export VAGRANT_NUM_NODES=1
