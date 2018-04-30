@@ -707,6 +707,10 @@ type OfflineVirtualMachineSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineStatus struct {
+	// Created indicates if the virtual machine is created in the cluster
+	Created bool `json:"created,omitempty"`
+	// Ready indicates if the virtual machine is running and ready
+	Ready bool `json:"ready,omitempty"`
 	// Hold the state information of the OfflineVirtualMachine and its VirtualMachine
 	Conditions []OfflineVirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
 }
@@ -742,8 +746,4 @@ const (
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "Failure"
-
-	// OfflineVirtualMachineRunning is added in a offline virtual machine when the VM succesfully runs.
-	// After this condition was added, the VM is up and running.
-	OfflineVirtualMachineRunning OfflineVirtualMachineConditionType = "Running"
 )

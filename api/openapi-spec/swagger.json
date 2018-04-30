@@ -3931,6 +3931,14 @@
       "items": {
        "$ref": "#/definitions/v1.OfflineVirtualMachineCondition"
       }
+     },
+     "created": {
+      "description": "Created indicates if the virtual machine is created in the cluster",
+      "type": "boolean"
+     },
+     "ready": {
+      "description": "Ready indicates if the virtual machine is running and ready",
+      "type": "boolean"
      }
     }
    },
