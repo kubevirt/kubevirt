@@ -14,6 +14,7 @@
 - modelDescription
 - type (overrides the Go type String())
 - enum
+- readOnly
 
 See TestThatExtraTagsAreReadIntoModel for examples.
 
