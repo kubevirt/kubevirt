@@ -155,7 +155,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() bool {
 				updatedOVM, err = virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Get(updatedOVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return hasCondition(updatedOVM, v1.OfflineVirtualMachineRunning)
+				return updatedOVM.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 
 			return updatedOVM
@@ -188,7 +188,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() bool {
 				updatedOVM, err = virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Get(updatedOVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return hasCondition(updatedOVM, v1.OfflineVirtualMachineRunning)
+				return updatedOVM.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeFalse())
 
 			return updatedOVM
@@ -199,7 +199,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() bool {
 				ovm, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Get(newOVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return hasCondition(ovm, v1.OfflineVirtualMachineRunning)
+				return ovm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
@@ -347,7 +347,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() bool {
 				newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+				return newOVM.Status.Ready
 			}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 			By("Updating the OVM template spec")
@@ -437,7 +437,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Eventually(func() bool {
 					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+					return newOVM.Status.Ready
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Getting the running VM")
@@ -464,7 +464,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Eventually(func() bool {
 					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+					return newOVM.Status.Ready
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				err = virtctl()
@@ -474,7 +474,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Eventually(func() bool {
 					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return !hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+					return !newOVM.Status.Ready && !newOVM.Status.Created
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Ensuring the VM is removed")
@@ -514,14 +514,4 @@ func NewRandomOfflineVirtualMachine(vm *v1.VirtualMachine, running bool) *v1.Off
 		},
 	}
 	return ovm
-}
-
-func hasCondition(ovm *v1.OfflineVirtualMachine, cond v1.OfflineVirtualMachineConditionType) bool {
-	for _, c := range ovm.Status.Conditions {
-		if c.Type == cond {
-			return true
-		}
-	}
-
-	return false
 }
