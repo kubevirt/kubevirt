@@ -25,7 +25,7 @@ import (
 
 	"testing"
 
-	"github.com/kubevirt/qe-tools/ginkgo-reporters"
+	"kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 
 	"kubevirt.io/kubevirt/tests"
 )

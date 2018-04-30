@@ -1,5 +1,5 @@
-hash: 43bf5b9efcb1e998f16311fea749ec295c39564482781cdccb5724e57ecb5f24
-updated: 2018-04-20T09:53:00.832005531Z
+hash: b0f00760777f6e6400e35e1b99f7cbc0e06762709cbb0f3f3f2c19a8f7b0f528
+updated: 2018-04-30T14:14:24.062881352Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -34,7 +34,7 @@ imports:
   subpackages:
   - log
 - name: github.com/emicklei/go-restful-openapi
-  version: 60f3c22579aa3b998e4c6e902649760531ca03ca
+  version: 7712e8a6e8096e7103b96a400519d38fb1e348f8
 - name: github.com/emicklei/go-restful-swagger12
   version: 7524189396c68dc4b04d53852f9edc00f816b123
 - name: github.com/evanphx/json-patch
@@ -73,7 +73,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 8b2eeeb0ca5f56c78bec5efde9c4a21d9201126c
+  version: 87f106fccd7e3ced294a19e86bebd7846911690a
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -135,10 +135,6 @@ imports:
   version: 4abfceffa76a675ea43d133e49aad64c821d32bf
   subpackages:
   - conn
-- name: github.com/kubevirt/qe-tools
-  version: 5891aede49ba383e4e53320ff46e6999dffde8c4
-  subpackages:
-  - ginkgo-reporters
 - name: github.com/libvirt/libvirt-go
   version: 0822ea6d658d7a0deeaa2ce63ed3efd6306bee03
 - name: github.com/mailru/easyjson
@@ -268,7 +264,7 @@ imports:
   - unicode/norm
   - width
 - name: google.golang.org/appengine
-  version: 0a24098c0ec68416ec050f567f75df563d6b231e
+  version: 962cbd1200af94a5a35ba8d512e9f91271b4d01a
   subpackages:
   - internal
   - internal/app_identity
@@ -286,12 +282,13 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: ace140f73450505f33e8b8418216792275ae82a7
+  version: 6529cf7c58879c08d927016dde4477f18a0634cb
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/api
   version: acf347b865f29325eb61f4cd2df11e86e073a5ee
   subpackages:
+  - admission/v1beta1
   - admissionregistration/v1alpha1
   - admissionregistration/v1beta1
   - apps/v1
@@ -490,6 +487,12 @@ imports:
   subpackages:
   - pkg/common
   - pkg/util/proto
+- name: kubevirt.io/qe-tools
+  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  repo: https://github.com/kubevirt/qe-tools.git
+  subpackages:
+  - pkg/ginkgo-reporters
+  - pkg/polarion-xml
 testImports:
 - name: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
