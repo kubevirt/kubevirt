@@ -9,8 +9,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	// "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	v13 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
@@ -64,8 +64,8 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			vmFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmSource)
 
 			// Set up mock client
-			virtClient.EXPECT().VM(v12.NamespaceDefault).Return(vmInterface).AnyTimes()
-			virtClient.EXPECT().OfflineVirtualMachine(v12.NamespaceDefault).Return(ovmInterface).AnyTimes()
+			virtClient.EXPECT().VM(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
+			virtClient.EXPECT().OfflineVirtualMachine(metav1.NamespaceDefault).Return(ovmInterface).AnyTimes()
 		})
 
 		addOfflineVirtualMachine := func(ovm *v1.OfflineVirtualMachine) {
@@ -87,12 +87,44 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 			// expect update status is called
 			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(hasCondition(arg.(*v1.OfflineVirtualMachine), v1.OfflineVirtualMachineRunning)).To(BeFalse())
-			}).Return(ovm, nil)
+				Expect(arg.(*v1.OfflineVirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*v1.OfflineVirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
 
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should update status to created if the vm exists", func() {
+			ovm, vm := DefaultOfflineVirtualMachine(true)
+			vm.Status.Phase = v1.Scheduled
+
+			addOfflineVirtualMachine(ovm)
+			vmFeeder.Add(vm)
+
+			// expect update status is called
+			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.OfflineVirtualMachine).Status.Created).To(BeTrue())
+				Expect(arg.(*v1.OfflineVirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
+
+			controller.Execute()
+		})
+
+		It("should update status to created and ready when vm is running", func() {
+			ovm, vm := DefaultOfflineVirtualMachine(true)
+
+			addOfflineVirtualMachine(ovm)
+			vmFeeder.Add(vm)
+
+			// expect update status is called
+			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.OfflineVirtualMachine).Status.Created).To(BeTrue())
+				Expect(arg.(*v1.OfflineVirtualMachine).Status.Ready).To(BeTrue())
+			}).Return(nil, nil)
+
+			controller.Execute()
 		})
 
 		It("should have stable firmware UUIDs", func() {
@@ -158,9 +190,9 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			ovm, vm := DefaultOfflineVirtualMachine(true)
 
 			// Mark it as orphan deleted
-			now := v12.Now()
+			now := metav1.Now()
 			ovm.ObjectMeta.DeletionTimestamp = &now
-			ovm.ObjectMeta.Finalizers = []string{v12.FinalizerOrphanDependents}
+			ovm.ObjectMeta.Finalizers = []string{metav1.FinalizerOrphanDependents}
 
 			addOfflineVirtualMachine(ovm)
 			vmFeeder.Add(vm)
@@ -172,7 +204,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 		It("should detect that a VM already exists and adopt it", func() {
 			ovm, vm := DefaultOfflineVirtualMachine(true)
-			vm.OwnerReferences = []v12.OwnerReference{}
+			vm.OwnerReferences = []metav1.OwnerReference{}
 
 			addOfflineVirtualMachine(ovm)
 			vmFeeder.Add(vm)
@@ -211,7 +243,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Expect(cond.Type).To(Equal(v1.OfflineVirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedCreate"))
 				Expect(cond.Message).To(Equal("failure"))
-				Expect(cond.Status).To(Equal(v13.ConditionTrue))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			}).Return(ovm, nil)
 
 			controller.Execute()
@@ -234,7 +266,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Expect(cond.Type).To(Equal(v1.OfflineVirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("failure"))
-				Expect(cond.Status).To(Equal(v13.ConditionTrue))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
 			controller.Execute()
@@ -246,11 +278,11 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started bool) *v1.OfflineVirtualMachine {
 	ovm := &v1.OfflineVirtualMachine{
-		ObjectMeta: v12.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
 		Spec: v1.OfflineVirtualMachineSpec{
 			Running: started,
 			Template: &v1.VMTemplateSpec{
-				ObjectMeta: v12.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   vm.ObjectMeta.Name,
 					Labels: vm.ObjectMeta.Labels,
 				},
@@ -266,7 +298,7 @@ func DefaultOfflineVirtualMachineWithNames(started bool, ovmName string, vmName 
 	vm.Status.Phase = v1.Running
 	ovm := OfflineVirtualMachineFromVM(ovmName, vm, started)
 	t := true
-	vm.OwnerReferences = []v12.OwnerReference{v12.OwnerReference{
+	vm.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion:         v1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
 		Kind:               v1.OfflineVirtualMachineGroupVersionKind.Kind,
 		Name:               ovm.ObjectMeta.Name,
@@ -275,16 +307,6 @@ func DefaultOfflineVirtualMachineWithNames(started bool, ovmName string, vmName 
 		BlockOwnerDeletion: &t,
 	}}
 	return ovm, vm
-}
-
-func hasCondition(ovm *v1.OfflineVirtualMachine, cond v1.OfflineVirtualMachineConditionType) bool {
-	for _, c := range ovm.Status.Conditions {
-		if c.Type == cond {
-			return true
-		}
-	}
-
-	return false
 }
 
 func DefaultOfflineVirtualMachine(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {

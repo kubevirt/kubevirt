@@ -206,7 +206,7 @@ is shown below.
 status:
   observedGeneration: 124 # current observed revision
   virtualMachine: my-vm
-  running: true # is the attached VirtualMachine running
+  created: true # is the attached VirtualMachine reated
   ready: true # based on http readiness check libvirt info
   conditions: [] # additional possible states
 ```
@@ -214,7 +214,7 @@ status:
 The status of the VirtualMachine is watched and is reflected in the
 OfflineVirtualMachine status. The info propagated from the VirtualMachine is:
 
-* running state
+* if the vm exists in the cluster
 * readiness of the VM
 * name of the VirtualMachine
 

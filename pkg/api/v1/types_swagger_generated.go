@@ -146,6 +146,8 @@ func (OfflineVirtualMachineSpec) SwaggerDoc() map[string]string {
 func (OfflineVirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
+		"created":    "Created indicates if the virtual machine is created in the cluster",
+		"ready":      "Ready indicates if the virtual machine is running and ready",
 		"conditions": "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
 	}
 }
