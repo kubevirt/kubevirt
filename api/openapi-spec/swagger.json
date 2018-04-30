@@ -572,8 +572,8 @@
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of VirtualMachine objects.",
-     "operationId": "listNamespacedVirtualMachine",
+     "summary": "Get a list of VirtualMachinePreset objects.",
+     "operationId": "listNamespacedVirtualMachinePreset",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -659,8 +659,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Create a VirtualMachine object.",
-     "operationId": "createNamespacedVirtualMachine",
+     "summary": "Create a VirtualMachinePreset object.",
+     "operationId": "createNamespacedVirtualMachinePreset",
      "parameters": [
       {
        "name": "body",
@@ -714,8 +714,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a collection of VirtualMachine objects.",
-     "operationId": "deleteCollectionNamespacedVirtualMachine",
+     "summary": "Delete a collection of VirtualMachinePreset objects.",
+     "operationId": "deleteCollectionNamespacedVirtualMachinePreset",
      "parameters": [
       {
        "type": "string",
@@ -792,8 +792,8 @@
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a VirtualMachine object.",
-     "operationId": "readNamespacedVirtualMachine",
+     "summary": "Get a VirtualMachinePreset object.",
+     "operationId": "readNamespacedVirtualMachinePreset",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -851,8 +851,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Update a VirtualMachine object.",
-     "operationId": "replaceNamespacedVirtualMachine",
+     "summary": "Update a VirtualMachinePreset object.",
+     "operationId": "replaceNamespacedVirtualMachinePreset",
      "parameters": [
       {
        "name": "body",
@@ -912,8 +912,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a VirtualMachine object.",
-     "operationId": "deleteNamespacedVirtualMachine",
+     "summary": "Delete a VirtualMachinePreset object.",
+     "operationId": "deleteNamespacedVirtualMachinePreset",
      "parameters": [
       {
        "name": "body",
@@ -984,8 +984,8 @@
      "produces": [
       "application/json"
      ],
-     "summary": "Patch a VirtualMachine object.",
-     "operationId": "patchNamespacedVirtualMachine",
+     "summary": "Patch a VirtualMachinePreset object.",
+     "operationId": "patchNamespacedVirtualMachinePreset",
      "parameters": [
       {
        "name": "body",
@@ -2000,8 +2000,8 @@
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of all VirtualMachine objects.",
-     "operationId": "listVirtualMachineForAllNamespaces",
+     "summary": "Get a list of all VirtualMachinePreset objects.",
+     "operationId": "listVirtualMachinePresetForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -2316,8 +2316,8 @@
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a VirtualMachine object.",
-     "operationId": "watchNamespacedVirtualMachine",
+     "summary": "Watch a VirtualMachinePreset object.",
+     "operationId": "watchNamespacedVirtualMachinePreset",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -2644,8 +2644,8 @@
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a VirtualMachineList object.",
-     "operationId": "watchVirtualMachineListForAllNamespaces",
+     "summary": "Watch a VirtualMachinePresetList object.",
+     "operationId": "watchVirtualMachinePresetListForAllNamespaces",
      "parameters": [
       {
        "type": "string",

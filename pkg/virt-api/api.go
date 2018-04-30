@@ -153,7 +153,7 @@ func (app *virtAPIApp) composeResources(ctx context.Context) {
 		panic(err)
 	}
 
-	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachinePreset{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachinePresetList{})
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachinePreset{}, v1.VirtualMachinePresetGroupVersionKind.Kind, &v1.VirtualMachinePresetList{})
 	if err != nil {
 		panic(err)
 	}
