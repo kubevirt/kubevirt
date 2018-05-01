@@ -50,6 +50,7 @@ type VirtualMachinePresetController struct {
 }
 
 const initializerMarking = "presets.virtualmachines." + kubev1.GroupName + "/presets-applied"
+const exclusionMarking = "presets.virtualmachines." + kubev1.GroupName + "/exclude"
 
 func NewVirtualMachinePresetController(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachinePresetController {
 	vmi := VirtualMachinePresetController{
@@ -133,23 +134,27 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 	var err error
 	success := true
 
-	logger.Object(vm).Info("Initializing VirtualMachine")
+	if !arePresetsExcluded(vm) {
+		logger.Object(vm).Info("Initializing VirtualMachine")
 
-	allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
-	if err != nil {
-		logger.Object(vm).Errorf("Listing VirtualMachinePresets failed: %v", err)
-		return err
-	}
+		allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
+		if err != nil {
+			logger.Object(vm).Errorf("Listing VirtualMachinePresets failed: %v", err)
+			return err
+		}
 
-	matchingPresets := filterPresets(allPresets, vm, c.recorder)
+		matchingPresets := filterPresets(allPresets, vm, c.recorder)
 
-	if len(matchingPresets) != 0 {
-		success = applyPresets(vm, matchingPresets, c.recorder)
-	}
+		if len(matchingPresets) != 0 {
+			success = applyPresets(vm, matchingPresets, c.recorder)
+		}
 
-	if !success {
-		logger.Object(vm).Warning("Marking VM as failed")
-		vm.Status.Phase = kubev1.Failed
+		if !success {
+			logger.Object(vm).Warning("Marking VM as failed")
+			vm.Status.Phase = kubev1.Failed
+		}
+	} else {
+		logger.Object(vm).Infof("VirtualMachinePresets are excluded")
 	}
 	// Even failed VM's need to be marked as initialized so they're
 	// not re-processed by this controller
@@ -370,6 +375,14 @@ func isVirtualMachineInitialized(vm *kubev1.VirtualMachine) bool {
 	if vm.Annotations != nil {
 		_, found := vm.Annotations[initializerMarking]
 		return found
+	}
+	return false
+}
+
+func arePresetsExcluded(vm *kubev1.VirtualMachine) bool {
+	if vm.Annotations != nil {
+		excluded, ok := vm.Annotations[exclusionMarking]
+		return ok && (excluded == "true")
 	}
 	return false
 }
