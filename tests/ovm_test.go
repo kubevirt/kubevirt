@@ -102,6 +102,13 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
+			reviewResponse := &v12.Status{}
+			body, _ := result.Raw()
+			err = json.Unmarshal(body, reviewResponse)
+			Expect(err).To(BeNil())
+
+			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
+			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].volumeName"))
 		})
 	})
 

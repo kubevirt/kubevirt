@@ -32,6 +32,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -57,6 +58,8 @@ var _ = Describe("Validating Webhook", func() {
 
 			resp := admitVMs(ar)
 			Expect(resp.Allowed).To(Equal(false))
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].volumeName"))
 		})
 		It("should accept valid vm spec", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -115,6 +118,8 @@ var _ = Describe("Validating Webhook", func() {
 
 			resp := admitVMRS(ar)
 			Expect(resp.Allowed).To(Equal(false))
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].volumeName"))
 		})
 		It("should accept valid vm spec", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -188,6 +193,8 @@ var _ = Describe("Validating Webhook", func() {
 
 			resp := admitOVMs(ar)
 			Expect(resp.Allowed).To(Equal(false))
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].volumeName"))
 		})
 		It("should accept valid vm spec", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -241,7 +248,9 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 			vmPreset := &v1.VirtualMachinePreset{
-				Spec: v1.VirtualMachinePresetSpec{},
+				Spec: v1.VirtualMachinePresetSpec{
+					Domain: &vm.Spec.Domain,
+				},
 			}
 			vmPresetBytes, _ := json.Marshal(&vmPreset)
 
@@ -260,6 +269,8 @@ var _ = Describe("Validating Webhook", func() {
 
 			resp := admitVMPreset(ar)
 			Expect(resp.Allowed).To(Equal(false))
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0]"))
 		})
 		It("should accept valid vm spec", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -312,8 +323,8 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			errors := validateVirtualMachineSpec(&vm.Spec)
-			Expect(len(errors)).To(Equal(0))
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject disk lists greater than max element length", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -327,10 +338,11 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			errors := validateVirtualMachineSpec(&vm.Spec)
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			// if this is processed correctly, it should result in a single error
-			// If multiple errors occurred, then the spec was processed too far.
-			Expect(len(errors)).To(Equal(1))
+			// If multiple causes occurred, then the spec was processed too far.
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks"))
 		})
 		It("should reject volume lists greater than max element length", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -345,10 +357,11 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			errors := validateVirtualMachineSpec(&vm.Spec)
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			// if this is processed correctly, it should result in a single error
-			// If multiple errors occurred, then the spec was processed too far.
-			Expect(len(errors)).To(Equal(1))
+			// If multiple causes occurred, then the spec was processed too far.
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.volumes"))
 		})
 
 		It("should reject disk with missing volume", func() {
@@ -359,8 +372,9 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeName: "testvolume",
 			})
 
-			errors := validateVirtualMachineSpec(&vm.Spec)
-			Expect(len(errors)).To(Equal(1))
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].volumeName"))
 		})
 		It("should reject multiple disks referencing same volume", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -381,10 +395,11 @@ var _ = Describe("Validating Webhook", func() {
 					RegistryDisk: &v1.RegistryDiskSource{},
 				},
 			})
-			errors := validateVirtualMachineSpec(&vm.Spec)
-			Expect(len(errors)).To(Equal(1))
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[1].volumeName"))
 		})
-		It("should generate multiple errors", func() {
+		It("should generate multiple causes", func() {
 			vm := v1.NewMinimalVM("testvm")
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
@@ -396,9 +411,11 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateVirtualMachineSpec(&vm.Spec)
-			// missing volume and multiple targets set. should result in 2 errors
-			Expect(len(errors)).To(Equal(2))
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			// missing volume and multiple targets set. should result in 2 causes
+			Expect(len(causes)).To(Equal(2))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].volumeName"))
+			Expect(causes[1].Field).To(Equal("fake.domain.devices.disks[0]"))
 		})
 		table.DescribeTable("should verify LUN is mapped to PVC volume",
 			func(volume *v1.Volume, expectedErrors int) {
@@ -412,8 +429,8 @@ var _ = Describe("Validating Webhook", func() {
 				})
 				vm.Spec.Volumes = append(vm.Spec.Volumes, *volume)
 
-				errors := validateVirtualMachineSpec(&vm.Spec)
-				Expect(len(errors)).To(Equal(expectedErrors))
+				causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+				Expect(len(causes)).To(Equal(expectedErrors))
 			},
 			table.Entry("and reject non PVC sources",
 				&v1.Volume{
@@ -441,8 +458,8 @@ var _ = Describe("Validating Webhook", func() {
 					VolumeSource: volumeSource,
 				})
 
-				errors := validateVolumes(vm.Spec.Volumes)
-				Expect(len(errors)).To(Equal(0))
+				causes := validateVolumes(k8sfield.NewPath("fake"), vm.Spec.Volumes)
+				Expect(len(causes)).To(Equal(0))
 			},
 			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
 			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake"}}),
@@ -457,8 +474,9 @@ var _ = Describe("Validating Webhook", func() {
 				Name: "testvolume",
 			})
 
-			errors := validateVolumes(vm.Spec.Volumes)
-			Expect(len(errors)).To(Equal(1))
+			causes := validateVolumes(k8sfield.NewPath("fake"), vm.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volume with multiple volume sources set", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -471,8 +489,9 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateVolumes(vm.Spec.Volumes)
-			Expect(len(errors)).To(Equal(1))
+			causes := validateVolumes(k8sfield.NewPath("fake"), vm.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volumes with duplicate names", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -490,8 +509,9 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateVolumes(vm.Spec.Volumes)
-			Expect(len(errors)).To(Equal(1))
+			causes := validateVolumes(k8sfield.NewPath("fake"), vm.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
 		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
 			vm := v1.NewMinimalVM("testvm")
@@ -510,8 +530,11 @@ var _ = Describe("Validating Webhook", func() {
 				vm.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData = userdata
 			}
 
-			errors := validateVolumes(vm.Spec.Volumes)
-			Expect(len(errors)).To(Equal(expectedErrors))
+			causes := validateVolumes(k8sfield.NewPath("fake"), vm.Spec.Volumes)
+			Expect(len(causes)).To(Equal(expectedErrors))
+			for _, cause := range causes {
+				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
+			}
 		},
 			table.Entry("should accept userdata under max limit", 10, 0, false),
 			table.Entry("should accept userdata equal max limit", cloudInitMaxLen, 0, false),
@@ -532,8 +555,9 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateVolumes(vm.Spec.Volumes)
-			Expect(len(errors)).To(Equal(1))
+			causes := validateVolumes(k8sfield.NewPath("fake"), vm.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.userDataBase64"))
 		})
 	})
 	Context("with Disk", func() {
@@ -543,8 +567,8 @@ var _ = Describe("Validating Webhook", func() {
 
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, disk)
 
-				errors := validateDisks(vm.Spec.Domain.Devices.Disks)
-				Expect(len(errors)).To(Equal(0))
+				causes := validateDisks(k8sfield.NewPath("fake"), vm.Spec.Domain.Devices.Disks)
+				Expect(len(causes)).To(Equal(0))
 
 			},
 			table.Entry("with Disk target",
@@ -575,8 +599,8 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateDisks(vm.Spec.Domain.Devices.Disks)
-			Expect(len(errors)).To(Equal(0))
+			causes := validateDisks(k8sfield.NewPath("fake"), vm.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject disks with duplicate names ", func() {
 			vm := v1.NewMinimalVM("testvm")
@@ -595,8 +619,9 @@ var _ = Describe("Validating Webhook", func() {
 					Disk: &v1.DiskTarget{},
 				},
 			})
-			errors := validateDisks(vm.Spec.Domain.Devices.Disks)
-			Expect(len(errors)).To(Equal(1))
+			causes := validateDisks(k8sfield.NewPath("fake"), vm.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
 
 		It("should reject disk with multiple targets ", func() {
@@ -617,8 +642,9 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			errors := validateDisks(vm.Spec.Domain.Devices.Disks)
-			Expect(len(errors)).To(Equal(1))
+			causes := validateDisks(k8sfield.NewPath("fake"), vm.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 	})
 })

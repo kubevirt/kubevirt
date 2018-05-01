@@ -122,6 +122,14 @@ var _ = Describe("VMPreset", func() {
 			statusCode := 0
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+			reviewResponse := &k8smetav1.Status{}
+			body, _ := result.Raw()
+			err = json.Unmarshal(body, reviewResponse)
+			Expect(err).To(BeNil())
+
+			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
+			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[1]"))
 		})
 	})
 	Context("Preset Matching", func() {
