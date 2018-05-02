@@ -138,6 +138,34 @@ var _ = Describe("VM Initializer", func() {
 		})
 	})
 
+	Context("Preset Exclusions", func() {
+		It("Should not fail if Annotations are nil", func() {
+			vm := &v1.VirtualMachine{}
+			vm.Annotations = nil
+			Expect(arePresetsExcluded(vm)).To(BeFalse())
+		})
+
+		It("Should should not fail if Annotations are empty", func() {
+			vm := &v1.VirtualMachine{}
+			vm.Annotations = map[string]string{}
+			Expect(arePresetsExcluded(vm)).To(BeFalse())
+		})
+
+		It("Should identify incorrect exclusion marking", func() {
+			vm := &v1.VirtualMachine{}
+			vm.Annotations = map[string]string{}
+			vm.Annotations[exclusionMarking] = "something random"
+			Expect(arePresetsExcluded(vm)).To(BeFalse())
+		})
+
+		It("Should identify exclusion marking", func() {
+			vm := &v1.VirtualMachine{}
+			vm.Annotations = map[string]string{}
+			vm.Annotations[exclusionMarking] = "true"
+			Expect(arePresetsExcluded(vm)).To(BeTrue())
+		})
+	})
+
 	Context("Override detection", func() {
 		var vm v1.VirtualMachine
 		var preset v1.VirtualMachinePreset
@@ -940,6 +968,58 @@ var _ = Describe("VM Initializer", func() {
 			Expect(found).To(BeFalse())
 
 			Expect(vm.Status.Phase).ToNot(Equal(v1.Failed))
+		})
+
+		It("should check if exclusion annotation is \"true\"", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Labels = map[string]string{flavorKey: presetFlavor}
+			vm.Annotations = map[string]string{}
+			vm.Annotations[exclusionMarking] = "anything"
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			err := app.vmPresetController.initializeVirtualMachine(vm)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			_, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+			Expect(ok).To(BeTrue(), "Preset should applied")
+
+			// Prove that the VM was initialized
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+		})
+
+		It("should not add annotations to VM's with exclusion marking", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Labels = map[string]string{flavorKey: presetFlavor}
+			vm.Annotations = map[string]string{}
+			vm.Annotations[exclusionMarking] = "true"
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			err := app.vmPresetController.initializeVirtualMachine(vm)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			_, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
+
+			// Prove that the VM was initialized
+			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 		})
 	})
 })
