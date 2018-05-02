@@ -14,7 +14,6 @@ export KUBEVIRT_NUM_NODES=2 # master + one nodes
 make cluster-up
 ```
 
-
 The cluster can be accessed as usual:
 
 ```bash
@@ -26,18 +25,9 @@ node02    Ready     <none>    46s       v1.9.1+a0ce1bc657
 
 ## OpenShift Web Console
 
-If you want to get access to OpenShift web console you will need to add line to `/etc/hosts`
+If you want to get access to OpenShift web console you will need to add one line to `/etc/hosts`
 ```bash
 echo "127.0.0.1 node01" >> /etc/hosts
-```
-
-and run your cluster like this:
-
-```bash
-export KUBEVIRT_PROVIDER=os-3.9.0
-export KUBEVIRT_NUM_NODES=2 # master + one nodes
-export KUBEVIRT_PROVIDER_EXTRA_ARGS="--ocp-port 8443"
-make cluster-up
 ```
 
 The background is that the openshift webconsole will always try to redirect to

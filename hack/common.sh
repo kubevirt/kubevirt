@@ -18,9 +18,6 @@ function build_func_tests() {
     mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
 }
 
-#If run on jenkins, let us create isolated environments based on the job and
-# the executor number
-
 # For backward compatibility
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-${PROVIDER}}
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.9.3}
@@ -29,6 +26,13 @@ KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.9.3}
 KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-${VAGRANT_NUM_NODES}}
 KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-1}
 
+# If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
+if [ -z "${JOB_NAME}" ]; then
+    KUBEVIRT_PROVIDER_EXTRA_ARGS="${KUBEVIRT_PROVIDER_EXTRA_ARGS} --ocp-port 8443"
+fi
+
+#If run on jenkins, let us create isolated environments based on the job and
+# the executor number
 provider_prefix=${JOB_NAME:-${KUBEVIRT_PROVIDER}}${EXECUTOR_NUMBER}
 job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}
 
