@@ -70,12 +70,14 @@ import (
 var KubeVirtVersionTag = "latest"
 var KubeVirtRepoPrefix = "kubevirt"
 var KubeVirtKubectlPath = ""
+var KubeVirtOcPath = ""
 var KubeVirtInstallNamespace = "kube-system"
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
+	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kube-system", "Set the namespace KubeVirt is installed in")
 }
 
@@ -1361,6 +1363,48 @@ func RunKubectlCommand(args ...string) (string, error) {
 	return string(stdOutBytes), nil
 }
 
+func SkipIfNoOc() {
+	if KubeVirtOcPath == "" {
+		var err error
+		KubeVirtOcPath, err = exec.LookPath("oc")
+		if err != nil {
+			Skip("Skip test that requires oc binary")
+		}
+	}
+}
+
+func RunOcCommand(args ...string) (string, error) {
+	if KubeVirtOcPath == "" {
+		var err error
+		KubeVirtOcPath, err = exec.LookPath("oc")
+		if err != nil {
+			return "", fmt.Errorf("can not find oc binary")
+		}
+	}
+
+	kubeconfig := flag.Lookup("kubeconfig").Value
+	if kubeconfig == nil || kubeconfig.String() == "" {
+		return "", fmt.Errorf("can not find kubeconfig")
+	}
+
+	master := flag.Lookup("master").Value
+	if master != nil && master.String() != "" {
+		args = append(args, "--server", master.String())
+	}
+
+	cmd := exec.Command(KubeVirtOcPath, args...)
+	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
+	cmd.Env = append(os.Environ(), kubeconfEnv)
+
+	stdOutErrBytes, err := cmd.CombinedOutput()
+
+	if err != nil {
+		fmt.Printf("%s %s %s\n%s%v\n", kubeconfEnv, KubeVirtOcPath, strings.Join(args, " "), string(stdOutErrBytes), err)
+		return string(stdOutErrBytes), err
+	}
+	return string(stdOutErrBytes), nil
+}
+
 func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 	data, err := json.Marshal(vmi)
 	if err != nil {
@@ -1369,6 +1413,29 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 
 	jsonFile := fmt.Sprintf("%s.json", vmi.Name)
 	err = ioutil.WriteFile(jsonFile, data, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write json file %s", jsonFile)
+	}
+	return jsonFile, nil
+}
+
+func GenerateVmTemplateJson(vmTemplate *Template) (string, error) {
+	data, err := json.Marshal(vmTemplate)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate json for vm template %s", vmTemplate.Name)
+	}
+
+	jsonFile := fmt.Sprintf("%s.json", vmTemplate.Name)
+	err = ioutil.WriteFile(jsonFile, data, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write json file %s", jsonFile)
+	}
+	return jsonFile, nil
+}
+
+func WriteJson(name string, json string) (string, error) {
+	jsonFile := fmt.Sprintf("%s.json", name)
+	err := ioutil.WriteFile(jsonFile, []byte(json), 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
 	}
