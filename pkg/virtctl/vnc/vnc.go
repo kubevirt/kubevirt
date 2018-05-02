@@ -79,8 +79,10 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	pipeOutReader, pipeOutWriter := io.Pipe()
 
 	k8ResChan := make(chan error)
+	listenResChan := make(chan error)
 	viewResChan := make(chan error)
 	stopChan := make(chan struct{}, 1)
+	doneChan := make(chan struct{}, 1)
 	writeStop := make(chan error)
 	readStop := make(chan error)
 
@@ -96,12 +98,44 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	port := ln.Addr().(*net.TCPAddr).Port
+	var cmnd *exec.Cmd
 
-	start := time.Now()
 	// setup connection with VM
 	go func() {
 		err := virtCli.VM(namespace).VNC(vm, pipeInReader, pipeOutWriter)
 		k8ResChan <- err
+	}()
+
+	// wait for remote-viewer to connect to our local proxy server
+	go func() {
+		start := time.Now()
+		glog.Infof("connection timeout: %v", LISTEN_TIMEOUT)
+		// exit early if spawning remote-viewer fails
+		ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
+
+		fd, err := ln.Accept()
+		if err != nil {
+			glog.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
+			listenResChan <- err
+		}
+		defer fd.Close()
+
+		glog.V(2).Infof("remote-viewer connected in %v", time.Now().Sub(start))
+
+		// write to FD <- pipeOutReader
+		go func() {
+			_, err := io.Copy(fd, pipeOutReader)
+			readStop <- err
+		}()
+
+		// read from FD -> pipeInWriter
+		go func() {
+			_, err := io.Copy(pipeInWriter, fd)
+			writeStop <- err
+		}()
+
+		<-doneChan
+		listenResChan <- err
 	}()
 
 	// execute remote viewer
@@ -112,46 +146,23 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			glog.Infof("remote-viewer commandline: %v", args)
 		}
 
-		cmnd := exec.Command("remote-viewer", args...)
+		cmnd = exec.Command("remote-viewer", args...)
+
 		output, err := cmnd.CombinedOutput()
 		if err != nil {
-			glog.Errorf("remote-viewer execution encountered an error: %v", err)
-		}
-		if err != nil || glog.V(2) {
-			glog.Errorf("remote-viewer: %v", string(output))
+			glog.Errorf("remote-viewer execution failed: %v, output: %v", err, string(output))
+		} else {
+			glog.V(2).Infof("remote-viewer output: %v", string(output))
 		}
 		viewResChan <- err
+		close(doneChan)
 	}()
 
-	glog.Infof("connection timeout: %v", LISTEN_TIMEOUT)
-	// exit early if spawning remote-viewer fails
-	ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
-
-	// wait for remote-viewer to connect to our local proxy server
-	fd, err := ln.Accept()
-	if err != nil {
-		return fmt.Errorf("Failed to accept unix sock connection. %s", err.Error())
-	}
-	defer fd.Close()
-
-	glog.V(2).Infof("remote-viewer connected in %v", time.Now().Sub(start))
 	go func() {
 		interrupt := make(chan os.Signal, 1)
 		signal.Notify(interrupt, os.Interrupt)
 		<-interrupt
 		close(stopChan)
-	}()
-
-	// write to FD <- pipeOutReader
-	go func() {
-		_, err := io.Copy(fd, pipeOutReader)
-		readStop <- err
-	}()
-
-	// read from FD -> pipeInWriter
-	go func() {
-		_, err := io.Copy(pipeInWriter, fd)
-		writeStop <- err
 	}()
 
 	select {
@@ -160,7 +171,10 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	case err = <-writeStop:
 	case err = <-k8ResChan:
 	case err = <-viewResChan:
+	case err = <-listenResChan:
 	}
+
+	cmnd.Process.Kill() // avoid leak remote-viewer
 
 	if err != nil {
 		return fmt.Errorf("Error encountered: %s", err.Error())
