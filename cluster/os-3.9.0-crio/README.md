@@ -1,6 +1,6 @@
-# OpenShift 3.9.0 in ephemeral containers
+# OpenShift 3.9.0 with CRI-O in ephemeral containers
 
-Provides a pre-deployed OpenShift Origin with version 3.9.0 purely in docker
+Provides a pre-deployed OpenShift Origin with version 3.9.0 with CRI-O support purely in docker
 containers with qemu. The provided VMs are completely ephemeral and are
 recreated on every cluster restart. The KubeVirt containers are built on the
 local machine and are the pushed to a registry which is exposed at
@@ -9,7 +9,7 @@ local machine and are the pushed to a registry which is exposed at
 ## Bringing the cluster up
 
 ```bash
-export PROVIDER=os-3.9.0
+export PROVIDER=os-3.9.0-crio
 export VAGRANT_NUM_NODES=1 # master + one nodes
 make cluster-up
 ```
@@ -31,7 +31,7 @@ node02    Ready     <none>    46s       v1.9.1+a0ce1bc657
 ## Bringing the cluster down
 
 ```bash
-export PROVIDER=os-3.9.0
+export PROVIDER=os-3.9.0-crio
 make cluster-down
 ```
 

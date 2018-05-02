@@ -40,7 +40,7 @@ fi
 # Deploy additional infra for testing
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
-if [ "$PROVIDER" = "vagrant-openshift" ] || [ "$PROVIDER" = "os-3.9.0" ]; then
+if [ "$PROVIDER" = "vagrant-openshift" ] || [[ "$PROVIDER" =~ os-3.9.0.* ]]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-testing -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
