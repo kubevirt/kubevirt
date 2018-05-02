@@ -35,30 +35,30 @@ Example: Create a KubeVirt VM definition with container backed ephemeral disk.
 
 ```
 cat << END > vm.yaml
-metadata:
-  name: testvm-ephemeral
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
+metadata:
+  creationTimestamp: null
+  name: vm-ephemeral
 spec:
   domain:
     devices:
       disks:
-      - type: RegistryDisk:v1alpha
-        source:
-          name: vmdisks/fedora25:devel
-        target:
-          dev: vda
-      interfaces:
-      - source:
-          network: default
-        type: network
-    memory:
-      unit: MB
-      value: 64
-    os:
-      type:
-        os: hvm
-    type: qemu
+      - disk:
+          bus: virtio
+        name: registrydisk
+        volumeName: registryvolume
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 64M
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: registryvolume
+    registryDisk:
+      image: kubevirt/cirros-registry-disk-demo:devel
+status: {}
 END
 ```
 
