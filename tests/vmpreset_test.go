@@ -250,6 +250,38 @@ var _ = Describe("VMPreset", func() {
 		})
 	})
 
+	Context("Exclusions", func() {
+		It("Should not apply presets to VM's with the exclusion marking", func() {
+			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(cpuPreset).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			newPreset := waitForPreset(virtClient, cpuPrefix)
+
+			vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+			vm.Labels = map[string]string{flavorKey: cpuFlavor}
+			exclusionMarking := "presets.virtualmachines." + v1.GroupName + "/exclude"
+			vm.Annotations = map[string]string{exclusionMarking: "true"}
+
+			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			newVm := waitForVirtualMachine(virtClient)
+
+			// check the annotations
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			_, ok := newVm.Annotations[annotationKey]
+			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
+
+			// check a setting from the preset itself to show it was applied
+			Expect(newVm.Spec.Domain.CPU).To(BeNil(),
+				"CPU should still have been the default value (not defined in spec)")
+
+			initializerMarking := "presets.virtualmachines." + v1.GroupName + "/presets-applied"
+			_, ok = newVm.Annotations[initializerMarking]
+			Expect(ok).To(BeTrue(), "VM should have been initialized")
+		})
+	})
+
 	Context("Conflict", func() {
 		var conflictPreset *v1.VirtualMachinePreset
 
