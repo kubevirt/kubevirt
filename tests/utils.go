@@ -1139,12 +1139,12 @@ func GenerateVmJson(vm *v1.VirtualMachine) (string, error) {
 		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
 	}
 
-	yamlFile := fmt.Sprintf("%s.json", vm.Name)
-	err = ioutil.WriteFile(yamlFile, data, 0644)
+	jsonFile := fmt.Sprintf("%s.json", vm.Name)
+	err = ioutil.WriteFile(jsonFile, data, 0644)
 	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", yamlFile)
+		return "", fmt.Errorf("failed to write json file %s", jsonFile)
 	}
-	return yamlFile, nil
+	return jsonFile, nil
 }
 
 func NotDeleted(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
