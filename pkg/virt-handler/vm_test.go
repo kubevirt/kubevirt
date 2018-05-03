@@ -247,6 +247,7 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)
 
+			client.EXPECT().Ping()
 			client.EXPECT().SyncVirtualMachine(vm)
 
 			controller.Execute()
@@ -338,6 +339,7 @@ var _ = Describe("VM", func() {
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)
 
+			client.EXPECT().Ping()
 			client.EXPECT().SyncVirtualMachine(vm)
 			vmInterface.EXPECT().Update(updatedVM)
 
