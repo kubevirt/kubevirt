@@ -91,6 +91,24 @@ metadata:
 ```
 
 
+Exclusions
+------------------------
+Since `VirtualMachinePresets` use `Selectors` that indicate which
+`VirtualMachines` their settings should apply to, there needs to exist a
+mechanism by which `VirtualMachines` can opt out of `VirtualMachinePresets`
+altogether. This is done using an annotation:
+
+```yaml
+kind: VirtualMachine
+version: v1
+metadata:
+  name: myvm
+  annotations:
+    presets.virtualmachines.kubevirt.io/v1alpha1/exclude: "true"
+  ...
+```
+
+
 Examples
 =============================
 
