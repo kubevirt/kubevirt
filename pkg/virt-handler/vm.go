@@ -568,6 +568,16 @@ func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error 
 	if err != nil {
 		return err
 	}
+
+	err = client.Ping()
+	if err != nil {
+		if cmdclient.IsDisconnected(err) {
+			log.Log.Object(vm).Warningf("Can not ping virt-launcher cmd client of the VM %s", vm.GetObjectMeta().GetName())
+			return nil
+		}
+		return err
+	}
+
 	err = client.SyncVirtualMachine(vm)
 	if err != nil {
 		return err
