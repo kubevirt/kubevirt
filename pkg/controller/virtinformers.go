@@ -176,7 +176,8 @@ func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
 	// We currently only monitor configmaps in the kube-system namespace
 	return f.getInformer("configMapInformer", func() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
-		lw := cache.NewListWatchFromClient(restClient, "configmaps", systemNamespace, fields.Everything())
+		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-config")
+		lw := cache.NewListWatchFromClient(restClient, "configmaps", systemNamespace, fieldSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
