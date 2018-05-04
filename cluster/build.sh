@@ -24,7 +24,7 @@
 set -e
 
 source hack/common.sh
-source cluster/$PROVIDER/provider.sh
+source cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
 echo "Building ..."

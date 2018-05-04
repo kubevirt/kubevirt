@@ -9,14 +9,9 @@ local machine and are the pushed to a registry which is exposed at
 ## Bringing the cluster up
 
 ```bash
-export PROVIDER=os-3.9.0
-export VAGRANT_NUM_NODES=1 # master + one nodes
+export KUBEVIRT_PROVIDER=os-3.9.0
+export KUBEVIRT_NUM_NODES=2 # master + one nodes
 make cluster-up
-```
-
-If you want to get access to OpenShift web console you will need to add line to `/etc/hosts`
-```bash
-echo "127.0.0.1 node01" >> /etc/hosts
 ```
 
 The cluster can be accessed as usual:
@@ -28,10 +23,23 @@ node01    Ready     master    1h        v1.9.1+a0ce1bc657
 node02    Ready     <none>    46s       v1.9.1+a0ce1bc657
 ```
 
+## OpenShift Web Console
+
+If you want to get access to OpenShift web console you will need to add one line to `/etc/hosts`
+```bash
+echo "127.0.0.1 node01" >> /etc/hosts
+```
+
+The background is that the openshift webconsole will always try to redirect to
+an authenticator listening at `https://node01:8443`. If this exact url is not
+reachable from web-console redirects, then the authentication will always fail.
+
+Use the default user `admin:admin` to log in.
+
 ## Bringing the cluster down
 
 ```bash
-export PROVIDER=os-3.9.0
+export KUBEVIRT_PROVIDER=os-3.9.0
 make cluster-down
 ```
 

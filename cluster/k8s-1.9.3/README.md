@@ -9,8 +9,8 @@ local machine and are the pushed to a registry which is exposed at
 ## Bringing the cluster up
 
 ```bash
-export PROVIDER=k8s-1.9.3
-export VAGRANT_NUM_NODES=1 # master + one nodes
+export KUBEVIRT_PROVIDER=k8s-1.9.3
+export KUBEVIRT_NUM_NODES=2 # master + one nodes
 make cluster-up
 ```
 
@@ -26,7 +26,7 @@ node02    NotReady   <none>    5s        v1.9.3
 ## Bringing the cluster down
 
 ```bash
-export PROVIDER=k8s-1.9.3
+export KUBEVIRT_PROVIDER=k8s-1.9.3
 make cluster-down
 ```
 

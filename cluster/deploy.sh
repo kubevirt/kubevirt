@@ -20,7 +20,7 @@
 set -ex
 
 source hack/common.sh
-source cluster/$PROVIDER/provider.sh
+source cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
 echo "Deploying ..."
@@ -40,7 +40,7 @@ fi
 # Deploy additional infra for testing
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
-if [ "$PROVIDER" = "vagrant-openshift" ] || [[ "$PROVIDER" =~ os-3.9.0.* ]]; then
+if [ "$KUBEVIRT_PROVIDER" = "vagrant-openshift" ] || [[ "$KUBEVIRT_PROVIDER" =~ os-3.9.0.* ]]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-testing -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
