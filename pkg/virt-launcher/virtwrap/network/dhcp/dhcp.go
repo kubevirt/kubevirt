@@ -21,6 +21,7 @@ package dhcp
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"regexp"
@@ -53,14 +54,19 @@ func SingleClientDHCPServer(
 	routerIP net.IP,
 	dnsIPs [][]byte,
 	routes *[]netlink.Route,
-	searchDomains []string) error {
+	searchDomains []string,
+	mtu uint16) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
+
+	mtuArray := make([]byte, 2)
+	binary.BigEndian.PutUint16(mtuArray, mtu)
 
 	dhcpOptions := dhcp.Options{
 		dhcp.OptionSubnetMask:       []byte(clientMask),
 		dhcp.OptionRouter:           []byte(routerIP),
 		dhcp.OptionDomainNameServer: bytes.Join(dnsIPs, nil),
+		dhcp.OptionInterfaceMTU:     mtuArray,
 	}
 
 	netRoutes := formClasslessRoutes(routes)
