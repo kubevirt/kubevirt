@@ -68,11 +68,19 @@ func SetupNetworkInterfaces(vm *v1.VirtualMachine, domain *api.Domain) error {
 	}
 
 	for _, iface := range vm.Spec.Domain.Devices.Interfaces {
-		network := networks[iface.NetworkName]
+		if len(networks) == 0 {
+			return fmt.Errorf("no networks were specified for interface %s", iface.Name)
+		}
+
+		network, ok := networks[iface.NetworkName]
+		if !ok {
+			return fmt.Errorf("failed to find a network %s", iface.NetworkName)
+		}
 		vif, err := getNetworkClass(network)
 		if err != nil {
 			return err
 		}
+
 		err = vif.Plug(&iface, network, domain)
 		if err != nil {
 			return err

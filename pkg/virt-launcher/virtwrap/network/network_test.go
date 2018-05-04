@@ -31,7 +31,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -94,6 +96,7 @@ var _ = Describe("Network", func() {
 
 			Handler = mockNetwork
 			domain := &api.Domain{}
+			vm := newVM("testnamespace", "testVmName")
 
 			api.SetObjectDefaults_Domain(domain)
 
@@ -112,7 +115,7 @@ var _ = Describe("Network", func() {
 			mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 			mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr)
 
-			err := SetupPodNetwork(domain)
+			err := SetupPodNetwork(vm, domain)
 			Expect(err).To(BeNil())
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 			xmlStr, err := xml.Marshal(domain.Spec.Devices.Interfaces)
@@ -121,7 +124,7 @@ var _ = Describe("Network", func() {
 
 			// Calling SetupPodNetwork a second time should result in no
 			// mockNetwork function calls and interface should be identical
-			err = SetupPodNetwork(domain)
+			err = SetupPodNetwork(vm, domain)
 
 			Expect(err).To(BeNil())
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
@@ -134,6 +137,7 @@ var _ = Describe("Network", func() {
 			testNetworkPanic := func() {
 				Handler = mockNetwork
 				domain := &api.Domain{}
+				vm := newVM("testnamespace", "testVmName")
 
 				api.SetObjectDefaults_Domain(domain)
 
@@ -143,7 +147,7 @@ var _ = Describe("Network", func() {
 				mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 
-				SetupPodNetwork(domain)
+				SetupPodNetwork(vm, domain)
 			}
 			Expect(testNetworkPanic).To(Panic())
 		})
@@ -232,3 +236,12 @@ var _ = Describe("Network", func() {
 		})
 	})
 })
+
+func newVM(namespace string, name string) *v1.VirtualMachine {
+	vm := &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec:       v1.VirtualMachineSpec{Domain: v1.NewMinimalDomainSpec()},
+	}
+	v1.SetObjectDefaults_VirtualMachine(vm)
+	return vm
+}
