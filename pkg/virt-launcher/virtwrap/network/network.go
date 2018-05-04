@@ -69,6 +69,7 @@ type VIF struct {
 	MAC     net.HardwareAddr
 	Gateway net.IP
 	Routes  *[]netlink.Route
+	Mtu     uint16
 }
 
 type NetworkHandler interface {
@@ -172,6 +173,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 		nameservers,
 		nic.Routes,
 		searchDomains,
+		nic.Mtu,
 	); err != nil {
 		log.Log.Errorf("failed to run DHCP: %v", err)
 		panic(err)
@@ -390,6 +392,10 @@ func discoverPodNetworkInterface(nic *VIF) (netlink.Link, error) {
 		return nil, err
 	}
 	nic.MAC = mac
+
+	// Get interface MTU
+	nic.Mtu = uint16(nicLink.Attrs().MTU)
+
 	return nicLink, nil
 }
 
