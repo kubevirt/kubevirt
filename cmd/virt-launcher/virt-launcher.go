@@ -29,6 +29,7 @@ import (
 
 	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -80,6 +81,26 @@ func startCmdServer(socketPath string,
 		panic(err)
 	}
 
+	// ensure the cmdserver is responsive before continuing
+	// PollImmediate breaks the poll loop when bool or err are returned OR if timeout occurs.
+	//
+	// Timing out causes an error to be returned
+	err = utilwait.PollImmediate(1*time.Second, 15*time.Second, func() (bool, error) {
+		client, err := cmdclient.GetClient(socketPath)
+		if err != nil {
+			return false, nil
+		}
+
+		err = client.Ping()
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		panic(fmt.Errorf("failed to connect to cmd server: %v", err))
+	}
 }
 
 func createLibvirtConnection() virtcli.Connection {
