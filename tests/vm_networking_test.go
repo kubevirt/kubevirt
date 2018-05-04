@@ -105,6 +105,18 @@ var _ = Describe("Networking", func() {
 			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
+			dhcpAddr := vm.Status.Interfaces[0].IP
+
+			expecterDhcp, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+			defer expecterDhcp.Close()
+			Expect(err).ToNot(HaveOccurred())
+			resp1, err := expecterDhcp.ExpectBatch([]expect.Batcher{
+				&expect.BExp{R: "Sending discover..."},
+				&expect.BExp{R: "Lease of " + dhcpAddr + " obtained, lease time 86313600"},
+			}, 60*time.Second)
+			log.DefaultLogger().Infof("%v", resp1)
+			Expect(err).ToNot(HaveOccurred())
+
 			// Lets make sure that the OS is up by waiting until we can login
 			expecter, err := tests.LoggedInCirrosExpecter(vm)
 			defer expecter.Close()
