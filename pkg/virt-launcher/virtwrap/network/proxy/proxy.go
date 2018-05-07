@@ -35,8 +35,8 @@ type ProxyService struct {
 	Ports       []v1.ContainerPort
 }
 
-func NewService(ports []v1.ContainerPort) *ProxyService {
-	return &ProxyService{Ports: ports}
+func NewService(destAddress string, ports []v1.ContainerPort) *ProxyService {
+	return &ProxyService{DestAddress: destAddress, Ports: ports}
 }
 
 func (l *ProxyService) Start() error {
@@ -76,34 +76,37 @@ type UDPChannel struct {
 }
 
 func (l *TCPChannel) Serve(address string, ports v1.ContainerPort) {
+	l.addr = address
+	l.ports = ports
 
-	incoming, err := net.Listen("tcp", string(l.ports.ContainerPort))
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to serve on %d", l.ports.ContainerPort)
-		panic(err)
+	for {
+		incoming, err := net.Listen("tcp", fmt.Sprintf(":%d", l.ports.ContainerPort))
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to serve on %d", l.ports.ContainerPort)
+			panic(err)
+		}
+
+		log.Log.Infof("serving on port: %d", l.ports.ContainerPort)
+
+		client, err := incoming.Accept()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to accept client connection on port %d", l.ports.ContainerPort)
+		}
+		defer client.Close()
+		log.Log.Infof("connected to client %s", client.RemoteAddr().String())
+
+		target, err := net.Dial("tcp", fmt.Sprintf("%s:%d", l.addr, l.ports.HostPort))
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to connect to target %s:%d", l.addr, l.ports.HostPort)
+		}
+		defer target.Close()
+		log.Log.Infof("connected to target at ", target.RemoteAddr().String())
+
+		// start copy threads
+		go func() { io.Copy(target, client) }()
+		go func() { io.Copy(client, target) }()
 	}
-
-	log.Log.Infof("serving on port: %d", l.ports.ContainerPort)
-
-	client, err := incoming.Accept()
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to accept client connection on port %d", l.ports.ContainerPort)
-	}
-	defer client.Close()
-	log.Log.Debugf("connected to client %s", client.RemoteAddr().String())
-
-	target, err := net.Dial("tcp", fmt.Sprintf("%s:%d", l.addr, l.ports.HostPort))
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to connect to target %s:%d", l.addr, l.ports.HostPort)
-	}
-	defer target.Close()
-	log.Log.Debugf("connected to target at ", target.RemoteAddr().String())
-
-	// start copy threads
-	go func() { io.Copy(target, client) }()
-	go func() { io.Copy(client, target) }()
 }
-
 func (l *UDPChannel) forwardTargetToClient(clientAddr *net.UDPAddr) {
 
 	var buffer [1500]byte
@@ -148,9 +151,9 @@ func (l *UDPChannel) handleForwarding() {
 		}
 	}
 }
-func (l *UDPChannel) Serve(address string, port v1.ContainerPort) {
+func (l *UDPChannel) Serve(address string, ports v1.ContainerPort) {
 	l.addr = address
-	l.ports = port
+	l.ports = ports
 
 	localAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", l.ports.ContainerPort))
 	if err != nil {
