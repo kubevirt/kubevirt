@@ -254,6 +254,7 @@ rules:
     verbs:
       - get
       - delete
+      - create
       - update
       - patch
       - list
@@ -284,6 +285,7 @@ rules:
     verbs:
       - get
       - delete
+      - create
       - update
       - patch
       - list
