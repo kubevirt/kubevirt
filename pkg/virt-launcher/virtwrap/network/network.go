@@ -42,7 +42,6 @@ const (
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
-var bridgeFakeIP = "169.254.75.86/32"
 
 type NetworkInterface interface {
 	Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error

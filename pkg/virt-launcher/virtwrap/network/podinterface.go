@@ -23,6 +23,8 @@ package network
 
 import (
 	"fmt"
+	"net"
+	"syscall"
 
 	"github.com/vishvananda/netlink"
 
@@ -33,7 +35,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/proxy"
 )
 
-const CommonFakeVMIP = "169.254.12.12"
+var CommonFakeVMIP = "192.168.0.2/24"
+
+var bridgeFakeIP = "169.254.75.86/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
@@ -51,6 +55,9 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	initHandler()
 
 	driver, err := getBinding(iface)
+	if err != nil {
+		return err
+	}
 
 	// There should alway be a pre-configured interface for the default pod interface.
 	defaultIconf := domain.Spec.Devices.Interfaces[0]
@@ -65,7 +72,6 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		if err != nil {
 			return err
 		}
-
 		if err := driver.preparePodNetworkInterfaces(); err != nil {
 			log.Log.Reason(err).Critical("failed to prepared pod networking")
 			panic(err)
@@ -80,6 +86,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		if err != nil {
 			panic(err)
 		}
+		ifconf = &defaultIconf
 	}
 
 	// TODO:(vladikr) Currently we support only one interface per vm.
@@ -98,7 +105,10 @@ func getBinding(iface *v1.Interface) (BindMechanism, error) {
 	if iface.Bridge != nil {
 		return &BridgePodInterface{iface: iface, vif: vif}, nil
 	} else if iface.Proxy != nil {
-		return &ProxyPodInterface{iface: iface, vif: vif}, nil
+		intr := &ProxyPodInterface{}
+		intr.iface = iface
+		intr.vif = vif
+		return intr, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
@@ -244,19 +254,25 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 
 type ProxyPodInterface struct {
 	BridgePodInterface
-	vif        *VIF
-	iface      *v1.Interface
-	podNicLink netlink.Link
+}
+
+func (b *ProxyPodInterface) setInterfaceRoutes() error {
+	ip, _, _ := net.ParseCIDR(bridgeFakeIP)
+	b.vif.Gateway = ip
+	b.vif.Routes = &[]netlink.Route{}
+	return nil
 }
 
 func (b *ProxyPodInterface) discoverPodNetworkInterface() error {
+	bridgeFakeIP = "192.168.0.1/24"
+
 	link, err := Handler.LinkByName(podInterface)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterface)
 		return err
 	}
-	b.podNicLink = link
 
+	b.podNicLink = link
 	// get IP address
 	ip, _ := netlink.ParseAddr(CommonFakeVMIP)
 	b.vif.IP = *ip
@@ -276,13 +292,47 @@ func (b *ProxyPodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
+func (b *ProxyPodInterface) setupTapDevice() error {
+
+	tapName := api.DefaultBridgeName + "-nic"
+
+	// Create a tap device
+	tap := &netlink.Tuntap{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:  tapName,
+			Flags: net.FlagUp,
+			MTU:   1500,
+		},
+		Mode: syscall.IFF_TAP,
+	}
+
+	err := Handler.LinkAdd(tap)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create a tap device")
+		return err
+	}
+
+	err = Handler.LinkSetUp(tap)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", tapName)
+		return err
+	}
+	b.podNicLink = tap
+
+	return nil
+}
+
 func (b *ProxyPodInterface) preparePodNetworkInterfaces() error {
+	if err := b.setupTapDevice(); err != nil {
+		return err
+	}
+
 	if err := b.createDefaultBridge(); err != nil {
 		return err
 	}
 
 	// Forward requested ports
-	portForwarding := proxy.NewService(b.iface.Proxy.Ports)
+	portForwarding := proxy.NewService(b.vif.IP.IP.String(), b.iface.Proxy.Ports)
 	portForwarding.Start()
 
 	return nil
