@@ -80,7 +80,12 @@ const (
 
 const defaultTestGracePeriod int64 = 0
 
-const SubresourceServiceAccountName = "kubevirt-subresource-test-sa"
+const (
+	SubresourceServiceAccountName = "kubevirt-subresource-test-sa"
+	AdminServiceAccountName       = "kubevirt-admin-test-sa"
+	EditServiceAccountName        = "kubevirt-edit-test-sa"
+	ViewServiceAccountName        = "kubevirt-view-test-sa"
+)
 
 const SubresourceTestLabel = "subresource-access-test-pod"
 
@@ -290,7 +295,7 @@ func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
 	cleanNamespaces()
-	cleanupSubresourceServiceAccount()
+	cleanupServiceAccounts()
 
 	DeletePVC(osWindows)
 
@@ -311,7 +316,7 @@ func BeforeTestSuitSetup() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	createNamespaces()
-	createSubresourceServiceAccount()
+	createServiceAccounts()
 	createIscsiSecrets()
 
 	CreatePvISCSI(osAlpineISCSI, 2)
@@ -415,6 +420,51 @@ func cleanupSubresourceServiceAccount() {
 	}
 }
 
+func createServiceAccount(saName string, clusterRole string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	sa := k8sv1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: NamespaceTestDefault,
+			Labels: map[string]string{
+				"kubevirt.io/test": saName,
+			},
+		},
+	}
+
+	_, err = virtCli.CoreV1().ServiceAccounts(NamespaceTestDefault).Create(&sa)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	roleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: NamespaceTestDefault,
+			Labels: map[string]string{
+				"kubevirt.io/test": saName,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     clusterRole,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	roleBinding.Subjects = append(roleBinding.Subjects, rbacv1.Subject{
+		Kind:      "ServiceAccount",
+		Name:      saName,
+		Namespace: NamespaceTestDefault,
+	})
+
+	_, err = virtCli.RbacV1().ClusterRoleBindings().Create(&roleBinding)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
 func createSubresourceServiceAccount() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -479,6 +529,18 @@ func createSubresourceServiceAccount() {
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
+}
+
+func createServiceAccounts() {
+	createSubresourceServiceAccount()
+
+	createServiceAccount(AdminServiceAccountName, "kubevirt.io:admin")
+	createServiceAccount(ViewServiceAccountName, "kubevirt.io:view")
+	createServiceAccount(EditServiceAccountName, "kubevirt.io:edit")
+}
+
+func cleanupServiceAccounts() {
+	cleanupSubresourceServiceAccount()
 }
 
 func DeletePVC(os string) {
@@ -1111,10 +1173,10 @@ func SkipIfNoKubectl() {
 	}
 }
 
-func RunKubectlCommand(args ...string) error {
+func RunKubectlCommand(args ...string) (string, error) {
 	kubeconfig := flag.Lookup("kubeconfig").Value
 	if kubeconfig == nil || kubeconfig.String() == "" {
-		return fmt.Errorf("can not find kubeconfig")
+		return "", fmt.Errorf("can not find kubeconfig")
 	}
 
 	master := flag.Lookup("master").Value
@@ -1126,11 +1188,11 @@ func RunKubectlCommand(args ...string) error {
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
 	cmd.Env = append(os.Environ(), kubeconfEnv)
 
-	err := cmd.Run()
+	stdOutBytes, err := cmd.Output()
 	if err != nil {
-		return err
+		return string(stdOutBytes), err
 	}
-	return nil
+	return string(stdOutBytes), nil
 }
 
 func GenerateVmJson(vm *v1.VirtualMachine) (string, error) {

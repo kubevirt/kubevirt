@@ -239,7 +239,7 @@ var _ = Describe("Windows VM", func() {
 
 		It("should succeed to start a vm", func() {
 			By("Starting the vm via kubectl command")
-			err = tests.RunKubectlCommand("create", "-f", yamlFile)
+			_, err = tests.RunKubectlCommand("create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
@@ -247,13 +247,13 @@ var _ = Describe("Windows VM", func() {
 
 		It("should succeed to stop a vm", func() {
 			By("Starting the vm via kubectl command")
-			err = tests.RunKubectlCommand("create", "-f", yamlFile)
+			_, err = tests.RunKubectlCommand("create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
 
 			By("Deleting the vm via kubectl command")
-			err = tests.RunKubectlCommand("delete", "-f", yamlFile)
+			_, err = tests.RunKubectlCommand("delete", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the vm does not exist anymore")
