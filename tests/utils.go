@@ -64,11 +64,13 @@ import (
 var KubeVirtVersionTag = "latest"
 var KubeVirtRepoPrefix = "kubevirt"
 var KubeVirtKubectlPath = ""
+var KubeVirtInstallNamespace = "kube-system"
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
+	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kube-system", "Set the namespace KubeVirt is installed in")
 }
 
 type EventType string
@@ -85,6 +87,7 @@ const (
 	AdminServiceAccountName       = "kubevirt-admin-test-sa"
 	EditServiceAccountName        = "kubevirt-edit-test-sa"
 	ViewServiceAccountName        = "kubevirt-view-test-sa"
+	ConfigServiceAccountName      = "kubevirt-config-test-sa"
 )
 
 const SubresourceTestLabel = "subresource-access-test-pod"
@@ -420,6 +423,54 @@ func cleanupSubresourceServiceAccount() {
 	}
 }
 
+func createConfigServiceAccount() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	saName := ConfigServiceAccountName
+	namespace := KubeVirtInstallNamespace
+
+	sa := k8sv1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"kubevirt.io/test": saName,
+			},
+		},
+	}
+
+	_, err = virtCli.CoreV1().ServiceAccounts(namespace).Create(&sa)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	roleBinding := rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"kubevirt.io/test": saName,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "Role",
+			Name:     "kubevirt.io:config",
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+
+	roleBinding.Subjects = append(roleBinding.Subjects, rbacv1.Subject{
+		Kind:      "ServiceAccount",
+		Name:      saName,
+		Namespace: namespace,
+	})
+
+	_, err = virtCli.RbacV1().RoleBindings(namespace).Create(&roleBinding)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
 func createServiceAccount(saName string, clusterRole string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -461,6 +512,39 @@ func createServiceAccount(saName string, clusterRole string) {
 
 	_, err = virtCli.RbacV1().ClusterRoleBindings().Create(&roleBinding)
 	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func cleanupConfigServiceAccount() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	namespace := KubeVirtInstallNamespace
+	saName := ConfigServiceAccountName
+
+	err = virtCli.RbacV1().RoleBindings(namespace).Delete(saName, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+
+	err = virtCli.CoreV1().ServiceAccounts(namespace).Delete(saName, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func cleanupServiceAccount(saName string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	err = virtCli.RbacV1().ClusterRoleBindings().Delete(saName, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+
+	err = virtCli.CoreV1().ServiceAccounts(NamespaceTestDefault).Delete(saName, nil)
+	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
 }
@@ -533,6 +617,7 @@ func createSubresourceServiceAccount() {
 
 func createServiceAccounts() {
 	createSubresourceServiceAccount()
+	createConfigServiceAccount()
 
 	createServiceAccount(AdminServiceAccountName, "kubevirt.io:admin")
 	createServiceAccount(ViewServiceAccountName, "kubevirt.io:view")
@@ -541,6 +626,11 @@ func createServiceAccounts() {
 
 func cleanupServiceAccounts() {
 	cleanupSubresourceServiceAccount()
+	cleanupConfigServiceAccount()
+
+	cleanupServiceAccount(AdminServiceAccountName)
+	cleanupServiceAccount(ViewServiceAccountName)
+	cleanupServiceAccount(EditServiceAccountName)
 }
 
 func DeletePVC(os string) {
