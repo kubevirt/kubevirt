@@ -6,6 +6,8 @@ metadata:
   labels:
     kubevirt.io: "virt-handler"
 spec:
+  updateStrategy:
+    type: RollingUpdate
   template:
     metadata:
       name: virt-handler
