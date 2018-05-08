@@ -142,27 +142,27 @@ var _ = Describe("VM Initializer", func() {
 		It("Should not fail if Annotations are nil", func() {
 			vm := &v1.VirtualMachine{}
 			vm.Annotations = nil
-			Expect(arePresetsExcluded(vm)).To(BeFalse())
+			Expect(isVmExcluded(vm)).To(BeFalse())
 		})
 
 		It("Should should not fail if Annotations are empty", func() {
 			vm := &v1.VirtualMachine{}
 			vm.Annotations = map[string]string{}
-			Expect(arePresetsExcluded(vm)).To(BeFalse())
+			Expect(isVmExcluded(vm)).To(BeFalse())
 		})
 
 		It("Should identify incorrect exclusion marking", func() {
 			vm := &v1.VirtualMachine{}
 			vm.Annotations = map[string]string{}
 			vm.Annotations[exclusionMarking] = "something random"
-			Expect(arePresetsExcluded(vm)).To(BeFalse())
+			Expect(isVmExcluded(vm)).To(BeFalse())
 		})
 
 		It("Should identify exclusion marking", func() {
 			vm := &v1.VirtualMachine{}
 			vm.Annotations = map[string]string{}
 			vm.Annotations[exclusionMarking] = "true"
-			Expect(arePresetsExcluded(vm)).To(BeTrue())
+			Expect(isVmExcluded(vm)).To(BeTrue())
 		})
 	})
 

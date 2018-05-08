@@ -259,7 +259,7 @@ var _ = Describe("VMPreset", func() {
 
 			vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
 			vm.Labels = map[string]string{flavorKey: cpuFlavor}
-			exclusionMarking := "presets.virtualmachines." + v1.GroupName + "/exclude"
+			exclusionMarking := "virtualmachinepresets.admission.kubevirt.io/exclude"
 			vm.Annotations = map[string]string{exclusionMarking: "true"}
 
 			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
