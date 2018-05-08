@@ -79,6 +79,26 @@ rules:
       - list
       - watch
 ---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: {{.Namespace}}
+  name: kubevirt.io:config
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    resourceNames:
+      - kubevirt-config
+    verbs:
+      - update
+      - get
+      - patch
+      - create
+      - delete
+---
 kind: ServiceAccount
 apiVersion: v1
 metadata:
