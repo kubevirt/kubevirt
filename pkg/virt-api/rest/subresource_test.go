@@ -28,6 +28,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -40,6 +41,7 @@ var _ = Describe("VM Subresources", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
+	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
 		server = ghttp.NewServer()
@@ -51,9 +53,10 @@ var _ = Describe("VM Subresources", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = v1.Running
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever")
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", configCache)
 
-			pod := templateService.RenderLaunchManifest(vm)
+			pod, err := templateService.RenderLaunchManifest(vm)
+			Expect(err).ToNot(HaveOccurred())
 			pod.ObjectMeta.Name = "madeup-name"
 
 			pod.Spec.NodeName = "mynode"

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -47,7 +47,7 @@ import (
 )
 
 type DomainManager interface {
-	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
+	SyncVM(*v1.VirtualMachine, bool) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
 	SignalShutdownVM(*v1.VirtualMachine) error
 	ListAllDomains() ([]*api.Domain, error)
@@ -110,7 +110,7 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	return domain, err
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
 	domain := &api.Domain{}
@@ -118,6 +118,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	// Map the VirtualMachine to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vm,
+		AllowEmulation: allowEmulation,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c); err != nil {
 		logger.Error("Conversion failed.")

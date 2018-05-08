@@ -59,6 +59,7 @@ var _ = Describe("Manager", func() {
 		domain := &api.Domain{}
 		c := &api.ConverterContext{
 			VirtualMachine: vm,
+			AllowEmulation: true,
 		}
 		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())
 		api.SetObjectDefaults_Domain(domain)
@@ -81,7 +82,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVM(vm)
+			newspec, err := manager.SyncVM(vm, true)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -94,7 +95,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVM(vm)
+			newspec, err := manager.SyncVM(vm, true)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -110,7 +111,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
-				newspec, err := manager.SyncVM(vm)
+				newspec, err := manager.SyncVM(vm, true)
 				Expect(newspec).ToNot(BeNil())
 				Expect(err).To(BeNil())
 			},
@@ -129,7 +130,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVM(vm)
+			newspec, err := manager.SyncVM(vm, true)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})

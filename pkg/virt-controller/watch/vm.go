@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -65,7 +65,7 @@ const (
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
 )
 
-func NewVMController(templateService services.TemplateService, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
+func NewVMController(templateService services.TemplateService, vmInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, configMapInformer cache.SharedIndexInformer) *VMController {
 	c := &VMController{
 		templateService:      templateService,
 		Queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -75,6 +75,7 @@ func NewVMController(templateService services.TemplateService, vmInformer cache.
 		clientset:            clientset,
 		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		handoverExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		configMapInformer:    configMapInformer,
 	}
 
 	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -119,6 +120,7 @@ type VMController struct {
 	recorder             record.EventRecorder
 	podExpectations      *controller.UIDTrackingControllerExpectations
 	handoverExpectations *controller.UIDTrackingControllerExpectations
+	configMapInformer    cache.SharedIndexInformer
 }
 
 func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
@@ -127,7 +129,7 @@ func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Starting vm controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.podInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.podInformer.HasSynced, c.configMapInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -347,7 +349,10 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err s
 			return nil
 		}
 		c.podExpectations.ExpectCreations(vmKey, 1)
-		templatePod := c.templateService.RenderLaunchManifest(vm)
+		templatePod, err := c.templateService.RenderLaunchManifest(vm)
+		if err != nil {
+			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedCreatePodReason}
+		}
 		pod, err := c.clientset.CoreV1().Pods(vm.GetNamespace()).Create(templatePod)
 		if err != nil {
 			c.recorder.Eventf(vm, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)

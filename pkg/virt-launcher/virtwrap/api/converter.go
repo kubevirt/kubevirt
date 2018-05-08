@@ -1,15 +1,33 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2017, 2018 Red Hat, Inc.
+ *
+ */
+
 package api
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"strconv"
-
-	"os"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
@@ -21,6 +39,7 @@ import (
 )
 
 type ConverterContext struct {
+	AllowEmulation bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachine
 }
@@ -315,10 +334,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	domain.ObjectMeta.Name = vm.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 
-	// XXX Fix me properly we don't want automatic fallback to qemu
-	// We will solve this properly in https://github.com/kubevirt/kubevirt/pull/804
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
-		domain.Spec.Type = "qemu"
+		if c.AllowEmulation {
+			logger := log.DefaultLogger()
+			logger.Infof("Hardware emulation device '/dev/kvm' not present. Using software emulation.")
+			domain.Spec.Type = "qemu"
+		} else {
+			return fmt.Errorf("hardware emulation device '/dev/kvm' not present")
+		}
 	} else if err != nil {
 		return err
 	}
