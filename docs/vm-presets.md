@@ -104,7 +104,7 @@ version: v1
 metadata:
   name: myvm
   annotations:
-    presets.virtualmachines.kubevirt.io/v1alpha1/exclude: "true"
+    virtualmachinepresets.admission.kubevirt.io/exclude: "true"
   ...
 ```
 

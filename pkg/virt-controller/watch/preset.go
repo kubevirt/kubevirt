@@ -50,7 +50,7 @@ type VirtualMachinePresetController struct {
 }
 
 const initializerMarking = "presets.virtualmachines." + kubev1.GroupName + "/presets-applied"
-const exclusionMarking = "presets.virtualmachines." + kubev1.GroupName + "/exclude"
+const exclusionMarking = "virtualmachinepresets.admission.kubevirt.io/exclude"
 
 func NewVirtualMachinePresetController(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachinePresetController {
 	vmi := VirtualMachinePresetController{
@@ -134,7 +134,7 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 	var err error
 	success := true
 
-	if !arePresetsExcluded(vm) {
+	if !isVmExcluded(vm) {
 		logger.Object(vm).Info("Initializing VirtualMachine")
 
 		allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
@@ -154,7 +154,7 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 			vm.Status.Phase = kubev1.Failed
 		}
 	} else {
-		logger.Object(vm).Infof("VirtualMachinePresets are excluded")
+		logger.Object(vm).Infof("VM is excluded from VirtualMachinePresets")
 	}
 	// Even failed VM's need to be marked as initialized so they're
 	// not re-processed by this controller
@@ -379,7 +379,7 @@ func isVirtualMachineInitialized(vm *kubev1.VirtualMachine) bool {
 	return false
 }
 
-func arePresetsExcluded(vm *kubev1.VirtualMachine) bool {
+func isVmExcluded(vm *kubev1.VirtualMachine) bool {
 	if vm.Annotations != nil {
 		excluded, ok := vm.Annotations[exclusionMarking]
 		return ok && (excluded == "true")
