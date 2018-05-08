@@ -117,6 +117,15 @@ var _ = Describe("User Access", func() {
 				result, err = tests.RunKubectlCommand("auth", "can-i", "--as", as, verb, resource)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(ContainSubstring(expectedRes))
+
+				// DEFAULT - the default should always return 'no' for ever verb.
+				// This is primarily a sanity check.
+				By(fmt.Sprintf("verifying DEFAULT sa for verb %s", verb))
+				expectedRes = "no"
+				as = fmt.Sprintf("system:serviceaccount:%s:default", namespace)
+				result, err = tests.RunKubectlCommand("auth", "can-i", "--as", as, verb, resource)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(ContainSubstring(expectedRes))
 			}
 		},
 			table.Entry("given a vm", "virtualmachines"),
