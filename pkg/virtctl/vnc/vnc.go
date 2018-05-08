@@ -98,7 +98,6 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	port := ln.Addr().(*net.TCPAddr).Port
-	var cmnd *exec.Cmd
 
 	// setup connection with VM
 	go func() {
@@ -146,7 +145,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			glog.Infof("remote-viewer commandline: %v", args)
 		}
 
-		cmnd = exec.Command("remote-viewer", args...)
+		cmnd := exec.Command("remote-viewer", args...)
 
 		output, err := cmnd.CombinedOutput()
 		if err != nil {
@@ -173,8 +172,6 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	case err = <-viewResChan:
 	case err = <-listenResChan:
 	}
-
-	cmnd.Process.Kill() // avoid leak remote-viewer
 
 	if err != nil {
 		return fmt.Errorf("Error encountered: %s", err.Error())
