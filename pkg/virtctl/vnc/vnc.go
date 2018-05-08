@@ -30,6 +30,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -72,6 +73,28 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	var opts k8smetav1.GetOptions
+	vmObj, err := virtCli.VM(namespace).Get(vm, opts)
+	if err != nil {
+		return fmt.Errorf("Can't access VM %s: %s", vm, err.Error())
+	}
+	if !vmObj.IsRunning() {
+		return fmt.Errorf("Can't connect to not-running VM %s (status=%s)", vm, vmObj.Status.Phase)
+	}
+
+	lnAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	if err != nil {
+		return fmt.Errorf("Can't resolve the address: %s", err.Error())
+	}
+
+	// The local tcp server is used to proxy the podExec websock connection to remote-viewer
+	ln, err := net.ListenTCP("tcp", lnAddr)
+	if err != nil {
+		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
+	}
+	// End of pre-flight checks. Everything looks good, we can start
+	// the goroutines and let the data flow
+
 	//                                       -> pipeInWriter  -> pipeInReader
 	// remote-viewer -> unix sock connection
 	//                                       <- pipeOutReader <- pipeOutWriter
@@ -85,19 +108,6 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	doneChan := make(chan struct{}, 1)
 	writeStop := make(chan error)
 	readStop := make(chan error)
-
-	lnAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	if err != nil {
-		return fmt.Errorf("Can't resolve the address: %s", err.Error())
-	}
-
-	// The local tcp server is used to proxy the podExec websock connection to remote-viewer
-	ln, err := net.ListenTCP("tcp", lnAddr)
-	if err != nil {
-		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
-	}
-
-	port := ln.Addr().(*net.TCPAddr).Port
 
 	// setup connection with VM
 	go func() {
@@ -133,12 +143,14 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			writeStop <- err
 		}()
 
+		// don't terminate until remote-viewer is done
 		<-doneChan
 		listenResChan <- err
 	}()
 
 	// execute remote viewer
 	go func() {
+		port := ln.Addr().(*net.TCPAddr).Port
 		args := []string{fmt.Sprintf("vnc://127.0.0.1:%d", port)}
 		if glog.V(4) {
 			args = append(args, "--debug")
