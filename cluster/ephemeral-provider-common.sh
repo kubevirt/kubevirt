@@ -2,7 +2,7 @@
 
 set -e
 
-_cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/gocli@sha256:34466dacd5710a6900a4d868eac6cef46e69d0f0afebb49e59e6bea0e81f5019"
+_cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/gocli@sha256:aa7f295a7908fa333ab5e98ef3af0bfafbabfd3cee2b83f9af47f722e3000f6a"
 
 function _main_ip() {
     echo 127.0.0.1
