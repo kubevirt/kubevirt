@@ -38,8 +38,38 @@ var _ = Describe("User Access", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("With view, edit, and admin kubevirt service accounts", func() {
-		table.DescribeTable("should verify permissions are correct for each", func(resource string) {
+	Describe("With default kubevirt service accounts", func() {
+		It("should verify config role has access only to kubevirt-config", func() {
+			tests.SkipIfNoKubectl()
+
+			verbs := []string{"get", "delete", "create", "update", "patch"}
+
+			namespace := tests.KubeVirtInstallNamespace
+			config := tests.ConfigServiceAccountName
+
+			// Verifies targetted access to only the kubevirt config
+			By("verifying CONFIG sa for namespace/kubevirt.io:config")
+			for _, verb := range verbs {
+				expectedRes := "yes"
+				resource := "configmaps/kubevirt-config"
+				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, config)
+				result, err := tests.RunKubectlCommand("auth", "can-i", "-n", namespace, "--as", as, verb, resource)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(ContainSubstring(expectedRes))
+			}
+
+			By("verifying CONFIG sa for namespace/kubevirt-madethisup")
+			for _, verb := range verbs {
+				expectedRes := "no"
+				resource := "configmaps/kubevirt-imadethisup"
+				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, config)
+				result, err := tests.RunKubectlCommand("auth", "can-i", "-n", namespace, "--as", as, verb, resource)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(ContainSubstring(expectedRes))
+			}
+		})
+
+		table.DescribeTable("should verify permissions are correct for view, edit, and admin", func(resource string) {
 			tests.SkipIfNoKubectl()
 
 			view := tests.ViewServiceAccountName
