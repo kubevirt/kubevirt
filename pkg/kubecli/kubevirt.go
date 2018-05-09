@@ -34,6 +34,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/gorilla/websocket"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -66,6 +68,7 @@ type VMInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
 	SerialConsole(name string, in io.Reader, out io.Writer) error
 	VNC(name string, in io.Reader, out io.Writer) error
+	SSH(name string, done chan struct{}) (*websocket.Conn, error)
 }
 
 type ReplicaSetInterface interface {

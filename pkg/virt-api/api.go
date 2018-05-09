@@ -219,6 +219,12 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		Operation("console").
 		Doc("Open a websocket connection to a serial console on the specified VM."))
 
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("ssh")).
+		To(subresourceApp.SSHRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("ssh").
+		Doc("Open a websocket connection to an ssh server on the specified VM."))
+
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("vnc")).
 		To(subresourceApp.VNCRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).

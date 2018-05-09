@@ -175,7 +175,29 @@ func (obj *wsCallbackObj) WebsocketCallback(ws *websocket.Conn, resp *http.Respo
 	return err
 }
 
-func roundTripperFromConfig(config *rest.Config, in io.Reader, out io.Writer) (http.RoundTripper, error) {
+type asyncWSCallbackObj struct {
+	Done       chan struct{}
+	Connection chan *websocket.Conn
+}
+
+func (obj *asyncWSCallbackObj) WebsocketCallback(ws *websocket.Conn, resp *http.Response, err error) error {
+
+	if err != nil {
+		if resp != nil && resp.StatusCode != http.StatusOK {
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(resp.Body)
+			return fmt.Errorf("Can't connect to websocket (%d): %s\n", resp.StatusCode, buf.String())
+		}
+		return fmt.Errorf("Can't connect to websocket: %s\n", err.Error())
+	}
+	obj.Connection <- ws
+
+	// Keep the roundtripper open until we are done with the stream
+	<-obj.Done
+	return nil
+}
+
+func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (http.RoundTripper, error) {
 
 	// Configure TLS
 	tlsConfig, err := rest.TLSConfigFor(config)
@@ -191,13 +213,9 @@ func roundTripperFromConfig(config *rest.Config, in io.Reader, out io.Writer) (h
 		ReadBufferSize:  WebsocketMessageBufferSize,
 	}
 
-	obj := &wsCallbackObj{
-		in:  in,
-		out: out,
-	}
 	// Create a roundtripper which will pass in the final underlying websocket connection to a callback
 	rt := &WebsocketRoundTripper{
-		Do:     obj.WebsocketCallback,
+		Do:     callback,
 		Dialer: dialer,
 	}
 
@@ -230,17 +248,25 @@ func RequestFromConfig(config *rest.Config, vm string, namespace string, resourc
 	return req, nil
 }
 
+func (v *vms) SSH(name string, done chan struct{}) (*websocket.Conn, error) {
+	return v.asyncSubresourceHelper(name, "ssh", done)
+}
+
 func (v *vms) VNC(name string, in io.Reader, out io.Writer) error {
-	return v.subresourceHelper(name, "vnc", in, out)
+	return v.synchronousSubresourceHelper(name, "vnc", in, out)
 }
 func (v *vms) SerialConsole(name string, in io.Reader, out io.Writer) error {
-	return v.subresourceHelper(name, "console", in, out)
+	return v.synchronousSubresourceHelper(name, "console", in, out)
 }
 
-func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out io.Writer) error {
+func (v *vms) synchronousSubresourceHelper(name string, resource string, in io.Reader, out io.Writer) error {
 
+	obj := &wsCallbackObj{
+		in:  in,
+		out: out,
+	}
 	// Create a round tripper with all necessary kubernetes security details
-	wrappedRoundTripper, err := roundTripperFromConfig(v.config, in, out)
+	wrappedRoundTripper, err := roundTripperFromConfig(v.config, obj.WebsocketCallback)
 	if err != nil {
 		return fmt.Errorf("unable to create round tripper for remote execution: %v", err)
 	}
@@ -271,6 +297,57 @@ func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out 
 		}
 	} else {
 		return fmt.Errorf("no response received")
+	}
+}
+func (v *vms) asyncSubresourceHelper(name string, resource string, done chan struct{}) (*websocket.Conn, error) {
+
+	obj := &asyncWSCallbackObj{
+		Connection: make(chan *websocket.Conn),
+		Done:       done,
+	}
+	// Create a round tripper with all necessary kubernetes security details
+	wrappedRoundTripper, err := roundTripperFromConfig(v.config, obj.WebsocketCallback)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create round tripper for remote execution: %v", err)
+	}
+
+	// Create a request out of config and the query parameters
+	req, err := RequestFromConfig(v.config, name, v.namespace, resource)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create request for remote execution: %v", err)
+	}
+
+	errChan := make(chan error)
+	go func() {
+		// Send the request and let the callback do its work
+		response, err := wrappedRoundTripper.RoundTrip(req)
+
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		if response != nil {
+			switch response.StatusCode {
+			case http.StatusOK:
+			case http.StatusNotFound:
+				err = fmt.Errorf("Virtual Machine not found.")
+			case http.StatusInternalServerError:
+				err = fmt.Errorf("Websocket failed due to internal server error.")
+			default:
+				err = fmt.Errorf("Websocket failed with http status: %s", response.Status)
+			}
+		} else {
+			err = fmt.Errorf("no response received")
+		}
+		errChan <- err
+	}()
+
+	select {
+	case err = <-errChan:
+		return nil, err
+	case ws := <-obj.Connection:
+		return ws, nil
 	}
 }
 

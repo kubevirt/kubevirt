@@ -86,7 +86,7 @@ func (v *virtHandlerConn) ConnectionDetails() (ip string, port string, err error
 	return
 }
 
-//TODO move the actual ws handling in here, and work with channels
+//TODO move the actual Callaback handling in here, and work with channels
 func (v *virtHandlerConn) ConsoleURI(vm *virtv1.VirtualMachine) (*url.URL, error) {
 	ip, port, err := v.ConnectionDetails()
 	if err != nil {

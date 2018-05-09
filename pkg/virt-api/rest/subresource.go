@@ -38,6 +38,8 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
+	"net"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -88,13 +90,17 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 
 	go func() {
 		_, err := io.Copy(wsReadWriter, outReader)
-		log.Log.Reason(err).Error("error ecountered reading from remote podExec stream")
+		if err != nil {
+			log.Log.Reason(err).Error("error ecountered reading from remote podExec stream")
+		}
 		copyErr <- err
 	}()
 
 	go func() {
 		_, err := io.Copy(inWriter, wsReadWriter)
-		log.Log.Reason(err).Error("error ecountered reading from websocket stream")
+		if err != nil {
+			log.Log.Reason(err).Error("error ecountered reading from websocket stream")
+		}
 		copyErr <- err
 	}()
 
@@ -128,6 +134,64 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 	app.requestHandler(request, response, cmd)
 }
 
+func (app *SubresourceAPIApp) SSHRequestHandler(request *restful.Request, response *restful.Response) {
+	vmName := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+	vm, httpResponseCode, err := app.isVirtualMachineReady(vmName, namespace)
+	if err != nil {
+		response.WriteError(httpResponseCode, err)
+		return
+	}
+
+	ip := vm.Status.Interfaces[0].IP
+	tcpConn, err := net.Dial("tcp", ip+":22")
+	if err != nil {
+		response.WriteError(http.StatusServiceUnavailable, fmt.Errorf("could not open tcp connection: %v", err))
+		return
+	}
+
+	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
+		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
+	}
+
+	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to upgrade client websocket connection")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	defer clientSocket.Close()
+
+	log.Log.Infof("Websocket connection upgraded")
+	copyErr := make(chan error)
+
+	go func() {
+		_, err := io.Copy(clientSocket.UnderlyingConn(), tcpConn)
+		if err != nil {
+			log.Log.Reason(err).Error("error ecountered reading from remote podExec stream")
+		}
+		copyErr <- err
+	}()
+
+	go func() {
+		_, err := io.Copy(tcpConn, clientSocket.UnderlyingConn())
+		if err != nil {
+			log.Log.Reason(err).Error("error ecountered reading from websocket stream")
+		}
+		copyErr <- err
+	}()
+
+	select {
+	case err := <-copyErr:
+		if err != nil {
+			log.Log.Reason(err).Error("Error in websocket proxy")
+			httpResponseCode = http.StatusInternalServerError
+		}
+	}
+	response.WriteHeader(httpResponseCode)
+}
+
 func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, error) {
 	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(k8sv1.PodRunning))
 	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", name))
@@ -150,16 +214,9 @@ func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, er
 func (app *SubresourceAPIApp) remoteExecInfo(name string, namespace string) (string, int, error) {
 	podName := ""
 
-	vm, err := app.VirtCli.VM(namespace).Get(name, k8smetav1.GetOptions{})
+	_, errorCode, err := app.isVirtualMachineReady(name, namespace)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return "", http.StatusNotFound, goerror.New(fmt.Sprintf("VM %s in namespace %s not found.", name, namespace))
-		}
-		return podName, http.StatusInternalServerError, err
-	}
-
-	if vm.IsRunning() == false {
-		return podName, http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VM because phase is %s instead of %s", vm.Status.Phase, v1.Running))
+		return "", errorCode, err
 	}
 
 	podName, err = app.findPod(namespace, name)
@@ -168,6 +225,22 @@ func (app *SubresourceAPIApp) remoteExecInfo(name string, namespace string) (str
 	}
 
 	return podName, http.StatusOK, nil
+}
+
+func (app *SubresourceAPIApp) isVirtualMachineReady(name string, namespace string) (vm *v1.VirtualMachine, httpError int, err error) {
+	vm, err = app.VirtCli.VM(namespace).Get(name, k8smetav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return vm, http.StatusNotFound, goerror.New(fmt.Sprintf("VM %s in namespace %s not found.", name, namespace))
+		}
+		return vm, http.StatusInternalServerError, err
+	}
+
+	if vm.IsRunning() == false {
+		return vm, http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VM because phase is %s instead of %s", vm.Status.Phase, v1.Running))
+	}
+
+	return vm, http.StatusOK, nil
 }
 
 func remoteExecHelper(podName string, namespace string, cmd []string, in io.Reader, out io.Writer) (int, error) {
