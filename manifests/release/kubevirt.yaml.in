@@ -17,7 +17,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - offlinevirtualmachines
+      - statefulvirtualmachines
       - virtualmachinepresets
       - virtualmachinereplicasets
     verbs:
@@ -59,7 +59,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - offlinevirtualmachines
+      - statefulvirtualmachines
       - virtualmachinepresets
       - virtualmachinereplicasets
     verbs:
@@ -82,7 +82,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - offlinevirtualmachines
+      - statefulvirtualmachines
       - virtualmachinepresets
       - virtualmachinereplicasets
     verbs:
