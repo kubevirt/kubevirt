@@ -108,6 +108,13 @@ up dockerizied environment. Then run
     make functest # run the functional tests against the VMs
 ```
 
+If you'd like to run specific functional tests only, you can leverage `ginkgo`
+command line options as follows:
+
+```
+    FUNC_TEST_ARGS='-ginkgo.focus=vm_networking_test -ginkgo.regexScansFilePath' make functest
+```
+
 ## Use
 
 Congratulations you are still with us and you have build KubeVirt.
