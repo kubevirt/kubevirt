@@ -1,4 +1,4 @@
-package offlinevm
+package statefulvm
 
 import (
 	"testing"
@@ -7,9 +7,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OfflineVirtualMachine", func() {
+var _ = Describe("StatefulVirtualMachine", func() {
 
-	Context("OfflineVirtualMachine command invocation", func() {
+	Context("StatefulVirtualMachine command invocation", func() {
 		var commandName string
 		var cmd *Command
 
@@ -24,7 +24,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 	})
 })
 
-func TestOVM(t *testing.T) {
+func TestSVM(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OfflineVM")
+	RunSpecs(t, "StatefulVM")
 }

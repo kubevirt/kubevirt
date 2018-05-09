@@ -45,22 +45,22 @@ func generateBlankCrd() *extensionsv1.CustomResourceDefinition {
 	}
 }
 
-func generateOfflineVirtualMachineCrd() {
+func generateStatefulVirtualMachineCrd() {
 	crd := generateBlankCrd()
 
-	crd.ObjectMeta.Name = "offlinevirtualmachines." + v1.OfflineVirtualMachineGroupVersionKind.Group
+	crd.ObjectMeta.Name = "statefulvirtualmachines." + v1.StatefulVirtualMachineGroupVersionKind.Group
 	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
-		Group:   v1.OfflineVirtualMachineGroupVersionKind.Group,
-		Version: v1.OfflineVirtualMachineGroupVersionKind.Version,
+		Group:   v1.StatefulVirtualMachineGroupVersionKind.Group,
+		Version: v1.StatefulVirtualMachineGroupVersionKind.Version,
 		Scope:   "Namespaced",
 
 		Names: extensionsv1.CustomResourceDefinitionNames{
-			Plural:     "offlinevirtualmachines",
-			Singular:   "offlinevirtualmachine",
-			Kind:       v1.OfflineVirtualMachineGroupVersionKind.Kind,
-			ShortNames: []string{"ovm", "ovms"},
+			Plural:     "statefulvirtualmachines",
+			Singular:   "statefulvirtualmachine",
+			Kind:       v1.StatefulVirtualMachineGroupVersionKind.Kind,
+			ShortNames: []string{"svm", "svms"},
 		},
-		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine", v1.GetOpenAPIDefinitions),
+		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.StatefulVirtualMachine", v1.GetOpenAPIDefinitions),
 	}
 
 	crdutils.MarshallCrd(crd, "yaml")
@@ -130,7 +130,7 @@ func generateVirtualMachineCrd() {
 }
 
 func main() {
-	crdType := flag.String("crd-type", "", "Type of crd to generate. vm | vmpreset | vmrs | ovm")
+	crdType := flag.String("crd-type", "", "Type of crd to generate. vm | vmpreset | vmrs | svm")
 	flag.Parse()
 
 	switch *crdType {
@@ -140,8 +140,8 @@ func main() {
 		generatePresetCrd()
 	case "vmrs":
 		generateReplicaSetCrd()
-	case "ovm":
-		generateOfflineVirtualMachineCrd()
+	case "svm":
+		generateStatefulVirtualMachineCrd()
 	default:
 		panic(fmt.Errorf("unknown crd type %s", *crdType))
 	}

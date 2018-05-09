@@ -632,8 +632,8 @@ func cleanNamespaces() {
 			continue
 		}
 
-		// Remove all OfflineVirtualMachines
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("offlinevirtualmachines").Do().Error())
+		// Remove all StatefulVirtualMachines
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("statefulvirtualmachines").Do().Error())
 
 		// Remove all VirtualMachineReplicaSets
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachinereplicasets").Do().Error())

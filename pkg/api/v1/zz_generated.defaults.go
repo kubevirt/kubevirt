@@ -28,8 +28,8 @@ import (
 // Public to allow building arbitrary schemes.
 // All generated defaulters are covering - they call all nested defaulters.
 func RegisterDefaults(scheme *runtime.Scheme) error {
-	scheme.AddTypeDefaultingFunc(&OfflineVirtualMachine{}, func(obj interface{}) { SetObjectDefaults_OfflineVirtualMachine(obj.(*OfflineVirtualMachine)) })
-	scheme.AddTypeDefaultingFunc(&OfflineVirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_OfflineVirtualMachineList(obj.(*OfflineVirtualMachineList)) })
+	scheme.AddTypeDefaultingFunc(&StatefulVirtualMachine{}, func(obj interface{}) { SetObjectDefaults_StatefulVirtualMachine(obj.(*StatefulVirtualMachine)) })
+	scheme.AddTypeDefaultingFunc(&StatefulVirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_StatefulVirtualMachineList(obj.(*StatefulVirtualMachineList)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachine{}, func(obj interface{}) { SetObjectDefaults_VirtualMachine(obj.(*VirtualMachine)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineList(obj.(*VirtualMachineList)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachinePreset{}, func(obj interface{}) { SetObjectDefaults_VirtualMachinePreset(obj.(*VirtualMachinePreset)) })
@@ -41,7 +41,7 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 	return nil
 }
 
-func SetObjectDefaults_OfflineVirtualMachine(in *OfflineVirtualMachine) {
+func SetObjectDefaults_StatefulVirtualMachine(in *StatefulVirtualMachine) {
 	if in.Spec.Template != nil {
 		if in.Spec.Template.Spec.Domain.Firmware != nil {
 			SetDefaults_Firmware(in.Spec.Template.Spec.Domain.Firmware)
@@ -119,10 +119,10 @@ func SetObjectDefaults_OfflineVirtualMachine(in *OfflineVirtualMachine) {
 	}
 }
 
-func SetObjectDefaults_OfflineVirtualMachineList(in *OfflineVirtualMachineList) {
+func SetObjectDefaults_StatefulVirtualMachineList(in *StatefulVirtualMachineList) {
 	for i := range in.Items {
 		a := &in.Items[i]
-		SetObjectDefaults_OfflineVirtualMachine(a)
+		SetObjectDefaults_StatefulVirtualMachine(a)
 	}
 }
 

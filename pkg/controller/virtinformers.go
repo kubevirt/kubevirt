@@ -60,8 +60,8 @@ type KubeInformerFactory interface {
 	// Watches for nodes
 	KubeVirtNode() cache.SharedIndexInformer
 
-	// OfflineVirtualMachine handles the VMs that are stopped or not running
-	OfflineVirtualMachine() cache.SharedIndexInformer
+	// StatefulVirtualMachine handles the VMs that are stopped or not running
+	StatefulVirtualMachine() cache.SharedIndexInformer
 
 	// Watches for ConfigMap objects
 	ConfigMap() cache.SharedIndexInformer
@@ -165,10 +165,10 @@ func (f *kubeInformerFactory) KubeVirtNode() cache.SharedIndexInformer {
 	})
 }
 
-func (f *kubeInformerFactory) OfflineVirtualMachine() cache.SharedIndexInformer {
-	return f.getInformer("ovmInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.restClient, "offlinevirtualmachines", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &kubev1.OfflineVirtualMachine{}, f.defaultResync, cache.Indexers{})
+func (f *kubeInformerFactory) StatefulVirtualMachine() cache.SharedIndexInformer {
+	return f.getInformer("svmInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "statefulvirtualmachines", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.StatefulVirtualMachine{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
