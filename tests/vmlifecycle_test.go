@@ -418,7 +418,7 @@ var _ = Describe("Vmlifecycle", func() {
 				if exists {
 					Skip("Skip log query tests for JENKINS ci test environment")
 				}
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				node := nodes.Items[0].Name
@@ -650,7 +650,7 @@ var _ = Describe("Vmlifecycle", func() {
 		})
 		Context("with grace period greater than 0", func() {
 			It("should run graceful shutdown", func() {
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				node := nodes.Items[0].Name
