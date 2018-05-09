@@ -11,7 +11,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
-	"kubevirt.io/kubevirt/pkg/virtctl/offlinevm"
+	"kubevirt.io/kubevirt/pkg/virtctl/statefulvm"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
 )
@@ -43,8 +43,8 @@ func NewVirtctlCommand() *cobra.Command {
 	rootCmd.AddCommand(
 		console.NewCommand(clientConfig),
 		vnc.NewCommand(clientConfig),
-		offlinevm.NewStartCommand(clientConfig),
-		offlinevm.NewStopCommand(clientConfig),
+		statefulvm.NewStartCommand(clientConfig),
+		statefulvm.NewStopCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd

@@ -1,17 +1,17 @@
 apiVersion: kubevirt.io/v1alpha1
-kind: OfflineVirtualMachine
+kind: StatefulVirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    kubevirt.io/ovm: ovm-cirros
-  name: ovm-cirros
+    kubevirt.io/svm: svm-cirros
+  name: svm-cirros
 spec:
   running: false
   template:
     metadata:
       creationTimestamp: null
       labels:
-        kubevirt.io/ovm: ovm-cirros
+        kubevirt.io/svm: svm-cirros
     spec:
       domain:
         devices:

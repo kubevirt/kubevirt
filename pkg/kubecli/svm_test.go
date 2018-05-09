@@ -35,11 +35,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
+var _ = Describe("Kubevirt StatefulVirtualMachine Client", func() {
 
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/kubevirt.io/v1alpha1/namespaces/default/offlinevirtualmachines"
+	basePath := "/apis/kubevirt.io/v1alpha1/namespaces/default/statefulvirtualmachines"
 	vmPath := basePath + "/testvm"
 
 	BeforeEach(func() {
@@ -50,68 +50,68 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 	})
 
 	It("should fetch a VM", func() {
-		ovm := NewMinimalOVM("testvm")
+		svm := NewMinimalSVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vmPath),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, ovm),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, svm),
 		))
-		fetchedVM, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		fetchedVM, err := client.StatefulVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(fetchedVM).To(Equal(ovm))
+		Expect(fetchedVM).To(Equal(svm))
 	})
 
-	It("should detect non existent OfflineVirtualMachines", func() {
+	It("should detect non existent StatefulVirtualMachines", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		_, err := client.StatefulVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	It("should fetch a OfflineVirtualMachine list", func() {
-		ovm := NewMinimalOVM("testvm")
+	It("should fetch a StatefulVirtualMachine list", func() {
+		svm := NewMinimalSVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", basePath),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, NewOVMList(*ovm)),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, NewSVMList(*svm)),
 		))
-		fetchedVMList, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedVMList, err := client.StatefulVirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedVMList.Items).To(HaveLen(1))
-		Expect(fetchedVMList.Items[0]).To(Equal(*ovm))
+		Expect(fetchedVMList.Items[0]).To(Equal(*svm))
 	})
 
-	It("should create a OfflineVirtualMachine", func() {
-		ovm := NewMinimalOVM("testvm")
+	It("should create a StatefulVirtualMachine", func() {
+		svm := NewMinimalSVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("POST", basePath),
-			ghttp.RespondWithJSONEncoded(http.StatusCreated, ovm),
+			ghttp.RespondWithJSONEncoded(http.StatusCreated, svm),
 		))
-		createdVM, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Create(ovm)
+		createdVM, err := client.StatefulVirtualMachine(k8sv1.NamespaceDefault).Create(svm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(createdVM).To(Equal(ovm))
+		Expect(createdVM).To(Equal(svm))
 	})
 
-	It("should update a OfflineVirtualMachine", func() {
-		ovm := NewMinimalOVM("testvm")
+	It("should update a StatefulVirtualMachine", func() {
+		svm := NewMinimalSVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("PUT", vmPath),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, ovm),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, svm),
 		))
-		updatedVM, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Update(ovm)
+		updatedVM, err := client.StatefulVirtualMachine(k8sv1.NamespaceDefault).Update(svm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(updatedVM).To(Equal(ovm))
+		Expect(updatedVM).To(Equal(svm))
 	})
 
 	It("should delete a VM", func() {
@@ -119,7 +119,7 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 			ghttp.VerifyRequest("DELETE", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
+		err := client.StatefulVirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -130,10 +130,10 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 	})
 })
 
-func NewMinimalOVM(name string) *v1.OfflineVirtualMachine {
-	return &v1.OfflineVirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "OfflineVirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalSVM(name string) *v1.StatefulVirtualMachine {
+	return &v1.StatefulVirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "StatefulVirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
 
-func NewOVMList(ovms ...v1.OfflineVirtualMachine) *v1.OfflineVirtualMachineList {
-	return &v1.OfflineVirtualMachineList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "OfflineVirtualMachineList"}, Items: ovms}
+func NewSVMList(svms ...v1.StatefulVirtualMachine) *v1.StatefulVirtualMachineList {
+	return &v1.StatefulVirtualMachineList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "StatefulVirtualMachineList"}, Items: svms}
 }

@@ -93,7 +93,7 @@ func GetDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 	}
 
 	if !reflect.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
-		// Metadata is updated on offline config only. As a result,
+		// Metadata is updated on stateful config only. As a result,
 		// We have to merge updates to metadata into the domain spec.
 		metadata := &inactiveSpec.Metadata
 		metadata.DeepCopyInto(&spec.Metadata)

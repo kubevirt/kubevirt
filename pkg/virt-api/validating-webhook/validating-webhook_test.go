@@ -161,37 +161,37 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 
-	Context("with OVM admission review", func() {
+	Context("with SVM admission review", func() {
 		It("reject invalid VM spec", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
 			})
-			ovm := &v1.OfflineVirtualMachine{
-				Spec: v1.OfflineVirtualMachineSpec{
+			svm := &v1.StatefulVirtualMachine{
+				Spec: v1.StatefulVirtualMachineSpec{
 					Running: false,
 					Template: &v1.VMTemplateSpec{
 						Spec: vm.Spec,
 					},
 				},
 			}
-			ovmBytes, _ := json.Marshal(&ovm)
+			svmBytes, _ := json.Marshal(&svm)
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{
-						Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
-						Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
-						Resource: "offlinevirtualmachines",
+						Group:    v1.StatefulVirtualMachineGroupVersionKind.Group,
+						Version:  v1.StatefulVirtualMachineGroupVersionKind.Version,
+						Resource: "statefulvirtualmachines",
 					},
 					Object: runtime.RawExtension{
-						Raw: ovmBytes,
+						Raw: svmBytes,
 					},
 				},
 			}
 
-			resp := admitOVMs(ar)
+			resp := admitSVMs(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].volumeName"))
@@ -209,30 +209,30 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			ovm := &v1.OfflineVirtualMachine{
-				Spec: v1.OfflineVirtualMachineSpec{
+			svm := &v1.StatefulVirtualMachine{
+				Spec: v1.StatefulVirtualMachineSpec{
 					Running: false,
 					Template: &v1.VMTemplateSpec{
 						Spec: vm.Spec,
 					},
 				},
 			}
-			ovmBytes, _ := json.Marshal(&ovm)
+			svmBytes, _ := json.Marshal(&svm)
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{
-						Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
-						Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
-						Resource: "offlinevirtualmachines",
+						Group:    v1.StatefulVirtualMachineGroupVersionKind.Group,
+						Version:  v1.StatefulVirtualMachineGroupVersionKind.Version,
+						Resource: "statefulvirtualmachines",
 					},
 					Object: runtime.RawExtension{
-						Raw: ovmBytes,
+						Raw: svmBytes,
 					},
 				},
 			}
 
-			resp := admitOVMs(ar)
+			resp := admitSVMs(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})

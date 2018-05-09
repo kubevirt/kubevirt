@@ -5,23 +5,23 @@ metadata:
   creationTimestamp: null
   labels:
     kubevirt.io: ""
-  name: offlinevirtualmachines.kubevirt.io
+  name: statefulvirtualmachines.kubevirt.io
 spec:
   group: kubevirt.io
   names:
-    kind: OfflineVirtualMachine
-    plural: offlinevirtualmachines
+    kind: StatefulVirtualMachine
+    plural: statefulvirtualmachines
     shortNames:
-    - ovm
-    - ovms
-    singular: offlinevirtualmachine
+    - svm
+    - svms
+    singular: statefulvirtualmachine
   scope: Namespaced
   validation:
     openAPIV3Schema:
-      description: OfflineVirtualMachine handles the VirtualMachines that are not
-        running or are in a stopped state The OfflineVirtualMachine contains the template
-        to create the VirtualMachine. It also mirrors the running state of the created
-        VirtualMachine in its status.
+      description: StatefulVirtualMachine handles the VirtualMachines that are not
+        running or are in a stopped state The StatefulVirtualMachine contains the
+        template to create the VirtualMachine. It also mirrors the running state of
+        the created VirtualMachine in its status.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -35,7 +35,7 @@ spec:
           type: string
         metadata: {}
         spec:
-          description: OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine
+          description: StatefulVirtualMachineSpec describes how the proper StatefulVirtualMachine
             should look like
           properties:
             running:
@@ -382,15 +382,15 @@ spec:
           - running
           - template
         status:
-          description: OfflineVirtualMachineStatus represents the status returned
-            by the controller to describe how the OfflineVirtualMachine is doing
+          description: StatefulVirtualMachineStatus represents the status returned
+            by the controller to describe how the StatefulVirtualMachine is doing
           properties:
             conditions:
-              description: Hold the state information of the OfflineVirtualMachine
+              description: Hold the state information of the StatefulVirtualMachine
                 and its VirtualMachine
               items:
-                description: OfflineVirtualMachineCondition represents the state of
-                  OfflineVirtualMachine
+                description: StatefulVirtualMachineCondition represents the state
+                  of StatefulVirtualMachine
                 properties:
                   lastProbeTime: {}
                   lastTransitionTime: {}
