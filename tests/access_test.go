@@ -39,33 +39,40 @@ var _ = Describe("User Access", func() {
 	})
 
 	Describe("With default kubevirt service accounts", func() {
-		It("should verify config role has access only to kubevirt-config", func() {
+		It("should verify only admin role has access only to kubevirt-config", func() {
 			tests.SkipIfNoKubectl()
 
-			verbs := []string{"get", "delete", "create", "update", "patch"}
+			verbs := []string{"get", "update", "patch"}
 
-			namespace := tests.KubeVirtInstallNamespace
-			config := tests.ConfigServiceAccountName
+			namespace := tests.NamespaceTestDefault
+			resourceNamespace := tests.KubeVirtInstallNamespace
 
-			// Verifies targetted access to only the kubevirt config
-			By("verifying CONFIG sa for namespace/kubevirt.io:config")
-			for _, verb := range verbs {
-				expectedRes := "yes"
-				resource := "configmaps/kubevirt-config"
-				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, config)
-				result, err := tests.RunKubectlCommand("auth", "can-i", "-n", namespace, "--as", as, verb, resource)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(ContainSubstring(expectedRes))
-			}
+			saNames := []string{tests.ViewServiceAccountName, tests.EditServiceAccountName, tests.AdminServiceAccountName}
 
-			By("verifying CONFIG sa for namespace/kubevirt-madethisup")
-			for _, verb := range verbs {
-				expectedRes := "no"
-				resource := "configmaps/kubevirt-imadethisup"
-				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, config)
-				result, err := tests.RunKubectlCommand("auth", "can-i", "-n", namespace, "--as", as, verb, resource)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(ContainSubstring(expectedRes))
+			for _, saName := range saNames {
+				// Verifies targetted access to only the kubevirt config
+				By(fmt.Sprintf("verifying expected permissions for sa %s for resource configmaps/kubevirt-config", saName))
+				for _, verb := range verbs {
+					expectedRes := "no"
+					if saName == tests.AdminServiceAccountName {
+						expectedRes = "yes"
+					}
+					resource := "configmaps/kubevirt-config"
+					as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, saName)
+					result, err := tests.RunKubectlCommand("auth", "can-i", "-n", resourceNamespace, "--as", as, verb, resource)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result).To(ContainSubstring(expectedRes))
+				}
+
+				By(fmt.Sprintf("verifying expected permissions for sa %s for resource configmaps/kubevirt-madethisup", saName))
+				for _, verb := range verbs {
+					expectedRes := "no"
+					resource := "configmaps/kubevirt-imadethisup"
+					as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, saName)
+					result, err := tests.RunKubectlCommand("auth", "can-i", "-n", resourceNamespace, "--as", as, verb, resource)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result).To(ContainSubstring(expectedRes))
+				}
 			}
 		})
 
