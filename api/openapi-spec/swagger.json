@@ -4499,9 +4499,17 @@
       "description": "Specification of the desired behavior of the VirtualMachine on the host.",
       "$ref": "#/definitions/v1.DomainSpec"
      },
+     "hostname": {
+      "description": "Specifies the hostname of the vm\nIf not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.\n+optional",
+      "type": "string"
+     },
      "nodeSelector": {
       "description": "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
       "type": "object"
+     },
+     "subdomain": {
+      "description": "If specified, the fully qualified vm hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\".\nIf not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm,\nno matter if the vm itself can pick up a hostname.\n+optional",
+      "type": "string"
      },
      "terminationGracePeriodSeconds": {
       "description": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",

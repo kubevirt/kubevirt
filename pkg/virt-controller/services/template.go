@@ -31,7 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -244,6 +244,11 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 
 	containers = append(containers, container)
 
+	hostName := vm.Name
+	if vm.Spec.Hostname != "" {
+		hostName = vm.Spec.Hostname
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -255,6 +260,8 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			},
 		},
 		Spec: k8sv1.PodSpec{
+			Hostname:  hostName,
+			Subdomain: vm.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
 			},

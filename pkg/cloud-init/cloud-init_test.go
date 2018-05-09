@@ -114,7 +114,7 @@ var _ = Describe("CloudInit", func() {
 				cloudInitData := &v1.CloudInitNoCloudSource{
 					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 				}
-				err := GenerateLocalData(domain, namespace, cloudInitData)
+				err := GenerateLocalData(domain, domain, namespace, cloudInitData)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(Equal(true))
 			})
@@ -169,7 +169,7 @@ var _ = Describe("CloudInit", func() {
 			verifyCloudInitIso := func(dataSource *v1.CloudInitNoCloudSource) {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
-				err := GenerateLocalData(domain, namespace, dataSource)
+				err := GenerateLocalData(domain, domain, namespace, dataSource)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created

@@ -180,7 +180,7 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 	return nil
 }
 
-func GenerateLocalData(vmName string, namespace string, source *v1.CloudInitNoCloudSource) error {
+func GenerateLocalData(vmName string, hostname string, namespace string, source *v1.CloudInitNoCloudSource) error {
 	precond.MustNotBeEmpty(vmName)
 	precond.MustNotBeNil(source)
 
@@ -206,7 +206,7 @@ func GenerateLocalData(vmName string, namespace string, source *v1.CloudInitNoCl
 	} else {
 		return errors.New(fmt.Sprintf("userDataBase64 or userData is required for no-cloud data source"))
 	}
-	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmName, namespace, vmName))
+	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmName, namespace, hostname))
 
 	diskutils.RemoveFile(userFile)
 	diskutils.RemoveFile(metaFile)

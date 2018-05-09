@@ -71,6 +71,9 @@ var _ = Describe("Template", func() {
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45"}))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
+				By("setting the right hostname")
+				Expect(pod.Spec.Hostname).To(Equal("testvm"))
+				Expect(pod.Spec.Subdomain).To(BeEmpty())
 			})
 		})
 		Context("with node selectors", func() {
@@ -120,6 +123,24 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{NodeAffinity: &nodeAffinity}))
+			})
+
+			It("should use the hostname and subdomain if specified on the vm", func() {
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Domain:    v1.DomainSpec{},
+						Hostname:  "myhost",
+						Subdomain: "mydomain",
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Hostname).To(Equal(vm.Spec.Hostname))
+				Expect(pod.Spec.Subdomain).To(Equal(vm.Spec.Subdomain))
 			})
 
 			It("should add vm labels to pod", func() {
