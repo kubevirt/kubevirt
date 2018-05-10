@@ -166,7 +166,7 @@ var _ = Describe("Networking", func() {
 				addr = inboundVM.Status.Interfaces[0].IP
 			}
 
-			// Check br1 MTU inside the pod
+			By("checking br1 MTU inside the pod")
 			vmPod := tests.GetRunningPodByLabel(outboundVM.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
@@ -180,7 +180,7 @@ var _ = Describe("Networking", func() {
 			expectedMtuString := fmt.Sprintf("mtu %d", expectedMtu)
 			Expect(strings.Contains(output, expectedMtuString)).To(BeTrue())
 
-			// Check eth0 MTU inside the VM
+			By("checking eth0 MTU inside the VM")
 			addrShow = "ip address show eth0\n"
 			out, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -193,8 +193,7 @@ var _ = Describe("Networking", func() {
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Check VM can send MTU sized frames to the VM
-			//
+			By("checking the VM can send MTU sized frames to another VM")
 			// NOTE: VM is not directly accessible from inside the pod because
 			// we transfered its IP address under DHCP server control, so the
 			// only thing we can validate is connectivity between VMs
