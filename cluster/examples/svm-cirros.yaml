@@ -35,6 +35,9 @@ spec:
         registryDisk:
           image: kubevirt/cirros-registry-disk-demo:devel
       - cloudInitNoCloud:
-          userDataBase64: IyEvYmluL3NoCgplY2hvICdwcmludGVkIGZyb20gY2xvdWQtaW5pdCB1c2VyZGF0YScK
+          userData: |
+            #!/bin/sh
+
+            echo 'printed from cloud-init userdata'
         name: cloudinitvolume
 status: {}

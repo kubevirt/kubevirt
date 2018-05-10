@@ -32,8 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"encoding/base64"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -149,7 +147,7 @@ func addNoCloudDiskWitUserData(spec *v1.VirtualMachineSpec, data string) *v1.Vir
 		Name: "cloudinitvolume",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(data)),
+				UserData: data,
 			},
 		},
 	})
@@ -219,7 +217,7 @@ func getVmEphemeralFedora() *v1.VirtualMachine {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora:fedora\" | chpasswd\n")
+	addNoCloudDiskWitUserData(&vm.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 	return vm
 }
 
