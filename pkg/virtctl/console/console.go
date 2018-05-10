@@ -94,8 +94,17 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	readStop := make(chan error)
 
 	go func() {
-		err := virtCli.VM(namespace).SerialConsole(vm, stdinReader, stdoutWriter)
-		resChan <- err
+		con, err := virtCli.VM(namespace).SerialConsole(vm)
+		if err != nil {
+			resChan <- err
+			return
+		}
+		defer con.Done()
+
+		resChan <- con.Stream(kubecli.StreamOptions{
+			In:  stdinReader,
+			Out: stdoutWriter,
+		})
 	}()
 
 	go func() {

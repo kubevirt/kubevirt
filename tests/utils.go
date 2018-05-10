@@ -1071,10 +1071,19 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, t
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 	stopChan := make(chan struct{})
-	go func(vm *v1.VirtualMachine, vmReader *io.PipeReader, expecterWriter *io.PipeWriter, resCh chan error) {
-		err := virtCli.VM(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, vmReader, expecterWriter)
-		resCh <- err
-	}(vm, vmReader, expecterWriter, resCh)
+	go func() {
+		con, err := virtCli.VM(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name)
+		if err != nil {
+			resCh <- err
+			return
+		}
+		defer con.Done()
+
+		resCh <- con.Stream(kubecli.StreamOptions{
+			In:  vmReader,
+			Out: expecterWriter,
+		})
+	}()
 
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmWriter,

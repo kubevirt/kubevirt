@@ -141,12 +141,12 @@ func (d *WebsocketRoundTripper) RoundTrip(r *http.Request) (*http.Response, erro
 	return resp, d.Do(conn, resp, err)
 }
 
-type wsCallbackObj struct {
-	in  io.Reader
-	out io.Writer
+type asyncWSRoundTripper struct {
+	Done       chan struct{}
+	Connection chan *websocket.Conn
 }
 
-func (obj *wsCallbackObj) WebsocketCallback(ws *websocket.Conn, resp *http.Response, err error) error {
+func (aws *asyncWSRoundTripper) WebsocketCallback(ws *websocket.Conn, resp *http.Response, err error) error {
 
 	if err != nil {
 		if resp != nil && resp.StatusCode != http.StatusOK {
@@ -156,26 +156,14 @@ func (obj *wsCallbackObj) WebsocketCallback(ws *websocket.Conn, resp *http.Respo
 		}
 		return fmt.Errorf("Can't connect to websocket: %s\n", err.Error())
 	}
+	aws.Connection <- ws
 
-	wsReadWriter := &BinaryReadWriter{Conn: ws}
-
-	copyErr := make(chan error)
-
-	go func() {
-		_, err := io.Copy(wsReadWriter, obj.in)
-		copyErr <- err
-	}()
-
-	go func() {
-		_, err := io.Copy(obj.out, wsReadWriter)
-		copyErr <- err
-	}()
-
-	err = <-copyErr
-	return err
+	// Keep the roundtripper open until we are done with the stream
+	<-aws.Done
+	return nil
 }
 
-func roundTripperFromConfig(config *rest.Config, in io.Reader, out io.Writer) (http.RoundTripper, error) {
+func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (http.RoundTripper, error) {
 
 	// Configure TLS
 	tlsConfig, err := rest.TLSConfigFor(config)
@@ -191,13 +179,9 @@ func roundTripperFromConfig(config *rest.Config, in io.Reader, out io.Writer) (h
 		ReadBufferSize:  WebsocketMessageBufferSize,
 	}
 
-	obj := &wsCallbackObj{
-		in:  in,
-		out: out,
-	}
 	// Create a roundtripper which will pass in the final underlying websocket connection to a callback
 	rt := &WebsocketRoundTripper{
-		Do:     obj.WebsocketCallback,
+		Do:     callback,
 		Dialer: dialer,
 	}
 
@@ -230,47 +214,95 @@ func RequestFromConfig(config *rest.Config, vm string, namespace string, resourc
 	return req, nil
 }
 
-func (v *vms) VNC(name string, in io.Reader, out io.Writer) error {
-	return v.subresourceHelper(name, "vnc", in, out)
-}
-func (v *vms) SerialConsole(name string, in io.Reader, out io.Writer) error {
-	return v.subresourceHelper(name, "console", in, out)
+type wsStreamer struct {
+	conn *websocket.Conn
+	done chan struct{}
 }
 
-func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out io.Writer) error {
+func (ws *wsStreamer) Stream(options StreamOptions) error {
+	wsReadWriter := &BinaryReadWriter{Conn: ws.conn}
 
+	copyErr := make(chan error)
+
+	go func() {
+		_, err := io.Copy(wsReadWriter, options.In)
+		copyErr <- err
+	}()
+
+	go func() {
+		_, err := io.Copy(options.Out, wsReadWriter)
+		copyErr <- err
+	}()
+
+	return <-copyErr
+}
+
+func (ws *wsStreamer) Done() {
+	close(ws.done)
+}
+
+func (v *vms) VNC(name string) (StreamInterface, error) {
+	return v.asyncSubresourceHelper(name, "vnc")
+}
+func (v *vms) SerialConsole(name string) (StreamInterface, error) {
+	return v.asyncSubresourceHelper(name, "console")
+}
+
+func (v *vms) asyncSubresourceHelper(name string, resource string) (StreamInterface, error) {
+
+	done := make(chan struct{})
+
+	aws := &asyncWSRoundTripper{
+		Connection: make(chan *websocket.Conn),
+		Done:       done,
+	}
 	// Create a round tripper with all necessary kubernetes security details
-	wrappedRoundTripper, err := roundTripperFromConfig(v.config, in, out)
+	wrappedRoundTripper, err := roundTripperFromConfig(v.config, aws.WebsocketCallback)
 	if err != nil {
-		return fmt.Errorf("unable to create round tripper for remote execution: %v", err)
+		return nil, fmt.Errorf("unable to create round tripper for remote execution: %v", err)
 	}
 
 	// Create a request out of config and the query parameters
 	req, err := RequestFromConfig(v.config, name, v.namespace, resource)
 	if err != nil {
-		return fmt.Errorf("unable to create request for remote execution: %v", err)
+		return nil, fmt.Errorf("unable to create request for remote execution: %v", err)
 	}
 
-	// Send the request and let the callback do its work
-	response, err := wrappedRoundTripper.RoundTrip(req)
+	errChan := make(chan error)
 
-	if err != nil {
-		return err
-	}
+	go func() {
+		// Send the request and let the callback do its work
+		response, err := wrappedRoundTripper.RoundTrip(req)
 
-	if response != nil {
-		switch response.StatusCode {
-		case http.StatusOK:
-			return nil
-		case http.StatusNotFound:
-			return fmt.Errorf("Virtual Machine not found.")
-		case http.StatusInternalServerError:
-			return fmt.Errorf("Websocket failed due to internal server error.")
-		default:
-			return fmt.Errorf("Websocket failed with http status: %s", response.Status)
+		if err != nil {
+			errChan <- err
+			return
 		}
-	} else {
-		return fmt.Errorf("no response received")
+
+		if response != nil {
+			switch response.StatusCode {
+			case http.StatusOK:
+			case http.StatusNotFound:
+				err = fmt.Errorf("Virtual Machine not found.")
+			case http.StatusInternalServerError:
+				err = fmt.Errorf("Websocket failed due to internal server error.")
+			default:
+				err = fmt.Errorf("Websocket failed with http status: %s", response.Status)
+			}
+		} else {
+			err = fmt.Errorf("no response received")
+		}
+		errChan <- err
+	}()
+
+	select {
+	case err = <-errChan:
+		return nil, err
+	case ws := <-aws.Connection:
+		return &wsStreamer{
+			conn: ws,
+			done: done,
+		}, nil
 	}
 }
 

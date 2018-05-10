@@ -30,7 +30,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -73,13 +72,10 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var opts k8smetav1.GetOptions
-	vmObj, err := virtCli.VM(namespace).Get(vm, opts)
+	// setup connection with VM
+	vnc, err := virtCli.VM(namespace).VNC(vm)
 	if err != nil {
 		return fmt.Errorf("Can't access VM %s: %s", vm, err.Error())
-	}
-	if !vmObj.IsRunning() {
-		return fmt.Errorf("Can't connect to not-running VM %s (status=%s)", vm, vmObj.Status.Phase)
 	}
 
 	lnAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
@@ -109,10 +105,13 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	writeStop := make(chan error)
 	readStop := make(chan error)
 
-	// setup connection with VM
 	go func() {
-		err := virtCli.VM(namespace).VNC(vm, pipeInReader, pipeOutWriter)
-		k8ResChan <- err
+		// transfer data from/to the VM
+		k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+			In:  pipeInReader,
+			Out: pipeOutWriter,
+		})
+		vnc.Done()
 	}()
 
 	// wait for remote-viewer to connect to our local proxy server
