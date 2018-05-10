@@ -58,12 +58,14 @@ func SetupNetworkInterfaces(vm *v1.VirtualMachine, domain *api.Domain) error {
 	interfaces := vm.Spec.Domain.Devices.Interfaces
 	if len(interfaces) == 0 {
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*getDefaultNetworkInterface()}
-		networks["default"] = &v1.Network{
+		defaultNet := &v1.Network{
 			Name: "default",
 			NetworkSource: v1.NetworkSource{
 				Pod: &v1.PodNetwork{},
 			},
 		}
+		networks["default"] = defaultNet
+		vm.Spec.Networks = []v1.Network{*defaultNet}
 	}
 
 	for _, iface := range vm.Spec.Domain.Devices.Interfaces {
