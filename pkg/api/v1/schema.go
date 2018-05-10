@@ -611,7 +611,7 @@ func NewMinimalDomainSpec() DomainSpec {
 type Interface struct {
 	// Name of the interface
 	Name string `json:"name"`
-	// Name of the refernced networks
+	// Name of the referenced networks
 	// Must match the Name of a Network
 	NetworkName string `json:"networkName"`
 	// BinindMethod specifies the method which will be used to connect the interface to the guest
@@ -639,13 +639,9 @@ type InterfaceBridge struct {
 // ---
 // +k8s:openapi-gen=true
 type InterfaceProxy struct {
-	// List of ports to expose from the container. Exposing a port here gives
-	// the system additional information about the network connections a
-	// container uses, but is primarily informational. Not specifying a port here
-	// DOES NOT prevent that port from being exposed. Any port which is
-	// listening on the default "0.0.0.0" address inside a container will be
-	// accessible from the network.
-	// Cannot be updated.
+	// List of ports to be proxied between the pod and the Virtual Machine.
+	// Each port contains a ContainerPort, which represents the port that will
+	// be open on the pod IP and a HostPort which is a destination port on the Virtual machine
 	// +optional
 	Ports []v1.ContainerPort `json:"ports"`
 }
@@ -654,7 +650,7 @@ type InterfaceProxy struct {
 // +k8s:openapi-gen=true
 type InterfacePassthrough struct{}
 
-// Network represents a network type and an resource that should be connected to the vm.
+// Network represents a network type and a resource that should be connected to the vm.
 // ---
 // +k8s:openapi-gen=true
 type Network struct {

@@ -710,7 +710,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"networkName": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Name of the refernced networks Must match the Name of a Network",
+								Description: "Name of the referenced networks Must match the Name of a Network",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -793,7 +793,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"ports": {
 							SchemaProps: spec.SchemaProps{
-								Description: "List of ports to expose from the container. Exposing a port here gives the system additional information about the network connections a container uses, but is primarily informational. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Cannot be updated.",
+								Description: "List of ports to be proxied between the pod and the Virtual Machine. Each port contains a ContainerPort, which represents the port that will be open on the pod IP and a HostPort which is a destination port on the Virtual machine",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -869,7 +869,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Network": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Network represents a network type and an resource that should be connected to the vm.",
+					Description: "Network represents a network type and a resource that should be connected to the vm.",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{

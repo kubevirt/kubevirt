@@ -3634,7 +3634,7 @@
       "type": "string"
      },
      "networkName": {
-      "description": "Name of the refernced networks\nMust match the Name of a Network",
+      "description": "Name of the referenced networks\nMust match the Name of a Network",
       "type": "string"
      },
      "passthrough": {
@@ -3646,9 +3646,6 @@
     }
    },
    "v1.InterfaceBridge": {
-    "required": [
-     "delegateIp"
-    ],
     "properties": {
      "delegateIp": {
       "description": "offers the source interface ip to the guest interface",
@@ -3663,7 +3660,7 @@
     ],
     "properties": {
      "ports": {
-      "description": "List of ports to expose from the container. Exposing a port here gives\nthe system additional information about the network connections a\ncontainer uses, but is primarily informational. Not specifying a port here\nDOES NOT prevent that port from being exposed. Any port which is\nlistening on the default \"0.0.0.0\" address inside a container will be\naccessible from the network.\nCannot be updated.\n+optional",
+      "description": "List of ports to be proxied between the pod and the Virtual Machine.\nEach port contains a ContainerPort, which represents the port that will\nbe open on the pod IP and a HostPort which is a destination port on the Virtual machine\n+optional",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.ContainerPort"
@@ -3769,7 +3766,7 @@
     }
    },
    "v1.Network": {
-    "description": "Network represents a network type and an resource that should be connected to the vm.",
+    "description": "Network represents a network type and a resource that should be connected to the vm.",
     "required": [
      "name"
     ],

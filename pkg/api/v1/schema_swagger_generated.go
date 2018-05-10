@@ -284,7 +284,7 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":        "Name of the interface",
-		"networkName": "Name of the refernced networks\nMust match the Name of a Network",
+		"networkName": "Name of the referenced networks\nMust match the Name of a Network",
 	}
 }
 
@@ -302,7 +302,7 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 
 func (InterfaceProxy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"ports": "List of ports to expose from the container. Exposing a port here gives\nthe system additional information about the network connections a\ncontainer uses, but is primarily informational. Not specifying a port here\nDOES NOT prevent that port from being exposed. Any port which is\nlistening on the default \"0.0.0.0\" address inside a container will be\naccessible from the network.\nCannot be updated.\n+optional",
+		"ports": "List of ports to be proxied between the pod and the Virtual Machine.\nEach port contains a ContainerPort, which represents the port that will\nbe open on the pod IP and a HostPort which is a destination port on the Virtual machine\n+optional",
 	}
 }
 
@@ -312,7 +312,7 @@ func (InterfacePassthrough) SwaggerDoc() map[string]string {
 
 func (Network) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "Network represents a network type and an resource that should be connected to the vm.",
+		"":     "Network represents a network type and a resource that should be connected to the vm.",
 		"name": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 	}
 }
