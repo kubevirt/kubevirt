@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -146,7 +147,12 @@ var _ = Describe("Networking", func() {
 	Context("VirtualMachine attached to the pod network", func() {
 
 		table.DescribeTable("should be able to reach", func(destination string) {
-			var cmdCheck, addr string
+			var cmdCheck, addrShow, addr string
+
+			// assuming pod network is of standard MTU = 1500 (minus 50 bytes for vxlan overhead)
+			expectedMtu := 1450
+			ipHeaderSize := 28 // IPv4 specific
+			payloadSize := expectedMtu - ipHeaderSize
 
 			// Wait until the VM is booted, ping google and check if we can reach the internet
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVM, 10*time.Second)
@@ -159,8 +165,44 @@ var _ = Describe("Networking", func() {
 			case "InboundVM":
 				addr = inboundVM.Status.Interfaces[0].IP
 			}
-			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5\n", addr)
+
+			// Check br1 MTU inside the pod
+			vmPod := tests.GetRunningPodByLabel(outboundVM.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+			output, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmPod,
+				vmPod.Spec.Containers[0].Name,
+				[]string{"ip", "address", "show", "br1"},
+			)
+			log.Log.Infof("%v", output)
+			Expect(err).ToNot(HaveOccurred())
+			// the following substring is part of 'ip address show' output
+			expectedMtuString := fmt.Sprintf("mtu %d", expectedMtu)
+			Expect(strings.Contains(output, expectedMtuString)).To(BeTrue())
+
+			// Check eth0 MTU inside the VM
+			addrShow = "ip address show eth0\n"
 			out, err := expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: addrShow},
+				&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 180*time.Second)
+			log.Log.Infof("%v", out)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Check VM can send MTU sized frames to the VM
+			//
+			// NOTE: VM is not directly accessible from inside the pod because
+			// we transfered its IP address under DHCP server control, so the
+			// only thing we can validate is connectivity between VMs
+			//
+			// NOTE: cirros ping doesn't support -M do that could be used to
+			// validate end-to-end connectivity with Don't Fragment flag set
+			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
+			out, err = expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: cmdCheck},
