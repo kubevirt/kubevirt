@@ -26,13 +26,16 @@ import (
 	"net"
 	"syscall"
 
+	"github.com/docker/go-connections/proxy"
 	"github.com/vishvananda/netlink"
+
+	apiv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/proxy"
+	//"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/proxy"
 )
 
 var CommonFakeVMIP = "192.168.0.2/24"
@@ -322,6 +325,54 @@ func (b *ProxyPodInterface) setupTapDevice() error {
 	return nil
 }
 
+func (b *ProxyPodInterface) formatAddresses(port apiv1.ContainerPort) (frontendAddr net.Addr, backendAddr net.Addr, err error) {
+	switch port.Protocol {
+	case apiv1.ProtocolTCP:
+		frontendAddr, err = net.ResolveTCPAddr("tcp",
+			fmt.Sprintf(":%d", port.ContainerPort))
+		if err != nil {
+			return
+		}
+		backendAddr, err = net.ResolveTCPAddr("tcp",
+			fmt.Sprintf("%s:%d", b.vif.IP.IP.String(), port.HostPort))
+		if err != nil {
+			return
+		}
+		return
+	case apiv1.ProtocolUDP:
+		frontendAddr, err = net.ResolveTCPAddr("tcp",
+			fmt.Sprintf(":%d", port.ContainerPort))
+		if err != nil {
+			return
+		}
+		backendAddr, err = net.ResolveTCPAddr("tcp",
+			fmt.Sprintf("%s:%d", b.vif.IP.IP.String(), port.HostPort))
+		if err != nil {
+			return
+		}
+		return
+	}
+	return
+}
+
+func (b *ProxyPodInterface) proxyPorts() error {
+	for _, port := range b.iface.Proxy.Ports {
+		frontendAddr, backendAddr, err := b.formatAddresses(port)
+		if err != nil {
+			return err
+		}
+
+		channel, err := proxy.NewProxy(frontendAddr, backendAddr)
+		if err != nil {
+			return err
+		}
+
+		// start forwarding
+		go channel.Run()
+	}
+	return nil
+}
+
 func (b *ProxyPodInterface) preparePodNetworkInterfaces() error {
 	if err := b.setupTapDevice(); err != nil {
 		return err
@@ -332,8 +383,7 @@ func (b *ProxyPodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	// Forward requested ports
-	portForwarding := proxy.NewService(b.vif.IP.IP.String(), b.iface.Proxy.Ports)
-	portForwarding.Start()
+	b.proxyPorts()
 
 	return nil
 }

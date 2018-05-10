@@ -1,5 +1,5 @@
-hash: b0f00760777f6e6400e35e1b99f7cbc0e06762709cbb0f3f3f2c19a8f7b0f528
-updated: 2018-04-30T14:14:24.062881352Z
+hash: 07619cce8d0b6191b8d1cccf27f78bacfc68e141e922c188ded1af429b63772a
+updated: 2018-05-10T16:34:32.436587682-04:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -25,6 +25,10 @@ imports:
   - spew
 - name: github.com/dgrijalva/jwt-go
   version: 01aeca54ebda6e0fbfafd0a524d234159c05ec20
+- name: github.com/docker/go-connections
+  version: 7395e3f8aa162843a74ed6d48e79627d9792ac55
+  subpackages:
+  - proxy
 - name: github.com/docker/spdystream
   version: 449fdfce4d962303d702fec724ef0ad181c92528
   subpackages:
@@ -62,7 +66,7 @@ imports:
 - name: github.com/go-stack/stack
   version: 259ab82a6cad3992b4e21ff5cac294ccb06474bc
 - name: github.com/gogo/protobuf
-  version: 1ef32a8b9fc3f8ec940126907cedb5998f6318e4
+  version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
   - proto
   - sortkeys
@@ -225,7 +229,6 @@ imports:
   - internal/socket
   - ipv4
   - lex/httplex
-  - websocket
 - name: golang.org/x/oauth2
   version: a6bd8cefa1811bd24b86f8902872e4e8225f74c4
   subpackages:
@@ -486,9 +489,8 @@ imports:
   version: 39a7bf85c140f972372c2a0d1ee40adbf0c8bfe1
   subpackages:
   - pkg/common
-  - pkg/util/proto
 - name: kubevirt.io/qe-tools
-  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  version: 80f4b017d28e9c45955ac462dfcdef4520e6ec1a
   repo: https://github.com/kubevirt/qe-tools.git
   subpackages:
   - pkg/ginkgo-reporters
