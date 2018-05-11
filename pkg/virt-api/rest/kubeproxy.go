@@ -31,7 +31,7 @@ import (
 	"github.com/emicklei/go-restful"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-kit/kit/endpoint"
-	"golang.org/x/net/context"
+	ctx "golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -46,7 +46,7 @@ import (
 
 type ResponseHandlerFunc func(rest.Result) (interface{}, error)
 
-func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restful.WebService, error) {
+func GroupVersionProxyBase(ctx ctx.Context, gv schema.GroupVersion) (*restful.WebService, error) {
 	ws := new(restful.WebService)
 	ws.Doc("The KubeVirt API, a virtual machine management.")
 	ws.Path(GroupVersionBasePath(gv))
@@ -67,7 +67,7 @@ func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restfu
 	return ws, nil
 }
 
-func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
+func GenericResourceProxy(ws *restful.WebService, ctx ctx.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
 
 	objResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind}, objPointer)
 	objListResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind + "List"}, objListPointer)
@@ -203,7 +203,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 	return ws, nil
 }
 
-func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionResource) (*restful.WebService, error) {
+func ResourceProxyAutodiscovery(ctx ctx.Context, gvr schema.GroupVersionResource) (*restful.WebService, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return nil, err
@@ -339,7 +339,7 @@ func propagationPolicyParam(ws *restful.WebService) *restful.Parameter {
 }
 
 func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+	return func(ctx ctx.Context, payload interface{}) (interface{}, error) {
 		p := payload.(*endpoints.PutObject)
 		del := p.Payload
 		if p.Payload == nil {
@@ -351,7 +351,7 @@ func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResou
 }
 
 func NewGenericGetListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+	return func(ctx ctx.Context, payload interface{}) (interface{}, error) {
 		metadata := payload.(*endpoints.Metadata)
 		listOptions, err := listOptionsFromMetadata(metadata)
 		if err != nil {
@@ -365,7 +365,7 @@ func NewGenericGetListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionReso
 }
 
 func NewGenericDeleteListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+	return func(ctx ctx.Context, payload interface{}) (interface{}, error) {
 		metadata := payload.(*endpoints.Metadata)
 		listOptions, err := listOptionsFromMetadata(metadata)
 		if err != nil {
@@ -393,7 +393,7 @@ func listOptionsFromMetadata(metadata *endpoints.Metadata) (*metav1.ListOptions,
 }
 
 func NewGenericPutEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+	return func(ctx ctx.Context, payload interface{}) (interface{}, error) {
 		obj := payload.(*endpoints.PutObject)
 		result := cli.Put().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Body(obj.Payload).Do()
 		return response(result)
@@ -401,7 +401,7 @@ func NewGenericPutEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource
 }
 
 func NewGenericPatchEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+	return func(ctx ctx.Context, payload interface{}) (interface{}, error) {
 		obj := payload.(*endpoints.PatchObject)
 		result := cli.Get().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Do()
 		if result.Error() != nil {
@@ -465,7 +465,7 @@ func patchJson(patchType types.PatchType, patch interface{}, orig runtime.Object
 }
 
 func NewGenericPostEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+	return func(ctx ctx.Context, payload interface{}) (interface{}, error) {
 		obj := payload.(*endpoints.PutObject)
 		result := cli.Post().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Body(obj.Payload).Do()
 		return response(result)
@@ -473,7 +473,7 @@ func NewGenericPostEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResourc
 }
 
 func NewGenericGetEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
+	return func(ctx ctx.Context, payload interface{}) (interface{}, error) {
 		metadata := payload.(*endpoints.Metadata)
 		result := cli.Get().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do()
 		return response(result)
@@ -519,8 +519,8 @@ func newStatusResponseHandler() ResponseHandlerFunc {
 }
 
 func NewAutodiscoveryEndpoint(cli *rest.RESTClient) endpoint.Endpoint {
-	return func(ctx context.Context, _ interface{}) (interface{}, error) {
-		request := ctx.Value(endpoints.ReqKey).(*restful.Request)
+	return func(c ctx.Context, _ interface{}) (interface{}, error) {
+		request := c.Value(endpoints.ReqKey).(*restful.Request)
 		result := cli.Get().AbsPath(request.SelectedRoutePath()).SetHeader("Accept", mime.MIME_JSON).Do()
 		obj, err := result.Get()
 		if err != nil {

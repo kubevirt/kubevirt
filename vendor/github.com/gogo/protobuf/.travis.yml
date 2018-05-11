@@ -1,3 +1,6 @@
+apt:
+  update: true
+
 env:
   - PROTOBUF_VERSION=2.6.1
   - PROTOBUF_VERSION=3.0.2

@@ -15,6 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
+	"kubevirt.io/kubevirt/pkg/virtctl/wssh"
 )
 
 func NewVirtctlCommand() *cobra.Command {
@@ -47,6 +48,7 @@ func NewVirtctlCommand() *cobra.Command {
 		offlinevm.NewStartCommand(clientConfig),
 		offlinevm.NewStopCommand(clientConfig),
 		ssh.NewCommand(clientConfig),
+		wssh.NewCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd

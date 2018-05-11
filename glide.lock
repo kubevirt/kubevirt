@@ -1,5 +1,5 @@
-hash: b0f00760777f6e6400e35e1b99f7cbc0e06762709cbb0f3f3f2c19a8f7b0f528
-updated: 2018-04-30T14:14:24.062881352Z
+hash: 78d2f004b20dc5b95d46f0e91eab8c5cfe0eb9820845e082aadfaad0659dfdf0
+updated: 2018-05-10T07:50:42.504570469Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -34,7 +34,7 @@ imports:
   subpackages:
   - log
 - name: github.com/emicklei/go-restful-openapi
-  version: 7712e8a6e8096e7103b96a400519d38fb1e348f8
+  version: c42805c6e98f1fc77d176743e516cc7f6e85e4aa
 - name: github.com/emicklei/go-restful-swagger12
   version: 7524189396c68dc4b04d53852f9edc00f816b123
 - name: github.com/evanphx/json-patch
@@ -62,7 +62,7 @@ imports:
 - name: github.com/go-stack/stack
   version: 259ab82a6cad3992b4e21ff5cac294ccb06474bc
 - name: github.com/gogo/protobuf
-  version: 1ef32a8b9fc3f8ec940126907cedb5998f6318e4
+  version: 30cf7ac33676b5786e78c746683f0d4cd64fa75b
   subpackages:
   - proto
   - sortkeys
@@ -73,7 +73,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 87f106fccd7e3ced294a19e86bebd7846911690a
+  version: 22bbf0ddf08105dfa364d0a2fa619dfa71014af5
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -375,6 +375,8 @@ imports:
   - third_party/forked/golang/json
   - third_party/forked/golang/netutil
   - third_party/forked/golang/reflect
+- name: k8s.io/apiserver
+  version: af217a9674d2396f0d63139ee604128f41a8f464
 - name: k8s.io/client-go
   version: 90539b4e75a8daaf7f67c3874c6180bfb1a63936
   subpackages:
@@ -488,7 +490,7 @@ imports:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/qe-tools
-  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  version: 80f4b017d28e9c45955ac462dfcdef4520e6ec1a
   repo: https://github.com/kubevirt/qe-tools.git
   subpackages:
   - pkg/ginkgo-reporters

@@ -225,6 +225,12 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		Operation("ssh").
 		Doc("Open a websocket connection to an ssh server on the specified VM."))
 
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("wssh")).
+		To(subresourceApp.WSSHRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("wssh").
+		Doc("Open a websocket connection to an ssh server on the specified VM."))
+
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("vnc")).
 		To(subresourceApp.VNCRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
