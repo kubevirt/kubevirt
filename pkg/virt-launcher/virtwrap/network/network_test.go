@@ -82,7 +82,7 @@ var _ = Describe("Network", func() {
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="e1000"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="e1000e"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
 	})
 
 	AfterEach(func() {
