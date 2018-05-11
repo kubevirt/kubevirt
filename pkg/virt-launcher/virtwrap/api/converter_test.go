@@ -403,6 +403,13 @@ var _ = Describe("Converter", func() {
 			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.CPUs).To(Equal(uint32(3)))
 
 		})
+
+		It("should select virto network model if cirros", func() {
+			v1.SetObjectDefaults_VirtualMachine(vm)
+			vm.Annotations = map[string]string{"kubevirt.io/os": "cirros"}
+			domain := vmToDomain(vm, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio"))
+		})
 	})
 })
 

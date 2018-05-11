@@ -471,6 +471,23 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		},
 	}
 
+	// Add mandatory interface
+	interfaceType := "e1000"
+	if vm.Annotations["kubevirt.io/os"] == "cirros" {
+		interfaceType = "virtio"
+	}
+
+	// For now connect every virtual machine to the pod network
+	domain.Spec.Devices.Interfaces = []Interface{{
+		Model: &Model{
+			Type: interfaceType,
+		},
+		Type: "bridge",
+		Source: InterfaceSource{
+			Bridge: DefaultBridgeName,
+		}},
+	}
+
 	return nil
 }
 

@@ -312,12 +312,7 @@ func SetupDefaultPodNetwork(domain *api.Domain) error {
 	}
 
 	// TODO:(vladikr) Currently we support only one interface per vm.
-	// Improve this once we'll start supporting more.
-	if len(domain.Spec.Devices.Interfaces) == 0 {
-		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, defaultIconf)
-	} else {
-		domain.Spec.Devices.Interfaces[0] = defaultIconf
-	}
+	domain.Spec.Devices.Interfaces[0] = defaultIconf
 
 	return nil
 }
