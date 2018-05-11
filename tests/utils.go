@@ -54,6 +54,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 
+	"strings"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -735,6 +737,7 @@ func NewRandomVM() *v1.VirtualMachine {
 
 func NewRandomVMWithNS(namespace string) *v1.VirtualMachine {
 	vm := v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
+	vm.Annotations = map[string]string{}
 
 	t := defaultTestGracePeriod
 	vm.Spec.TerminationGracePeriodSeconds = &t
@@ -757,6 +760,10 @@ func NewRandomVMWithEphemeralDiskAndUserdataHighMemory(containerImage string, us
 
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vm := NewRandomVM()
+
+	if strings.Contains(containerImage, "cirros") {
+		vm.Annotations["kubevirt.io/os"] = "cirros"
+	}
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	AddEphemeralDisk(vm, "disk0", "virtio", containerImage)
