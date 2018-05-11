@@ -93,7 +93,7 @@ var _ = Describe("Network", func() {
 		It("should define a new VIF", func() {
 
 			Handler = mockNetwork
-			domain := &api.Domain{}
+			domain := NewDomainWithPodNetwork()
 
 			api.SetObjectDefaults_Domain(domain)
 
@@ -133,7 +133,7 @@ var _ = Describe("Network", func() {
 		It("should panic if pod networking fails to setup", func() {
 			testNetworkPanic := func() {
 				Handler = mockNetwork
-				domain := &api.Domain{}
+				domain := NewDomainWithPodNetwork()
 
 				api.SetObjectDefaults_Domain(domain)
 
@@ -232,3 +232,18 @@ var _ = Describe("Network", func() {
 		})
 	})
 })
+
+func NewDomainWithPodNetwork() *api.Domain {
+
+	domain := &api.Domain{}
+	domain.Spec.Devices.Interfaces = []api.Interface{{
+		Model: &api.Model{
+			Type: "e1000",
+		},
+		Type: "bridge",
+		Source: api.InterfaceSource{
+			Bridge: api.DefaultBridgeName,
+		}},
+	}
+	return domain
+}
