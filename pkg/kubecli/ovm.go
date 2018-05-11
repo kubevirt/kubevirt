@@ -57,13 +57,13 @@ func (o *ovm) Create(offlinevm *v1.OfflineVirtualMachine) (*v1.OfflineVirtualMac
 }
 
 // Get the OfflineVirtual machine from the cluster by its name and namespace
-func (o *ovm) Get(name string, options *k8smetav1.GetOptions) (*v1.OfflineVirtualMachine, error) {
+func (o *ovm) Get(name string, options k8smetav1.GetOptions) (*v1.OfflineVirtualMachine, error) {
 	newOvm := &v1.OfflineVirtualMachine{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
 		Name(name).
-		VersionedParams(options, scheme.ParameterCodec).
+		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(newOvm)
 
@@ -94,7 +94,7 @@ func (o *ovm) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Resource(o.resource).
 		Namespace(o.namespace).
 		Name(name).
-		Body(options).
+		Body(&options).
 		Do().
 		Error()
 
@@ -102,12 +102,12 @@ func (o *ovm) Delete(name string, options *k8smetav1.DeleteOptions) error {
 }
 
 // List all OfflineVirtualMachines in given namespace
-func (o *ovm) List(options *k8smetav1.ListOptions) (*v1.OfflineVirtualMachineList, error) {
+func (o *ovm) List(options k8smetav1.ListOptions) (*v1.OfflineVirtualMachineList, error) {
 	newOvmList := &v1.OfflineVirtualMachineList{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
-		VersionedParams(options, scheme.ParameterCodec).
+		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(newOvmList)
 

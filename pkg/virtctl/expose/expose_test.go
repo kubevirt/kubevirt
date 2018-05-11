@@ -1,36 +1,137 @@
-package expose
+package expose_test
 
 import (
-	"testing"
-
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
 
+	k8sapiv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 )
 
-// TODO: build a ginko test suite
+var _ = Describe("Expose", func() {
+	BeforeEach(func() {
+		// initialize state before test
+		kubecli.CurrentFakeService = &k8sapiv1.Service{}
+		kubecli.InvalidFakeClient = false
+		kubecli.InvalidFakeResource = false
+		kubecli.InvalidFakeService = false
+		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetFakeKubevirtClientFromClientConfig
+	})
 
-func Test_CommandCreation(t *testing.T) {
-	var flags pflag.FlagSet
-	clientConfig := kubecli.DefaultClientConfig(&flags)
-	cmd := NewExposeCommand(clientConfig)
-	if cmd == nil {
-		t.Error("'expose' command creation failure")
-	}
-	// TODO: verify content of command
-}
+	Describe("Create an 'expose' command", func() {
+		Context("With empty set of flags", func() {
+			It("should succeed", func() {
+				var flags pflag.FlagSet
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				Expect(cmd).NotTo(BeNil())
+			})
+		})
+	})
 
-func Test_Run(t *testing.T) {
-	var flags pflag.FlagSet
-	clientConfig := kubecli.DefaultClientConfig(&flags)
-	cmd := NewExposeCommand(clientConfig)
-	if cmd == nil {
-		t.Error("'expose' command creation failure")
-	}
-	// TODO: mock the client to not communicate with the server
-	err := cmd.RunE(cmd, []string{"vm", "testvm"})
-	if err != nil {
-		// this is currently failing, uncomment once client is mocked
-		//t.Error("'expose' command execution failure: ", err)
-	}
-}
+	Describe("Run an 'expose' command", func() {
+		Context("With a wrong verb", func() {
+			It("should fail", func() {
+				var flags pflag.FlagSet
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				err := cmd.RunE(cmd, []string{"kaboom", "testvm"})
+				Expect(err).NotTo(BeNil())
+			})
+		})
+		Context("With cluster-ip on a vm", func() {
+			It("should succeed", func() {
+				var flags pflag.FlagSet
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				err := cmd.RunE(cmd, []string{"vm", "testvm"})
+				Expect(err).To(BeNil())
+				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeClusterIP))
+			})
+		})
+		Context("With unknown resource", func() {
+			It("should fail", func() {
+				var flags pflag.FlagSet
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				kubecli.InvalidFakeResource = true
+				err := cmd.RunE(cmd, []string{"vm", "unknown"})
+				Expect(err).NotTo(BeNil())
+			})
+		})
+		Context("With cluster-ip on an ovm", func() {
+			It("should succeed", func() {
+				var flags pflag.FlagSet
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				err := cmd.RunE(cmd, []string{"ovm", "testvm"})
+				Expect(err).To(BeNil())
+				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeClusterIP))
+			})
+		})
+		Context("With cluster-ip on an vm replica set", func() {
+			It("should succeed", func() {
+				var flags pflag.FlagSet
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				err := cmd.RunE(cmd, []string{"vmrs", "testvm"})
+				Expect(err).To(BeNil())
+				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeClusterIP))
+			})
+		})
+		Context("With invalid type on a vm", func() {
+			It("should fail", func() {
+				var flags pflag.FlagSet
+				if flags.Set("type", "kaboom") != nil {
+					Skip("Didn't manage to set flag")
+				}
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				err := cmd.RunE(cmd, []string{"vm", "testvm"})
+				Expect(err).NotTo(BeNil())
+			})
+		})
+		Context("With node-port on a vm", func() {
+			It("should succeed", func() {
+				var flags pflag.FlagSet
+				if flags.Set("type", "kaboom") != nil {
+					Skip("Didn't manage to set flag")
+				}
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				err := cmd.RunE(cmd, []string{"vm", "testvm"})
+				Expect(err).To(BeNil())
+				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeNodePort))
+			})
+		})
+		Context("With node-port on an ovm", func() {
+			It("should succeed", func() {
+				var flags pflag.FlagSet
+				if flags.Set("type", "kaboom") != nil {
+					Skip("Didn't manage to set flag")
+				}
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				err := cmd.RunE(cmd, []string{"ovm", "testvm"})
+				Expect(err).To(BeNil())
+				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeNodePort))
+			})
+		})
+		Context("With node-port on an vm replica set", func() {
+			It("should succeed", func() {
+				var flags pflag.FlagSet
+				if flags.Set("type", "kaboom") != nil {
+					Skip("Didn't manage to set flag")
+				}
+				clientConfig := kubecli.DefaultClientConfig(&flags)
+				cmd := expose.NewExposeCommand(clientConfig)
+				err := cmd.RunE(cmd, []string{"vmrs", "testvm"})
+				Expect(err).To(BeNil())
+				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeNodePort))
+			})
+		})
+	})
+})

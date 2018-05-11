@@ -852,7 +852,7 @@ func (_m *MockOfflineVirtualMachineInterface) EXPECT() *_MockOfflineVirtualMachi
 	return _m.recorder
 }
 
-func (_m *MockOfflineVirtualMachineInterface) Get(name string, options *v1.GetOptions) (*v19.OfflineVirtualMachine, error) {
+func (_m *MockOfflineVirtualMachineInterface) Get(name string, options v1.GetOptions) (*v19.OfflineVirtualMachine, error) {
 	ret := _m.ctrl.Call(_m, "Get", name, options)
 	ret0, _ := ret[0].(*v19.OfflineVirtualMachine)
 	ret1, _ := ret[1].(error)
@@ -863,7 +863,7 @@ func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Get(arg0, arg1 interface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
 }
 
-func (_m *MockOfflineVirtualMachineInterface) List(opts *v1.ListOptions) (*v19.OfflineVirtualMachineList, error) {
+func (_m *MockOfflineVirtualMachineInterface) List(opts v1.ListOptions) (*v19.OfflineVirtualMachineList, error) {
 	ret := _m.ctrl.Call(_m, "List", opts)
 	ret0, _ := ret[0].(*v19.OfflineVirtualMachineList)
 	ret1, _ := ret[1].(error)

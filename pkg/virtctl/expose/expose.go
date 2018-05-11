@@ -60,13 +60,13 @@ func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:   "expose TYPE NAME",
 		Short: "Expose a virtual machine as a new service.",
 		Long: `Looks up a virtual machine, offline virtual machine or virtual machine replica set by name and use its selector as the selector for a new service on the specified port.
-        A virtual machine replica set will be exposed as a service only if its selector is convertible to a selector that service supports, i.e. when the selector contains only the matchLabels component.
-        Note that if no port is specified via --port and the exposed resource has multiple ports, all will be re-used by the new service. 
-        Also if no labels are specified, the new service will re-use the labels from the resource it exposes.
+A virtual machine replica set will be exposed as a service only if its selector is convertible to a selector that service supports, i.e. when the selector contains only the matchLabels component.
+Note that if no port is specified via --port and the exposed resource has multiple ports, all will be re-used by the new service. 
+Also if no labels are specified, the new service will re-use the labels from the resource it exposes.
         
-        Possible types are (case insensitive, both single and plurant forms):
+Possible types are (case insensitive, both single and plurant forms):
         
-        virtualmachine (vm), offlinevirtualmachine (ovm), virtualmachinereplicaset (vmrs)`,
+virtualmachine (vm), offlinevirtualmachine (ovm), virtualmachinereplicaset (vmrs)`,
 		Example: usage(),
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -94,8 +94,8 @@ func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func usage() string {
-	usage := "  # Expose SSH to a virtual machine called 'myvm' as a node port (5555) of the cluster:\n"
-	usage += fmt.Sprintf("  virtctl expose vm myvm --port=5555 --target-port=22 --name=myvm-ssh --type=NodePort")
+	usage := `  # Expose SSH to a virtual machine called 'myvm' as a node port (5555) of the cluster:
+  virtctl expose vm myvm --port=5555 --target-port=22 --name=myvm-ssh --type=NodePort")`
 	return usage
 }
 
@@ -121,7 +121,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	case "UDP":
 		protocol = v1.ProtocolUDP
 	default:
-		return fmt.Errorf("Unknown protocol: %s", strProtocol)
+		return fmt.Errorf("unknown protocol: %s", strProtocol)
 	}
 
 	// convert from string to the service type enum
@@ -133,9 +133,9 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	case "LoadBalancer":
 		serviceType = v1.ServiceTypeLoadBalancer
 	case "ExternalName":
-		return fmt.Errorf("Type: %s not supported", strServiceType)
+		return fmt.Errorf("type: %s not supported", strServiceType)
 	default:
-		return fmt.Errorf("Unknown service type: %s", strServiceType)
+		return fmt.Errorf("unknown service type: %s", strServiceType)
 	}
 
 	// get the namespace
@@ -147,7 +147,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	// get the client
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
 	if err != nil {
-		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
+		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
 	// does a plain quorum read from the apiserver
@@ -158,25 +158,26 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		// get the VM
 		_, err := virtClient.VM(namespace).Get(vmName, options)
 		if err != nil {
-			return fmt.Errorf("Error fetching VirtualMachine: %v", err)
+			return fmt.Errorf("error fetching VirtualMachine: %v", err)
 		}
 	case "ovm", "ovms", "offlinevirtualmachine", "offlinevirtualmachines":
 		// get the offline VM
-		_, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, &options)
+		_, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
 		if err != nil {
-			return fmt.Errorf("Error fetching OfflineVirtualMachine: %v", err)
+			return fmt.Errorf("error fetching OfflineVirtualMachine: %v", err)
 		}
 	case "vmrs", "vmrss", "virtualmachinereplicaset", "virtualmachinereplicasets":
 		// get the VM replica set
-		_, err := virtClient.ReplicaSet(namespace).Get(vmName, options)
+		vmrs, err := virtClient.ReplicaSet(namespace).Get(vmName, options)
 		if err != nil {
-			return fmt.Errorf("Error fetching VirtualMachine ReplicaSet: %v", err)
+			return fmt.Errorf("error fetching VirtualMachine ReplicaSet: %v", err)
 		}
-		// in case of replica set we take the label from the replica set template
-        // same as the original vmName
-		//vmName = vmrs.Spec.Template.ObjectMeta.Labels["kubevirt.io/vmReplicaSet"]
+		if len(vmrs.Spec.Selector.MatchExpressions) > 0 {
+			return fmt.Errorf("cannot expose VirtualMachine ReplicaSet with match expressions")
+		}
+		vmName = vmrs.Spec.Selector.MatchLabels["kubevirt.io/vmReplicaSet"]
 	default:
-		return fmt.Errorf("Unsupported resource type: %s", vmType)
+		return fmt.Errorf("unsupported resource type: %s", vmType)
 	}
 
 	// actually create the service
@@ -203,11 +204,8 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	// try to create the service on the cluster
 	_, err = virtClient.CoreV1().Services(namespace).Create(service)
 	if err != nil {
-		return fmt.Errorf("Service cretion failed: %v", err)
-	} else {
-		fmt.Printf("Service %s successfully exposed for VirtualMachine %s\n", serviceName, vmName)
-
+		return fmt.Errorf("service cretion failed: %v", err)
 	}
-
+	fmt.Printf("Service %s successfully exposed for VirtualMachine %s\n", serviceName, vmName)
 	return nil
 }
