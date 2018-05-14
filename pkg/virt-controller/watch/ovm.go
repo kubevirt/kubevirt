@@ -168,7 +168,7 @@ func (c *OVMController) execute(key string) error {
 		return err
 	}
 	if !exist {
-		logger.Infof("VM not found in cache %s", key)
+		logger.V(4).Infof("VM not found in cache %s", key)
 		vm = nil
 	} else {
 		vm = vmObj.(*virtv1.VirtualMachine)
@@ -338,7 +338,7 @@ func (c *OVMController) setupVMFromOVM(ovm *virtv1.OfflineVirtualMachine) *virtv
 	t := true
 	// TODO check if vm labels exist, and when make sure that they match. For now just override them
 	vm.ObjectMeta.Labels = ovm.Spec.Template.ObjectMeta.Labels
-	vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{v1.OwnerReference{
+	vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
 		APIVersion:         virtv1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
 		Kind:               virtv1.OfflineVirtualMachineGroupVersionKind.Kind,
 		Name:               ovm.ObjectMeta.Name,
@@ -399,7 +399,7 @@ func (c *OVMController) listVMsFromNamespace(namespace string) ([]*virtv1.Virtua
 	if err != nil {
 		return nil, err
 	}
-	vms := []*virtv1.VirtualMachine{}
+	var vms []*virtv1.VirtualMachine
 	for _, obj := range objs {
 		vms = append(vms, obj.(*virtv1.VirtualMachine))
 	}
@@ -413,7 +413,7 @@ func (c *OVMController) listControllerFromNamespace(namespace string) ([]*virtv1
 	if err != nil {
 		return nil, err
 	}
-	ovms := []*virtv1.OfflineVirtualMachine{}
+	var ovms []*virtv1.OfflineVirtualMachine
 	for _, obj := range objs {
 		ovm := obj.(*virtv1.OfflineVirtualMachine)
 		ovms = append(ovms, ovm)
@@ -634,23 +634,27 @@ func (c *OVMController) removeCondition(ovm *virtv1.OfflineVirtualMachine, cond 
 func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr, vmError error) error {
 
 	// Check if it is worth updating
-	runningMatch := ovm.Spec.Running == c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning)
 	errMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
+	created := vm != nil
+	createdMatch := created == ovm.Status.Created
 
-	log.Log.Object(ovm).Infof("Update: shouldRun: %t; shouldHaveErr: %t", runningMatch, errMatch)
+	ready := false
+	if created {
+		ready = vm.IsReady()
+	}
+	readyMatch := ready == ovm.Status.Ready
 
-	if errMatch && runningMatch {
+	if errMatch && createdMatch && readyMatch {
 		return nil
 	}
+
+	// Set created and ready flags
+	ovm.Status.Created = created
+	ovm.Status.Ready = ready
 
 	// Add/Remove Failure condition if necessary
 	if !(errMatch) {
 		c.processFailure(ovm, vm, createErr)
-	}
-
-	// update condition if the vm is running or not
-	if !runningMatch {
-		c.processRunning(ovm, vm, createErr)
 	}
 
 	_, err := c.clientset.OfflineVirtualMachine(ovm.ObjectMeta.Namespace).Update(ovm)
@@ -668,29 +672,6 @@ func (c *OVMController) getVirtualMachineBaseName(ovm *virtv1.OfflineVirtualMach
 		return ovm.Spec.Template.ObjectMeta.GenerateName
 	}
 	return ovm.ObjectMeta.Name
-}
-
-func (c *OVMController) processRunning(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
-	log.Log.Object(ovm).Infof("Processing running status:: shouldRun: %t; noErr: %t; noVm: %t", ovm.Spec.Running, createErr != nil, vm != nil)
-	if vm == nil {
-		c.removeCondition(ovm, virtv1.OfflineVirtualMachineRunning)
-		return
-	}
-
-	if ovm.Spec.Running && createErr == nil && !c.hasCondition(ovm, virtv1.OfflineVirtualMachineRunning) && vm.Status.Phase == virtv1.Running {
-		log.Log.Object(ovm).Info("Adding running condition")
-		ovm.Status.Conditions = append(ovm.Status.Conditions, virtv1.OfflineVirtualMachineCondition{
-			Type:               virtv1.OfflineVirtualMachineRunning,
-			Reason:             fmt.Sprintf("Created by OVM %s", ovm.ObjectMeta.Name),
-			Message:            fmt.Sprintf("Created by OVM %s", ovm.ObjectMeta.Name),
-			LastTransitionTime: v1.Now(),
-			Status:             k8score.ConditionTrue,
-		})
-
-		return
-	}
-
-	c.removeCondition(ovm, virtv1.OfflineVirtualMachineRunning)
 }
 
 func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
@@ -722,19 +703,6 @@ func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *vi
 
 	log.Log.Object(ovm).Info("Removing failure")
 	c.removeCondition(ovm, virtv1.OfflineVirtualMachineFailure)
-}
-
-func OvmOwnerRef(ovm *virtv1.OfflineVirtualMachine) v1.OwnerReference {
-	t := true
-	gvk := virtv1.OfflineVirtualMachineGroupVersionKind
-	return v1.OwnerReference{
-		APIVersion:         gvk.GroupVersion().String(),
-		Kind:               gvk.Kind,
-		Name:               ovm.ObjectMeta.Name,
-		UID:                ovm.ObjectMeta.UID,
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,

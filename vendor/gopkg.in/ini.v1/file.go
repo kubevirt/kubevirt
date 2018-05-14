@@ -228,7 +228,7 @@ func (f *File) Append(source interface{}, others ...interface{}) error {
 
 func (f *File) writeToBuffer(indent string) (*bytes.Buffer, error) {
 	equalSign := "="
-	if PrettyFormat {
+	if PrettyFormat || PrettyEqual {
 		equalSign = " = "
 	}
 

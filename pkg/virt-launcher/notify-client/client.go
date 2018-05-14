@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"net/rpc"
 	"path/filepath"
-	"strings"
 
 	"github.com/libvirt/libvirt-go"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -71,16 +69,6 @@ func (c *DomainEventClient) SendDomainEvent(event watch.Event) error {
 	}
 
 	return nil
-}
-
-// SplitVMNamespaceKey returns the namespace and name that is encoded in the
-// domain name.
-func SplitVMNamespaceKey(domainName string) (namespace, name string) {
-	splitName := strings.SplitN(domainName, "_", 2)
-	if len(splitName) == 1 {
-		return k8sv1.NamespaceDefault, splitName[0]
-	}
-	return splitName[0], splitName[1]
 }
 
 func newWatchEventError(err error) watch.Event {

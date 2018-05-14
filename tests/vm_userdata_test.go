@@ -68,7 +68,8 @@ var _ = Describe("CloudInit UserData", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking that the VM serial console output equals to expected one")
-		_, err = expecter.ExpectBatch(commands, timeout)
+		resp, err := expecter.ExpectBatch(commands, timeout)
+		log.DefaultLogger().Object(vm).Infof("%v", resp)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -101,6 +102,8 @@ var _ = Describe("CloudInit UserData", func() {
 					LaunchVM(vm)
 
 					VerifyUserDataVM(vm, []expect.Batcher{
+						&expect.BSnd{S: "\n"},
+						&expect.BSnd{S: "\n"},
 						&expect.BExp{R: "login:"},
 						&expect.BSnd{S: "fedora\n"},
 						&expect.BExp{R: "Password:"},
@@ -109,7 +112,7 @@ var _ = Describe("CloudInit UserData", func() {
 						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 						&expect.BExp{R: "test-ssh-key"},
 					}, time.Second*300)
-				}, 360)
+				})
 			})
 		})
 

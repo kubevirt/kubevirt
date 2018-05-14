@@ -35,7 +35,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -67,7 +66,7 @@ var _ = Describe("RegistryDisk", func() {
 		}
 
 		// Verify Registry Disks are Online
-		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(vm))
+		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(vm))
 		Expect(err).To(BeNil())
 
 		By("Checking the number of VM disks")
@@ -90,7 +89,7 @@ var _ = Describe("RegistryDisk", func() {
 
 	Describe("Starting and stopping the same VM", func() {
 		Context("with ephemeral registry disk", func() {
-			It("should success multiple times", func(done Done) {
+			It("should success multiple times", func() {
 				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 				num := 2
 				for i := 0; i < num; i++ {
@@ -102,10 +101,10 @@ var _ = Describe("RegistryDisk", func() {
 					By("Stopping the VM")
 					_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
 					Expect(err).To(BeNil())
-					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+					By("Waiting until the VM is gone")
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 				}
-				close(done)
-			}, 140)
+			})
 		})
 	})
 

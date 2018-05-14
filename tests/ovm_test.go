@@ -80,6 +80,36 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 		})
+		It("should reject POST if validation webhoook deems the spec is invalid", func() {
+			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
+			// Add a disk that doesn't map to a volume.
+			// This should get rejected which tells us the webhook validator is working.
+			template.Spec.Domain.Devices.Disks = append(template.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			newOVM := NewRandomOfflineVirtualMachine(template, false)
+			newOVM.TypeMeta = v12.TypeMeta{
+				APIVersion: v1.GroupVersion.String(),
+				Kind:       "OfflineVirtualMachine",
+			}
+
+			result := virtClient.RestClient().Post().Resource("offlinevirtualmachines").Namespace(tests.NamespaceTestDefault).Body(newOVM).Do()
+
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+			reviewResponse := &v12.Status{}
+			body, _ := result.Raw()
+			err = json.Unmarshal(body, reviewResponse)
+			Expect(err).To(BeNil())
+
+			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
+			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].volumeName"))
+		})
 	})
 
 	Context("A valid OfflineVirtualMachine given", func() {
@@ -132,7 +162,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() bool {
 				updatedOVM, err = virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Get(updatedOVM.Name, v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return hasCondition(updatedOVM, v1.OfflineVirtualMachineRunning)
+				return updatedOVM.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 
 			return updatedOVM
@@ -165,7 +195,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() bool {
 				updatedOVM, err = virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Get(updatedOVM.Name, v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return hasCondition(updatedOVM, v1.OfflineVirtualMachineRunning)
+				return updatedOVM.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeFalse())
 
 			return updatedOVM
@@ -176,7 +206,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() bool {
 				ovm, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Get(newOVM.Name, v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return hasCondition(ovm, v1.OfflineVirtualMachineRunning)
+				return ovm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
@@ -221,7 +251,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("shloud recreate VM if it gets deleted", func() {
+		It("should recreate VM if it gets deleted", func() {
 			newOVM := newOfflineVirtualMachine(true)
 			// Delete the VM
 			Eventually(func() error {
@@ -235,6 +265,66 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				}
 				return true
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+		})
+
+		It("should recreate VM if the VM's pod gets deleted", func() {
+			var firstVM *v1.VirtualMachine
+			var curVM *v1.VirtualMachine
+			var err error
+
+			By("Creating a new OVM")
+			newOVM := newOfflineVirtualMachine(true)
+
+			// wait for a running VM.
+			By("Waiting for the OVM's VM to start")
+			Eventually(func() error {
+				firstVM, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if !firstVM.IsRunning() {
+					return fmt.Errorf("vm still isn't running")
+				}
+				return nil
+			}, 120*time.Second, 1*time.Second).Should(Succeed())
+
+			// get the pod backing the VM
+			By("Getting the pod backing the VM")
+			pods, err := virtClient.CoreV1().Pods(newOVM.Namespace).List(tests.UnfinishedVMPodSelector(firstVM))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(1))
+			firstPod := pods.Items[0]
+
+			// Delete the Pod
+			By("Deleting the VM's pod")
+			Eventually(func() error {
+				return virtClient.CoreV1().Pods(newOVM.Namespace).Delete(firstPod.Name, &v12.DeleteOptions{})
+			}, 120*time.Second, 1*time.Second).Should(Succeed())
+
+			// Wait on the OVM controller to create a new VM
+			By("Waiting for a new VM to spawn")
+			Eventually(func() bool {
+				curVM, err = virtClient.VM(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
+
+				// verify a new VM gets created for the OVM after the Pod is deleted.
+				if errors.IsNotFound(err) {
+					return false
+				} else if string(curVM.UID) == string(firstVM.UID) {
+					return false
+				} else if !curVM.IsRunning() {
+					return false
+				}
+				return true
+			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+
+			// sanity check that the test ran correctly by
+			// verifying a different Pod backs the OVM as well.
+			By("Verifying a new pod backs the OVM")
+			pods, err = virtClient.CoreV1().Pods(newOVM.Namespace).List(tests.UnfinishedVMPodSelector(curVM))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(1))
+			pod := pods.Items[0]
+			Expect(pod.Name).ToNot(Equal(firstPod.Name))
 		})
 
 		It("should stop VM if running set to false", func() {
@@ -264,7 +354,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			Eventually(func() bool {
 				newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+				return newOVM.Status.Ready
 			}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 			By("Updating the OVM template spec")
@@ -354,7 +444,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Eventually(func() bool {
 					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+					return newOVM.Status.Ready
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Getting the running VM")
@@ -381,7 +471,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Eventually(func() bool {
 					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+					return newOVM.Status.Ready
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				err = virtctl()
@@ -391,7 +481,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 				Eventually(func() bool {
 					newOVM, err = virtClient.OfflineVirtualMachine(newOVM.Namespace).Get(newOVM.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return !hasCondition(newOVM, v1.OfflineVirtualMachineRunning)
+					return !newOVM.Status.Ready && !newOVM.Status.Created
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Ensuring the VM is removed")
@@ -412,28 +502,23 @@ var _ = Describe("OfflineVirtualMachine", func() {
 // NewRandomOfflineVirtualMachine creates new OfflineVirtualMachine
 func NewRandomOfflineVirtualMachine(vm *v1.VirtualMachine, running bool) *v1.OfflineVirtualMachine {
 	name := vm.Name
+	namespace := vm.Namespace
 	ovm := &v1.OfflineVirtualMachine{
-		ObjectMeta: v12.ObjectMeta{Name: name},
+		ObjectMeta: v12.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
 		Spec: v1.OfflineVirtualMachineSpec{
 			Running: running,
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: v12.ObjectMeta{
-					Labels: map[string]string{"name": name},
-					Name:   vm.ObjectMeta.Name,
+					Labels:    map[string]string{"name": name},
+					Name:      name,
+					Namespace: namespace,
 				},
 				Spec: vm.Spec,
 			},
 		},
 	}
 	return ovm
-}
-
-func hasCondition(ovm *v1.OfflineVirtualMachine, cond v1.OfflineVirtualMachineConditionType) bool {
-	for _, c := range ovm.Status.Conditions {
-		if c.Type == cond {
-			return true
-		}
-	}
-
-	return false
 }

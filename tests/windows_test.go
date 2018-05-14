@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -240,7 +239,7 @@ var _ = Describe("Windows VM", func() {
 
 		It("should succeed to start a vm", func() {
 			By("Starting the vm via kubectl command")
-			err = tests.RunKubectlCommand("create", "-f", yamlFile)
+			_, err = tests.RunKubectlCommand("create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
@@ -248,13 +247,13 @@ var _ = Describe("Windows VM", func() {
 
 		It("should succeed to stop a vm", func() {
 			By("Starting the vm via kubectl command")
-			err = tests.RunKubectlCommand("create", "-f", yamlFile)
+			_, err = tests.RunKubectlCommand("create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
 
 			By("Deleting the vm via kubectl command")
-			err = tests.RunKubectlCommand("delete", "-f", yamlFile)
+			_, err = tests.RunKubectlCommand("delete", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the vm does not exist anymore")
@@ -263,7 +262,7 @@ var _ = Describe("Windows VM", func() {
 
 			By("Checking that the vm pod terminated")
 			Eventually(func() int {
-				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(services.UnfinishedVMPodSelector(windowsVm))
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(windowsVm))
 				Expect(err).ToNot(HaveOccurred())
 				return len(pods.Items)
 			}, 75, 0.5).Should(Equal(0))

@@ -100,6 +100,37 @@ var _ = Describe("VMPreset", func() {
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 		})
+		It("should reject POST if validation webhoook deems the spec is invalid", func() {
+			preset := &v1.VirtualMachinePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: "fake"},
+				Spec: v1.VirtualMachinePresetSpec{
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"fake": "fake"}},
+					Domain:   &v1.DomainSpec{},
+				},
+			}
+			// disk with two targets is invalid
+			preset.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk:   &v1.DiskTarget{},
+					Floppy: &v1.FloppyTarget{},
+				},
+			})
+			result := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(preset).Do()
+			// Verify validation failed.
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+			reviewResponse := &k8smetav1.Status{}
+			body, _ := result.Raw()
+			err = json.Unmarshal(body, reviewResponse)
+			Expect(err).To(BeNil())
+
+			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
+			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[1]"))
+		})
 	})
 	Context("Preset Matching", func() {
 
@@ -216,6 +247,38 @@ var _ = Describe("VMPreset", func() {
 			_, found := newVm.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
 			Expect(newVm.Status.Phase).ToNot(Equal(v1.Failed))
+		})
+	})
+
+	Context("Exclusions", func() {
+		It("Should not apply presets to VM's with the exclusion marking", func() {
+			err := virtClient.RestClient().Post().Resource("virtualmachinepresets").Namespace(tests.NamespaceTestDefault).Body(cpuPreset).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			newPreset := waitForPreset(virtClient, cpuPrefix)
+
+			vm = tests.NewRandomVMWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+			vm.Labels = map[string]string{flavorKey: cpuFlavor}
+			exclusionMarking := "virtualmachinepresets.admission.kubevirt.io/exclude"
+			vm.Annotations = map[string]string{exclusionMarking: "true"}
+
+			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			newVm := waitForVirtualMachine(virtClient)
+
+			// check the annotations
+			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
+			_, ok := newVm.Annotations[annotationKey]
+			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
+
+			// check a setting from the preset itself to show it was applied
+			Expect(newVm.Spec.Domain.CPU).To(BeNil(),
+				"CPU should still have been the default value (not defined in spec)")
+
+			initializerMarking := "presets.virtualmachines." + v1.GroupName + "/presets-applied"
+			_, ok = newVm.Annotations[initializerMarking]
+			Expect(ok).To(BeTrue(), "VM should have been initialized")
 		})
 	})
 

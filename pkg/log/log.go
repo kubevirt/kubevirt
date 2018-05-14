@@ -35,6 +35,7 @@ import (
 	"github.com/go-kit/kit/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 )
 
 var lock sync.Mutex
@@ -186,6 +187,24 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 	}
 	return nil
 }
+func (l FilteredLogger) Key(key string, kind string) *FilteredLogger {
+	if key == "" {
+		return &l
+
+	}
+	name, namespace, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return &l
+	}
+	logParams := make([]interface{}, 0)
+	if namespace != "" {
+		logParams = append(logParams, "namespace", namespace)
+	}
+	logParams = append(logParams, "name", name)
+	logParams = append(logParams, "kind", kind)
+	l.With(logParams...)
+	return &l
+}
 
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 
@@ -195,7 +214,9 @@ func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
 	logParams := make([]interface{}, 0)
-	logParams = append(logParams, "namespace", namespace)
+	if namespace != "" {
+		logParams = append(logParams, "namespace", namespace)
+	}
 	logParams = append(logParams, "name", name)
 	logParams = append(logParams, "kind", kind)
 	logParams = append(logParams, "uid", uid)

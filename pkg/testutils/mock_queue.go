@@ -8,6 +8,8 @@ import (
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/util/workqueue"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -90,6 +92,36 @@ func (v *VirtualMachineFeeder) Delete(vm *v1.VirtualMachine) {
 
 func NewVirtualMachineFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *VirtualMachineFeeder {
 	return &VirtualMachineFeeder{
+		MockQueue: queue,
+		Source:    source,
+	}
+}
+
+type PodFeeder struct {
+	MockQueue *MockWorkQueue
+	Source    *framework.FakeControllerSource
+}
+
+func (v *PodFeeder) Add(pod *k8sv1.Pod) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Add(pod)
+	v.MockQueue.Wait()
+}
+
+func (v *PodFeeder) Modify(pod *k8sv1.Pod) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Modify(pod)
+	v.MockQueue.Wait()
+}
+
+func (v *PodFeeder) Delete(pod *k8sv1.Pod) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Delete(pod)
+	v.MockQueue.Wait()
+}
+
+func NewPodFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *PodFeeder {
+	return &PodFeeder{
 		MockQueue: queue,
 		Source:    source,
 	}

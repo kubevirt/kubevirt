@@ -26,6 +26,9 @@ spec:
     registryDisk:
       image: kubevirt/fedora-cloud-registry-disk-demo:devel
   - cloudInitNoCloud:
-      userDataBase64: IyEvYmluL3NoCgplY2hvICdwcmludGVkIGZyb20gY2xvdWQtaW5pdCB1c2VyZGF0YScK
+      userData: |-
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
     name: cloudinitvolume
 status: {}

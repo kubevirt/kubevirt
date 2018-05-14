@@ -70,14 +70,16 @@ rules:
       - get
       - list
       - delete
-      - update  
-      - create  
+      - update
+      - create
   - apiGroups:
       - ''
     resources:
       - configmaps
     verbs:
       - get
+      - list
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -87,6 +89,14 @@ metadata:
   labels:
     kubevirt.io: ""
 rules:
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - get
+      - create
+      - update
   - apiGroups:
       - apiregistration.k8s.io
     resources:
@@ -133,13 +143,13 @@ rules:
       - list
       - watch
       - delete
-      - update  
-      - create  
+      - update
+      - create
   - apiGroups:
       - ''
     resources:
       - nodes
-      - persistentvolumeclaims  
+      - persistentvolumeclaims
     verbs:
       - get
       - list
@@ -148,14 +158,14 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - virtualmachinereplicasets  
+      - virtualmachinereplicasets
     verbs:
       - get
       - list
       - watch
       - delete
-      - update  
-      - create  
+      - update
+      - create
       - deletecollection
 ---
 apiVersion: v1
@@ -221,3 +231,92 @@ subjects:
   - kind: ServiceAccount
     name: kubevirt-privileged
     namespace: {{.Namespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubevirt.io:admin
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups:
+      - subresources.kubevirt.io
+    resources:
+      - virtualmachines/console
+      - virtualmachines/vnc
+    verbs:
+      - get
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachines
+      - offlinevirtualmachines
+      - virtualmachinepresets
+      - virtualmachinereplicasets
+    verbs:
+      - get
+      - delete
+      - create
+      - update
+      - patch
+      - list
+      - watch
+      - deletecollection
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    resourceNames:
+      - kubevirt-config
+    verbs:
+      - update
+      - get
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubevirt.io:edit
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups:
+      - subresources.kubevirt.io
+    resources:
+      - virtualmachines/console
+      - virtualmachines/vnc
+    verbs:
+      - get
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachines
+      - offlinevirtualmachines
+      - virtualmachinepresets
+      - virtualmachinereplicasets
+    verbs:
+      - get
+      - delete
+      - create
+      - update
+      - patch
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kubevirt.io:view
+  labels:
+    kubevirt.io: ""
+rules:
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachines
+      - offlinevirtualmachines
+      - virtualmachinepresets
+      - virtualmachinereplicasets
+    verbs:
+      - get
+      - list
+      - watch

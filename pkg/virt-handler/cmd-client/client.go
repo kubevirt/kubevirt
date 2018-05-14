@@ -34,6 +34,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"net"
+	"os"
+	"syscall"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -191,9 +195,22 @@ func (c *VirtLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachine) error {
 }
 
 func IsDisconnected(err error) bool {
+	if err == nil {
+		return false
+	}
 	if err == rpc.ErrShutdown || err == io.ErrUnexpectedEOF || err == io.EOF {
 		return true
 	}
+
+	if opErr, ok := err.(*net.OpError); ok {
+		if syscallErr, ok := opErr.Err.(*os.SyscallError); ok {
+			// catches "connection reset by peer"
+			if syscallErr.Err == syscall.ECONNRESET {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 

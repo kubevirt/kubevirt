@@ -12,21 +12,21 @@ client-python:
 	hack/dockerized "./hack/generate.sh && TRAVIS_TAG=${TRAVIS_TAG} ./hack/gen-client-python/generate.sh"
 
 build:
-	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install ${WHAT}"
+	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
 goveralls:
-	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
+	SYNC_OUT=false hack/dockerized "./hack/check.sh && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
 
 test:
-	hack/dockerized "./hack/check.sh && ./hack/build-go.sh install ${WHAT} && ./hack/build-go.sh test ${WHAT}"
+	SYNC_OUT=false hack/dockerized "./hack/check.sh && ./hack/build-go.sh test ${WHAT}"
 
 functest:
 	hack/dockerized "hack/build-func-tests.sh"
 	hack/functests.sh
 
 clean:
-	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf && rm tools/openapispec/openapispec -rf"
-	rm tools/openapispec/openapispec -rf
+	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
+	rm -f tools/openapispec/openapispec tools/crd-generator/crd-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator
 
 distclean: clean
 	hack/dockerized "rm -rf vendor/ && rm -f .glide.*.hash && glide cc"
@@ -47,7 +47,7 @@ publish: docker
 	hack/build-docker.sh push ${WHAT}
 
 manifests:
-	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
 
 .release-functest:
 	make functest > .release-functest 2>&1

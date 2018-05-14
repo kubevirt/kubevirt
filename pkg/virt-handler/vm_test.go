@@ -41,8 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
@@ -58,7 +58,6 @@ var _ = Describe("VM", func() {
 	var vmInformer cache.SharedIndexInformer
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
-	var gracefulShutdownSource *framework.FakeControllerSource
 	var gracefulShutdownInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
@@ -86,7 +85,7 @@ var _ = Describe("VM", func() {
 
 		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
-		gracefulShutdownInformer, gracefulShutdownSource = testutils.NewFakeInformerFor(&api.Domain{})
+		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -103,7 +102,8 @@ var _ = Describe("VM", func() {
 			shareDir,
 			vmInformer,
 			domainInformer,
-			gracefulShutdownInformer)
+			gracefulShutdownInformer,
+			1)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		sockFile := cmdclient.SocketFromNamespaceName(shareDir, "default", "testvm")
@@ -284,14 +284,39 @@ var _ = Describe("VM", func() {
 			controller.Execute()
 		})
 
-		It("should detect a missing watchdog file and report the error on the VM", func() {
+		It("should move VM from Scheduled to Failed if watchdog file is missing", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 
 			vmFeeder.Add(vm)
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
-				Expect(vm.Status.Conditions).To(HaveLen(1))
+				Expect(vm.Status.Phase).To(Equal(v1.Failed))
+			})
+			controller.Execute()
+		})
+		It("should move VM from Scheduled to Failed if watchdog file is expired", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Phase = v1.Scheduled
+
+			mockWatchdog.CreateFile(vm)
+			vmFeeder.Add(vm)
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
+				Expect(vm.Status.Phase).To(Equal(v1.Failed))
+			})
+			time.Sleep(2 * time.Second)
+			controller.Execute()
+		}, 2)
+
+		It("should move VM from Running to Failed if domain does not exist in cache", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Phase = v1.Running
+
+			vmFeeder.Add(vm)
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
+				Expect(vm.Status.Phase).To(Equal(v1.Failed))
 			})
 			controller.Execute()
 		})
@@ -308,7 +333,7 @@ var _ = Describe("VM", func() {
 			}
 
 			updatedVM := vm.DeepCopy()
-			updatedVM.Status.Conditions = []v1.VirtualMachineCondition{}
+			updatedVM.Status.Conditions = nil
 
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)

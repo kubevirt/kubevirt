@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2017, 2018 Red Hat, Inc.
+ *
+ */
+
 package watch
 
 import (
@@ -54,20 +73,25 @@ type VirtControllerApp struct {
 	clientSet       kubecli.KubevirtClient
 	templateService services.TemplateService
 	restClient      *clientrest.RESTClient
-	vmService       services.VMService
 	informerFactory controller.KubeInformerFactory
 	podInformer     cache.SharedIndexInformer
+
+	nodeInformer   cache.SharedIndexInformer
+	nodeController *NodeController
 
 	vmCache      cache.Store
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
-	vmQueue      workqueue.RateLimitingInterface
 
 	vmPresetCache      cache.Store
 	vmPresetController *VirtualMachinePresetController
 	vmPresetQueue      workqueue.RateLimitingInterface
 	vmPresetInformer   cache.SharedIndexInformer
 	vmPresetRecorder   record.EventRecorder
+	vmRecorder         record.EventRecorder
+
+	configMapCache    cache.Store
+	configMapInformer cache.SharedIndexInformer
 
 	rsController *VMReplicaSet
 	rsInformer   cache.SharedIndexInformer
@@ -116,11 +140,10 @@ func Execute() {
 
 	app.vmInformer = app.informerFactory.VM()
 	app.podInformer = app.informerFactory.KubeVirtPod()
+	app.nodeInformer = app.informerFactory.KubeVirtNode()
 
-	app.vmQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmCache = app.vmInformer.GetStore()
-	app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmQueue))
-	app.podInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForFunc(vmLabelHandler(app.vmQueue)))
+	app.vmRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	app.vmPresetCache = app.vmInformer.GetStore()
@@ -130,6 +153,9 @@ func Execute() {
 
 	app.rsInformer = app.informerFactory.VMReplicaSet()
 	app.vmPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
+
+	app.configMapInformer = app.informerFactory.ConfigMap()
+	app.configMapCache = app.configMapInformer.GetStore()
 
 	app.ovmInformer = app.informerFactory.OfflineVirtualMachine()
 
@@ -191,10 +217,12 @@ func (vca *VirtControllerApp) Run() {
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
 					vca.informerFactory.Start(stop)
+					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmPresetController.Run(controllerThreads, stop)
-					go vca.ovmController.Run(3, stop)
+					go vca.ovmController.Run(controllerThreads, stop)
+					go vca.configMapInformer.Run(stop)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -223,13 +251,10 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService, err = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret)
-	if err != nil {
-		golog.Fatal(err)
-	}
-	vca.vmService = services.NewVMService(vca.clientSet, vca.restClient, vca.templateService)
-	vca.vmController = NewVMController(vca.restClient, vca.vmService, vca.vmQueue, vca.vmCache, vca.vmInformer, vca.podInformer, nil, vca.clientSet)
+	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
+	vca.vmController = NewVMController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet, vca.configMapInformer)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
+	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmInformer, nil)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

@@ -48,13 +48,11 @@ var _ = Describe("Domain notify", func() {
 	var deleteNotificationSent chan watch.Event
 	var client *DomainEventClient
 
-	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
 	var ctrl *gomock.Controller
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
 
 		stop = make(chan struct{})

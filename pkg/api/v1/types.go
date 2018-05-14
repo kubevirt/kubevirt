@@ -144,6 +144,15 @@ type VirtualMachineSpec struct {
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vm.
 	Volumes []Volume `json:"volumes,omitempty"`
+	// Specifies the hostname of the vm
+	// If not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.
+	// +optional
+	Hostname string `json:"hostname,omitempty"`
+	// If specified, the fully qualified vm hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
+	// If not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm,
+	// no matter if the vm itself can pick up a hostname.
+	// +optional
+	Subdomain string `json:"subdomain,omitempty"`
 }
 
 // Affinity groups all the affinity rules related to a VM
@@ -184,12 +193,28 @@ func (v *VirtualMachine) IsReady() bool {
 	return v.IsRunning()
 }
 
+func (v *VirtualMachine) IsScheduling() bool {
+	return v.Status.Phase == Scheduling
+}
+
+func (v *VirtualMachine) IsScheduled() bool {
+	return v.Status.Phase == Scheduled
+}
+
 func (v *VirtualMachine) IsRunning() bool {
 	return v.Status.Phase == Running
 }
 
 func (v *VirtualMachine) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
+}
+
+func (v *VirtualMachine) IsUnknown() bool {
+	return v.Status.Phase == Unknown
+}
+
+func (v *VirtualMachine) IsUnprocessed() bool {
+	return v.Status.Phase == Pending || v.Status.Phase == VmPhaseUnset
 }
 
 // Required to satisfy Object interface
@@ -280,29 +305,33 @@ const (
 	VmPhaseUnset VMPhase = ""
 	// Pending means the VM has been accepted by the system.
 	Pending VMPhase = "Pending"
-	// Either a target pod does not yet exist or a target Pod exists but is not yet scheduled and in running state.
+	// A target Pod exists but is not yet scheduled and in running state.
 	Scheduling VMPhase = "Scheduling"
 	// A target pod was scheduled and the system saw that Pod in runnig state.
 	// Here is where the responsibility of virt-controller ends and virt-handler takes over.
 	Scheduled VMPhase = "Scheduled"
-	// VMRunning means the pod has been bound to a node and the VM is started.
+	// Running means the pod has been bound to a node and the VM is started.
 	Running VMPhase = "Running"
-	// VMSucceeded means that the VM stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
+	// Succeeded means that the VM stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
 	// inside the VM.
 	Succeeded VMPhase = "Succeeded"
-	// VMFailed means that associated Pod is in failure state (exited with a non-zero exit code or was stopped by
-	// the system).
+	// Failed means that the vm crashed, disappeared unexpectedly or got deleted from the cluster before it was ever started.
 	Failed VMPhase = "Failed"
-	// VMUnknown means that for some reason the state of the VM could not be obtained, typically due
+	// Unknown means that for some reason the state of the VM could not be obtained, typically due
 	// to an error in communicating with the host of the VM.
 	Unknown VMPhase = "Unknown"
 )
 
 const (
-	AppLabel      string = "kubevirt.io"
-	DomainLabel   string = "kubevirt.io/domain"
-	VMUIDLabel    string = "kubevirt.io/vmUID"
-	NodeNameLabel string = "kubevirt.io/nodeName"
+	AppLabel             string = "kubevirt.io"
+	DomainLabel          string = "kubevirt.io/domain"
+	CreatedByAnnotation  string = "kubevirt.io/created-by"
+	OwnedByAnnotation    string = "kubevirt.io/owned-by"
+	NodeNameLabel        string = "kubevirt.io/nodeName"
+	NodeSchedulable      string = "kubevirt.io/schedulable"
+	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
+
+	VirtualMachineFinalizer string = "foregroundDeleteVirtualMachine"
 )
 
 func NewVM(name string, uid types.UID) *VirtualMachine {
@@ -687,6 +716,10 @@ type OfflineVirtualMachineSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineStatus struct {
+	// Created indicates if the virtual machine is created in the cluster
+	Created bool `json:"created,omitempty"`
+	// Ready indicates if the virtual machine is running and ready
+	Ready bool `json:"ready,omitempty"`
 	// Hold the state information of the OfflineVirtualMachine and its VirtualMachine
 	Conditions []OfflineVirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
 }
@@ -722,8 +755,4 @@ const (
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "Failure"
-
-	// OfflineVirtualMachineRunning is added in a offline virtual machine when the VM succesfully runs.
-	// After this condition was added, the VM is up and running.
-	OfflineVirtualMachineRunning OfflineVirtualMachineConditionType = "Running"
 )

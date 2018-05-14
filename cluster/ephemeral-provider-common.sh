@@ -2,23 +2,23 @@
 
 set -e
 
-_cli='docker run --privileged --rm -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/cli@sha256:b0023d1863338ef04fa0b8a8ee5956ae08616200d89ffd2e230668ea3deeaff4'
+_cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock kubevirtci/gocli@sha256:aa7f295a7908fa333ab5e98ef3af0bfafbabfd3cee2b83f9af47f722e3000f6a"
 
 function _main_ip() {
     echo 127.0.0.1
 }
 
 function _port() {
-    ${_cli} port --prefix $provider_prefix "$@"
+    ${_cli} ports --prefix $provider_prefix "$@"
 }
 
 function prepare_config() {
     BASE_PATH=${KUBEVIRT_PATH:-$PWD}
-    cat >hack/config-provider-$PROVIDER.sh <<EOF
+    cat >hack/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
-kubeconfig=${BASE_PATH}/cluster/$PROVIDER/.kubeconfig
-kubectl=${BASE_PATH}/cluster/$PROVIDER/.kubectl
+kubeconfig=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubeconfig
+kubectl=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubectl
 docker_prefix=localhost:$(_port registry)/kubevirt
 manifest_docker_prefix=registry:5000/kubevirt
 EOF
@@ -29,10 +29,7 @@ function _registry_volume() {
 }
 
 function _add_common_params() {
-    # Add one, 0 here means no node at all, but in the kubevirt repo it means master-only
-    local num_nodes=${VAGRANT_NUM_NODES-0}
-    num_nodes=$((num_nodes + 1))
-    local params="--nodes ${num_nodes} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) --base "kubevirtci/${image}""
+    local params="--nodes ${KUBEVIRT_NUM_NODES} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
     if [ -d "$NFS_WINDOWS_DIR" ]; then
         params="--memory 8192M --nfs-data $NFS_WINDOWS_DIR $params"
     fi
@@ -50,7 +47,7 @@ function build() {
     done
 
     # Build everyting and publish it
-    ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} PROVIDER=${PROVIDER} ./hack/build-manifests.sh"
+    ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/build-manifests.sh"
     make build docker publish
 
     # Make sure that all nodes use the newest images
@@ -61,17 +58,15 @@ function build() {
         container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
         container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
     done
-    local num_nodes=${VAGRANT_NUM_NODES-0}
-    num_nodes=$((num_nodes + 1))
-    for i in $(seq 1 ${num_nodes}); do
-        ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs --max-args=1 sudo docker pull"
-        ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs --max-args=2 sudo docker tag"
+    for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
+        ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs \-\-max-args=1 sudo docker pull"
+        ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs \-\-max-args=2 sudo docker tag"
     done
 }
 
 function _kubectl() {
-    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$PROVIDER/.kubeconfig
-    ${KUBEVIRT_PATH}cluster/$PROVIDER/.kubectl "$@"
+    export KUBECONFIG=${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
+    ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl "$@"
 }
 
 function down() {

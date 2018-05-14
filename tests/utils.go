@@ -50,7 +50,12 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"k8s.io/apimachinery/pkg/labels"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virtctl"
@@ -59,11 +64,13 @@ import (
 var KubeVirtVersionTag = "latest"
 var KubeVirtRepoPrefix = "kubevirt"
 var KubeVirtKubectlPath = ""
+var KubeVirtInstallNamespace = "kube-system"
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
+	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kube-system", "Set the namespace KubeVirt is installed in")
 }
 
 type EventType string
@@ -75,7 +82,12 @@ const (
 
 const defaultTestGracePeriod int64 = 0
 
-const SubresourceServiceAccountName = "kubevirt-subresource-test-sa"
+const (
+	SubresourceServiceAccountName = "kubevirt-subresource-test-sa"
+	AdminServiceAccountName       = "kubevirt-admin-test-sa"
+	EditServiceAccountName        = "kubevirt-edit-test-sa"
+	ViewServiceAccountName        = "kubevirt-view-test-sa"
+)
 
 const SubresourceTestLabel = "subresource-access-test-pod"
 
@@ -105,11 +117,13 @@ const (
 const (
 	osAlpineISCSI = "alpine-iscsi"
 	osWindows     = "windows"
+	CustomISCSI   = "custom-iscsi"
 )
 
 const (
 	DiskAlpineISCSI = "disk-alpine-iscsi"
 	DiskWindows     = "disk-windows"
+	DiskCustomISCSI = "disk-custom-iscsi"
 )
 
 const (
@@ -283,12 +297,12 @@ func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
 	cleanNamespaces()
-	cleanupSubresourceServiceAccount()
+	cleanupServiceAccounts()
 
-	deletePVC(osWindows)
+	DeletePVC(osWindows)
 
-	deletePVC(osAlpineISCSI)
-	deletePV(osAlpineISCSI)
+	DeletePVC(osAlpineISCSI)
+	DeletePV(osAlpineISCSI)
 
 	removeNamespaces()
 }
@@ -304,16 +318,16 @@ func BeforeTestSuitSetup() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	createNamespaces()
-	createSubresourceServiceAccount()
+	createServiceAccounts()
 	createIscsiSecrets()
 
-	createPvISCSI(osAlpineISCSI, 2)
-	createPVC(osAlpineISCSI, defaultDiskSize)
+	CreatePvISCSI(osAlpineISCSI, 2)
+	CreatePVC(osAlpineISCSI, defaultDiskSize)
 
-	createPVC(osWindows, defaultWindowsDiskSize)
+	CreatePVC(osWindows, defaultWindowsDiskSize)
 }
 
-func createPVC(os string, size string) {
+func CreatePVC(os string, size string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -346,7 +360,7 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 	}
 }
 
-func createPvISCSI(os string, lun int32) {
+func CreatePvISCSI(os string, lun int32) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -403,6 +417,66 @@ func cleanupSubresourceServiceAccount() {
 	}
 
 	err = virtCli.RbacV1().ClusterRoleBindings().Delete(SubresourceServiceAccountName, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func createServiceAccount(saName string, clusterRole string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	sa := k8sv1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: NamespaceTestDefault,
+			Labels: map[string]string{
+				"kubevirt.io/test": saName,
+			},
+		},
+	}
+
+	_, err = virtCli.CoreV1().ServiceAccounts(NamespaceTestDefault).Create(&sa)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	roleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: NamespaceTestDefault,
+			Labels: map[string]string{
+				"kubevirt.io/test": saName,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     clusterRole,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	roleBinding.Subjects = append(roleBinding.Subjects, rbacv1.Subject{
+		Kind:      "ServiceAccount",
+		Name:      saName,
+		Namespace: NamespaceTestDefault,
+	})
+
+	_, err = virtCli.RbacV1().ClusterRoleBindings().Create(&roleBinding)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func cleanupServiceAccount(saName string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	err = virtCli.RbacV1().ClusterRoleBindings().Delete(saName, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+
+	err = virtCli.CoreV1().ServiceAccounts(NamespaceTestDefault).Delete(saName, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
@@ -474,7 +548,23 @@ func createSubresourceServiceAccount() {
 	}
 }
 
-func deletePVC(os string) {
+func createServiceAccounts() {
+	createSubresourceServiceAccount()
+
+	createServiceAccount(AdminServiceAccountName, "kubevirt.io:admin")
+	createServiceAccount(ViewServiceAccountName, "kubevirt.io:view")
+	createServiceAccount(EditServiceAccountName, "kubevirt.io:edit")
+}
+
+func cleanupServiceAccounts() {
+	cleanupSubresourceServiceAccount()
+
+	cleanupServiceAccount(AdminServiceAccountName)
+	cleanupServiceAccount(ViewServiceAccountName)
+	cleanupServiceAccount(EditServiceAccountName)
+}
+
+func DeletePVC(os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -485,7 +575,7 @@ func deletePVC(os string) {
 	}
 }
 
-func deletePV(os string) {
+func DeletePV(os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -550,6 +640,14 @@ func cleanNamespaces() {
 
 		// Remove all VMs
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
+		vms, err := virtCli.VM(namespace).List(metav1.ListOptions{})
+		PanicOnError(err)
+		for _, vm := range vms.Items {
+			if controller.HasFinalizer(&vm, v1.VirtualMachineFinalizer) {
+				_, err := virtCli.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				PanicOnError(err)
+			}
+		}
 
 		// Remove all Pods
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
@@ -680,6 +778,28 @@ func AddEphemeralDisk(vm *v1.VirtualMachine, name string, bus string, image stri
 		VolumeSource: v1.VolumeSource{
 			RegistryDisk: &v1.RegistryDiskSource{
 				Image: image,
+			},
+		},
+	})
+
+	return vm
+}
+
+func AddPVCDisk(vm *v1.VirtualMachine, name string, bus string, claimName string) *v1.VirtualMachine {
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       name,
+		VolumeName: name,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: bus,
+			},
+		},
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
 			},
 		},
 	})
@@ -837,8 +957,17 @@ func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeNa
 	return waitForVmStart(vm, seconds, false)
 }
 
+func WaitForVirtualMachineToDisappearWithTimeout(vm *v1.VirtualMachine, seconds int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() bool {
+		_, err := virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, seconds, 1*time.Second).Should(BeTrue())
+}
+
 func WaitForSuccessfulVMStart(vm runtime.Object) string {
-	return waitForVmStart(vm, 30, false)
+	return waitForVmStart(vm, 90, false)
 }
 
 func NewInt32(x int32) *int32 {
@@ -952,17 +1081,21 @@ func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
 	if err != nil {
 		return nil, err
 	}
+	vmName := vm.Name
+	if vm.Spec.Hostname != "" {
+		vmName = vm.Spec.Hostname
+	}
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: vm.Name + " login:"},
+		&expect.BExp{R: vmName + " login:"},
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: "$"}})
-	res, err := expecter.ExpectBatch(b, 300*time.Second)
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
 	return expecter, err
 }
@@ -1065,10 +1198,10 @@ func SkipIfNoKubectl() {
 	}
 }
 
-func RunKubectlCommand(args ...string) error {
+func RunKubectlCommand(args ...string) (string, error) {
 	kubeconfig := flag.Lookup("kubeconfig").Value
 	if kubeconfig == nil || kubeconfig.String() == "" {
-		return fmt.Errorf("can not find kubeconfig")
+		return "", fmt.Errorf("can not find kubeconfig")
 	}
 
 	master := flag.Lookup("master").Value
@@ -1080,11 +1213,11 @@ func RunKubectlCommand(args ...string) error {
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
 	cmd.Env = append(os.Environ(), kubeconfEnv)
 
-	err := cmd.Run()
+	stdOutBytes, err := cmd.Output()
 	if err != nil {
-		return err
+		return string(stdOutBytes), err
 	}
-	return nil
+	return string(stdOutBytes), nil
 }
 
 func GenerateVmJson(vm *v1.VirtualMachine) (string, error) {
@@ -1093,10 +1226,30 @@ func GenerateVmJson(vm *v1.VirtualMachine) (string, error) {
 		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
 	}
 
-	yamlFile := fmt.Sprintf("%s.json", vm.Name)
-	err = ioutil.WriteFile(yamlFile, data, 0644)
+	jsonFile := fmt.Sprintf("%s.json", vm.Name)
+	err = ioutil.WriteFile(jsonFile, data, 0644)
 	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", yamlFile)
+		return "", fmt.Errorf("failed to write json file %s", jsonFile)
 	}
-	return yamlFile, nil
+	return jsonFile, nil
+}
+
+func NotDeleted(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
+	for _, vm := range vms.Items {
+		if vm.DeletionTimestamp == nil {
+			notDeleted = append(notDeleted, vm)
+		}
+	}
+	return
+}
+
+func UnfinishedVMPodSelector(vm *v1.VirtualMachine) metav1.ListOptions {
+	fieldSelector := fields.ParseSelectorOrDie(
+		"status.phase!=" + string(k8sv1.PodFailed) +
+			",status.phase!=" + string(k8sv1.PodSucceeded))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", vm.GetName()))
+	if err != nil {
+		panic(err)
+	}
+	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 }

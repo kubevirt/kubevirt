@@ -82,6 +82,16 @@ func setUniqueItems(prop *spec.Schema, field reflect.StructField) {
 	}
 }
 
+func setReadOnly(prop *spec.Schema, field reflect.StructField) {
+	tag := field.Tag.Get("readOnly")
+	switch tag {
+	case "true":
+		prop.ReadOnly = true
+	case "false":
+		prop.ReadOnly = false
+	}
+}
+
 func setPropertyMetadata(prop *spec.Schema, field reflect.StructField) {
 	setDescription(prop, field)
 	setDefaultValue(prop, field)
@@ -90,4 +100,5 @@ func setPropertyMetadata(prop *spec.Schema, field reflect.StructField) {
 	setMaximum(prop, field)
 	setUniqueItems(prop, field)
 	setType(prop, field)
+	setReadOnly(prop, field)
 }

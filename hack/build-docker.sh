@@ -38,13 +38,6 @@ fi
 for arg in $args; do
     BIN_NAME=$(basename $arg)
     if [ "${target}" = "build" ]; then
-        rsync -avz --exclude "**/*.md" --exclude "**/*.go" --exclude "**/.*" $arg/ ${CMD_OUT_DIR}/${BIN_NAME}/
-        # TODO the version of docker we're using in our vagrant dev environment
-        # does not support using ARGS in FROM field.
-        # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
-        # Because of this we have to manipulate the Dockerfile for kubevirt containers
-        # that depend on other kubevirt containers.
-        cat $arg/Dockerfile | sed -e "s#kubevirt/registry-disk-v1alpha#${docker_prefix}/registry-disk-v1alpha\:${docker_tag}#g" >${CMD_OUT_DIR}/${BIN_NAME}/Dockerfile
         (
             cd ${CMD_OUT_DIR}/${BIN_NAME}/
             docker $target -t ${docker_prefix}/${BIN_NAME}:${docker_tag} --label ${job_prefix} --label ${BIN_NAME} .

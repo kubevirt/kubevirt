@@ -36,6 +36,8 @@ import (
 
 	"time"
 
+	"fmt"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -55,7 +57,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 	doScale := func(name string, scale int32) {
 
 		// Status updates can conflict with our desire to change the spec
-		By("Scaling")
+		By(fmt.Sprintf("Scaling to %d", scale))
 		var rs *v1.VirtualMachineReplicaSet
 		for {
 			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(name, v12.GetOptions{})
@@ -75,11 +77,11 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
-		}, 10, 1).Should(Equal(int32(scale)))
+		}, 60, 1).Should(Equal(int32(scale)))
 
 		vms, err := virtClient.VM(tests.NamespaceTestDefault).List(v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vms.Items).To(HaveLen(int(scale)))
+		Expect(tests.NotDeleted(vms)).To(HaveLen(int(scale)))
 	}
 
 	newReplicaSet := func() *v1.VirtualMachineReplicaSet {
@@ -99,7 +101,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 
 	},
 		table.Entry("to three, to two and then to zero replicas", 3, 2),
-		table.Entry("to four, to six and then to zero replicas", 5, 6),
+		table.Entry("to five, to six and then to zero replicas", 5, 6),
 	)
 
 	It("should be rejected on POST if spec is invalid", func() {
@@ -122,6 +124,35 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		result.StatusCode(&statusCode)
 		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
+	})
+	It("should reject POST if validation webhoook deems the spec is invalid", func() {
+		newRS := newReplicaSet()
+		newRS.TypeMeta = v12.TypeMeta{
+			APIVersion: v1.GroupVersion.String(),
+			Kind:       "VirtualMachineReplicaSet",
+		}
+
+		// Add a disk that doesn't map to a volume.
+		// This should get rejected which tells us the webhook validator is working.
+		newRS.Spec.Template.Spec.Domain.Devices.Disks = append(newRS.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name:       "testdisk",
+			VolumeName: "testvolume",
+		})
+
+		result := virtClient.RestClient().Post().Resource("virtualmachinereplicasets").Namespace(tests.NamespaceTestDefault).Body(newRS).Do()
+
+		// Verify validation failed.
+		statusCode := 0
+		result.StatusCode(&statusCode)
+		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
+
+		reviewResponse := &v12.Status{}
+		body, _ := result.Raw()
+		err = json.Unmarshal(body, reviewResponse)
+		Expect(err).To(BeNil())
+
+		Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
+		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].volumeName"))
 	})
 	It("should update readyReplicas once VMs are up", func() {
 		newRS := newReplicaSet()

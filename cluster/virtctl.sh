@@ -21,7 +21,7 @@ set -e
 
 source $(dirname "$0")/../hack/common.sh
 
-source ${KUBEVIRT_DIR}/cluster/$PROVIDER/provider.sh
+source ${KUBEVIRT_DIR}/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source ${KUBEVIRT_DIR}/hack/config.sh
 
 ${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl --kubeconfig=${kubeconfig} "$@"

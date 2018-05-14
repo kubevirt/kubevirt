@@ -902,6 +902,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: spec.SchemaProps{
 					Description: "OfflineVirtualMachineStatus represents the status returned by the controller to describe how the OfflineVirtualMachine is doing",
 					Properties: map[string]spec.Schema{
+						"created": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Created indicates if the virtual machine is created in the cluster",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"ready": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Ready indicates if the virtual machine is running and ready",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
 						"conditions": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
@@ -1603,6 +1617,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 										},
 									},
 								},
+							},
+						},
+						"hostname": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Specifies the hostname of the vm If not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"subdomain": {
+							SchemaProps: spec.SchemaProps{
+								Description: "If specified, the fully qualified vm hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm, no matter if the vm itself can pick up a hostname.",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 					},

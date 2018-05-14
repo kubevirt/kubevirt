@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -29,6 +29,7 @@ import (
 
 	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -60,7 +61,8 @@ func markReady(readinessFile string) {
 
 func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
-	stopChan chan struct{}) {
+	stopChan chan struct{},
+	options *cmdserver.ServerOptions) {
 
 	err := os.RemoveAll(socketPath)
 	if err != nil {
@@ -74,12 +76,32 @@ func startCmdServer(socketPath string,
 		panic(err)
 	}
 
-	err = cmdserver.RunServer(socketPath, domainManager, stopChan)
+	err = cmdserver.RunServer(socketPath, domainManager, stopChan, options)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
 		panic(err)
 	}
 
+	// ensure the cmdserver is responsive before continuing
+	// PollImmediate breaks the poll loop when bool or err are returned OR if timeout occurs.
+	//
+	// Timing out causes an error to be returned
+	err = utilwait.PollImmediate(1*time.Second, 15*time.Second, func() (bool, error) {
+		client, err := cmdclient.GetClient(socketPath)
+		if err != nil {
+			return false, nil
+		}
+
+		err = client.Ping()
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		panic(fmt.Errorf("failed to connect to cmd server: %v", err))
+	}
 }
 
 func createLibvirtConnection() virtcli.Connection {
@@ -205,7 +227,9 @@ func main() {
 	namespace := flag.String("namespace", "", "Namespace of the VM")
 	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
-	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process.")
+	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
+	allowEmulation := flag.Bool("allow-emulation", false, "Allow fallback to emulation if /dev/kvm is not present")
+
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -234,8 +258,9 @@ func main() {
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
+	options := cmdserver.NewServerOptions(*allowEmulation)
 	socketPath := cmdclient.SocketFromNamespaceName(*virtShareDir, *namespace, *name)
-	startCmdServer(socketPath, domainManager, stopChan)
+	startCmdServer(socketPath, domainManager, stopChan, options)
 
 	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
 		*namespace,

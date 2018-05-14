@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -47,7 +47,7 @@ import (
 )
 
 type DomainManager interface {
-	SyncVM(*v1.VirtualMachine) (*api.DomainSpec, error)
+	SyncVM(*v1.VirtualMachine, bool) (*api.DomainSpec, error)
 	KillVM(*v1.VirtualMachine) error
 	SignalShutdownVM(*v1.VirtualMachine) error
 	ListAllDomains() ([]*api.Domain, error)
@@ -85,7 +85,12 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	// generate cloud-init data
 	cloudInitData := cloudinit.GetCloudInitNoCloudSource(vm)
 	if cloudInitData != nil {
-		err := cloudinit.GenerateLocalData(vm.Name, vm.Namespace, cloudInitData)
+		hostname := vm.Name
+		if vm.Spec.Hostname != "" {
+			hostname = vm.Spec.Hostname
+		}
+
+		err := cloudinit.GenerateLocalData(vm.Name, hostname, vm.Namespace, cloudInitData)
 		if err != nil {
 			return domain, err
 		}
@@ -110,7 +115,7 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachine, domain *api.D
 	return domain, err
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
 	domain := &api.Domain{}
@@ -118,6 +123,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine) (*api.DomainSpec, e
 	// Map the VirtualMachine to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vm,
+		AllowEmulation: allowEmulation,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c); err != nil {
 		logger.Error("Conversion failed.")
@@ -270,6 +276,9 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	// TODO: Graceful shutdown
 	domState, _, err := dom.GetState()
 	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			return nil
+		}
 		log.Log.Object(vm).Reason(err).Error("Getting the domain state failed.")
 		return err
 	}
@@ -277,6 +286,9 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
 		err = dom.Destroy()
 		if err != nil {
+			if domainerrors.IsNotFound(err) {
+				return nil
+			}
 			log.Log.Object(vm).Reason(err).Error("Destroying the domain state failed.")
 			return err
 		}
@@ -285,6 +297,9 @@ func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachine) error {
 
 	err = dom.Undefine()
 	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			return nil
+		}
 		log.Log.Object(vm).Reason(err).Error("Undefining the domain state failed.")
 		return err
 	}
