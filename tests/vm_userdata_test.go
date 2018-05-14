@@ -162,7 +162,7 @@ var _ = Describe("CloudInit UserData", func() {
 
 		It("should take user-data from k8s secret", func(done Done) {
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
-			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
+			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "")
 
 			for _, volume := range vm.Spec.Volumes {
 				if volume.CloudInitNoCloud == nil {
@@ -172,8 +172,6 @@ var _ = Describe("CloudInit UserData", func() {
 				secretID := fmt.Sprintf("%s-test-secret", vm.Name)
 				spec := volume.CloudInitNoCloud
 				spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
-				userData64 := spec.UserDataBase64
-				spec.UserDataBase64 = ""
 
 				// Store userdata as k8s secret
 				By("Creating a user-data secret")
@@ -184,10 +182,12 @@ var _ = Describe("CloudInit UserData", func() {
 					},
 					Type: "Opaque",
 					Data: map[string][]byte{
-						"userdata": []byte(userData64),
+						"userdata": []byte(userData), // The client will encrypt/decrypt for us
 					},
 				}
 				_, err := virtClient.CoreV1().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret)
+				fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAA")
+				time.Sleep(1000 * time.Minute)
 				Expect(err).To(BeNil())
 				break
 			}

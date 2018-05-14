@@ -33,7 +33,10 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/util/exec"
 
+	v12 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
@@ -85,12 +88,50 @@ func ServeExec(w http.ResponseWriter, req *http.Request, executor Executor, vm *
 }
 
 type SSHExecutor struct {
+	KubeCli kubecli.KubevirtClient
 }
 
-func (*SSHExecutor) ExecInVirtualMachine(vm *v1.VirtualMachine, cmd []string, in io.Reader, out, errWriteCloser io.WriteCloser, tty bool, resize <-chan remotecommand.TerminalSize, timeout time.Duration) error {
+func extractValue(secret *v12.Secret, key string) (string, error) {
+
+	valueBase, ok := secret.Data[key]
+	if ok == false {
+		return "", fmt.Errorf("key %v does not exist", key)
+	}
+	return string(valueBase), nil
+}
+
+func (e *SSHExecutor) ExecInVirtualMachine(vm *v1.VirtualMachine, cmd []string, in io.Reader, out, errWriteCloser io.WriteCloser, tty bool, resize <-chan remotecommand.TerminalSize, timeout time.Duration) error {
+	var user string
+	var password string
+	var port string
+
+	for _, volume := range vm.Spec.Volumes {
+		if volume.CloudInitNoCloud != nil && volume.CloudInitNoCloud.UserDataSecretRef != nil {
+			secret, err := e.KubeCli.CoreV1().Secrets(vm.Namespace).Get(volume.CloudInitNoCloud.UserDataSecretRef.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			user, err = extractValue(secret, "ssh.user")
+			if err != nil {
+				return err
+			}
+
+			password, err = extractValue(secret, "ssh.password")
+			if err != nil {
+				return err
+			}
+
+			port, err = extractValue(secret, "ssh.port")
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
 
 	ip := vm.Status.Interfaces[0].IP
-	tcpConn, err := net.Dial("tcp", ip+":22")
+	tcpConn, err := net.Dial("tcp", ip+":"+port)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to create tcp connection")
 		return fmt.Errorf("could not open tcp connection: %v", err)
@@ -99,11 +140,10 @@ func (*SSHExecutor) ExecInVirtualMachine(vm *v1.VirtualMachine, cmd []string, in
 	log.Log.V(4).Infof("tcp connection to %v:%v established", ip, "22")
 
 	sshConfig := &ssh.ClientConfig{
-		User: "cirros",
+		User: user,
 		Auth: []ssh.AuthMethod{
 			ssh.PasswordCallback(func() (string, error) {
-				log.Log.Info("callback reached")
-				return string("gocubsgo"), nil
+				return string(password), nil
 			}),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),

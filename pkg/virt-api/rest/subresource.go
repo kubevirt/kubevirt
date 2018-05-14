@@ -221,7 +221,7 @@ func (app *SubresourceAPIApp) WSSHRequestHandler(request *restful.Request, respo
 		Stdout: stdout,
 		Stderr: stderr,
 	}
-	executor := remotecommand2.SSHExecutor{}
+	executor := remotecommand2.SSHExecutor{KubeCli: app.VirtCli}
 	remotecommand2.ServeExec(response.ResponseWriter, request.Request,
 		&executor, vm, request.Request.URL.Query()["command"], opts, 1*time.Minute, 1*time.Minute, remotecommand3.SupportedStreamingProtocols)
 }

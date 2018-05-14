@@ -172,11 +172,8 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 	if ok == false {
 		return errors.New(fmt.Sprintf("no user-data value found in k8s secret %s %v", secretID, err))
 	}
-	userData, err := base64.StdEncoding.DecodeString(string(userDataBase64))
-	if err != nil {
-		return err
-	}
-	source.UserData = string(userData)
+
+	source.UserData = string(userDataBase64)
 	return nil
 }
 
