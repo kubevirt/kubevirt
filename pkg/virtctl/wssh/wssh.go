@@ -30,7 +30,7 @@ import (
 
 	"strings"
 
-	"fmt"
+	"strconv"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -77,10 +77,22 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	stdin, err := cmd.Flags().GetBool("stdin")
+	if err != nil {
+		return err
+	}
+
+	tty, err := cmd.Flags().GetBool("tty")
+	if err != nil {
+		return err
+	}
+
 	q := req.URL.Query()
-	q.Set("tty", "true")
-	q.Set("stdin", "true")
+	q.Set("tty", strconv.FormatBool(tty))
+	q.Set("stdin", strconv.FormatBool(stdin))
 	q.Set("stdout", "true")
+	q.Set("stderr", strconv.FormatBool(!tty))
 	q.Set("command", strings.Join(args[1:], " "))
 	req.URL.RawQuery = q.Encode()
 	req.URL.Scheme = "https"
@@ -89,11 +101,15 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println("laa")
+	stderrStream := os.Stderr
+	if tty {
+		stderrStream = nil
+	}
+
 	return executor.Stream(remotecommand.StreamOptions{
-		Tty:    true,
+		Tty:    tty,
 		Stdin:  os.Stdin,
-		Stdout: os.Stdin,
-		Stderr: os.Stderr,
+		Stdout: os.Stdout,
+		Stderr: stderrStream,
 	})
 }

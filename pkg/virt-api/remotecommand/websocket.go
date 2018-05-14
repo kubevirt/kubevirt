@@ -14,22 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rest
+package remotecommand
 
 import (
 	"fmt"
 	"net/http"
 	"time"
 
-	"encoding/json"
-	"io"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/server/httplog"
 	"k8s.io/apiserver/pkg/util/wsstream"
-	"k8s.io/client-go/tools/remotecommand"
 )
 
 const (
@@ -44,28 +38,6 @@ const (
 	v4BinaryWebsocketProtocol    = "v4." + wsstream.ChannelWebSocketProtocol
 	v4Base64WebsocketProtocol    = "v4." + wsstream.Base64ChannelWebSocketProtocol
 )
-
-// Options contains details about which streams are required for
-// remote command execution.
-type Options struct {
-	Stdin  bool
-	Stdout bool
-	Stderr bool
-	TTY    bool
-}
-
-// context contains the connection and streams used when
-// forwarding an attach or execute session into a container.
-type context struct {
-	conn         io.Closer
-	stdinStream  io.ReadCloser
-	stdoutStream io.WriteCloser
-	stderrStream io.WriteCloser
-	writeStatus  func(status *errors.StatusError) error
-	resizeStream io.ReadCloser
-	resizeChan   chan remotecommand.TerminalSize
-	tty          bool
-}
 
 // createChannels returns the standard channel types for a shell connection (STDIN 0, STDOUT 1, STDERR 2)
 // along with the approximate duplex value. It also creates the error (3) and resize (4) channels.
@@ -157,27 +129,4 @@ func createWebSocketStreams(req *http.Request, w http.ResponseWriter, opts *Opti
 	}
 
 	return ctx, true
-}
-
-func v1WriteStatusFunc(stream io.Writer) func(status *errors.StatusError) error {
-	return func(status *errors.StatusError) error {
-		if status.Status().Status == v1.StatusSuccess {
-			return nil // send error messages
-		}
-		_, err := stream.Write([]byte(status.Error()))
-		return err
-	}
-}
-
-// v4WriteStatusFunc returns a WriteStatusFunc that marshals a given api Status
-// as json in the error channel.
-func v4WriteStatusFunc(stream io.Writer) func(status *errors.StatusError) error {
-	return func(status *errors.StatusError) error {
-		bs, err := json.Marshal(status.Status())
-		if err != nil {
-			return err
-		}
-		_, err = stream.Write(bs)
-		return err
-	}
 }

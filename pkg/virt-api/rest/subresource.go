@@ -23,30 +23,27 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"time"
 
 	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	remotecommand3 "k8s.io/apimachinery/pkg/util/remotecommand"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"net"
-
-	"time"
-
-	"golang.org/x/crypto/ssh"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	remotecommand2 "kubevirt.io/kubevirt/pkg/virt-api/remotecommand"
 )
 
 type SubresourceAPIApp struct {
@@ -200,9 +197,16 @@ func (app *SubresourceAPIApp) WSSHRequestHandler(request *restful.Request, respo
 	log.Log.Info("aaaaaaaaaaaaa")
 	vmName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-	command := request.QueryParameter("command")
 	tty := request.QueryParameter("tty") == "true"
-	interactive := request.QueryParameter("strin") == "true"
+	stdin := request.QueryParameter("stdin") == "true"
+	stdout := request.QueryParameter("stdout") == "true"
+	stderr := request.QueryParameter("stderr") == "true"
+
+	if stderr && tty {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("tty and stderr can't be true at the same time"))
+		return
+	}
+
 	vm, httpResponseCode, err := app.isVirtualMachineReady(vmName, namespace)
 	if err != nil {
 		log.Log.Info("aaaaaaaaaaaaa")
@@ -211,126 +215,15 @@ func (app *SubresourceAPIApp) WSSHRequestHandler(request *restful.Request, respo
 	}
 	log.Log.Info("bbbbbbbbbbbbbbbb")
 
-	ctx, ok := createWebSocketStreams(request.Request, response.ResponseWriter, &Options{
-		Stdin:  interactive,
+	opts := &remotecommand2.Options{
+		Stdin:  stdin,
 		TTY:    tty,
-		Stdout: true,
-		Stderr: true,
-	}, 1*time.Minute)
-
-	if !ok {
-		log.Log.Info("aaaaaaaaaaaaa")
-		return
+		Stdout: stdout,
+		Stderr: stderr,
 	}
-	log.Log.Infof("xxxxxxxxxxxxxx")
-	defer ctx.conn.Close()
-
-	ip := vm.Status.Interfaces[0].IP
-	tcpConn, err := net.Dial("tcp", ip+":22")
-	if err != nil {
-		response.WriteError(http.StatusServiceUnavailable, fmt.Errorf("could not open tcp connection: %v", err))
-		return
-	}
-	defer tcpConn.Close()
-
-	log.Log.Infof("Websocket connection upgraded")
-	sshConfig := &ssh.ClientConfig{
-		User: "cirros",
-		Auth: []ssh.AuthMethod{
-			ssh.PasswordCallback(func() (string, error) {
-				log.Log.Info("callback reached")
-				return string("gocubsgo"), nil
-			}),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-	sshCon, chans, reqs, err := ssh.NewClientConn(tcpConn, "whatever", sshConfig)
-	if err != nil {
-		log.Log.Reason(err).Error("Failed to create ssh connection")
-		response.WriteError(http.StatusServiceUnavailable, fmt.Errorf("failed to create ssh connection: %v", err))
-		return
-	}
-	log.Log.Info("ssh connection established")
-	cli := ssh.NewClient(sshCon, chans, reqs)
-
-	session, err := cli.NewSession()
-	if err != nil {
-		log.Log.Reason(err).Error("Failed to create session")
-		response.WriteError(http.StatusServiceUnavailable, fmt.Errorf("failed to create session: %v", err))
-		return
-	}
-	log.Log.Info("ssh session created")
-	defer session.Close()
-
-	if tty {
-		modes := ssh.TerminalModes{
-			ssh.ECHO:          0,     // disable echoing
-			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
-		}
-
-		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-			log.Log.Reason(err).Error("Failed to allocate pseudo terminal")
-			response.WriteError(http.StatusInternalServerError, fmt.Errorf("failed to allocate pseudo terminal: %v", err))
-			return
-		}
-		log.Log.Info("tty created")
-	}
-
-	errChan := make(chan error)
-
-	if interactive {
-
-		stdin, err := session.StdinPipe()
-		if err != nil {
-			log.Log.Reason(err).Error("Unable to setup stdin for session")
-			response.WriteError(http.StatusInternalServerError, fmt.Errorf("unable to setup stdin for session: %v", err))
-			return
-		}
-		go func() {
-			_, err := io.Copy(stdin, ctx.stdinStream)
-			errChan <- err
-		}()
-		log.Log.Info("interactive")
-	}
-
-	stdout, err := session.StdoutPipe()
-	if err != nil {
-		log.Log.Reason(err).Error("Unable to setup stdout for session")
-		response.WriteError(http.StatusInternalServerError, fmt.Errorf("unable to setup stdout for session: %v", err))
-		return
-	}
-	go func() {
-		_, err := io.Copy(ctx.stdoutStream, stdout)
-		errChan <- err
-	}()
-
-	stderr, err := session.StderrPipe()
-	if err != nil {
-		log.Log.Reason(err).Error("Unable to setup stderr for session")
-		response.WriteError(http.StatusInternalServerError, fmt.Errorf("unable to setup stderr for session: %v", err))
-		return
-	}
-	go func() {
-		_, err := io.Copy(ctx.stderrStream, stderr)
-		errChan <- err
-	}()
-
-	go func() {
-		errChan <- session.Run(command)
-	}()
-	err = <-errChan
-	fmt.Println()
-
-	log.Log.Info("let's go")
-	select {
-	case err := <-errChan:
-		if err != nil {
-			log.Log.Reason(err).Error("Error in websocket proxy")
-			httpResponseCode = http.StatusInternalServerError
-		}
-	}
-	response.WriteHeader(httpResponseCode)
+	executor := remotecommand2.SSHExecutor{}
+	remotecommand2.ServeExec(response.ResponseWriter, request.Request,
+		&executor, vm, request.Request.URL.Query()["command"], opts, 1*time.Minute, 1*time.Minute, remotecommand3.SupportedStreamingProtocols)
 }
 
 func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, error) {
