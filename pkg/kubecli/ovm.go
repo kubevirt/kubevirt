@@ -94,7 +94,7 @@ func (o *ovm) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Resource(o.resource).
 		Namespace(o.namespace).
 		Name(name).
-		Body(&options).
+		Body(options).
 		Do().
 		Error()
 
