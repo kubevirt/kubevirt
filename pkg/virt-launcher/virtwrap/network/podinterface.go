@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	//"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/proxy"
 )
 
 var CommonFakeVMIP = "192.168.0.2/24"
@@ -196,7 +195,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 func (b *BridgePodInterface) startDHCPServer() {
 	// Start DHCP Server
 	fakeServerAddr, _ := netlink.ParseAddr(bridgeFakeIP)
-	go Handler.StartDHCP(b.vif, fakeServerAddr)
+	Handler.StartDHCP(b.vif, fakeServerAddr)
 }
 
 func (b *BridgePodInterface) decorateInterfaceConfig(ifconf *api.Interface) {

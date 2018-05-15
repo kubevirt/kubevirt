@@ -153,21 +153,23 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 
 	// panic in case the DHCP server failed during the vm creation
 	// but ignore dhcp errors when the vm is destroyed or shutting down
-	if err = DHCPServer(
-		nic.MAC,
-		nic.IP.IP,
-		nic.IP.Mask,
-		api.DefaultBridgeName,
-		serverAddr.IP,
-		nic.Gateway,
-		nameservers,
-		nic.Routes,
-		searchDomains,
-		nic.Mtu,
-	); err != nil {
-		log.Log.Errorf("failed to run DHCP: %v", err)
-		panic(err)
-	}
+	go func() {
+		if err = DHCPServer(
+			nic.MAC,
+			nic.IP.IP,
+			nic.IP.Mask,
+			api.DefaultBridgeName,
+			serverAddr.IP,
+			nic.Gateway,
+			nameservers,
+			nic.Routes,
+			searchDomains,
+			nic.Mtu,
+		); err != nil {
+			log.Log.Errorf("failed to run DHCP: %v", err)
+			panic(err)
+		}
+	}()
 }
 
 // Allow mocking for tests
