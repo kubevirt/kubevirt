@@ -10,6 +10,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
+	"k8s.io/kubernetes/staging/src/k8s.io/apimachinery/pkg/util/json"
 )
 
 func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -38,17 +39,25 @@ type Version struct {
 }
 
 func (v *Version) Run(cmd *cobra.Command, args []string) error {
+	fmt.Printf("Client Version: %s\n", fmt.Sprintf("%#v", version.Get()))
+
 	virCli, err := kubecli.GetKubevirtClientFromClientConfig(v.clientConfig)
 	if err != nil {
 		return err
 	}
 
 	result := virCli.RestClient().Get().RequestURI("/apis/subresources.kubevirt.io/v1alpha1/version").Do()
-	fmt.Println(result)
-	data, _ := result.Raw()
-	fmt.Println(data)
-	fmt.Println(result.Error())
+	data, err := result.Raw()
+	if err != nil {
+		return err
+	}
 
-	fmt.Printf("Client Version: %s\n", fmt.Sprintf("%#v", version.Get()))
+	var serverInfo version.Info
+	json.Unmarshal(data,&serverInfo)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Server Version: %s\n", fmt.Sprintf("%#v", serverInfo))
 	return nil
 }
