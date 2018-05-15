@@ -8,6 +8,8 @@ import (
 
 	"k8s.io/client-go/tools/clientcmd"
 
+	"net/url"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -49,6 +51,12 @@ func (v *Version) Run(cmd *cobra.Command, args []string) error {
 	result := virCli.RestClient().Get().RequestURI("/apis/subresources.kubevirt.io/v1alpha1/version").Do()
 	data, err := result.Raw()
 	if err != nil {
+		connErr, isConnectionErr := err.(*url.Error)
+
+		if isConnectionErr {
+			return connErr.Err
+		}
+
 		return err
 	}
 
