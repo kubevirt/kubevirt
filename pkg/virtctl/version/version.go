@@ -1,6 +1,7 @@
 package version
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -10,7 +11,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
-	"k8s.io/kubernetes/staging/src/k8s.io/apimachinery/pkg/util/json"
 )
 
 func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -53,7 +53,7 @@ func (v *Version) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	var serverInfo version.Info
-	json.Unmarshal(data,&serverInfo)
+	json.Unmarshal(data, &serverInfo)
 	if err != nil {
 		return err
 	}
