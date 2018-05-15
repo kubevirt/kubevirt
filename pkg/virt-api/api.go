@@ -204,6 +204,7 @@ func subresourceAPIGroup() metav1.APIGroup {
 func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 
 	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
+	//versionGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "version"}
 
 	subws := new(restful.WebService)
 	subws.Doc("The KubeVirt Subresource API.")
@@ -232,6 +233,13 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("test").
 		Doc("Test endpoint verifying apiserver connectivity."))
+
+	subws.Route(subws.GET(rest.SubResourcePath("version")).
+		To(func(request *restful.Request, response *restful.Response) {
+			//response.WriteAsJson(version.Get())
+			response.WriteHeader(http.StatusOK)
+		}).
+		Operation("version"))
 
 	// Return empty api resource list.
 	// K8s expects to be able to retrieve a resource list for each aggregated

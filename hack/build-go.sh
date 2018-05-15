@@ -21,6 +21,7 @@ set -e
 
 source hack/common.sh
 source hack/config.sh
+source hack/version.sh
 
 if [ -z "$1" ]; then
     target="install"
@@ -79,13 +80,13 @@ for arg in $args; do
 
             # always build and link the linux/amd64 binary
             LINUX_NAME=${ARCH_BASENAME}-linux-amd64
-            GOOS=linux GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME}
+            GOOS=linux GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)"
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${LINUX_NAME} ${BIN_NAME})
 
             # build virtctl also for darwin and windows
             if [ "${BIN_NAME}" = "virtctl" ]; then
-                GOOS=darwin GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64
-                GOOS=windows GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe
+                GOOS=darwin GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)"
+                GOOS=windows GOARCH=amd64 go build -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)"
             fi
         )
     else
