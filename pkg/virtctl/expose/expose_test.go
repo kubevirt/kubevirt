@@ -18,6 +18,7 @@ var _ = Describe("Expose", func() {
 		kubecli.InvalidFakeClient = false
 		kubecli.InvalidFakeResource = false
 		kubecli.InvalidFakeService = false
+		kubecli.CurrentFakeLabel = map[string]string{"vmname": "testvm"}
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetFakeKubevirtClientFromClientConfig
 	})
 
@@ -50,6 +51,7 @@ var _ = Describe("Expose", func() {
 				err := cmd.RunE(cmd, []string{"vm", "testvm"})
 				Expect(err).To(BeNil())
 				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeClusterIP))
+				Expect(kubecli.CurrentFakeService.Spec.Selector).To(Equal(kubecli.CurrentFakeLabel))
 			})
 		})
 		Context("With unknown resource", func() {
@@ -70,6 +72,7 @@ var _ = Describe("Expose", func() {
 				err := cmd.RunE(cmd, []string{"ovm", "testvm"})
 				Expect(err).To(BeNil())
 				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeClusterIP))
+				Expect(kubecli.CurrentFakeService.Spec.Selector).To(Equal(kubecli.CurrentFakeLabel))
 			})
 		})
 		Context("With cluster-ip on an vm replica set", func() {
@@ -80,6 +83,7 @@ var _ = Describe("Expose", func() {
 				err := cmd.RunE(cmd, []string{"vmrs", "testvm"})
 				Expect(err).To(BeNil())
 				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeClusterIP))
+				Expect(kubecli.CurrentFakeService.Spec.Selector).To(Equal(kubecli.CurrentFakeLabel))
 			})
 		})
 		Context("With invalid type on a vm", func() {
@@ -97,7 +101,7 @@ var _ = Describe("Expose", func() {
 		Context("With node-port on a vm", func() {
 			It("should succeed", func() {
 				var flags pflag.FlagSet
-				if flags.Set("type", "kaboom") != nil {
+				if flags.Set("type", "NodePort") != nil {
 					Skip("Didn't manage to set flag")
 				}
 				clientConfig := kubecli.DefaultClientConfig(&flags)
@@ -105,12 +109,13 @@ var _ = Describe("Expose", func() {
 				err := cmd.RunE(cmd, []string{"vm", "testvm"})
 				Expect(err).To(BeNil())
 				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeNodePort))
+				Expect(kubecli.CurrentFakeService.Spec.Selector).To(Equal(kubecli.CurrentFakeLabel))
 			})
 		})
 		Context("With node-port on an ovm", func() {
 			It("should succeed", func() {
 				var flags pflag.FlagSet
-				if flags.Set("type", "kaboom") != nil {
+				if flags.Set("type", "NodePort") != nil {
 					Skip("Didn't manage to set flag")
 				}
 				clientConfig := kubecli.DefaultClientConfig(&flags)
@@ -118,12 +123,13 @@ var _ = Describe("Expose", func() {
 				err := cmd.RunE(cmd, []string{"ovm", "testvm"})
 				Expect(err).To(BeNil())
 				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeNodePort))
+				Expect(kubecli.CurrentFakeService.Spec.Selector).To(Equal(kubecli.CurrentFakeLabel))
 			})
 		})
 		Context("With node-port on an vm replica set", func() {
 			It("should succeed", func() {
 				var flags pflag.FlagSet
-				if flags.Set("type", "kaboom") != nil {
+				if flags.Set("type", "NodePort") != nil {
 					Skip("Didn't manage to set flag")
 				}
 				clientConfig := kubecli.DefaultClientConfig(&flags)
@@ -131,6 +137,7 @@ var _ = Describe("Expose", func() {
 				err := cmd.RunE(cmd, []string{"vmrs", "testvm"})
 				Expect(err).To(BeNil())
 				Expect(kubecli.CurrentFakeService.Spec.Type).To(Equal(k8sapiv1.ServiceTypeNodePort))
+				Expect(kubecli.CurrentFakeService.Spec.Selector).To(Equal(kubecli.CurrentFakeLabel))
 			})
 		})
 	})

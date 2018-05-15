@@ -17,6 +17,9 @@ var InvalidFakeClient bool
 var InvalidFakeResource bool
 var InvalidFakeService bool
 
+// value to set as the label
+var CurrentFakeLabel map[string]string
+
 // holding a copy of the created service, so that the test code could verify
 var CurrentFakeService *k8sapiv1.Service
 
@@ -80,7 +83,7 @@ func (FakeVMInterface) Get(name string, options k8smetav1.GetOptions) (*v1.Virtu
 	if InvalidFakeResource {
 		return nil, errors.New("invalid fake resource")
 	}
-	return &v1.VirtualMachine{}, nil
+	return &v1.VirtualMachine{ObjectMeta: k8smetav1.ObjectMeta{Labels: CurrentFakeLabel}}, nil
 }
 
 // OfflineVirtualMachineInterface implementation returning fake objects
@@ -92,7 +95,13 @@ func (FakeOfflineVirtualMachineInterface) Get(name string, options k8smetav1.Get
 	if InvalidFakeResource {
 		return nil, errors.New("invalid fake resource")
 	}
-	return &v1.OfflineVirtualMachine{}, nil
+	return &v1.OfflineVirtualMachine{
+		Spec: v1.OfflineVirtualMachineSpec{
+			Template: &v1.VMTemplateSpec{
+				ObjectMeta: k8smetav1.ObjectMeta{Labels: CurrentFakeLabel},
+			},
+		},
+	}, nil
 }
 
 // ReplicaSetInterface implementation returning fake objects
@@ -106,9 +115,7 @@ func (FakeReplicaSetInterface) Get(name string, options k8smetav1.GetOptions) (*
 	}
 	return &v1.VirtualMachineReplicaSet{
 		Spec: v1.VMReplicaSetSpec{
-			Selector: &k8smetav1.LabelSelector{
-				MatchLabels: map[string]string{"kubevirt.io/vmReplicaSet": "testvm"},
-			},
+			Selector: &k8smetav1.LabelSelector{MatchLabels: CurrentFakeLabel},
 		},
 	}, nil
 }

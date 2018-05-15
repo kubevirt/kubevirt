@@ -152,20 +152,23 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 
 	// does a plain quorum read from the apiserver
 	options := k8smetav1.GetOptions{}
+	var serviceSelector map[string]string
 
 	switch vmType {
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		// get the VM
-		_, err := virtClient.VM(namespace).Get(vmName, options)
+		vm, err := virtClient.VM(namespace).Get(vmName, options)
 		if err != nil {
 			return fmt.Errorf("error fetching VirtualMachine: %v", err)
 		}
+		serviceSelector = vm.ObjectMeta.Labels
 	case "ovm", "ovms", "offlinevirtualmachine", "offlinevirtualmachines":
 		// get the offline VM
-		_, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
+		ovm, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
 		if err != nil {
 			return fmt.Errorf("error fetching OfflineVirtualMachine: %v", err)
 		}
+		serviceSelector = ovm.Spec.Template.ObjectMeta.Labels
 	case "vmrs", "vmrss", "virtualmachinereplicaset", "virtualmachinereplicasets":
 		// get the VM replica set
 		vmrs, err := virtClient.ReplicaSet(namespace).Get(vmName, options)
@@ -175,9 +178,13 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		if len(vmrs.Spec.Selector.MatchExpressions) > 0 {
 			return fmt.Errorf("cannot expose VirtualMachine ReplicaSet with match expressions")
 		}
-		vmName = vmrs.Spec.Selector.MatchLabels["kubevirt.io/vmReplicaSet"]
+		serviceSelector = vmrs.Spec.Selector.MatchLabels
 	default:
 		return fmt.Errorf("unsupported resource type: %s", vmType)
+	}
+
+	if len(serviceSelector) == 0 {
+		return fmt.Errorf("missing label information for %s: %s", vmType, vmName)
 	}
 
 	// actually create the service
@@ -189,7 +196,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 			Ports: []v1.ServicePort{
 				{Name: portName, Protocol: protocol, Port: port, TargetPort: targetPort, NodePort: nodePort},
 			},
-			Selector:       map[string]string{"kubevirt.io/domain": vmName},
+			Selector:       serviceSelector,
 			ClusterIP:      clusterIP,
 			Type:           serviceType,
 			LoadBalancerIP: loadBalancerIP,

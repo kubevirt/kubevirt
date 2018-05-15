@@ -3,6 +3,8 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   name: vm-fedora
+  labels:
+    kubevirt.io/vm: ov-fedora
 spec:
   domain:
     devices:

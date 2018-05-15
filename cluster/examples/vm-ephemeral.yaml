@@ -3,6 +3,8 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   name: vm-ephemeral
+  labels:
+    kubevirt.io/vm: vm-ephemeral
 spec:
   domain:
     devices:
