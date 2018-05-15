@@ -60,6 +60,7 @@ func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":       "Name is the device name",
 		"volumeName": "Name of the volume which is referenced\nMust match the Name of a Volume.",
+		"bootOrder":  "BootOrder is an integer value used to determine ordering of boot devices\n+optional",
 	}
 }
 

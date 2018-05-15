@@ -3291,6 +3291,11 @@
      "volumeName"
     ],
     "properties": {
+     "bootOrder": {
+      "description": "BootOrder is an integer value used to determine ordering of boot devices\n+optional",
+      "type": "integer",
+      "format": "integer"
+     },
      "cdrom": {
       "description": "Attach a volume as a cdrom to the vm",
       "$ref": "#/definitions/v1.CDRomTarget"
