@@ -103,7 +103,7 @@ func SetLocalDataOwner(user string) {
 func SetLocalDirectory(dir string) error {
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Unable to initalize cloudInit local cache directory (%s). %v", dir, err))
+		return errors.New(fmt.Sprintf("Unable to initialize cloudInit local cache directory (%s). %v", dir, err))
 	}
 
 	exists, err := diskutils.FileExists(dir)
