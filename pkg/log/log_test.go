@@ -66,7 +66,7 @@ func TestDefaultLogLevels(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	log.Log("default level message")
-	assert(t, logCalled, "defualt loglevel should have been info")
+	assert(t, logCalled, "default loglevel should have been info")
 	tearDown()
 }
 

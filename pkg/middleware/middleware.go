@@ -112,7 +112,7 @@ func (k *KubernetesError) Body() []byte {
 // object not nil, string not empty, ...). With this middleware in place the service can throw an exception with a
 // precond.PreconditionError as payload. This middleware will catch that and translate it into an application
 // level PreconditionError. All other detected panics will be converted into an InternalServerError. In both cases it
-// is most likely that there is an error withing the application or a library. Long story short, this is about
+// is most likely that there is an error within the application or a library. Long story short, this is about
 // failing early in non recoverable situations.
 func InternalErrorMiddleware(logger gklog.Logger) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
