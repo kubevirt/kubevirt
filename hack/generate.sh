@@ -18,7 +18,7 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=vm >${KUBEVIRT_DIR}/manifests/generated/vm-resource.yaml
 ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=vmrs >${KUBEVIRT_DIR}/manifests/generated/vmrs-resource.yaml
 ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=vmpreset >${KUBEVIRT_DIR}/manifests/generated/vmpreset-resource.yaml
-${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=ovm >${KUBEVIRT_DIR}/manifests/generated/ovm-resource.yaml
+${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=svm >${KUBEVIRT_DIR}/manifests/generated/svm-resource.yaml
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
 ${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples

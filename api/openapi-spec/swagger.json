@@ -115,15 +115,15 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachines": {
+   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/statefulvirtualmachines": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of OfflineVirtualMachine objects.",
-     "operationId": "listNamespacedOfflineVirtualMachine",
+     "summary": "Get a list of StatefulVirtualMachine objects.",
+     "operationId": "listNamespacedStatefulVirtualMachine",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -186,7 +186,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachineList"
+        "$ref": "#/definitions/v1.StatefulVirtualMachineList"
        }
       },
       "401": {
@@ -195,7 +195,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachineList"
+        "$ref": "#/definitions/v1.StatefulVirtualMachineList"
        }
       }
      }
@@ -209,15 +209,15 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Create a OfflineVirtualMachine object.",
-     "operationId": "createNamespacedOfflineVirtualMachine",
+     "summary": "Create a StatefulVirtualMachine object.",
+     "operationId": "createNamespacedStatefulVirtualMachine",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       {
@@ -233,19 +233,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       "401": {
@@ -254,7 +254,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       }
      }
@@ -264,8 +264,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a collection of OfflineVirtualMachine objects.",
-     "operationId": "deleteCollectionNamespacedOfflineVirtualMachine",
+     "summary": "Delete a collection of StatefulVirtualMachine objects.",
+     "operationId": "deleteCollectionNamespacedStatefulVirtualMachine",
      "parameters": [
       {
        "type": "string",
@@ -335,15 +335,15 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachines/{name}": {
+   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/statefulvirtualmachines/{name}": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a OfflineVirtualMachine object.",
-     "operationId": "readNamespacedOfflineVirtualMachine",
+     "summary": "Get a StatefulVirtualMachine object.",
+     "operationId": "readNamespacedStatefulVirtualMachine",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -378,7 +378,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       "401": {
@@ -387,7 +387,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       }
      }
@@ -401,15 +401,15 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Update a OfflineVirtualMachine object.",
-     "operationId": "replaceNamespacedOfflineVirtualMachine",
+     "summary": "Update a StatefulVirtualMachine object.",
+     "operationId": "replaceNamespacedStatefulVirtualMachine",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       {
@@ -433,13 +433,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       "401": {
@@ -448,7 +448,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       }
      }
@@ -462,8 +462,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a OfflineVirtualMachine object.",
-     "operationId": "deleteNamespacedOfflineVirtualMachine",
+     "summary": "Delete a StatefulVirtualMachine object.",
+     "operationId": "deleteNamespacedStatefulVirtualMachine",
      "parameters": [
       {
        "name": "body",
@@ -534,8 +534,8 @@
      "produces": [
       "application/json"
      ],
-     "summary": "Patch a OfflineVirtualMachine object.",
-     "operationId": "patchNamespacedOfflineVirtualMachine",
+     "summary": "Patch a StatefulVirtualMachine object.",
+     "operationId": "patchNamespacedStatefulVirtualMachine",
      "parameters": [
       {
        "name": "body",
@@ -550,7 +550,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       },
       "401": {
@@ -559,7 +559,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.StatefulVirtualMachine"
        }
       }
      }
@@ -1915,15 +1915,15 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/offlinevirtualmachines": {
+   "/apis/kubevirt.io/v1alpha1/statefulvirtualmachines": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of all OfflineVirtualMachine objects.",
-     "operationId": "listOfflineVirtualMachineForAllNamespaces",
+     "summary": "Get a list of all StatefulVirtualMachine objects.",
+     "operationId": "listStatefulVirtualMachineForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -1978,7 +1978,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachineList"
+        "$ref": "#/definitions/v1.StatefulVirtualMachineList"
        }
       },
       "401": {
@@ -1987,7 +1987,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachineList"
+        "$ref": "#/definitions/v1.StatefulVirtualMachineList"
        }
       }
      }
@@ -2227,13 +2227,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/offlinevirtualmachines": {
+   "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/statefulvirtualmachines": {
     "get": {
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a OfflineVirtualMachine object.",
-     "operationId": "watchNamespacedOfflineVirtualMachine",
+     "summary": "Watch a StatefulVirtualMachine object.",
+     "operationId": "watchNamespacedStatefulVirtualMachine",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -2563,13 +2563,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/offlinevirtualmachines": {
+   "/apis/kubevirt.io/v1alpha1/watch/statefulvirtualmachines": {
     "get": {
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a OfflineVirtualMachineList object.",
-     "operationId": "watchOfflineVirtualMachineListForAllNamespaces",
+     "summary": "Watch a StatefulVirtualMachineList object.",
+     "operationId": "watchStatefulVirtualMachineListForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -3827,121 +3827,6 @@
      }
     }
    },
-   "v1.OfflineVirtualMachine": {
-    "description": "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.",
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "Spec contains the specification of VirtualMachine created",
-      "$ref": "#/definitions/v1.OfflineVirtualMachineSpec"
-     },
-     "status": {
-      "description": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachine",
-      "$ref": "#/definitions/v1.OfflineVirtualMachineStatus"
-     }
-    }
-   },
-   "v1.OfflineVirtualMachineCondition": {
-    "description": "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "type": "string"
-     },
-     "lastTransitionTime": {
-      "type": "string"
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.OfflineVirtualMachineList": {
-    "description": "OfflineVirtualMachineList is a list of offlinevirtualmachines",
-    "required": [
-     "metadata",
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "description": "Items is a list of OfflineVirtualMachines",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.OfflineVirtualMachine"
-      }
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ListMeta"
-     }
-    }
-   },
-   "v1.OfflineVirtualMachineSpec": {
-    "description": "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
-    "required": [
-     "running",
-     "template"
-    ],
-    "properties": {
-     "running": {
-      "description": "Running controlls whether the associatied VirtualMachine is created or not",
-      "type": "boolean"
-     },
-     "template": {
-      "description": "Template is the direct specification of VirtualMachine",
-      "$ref": "#/definitions/v1.VMTemplateSpec"
-     }
-    }
-   },
-   "v1.OfflineVirtualMachineStatus": {
-    "description": "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
-    "properties": {
-     "conditions": {
-      "description": "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.OfflineVirtualMachineCondition"
-      }
-     },
-     "created": {
-      "description": "Created indicates if the virtual machine is created in the cluster",
-      "type": "boolean"
-     },
-     "ready": {
-      "description": "Ready indicates if the virtual machine is running and ready",
-      "type": "boolean"
-     }
-    }
-   },
    "v1.OwnerReference": {
     "description": "OwnerReference contains enough information to let you identify an owning object. Currently, an owning object must be in the same namespace, so there is no namespace field.",
     "required": [
@@ -4093,6 +3978,121 @@
      "serverAddress": {
       "description": "Address of this server, suitable for a client that matches the above CIDR. This can be a hostname, hostname:port, IP or IP:port.",
       "type": "string"
+     }
+    }
+   },
+   "v1.StatefulVirtualMachine": {
+    "description": "StatefulVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe StatefulVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "Spec contains the specification of VirtualMachine created",
+      "$ref": "#/definitions/v1.StatefulVirtualMachineSpec"
+     },
+     "status": {
+      "description": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachine",
+      "$ref": "#/definitions/v1.StatefulVirtualMachineStatus"
+     }
+    }
+   },
+   "v1.StatefulVirtualMachineCondition": {
+    "description": "StatefulVirtualMachineCondition represents the state of StatefulVirtualMachine",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": "string"
+     },
+     "lastTransitionTime": {
+      "type": "string"
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
+   "v1.StatefulVirtualMachineList": {
+    "description": "StatefulVirtualMachineList is a list of statefulvirtualmachines",
+    "required": [
+     "metadata",
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "description": "Items is a list of StatefulVirtualMachines",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.StatefulVirtualMachine"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1.StatefulVirtualMachineSpec": {
+    "description": "StatefulVirtualMachineSpec describes how the proper StatefulVirtualMachine\nshould look like",
+    "required": [
+     "running",
+     "template"
+    ],
+    "properties": {
+     "running": {
+      "description": "Running controlls whether the associatied VirtualMachine is created or not",
+      "type": "boolean"
+     },
+     "template": {
+      "description": "Template is the direct specification of VirtualMachine",
+      "$ref": "#/definitions/v1.VMTemplateSpec"
+     }
+    }
+   },
+   "v1.StatefulVirtualMachineStatus": {
+    "description": "StatefulVirtualMachineStatus represents the status returned by the\ncontroller to describe how the StatefulVirtualMachine is doing",
+    "properties": {
+     "conditions": {
+      "description": "Hold the state information of the StatefulVirtualMachine and its VirtualMachine",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.StatefulVirtualMachineCondition"
+      }
+     },
+     "created": {
+      "description": "Created indicates if the virtual machine is created in the cluster",
+      "type": "boolean"
+     },
+     "ready": {
+      "description": "Ready indicates if the virtual machine is running and ready",
+      "type": "boolean"
      }
     }
    },

@@ -46,8 +46,8 @@ const (
 )
 
 const (
-	ovmCirros         = "ovm-cirros"
-	ovmAlpineMultiPvc = "ovm-alpine-multipvc"
+	svmCirros         = "svm-cirros"
+	svmAlpineMultiPvc = "svm-alpine-multipvc"
 )
 
 const vmReplicaSetCirros = "vm-replicaset-cirros"
@@ -289,19 +289,19 @@ func getVmWindows() *v1.VirtualMachine {
 	return vm
 }
 
-func getBaseOvm(name string, labels map[string]string) *v1.OfflineVirtualMachine {
+func getBaseSvm(name string, labels map[string]string) *v1.StatefulVirtualMachine {
 	baseVmSpec := getBaseVmSpec()
 
-	return &v1.OfflineVirtualMachine{
+	return &v1.StatefulVirtualMachine{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: apiVersion,
-			Kind:       "OfflineVirtualMachine",
+			Kind:       "StatefulVirtualMachine",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: labels,
 		},
-		Spec: v1.OfflineVirtualMachineSpec{
+		Spec: v1.StatefulVirtualMachineSpec{
 			Running: false,
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -313,25 +313,25 @@ func getBaseOvm(name string, labels map[string]string) *v1.OfflineVirtualMachine
 	}
 }
 
-func getOvmCirros() *v1.OfflineVirtualMachine {
-	ovm := getBaseOvm(ovmCirros, map[string]string{
-		"kubevirt.io/ovm": ovmCirros,
+func getSvmCirros() *v1.StatefulVirtualMachine {
+	svm := getBaseSvm(svmCirros, map[string]string{
+		"kubevirt.io/svm": svmCirros,
 	})
 
-	addRegistryDisk(&ovm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
-	addNoCloudDisk(&ovm.Spec.Template.Spec)
-	return ovm
+	addRegistryDisk(&svm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
+	addNoCloudDisk(&svm.Spec.Template.Spec)
+	return svm
 }
 
-func getOvmMultiPvc() *v1.OfflineVirtualMachine {
-	ovm := getBaseOvm(ovmAlpineMultiPvc, map[string]string{
-		"kubevirt.io/ovm": ovmAlpineMultiPvc,
+func getSvmMultiPvc() *v1.StatefulVirtualMachine {
+	svm := getBaseSvm(svmAlpineMultiPvc, map[string]string{
+		"kubevirt.io/svm": svmAlpineMultiPvc,
 	})
 
-	addPvcDisk(&ovm.Spec.Template.Spec, "disk-alpine", busVirtio)
-	addPvcDisk(&ovm.Spec.Template.Spec, "disk-custom", busVirtio)
+	addPvcDisk(&svm.Spec.Template.Spec, "disk-alpine", busVirtio)
+	addPvcDisk(&svm.Spec.Template.Spec, "disk-custom", busVirtio)
 
-	return ovm
+	return svm
 }
 
 func getBaseVmReplicaSet(name string, replicas int, selectorLabels map[string]string) *v1.VirtualMachineReplicaSet {
@@ -416,8 +416,8 @@ func main() {
 		vmNoCloud:          getVmNoCloud(),
 		vmPvc:              getVmPvc(),
 		vmWindows:          getVmWindows(),
-		ovmCirros:          getOvmCirros(),
-		ovmAlpineMultiPvc:  getOvmMultiPvc(),
+		svmCirros:          getSvmCirros(),
+		svmAlpineMultiPvc:  getSvmMultiPvc(),
 		vmReplicaSetCirros: getVmReplicaSetCirros(),
 		vmPresetSmall:      getVmPresetSmall(),
 	}

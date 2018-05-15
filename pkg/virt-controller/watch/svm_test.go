@@ -23,27 +23,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-var _ = Describe("OfflineVirtualMachine", func() {
+var _ = Describe("StatefulVirtualMachine", func() {
 
-	Context("One valid OfflineVirtualMachine controller given", func() {
+	Context("One valid StatefulVirtualMachine controller given", func() {
 
 		var ctrl *gomock.Controller
 		var vmInterface *kubecli.MockVMInterface
-		var ovmInterface *kubecli.MockOfflineVirtualMachineInterface
+		var svmInterface *kubecli.MockStatefulVirtualMachineInterface
 		var vmSource *framework.FakeControllerSource
-		var ovmSource *framework.FakeControllerSource
+		var svmSource *framework.FakeControllerSource
 		var vmInformer cache.SharedIndexInformer
-		var ovmInformer cache.SharedIndexInformer
+		var svmInformer cache.SharedIndexInformer
 		var stop chan struct{}
-		var controller *OVMController
+		var controller *SVMController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var vmFeeder *testutils.VirtualMachineFeeder
 
 		syncCaches := func(stop chan struct{}) {
 			go vmInformer.Run(stop)
-			go ovmInformer.Run(stop)
-			Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, ovmInformer.HasSynced)).To(BeTrue())
+			go svmInformer.Run(stop)
+			Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, svmInformer.HasSynced)).To(BeTrue())
 		}
 
 		BeforeEach(func() {
@@ -51,13 +51,13 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 			vmInterface = kubecli.NewMockVMInterface(ctrl)
-			ovmInterface = kubecli.NewMockOfflineVirtualMachineInterface(ctrl)
+			svmInterface = kubecli.NewMockStatefulVirtualMachineInterface(ctrl)
 
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
-			ovmInformer, ovmSource = testutils.NewFakeInformerFor(&v1.OfflineVirtualMachine{})
+			svmInformer, svmSource = testutils.NewFakeInformerFor(&v1.StatefulVirtualMachine{})
 			recorder = record.NewFakeRecorder(100)
 
-			controller = NewOVMController(vmInformer, ovmInformer, recorder, virtClient)
+			controller = NewSVMController(vmInformer, svmInformer, recorder, virtClient)
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
@@ -65,20 +65,20 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 			// Set up mock client
 			virtClient.EXPECT().VM(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-			virtClient.EXPECT().OfflineVirtualMachine(metav1.NamespaceDefault).Return(ovmInterface).AnyTimes()
+			virtClient.EXPECT().StatefulVirtualMachine(metav1.NamespaceDefault).Return(svmInterface).AnyTimes()
 		})
 
-		addOfflineVirtualMachine := func(ovm *v1.OfflineVirtualMachine) {
+		addStatefulVirtualMachine := func(svm *v1.StatefulVirtualMachine) {
 			syncCaches(stop)
 			mockQueue.ExpectAdds(1)
-			ovmSource.Add(ovm)
+			svmSource.Add(svm)
 			mockQueue.Wait()
 		}
 
 		It("should create missing VM", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(true)
+			svm, vm := DefaultStatefulVirtualMachine(true)
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 
 			// expect creation called
 			vmInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
@@ -86,9 +86,9 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			}).Return(vm, nil)
 
 			// expect update status is called
-			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.OfflineVirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.OfflineVirtualMachine).Status.Ready).To(BeFalse())
+			svmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.StatefulVirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*v1.StatefulVirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
 			controller.Execute()
@@ -97,70 +97,70 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should update status to created if the vm exists", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(true)
+			svm, vm := DefaultStatefulVirtualMachine(true)
 			vm.Status.Phase = v1.Scheduled
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 			vmFeeder.Add(vm)
 
 			// expect update status is called
-			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.OfflineVirtualMachine).Status.Created).To(BeTrue())
-				Expect(arg.(*v1.OfflineVirtualMachine).Status.Ready).To(BeFalse())
+			svmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.StatefulVirtualMachine).Status.Created).To(BeTrue())
+				Expect(arg.(*v1.StatefulVirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
 			controller.Execute()
 		})
 
 		It("should update status to created and ready when vm is running", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(true)
+			svm, vm := DefaultStatefulVirtualMachine(true)
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 			vmFeeder.Add(vm)
 
 			// expect update status is called
-			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.OfflineVirtualMachine).Status.Created).To(BeTrue())
-				Expect(arg.(*v1.OfflineVirtualMachine).Status.Ready).To(BeTrue())
+			svmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.StatefulVirtualMachine).Status.Created).To(BeTrue())
+				Expect(arg.(*v1.StatefulVirtualMachine).Status.Ready).To(BeTrue())
 			}).Return(nil, nil)
 
 			controller.Execute()
 		})
 
 		It("should have stable firmware UUIDs", func() {
-			ovm1, _ := DefaultOfflineVirtualMachineWithNames(true, "testovm1", "testvm1")
-			vm1 := controller.setupVMFromOVM(ovm1)
+			svm1, _ := DefaultStatefulVirtualMachineWithNames(true, "testsvm1", "testvm1")
+			vm1 := controller.setupVMFromSVM(svm1)
 
 			// intentionally use the same names
-			ovm2, _ := DefaultOfflineVirtualMachineWithNames(true, "testovm1", "testvm1")
-			vm2 := controller.setupVMFromOVM(ovm2)
+			svm2, _ := DefaultStatefulVirtualMachineWithNames(true, "testsvm1", "testvm1")
+			vm2 := controller.setupVMFromSVM(svm2)
 			Expect(vm1.Spec.Domain.Firmware.UUID).To(Equal(vm2.Spec.Domain.Firmware.UUID))
 
 			// now we want different names
-			ovm3, _ := DefaultOfflineVirtualMachineWithNames(true, "testovm3", "testvm3")
-			vm3 := controller.setupVMFromOVM(ovm3)
+			svm3, _ := DefaultStatefulVirtualMachineWithNames(true, "testsvm3", "testvm3")
+			vm3 := controller.setupVMFromSVM(svm3)
 			Expect(vm1.Spec.Domain.Firmware.UUID).NotTo(Equal(vm3.Spec.Domain.Firmware.UUID))
 		})
 
 		It("should honour any firmware UUID present in the template", func() {
 			uid := uuid.NewRandom().String()
-			ovm1, _ := DefaultOfflineVirtualMachineWithNames(true, "testovm1", "testvm1")
-			ovm1.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: types.UID(uid)}
+			svm1, _ := DefaultStatefulVirtualMachineWithNames(true, "testsvm1", "testvm1")
+			svm1.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: types.UID(uid)}
 
-			vm1 := controller.setupVMFromOVM(ovm1)
+			vm1 := controller.setupVMFromSVM(svm1)
 			Expect(string(vm1.Spec.Domain.Firmware.UUID)).To(Equal(uid))
 		})
 
 		It("should delete VM when stopped", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(false)
+			svm, vm := DefaultStatefulVirtualMachine(false)
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 			vmFeeder.Add(vm)
 
-			// ovmInterface.EXPECT().Update(gomock.Any()).Return(ovm, nil)
+			// svmInterface.EXPECT().Update(gomock.Any()).Return(svm, nil)
 			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 
-			ovmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(ovm, nil)
+			svmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(svm, nil)
 
 			controller.Execute()
 
@@ -168,18 +168,18 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should ignore non-matching VMs", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(true)
+			svm, vm := DefaultStatefulVirtualMachine(true)
 
 			nonMatchingVM := v1.NewMinimalVM("testvm1")
 			nonMatchingVM.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 
 			// We still expect three calls to create VMs, since VM does not meet the requirements
 			vmSource.Add(nonMatchingVM)
 
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
-			ovmInterface.EXPECT().Update(gomock.Any()).Times(2).Return(ovm, nil)
+			svmInterface.EXPECT().Update(gomock.Any()).Times(2).Return(svm, nil)
 
 			controller.Execute()
 
@@ -187,14 +187,14 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should detect that it is orphan deleted and remove the owner reference on the remaining VM", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(true)
+			svm, vm := DefaultStatefulVirtualMachine(true)
 
 			// Mark it as orphan deleted
 			now := metav1.Now()
-			ovm.ObjectMeta.DeletionTimestamp = &now
-			ovm.ObjectMeta.Finalizers = []string{metav1.FinalizerOrphanDependents}
+			svm.ObjectMeta.DeletionTimestamp = &now
+			svm.ObjectMeta.Finalizers = []string{metav1.FinalizerOrphanDependents}
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 			vmFeeder.Add(vm)
 
 			vmInterface.EXPECT().Patch(vm.ObjectMeta.Name, gomock.Any(), gomock.Any())
@@ -203,48 +203,48 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should detect that a VM already exists and adopt it", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(true)
+			svm, vm := DefaultStatefulVirtualMachine(true)
 			vm.OwnerReferences = []metav1.OwnerReference{}
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 			vmFeeder.Add(vm)
 
-			ovmInterface.EXPECT().Get(ovm.ObjectMeta.Name, gomock.Any()).Return(ovm, nil)
-			ovmInterface.EXPECT().Update(gomock.Any()).Return(ovm, nil)
+			svmInterface.EXPECT().Get(svm.ObjectMeta.Name, gomock.Any()).Return(svm, nil)
+			svmInterface.EXPECT().Update(gomock.Any()).Return(svm, nil)
 			vmInterface.EXPECT().Patch(vm.ObjectMeta.Name, gomock.Any(), gomock.Any())
 
 			controller.Execute()
 		})
 
 		It("should detect that it has nothing to do beside updating the status", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(true)
+			svm, vm := DefaultStatefulVirtualMachine(true)
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 			vmFeeder.Add(vm)
 
-			ovmInterface.EXPECT().Update(gomock.Any()).Return(ovm, nil)
+			svmInterface.EXPECT().Update(gomock.Any()).Return(svm, nil)
 
 			controller.Execute()
 		})
 
 		It("should add a fail condition if start up fails", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(true)
+			svm, vm := DefaultStatefulVirtualMachine(true)
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 			// vmFeeder.Add(vm)
 
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, fmt.Errorf("failure"))
 
 			// We should see the failed condition, replicas should stay at 0
-			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
-				objOVM := obj.(*v1.OfflineVirtualMachine)
-				Expect(objOVM.Status.Conditions).To(HaveLen(1))
-				cond := objOVM.Status.Conditions[0]
-				Expect(cond.Type).To(Equal(v1.OfflineVirtualMachineFailure))
+			svmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objSVM := obj.(*v1.StatefulVirtualMachine)
+				Expect(objSVM.Status.Conditions).To(HaveLen(1))
+				cond := objSVM.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.StatefulVirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedCreate"))
 				Expect(cond.Message).To(Equal("failure"))
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-			}).Return(ovm, nil)
+			}).Return(svm, nil)
 
 			controller.Execute()
 
@@ -252,18 +252,18 @@ var _ = Describe("OfflineVirtualMachine", func() {
 		})
 
 		It("should add a fail condition if deletion fails", func() {
-			ovm, vm := DefaultOfflineVirtualMachine(false)
+			svm, vm := DefaultStatefulVirtualMachine(false)
 
-			addOfflineVirtualMachine(ovm)
+			addStatefulVirtualMachine(svm)
 			vmFeeder.Add(vm)
 
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
 
-			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
-				objOVM := obj.(*v1.OfflineVirtualMachine)
-				Expect(objOVM.Status.Conditions).To(HaveLen(1))
-				cond := objOVM.Status.Conditions[0]
-				Expect(cond.Type).To(Equal(v1.OfflineVirtualMachineFailure))
+			svmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objSVM := obj.(*v1.StatefulVirtualMachine)
+				Expect(objSVM.Status.Conditions).To(HaveLen(1))
+				cond := objSVM.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.StatefulVirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("failure"))
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
@@ -276,10 +276,10 @@ var _ = Describe("OfflineVirtualMachine", func() {
 	})
 })
 
-func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started bool) *v1.OfflineVirtualMachine {
-	ovm := &v1.OfflineVirtualMachine{
+func StatefulVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started bool) *v1.StatefulVirtualMachine {
+	svm := &v1.StatefulVirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
-		Spec: v1.OfflineVirtualMachineSpec{
+		Spec: v1.StatefulVirtualMachineSpec{
 			Running: started,
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -290,25 +290,25 @@ func OfflineVirtualMachineFromVM(name string, vm *v1.VirtualMachine, started boo
 			},
 		},
 	}
-	return ovm
+	return svm
 }
 
-func DefaultOfflineVirtualMachineWithNames(started bool, ovmName string, vmName string) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
+func DefaultStatefulVirtualMachineWithNames(started bool, svmName string, vmName string) (*v1.StatefulVirtualMachine, *v1.VirtualMachine) {
 	vm := v1.NewMinimalVM(vmName)
 	vm.Status.Phase = v1.Running
-	ovm := OfflineVirtualMachineFromVM(ovmName, vm, started)
+	svm := StatefulVirtualMachineFromVM(svmName, vm, started)
 	t := true
 	vm.OwnerReferences = []metav1.OwnerReference{{
-		APIVersion:         v1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               v1.OfflineVirtualMachineGroupVersionKind.Kind,
-		Name:               ovm.ObjectMeta.Name,
-		UID:                ovm.ObjectMeta.UID,
+		APIVersion:         v1.StatefulVirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               v1.StatefulVirtualMachineGroupVersionKind.Kind,
+		Name:               svm.ObjectMeta.Name,
+		UID:                svm.ObjectMeta.UID,
 		Controller:         &t,
 		BlockOwnerDeletion: &t,
 	}}
-	return ovm, vm
+	return svm, vm
 }
 
-func DefaultOfflineVirtualMachine(started bool) (*v1.OfflineVirtualMachine, *v1.VirtualMachine) {
-	return DefaultOfflineVirtualMachineWithNames(started, "testvm", "testvm")
+func DefaultStatefulVirtualMachine(started bool) (*v1.StatefulVirtualMachine, *v1.VirtualMachine) {
+	return DefaultStatefulVirtualMachineWithNames(started, "testvm", "testvm")
 }

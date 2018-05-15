@@ -1,17 +1,17 @@
 apiVersion: kubevirt.io/v1alpha1
-kind: OfflineVirtualMachine
+kind: StatefulVirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    kubevirt.io/ovm: ovm-alpine-multipvc
-  name: ovm-alpine-multipvc
+    kubevirt.io/svm: svm-alpine-multipvc
+  name: svm-alpine-multipvc
 spec:
   running: false
   template:
     metadata:
       creationTimestamp: null
       labels:
-        kubevirt.io/ovm: ovm-alpine-multipvc
+        kubevirt.io/svm: svm-alpine-multipvc
     spec:
       domain:
         devices:
