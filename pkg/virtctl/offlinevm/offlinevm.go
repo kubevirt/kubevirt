@@ -26,6 +26,8 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -107,7 +109,9 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 
 	if ovm.Spec.Running != running {
 		ovm.Spec.Running = running
-		_, err := virtClient.OfflineVirtualMachine(namespace).Update(ovm)
+		_, err := virtClient.OfflineVirtualMachine(namespace).Patch(ovm.Name, types.MergePatchType,
+			[]byte("{\"spec\":{\"running\":true}}"))
+
 		if err != nil {
 			return fmt.Errorf("Error updating OfflineVirtualMachine: %v", err)
 		}

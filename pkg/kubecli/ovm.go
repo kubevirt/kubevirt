@@ -24,6 +24,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -86,6 +88,18 @@ func (o *ovm) Update(offlinevm *v1.OfflineVirtualMachine) (*v1.OfflineVirtualMac
 	updatedOvm.SetGroupVersionKind(v1.OfflineVirtualMachineGroupVersionKind)
 
 	return updatedOvm, err
+}
+
+func (v *ovm) Patch(name string, pt types.PatchType, data []byte) (result *v1.OfflineVirtualMachine, err error) {
+	result = &v1.OfflineVirtualMachine{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return result, err
 }
 
 // Delete the defined OfflineVirtualMachine in the cluster in defined namespace
