@@ -162,6 +162,8 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("error fetching VirtualMachine: %v", err)
 		}
 		serviceSelector = vm.ObjectMeta.Labels
+		// remove unwanted labels
+		delete(serviceSelector, "kubevirt.io/nodeName")
 	case "ovm", "ovms", "offlinevirtualmachine", "offlinevirtualmachines":
 		// get the offline VM
 		ovm, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
