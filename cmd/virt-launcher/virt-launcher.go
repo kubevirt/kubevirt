@@ -226,7 +226,7 @@ func main() {
 	name := flag.String("name", "", "Name of the VM")
 	namespace := flag.String("namespace", "", "Namespace of the VM")
 	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
-	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
+	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	allowEmulation := flag.Bool("allow-emulation", false, "Allow fallback to emulation if /dev/kvm is not present")
 
