@@ -704,7 +704,7 @@ type OfflineVirtualMachineList struct {
 // ---
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineSpec struct {
-	// Running controlls whether the associatied VirtualMachine is created or not
+	// Running controls whether the associatied VirtualMachine is created or not
 	Running bool `json:"running"`
 
 	// Template is the direct specification of VirtualMachine
