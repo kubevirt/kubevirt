@@ -67,7 +67,11 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
 		disk.Target.Bus = diskDevice.CDRom.Bus
 		disk.Target.Device = makeDeviceName(diskDevice.CDRom.Bus, devicePerBus)
-		disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
+		if diskDevice.CDRom.ReadOnly != nil {
+			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
+		} else {
+			disk.ReadOnly = toApiReadOnly(true)
+		}
 	}
 	disk.Driver = &DiskDriver{
 		Name: "qemu",
