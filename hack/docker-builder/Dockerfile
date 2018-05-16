@@ -20,6 +20,9 @@ RUN \
     go get -u github.com/Masterminds/glide && \
     go get golang.org/x/tools/cmd/goimports && \
     go get -u mvdan.cc/sh/cmd/shfmt && \
+    cd /go/src/mvdan.cc/sh/cmd/shfmt && \
+    git checkout v2.3.0 && \
+    go install && \
     go get -u github.com/golang/mock/gomock && \
     go get -u github.com/rmohr/mock/mockgen && \
     go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
