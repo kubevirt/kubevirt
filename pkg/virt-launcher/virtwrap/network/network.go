@@ -42,6 +42,7 @@ const (
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
+var NetworkInterfaceFactory = getNetworkClass
 
 type NetworkInterface interface {
 	Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error
@@ -77,7 +78,7 @@ func SetupNetworkInterfaces(vm *v1.VirtualMachine, domain *api.Domain) error {
 		if !ok {
 			return fmt.Errorf("failed to find a network %s", iface.NetworkName)
 		}
-		vif, err := getNetworkClass(network)
+		vif, err := NetworkInterfaceFactory(network)
 		if err != nil {
 			return err
 		}

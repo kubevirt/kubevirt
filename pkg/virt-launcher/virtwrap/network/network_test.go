@@ -20,165 +20,57 @@
 package network
 
 import (
-	"encoding/xml"
-	"errors"
-	"io/ioutil"
-	"net"
-	"os"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/vishvananda/netlink"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Network", func() {
-	var mockNetwork *MockNetworkHandler
+	var mockNetworkInterface *MockNetworkInterface
 	var ctrl *gomock.Controller
-	var dummy *netlink.Dummy
-	var addrList []netlink.Addr
-	var routeList []netlink.Route
-	var routeAddr netlink.Route
-	var fakeMac net.HardwareAddr
-	var fakeAddr netlink.Addr
-	var updateFakeMac net.HardwareAddr
-	var bridgeTest *netlink.Bridge
-	var bridgeAddr *netlink.Addr
-	var testNic *VIF
-	var interfaceXml []byte
-	var tmpDir string
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
-		tmpDir, _ := ioutil.TempDir("", "networktest")
-		setInterfaceCacheFile(tmpDir + "/cache.json")
-
 		ctrl = gomock.NewController(GinkgoT())
-		mockNetwork = NewMockNetworkHandler(ctrl)
-		testMac := "12:34:56:78:9A:BC"
-		updateTestMac := "AF:B3:1F:78:2A:CA"
-		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1}}
-		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
-		gw := net.IPv4(10, 35, 0, 1)
-		fakeMac, _ = net.ParseMAC(testMac)
-		updateFakeMac, _ = net.ParseMAC(updateTestMac)
-		fakeAddr = netlink.Addr{IPNet: address}
-		addrList = []netlink.Addr{fakeAddr}
-		routeAddr = netlink.Route{Gw: gw}
-		routeList = []netlink.Route{routeAddr}
-
-		// Create a bridge
-		bridgeTest = &netlink.Bridge{
-			LinkAttrs: netlink.LinkAttrs{
-				Name: api.DefaultBridgeName,
-			},
-		}
-		bridgeAddr, _ = netlink.ParseAddr(bridgeFakeIP)
-		testNic = &VIF{Name: podInterface,
-			IP:      fakeAddr,
-			MAC:     fakeMac,
-			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="e1000"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
+		mockNetworkInterface = NewMockNetworkInterface(ctrl)
 	})
-
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		NetworkInterfaceFactory = getNetworkClass
 	})
 
-	Context("on successful setup", func() {
-		It("should define a new VIF", func() {
-
-			Handler = mockNetwork
+	Context("interface configuration", func() {
+		It("should configure bridged pod networking by default", func() {
+			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
+				return mockNetworkInterface, nil
+			}
 			domain := &api.Domain{}
 			vm := newVM("testnamespace", "testVmName")
-
 			api.SetObjectDefaults_Domain(domain)
-
-			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
-			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
-			mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
-			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
-			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(nil)
-			mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
-			mockNetwork.EXPECT().SetRandomMacAddr(podInterface).Return(updateFakeMac, nil)
-			mockNetwork.EXPECT().LinkSetUp(dummy).Return(nil)
-			mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
-			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
-			mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
-			mockNetwork.EXPECT().ParseAddr(bridgeFakeIP).Return(bridgeAddr, nil)
-			mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
-			mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr)
-
-			err := SetupPodNetwork(vm, domain)
-			Expect(err).To(BeNil())
-			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
-			xmlStr, err := xml.Marshal(domain.Spec.Devices.Interfaces)
-			Expect(string(xmlStr)).To(Equal(string(interfaceXml)))
-			Expect(err).To(BeNil())
-
-			// Calling SetupPodNetwork a second time should result in no
-			// mockNetwork function calls and interface should be identical
-			err = SetupPodNetwork(vm, domain)
-
-			Expect(err).To(BeNil())
-			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
-			xmlStr, err = xml.Marshal(domain.Spec.Devices.Interfaces)
-			Expect(string(xmlStr)).To(Equal(string(interfaceXml)))
-			Expect(err).To(BeNil())
-
-		})
-		It("should panic if pod networking fails to setup", func() {
-			testNetworkPanic := func() {
-				Handler = mockNetwork
-				domain := &api.Domain{}
-				vm := newVM("testnamespace", "testVmName")
-
-				api.SetObjectDefaults_Domain(domain)
-
-				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
-				mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
-				mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
-				mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
-				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
-
-				SetupPodNetwork(vm, domain)
+			iface := getDefaultNetworkInterface()
+			defaultNet := &v1.Network{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				},
 			}
-			Expect(testNetworkPanic).To(Panic())
+
+			mockNetworkInterface.EXPECT().Plug(iface, defaultNet, domain)
+			err := SetupNetworkInterfaces(vm, domain)
+			Expect(err).To(BeNil())
+			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
+		})
+		It("should fail when no network is sepecified", func() {
+			domain := &api.Domain{}
+			vm := newVM("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			iface := getDefaultNetworkInterface()
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface}
+			err := SetupNetworkInterfaces(vm, domain)
+			Expect(err).To(Equal(fmt.Errorf("no networks were specified for interface %s", iface.Name)))
 		})
 	})
-	Context("func filterPodNetworkRoutes()", func() {
-		defRoute := netlink.Route{
-			Gw: net.IPv4(10, 35, 0, 1),
-		}
-		staticRoute := netlink.Route{
-			Dst: &net.IPNet{IP: net.IPv4(10, 45, 0, 10), Mask: net.CIDRMask(32, 32)},
-			Gw:  net.IPv4(10, 25, 0, 1),
-		}
-		gwRoute := netlink.Route{
-			Dst: &net.IPNet{IP: net.IPv4(10, 35, 0, 1), Mask: net.CIDRMask(32, 32)},
-		}
-		nicRoute := netlink.Route{Src: net.IPv4(10, 35, 0, 6)}
-		emptyRoute := netlink.Route{}
-		staticRouteList := []netlink.Route{defRoute, gwRoute, nicRoute, emptyRoute, staticRoute}
-
-		It("should remove empty routes, and routes matching nic, leaving others intact", func() {
-			expectedRouteList := []netlink.Route{defRoute, gwRoute, staticRoute}
-			Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
-		})
-	})
-
 })
-
-func newVM(namespace string, name string) *v1.VirtualMachine {
-	vm := &v1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec:       v1.VirtualMachineSpec{Domain: v1.NewMinimalDomainSpec()},
-	}
-	v1.SetObjectDefaults_VirtualMachine(vm)
-	return vm
-}
