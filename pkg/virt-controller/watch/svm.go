@@ -44,21 +44,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-func NewOVMController(vmInformer cache.SharedIndexInformer, vmOVMInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *OVMController {
+func NewSVMController(vmInformer cache.SharedIndexInformer, vmSVMInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *SVMController {
 
-	c := &OVMController{
+	c := &SVMController{
 		Queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		vmInformer:    vmInformer,
-		vmOVMInformer: vmOVMInformer,
+		vmSVMInformer: vmSVMInformer,
 		recorder:      recorder,
 		clientset:     clientset,
 		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
-	c.vmOVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addOvm,
-		DeleteFunc: c.deleteOvm,
-		UpdateFunc: c.updateOvm,
+	c.vmSVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addSvm,
+		DeleteFunc: c.deleteSvm,
+		UpdateFunc: c.updateSvm,
 	})
 
 	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -70,22 +70,22 @@ func NewOVMController(vmInformer cache.SharedIndexInformer, vmOVMInformer cache.
 	return c
 }
 
-type OVMController struct {
+type SVMController struct {
 	clientset     kubecli.KubevirtClient
 	Queue         workqueue.RateLimitingInterface
 	vmInformer    cache.SharedIndexInformer
-	vmOVMInformer cache.SharedIndexInformer
+	vmSVMInformer cache.SharedIndexInformer
 	recorder      record.EventRecorder
 	expectations  *controller.UIDTrackingControllerExpectations
 }
 
-func (c *OVMController) Run(threadiness int, stopCh chan struct{}) {
+func (c *SVMController) Run(threadiness int, stopCh chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
-	log.Log.Info("Starting OfflineVirtualMachine controller.")
+	log.Log.Info("Starting StatefulVirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmOVMInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmSVMInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -93,33 +93,33 @@ func (c *OVMController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	<-stopCh
-	log.Log.Info("Stopping OfflineVirtualMachine controller.")
+	log.Log.Info("Stopping StatefulVirtualMachine controller.")
 }
 
-func (c *OVMController) runWorker() {
+func (c *SVMController) runWorker() {
 	for c.Execute() {
 	}
 }
 
-func (c *OVMController) Execute() bool {
+func (c *SVMController) Execute() bool {
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
 	}
 	defer c.Queue.Done(key)
 	if err := c.execute(key.(string)); err != nil {
-		log.Log.Reason(err).Infof("re-enqueuing OfflineVirtualMachine %v", key)
+		log.Log.Reason(err).Infof("re-enqueuing StatefulVirtualMachine %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed OfflineVirtualMachine %v", key)
+		log.Log.V(4).Infof("processed StatefulVirtualMachine %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
 }
 
-func (c *OVMController) execute(key string) error {
+func (c *SVMController) execute(key string) error {
 
-	obj, exists, err := c.vmOVMInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.vmSVMInformer.GetStore().GetByKey(key)
 	if err != nil {
 		return nil
 	}
@@ -128,21 +128,21 @@ func (c *OVMController) execute(key string) error {
 		c.expectations.DeleteExpectations(key)
 		return nil
 	}
-	OVM := obj.(*virtv1.OfflineVirtualMachine)
+	SVM := obj.(*virtv1.StatefulVirtualMachine)
 
-	logger := log.Log.Object(OVM)
+	logger := log.Log.Object(SVM)
 
-	logger.Info("Started processing OVM")
+	logger.Info("Started processing SVM")
 
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
-	if OVM.Spec.Template == nil {
+	if SVM.Spec.Template == nil {
 		logger.Error("Invalid controller spec, will not re-enqueue.")
 		return nil
 	}
 
 	needsSync := c.expectations.SatisfiedExpectations(key)
 
-	ovmKey, err := controller.KeyFunc(OVM)
+	svmKey, err := controller.KeyFunc(SVM)
 	if err != nil {
 		return err
 	}
@@ -150,19 +150,19 @@ func (c *OVMController) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
-		fresh, err := c.clientset.OfflineVirtualMachine(OVM.ObjectMeta.Namespace).Get(OVM.ObjectMeta.Name, &v1.GetOptions{})
+		fresh, err := c.clientset.StatefulVirtualMachine(SVM.ObjectMeta.Namespace).Get(SVM.ObjectMeta.Name, &v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		if fresh.ObjectMeta.UID != OVM.ObjectMeta.UID {
-			return nil, fmt.Errorf("original OfflineVirtualMachine %v/%v is gone: got uid %v, wanted %v", OVM.Namespace, OVM.Name, fresh.UID, OVM.UID)
+		if fresh.ObjectMeta.UID != SVM.ObjectMeta.UID {
+			return nil, fmt.Errorf("original StatefulVirtualMachine %v/%v is gone: got uid %v, wanted %v", SVM.Namespace, SVM.Name, fresh.UID, SVM.UID)
 		}
 		return fresh, nil
 	})
-	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, OVM, nil, virtv1.OfflineVirtualMachineGroupVersionKind, canAdoptFunc)
+	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, SVM, nil, virtv1.StatefulVirtualMachineGroupVersionKind, canAdoptFunc)
 
 	var vm *virtv1.VirtualMachine
-	vmObj, exist, err := c.vmInformer.GetStore().GetByKey(ovmKey)
+	vmObj, exist, err := c.vmInformer.GetStore().GetByKey(svmKey)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch vm for namespace from cache.")
 		return err
@@ -182,24 +182,24 @@ func (c *OVMController) execute(key string) error {
 	var createErr, vmError error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
-	if needsSync && OVM.ObjectMeta.DeletionTimestamp == nil {
-		logger.Infof("Creating or the VM: %t", OVM.Spec.Running)
-		createErr = c.startStop(OVM, vm)
+	if needsSync && SVM.ObjectMeta.DeletionTimestamp == nil {
+		logger.Infof("Creating or the VM: %t", SVM.Spec.Running)
+		createErr = c.startStop(SVM, vm)
 	}
 
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMs. Don't update the status
 	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
-	if OVM.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(OVM, v1.FinalizerOrphanDependents) {
+	if SVM.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(SVM, v1.FinalizerOrphanDependents) {
 		return c.orphan(cm, vm)
 	}
 
 	if createErr != nil {
-		logger.Reason(err).Error("Scaling the OfflineVirtualMachine failed.")
+		logger.Reason(err).Error("Scaling the StatefulVirtualMachine failed.")
 	}
 
-	err = c.updateStatus(OVM.DeepCopy(), vm, createErr, vmError)
+	err = c.updateStatus(SVM.DeepCopy(), vm, createErr, vmError)
 	if err != nil {
-		logger.Reason(err).Error("Updating the OfflineVirtualMachine status failed.")
+		logger.Reason(err).Error("Updating the StatefulVirtualMachine status failed.")
 	}
 
 	return err
@@ -209,7 +209,7 @@ func (c *OVMController) execute(key string) error {
 // Workaround for https://github.com/kubernetes/kubernetes/issues/56348 to make no-cascading deletes possible
 // We don't have to remove the finalizer. This part of the gc is not affected by the mentioned bug
 // TODO +pkotas unify with replicasets. This function can be the same
-func (c *OVMController) orphan(cm *controller.VirtualMachineControllerRefManager, vm *virtv1.VirtualMachine) error {
+func (c *SVMController) orphan(cm *controller.VirtualMachineControllerRefManager, vm *virtv1.VirtualMachine) error {
 	if vm == nil {
 		return nil
 	}
@@ -231,18 +231,18 @@ func (c *OVMController) orphan(cm *controller.VirtualMachineControllerRefManager
 	return nil
 }
 
-func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) error {
-	log.Log.Object(ovm).V(4).Infof("Start the VM: %t", ovm.Spec.Running)
+func (c *SVMController) startStop(svm *virtv1.StatefulVirtualMachine, vm *virtv1.VirtualMachine) error {
+	log.Log.Object(svm).V(4).Infof("Start the VM: %t", svm.Spec.Running)
 
-	if ovm.Spec.Running == true {
+	if svm.Spec.Running == true {
 		if vm != nil {
 			if vm.IsFinal() {
 				// The VM can fail od be finished. The job of this controller
 				// is keep the VM running, therefore it restarts it.
 				// restarting VM by stopping it and letting it start in next step
-				err := c.stopVM(ovm, vm)
+				err := c.stopVM(svm, vm)
 				if err != nil {
-					log.Log.Object(ovm).Error("Cannot restart VM, the VM cannot be deleted.")
+					log.Log.Object(svm).Error("Cannot restart VM, the VM cannot be deleted.")
 					return err
 				}
 				// return to let the controller pick up the expected deletion
@@ -251,98 +251,98 @@ func (c *OVMController) startStop(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.
 			return nil
 		}
 
-		err := c.startVM(ovm)
+		err := c.startVM(svm)
 		return err
 	}
 
-	if ovm.Spec.Running == false {
-		log.Log.Object(ovm).V(4).Info("It is false delete")
+	if svm.Spec.Running == false {
+		log.Log.Object(svm).V(4).Info("It is false delete")
 		if vm == nil {
 			log.Log.Info("vm is nil")
 			// vm should not run and is not running
 			return nil
 		}
-		err := c.stopVM(ovm, vm)
+		err := c.stopVM(svm, vm)
 		return err
 	}
 
 	return nil
 }
 
-func (c *OVMController) startVM(ovm *virtv1.OfflineVirtualMachine) error {
+func (c *SVMController) startVM(svm *virtv1.StatefulVirtualMachine) error {
 	// TODO add check for existence
-	ovmKey, err := controller.KeyFunc(ovm)
+	svmKey, err := controller.KeyFunc(svm)
 	if err != nil {
-		log.Log.Object(ovm).Reason(err).Error("Failed to extract ovmKey from OfflineVirtualMachine.")
+		log.Log.Object(svm).Reason(err).Error("Failed to extract svmKey from StatefulVirtualMachine.")
 		return nil
 	}
 
 	// start it
-	vm := c.setupVMFromOVM(ovm)
+	vm := c.setupVMFromSVM(svm)
 
-	c.expectations.ExpectCreations(ovmKey, 1)
-	vm, err = c.clientset.VM(ovm.ObjectMeta.Namespace).Create(vm)
+	c.expectations.ExpectCreations(svmKey, 1)
+	vm, err = c.clientset.VM(svm.ObjectMeta.Namespace).Create(vm)
 	if err != nil {
-		log.Log.Object(ovm).Infof("Failed to create VM: %s/%s", vm.Namespace, vm.Name)
-		c.expectations.CreationObserved(ovmKey)
-		c.recorder.Eventf(ovm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine: %v", err)
+		log.Log.Object(svm).Infof("Failed to create VM: %s/%s", vm.Namespace, vm.Name)
+		c.expectations.CreationObserved(svmKey)
+		c.recorder.Eventf(svm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine: %v", err)
 		return err
 	}
-	c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created virtual machine: %v", vm.ObjectMeta.Name)
+	c.recorder.Eventf(svm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created virtual machine: %v", vm.ObjectMeta.Name)
 
 	return nil
 }
 
-func (c *OVMController) stopVM(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) error {
+func (c *SVMController) stopVM(svm *virtv1.StatefulVirtualMachine, vm *virtv1.VirtualMachine) error {
 	if vm == nil {
 		// nothing to do
 		return nil
 	}
 
-	ovmKey, err := controller.KeyFunc(ovm)
+	svmKey, err := controller.KeyFunc(svm)
 	if err != nil {
-		log.Log.Object(ovm).Reason(err).Error("Failed to extract ovmKey from OfflineVirtualMachine.")
+		log.Log.Object(svm).Reason(err).Error("Failed to extract svmKey from StatefulVirtualMachine.")
 		return nil
 	}
 
 	// stop it
-	c.expectations.ExpectDeletions(ovmKey, []string{controller.VirtualMachineKey(vm)})
-	err = c.clientset.VM(ovm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
+	c.expectations.ExpectDeletions(svmKey, []string{controller.VirtualMachineKey(vm)})
+	err = c.clientset.VM(svm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
 
 	// Don't log an error if it is already deleted
 	if err != nil {
 		// We can't observe a delete if it was not accepted by the server
-		c.expectations.DeletionObserved(ovmKey, controller.VirtualMachineKey(vm))
-		c.recorder.Eventf(ovm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
+		c.expectations.DeletionObserved(svmKey, controller.VirtualMachineKey(vm))
+		c.recorder.Eventf(svm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
 		return err
 	}
 
-	c.recorder.Eventf(ovm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", vm.ObjectMeta.UID)
-	log.Log.Object(ovm).Info("Dispatching delete event")
+	c.recorder.Eventf(svm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", vm.ObjectMeta.UID)
+	log.Log.Object(svm).Info("Dispatching delete event")
 
 	return nil
 }
 
-// setupVMfromOVM creates a VirtualMachine object from one OfflineVirtualMachine object.
-func (c *OVMController) setupVMFromOVM(ovm *virtv1.OfflineVirtualMachine) *virtv1.VirtualMachine {
-	basename := c.getVirtualMachineBaseName(ovm)
+// setupVMfromSVM creates a VirtualMachine object from one StatefulVirtualMachine object.
+func (c *SVMController) setupVMFromSVM(svm *virtv1.StatefulVirtualMachine) *virtv1.VirtualMachine {
+	basename := c.getVirtualMachineBaseName(svm)
 
-	vm := virtv1.NewVMReferenceFromNameWithNS(ovm.ObjectMeta.Namespace, "")
-	vm.ObjectMeta = ovm.Spec.Template.ObjectMeta
+	vm := virtv1.NewVMReferenceFromNameWithNS(svm.ObjectMeta.Namespace, "")
+	vm.ObjectMeta = svm.Spec.Template.ObjectMeta
 	vm.ObjectMeta.Name = basename
 	vm.ObjectMeta.GenerateName = basename
-	vm.Spec = ovm.Spec.Template.Spec
+	vm.Spec = svm.Spec.Template.Spec
 
-	setupStableFirmwareUUID(ovm, vm)
+	setupStableFirmwareUUID(svm, vm)
 
 	t := true
 	// TODO check if vm labels exist, and when make sure that they match. For now just override them
-	vm.ObjectMeta.Labels = ovm.Spec.Template.ObjectMeta.Labels
+	vm.ObjectMeta.Labels = svm.Spec.Template.ObjectMeta.Labels
 	vm.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
-		APIVersion:         virtv1.OfflineVirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               virtv1.OfflineVirtualMachineGroupVersionKind.Kind,
-		Name:               ovm.ObjectMeta.Name,
-		UID:                ovm.ObjectMeta.UID,
+		APIVersion:         virtv1.StatefulVirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               virtv1.StatefulVirtualMachineGroupVersionKind.Kind,
+		Name:               svm.ObjectMeta.Name,
+		UID:                svm.ObjectMeta.UID,
 		Controller:         &t,
 		BlockOwnerDeletion: &t,
 	}}
@@ -358,9 +358,9 @@ var firmwareUUIDns = uuid.Parse(magicUUID)
 
 // setStableUUID makes sure the VM being started has a a 'stable' UUID.
 // The UUID is 'stable' if doesn't change across reboots.
-func setupStableFirmwareUUID(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine) {
+func setupStableFirmwareUUID(svm *virtv1.StatefulVirtualMachine, vm *virtv1.VirtualMachine) {
 
-	logger := log.Log.Object(ovm)
+	logger := log.Log.Object(svm)
 
 	if vm.Spec.Domain.Firmware == nil {
 		vm.Spec.Domain.Firmware = &virtv1.Firmware{}
@@ -378,7 +378,7 @@ func setupStableFirmwareUUID(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.Virtu
 
 // filterActiveVMs takes a list of VMs and returns all VMs which are not in a final state
 // TODO +pkotas unify with replicaset this code is the same without dependency
-func (c *OVMController) filterActiveVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
+func (c *SVMController) filterActiveVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 	return filter(vms, func(vm *virtv1.VirtualMachine) bool {
 		return !vm.IsFinal()
 	})
@@ -386,7 +386,7 @@ func (c *OVMController) filterActiveVMs(vms []*virtv1.VirtualMachine) []*virtv1.
 
 // filterReadyVMs takes a list of VMs and returns all VMs which are in ready state.
 // TODO +pkotas unify with replicaset this code is the same
-func (c *OVMController) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
+func (c *SVMController) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 	return filter(vms, func(vm *virtv1.VirtualMachine) bool {
 		return vm.IsReady()
 	})
@@ -394,7 +394,7 @@ func (c *OVMController) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.V
 
 // listVMsFromNamespace takes a namespace and returns all VMs from the VM cache which run in this namespace
 // TODO +pkotas unify this code with replicaset
-func (c *OVMController) listVMsFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
+func (c *SVMController) listVMsFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
 	objs, err := c.vmInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
@@ -406,25 +406,25 @@ func (c *OVMController) listVMsFromNamespace(namespace string) ([]*virtv1.Virtua
 	return vms, nil
 }
 
-// listControllerFromNamespace takes a namespace and returns all OfflineVirtualMachines
-// from the OfflineVirtualMachine cache which run in this namespace
-func (c *OVMController) listControllerFromNamespace(namespace string) ([]*virtv1.OfflineVirtualMachine, error) {
-	objs, err := c.vmOVMInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+// listControllerFromNamespace takes a namespace and returns all StatefulVirtualMachines
+// from the StatefulVirtualMachine cache which run in this namespace
+func (c *SVMController) listControllerFromNamespace(namespace string) ([]*virtv1.StatefulVirtualMachine, error) {
+	objs, err := c.vmSVMInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
-	var ovms []*virtv1.OfflineVirtualMachine
+	var svms []*virtv1.StatefulVirtualMachine
 	for _, obj := range objs {
-		ovm := obj.(*virtv1.OfflineVirtualMachine)
-		ovms = append(ovms, ovm)
+		svm := obj.(*virtv1.StatefulVirtualMachine)
+		svms = append(svms, svm)
 	}
-	return ovms, nil
+	return svms, nil
 }
 
-// getMatchingControllers returns the list of OfflineVirtualMachines which matches
+// getMatchingControllers returns the list of StatefulVirtualMachines which matches
 // the labels of the VM from the listener cache. If there are no matching
 // controllers nothing is returned
-func (c *OVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (ovms []*virtv1.OfflineVirtualMachine) {
+func (c *SVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (svms []*virtv1.StatefulVirtualMachine) {
 	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
 	if err != nil {
 		return nil
@@ -432,16 +432,16 @@ func (c *OVMController) getMatchingControllers(vm *virtv1.VirtualMachine) (ovms 
 
 	// TODO check owner reference, if we have an existing controller which owns this one
 
-	for _, ovm := range controllers {
-		if vm.Name == ovm.Name {
-			ovms = append(ovms, ovm)
+	for _, svm := range controllers {
+		if vm.Name == svm.Name {
+			svms = append(svms, svm)
 		}
 	}
-	return ovms
+	return svms
 }
 
-// When a vm is created, enqueue the OfflineVirtualMachine that manages it and update its expectations.
-func (c *OVMController) addVirtualMachine(obj interface{}) {
+// When a vm is created, enqueue the StatefulVirtualMachine that manages it and update its expectations.
+func (c *SVMController) addVirtualMachine(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 
 	log.Log.Object(vm).V(4).Info("VM added.")
@@ -456,40 +456,40 @@ func (c *OVMController) addVirtualMachine(obj interface{}) {
 	// If it has a ControllerRef, that's all that matters.
 	if controllerRef := controller.GetControllerOf(vm); controllerRef != nil {
 		log.Log.Object(vm).Info("Looking for VM Ref")
-		ovm := c.resolveControllerRef(vm.Namespace, controllerRef)
-		if ovm == nil {
-			log.Log.Object(vm).Errorf("Cant find the matching OVM for VM: %s", vm.Name)
+		svm := c.resolveControllerRef(vm.Namespace, controllerRef)
+		if svm == nil {
+			log.Log.Object(vm).Errorf("Cant find the matching SVM for VM: %s", vm.Name)
 			return
 		}
-		ovmKey, err := controller.KeyFunc(ovm)
+		svmKey, err := controller.KeyFunc(svm)
 		if err != nil {
-			log.Log.Object(vm).Errorf("Cannot parse key of OVM: %s for VM: %s", ovm.Name, vm.Name)
+			log.Log.Object(vm).Errorf("Cannot parse key of SVM: %s for VM: %s", svm.Name, vm.Name)
 			return
 		}
 		log.Log.Object(vm).Infof("VirtualMachine created bacause %s was added.", vm.Name)
-		c.expectations.CreationObserved(ovmKey)
-		c.enqueueOvm(ovm)
+		c.expectations.CreationObserved(svmKey)
+		c.enqueueSvm(svm)
 		return
 	}
 
-	// Otherwise, it's an orphan. Get a list of all matching OfflineVirtualMachines and sync
+	// Otherwise, it's an orphan. Get a list of all matching StatefulVirtualMachines and sync
 	// them to see if anyone wants to adopt it.
 	// DO NOT observe creation because no controller should be waiting for an
 	// orphan.
-	ovms := c.getMatchingControllers(vm)
-	if len(ovms) == 0 {
+	svms := c.getMatchingControllers(vm)
+	if len(svms) == 0 {
 		return
 	}
 	log.Log.V(4).Object(vm).Infof("Orphan VirtualMachine created")
-	for _, ovm := range ovms {
-		c.enqueueOvm(ovm)
+	for _, svm := range svms {
+		c.enqueueSvm(svm)
 	}
 }
 
-// When a vm is updated, figure out what OfflineVirtualMachine manage it and wake them
+// When a vm is updated, figure out what StatefulVirtualMachine manage it and wake them
 // up. If the labels of the vm have changed we need to awaken both the old
-// and new OfflineVirtualMachine. old and cur must be *v1.VirtualMachine types.
-func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
+// and new StatefulVirtualMachine. old and cur must be *v1.VirtualMachine types.
+func (c *SVMController) updateVirtualMachine(old, cur interface{}) {
 	curVM := cur.(*virtv1.VirtualMachine)
 	oldVM := old.(*virtv1.VirtualMachine)
 	if curVM.ResourceVersion == oldVM.ResourceVersion {
@@ -502,7 +502,7 @@ func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
 	if curVM.DeletionTimestamp != nil {
 		// when a vm is deleted gracefully it's deletion timestamp is first modified to reflect a grace period,
 		// and after such time has passed, the virt-handler actually deletes it from the store. We receive an update
-		// for modification of the deletion timestamp and expect an OfflineVirtualMachine to create newVM asap, not wait
+		// for modification of the deletion timestamp and expect an StatefulVirtualMachine to create newVM asap, not wait
 		// until the virt-handler actually deletes the vm. This is different from the Phase of a vm changing, because
 		// an rs never initiates a phase change, and so is never asleep waiting for the same.
 		c.deleteVirtualMachine(curVM)
@@ -519,7 +519,7 @@ func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if rs := c.resolveControllerRef(oldVM.Namespace, oldControllerRef); rs != nil {
-			c.enqueueOvm(rs)
+			c.enqueueSvm(rs)
 		}
 	}
 
@@ -530,7 +530,7 @@ func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
 			return
 		}
 		log.Log.V(4).Object(curVM).Infof("VirtualMachine updated")
-		c.enqueueOvm(rs)
+		c.enqueueSvm(rs)
 		// TODO: MinReadySeconds in the VM will generate an Available condition to be added in
 		// Update once we support the available conect on the rs
 		return
@@ -545,20 +545,20 @@ func (c *OVMController) updateVirtualMachine(old, cur interface{}) {
 		}
 		log.Log.V(4).Object(curVM).Infof("Orphan VirtualMachine updated")
 		for _, rs := range rss {
-			c.enqueueOvm(rs)
+			c.enqueueSvm(rs)
 		}
 	}
 }
 
-// When a vm is deleted, enqueue the OfflineVirtualMachine that manages the vm and update its expectations.
+// When a vm is deleted, enqueue the StatefulVirtualMachine that manages the vm and update its expectations.
 // obj could be an *v1.VirtualMachine, or a DeletionFinalStateUnknown marker item.
-func (c *OVMController) deleteVirtualMachine(obj interface{}) {
+func (c *SVMController) deleteVirtualMachine(obj interface{}) {
 	vm, ok := obj.(*virtv1.VirtualMachine)
 
 	// When a delete is dropped, the relist will notice a vm in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
 	// the deleted key/value. Note that this value might be stale. If the vm
-	// changed labels the new OfflineVirtualMachine will not be woken up till the periodic resync.
+	// changed labels the new StatefulVirtualMachine will not be woken up till the periodic resync.
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
@@ -577,42 +577,42 @@ func (c *OVMController) deleteVirtualMachine(obj interface{}) {
 		// No controller should care about orphans being deleted.
 		return
 	}
-	ovm := c.resolveControllerRef(vm.Namespace, controllerRef)
-	if ovm == nil {
+	svm := c.resolveControllerRef(vm.Namespace, controllerRef)
+	if svm == nil {
 		return
 	}
-	ovmKey, err := controller.KeyFunc(ovm)
+	svmKey, err := controller.KeyFunc(svm)
 	if err != nil {
 		return
 	}
-	c.expectations.DeletionObserved(ovmKey, controller.VirtualMachineKey(vm))
-	c.enqueueOvm(ovm)
+	c.expectations.DeletionObserved(svmKey, controller.VirtualMachineKey(vm))
+	c.enqueueSvm(svm)
 }
 
-func (c *OVMController) addOvm(obj interface{}) {
-	c.enqueueOvm(obj)
+func (c *SVMController) addSvm(obj interface{}) {
+	c.enqueueSvm(obj)
 }
 
-func (c *OVMController) deleteOvm(obj interface{}) {
-	c.enqueueOvm(obj)
+func (c *SVMController) deleteSvm(obj interface{}) {
+	c.enqueueSvm(obj)
 }
 
-func (c *OVMController) updateOvm(old, curr interface{}) {
-	c.enqueueOvm(curr)
+func (c *SVMController) updateSvm(old, curr interface{}) {
+	c.enqueueSvm(curr)
 }
 
-func (c *OVMController) enqueueOvm(obj interface{}) {
+func (c *SVMController) enqueueSvm(obj interface{}) {
 	logger := log.Log
-	ovm := obj.(*virtv1.OfflineVirtualMachine)
-	key, err := controller.KeyFunc(ovm)
+	svm := obj.(*virtv1.StatefulVirtualMachine)
+	key, err := controller.KeyFunc(svm)
 	if err != nil {
-		logger.Object(ovm).Reason(err).Error("Failed to extract ovmKey from OfflineVirtualMachine.")
+		logger.Object(svm).Reason(err).Error("Failed to extract svmKey from StatefulVirtualMachine.")
 	}
 	c.Queue.Add(key)
 }
 
-func (c *OVMController) hasCondition(ovm *virtv1.OfflineVirtualMachine, cond virtv1.OfflineVirtualMachineConditionType) bool {
-	for _, c := range ovm.Status.Conditions {
+func (c *SVMController) hasCondition(svm *virtv1.StatefulVirtualMachine, cond virtv1.StatefulVirtualMachineConditionType) bool {
+	for _, c := range svm.Status.Conditions {
 		if c.Type == cond {
 			return true
 		}
@@ -620,77 +620,77 @@ func (c *OVMController) hasCondition(ovm *virtv1.OfflineVirtualMachine, cond vir
 	return false
 }
 
-func (c *OVMController) removeCondition(ovm *virtv1.OfflineVirtualMachine, cond virtv1.OfflineVirtualMachineConditionType) {
-	var conds []virtv1.OfflineVirtualMachineCondition
-	for _, c := range ovm.Status.Conditions {
+func (c *SVMController) removeCondition(svm *virtv1.StatefulVirtualMachine, cond virtv1.StatefulVirtualMachineConditionType) {
+	var conds []virtv1.StatefulVirtualMachineCondition
+	for _, c := range svm.Status.Conditions {
 		if c.Type == cond {
 			continue
 		}
 		conds = append(conds, c)
 	}
-	ovm.Status.Conditions = conds
+	svm.Status.Conditions = conds
 }
 
-func (c *OVMController) updateStatus(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr, vmError error) error {
+func (c *SVMController) updateStatus(svm *virtv1.StatefulVirtualMachine, vm *virtv1.VirtualMachine, createErr, vmError error) error {
 
 	// Check if it is worth updating
-	errMatch := (createErr != nil) == c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure)
+	errMatch := (createErr != nil) == c.hasCondition(svm, virtv1.StatefulVirtualMachineFailure)
 	created := vm != nil
-	createdMatch := created == ovm.Status.Created
+	createdMatch := created == svm.Status.Created
 
 	ready := false
 	if created {
 		ready = vm.IsReady()
 	}
-	readyMatch := ready == ovm.Status.Ready
+	readyMatch := ready == svm.Status.Ready
 
 	if errMatch && createdMatch && readyMatch {
 		return nil
 	}
 
 	// Set created and ready flags
-	ovm.Status.Created = created
-	ovm.Status.Ready = ready
+	svm.Status.Created = created
+	svm.Status.Ready = ready
 
 	// Add/Remove Failure condition if necessary
 	if !(errMatch) {
-		c.processFailure(ovm, vm, createErr)
+		c.processFailure(svm, vm, createErr)
 	}
 
-	_, err := c.clientset.OfflineVirtualMachine(ovm.ObjectMeta.Namespace).Update(ovm)
+	_, err := c.clientset.StatefulVirtualMachine(svm.ObjectMeta.Namespace).Update(svm)
 
 	return err
 }
 
-func (c *OVMController) getVirtualMachineBaseName(ovm *virtv1.OfflineVirtualMachine) string {
+func (c *SVMController) getVirtualMachineBaseName(svm *virtv1.StatefulVirtualMachine) string {
 
 	// TODO defaulting should make sure that the right field is set, instead of doing this
-	if len(ovm.Spec.Template.ObjectMeta.Name) > 0 {
-		return ovm.Spec.Template.ObjectMeta.Name
+	if len(svm.Spec.Template.ObjectMeta.Name) > 0 {
+		return svm.Spec.Template.ObjectMeta.Name
 	}
-	if len(ovm.Spec.Template.ObjectMeta.GenerateName) > 0 {
-		return ovm.Spec.Template.ObjectMeta.GenerateName
+	if len(svm.Spec.Template.ObjectMeta.GenerateName) > 0 {
+		return svm.Spec.Template.ObjectMeta.GenerateName
 	}
-	return ovm.ObjectMeta.Name
+	return svm.ObjectMeta.Name
 }
 
-func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
+func (c *SVMController) processFailure(svm *virtv1.StatefulVirtualMachine, vm *virtv1.VirtualMachine, createErr error) {
 	reason := ""
 	message := ""
-	log.Log.Object(ovm).Infof("Processing failure status:: shouldRun: %t; noErr: %t; noVm: %t", ovm.Spec.Running, createErr != nil, vm != nil)
+	log.Log.Object(svm).Infof("Processing failure status:: shouldRun: %t; noErr: %t; noVm: %t", svm.Spec.Running, createErr != nil, vm != nil)
 
 	if createErr != nil {
-		if ovm.Spec.Running == true {
+		if svm.Spec.Running == true {
 			reason = "FailedCreate"
 		} else {
 			reason = "FailedDelete"
 		}
 		message = createErr.Error()
 
-		if !c.hasCondition(ovm, virtv1.OfflineVirtualMachineFailure) {
-			log.Log.Object(ovm).Infof("Reason to fail: %s", reason)
-			ovm.Status.Conditions = append(ovm.Status.Conditions, virtv1.OfflineVirtualMachineCondition{
-				Type:               virtv1.OfflineVirtualMachineFailure,
+		if !c.hasCondition(svm, virtv1.StatefulVirtualMachineFailure) {
+			log.Log.Object(svm).Infof("Reason to fail: %s", reason)
+			svm.Status.Conditions = append(svm.Status.Conditions, virtv1.StatefulVirtualMachineCondition{
+				Type:               virtv1.StatefulVirtualMachineFailure,
 				Reason:             reason,
 				Message:            message,
 				LastTransitionTime: v1.Now(),
@@ -701,20 +701,20 @@ func (c *OVMController) processFailure(ovm *virtv1.OfflineVirtualMachine, vm *vi
 		return
 	}
 
-	log.Log.Object(ovm).Info("Removing failure")
-	c.removeCondition(ovm, virtv1.OfflineVirtualMachineFailure)
+	log.Log.Object(svm).Info("Removing failure")
+	c.removeCondition(svm, virtv1.StatefulVirtualMachineFailure)
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (c *OVMController) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.OfflineVirtualMachine {
+func (c *SVMController) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.StatefulVirtualMachine {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
-	if controllerRef.Kind != virtv1.OfflineVirtualMachineGroupVersionKind.Kind {
+	if controllerRef.Kind != virtv1.StatefulVirtualMachineGroupVersionKind.Kind {
 		return nil
 	}
-	ovm, exists, err := c.vmOVMInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	svm, exists, err := c.vmSVMInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
@@ -722,10 +722,10 @@ func (c *OVMController) resolveControllerRef(namespace string, controllerRef *v1
 		return nil
 	}
 
-	if ovm.(*virtv1.OfflineVirtualMachine).UID != controllerRef.UID {
+	if svm.(*virtv1.StatefulVirtualMachine).UID != controllerRef.UID {
 		// The controller we found with this Name is not the same one that the
 		// ControllerRef points to.
 		return nil
 	}
-	return ovm.(*virtv1.OfflineVirtualMachine)
+	return svm.(*virtv1.StatefulVirtualMachine)
 }

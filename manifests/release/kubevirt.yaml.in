@@ -17,7 +17,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - offlinevirtualmachines
+      - statefulvirtualmachines
       - virtualmachinepresets
       - virtualmachinereplicasets
     verbs:
@@ -59,7 +59,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - offlinevirtualmachines
+      - statefulvirtualmachines
       - virtualmachinepresets
       - virtualmachinereplicasets
     verbs:
@@ -82,7 +82,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachines
-      - offlinevirtualmachines
+      - statefulvirtualmachines
       - virtualmachinepresets
       - virtualmachinereplicasets
     verbs:
@@ -244,7 +244,7 @@ rules:
       - virtualmachines
       - virtualmachinereplicasets
       - virtualmachinepresets
-      - offlinevirtualmachines
+      - statefulvirtualmachines
     verbs:
       - get
       - list
@@ -474,4 +474,4 @@ spec:
 {{index .GeneratedManifests "vm-resource.yaml"}}
 {{index .GeneratedManifests "vmrs-resource.yaml"}}
 {{index .GeneratedManifests "vmpreset-resource.yaml"}}
-{{index .GeneratedManifests "ovm-resource.yaml"}}
+{{index .GeneratedManifests "svm-resource.yaml"}}

@@ -1,4 +1,4 @@
-package offlinevm_test
+package statefulvm_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOfflinevm(t *testing.T) {
+func TestStatefulvm(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Offlinevm Suite")
+	RunSpecs(t, "Statefulvm Suite")
 }

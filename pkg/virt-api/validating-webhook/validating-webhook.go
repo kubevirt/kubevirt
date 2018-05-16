@@ -355,7 +355,7 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	return causes
 }
 
-func validateOfflineVirtualMachineSpec(field *k8sfield.Path, spec *v1.OfflineVirtualMachineSpec) []metav1.StatusCause {
+func validateStatefulVirtualMachineSpec(field *k8sfield.Path, spec *v1.StatefulVirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -433,11 +433,11 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMs)
 }
 
-func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func admitSVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
-		Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
-		Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
-		Resource: "offlinevirtualmachines",
+		Group:    v1.StatefulVirtualMachineGroupVersionKind.Group,
+		Version:  v1.StatefulVirtualMachineGroupVersionKind.Version,
+		Resource: "statefulvirtualmachines",
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
@@ -445,14 +445,14 @@ func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	ovm := v1.OfflineVirtualMachine{}
+	svm := v1.StatefulVirtualMachine{}
 
-	err := json.Unmarshal(raw, &ovm)
+	err := json.Unmarshal(raw, &svm)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateOfflineVirtualMachineSpec(k8sfield.NewPath("spec"), &ovm.Spec)
+	causes := validateStatefulVirtualMachineSpec(k8sfield.NewPath("spec"), &svm.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -462,8 +462,8 @@ func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeOVMs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitOVMs)
+func ServeSVMs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitSVMs)
 }
 
 func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {

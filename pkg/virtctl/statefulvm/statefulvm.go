@@ -17,7 +17,7 @@
  *
  */
 
-package offlinevm
+package statefulvm
 
 import (
 	"fmt"
@@ -38,7 +38,7 @@ const (
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start (vm)",
-		Short:   "Start a virtual machine which is managed by an offline virtual machine.",
+		Short:   "Start a virtual machine which is managed by an stateful virtual machine.",
 		Example: usage(COMMAND_START),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,7 +53,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return &cobra.Command{
 		Use:     "stop (vm)",
-		Short:   "Stop a virtual machine which is managed by an offline virtual machine.",
+		Short:   "Stop a virtual machine which is managed by an stateful virtual machine.",
 		Example: usage(COMMAND_STOP),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -100,16 +100,16 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	options := &k8smetav1.GetOptions{}
-	ovm, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
+	svm, err := virtClient.StatefulVirtualMachine(namespace).Get(vmName, options)
 	if err != nil {
-		return fmt.Errorf("Error fetching OfflineVirtualMachine: %v", err)
+		return fmt.Errorf("Error fetching StatefulVirtualMachine: %v", err)
 	}
 
-	if ovm.Spec.Running != running {
-		ovm.Spec.Running = running
-		_, err := virtClient.OfflineVirtualMachine(namespace).Update(ovm)
+	if svm.Spec.Running != running {
+		svm.Spec.Running = running
+		_, err := virtClient.StatefulVirtualMachine(namespace).Update(svm)
 		if err != nil {
-			return fmt.Errorf("Error updating OfflineVirtualMachine: %v", err)
+			return fmt.Errorf("Error updating StatefulVirtualMachine: %v", err)
 		}
 	} else {
 		stateMsg := "stopped"

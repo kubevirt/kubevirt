@@ -11,16 +11,16 @@ metadata:
     miq.github.io/kubevirt-is-vm-template: "true"
 objects:
 - apiVersion: kubevirt.io/v1alpha1
-  kind: OfflineVirtualMachine
+  kind: StatefulVirtualMachine
   metadata:
     name: ${NAME}
     labels:
-      kubevirt-ovm: ovm-${NAME}
+      kubevirt-svm: svm-${NAME}
   spec:
     template:
       metadata:
         labels:
-          kubevirt-ovm: ovm-${NAME}
+          kubevirt-svm: svm-${NAME}
       spec:
         domain:
           features:
