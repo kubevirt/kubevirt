@@ -176,10 +176,10 @@ func addEmptyDisk(spec *v1.VirtualMachineSpec, size string) *v1.VirtualMachineSp
 	return spec
 }
 
-func addPvcDisk(spec *v1.VirtualMachineSpec, claimName string, bus string) *v1.VirtualMachineSpec {
+func addPvcDisk(spec *v1.VirtualMachineSpec, claimName string, bus string, diskName string, volumeName string) *v1.VirtualMachineSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "pvcdisk",
-		VolumeName: "pvcvolume",
+		Name:       diskName,
+		VolumeName: volumeName,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: bus,
@@ -188,7 +188,7 @@ func addPvcDisk(spec *v1.VirtualMachineSpec, claimName string, bus string) *v1.V
 	})
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: "pvcvolume",
+		Name: volumeName,
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
@@ -243,7 +243,7 @@ func getVmFlavorSmall() *v1.VirtualMachine {
 func getVmPvc() *v1.VirtualMachine {
 	vm := getBaseVm(vmPvc)
 
-	addPvcDisk(&vm.Spec, "disk-alpine", busVirtio)
+	addPvcDisk(&vm.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
 	return vm
 }
 
@@ -285,7 +285,7 @@ func getVmWindows() *v1.VirtualMachine {
 		},
 	}
 
-	addPvcDisk(&vm.Spec, "disk-windows", busSata)
+	addPvcDisk(&vm.Spec, "disk-windows", busSata, "pvcdisk", "pvcvolume")
 	return vm
 }
 
@@ -328,8 +328,8 @@ func getOvmMultiPvc() *v1.OfflineVirtualMachine {
 		"kubevirt.io/ovm": ovmAlpineMultiPvc,
 	})
 
-	addPvcDisk(&ovm.Spec.Template.Spec, "disk-alpine", busVirtio)
-	addPvcDisk(&ovm.Spec.Template.Spec, "disk-custom", busVirtio)
+	addPvcDisk(&ovm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
+	addPvcDisk(&ovm.Spec.Template.Spec, "disk-custom", busVirtio, "pvcdisk2", "pvcvolume2")
 
 	return ovm
 }
