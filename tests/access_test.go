@@ -50,7 +50,7 @@ var _ = Describe("User Access", func() {
 			saNames := []string{tests.ViewServiceAccountName, tests.EditServiceAccountName, tests.AdminServiceAccountName}
 
 			for _, saName := range saNames {
-				// Verifies targetted access to only the kubevirt config
+				// Verifies targeted access to only the kubevirt config
 				By(fmt.Sprintf("verifying expected permissions for sa %s for resource configmaps/kubevirt-config", saName))
 				for _, verb := range verbs {
 					expectedRes := "no"

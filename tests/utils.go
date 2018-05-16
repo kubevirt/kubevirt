@@ -226,18 +226,18 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event recieved")).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("unexpected warning event received")).Error(event.Message)
 			} else {
 				log.Log.Infof(event.Message)
 			}
-			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event recieved.")
+			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received.")
 			return processFunc(event)
 		}
 
 	} else {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event recieved")).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("unexpected warning event received")).Error(event.Message)
 			} else {
 				log.Log.Infof(event.Message)
 			}

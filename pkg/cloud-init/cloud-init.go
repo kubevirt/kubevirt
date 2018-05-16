@@ -103,7 +103,7 @@ func SetLocalDataOwner(user string) {
 func SetLocalDirectory(dir string) error {
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Unable to initalize cloudInit local cache directory (%s). %v", dir, err))
+		return errors.New(fmt.Sprintf("Unable to initialize cloudInit local cache directory (%s). %v", dir, err))
 	}
 
 	exists, err := diskutils.FileExists(dir)
@@ -168,14 +168,11 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 		return err
 	}
 
-	userDataBase64, ok := secret.Data["userdata"]
+	userData, ok := secret.Data["userdata"]
 	if ok == false {
 		return errors.New(fmt.Sprintf("no user-data value found in k8s secret %s %v", secretID, err))
 	}
-	userData, err := base64.StdEncoding.DecodeString(string(userDataBase64))
-	if err != nil {
-		return err
-	}
+
 	source.UserData = string(userData)
 	return nil
 }

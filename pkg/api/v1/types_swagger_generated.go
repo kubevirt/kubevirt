@@ -141,6 +141,7 @@ func (StatefulVirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "StatefulVirtualMachineSpec describes how the proper StatefulVirtualMachine\nshould look like",
 		"running":  "Running controlls whether the associatied VirtualMachine is created or not",
+
 		"template": "Template is the direct specification of VirtualMachine",
 	}
 }
