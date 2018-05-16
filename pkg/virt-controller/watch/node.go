@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+// NodeController is the main NodeController struct.
 type NodeController struct {
 	clientset        kubecli.KubevirtClient
 	Queue            workqueue.RateLimitingInterface
@@ -33,6 +34,7 @@ type NodeController struct {
 	recheckInterval  time.Duration
 }
 
+// NewNodeController creates a new instance of the NodeController struct.
 func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmInformer cache.SharedIndexInformer, recorder record.EventRecorder) *NodeController {
 	c := &NodeController{
 		clientset:        clientset,
@@ -95,6 +97,7 @@ func (c *NodeController) updateVirtualMachine(old, curr interface{}) {
 	}
 }
 
+// Run runs the passed in NodeController.
 func (c *NodeController) Run(threadiness int, stopCh chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
@@ -117,6 +120,9 @@ func (c *NodeController) runWorker() {
 	}
 }
 
+// Execute runs commands from the controller queue, if there is
+// an error it requeues the command. Returns false if the queue
+// is empty.
 func (c *NodeController) Execute() bool {
 	key, quit := c.Queue.Get()
 	if quit {
@@ -218,7 +224,7 @@ func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*virtv1.Virtua
 
 	vms := []*virtv1.VirtualMachine{}
 
-	for i, _ := range list.Items {
+	for i := range list.Items {
 		vms = append(vms, &list.Items[i])
 	}
 	return vms, nil
@@ -234,10 +240,13 @@ func (c *NodeController) podsOnNode(nodeName string) ([]*v1.Pod, error) {
 		LabelSelector: labelSelector.String(),
 		FieldSelector: handlerNodeSelector.String(),
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	pods := []*v1.Pod{}
 
-	for i, _ := range list.Items {
+	for i := range list.Items {
 		pods = append(pods, &list.Items[i])
 	}
 	return pods, nil
