@@ -30,7 +30,5 @@ func main() {
 
 	app := virt_api.NewVirtApi()
 	service.Setup(app)
-	app.Compose()
-	app.ConfigureOpenAPIService()
-	app.Run()
+	app.Execute()
 }

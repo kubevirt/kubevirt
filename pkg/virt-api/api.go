@@ -85,6 +85,7 @@ type VirtApi interface {
 	Run()
 	AddFlags()
 	ConfigureOpenAPIService()
+	Execute()
 }
 
 type virtAPIApp struct {
@@ -107,7 +108,13 @@ var _ service.Service = &virtAPIApp{}
 func NewVirtApi() VirtApi {
 
 	app := &virtAPIApp{}
+	app.BindAddress = defaultHost
+	app.Port = defaultPort
 
+	return app
+}
+
+func (app *virtAPIApp) Execute() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -121,15 +128,15 @@ func NewVirtApi() VirtApi {
 	app.authorizor = authorizor
 
 	app.virtCli = virtCli
-	app.BindAddress = defaultHost
-	app.Port = defaultPort
 
 	app.certsDirectory, err = ioutil.TempDir("", "certsdir")
 	if err != nil {
 		panic(err)
 	}
 
-	return app
+	app.Compose()
+	app.ConfigureOpenAPIService()
+	app.Run()
 }
 
 func (app *virtAPIApp) composeResources(ctx context.Context) {
