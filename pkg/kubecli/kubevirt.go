@@ -93,5 +93,5 @@ type OfflineVirtualMachineInterface interface {
 	Create(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
 	Update(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte) (result *v1.OfflineVirtualMachine, err error)
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.OfflineVirtualMachine, err error)
 }

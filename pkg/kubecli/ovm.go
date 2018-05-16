@@ -90,11 +90,12 @@ func (o *ovm) Update(offlinevm *v1.OfflineVirtualMachine) (*v1.OfflineVirtualMac
 	return updatedOvm, err
 }
 
-func (v *ovm) Patch(name string, pt types.PatchType, data []byte) (result *v1.OfflineVirtualMachine, err error) {
+func (v *ovm) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.OfflineVirtualMachine, err error) {
 	result = &v1.OfflineVirtualMachine{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).
+		SubResource(subresources...).
 		Name(name).
 		Body(data).
 		Do().
