@@ -162,18 +162,18 @@ var _ = Describe("CloudInit UserData", func() {
 
 		It("should take user-data from k8s secret", func(done Done) {
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
-			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
+			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "")
 
-			for _, volume := range vm.Spec.Volumes {
+			idx := 0
+			for i, volume := range vm.Spec.Volumes {
 				if volume.CloudInitNoCloud == nil {
 					continue
 				}
+				idx = i
 
 				secretID := fmt.Sprintf("%s-test-secret", vm.Name)
 				spec := volume.CloudInitNoCloud
 				spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
-				userData64 := spec.UserDataBase64
-				spec.UserDataBase64 = ""
 
 				// Store userdata as k8s secret
 				By("Creating a user-data secret")
@@ -184,7 +184,7 @@ var _ = Describe("CloudInit UserData", func() {
 					},
 					Type: "Opaque",
 					Data: map[string][]byte{
-						"userdata": []byte(userData64),
+						"userdata": []byte(userData), // The client encrypts the secret for us
 					},
 				}
 				_, err := virtClient.CoreV1().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret)
@@ -195,6 +195,12 @@ var _ = Describe("CloudInit UserData", func() {
 			VerifyUserDataVM(vm, []expect.Batcher{
 				&expect.BExp{R: expectedUserData},
 			}, time.Second*120)
+
+			// Expect that the secret is not present on the vm itself
+			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
+			Expect(vm.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
 
 			close(done)
 		}, 180)

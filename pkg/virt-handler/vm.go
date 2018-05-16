@@ -549,7 +549,9 @@ func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachine, doma
 
 }
 
-func (d *VirtualMachineController) processVmUpdate(vm *v1.VirtualMachine) error {
+func (d *VirtualMachineController) processVmUpdate(origVM *v1.VirtualMachine) error {
+
+	vm := origVM.DeepCopy()
 
 	isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
 
