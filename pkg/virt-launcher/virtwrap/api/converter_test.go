@@ -126,7 +126,9 @@ var _ = Describe("Converter", func() {
 					Name:       "cdrom_tray_unspecified",
 					VolumeName: "volume0",
 					DiskDevice: v1.DiskDevice{
-						CDRom: &v1.CDRomTarget{},
+						CDRom: &v1.CDRomTarget{
+							ReadOnly: &_false,
+						},
 					},
 				},
 				{
@@ -134,8 +136,7 @@ var _ = Describe("Converter", func() {
 					VolumeName: "volume1",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							Tray:     v1.TrayStateOpen,
-							ReadOnly: &_false,
+							Tray: v1.TrayStateOpen,
 						},
 					},
 				},
@@ -283,13 +284,13 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso"></source>
       <target bus="sata" dev="sda" tray="closed"></target>
       <driver name="qemu" type="raw"></driver>
-      <readonly></readonly>
       <alias name="cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/vm-disks/volume1/disk.img"></source>
       <target bus="sata" dev="sdb" tray="open"></target>
       <driver name="qemu" type="raw"></driver>
+      <readonly></readonly>
       <alias name="cdrom_tray_open"></alias>
     </disk>
     <disk device="floppy" type="file">
