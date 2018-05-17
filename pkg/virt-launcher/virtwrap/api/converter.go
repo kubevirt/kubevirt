@@ -475,6 +475,25 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		},
 	}
 
+	// Add mandatory interface
+	interfaceType := "virtio"
+
+	_, ok := vm.ObjectMeta.Labels[v1.InterfaceModel]
+	if ok {
+		interfaceType = vm.ObjectMeta.Labels[v1.InterfaceModel]
+	}
+
+	// For now connect every virtual machine to the pod network
+	domain.Spec.Devices.Interfaces = []Interface{{
+		Model: &Model{
+			Type: interfaceType,
+		},
+		Type: "bridge",
+		Source: InterfaceSource{
+			Bridge: DefaultBridgeName,
+		}},
+	}
+
 	return nil
 }
 

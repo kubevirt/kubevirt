@@ -330,6 +330,8 @@ const (
 	NodeNameLabel        string = "kubevirt.io/nodeName"
 	NodeSchedulable      string = "kubevirt.io/schedulable"
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
+	InterfaceModel       string = "alpha.kubevirt.io/interface-model"
+	// TODO remove InterfaceModel when we have proper api for network models
 
 	VirtualMachineFinalizer string = "foregroundDeleteVirtualMachine"
 )
