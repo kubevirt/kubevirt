@@ -18,12 +18,12 @@ spec:
           disks:
           - disk:
               bus: virtio
-            name: pvcdisk
-            volumeName: pvcvolume
+            name: pvcdisk1
+            volumeName: pvcvolume1
           - disk:
               bus: virtio
-            name: pvcdisk
-            volumeName: pvcvolume
+            name: pvcdisk2
+            volumeName: pvcvolume2
         machine:
           type: ""
         resources:
@@ -31,10 +31,10 @@ spec:
             memory: 64M
       terminationGracePeriodSeconds: 0
       volumes:
-      - name: pvcvolume
+      - name: pvcvolume1
         persistentVolumeClaim:
           claimName: disk-alpine
-      - name: pvcvolume
+      - name: pvcvolume2
         persistentVolumeClaim:
           claimName: disk-custom
 status: {}

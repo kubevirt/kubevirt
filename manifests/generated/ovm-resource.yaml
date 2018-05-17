@@ -39,7 +39,7 @@ spec:
             should look like
           properties:
             running:
-              description: Running controlls whether the associatied VirtualMachine
+              description: Running controls whether the associatied VirtualMachine
                 is created or not
               type: boolean
             template:

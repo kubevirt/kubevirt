@@ -3926,7 +3926,7 @@
     ],
     "properties": {
      "running": {
-      "description": "Running controlls whether the associatied VirtualMachine is created or not",
+      "description": "Running controls whether the associatied VirtualMachine is created or not",
       "type": "boolean"
      },
      "template": {
