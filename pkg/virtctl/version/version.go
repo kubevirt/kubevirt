@@ -1,14 +1,11 @@
 package version
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"k8s.io/client-go/tools/clientcmd"
-
-	"net/url"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/version"
@@ -48,20 +45,7 @@ func (v *Version) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	result := virCli.RestClient().Get().RequestURI("/apis/subresources.kubevirt.io/v1alpha1/version").Do()
-	data, err := result.Raw()
-	if err != nil {
-		connErr, isConnectionErr := err.(*url.Error)
-
-		if isConnectionErr {
-			return connErr.Err
-		}
-
-		return err
-	}
-
-	var serverInfo version.Info
-	json.Unmarshal(data, &serverInfo)
+	serverInfo, err := virCli.ServerVersion().Get()
 	if err != nil {
 		return err
 	}

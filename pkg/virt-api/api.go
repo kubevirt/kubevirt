@@ -212,7 +212,6 @@ func subresourceAPIGroup() metav1.APIGroup {
 func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 
 	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
-	//versionGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "version"}
 
 	subws := new(restful.WebService)
 	subws.Doc("The KubeVirt Subresource API.")

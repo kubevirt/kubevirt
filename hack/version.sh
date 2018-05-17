@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# This file is part of the KubeVirt project
+# Copyright 2014 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2017 Red Hat, Inc.
 #
+# Used https://github.com/kubernetes/kubernetes/blob/master/hack/lib/version.sh as a template
 
 # -----------------------------------------------------------------------------
 # Version management helpers.  These functions help to set, save and load the
