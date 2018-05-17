@@ -201,7 +201,7 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	// don't involve the VM's domain from being deleted from libvirt.
 	//
 	// KillVM is idempotent. Making a call to KillVM here ensures that the deletion
-	// occurs regardless if the VM crashed unexpectidly or if virt-handler requested
+	// occurs regardless if the VM crashed unexpectedly or if virt-handler requested
 	// a graceful shutdown.
 	domainManager.KillVM(vm)
 

@@ -130,7 +130,7 @@ func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachine, allowEmulation bool
 		return nil, err
 	}
 
-	// Set defaults which are not comming from the cluster
+	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
 
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
