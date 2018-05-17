@@ -786,14 +786,14 @@ func AddEphemeralDisk(vm *v1.VirtualMachine, name string, bus string, image stri
 }
 
 func AddEphemeralDiskWithBootOrder(vm *v1.VirtualMachine, name string, bus string, image string, bootorder uint) *v1.VirtualMachine {
-        AddEphemeralDisk(vm, name, bus, image)
-        for i, d := range vm.Spec.Domain.Devices.Disks {
-                if d.Name == name {
-                        vm.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
-                }
-        }
+	AddEphemeralDisk(vm, name, bus, image)
+	for i, d := range vm.Spec.Domain.Devices.Disks {
+		if d.Name == name {
+			vm.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
+		}
+	}
 
-        return vm
+	return vm
 }
 
 func AddPVCDisk(vm *v1.VirtualMachine, name string, bus string, claimName string) *v1.VirtualMachine {
