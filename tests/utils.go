@@ -874,6 +874,32 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	return vm
 }
 
+func NewRandomVMWithCDRom(claimName string) *v1.VirtualMachine {
+	vm := NewRandomVM()
+
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "disk0",
+		VolumeName: "disk0",
+		DiskDevice: v1.DiskDevice{
+			CDRom: &v1.CDRomTarget{
+				// Do not specify ReadOnly flag so that
+				// default behavior can be tested
+				Bus: "sata",
+			},
+		},
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: "disk0",
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			},
+		},
+	})
+	return vm
+}
+
 func NewRandomVMWithEphemeralPVC(claimName string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 
