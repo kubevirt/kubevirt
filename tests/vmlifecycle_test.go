@@ -159,6 +159,32 @@ var _ = Describe("Vmlifecycle", func() {
 			})
 		})
 
+                Context("with boot order", func() {
+                        It("should be able to boot from 'middle' disk", func() {
+                                By("defining a VM with an Alpine disk")
+                                vm = tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+                                By("adding a Cirros Disk with boot order 1")
+                                tests.AddEphemeralDiskWithBootOrder(vm, "disk1", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros), 1)
+                                By("adding a Fedora Disk")
+                                tests.AddEphemeralDisk(vm, "disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskFedora))
+
+                                By("starting VM")
+                                vm.Spec.Hostname = "cirros"
+                                obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+                                Expect(err).To(BeNil())
+
+                                By("waiting for VM to start")
+                                _, ok := obj.(*v1.VirtualMachine)
+                                Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+                                Expect(tests.WaitForSuccessfulVMStart(obj)).ToNot(BeEmpty())
+
+                                By("Attempting Cirros login")
+                                expecter, err := tests.LoggedInCirrosExpecter(vm)
+                                Expect(err).ToNot(HaveOccurred())
+                                defer expecter.Close()
+                        })
+                })
+
 		Context("with user-data", func() {
 			Context("without k8s secret", func() {
 				It("should retry starting the VM", func(done Done) {
