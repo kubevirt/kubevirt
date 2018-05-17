@@ -219,12 +219,12 @@ var _ = Describe("VM Initializer", func() {
 			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 
-			By("showing an override occured")
+			By("showing an override occurred")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
-			By("applying overriden preset")
+			By("applying overridden preset")
 			vm.Annotations = map[string]string{}
 			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 

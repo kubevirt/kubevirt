@@ -197,7 +197,7 @@ var _ = Describe("Networking", func() {
 
 			By("checking the VM can send MTU sized frames to another VM")
 			// NOTE: VM is not directly accessible from inside the pod because
-			// we transfered its IP address under DHCP server control, so the
+			// we transferred its IP address under DHCP server control, so the
 			// only thing we can validate is connectivity between VMs
 			//
 			// NOTE: cirros ping doesn't support -M do that could be used to
