@@ -181,7 +181,7 @@ var _ = Describe("Vmlifecycle", func() {
                                 By("Attempting Cirros login")
                                 expecter, err := tests.LoggedInCirrosExpecter(vm)
                                 Expect(err).ToNot(HaveOccurred())
-                                defer expecter.Close()
+                                expecter.Close()
                         })
                 })
 
