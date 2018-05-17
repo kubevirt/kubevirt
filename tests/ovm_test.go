@@ -92,7 +92,7 @@ var _ = Describe("OfflineVirtualMachine", func() {
 			newOVM := NewRandomOfflineVirtualMachine(template, false)
 			newOVM.TypeMeta = v12.TypeMeta{
 				APIVersion: v1.GroupVersion.String(),
-		--target-port='': Name or number for the port on the container that the service should direct traffic to. Optional.		Kind:       "OfflineVirtualMachine",
+				Kind:       "OfflineVirtualMachine",
 			}
 
 			result := virtClient.RestClient().Post().Resource("offlinevirtualmachines").Namespace(tests.NamespaceTestDefault).Body(newOVM).Do()
