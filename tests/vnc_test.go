@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
+	"time"
 )
 
 var _ = Describe("VNC", func() {
@@ -45,7 +46,7 @@ var _ = Describe("VNC", func() {
 
 	Describe("A new VM", func() {
 		Context("with VNC connection", func() {
-			It("should allow accessing the VNC device", func(done Done) {
+			It("should allow accessing the VNC device", func() {
 				By("Starting a VM")
 				vm := tests.NewRandomVM()
 				Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
@@ -53,26 +54,29 @@ var _ = Describe("VNC", func() {
 
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
+				defer pipeInReader.Close()
+				defer pipeOutReader.Close()
 
 				k8ResChan := make(chan error)
 				readStop := make(chan string)
 
 				go func() {
-					err := virtClient.VM(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
-					k8ResChan <- err
+					GinkgoRecover()
+					k8ResChan <- virtClient.VM(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
 				}()
 				// write to FD <- pipeOutReader
 				By("Reading from the VNC socket")
 				go func() {
+					GinkgoRecover()
 					buf := make([]byte, 1024, 1024)
 					// reading qemu vnc server
 					n, err := pipeOutReader.Read(buf)
 					if err != nil && err != io.EOF {
-						log.Log.Reason(err).Error("error while reading from vnc socket.")
+						Expect(err).ToNot(HaveOccurred())
 						return
 					}
 					if n == 0 && err == io.EOF {
-						log.Log.Error("zero bytes read from vnc socket.")
+						log.Log.Info("zero bytes read from vnc socket.")
 						return
 					}
 					readStop <- strings.TrimSpace(string(buf[0:n]))
@@ -83,6 +87,9 @@ var _ = Describe("VNC", func() {
 				select {
 				case response = <-readStop:
 				case err = <-k8ResChan:
+					Expect(err).ToNot(HaveOccurred())
+				case <-time.After(45 * time.Second):
+					Fail("Timout reached while waiting for valid VNC server response")
 				}
 
 				// This is the response capture by wireshark when the VNC server is contacted.
@@ -91,8 +98,7 @@ var _ = Describe("VNC", func() {
 				By("Checking the response from VNC server")
 				Expect(response).To(Equal("RFB 003.008"))
 				Expect(err).To(BeNil())
-				close(done)
-			}, 45)
+			})
 		})
 	})
 })
