@@ -645,7 +645,9 @@ func cleanNamespaces() {
 		for _, vm := range vms.Items {
 			if controller.HasFinalizer(&vm, v1.VirtualMachineFinalizer) {
 				_, err := virtCli.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
-				PanicOnError(err)
+				if !errors.IsNotFound(err) {
+					PanicOnError(err)
+				}
 			}
 		}
 
