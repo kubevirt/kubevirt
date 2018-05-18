@@ -360,7 +360,7 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 		},
 	}
 	swo.Security = make([]map[string][]string, 1)
-	swo.Security[0] = map[string][]string{"BearerToken": []string{}}
+	swo.Security[0] = map[string][]string{"BearerToken": {}}
 }
 
 func deserializeStrings(in string) ([]string, error) {

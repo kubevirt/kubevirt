@@ -49,7 +49,7 @@ var _ = Describe("PodSelectors", func() {
 			existingTerm := v1.NodeSelectorTerm{}
 			secondExistingTerm := v1.NodeSelectorTerm{
 				MatchExpressions: []v1.NodeSelectorRequirement{
-					v1.NodeSelectorRequirement{},
+					{},
 				},
 			}
 
