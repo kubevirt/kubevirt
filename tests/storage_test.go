@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -35,6 +36,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
 )
+
+type VMCreationFunc func(string) *v1.VirtualMachine
 
 var _ = Describe("Storage", func() {
 
@@ -118,11 +121,11 @@ var _ = Describe("Storage", func() {
 
 	Describe("Starting a VM", func() {
 		Context("with Alpine PVC", func() {
-			It("should be successfully started", func() {
+			table.DescribeTable("should be successfully started", func(newVM VMCreationFunc) {
 				checkReadiness()
 
 				// Start the VM with the PVC attached
-				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				vm := newVM(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				RunVMAndExpectLaunch(vm, false, 90)
 
@@ -136,12 +139,15 @@ var _ = Describe("Storage", func() {
 					&expect.BExp{R: "Welcome to Alpine"},
 				}, 200*time.Second)
 				Expect(err).To(BeNil())
-			})
+			},
+				table.Entry("with Disk PVC", tests.NewRandomVMWithPVC),
+				table.Entry("with CDRom PVC", tests.NewRandomVMWithCDRom),
+			)
 
-			It("should be successfully started and stopped multiple times", func() {
+			table.DescribeTable("should be successfully started and stopped multiple times", func(newVM VMCreationFunc) {
 				checkReadiness()
 
-				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				vm := newVM(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				num := 3
@@ -167,7 +173,10 @@ var _ = Describe("Storage", func() {
 					Expect(err).To(BeNil())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 				}
-			})
+			},
+				table.Entry("with Disk PVC", tests.NewRandomVMWithPVC),
+				table.Entry("with CDRom PVC", tests.NewRandomVMWithCDRom),
+			)
 		})
 
 		Context("With an emptyDisk defined", func() {
