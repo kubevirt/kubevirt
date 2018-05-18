@@ -54,7 +54,7 @@ var _ = Describe("Health Monitoring", func() {
 	})
 
 	Describe("A VM with a watchdog device", func() {
-		It("should be shut down when the watchdog expires", func(done Done) {
+		It("should be shut down when the watchdog expires", func() {
 			vm := tests.NewRandomVMWithWatchdog()
 			Expect(err).ToNot(HaveOccurred())
 			launchVM(vm)
@@ -90,7 +90,6 @@ var _ = Describe("Health Monitoring", func() {
 				return startedVM.Status.Phase
 			}, 40*time.Second).Should(Equal(v1.Failed))
 
-			close(done)
-		}, 300)
+		})
 	})
 })

@@ -128,7 +128,7 @@ var _ = Describe("RegistryDisk", func() {
 
 	Describe("Starting multiple VMs", func() {
 		Context("with ephemeral registry disk", func() {
-			It("should success", func(done Done) {
+			It("should success", func() {
 				num := 5
 				vms := make([]*v1.VirtualMachine, 0, num)
 				objs := make([]runtime.Object, 0, num)
@@ -151,9 +151,7 @@ var _ = Describe("RegistryDisk", func() {
 					// It just requires virt-handler to retry the Start command at the moment.
 					VerifyRegistryDiskVM(vm, objs[idx], true)
 				}
-
-				close(done)
-			}, 120) // Timeout is long because this test involves multiple parallel VM launches.
+			}) // Timeout is long because this test involves multiple parallel VM launches.
 		})
 	})
 })
