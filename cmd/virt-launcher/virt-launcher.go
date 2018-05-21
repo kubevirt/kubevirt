@@ -283,7 +283,7 @@ func main() {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
 	}
-	mon := virtlauncher.NewProcessMonitor("qemu",
+	mon := virtlauncher.NewProcessMonitor("qemu-system",
 		gracefulShutdownTriggerFile,
 		*gracePeriodSeconds,
 		shutdownCallback)

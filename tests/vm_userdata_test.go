@@ -79,7 +79,7 @@ var _ = Describe("CloudInit UserData", func() {
 
 	Describe("A new VM", func() {
 		Context("with cloudInitNoCloud userDataBase64 source", func() {
-			It("should have cloud-init data", func(done Done) {
+			It("should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
 				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
@@ -87,8 +87,7 @@ var _ = Describe("CloudInit UserData", func() {
 				VerifyUserDataVM(vm, []expect.Batcher{
 					&expect.BExp{R: expectedUserData},
 				}, time.Second*120)
-				close(done)
-			}, 180)
+			})
 
 			Context("with injected ssh-key", func() {
 				It("should have ssh-key under authorized keys", func() {
@@ -117,7 +116,7 @@ var _ = Describe("CloudInit UserData", func() {
 		})
 
 		Context("with cloudInitNoCloud userData source", func() {
-			It("should process provided cloud-init data", func(done Done) {
+			It("should process provided cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
 				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
@@ -156,11 +155,10 @@ var _ = Describe("CloudInit UserData", func() {
 				}, time.Second*10)
 				log.DefaultLogger().Object(vm).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
-				close(done)
-			}, 180)
+			})
 		})
 
-		It("should take user-data from k8s secret", func(done Done) {
+		It("should take user-data from k8s secret", func() {
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "")
 
@@ -201,8 +199,6 @@ var _ = Describe("CloudInit UserData", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
 			Expect(vm.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
-
-			close(done)
-		}, 180)
+		})
 	})
 })

@@ -645,7 +645,9 @@ func cleanNamespaces() {
 		for _, vm := range vms.Items {
 			if controller.HasFinalizer(&vm, v1.VirtualMachineFinalizer) {
 				_, err := virtCli.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
-				PanicOnError(err)
+				if !errors.IsNotFound(err) {
+					PanicOnError(err)
+				}
 			}
 		}
 
@@ -874,6 +876,32 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	return vm
 }
 
+func NewRandomVMWithCDRom(claimName string) *v1.VirtualMachine {
+	vm := NewRandomVM()
+
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "disk0",
+		VolumeName: "disk0",
+		DiskDevice: v1.DiskDevice{
+			CDRom: &v1.CDRomTarget{
+				// Do not specify ReadOnly flag so that
+				// default behavior can be tested
+				Bus: "sata",
+			},
+		},
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: "disk0",
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			},
+		},
+	})
+	return vm
+}
+
 func NewRandomVMWithEphemeralPVC(claimName string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 
@@ -1036,10 +1064,10 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, t
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 	stopChan := make(chan struct{})
-	go func() {
+	go func(vm *v1.VirtualMachine, vmReader *io.PipeReader, expecterWriter *io.PipeWriter, resCh chan error) {
 		err := virtCli.VM(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, vmReader, expecterWriter)
 		resCh <- err
-	}()
+	}(vm, vmReader, expecterWriter, resCh)
 
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmWriter,

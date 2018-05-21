@@ -33,14 +33,14 @@ var _ = Describe("DHCP", func() {
 		It("verify should form correctly", func() {
 			expected := []byte{4, 224, 0, 0, 0, 0, 24, 192, 168, 1, 192, 168, 2, 1}
 			routes := []netlink.Route{
-				netlink.Route{
+				{
 					LinkIndex: 3,
 					Dst: &net.IPNet{
 						IP:   net.IPv4(224, 0, 0, 0),
 						Mask: net.CIDRMask(4, 32),
 					},
 				},
-				netlink.Route{
+				{
 					LinkIndex: 12,
 					Dst: &net.IPNet{
 						IP:   net.IPv4(192, 168, 1, 0),

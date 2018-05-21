@@ -36,8 +36,6 @@ import (
 
 	"github.com/onsi/ginkgo/extensions/table"
 
-	"sync"
-
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -91,7 +89,8 @@ var _ = Describe("Networking", func() {
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 
-		var wg sync.WaitGroup
+		inboundChan := make(chan *v1.VirtualMachine)
+		outboundChan := make(chan *v1.VirtualMachine)
 
 		createAndLogin := func(labels map[string]string, hostname string, subdomain string) (vm *v1.VirtualMachine) {
 			vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -114,14 +113,12 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return vm
 		}
-		wg.Add(2)
 
 		// Create inbound VM which listens on port 1500 for incoming connections and repeatedly returns "Hello World!"
 		go func() {
-			defer wg.Done()
 			defer GinkgoRecover()
-			inboundVM = createAndLogin(map[string]string{"expose": "me"}, "myvm", "my-subdomain")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVM, 10*time.Second)
+			vm := createAndLogin(map[string]string{"expose": "me"}, "myvm", "my-subdomain")
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
 			resp, err := expecter.ExpectBatch([]expect.Batcher{
@@ -134,16 +131,19 @@ var _ = Describe("Networking", func() {
 			}, 60*time.Second)
 			log.DefaultLogger().Infof("%v", resp)
 			Expect(err).ToNot(HaveOccurred())
+
+			inboundChan <- vm
 		}()
 
 		// Create a VM and log in, to allow executing arbitrary commands from the terminal
 		go func() {
-			defer wg.Done()
 			defer GinkgoRecover()
-			outboundVM = createAndLogin(nil, "", "")
+			vm := createAndLogin(nil, "", "")
+			outboundChan <- vm
 		}()
 
-		wg.Wait()
+		inboundVM = <-inboundChan
+		outboundVM = <-outboundChan
 	})
 
 	Context("VirtualMachine attached to the pod network", func() {
