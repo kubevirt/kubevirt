@@ -3,8 +3,6 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   name: vm-ephemeral
-  labels:
-    kubevirt.io/vm: vm-ephemeral
 spec:
   domain:
     devices:
@@ -22,5 +20,5 @@ spec:
   volumes:
   - name: registryvolume
     registryDisk:
-        image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
+      image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
 status: {}

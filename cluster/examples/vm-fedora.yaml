@@ -3,8 +3,6 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   name: vm-fedora
-  labels:
-    kubevirt.io/vm: vm-fedora
 spec:
   domain:
     devices:
@@ -26,7 +24,7 @@ spec:
   volumes:
   - name: registryvolume
     registryDisk:
-        image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
+      image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
   - cloudInitNoCloud:
       userData: |-
         #cloud-config
