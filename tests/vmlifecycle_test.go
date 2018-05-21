@@ -160,29 +160,30 @@ var _ = Describe("Vmlifecycle", func() {
 		})
 
 		Context("with boot order", func() {
-			It("should be able to boot from 'middle' disk", func() {
+			table.DescribeTable("should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, loginString string, wait int) {
 				By("defining a VM with an Alpine disk")
 				vm = tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
-				By("adding a Cirros Disk with boot order 1")
-				tests.AddEphemeralDiskWithBootOrder(vm, "disk1", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros), 1)
-				By("adding a Fedora Disk")
-				tests.AddEphemeralDisk(vm, "disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskFedora))
+				By("adding a Cirros Disk")
+				tests.AddEphemeralDisk(vm, "disk1", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
+
+				By("setting boot order")
+				vm = tests.AddBootOrderToDisk(vm, "disk0", alpineBootOrder)
+				vm = tests.AddBootOrderToDisk(vm, "disk1", cirrosBootOrder)
 
 				By("starting VM")
-				vm.Spec.Hostname = "cirros"
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).To(BeNil())
 
-				By("waiting for VM to start")
-				_, ok := obj.(*v1.VirtualMachine)
-				Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
-				Expect(tests.WaitForSuccessfulVMStart(obj)).ToNot(BeEmpty())
+				By("Waiting the VM start")
+				Expect(tests.WaitForSuccessfulVMStart(vm)).ToNot(BeEmpty())
 
-				By("Attempting Cirros login")
-				expecter, err := tests.LoggedInCirrosExpecter(vm)
+				By("Checking login prompt")
+				err = tests.CheckForLoginExpecter(vm, loginString, wait)
 				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
-			})
+			},
+				table.Entry("Alpine as first boot", uint(1), uint(2), "Welcome to Alpine", 90),
+				table.Entry("Cirros as first boot", uint(2), uint(1), "login as 'cirros' user", 180),
+			)
 		})
 
 		Context("with user-data", func() {

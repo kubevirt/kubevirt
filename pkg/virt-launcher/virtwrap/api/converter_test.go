@@ -30,7 +30,6 @@ import (
 
 	"fmt"
 	"os"
-	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -49,13 +48,13 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			var convertedDisk = `<disk device="disk" type="">
+			var convertedDisk = `<Disk device="disk" type="">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type=""></driver>
   <alias name="mydisk"></alias>
   <boot order="1"></boot>
-</disk>`
+</Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
 			fmt.Println(xml)
 			Expect(xml).To(Equal(convertedDisk))
@@ -71,12 +70,12 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			var convertedDisk = `<disk device="disk" type="">
+			var convertedDisk = `<Disk device="disk" type="">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type=""></driver>
   <alias name="mydisk"></alias>
-</disk>`
+</Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
 			fmt.Println(xml)
 			Expect(xml).To(Equal(convertedDisk))
@@ -459,7 +458,7 @@ func diskToDiskXML(disk *v1.Disk) string {
 	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus)).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
-	return strings.ToLower(string(data))
+	return string(data)
 }
 
 func vmToDomainXML(vm *v1.VirtualMachine, c *ConverterContext) string {

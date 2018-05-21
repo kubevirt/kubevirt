@@ -785,14 +785,13 @@ func AddEphemeralDisk(vm *v1.VirtualMachine, name string, bus string, image stri
 	return vm
 }
 
-func AddEphemeralDiskWithBootOrder(vm *v1.VirtualMachine, name string, bus string, image string, bootorder uint) *v1.VirtualMachine {
-	AddEphemeralDisk(vm, name, bus, image)
+func AddBootOrderToDisk(vm *v1.VirtualMachine, diskName string, bootorder uint) *v1.VirtualMachine {
 	for i, d := range vm.Spec.Domain.Devices.Disks {
-		if d.Name == name {
+		if d.Name == diskName {
 			vm.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
+			return vm
 		}
 	}
-
 	return vm
 }
 
@@ -1083,6 +1082,22 @@ func RegistryDiskFor(name RegistryDisk) string {
 		return fmt.Sprintf("%s/%s-registry-disk-demo:%s", KubeVirtRepoPrefix, name, KubeVirtVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
+}
+
+func CheckForLoginExpecter(vm *v1.VirtualMachine, loginString string, wait int) error {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	expecter, _, err := NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: loginString},
+	})
+	_, err = expecter.ExpectBatch(b, time.Second*time.Duration(wait))
+	return err
 }
 
 func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
