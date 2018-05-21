@@ -89,13 +89,6 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var running bool
-	if o.command == COMMAND_START {
-		running = true
-	} else if o.command == COMMAND_STOP {
-		running = false
-	}
-
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
 	if err != nil {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
@@ -107,14 +100,23 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Error fetching OfflineVirtualMachine: %v", err)
 	}
 
+	var running bool
+	if o.command == COMMAND_START {
+		running = true
+	} else if o.command == COMMAND_STOP {
+		running = false
+	}
+
 	if ovm.Spec.Running != running {
-		ovm.Spec.Running = running
+		bodyStr := fmt.Sprintf("{\"spec\":{\"running\":%t}}", running)
+
 		_, err := virtClient.OfflineVirtualMachine(namespace).Patch(ovm.Name, types.MergePatchType,
-			[]byte("{\"spec\":{\"running\":true}}"))
+			[]byte(bodyStr))
 
 		if err != nil {
 			return fmt.Errorf("Error updating OfflineVirtualMachine: %v", err)
 		}
+
 	} else {
 		stateMsg := "stopped"
 		if running {
