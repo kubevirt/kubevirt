@@ -175,7 +175,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				By("Waiting the VM start")
-				Expect(tests.WaitForSuccessfulVMStart(vm)).ToNot(BeEmpty())
+				tests.WaitForSuccessfulVMStart(vm)
 
 				By("Checking login prompt")
 				err = tests.CheckForLoginExpecter(vm, loginString, wait)
