@@ -22,6 +22,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+
+	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
@@ -37,8 +40,13 @@ func main() {
 	}
 
 	restClient := client.RestClient()
+	var result rest.Result
 
-	result := restClient.Get().Resource("virtualmachines").Namespace("default").Name("fake").SubResource("test").Do()
+	if os.Args[1] == "version" {
+		result = restClient.Get().Resource("version").Do()
+	} else {
+		result = restClient.Get().Resource("virtualmachines").Namespace("default").Name("fake").SubResource("test").Do()
+	}
 
 	err = result.Error()
 	if err != nil {
