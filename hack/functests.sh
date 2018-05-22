@@ -19,9 +19,36 @@
 
 set -e
 
-source hack/common.sh
-source hack/config.sh
+ source hack/common.sh
+ source hack/config.sh
 
 functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
+START_TIME=$(vagrant ssh master -c 'date +"%x %T"' -- -T)
 ${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -tag=${docker_tag} -prefix=${functest_docker_prefix} -kubectl-path=${kubectl} -test.timeout 60m ${FUNC_TEST_ARGS}
+STOP_TIME=$(vagrant ssh master -c 'date +"%x %T"' -- -T)
+
+# get denials from master
+echo "------ master ------" >> selinux.log
+set +e
+vagrant ssh master -c "sudo ausearch -m avc --start ${START_TIME} --end ${STOP_TIME}" >> selinux.log
+RESULT=$?
+if [ $RESULT != 0 ] && [ $RESULT != 1 ]; then
+  echo ausearch failed
+  exit 1
+fi
+
+# get denials from nodes
+if [ -n "${VAGRANT_NUM_NODES}" ]; then 
+  for i in $(seq 0 $(($VAGRANT_NUM_NODES-1))); do
+    echo "------ node${i} -------" >> selinux.log
+    vagrant ssh node${i} -c "sudo ausearch -m avc --start ${START_TIME} --end ${STOP_TIME}" >> selinux.log
+    RESULT=$?
+    if [ $RESULT != 0 ] && [ $RESULT != 1 ]; then
+      echo ausearch failed
+      exit 1
+    fi
+  done
+fi
+
+set -e
