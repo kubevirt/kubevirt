@@ -24,4 +24,4 @@ source hack/config.sh
 
 functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -tag=${docker_tag} -prefix=${functest_docker_prefix} -kubectl-path=${kubectl} -test.timeout 60m ${FUNC_TEST_ARGS}
+${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -tag=${docker_tag} -prefix=${functest_docker_prefix} -kubectl-path=${kubectl} -test.timeout 90m ${FUNC_TEST_ARGS}
