@@ -2,6 +2,8 @@ apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 metadata:
   creationTimestamp: null
+  labels:
+    special: key
   name: vm-nocloud
 spec:
   domain:
