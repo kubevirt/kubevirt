@@ -486,8 +486,7 @@ type VMReplicaSetSpec struct {
 
 	// Label selector for pods. Existing ReplicaSets whose pods are
 	// selected by this will be the ones affected by this deployment.
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty" valid:"required"`
+	Selector *metav1.LabelSelector `json:"selector" valid:"required"`
 
 	// Template describes the pods that will be created.
 	Template *VMTemplateSpec `json:"template" valid:"required"`

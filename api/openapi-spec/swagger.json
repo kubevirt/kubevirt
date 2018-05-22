@@ -4237,6 +4237,7 @@
    },
    "v1.VMReplicaSetSpec": {
     "required": [
+     "selector",
      "template"
     ],
     "properties": {
@@ -4250,7 +4251,7 @@
       "format": "int32"
      },
      "selector": {
-      "description": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.\n+optional",
+      "description": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.",
       "$ref": "#/definitions/v1.LabelSelector"
      },
      "template": {
