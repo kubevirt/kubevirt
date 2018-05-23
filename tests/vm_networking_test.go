@@ -89,61 +89,51 @@ var _ = Describe("Networking", func() {
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 
-		inboundChan := make(chan *v1.VirtualMachine)
-		outboundChan := make(chan *v1.VirtualMachine)
+		// Create and start inbound VM
+		inboundVM = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		inboundVM.Labels = map[string]string{"expose": "me"}
+		inboundVM.Spec.Subdomain = "myvm"
+		inboundVM.Spec.Hostname = "my-subdomain"
+		_, err = virtClient.VM(tests.NamespaceTestDefault).Create(inboundVM)
+		Expect(err).ToNot(HaveOccurred())
 
-		createAndLogin := func(labels map[string]string, hostname string, subdomain string) (vm *v1.VirtualMachine) {
-			vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			vm.Labels = labels
-			vm.Spec.Subdomain = subdomain
-			vm.Spec.Hostname = hostname
+		// Create and start outbound VM
+		outboundVM = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		_, err = virtClient.VM(tests.NamespaceTestDefault).Create(outboundVM)
+		Expect(err).ToNot(HaveOccurred())
 
-			// Start VM
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStartIgnoreWarnings(vm)
+		for _, networkVm := range []*v1.VirtualMachine{inboundVM, outboundVM} {
+			// Wait for VM start
+			tests.WaitForSuccessfulVMStart(networkVm)
 
 			// Fetch the new VM with updated status
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, v13.GetOptions{})
+			vm, err := virtClient.VM(tests.NamespaceTestDefault).Get(networkVm.Name, v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Lets make sure that the OS is up by waiting until we can login
 			expecter, err := tests.LoggedInCirrosExpecter(vm)
-			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
-			return vm
+			expecter.Close()
 		}
 
-		// Create inbound VM which listens on port 1500 for incoming connections and repeatedly returns "Hello World!"
-		go func() {
-			defer GinkgoRecover()
-			vm := createAndLogin(map[string]string{"expose": "me"}, "myvm", "my-subdomain")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
-			resp, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "screen -d -m nc -klp 1500 -e echo -e \"Hello World!\"\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 60*time.Second)
-			log.DefaultLogger().Infof("%v", resp)
-			Expect(err).ToNot(HaveOccurred())
+		inboundVM, err = virtClient.VM(tests.NamespaceTestDefault).Get(inboundVM.Name, v13.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVM, 10*time.Second)
+		Expect(err).ToNot(HaveOccurred())
+		defer expecter.Close()
+		resp, err := expecter.ExpectBatch([]expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "screen -d -m nc -klp 1500 -e echo -e \"Hello World!\"\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: "0"},
+		}, 60*time.Second)
+		log.DefaultLogger().Infof("%v", resp)
+		Expect(err).ToNot(HaveOccurred())
 
-			inboundChan <- vm
-		}()
-
-		// Create a VM and log in, to allow executing arbitrary commands from the terminal
-		go func() {
-			defer GinkgoRecover()
-			vm := createAndLogin(nil, "", "")
-			outboundChan <- vm
-		}()
-
-		inboundVM = <-inboundChan
-		outboundVM = <-outboundChan
+		outboundVM, err = virtClient.VM(tests.NamespaceTestDefault).Get(outboundVM.Name, v13.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("VirtualMachine attached to the pod network", func() {
