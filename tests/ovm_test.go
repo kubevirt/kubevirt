@@ -131,17 +131,17 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 		startOVM := func(ovm *v1.OfflineVirtualMachine) *v1.OfflineVirtualMachine {
 			By("Starting the VM")
-			var err error
+
+			Eventually(func() error {
+				updatedOVM, err := virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				updatedOVM.Spec.Running = true
+				_, err = virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Update(updatedOVM)
+				return err
+			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			updatedOVM, err := virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
-			updatedOVM = updatedOVM.DeepCopy()
-			updatedOVM.Spec.Running = true
-			Eventually(func() error {
-				_, err := virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Update(updatedOVM)
-				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			// Observe the VM created
 			Eventually(func() error {
@@ -161,17 +161,17 @@ var _ = Describe("OfflineVirtualMachine", func() {
 
 		stopOVM := func(ovm *v1.OfflineVirtualMachine) *v1.OfflineVirtualMachine {
 			By("Stopping the VM")
-			var err error
+
+			Eventually(func() error {
+				updatedOVM, err := virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				updatedOVM.Spec.Running = false
+				_, err = virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Update(updatedOVM)
+				return err
+			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			updatedOVM, err := virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
-			updatedOVM = updatedOVM.DeepCopy()
-			updatedOVM.Spec.Running = false
-			Eventually(func() error {
-				_, err := virtClient.OfflineVirtualMachine(updatedOVM.Namespace).Update(updatedOVM)
-				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			// Observe the VM deleted
 			Eventually(func() bool {
