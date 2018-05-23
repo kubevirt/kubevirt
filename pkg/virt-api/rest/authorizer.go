@@ -84,7 +84,7 @@ func (a *authorizor) getUserName(header http.Header) (string, error) {
 
 func (a *authorizor) getUserExtras(header http.Header) map[string]authorization.ExtraValue {
 
-	var extras map[string]authorization.ExtraValue
+	extras := map[string]authorization.ExtraValue{}
 
 	for _, prefix := range a.userExtraHeaderPrefixes {
 		for k, v := range header {
