@@ -318,6 +318,44 @@ subjects:
     name: kubevirt-privileged
     namespace: {{.Namespace}}
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubevirt.io: ""
+    kubernetes.io/bootstrapping: rbac-defaults
+  name: kubevirt.io:default
+rules:
+- apiGroups:
+    - subresources.kubevirt.io
+  resources:
+    - version
+  verbs:
+    - get
+    - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    kubevirt.io: ""
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: kubevirt.io:default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubevirt.io:default
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:authenticated
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:unauthenticated
+---
 apiVersion: v1
 kind: Service
 metadata:

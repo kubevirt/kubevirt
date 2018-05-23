@@ -3005,6 +3005,19 @@
       }
      }
     }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha1/version": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "version",
+     "responses": {
+      "200": {
+       "description": "OK"
+      }
+     }
+    }
    }
   },
   "definitions": {

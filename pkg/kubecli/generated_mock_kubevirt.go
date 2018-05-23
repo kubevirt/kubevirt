@@ -94,6 +94,16 @@ func (_mr *_MockKubevirtClientRecorder) OfflineVirtualMachine(arg0 interface{}) 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "OfflineVirtualMachine", arg0)
 }
 
+func (_m *MockKubevirtClient) ServerVersion() *ServerVersion {
+	ret := _m.ctrl.Call(_m, "ServerVersion")
+	ret0, _ := ret[0].(*ServerVersion)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) ServerVersion() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ServerVersion")
+}
+
 func (_m *MockKubevirtClient) RestClient() *rest.RESTClient {
 	ret := _m.ctrl.Call(_m, "RestClient")
 	ret0, _ := ret[0].(*rest.RESTClient)
