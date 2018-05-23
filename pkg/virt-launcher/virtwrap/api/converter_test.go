@@ -260,7 +260,7 @@ var _ = Describe("Converter", func() {
   <devices>
     <interface type="bridge">
       <source bridge="br1"></source>
-      <model type="e1000"></model>
+      <model type="e1000e"></model>
     </interface>
     <video>
       <model type="vga" heads="1" vram="16384"></model>

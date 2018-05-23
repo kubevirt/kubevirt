@@ -20,7 +20,7 @@ func SetDefaults_Devices(devices *Devices) {
 	// For now connect every virtual machine to the default network
 	devices.Interfaces = []Interface{{
 		Model: &Model{
-			Type: "e1000",
+			Type: "e1000e",
 		},
 		Type: "bridge",
 		Source: InterfaceSource{
