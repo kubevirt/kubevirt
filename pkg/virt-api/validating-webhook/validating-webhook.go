@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -395,8 +397,23 @@ func validateVMRSSpec(field *k8sfield.Path, spec *v1.VMReplicaSetSpec) []metav1.
 			Field:   field.Child("template").String(),
 		})
 	}
-
 	causes = append(causes, validateVirtualMachineSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+
+	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
+	if err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: err.Error(),
+			Field:   field.Child("selector").String(),
+		})
+	} else if !selector.Matches(labels.Set(spec.Template.ObjectMeta.Labels)) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("selector does not match labels."),
+			Field:   field.Child("selector").String(),
+		})
+	}
+
 	return causes
 }
 

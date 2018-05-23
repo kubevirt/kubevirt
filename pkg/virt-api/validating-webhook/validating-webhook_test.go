@@ -88,19 +88,7 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 	Context("with VMRS admission review", func() {
-		It("reject invalid VM spec", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk",
-				VolumeName: "testvolume",
-			})
-			vmrs := &v1.VirtualMachineReplicaSet{
-				Spec: v1.VMReplicaSetSpec{
-					Template: &v1.VMTemplateSpec{
-						Spec: vm.Spec,
-					},
-				},
-			}
+		table.DescribeTable("reject invalid VM spec", func(vmrs *v1.VirtualMachineReplicaSet, causes []string) {
 			vmrsBytes, _ := json.Marshal(&vmrs)
 
 			ar := &v1beta1.AdmissionReview{
@@ -118,27 +106,55 @@ var _ = Describe("Validating Webhook", func() {
 
 			resp := admitVMRS(ar)
 			Expect(resp.Allowed).To(Equal(false))
-			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].volumeName"))
-		})
-		It("should accept valid vm spec", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk",
-				VolumeName: "testvolume",
-			})
-			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
-				Name: "testvolume",
-				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+			Expect(resp.Result.Details.Causes).To(HaveLen(len(causes)))
+			for i, cause := range causes {
+				Expect(resp.Result.Details.Causes[i].Field).To(Equal(cause))
+			}
+		},
+			table.Entry("with missing volume and missing labels", &v1.VirtualMachineReplicaSet{
+				Spec: v1.VMReplicaSetSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"match": "this"},
+					},
+					Template: newVirtualMachineBuilder().WithDisk(v1.Disk{
+						Name:       "testdisk",
+						VolumeName: "testvolume",
+					}).BuildTemplate(),
 				},
-			})
-
+			}, []string{
+				"spec.template.spec.domain.devices.disks[0].volumeName",
+				"spec.selector",
+			}),
+			table.Entry("with mismatching label selectors", &v1.VirtualMachineReplicaSet{
+				Spec: v1.VMReplicaSetSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"match": "not"},
+					},
+					Template: newVirtualMachineBuilder().WithLabel("match", "this").BuildTemplate(),
+				},
+			}, []string{
+				"spec.selector",
+			}),
+		)
+		It("should accept valid vm spec", func() {
 			vmrs := &v1.VirtualMachineReplicaSet{
 				Spec: v1.VMReplicaSetSpec{
-					Template: &v1.VMTemplateSpec{
-						Spec: vm.Spec,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"match": "me"},
 					},
+					Template: newVirtualMachineBuilder().
+						WithDisk(v1.Disk{
+							Name:       "testdisk",
+							VolumeName: "testvolume",
+						}).
+						WithVolume(v1.Volume{
+							Name: "testvolume",
+							VolumeSource: v1.VolumeSource{
+								RegistryDisk: &v1.RegistryDiskSource{},
+							},
+						}).
+						WithLabel("match", "me").
+						BuildTemplate(),
 				},
 			}
 			vmrsBytes, _ := json.Marshal(&vmrs)
@@ -648,3 +664,50 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 })
+
+type virtualMachineBuilder struct {
+	disks   []v1.Disk
+	volumes []v1.Volume
+	labels  map[string]string
+}
+
+func (b *virtualMachineBuilder) WithDisk(disk v1.Disk) *virtualMachineBuilder {
+	b.disks = append(b.disks, disk)
+	return b
+}
+
+func (b *virtualMachineBuilder) WithLabel(key string, value string) *virtualMachineBuilder {
+	b.labels[key] = value
+	return b
+}
+
+func (b *virtualMachineBuilder) WithVolume(volume v1.Volume) *virtualMachineBuilder {
+	b.volumes = append(b.volumes, volume)
+	return b
+}
+
+func (b *virtualMachineBuilder) Build() *v1.VirtualMachine {
+
+	vm := v1.NewMinimalVM("testvm")
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, b.disks...)
+	vm.Spec.Volumes = append(vm.Spec.Volumes, b.volumes...)
+	vm.Labels = b.labels
+
+	return vm
+}
+
+func (b *virtualMachineBuilder) BuildTemplate() *v1.VMTemplateSpec {
+	vm := b.Build()
+
+	return &v1.VMTemplateSpec{
+		ObjectMeta: vm.ObjectMeta,
+		Spec:       vm.Spec,
+	}
+
+}
+
+func newVirtualMachineBuilder() *virtualMachineBuilder {
+	return &virtualMachineBuilder{
+		labels: map[string]string{},
+	}
+}
