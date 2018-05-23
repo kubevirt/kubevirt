@@ -307,6 +307,11 @@ spec:
                         the hostname will be set to the name of the vm, if dhcp or
                         cloud-init is configured properly.
                       type: string
+                    initContainers:
+                      description: List of initialization containers. They are executed
+                        prior to VM-container starting
+                      items: {}
+                      type: array
                     nodeSelector:
                       description: 'NodeSelector is a selector which must be true
                         for the vm to fit on a node. Selector which must match a node''s

@@ -133,8 +133,8 @@ type VirtualMachineList struct {
 type VirtualMachineSpec struct {
 	// Specification of the desired behavior of the VirtualMachine on the host.
 	Domain DomainSpec `json:"domain"`
-	// +patchMergeKey=name
-	// +patchStrategy=merge
+
+	// List of initialization containers. They are executed prior to VM-container starting
 	InitContainers []k8sv1.Container `json:"initContainers,omitempty"`
 
 	// NodeSelector is a selector which must be true for the vm to fit on a node.

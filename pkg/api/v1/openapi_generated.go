@@ -1579,6 +1579,19 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
 							},
 						},
+						"initContainers": {
+							SchemaProps: spec.SchemaProps{
+								Description: "List of initialization containers. They are executed prior to VM-container starting",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("k8s.io/api/core/v1.Container"),
+										},
+									},
+								},
+							},
+						},
 						"nodeSelector": {
 							SchemaProps: spec.SchemaProps{
 								Description: "NodeSelector is a selector which must be true for the vm to fit on a node. Selector which must match a node's labels for the vm to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
@@ -1638,7 +1651,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
+				"k8s.io/api/core/v1.Container", "kubevirt.io/kubevirt/pkg/api/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus": {
 			Schema: spec.Schema{
