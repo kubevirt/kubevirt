@@ -181,8 +181,8 @@ var _ = Describe("Vmlifecycle", func() {
 				err = tests.CheckForLoginExpecter(vm, loginString, wait)
 				Expect(err).ToNot(HaveOccurred())
 			},
-				table.Entry("Alpine as first boot", uint(1), uint(2), "Welcome to Alpine", 90),
-				table.Entry("Cirros as first boot", uint(2), uint(1), "login as 'cirros' user", 180),
+				table.Entry("Alpine as first boot", uint(1), uint(2), "Welcome to Alpine", 120),
+				table.Entry("Cirros as first boot", uint(2), uint(1), "login as 'cirros' user", 240),
 			)
 		})
 
