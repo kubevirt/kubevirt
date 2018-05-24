@@ -130,8 +130,8 @@ var _ = Describe("Storage", func() {
 				RunVMAndExpectLaunch(vm, false, 90)
 
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-				defer expecter.Close()
 				Expect(err).To(BeNil())
+				defer expecter.Close()
 
 				By("Checking that the VM console has expected output")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -160,8 +160,8 @@ var _ = Describe("Storage", func() {
 					if i == num {
 						By("Checking that the VM console has expected output")
 						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-						defer expecter.Close()
 						Expect(err).To(BeNil())
+						defer expecter.Close()
 						_, err = expecter.ExpectBatch([]expect.Batcher{
 							&expect.BSnd{S: "\n"},
 							&expect.BExp{R: "Welcome to Alpine"},
@@ -205,8 +205,8 @@ var _ = Describe("Storage", func() {
 				RunVMAndExpectLaunch(vm, false, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vm)
-				defer expecter.Close()
 				Expect(err).To(BeNil())
+				defer expecter.Close()
 
 				By("Checking that /dev/vdc has a capacity of 2Gi")
 				res, err := expecter.ExpectBatch([]expect.Batcher{
@@ -240,8 +240,8 @@ var _ = Describe("Storage", func() {
 				RunVMAndExpectLaunch(vm, false, 90)
 
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-				defer expecter.Close()
 				Expect(err).To(BeNil())
+				defer expecter.Close()
 
 				By("Checking that the VM console has expected output")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -340,8 +340,8 @@ var _ = Describe("Storage", func() {
 					if i == num {
 						By("Checking that the second disk is present")
 						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-						defer expecter.Close()
 						Expect(err).To(BeNil())
+						defer expecter.Close()
 						_, err = expecter.ExpectBatch([]expect.Batcher{
 							&expect.BSnd{S: "\n"},
 							&expect.BExp{R: "Welcome to Alpine"},
