@@ -122,6 +122,39 @@ spec:
                         - name
                         - volumeName
                       type: array
+                    interfaces:
+                      description: Interfaces describe network interface which can
+                        be added to the vm
+                      items:
+                        properties:
+                          bridge:
+                            properties:
+                              delegateIp:
+                                description: offers the source interface ip to the
+                                  guest interface
+                                type: boolean
+                          name:
+                            description: Name of the interface
+                            type: string
+                          networkName:
+                            description: Name of the referenced networks Must match
+                              the Name of a Network
+                            type: string
+                          passthrough: {}
+                          proxy:
+                            properties:
+                              ports:
+                                description: List of ports to be proxied between the
+                                  pod and the Virtual Machine. Each port contains
+                                  a ContainerPort, which represents the port that
+                                  will be open on the pod IP and a HostPort which
+                                  is a destination port on the Virtual machine
+                                items: {}
+                                type: array
+                        required:
+                        - name
+                        - networkName
+                      type: array
                     watchdog:
                       description: Named watchdog device
                       properties:

@@ -65,7 +65,7 @@ regenerate:
 	make -C proto/testdata regenerate
 	make -C jsonpb/jsonpb_test_proto regenerate
 	make -C _conformance regenerate
-	make -C protobuf regenerate
+	make -C types regenerate
 	make -C test regenerate
 	make -C test/example regenerate
 	make -C test/unrecognized regenerate
@@ -83,12 +83,10 @@ regenerate:
 	make -C test/oneof regenerate
 	make -C test/oneof3 regenerate
 	make -C test/theproto3 regenerate
-	make -C test/mapdefaults regenerate
 	make -C test/mapsproto2 regenerate
 	make -C test/issue42order regenerate
 	make -C proto generate-test-pbs
 	make -C test/importdedup regenerate
-	make -C test/importduplicate regenerate
 	make -C test/custombytesnonstruct regenerate
 	make -C test/required regenerate
 	make -C test/casttype regenerate
@@ -111,20 +109,14 @@ regenerate:
 	make -C test/issue260 regenerate
 	make -C test/issue261 regenerate
 	make -C test/issue262 regenerate
-	make -C test/issue312 regenerate
 	make -C test/enumdecl regenerate
 	make -C test/typedecl_all regenerate
 	make -C test/enumdecl_all regenerate
-	make -C test/int64support regenerate
-	make -C test/issue322 regenerate
-	make -C test/issue330 regenerate
-	make -C test/importcustom-issue389 regenerate
 	make gofmt
 
 tests:
 	go build ./test/enumprefix
 	go test ./...
-	(cd test/stdtypes && make test)
 
 vet:
 	go vet ./...
@@ -146,16 +138,15 @@ testall:
 	make tests
 
 bench:
-	go get golang.org/x/tools/cmd/benchcmp
 	(cd test/mixbench && go build .)
-	./test/mixbench/mixbench
+	(cd test/mixbench && ./mixbench)
 
 contributors:
 	git log --format='%aN <%aE>' | sort -fu > CONTRIBUTORS
 
 js:
-ifeq (go1.10, $(findstring go1.10, $(GO_VERSION)))
-	go get -u github.com/gopherjs/gopherjs
+ifeq (go1.8, $(findstring go1.8, $(GO_VERSION)))
+	go get github.com/gopherjs/gopherjs
 	gopherjs build github.com/gogo/protobuf/protoc-gen-gogo
 endif
 

@@ -3252,6 +3252,36 @@
      }
     }
    },
+   "v1.ContainerPort": {
+    "description": "ContainerPort represents a network port in a single container.",
+    "required": [
+     "containerPort"
+    ],
+    "properties": {
+     "containerPort": {
+      "description": "Number of port to expose on the pod's IP address. This must be a valid port number, 0 \u003c x \u003c 65536.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "hostIP": {
+      "description": "What host IP to bind the external port to.",
+      "type": "string"
+     },
+     "hostPort": {
+      "description": "Number of port to expose on the host. If specified, this must be a valid port number, 0 \u003c x \u003c 65536. If HostNetwork is specified, this must match ContainerPort. Most containers do not need this.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "name": {
+      "description": "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each named port in a pod must have a unique name. Name for the port that can be referred to by services.",
+      "type": "string"
+     },
+     "protocol": {
+      "description": "Protocol for port. Must be UDP or TCP. Defaults to \"TCP\".",
+      "type": "string"
+     }
+    }
+   },
    "v1.DeleteOptions": {
     "description": "DeleteOptions may be provided when deleting an API object.",
     "properties": {
@@ -3290,6 +3320,13 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
+      }
+     },
+     "interfaces": {
+      "description": "Interfaces describe network interface which can be added to the vm",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Interface"
       }
      },
      "watchdog": {
@@ -3596,6 +3633,54 @@
      }
     }
    },
+   "v1.Interface": {
+    "required": [
+     "name",
+     "networkName"
+    ],
+    "properties": {
+     "bridge": {
+      "$ref": "#/definitions/v1.InterfaceBridge"
+     },
+     "name": {
+      "description": "Name of the interface",
+      "type": "string"
+     },
+     "networkName": {
+      "description": "Name of the referenced networks\nMust match the Name of a Network",
+      "type": "string"
+     },
+     "passthrough": {
+      "$ref": "#/definitions/v1.InterfacePassthrough"
+     },
+     "proxy": {
+      "$ref": "#/definitions/v1.InterfaceProxy"
+     }
+    }
+   },
+   "v1.InterfaceBridge": {
+    "properties": {
+     "delegateIp": {
+      "description": "offers the source interface ip to the guest interface",
+      "type": "boolean"
+     }
+    }
+   },
+   "v1.InterfacePassthrough": {},
+   "v1.InterfaceProxy": {
+    "required": [
+     "ports"
+    ],
+    "properties": {
+     "ports": {
+      "description": "List of ports to be proxied between the pod and the Virtual Machine.\nEach port contains a ContainerPort, which represents the port that will\nbe open on the pod IP and a HostPort which is a destination port on the Virtual machine\n+optional",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.ContainerPort"
+      }
+     }
+    }
+   },
    "v1.KVMTimer": {
     "properties": {
      "present": {
@@ -3690,6 +3775,21 @@
      "type": {
       "description": "QEMU machine type is the actual chipset of the VM.",
       "type": "string"
+     }
+    }
+   },
+   "v1.Network": {
+    "description": "Network represents a network type and a resource that should be connected to the vm.",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "type": "string"
+     },
+     "pod": {
+      "$ref": "#/definitions/v1.PodNetwork"
      }
     }
    },
@@ -4020,6 +4120,9 @@
       "type": "boolean"
      }
     }
+   },
+   "v1.PodNetwork": {
+    "description": "Represents the stock pod network interface"
    },
    "v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",
@@ -4516,6 +4619,13 @@
      "hostname": {
       "description": "Specifies the hostname of the vm\nIf not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.\n+optional",
       "type": "string"
+     },
+     "networks": {
+      "description": "List of networks that can be attached to a vm's virtual interface.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Network"
+      }
      },
      "nodeSelector": {
       "description": "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",

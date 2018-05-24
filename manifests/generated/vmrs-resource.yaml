@@ -146,6 +146,40 @@ spec:
                                 - name
                                 - volumeName
                               type: array
+                            interfaces:
+                              description: Interfaces describe network interface which
+                                can be added to the vm
+                              items:
+                                properties:
+                                  bridge:
+                                    properties:
+                                      delegateIp:
+                                        description: offers the source interface ip
+                                          to the guest interface
+                                        type: boolean
+                                  name:
+                                    description: Name of the interface
+                                    type: string
+                                  networkName:
+                                    description: Name of the referenced networks Must
+                                      match the Name of a Network
+                                    type: string
+                                  passthrough: {}
+                                  proxy:
+                                    properties:
+                                      ports:
+                                        description: List of ports to be proxied between
+                                          the pod and the Virtual Machine. Each port
+                                          contains a ContainerPort, which represents
+                                          the port that will be open on the pod IP
+                                          and a HostPort which is a destination port
+                                          on the Virtual machine
+                                        items: {}
+                                        type: array
+                                required:
+                                - name
+                                - networkName
+                              type: array
                             watchdog:
                               description: Named watchdog device
                               properties:
@@ -307,6 +341,22 @@ spec:
                         the hostname will be set to the name of the vm, if dhcp or
                         cloud-init is configured properly.
                       type: string
+                    networks:
+                      description: List of networks that can be attached to a vm's
+                        virtual interface.
+                      items:
+                        description: Network represents a network type and a resource
+                          that should be connected to the vm.
+                        properties:
+                          name:
+                            description: 'Network name Must be a DNS_LABEL and unique
+                              within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                            type: string
+                          pod:
+                            description: Represents the stock pod network interface
+                        required:
+                        - name
+                      type: array
                     nodeSelector:
                       description: 'NodeSelector is a selector which must be true
                         for the vm to fit on a node. Selector which must match a node''s
