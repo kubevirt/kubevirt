@@ -1084,7 +1084,7 @@ func RegistryDiskFor(name RegistryDisk) string {
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
 
-func CheckForLoginExpecter(vm *v1.VirtualMachine, loginString string, wait int) error {
+func CheckForTextExpecter(vm *v1.VirtualMachine, text string, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	expecter, _, err := NewConsoleExpecter(virtClient, vm, 10*time.Second)
@@ -1094,7 +1094,7 @@ func CheckForLoginExpecter(vm *v1.VirtualMachine, loginString string, wait int) 
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: loginString},
+		&expect.BExp{R: text},
 	})
 	_, err = expecter.ExpectBatch(b, time.Second*time.Duration(wait))
 	return err
