@@ -160,15 +160,15 @@ var _ = Describe("Vmlifecycle", func() {
 		})
 
 		Context("with boot order", func() {
-			table.DescribeTable("should be able to boot from selected disk", func(alpineBootOrder uint, fedoraBootOrder uint, consoleText string, wait int) {
+			table.DescribeTable("should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
 				By("defining a VM with an Alpine disk")
 				vm = tests.NewRandomVMWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
-				By("adding a Fedora Disk")
-				tests.AddEphemeralDisk(vm, "disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskFedora))
+				By("adding a Cirros Disk")
+				tests.AddEphemeralDisk(vm, "disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
 
 				By("setting boot order")
 				vm = tests.AddBootOrderToDisk(vm, "disk0", alpineBootOrder)
-				vm = tests.AddBootOrderToDisk(vm, "disk2", fedoraBootOrder)
+				vm = tests.AddBootOrderToDisk(vm, "disk2", cirrosBootOrder)
 
 				By("starting VM")
 				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
@@ -177,12 +177,12 @@ var _ = Describe("Vmlifecycle", func() {
 				By("Waiting the VM start")
 				tests.WaitForSuccessfulVMStart(vm)
 
-				By("Checking login prompt")
+				By("Checking console text")
 				err = tests.CheckForTextExpecter(vm, consoleText, wait)
 				Expect(err).ToNot(HaveOccurred())
 			},
 				table.Entry("Alpine as first boot", uint(1), uint(2), "Welcome to Alpine", 90),
-				table.Entry("Fedora as first boot", uint(2), uint(1), "Fedora 27", 90),
+				table.Entry("Cirros as first boot", uint(2), uint(1), "cirros", 90),
 			)
 		})
 
