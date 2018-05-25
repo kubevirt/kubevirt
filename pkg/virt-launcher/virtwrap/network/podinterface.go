@@ -55,8 +55,13 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		return err
 	}
 
-	// There should alway be a pre-configured interface for the default pod interface.
-	defaultIconf := domain.Spec.Devices.Interfaces[0]
+	interfaces := domain.Spec.Devices.Interfaces
+
+	// There should always be a pre-configured interface for the default pod interface.
+	if len(interfaces) == 0 {
+		return fmt.Errorf("failed to find a default interface configuration")
+	}
+	defaultIconf := interfaces[0]
 
 	ifconf, err := getCachedInterface()
 	if err != nil {
@@ -86,7 +91,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	}
 
 	// TODO:(vladikr) Currently we support only one interface per vm.
-	domain.Spec.Devices.Interfaces[0] = *ifconf
+	interfaces[0] = *ifconf
 
 	return nil
 }

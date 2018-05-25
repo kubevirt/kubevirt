@@ -103,8 +103,8 @@ func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
 func getDefaultNetworkInterface() *v1.Interface {
 	iface := &v1.Interface{
 		Name: "default",
-		InterfaceBinindMethod: v1.InterfaceBinindMethod{
-			Bridge: &v1.InterfaceBridge{DelegateIp: true},
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			Bridge: &v1.InterfaceBridge{},
 		},
 	}
 	return iface
