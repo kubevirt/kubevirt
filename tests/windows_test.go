@@ -126,6 +126,7 @@ var _ = Describe("Windows VM", func() {
 		tests.BeforeTestCleanup()
 		windowsVm = tests.NewRandomVM()
 		windowsVm.Spec = windowsVmSpec
+		windowsVm.ObjectMeta.Labels = map[string]string{v1.InterfaceModel: "e1000"}
 	})
 
 	It("should succeed to start a vm", func() {

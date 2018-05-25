@@ -260,7 +260,7 @@ var _ = Describe("Converter", func() {
   <devices>
     <interface type="bridge">
       <source bridge="br1"></source>
-      <model type="e1000"></model>
+      <model type="virtio"></model>
     </interface>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
@@ -403,6 +403,13 @@ var _ = Describe("Converter", func() {
 			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.Placement).To(Equal("static"))
 			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.CPUs).To(Equal(uint32(3)))
 
+		})
+
+		It("should select explicitly chosen network model", func() {
+			v1.SetObjectDefaults_VirtualMachine(vm)
+			vm.ObjectMeta.Labels = map[string]string{v1.InterfaceModel: "e1000"}
+			domain := vmToDomain(vm, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
 	})
 })
