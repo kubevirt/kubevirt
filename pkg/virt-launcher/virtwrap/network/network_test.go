@@ -61,7 +61,6 @@ var _ = Describe("Network", func() {
 			mockNetworkInterface.EXPECT().Plug(iface, defaultNet, domain)
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
-			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 		})
 		It("should fail when no network is specified", func() {
 			domain := &api.Domain{}
@@ -74,18 +73,3 @@ var _ = Describe("Network", func() {
 		})
 	})
 })
-
-func NewDomainWithPodNetwork() *api.Domain {
-
-	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Model: &api.Model{
-			Type: "virtio",
-		},
-		Type: "bridge",
-		Source: api.InterfaceSource{
-			Bridge: api.DefaultBridgeName,
-		}},
-	}
-	return domain
-}
