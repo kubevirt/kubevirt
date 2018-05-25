@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Place this script into your $PATH and make it executable
+# Make sure to have all or one of the applications below installed
+
+# This is a wrapper for calling third-party VNC clients. Automatic VNC doesn't
+# work with built-in Mac screen sharing app due to the authentication dialog. Choose
+# a VNC application below and install it, or provide your own and add it here.
+
+#### Tiger VNC ####
+# https://github.com/TigerVNC/tigervnc/releases
+TIGER_VNC="/Applications/TigerVNC Viewer 1.8.0.app/Contents/MacOS/TigerVNC Viewer"
+
+#### Chicken VNC ####
+# https://sourceforge.net/projects/chicken/
+CHICKEN_VNC="/Applications/Chicken.app/Contents/MacOS/Chicken"
+
+####  Real VNC ####
+# https://www.realvnc.com/en/connect/download/viewer/macos/
+REAL_VNC="/Applications/VNC Viewer.app/Contents/MacOS/vncviewer"
+
+HOST_PORT=${1//vnc:\/\/}
+
+if [ -x "${TIGER_VNC}" ]
+then
+    "${TIGER_VNC}" ${HOST_PORT}
+elif [ -x "${CHICKEN_VNC}" ]
+then
+    "${CHICKEN_VNC}" ${HOST_PORT}
+elif [ -x "${REAL_VNC}" ]
+then
+    "${REAL_VNC}" -WarnUnencrypted=0 ${HOST_PORT}
+else
+    echo "No supported VNC app found"
+    exit 1
+fi
