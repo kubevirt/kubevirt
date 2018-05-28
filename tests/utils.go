@@ -226,18 +226,18 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event recieved")).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("unexpected warning event received")).Error(event.Message)
 			} else {
 				log.Log.Infof(event.Message)
 			}
-			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event recieved.")
+			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received.")
 			return processFunc(event)
 		}
 
 	} else {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event recieved")).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("unexpected warning event received")).Error(event.Message)
 			} else {
 				log.Log.Infof(event.Message)
 			}
@@ -645,7 +645,9 @@ func cleanNamespaces() {
 		for _, vm := range vms.Items {
 			if controller.HasFinalizer(&vm, v1.VirtualMachineFinalizer) {
 				_, err := virtCli.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
-				PanicOnError(err)
+				if !errors.IsNotFound(err) {
+					PanicOnError(err)
+				}
 			}
 		}
 
@@ -874,6 +876,32 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachine {
 	return vm
 }
 
+func NewRandomVMWithCDRom(claimName string) *v1.VirtualMachine {
+	vm := NewRandomVM()
+
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "disk0",
+		VolumeName: "disk0",
+		DiskDevice: v1.DiskDevice{
+			CDRom: &v1.CDRomTarget{
+				// Do not specify ReadOnly flag so that
+				// default behavior can be tested
+				Bus: "sata",
+			},
+		},
+	})
+	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+		Name: "disk0",
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			},
+		},
+	})
+	return vm
+}
+
 func NewRandomVMWithEphemeralPVC(claimName string) *v1.VirtualMachine {
 	vm := NewRandomVM()
 
@@ -912,6 +940,13 @@ func NewRandomVMWithWatchdog() *v1.VirtualMachine {
 			},
 		},
 	}
+	return vm
+}
+
+func NewRandomVMWithe1000NetworkInterface() *v1.VirtualMachine {
+	// Use alpine because cirros dhcp client starts prematurily before link is ready
+	vm := NewRandomVMWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	vm.ObjectMeta.Labels = map[string]string{v1.InterfaceModel: "e1000"}
 	return vm
 }
 
@@ -1036,10 +1071,10 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, t
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 	stopChan := make(chan struct{})
-	go func() {
+	go func(vm *v1.VirtualMachine, vmReader *io.PipeReader, expecterWriter *io.PipeWriter, resCh chan error) {
 		err := virtCli.VM(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, vmReader, expecterWriter)
 		resCh <- err
-	}()
+	}(vm, vmReader, expecterWriter, resCh)
 
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmWriter,
@@ -1099,6 +1134,26 @@ func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
 	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
 	return expecter, err
 }
+
+func LoggedInAlpineExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	expecter, _, err := NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "localhost login:"},
+		&expect.BSnd{S: "root\n"},
+		&expect.BExp{R: "localhost:~#"}})
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
+	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
+	return expecter, err
+}
+
+type VmExpecterFactory func(*v1.VirtualMachine) (expect.Expecter, error)
 
 func NewVirtctlCommand(args ...string) *cobra.Command {
 	commandline := []string{}

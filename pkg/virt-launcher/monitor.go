@@ -271,7 +271,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 
 			err := GracefulShutdownTriggerInitiate(mon.gracefulShutdownTriggerFile)
 			if err != nil {
-				log.Log.Reason(err).Errorf("Error detected attempting to initalize graceful shutdown using trigger file %s.", mon.gracefulShutdownTriggerFile)
+				log.Log.Reason(err).Errorf("Error detected attempting to initialize graceful shutdown using trigger file %s.", mon.gracefulShutdownTriggerFile)
 			}
 			mon.gracePeriodStartTime = time.Now().UTC().Unix()
 		}

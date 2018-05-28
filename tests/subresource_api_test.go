@@ -46,20 +46,37 @@ var _ = Describe("Subresource Api", func() {
 	})
 
 	Describe("Rbac Authorization", func() {
+		resource := "virtualmachines"
+
 		Context("with correct permissions", func() {
 			It("should be allowed to access subresource endpoint", func() {
-				testClientJob(virtCli, true)
+				testClientJob(virtCli, true, resource)
 			}, 15)
 		})
 		Context("Without permissions", func() {
 			It("should not be able to access subresource endpoint", func() {
-				testClientJob(virtCli, false)
+				testClientJob(virtCli, false, resource)
+			}, 15)
+		})
+	})
+
+	Describe("Rbac Authorization For Version Command", func() {
+		resource := "version"
+
+		Context("with authenticated user", func() {
+			It("should be allowed to access subresource version endpoint", func() {
+				testClientJob(virtCli, true, resource)
+			}, 15)
+		})
+		Context("Without permissions", func() {
+			It("should be able to access subresource version endpoint", func() {
+				testClientJob(virtCli, false, resource)
 			}, 15)
 		})
 	})
 })
 
-func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool) {
+func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, resource string) {
 	namespace := tests.NamespaceTestDefault
 	expectedPhase := k8sv1.PodFailed
 	name := "subresource-access-tester"
@@ -76,7 +93,7 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool) {
 				{
 					Name:    name,
 					Image:   fmt.Sprintf("%s/subresource-access-test:%s", tests.KubeVirtRepoPrefix, tests.KubeVirtVersionTag),
-					Command: []string{"/subresource-access-test"},
+					Command: []string{"/subresource-access-test", resource},
 				},
 			},
 		},
@@ -84,6 +101,8 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool) {
 
 	if withServiceAccount {
 		job.Spec.ServiceAccountName = tests.SubresourceServiceAccountName
+		expectedPhase = k8sv1.PodSucceeded
+	} else if resource == "version" {
 		expectedPhase = k8sv1.PodSucceeded
 	}
 

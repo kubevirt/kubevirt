@@ -879,7 +879,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"running": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Running controlls whether the associatied VirtualMachine is created or not",
+								Description: "Running controls whether the associatied VirtualMachine is created or not",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -1166,7 +1166,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"template"},
+					Required: []string{"selector", "template"},
 				},
 			},
 			Dependencies: []string{

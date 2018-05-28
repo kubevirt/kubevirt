@@ -52,6 +52,7 @@ var _ = Describe("VM Subresources", func() {
 		req.Request.Header = make(map[string][]string)
 		req.Request.Header[userHeader] = []string{"user"}
 		req.Request.Header[groupHeader] = []string{"userGroup"}
+		req.Request.Header[userExtraHeaderPrefix+"test"] = []string{"userExtraValue"}
 		req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm/console"
 
 		server = ghttp.NewServer()

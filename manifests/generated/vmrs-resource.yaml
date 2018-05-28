@@ -380,6 +380,7 @@ spec:
                   required:
                   - domain
           required:
+          - selector
           - template
         status:
           properties:

@@ -3005,6 +3005,19 @@
       }
      }
     }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha1/version": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "version",
+     "responses": {
+      "200": {
+       "description": "OK"
+      }
+     }
+    }
    }
   },
   "definitions": {
@@ -3913,7 +3926,7 @@
     ],
     "properties": {
      "running": {
-      "description": "Running controlls whether the associatied VirtualMachine is created or not",
+      "description": "Running controls whether the associatied VirtualMachine is created or not",
       "type": "boolean"
      },
      "template": {
@@ -4237,6 +4250,7 @@
    },
    "v1.VMReplicaSetSpec": {
     "required": [
+     "selector",
      "template"
     ],
     "properties": {
@@ -4250,7 +4264,7 @@
       "format": "int32"
      },
      "selector": {
-      "description": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.\n+optional",
+      "description": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.",
       "$ref": "#/definitions/v1.LabelSelector"
      },
      "template": {

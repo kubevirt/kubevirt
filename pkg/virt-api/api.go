@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/validating-webhook"
 )
@@ -240,6 +241,11 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		Operation("test").
 		Doc("Test endpoint verifying apiserver connectivity."))
 
+	subws.Route(subws.GET(rest.SubResourcePath("version")).Produces(restful.MIME_JSON).
+		To(func(request *restful.Request, response *restful.Response) {
+			response.WriteAsJson(version.Get())
+		}).Operation("version"))
+
 	// Return empty api resource list.
 	// K8s expects to be able to retrieve a resource list for each aggregated
 	// app in order to discover what resources it provides. Without returning
@@ -360,7 +366,7 @@ func addInfoToSwaggerObject(swo *openapispec.Swagger) {
 		},
 	}
 	swo.Security = make([]map[string][]string, 1)
-	swo.Security[0] = map[string][]string{"BearerToken": []string{}}
+	swo.Security[0] = map[string][]string{"BearerToken": {}}
 }
 
 func deserializeStrings(in string) ([]string, error) {

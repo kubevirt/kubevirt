@@ -330,6 +330,8 @@ const (
 	NodeNameLabel        string = "kubevirt.io/nodeName"
 	NodeSchedulable      string = "kubevirt.io/schedulable"
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
+	InterfaceModel       string = "alpha.kubevirt.io/interface-model"
+	// TODO remove InterfaceModel when we have proper api for network models
 
 	VirtualMachineFinalizer string = "foregroundDeleteVirtualMachine"
 )
@@ -486,8 +488,7 @@ type VMReplicaSetSpec struct {
 
 	// Label selector for pods. Existing ReplicaSets whose pods are
 	// selected by this will be the ones affected by this deployment.
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty" valid:"required"`
+	Selector *metav1.LabelSelector `json:"selector" valid:"required"`
 
 	// Template describes the pods that will be created.
 	Template *VMTemplateSpec `json:"template" valid:"required"`
@@ -704,7 +705,7 @@ type OfflineVirtualMachineList struct {
 // ---
 // +k8s:openapi-gen=true
 type OfflineVirtualMachineSpec struct {
-	// Running controlls whether the associatied VirtualMachine is created or not
+	// Running controls whether the associatied VirtualMachine is created or not
 	Running bool `json:"running"`
 
 	// Template is the direct specification of VirtualMachine

@@ -201,7 +201,7 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	// don't involve the VM's domain from being deleted from libvirt.
 	//
 	// KillVM is idempotent. Making a call to KillVM here ensures that the deletion
-	// occurs regardless if the VM crashed unexpectidly or if virt-handler requested
+	// occurs regardless if the VM crashed unexpectedly or if virt-handler requested
 	// a graceful shutdown.
 	domainManager.KillVM(vm)
 
@@ -226,7 +226,7 @@ func main() {
 	name := flag.String("name", "", "Name of the VM")
 	namespace := flag.String("namespace", "", "Namespace of the VM")
 	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
-	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for tihs file to determine when virt-launcher is initialized")
+	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	allowEmulation := flag.Bool("allow-emulation", false, "Allow fallback to emulation if /dev/kvm is not present")
 
@@ -283,7 +283,7 @@ func main() {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
 	}
-	mon := virtlauncher.NewProcessMonitor("qemu",
+	mon := virtlauncher.NewProcessMonitor("qemu-system",
 		gracefulShutdownTriggerFile,
 		*gracePeriodSeconds,
 		shutdownCallback)

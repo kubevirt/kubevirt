@@ -640,7 +640,7 @@ func (c *VMReplicaSet) updateStatus(rs *virtv1.VirtualMachineReplicaSet, vms []*
 	// check if we have reached the equilibrium
 	statesMatch := int32(len(vms)) == rs.Status.Replicas && readyReplicas == rs.Status.ReadyReplicas
 
-	// check if we need to update because of appeared or disappeard errors
+	// check if we need to update because of appeared or disappeared errors
 	errorsMatch := (scaleErr != nil) == c.hasCondition(rs, virtv1.VMReplicaSetReplicaFailure)
 
 	// check if we need to update because pause was modified

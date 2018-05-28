@@ -192,7 +192,7 @@ var _ = Describe("VM Initializer", func() {
 				Devices: v1.Devices{
 					Watchdog: &v1.Watchdog{Name: "testcase",
 						WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}},
-					Disks: []v1.Disk{v1.Disk{Name: "testdisk",
+					Disks: []v1.Disk{{Name: "testdisk",
 						VolumeName: "testvolume",
 						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}}},
 			}}}
@@ -219,12 +219,12 @@ var _ = Describe("VM Initializer", func() {
 			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 
-			By("showing an override occured")
+			By("showing an override occurred")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
 			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
-			By("applying overriden preset")
+			By("applying overridden preset")
 			vm.Annotations = map[string]string{}
 			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
 

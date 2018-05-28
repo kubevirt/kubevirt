@@ -84,7 +84,7 @@ func (a *authorizor) getUserName(header http.Header) (string, error) {
 
 func (a *authorizor) getUserExtras(header http.Header) map[string]authorization.ExtraValue {
 
-	var extras map[string]authorization.ExtraValue
+	extras := map[string]authorization.ExtraValue{}
 
 	for _, prefix := range a.userExtraHeaderPrefixes {
 		for k, v := range header {
@@ -196,7 +196,7 @@ func isInfoEndpoint(req *restful.Request) bool {
 	// /apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm/console
 	// The /apis/<group>/<version> part of the urls should be accessible without needing authorization
 	pathSplit := strings.Split(httpRequest.URL.Path, "/")
-	if len(pathSplit) <= 4 {
+	if len(pathSplit) <= 4 || (len(pathSplit) > 4 && pathSplit[4] == "version") {
 		return true
 	}
 

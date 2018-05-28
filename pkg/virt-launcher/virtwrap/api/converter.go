@@ -67,7 +67,11 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
 		disk.Target.Bus = diskDevice.CDRom.Bus
 		disk.Target.Device = makeDeviceName(diskDevice.CDRom.Bus, devicePerBus)
-		disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
+		if diskDevice.CDRom.ReadOnly != nil {
+			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
+		} else {
+			disk.ReadOnly = toApiReadOnly(true)
+		}
 	}
 	disk.Driver = &DiskDriver{
 		Name: "qemu",
@@ -469,6 +473,25 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 			},
 			Type: "vnc",
 		},
+	}
+
+	// Add mandatory interface
+	interfaceType := "virtio"
+
+	_, ok := vm.ObjectMeta.Labels[v1.InterfaceModel]
+	if ok {
+		interfaceType = vm.ObjectMeta.Labels[v1.InterfaceModel]
+	}
+
+	// For now connect every virtual machine to the pod network
+	domain.Spec.Devices.Interfaces = []Interface{{
+		Model: &Model{
+			Type: interfaceType,
+		},
+		Type: "bridge",
+		Source: InterfaceSource{
+			Bridge: DefaultBridgeName,
+		}},
 	}
 
 	return nil
