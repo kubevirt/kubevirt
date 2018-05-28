@@ -65,7 +65,6 @@ type StreamOptions struct {
 
 type StreamInterface interface {
 	Stream(options StreamOptions) error
-	Done()
 }
 
 type VMInterface interface {

@@ -68,7 +68,6 @@ var _ = Describe("VNC", func() {
 						k8ResChan <- err
 						return
 					}
-					defer vnc.Done()
 
 					k8ResChan <- vnc.Stream(kubecli.StreamOptions{
 						In:  pipeInReader,

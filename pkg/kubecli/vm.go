@@ -234,11 +234,8 @@ func (ws *wsStreamer) Stream(options StreamOptions) error {
 		copyErr <- err
 	}()
 
-	return <-copyErr
-}
-
-func (ws *wsStreamer) Done() {
 	close(ws.done)
+	return <-copyErr
 }
 
 func (v *vms) VNC(name string) (StreamInterface, error) {

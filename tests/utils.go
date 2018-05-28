@@ -1077,7 +1077,6 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine, t
 			resCh <- err
 			return
 		}
-		defer con.Done()
 
 		resCh <- con.Stream(kubecli.StreamOptions{
 			In:  vmReader,

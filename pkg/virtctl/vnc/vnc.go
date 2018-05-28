@@ -111,7 +111,6 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			In:  pipeInReader,
 			Out: pipeOutWriter,
 		})
-		vnc.Done()
 	}()
 
 	// wait for remote-viewer to connect to our local proxy server

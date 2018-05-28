@@ -593,14 +593,6 @@ func (_mr *_MockStreamInterfaceRecorder) Stream(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stream", arg0)
 }
 
-func (_m *MockStreamInterface) Done() {
-	_m.ctrl.Call(_m, "Done")
-}
-
-func (_mr *_MockStreamInterfaceRecorder) Done() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Done")
-}
-
 // Mock of VMInterface interface
 type MockVMInterface struct {
 	ctrl     *gomock.Controller

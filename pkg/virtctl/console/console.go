@@ -99,7 +99,6 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 			resChan <- err
 			return
 		}
-		defer con.Done()
 
 		resChan <- con.Stream(kubecli.StreamOptions{
 			In:  stdinReader,
