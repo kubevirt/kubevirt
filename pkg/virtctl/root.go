@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/offlinevm"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
+	"kubevirt.io/kubevirt/pkg/virtctl/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
 )
 
@@ -47,6 +48,7 @@ func NewVirtctlCommand() *cobra.Command {
 		offlinevm.NewStartCommand(clientConfig),
 		offlinevm.NewStopCommand(clientConfig),
 		expose.NewExposeCommand(clientConfig),
+		version.VersionCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd

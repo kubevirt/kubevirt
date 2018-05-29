@@ -551,9 +551,6 @@ func NewMinimalDomainSpec(vmName string) *DomainSpec {
 	domain.Name = vmName
 	domain.Memory = Memory{Unit: "MB", Value: 9}
 	domain.Devices = Devices{}
-	domain.Devices.Interfaces = []Interface{
-		{Type: "network", Source: InterfaceSource{Network: "default"}},
-	}
 	return domain
 }
 

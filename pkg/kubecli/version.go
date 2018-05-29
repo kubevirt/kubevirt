@@ -17,46 +17,47 @@
  *
  */
 
-package main
+package kubecli
 
 import (
-	"flag"
-	"fmt"
-	"os"
+	"encoding/json"
+	"net/url"
 
 	"k8s.io/client-go/rest"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/version"
 )
 
-func main() {
-	var statusCode int
-	flag.Parse()
+func (k *kubevirt) ServerVersion() *ServerVersion {
+	return &ServerVersion{
+		restClient: k.restClient,
+		resource:   "version",
+	}
+}
 
-	// creates the connection
-	client, err := kubecli.GetKubevirtSubresourceClient()
+type ServerVersion struct {
+	restClient *rest.RESTClient
+	resource   string
+}
+
+func (v *ServerVersion) Get() (*version.Info, error) {
+	result := v.restClient.Get().RequestURI("/apis/subresources.kubevirt.io/v1alpha1/version").Do()
+	data, err := result.Raw()
 	if err != nil {
-		panic(err)
+		connErr, isConnectionErr := err.(*url.Error)
+
+		if isConnectionErr {
+			return nil, connErr.Err
+		}
+
+		return nil, err
 	}
 
-	restClient := client.RestClient()
-	var result rest.Result
-
-	if os.Args[1] == "version" {
-		result = restClient.Get().Resource("version").Do()
-	} else {
-		result = restClient.Get().Resource("virtualmachines").Namespace("default").Name("fake").SubResource("test").Do()
-	}
-
-	err = result.Error()
+	var serverInfo version.Info
+	json.Unmarshal(data, &serverInfo)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	result.StatusCode(&statusCode)
-	if statusCode != 200 {
-		panic(fmt.Errorf("http status code is %d", statusCode))
-	} else {
-		fmt.Println("Subresource Test Endpoint returned 200 OK")
-	}
+	return &serverInfo, nil
 }

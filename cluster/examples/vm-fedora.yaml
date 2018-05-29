@@ -3,7 +3,7 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    special: key
+    special: vm-fedora
   name: vm-fedora
 spec:
   domain:

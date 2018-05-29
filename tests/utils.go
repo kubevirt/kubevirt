@@ -946,6 +946,13 @@ func NewRandomVMWithWatchdog() *v1.VirtualMachine {
 	return vm
 }
 
+func NewRandomVMWithe1000NetworkInterface() *v1.VirtualMachine {
+	// Use alpine because cirros dhcp client starts prematurily before link is ready
+	vm := NewRandomVMWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	vm.ObjectMeta.Labels = map[string]string{v1.InterfaceModel: "e1000"}
+	return vm
+}
+
 // Block until the specified VM started and return the target node name.
 func waitForVmStart(vm runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	_, ok := vm.(*v1.VirtualMachine)
@@ -1130,6 +1137,26 @@ func LoggedInCirrosExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
 	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
 	return expecter, err
 }
+
+func LoggedInAlpineExpecter(vm *v1.VirtualMachine) (expect.Expecter, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	expecter, _, err := NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "localhost login:"},
+		&expect.BSnd{S: "root\n"},
+		&expect.BExp{R: "localhost:~#"}})
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
+	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
+	return expecter, err
+}
+
+type VmExpecterFactory func(*v1.VirtualMachine) (expect.Expecter, error)
 
 func NewVirtctlCommand(args ...string) *cobra.Command {
 	commandline := []string{}

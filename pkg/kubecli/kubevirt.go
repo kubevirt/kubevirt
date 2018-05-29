@@ -41,6 +41,7 @@ type KubevirtClient interface {
 	VM(namespace string) VMInterface
 	ReplicaSet(namespace string) ReplicaSetInterface
 	OfflineVirtualMachine(namespace string) OfflineVirtualMachineInterface
+	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
 	kubernetes.Interface
 }

@@ -3,7 +3,7 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    special: key
+    alpha.kubevirt.io/interface-model: e1000
   name: vm-windows
 spec:
   domain:

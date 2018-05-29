@@ -286,6 +286,9 @@ func getVmWindows() *v1.VirtualMachine {
 		},
 	}
 
+	// pick e1000 network model type for windows machines
+	vm.ObjectMeta.Labels = map[string]string{v1.InterfaceModel: "e1000"}
+
 	addPvcDisk(&vm.Spec, "disk-windows", busSata, "pvcdisk", "pvcvolume")
 	return vm
 }

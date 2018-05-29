@@ -82,7 +82,7 @@ var _ = Describe("Network", func() {
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="e1000"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
 	})
 
 	AfterEach(func() {
@@ -93,7 +93,7 @@ var _ = Describe("Network", func() {
 		It("should define a new VIF", func() {
 
 			Handler = mockNetwork
-			domain := &api.Domain{}
+			domain := NewDomainWithPodNetwork()
 
 			api.SetObjectDefaults_Domain(domain)
 
@@ -133,7 +133,7 @@ var _ = Describe("Network", func() {
 		It("should panic if pod networking fails to setup", func() {
 			testNetworkPanic := func() {
 				Handler = mockNetwork
-				domain := &api.Domain{}
+				domain := NewDomainWithPodNetwork()
 
 				api.SetObjectDefaults_Domain(domain)
 
@@ -232,3 +232,18 @@ var _ = Describe("Network", func() {
 		})
 	})
 })
+
+func NewDomainWithPodNetwork() *api.Domain {
+
+	domain := &api.Domain{}
+	domain.Spec.Devices.Interfaces = []api.Interface{{
+		Model: &api.Model{
+			Type: "virtio",
+		},
+		Type: "bridge",
+		Source: api.InterfaceSource{
+			Bridge: api.DefaultBridgeName,
+		}},
+	}
+	return domain
+}

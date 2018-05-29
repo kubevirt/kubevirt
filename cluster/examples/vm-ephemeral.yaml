@@ -3,7 +3,7 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    special: key
+    special: vm-ephemeral
   name: vm-ephemeral
 spec:
   domain:

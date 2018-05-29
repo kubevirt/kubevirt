@@ -79,65 +79,59 @@ var _ = Describe("Networking", func() {
 		return j.Status.Phase
 	}
 
+	waitUntilVmReady := func(vm *v1.VirtualMachine, expecterFactory tests.VmExpecterFactory) {
+		// Wait for VM start
+		tests.WaitForSuccessfulVMStart(vm)
+
+		// Fetch the new VM with updated status
+		vm, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.Name, v13.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		// Lets make sure that the OS is up by waiting until we can login
+		expecter, err := expecterFactory(vm)
+		Expect(err).ToNot(HaveOccurred())
+		expecter.Close()
+	}
+
 	// TODO this is not optimal, since the one test which will initiate this, will look slow
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 
-		inboundChan := make(chan *v1.VirtualMachine)
-		outboundChan := make(chan *v1.VirtualMachine)
+		// Create and start inbound VM
+		inboundVM = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		inboundVM.Labels = map[string]string{"expose": "me"}
+		inboundVM.Spec.Subdomain = "myvm"
+		inboundVM.Spec.Hostname = "my-subdomain"
+		_, err = virtClient.VM(tests.NamespaceTestDefault).Create(inboundVM)
+		Expect(err).ToNot(HaveOccurred())
 
-		createAndLogin := func(labels map[string]string, hostname string, subdomain string) (vm *v1.VirtualMachine) {
-			vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			vm.Labels = labels
-			vm.Spec.Subdomain = subdomain
-			vm.Spec.Hostname = hostname
+		// Create and start outbound VM
+		outboundVM = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		_, err = virtClient.VM(tests.NamespaceTestDefault).Create(outboundVM)
+		Expect(err).ToNot(HaveOccurred())
 
-			// Start VM
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStartIgnoreWarnings(vm)
-
-			// Fetch the new VM with updated status
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, v13.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Lets make sure that the OS is up by waiting until we can login
-			expecter, err := tests.LoggedInCirrosExpecter(vm)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
-			return vm
+		for _, networkVm := range []*v1.VirtualMachine{inboundVM, outboundVM} {
+			waitUntilVmReady(networkVm, tests.LoggedInCirrosExpecter)
 		}
 
-		// Create inbound VM which listens on port 1500 for incoming connections and repeatedly returns "Hello World!"
-		go func() {
-			defer GinkgoRecover()
-			vm := createAndLogin(map[string]string{"expose": "me"}, "myvm", "my-subdomain")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
-			resp, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", testPort)},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 60*time.Second)
-			log.DefaultLogger().Infof("%v", resp)
-			Expect(err).ToNot(HaveOccurred())
+		inboundVM, err = virtClient.VM(tests.NamespaceTestDefault).Get(inboundVM.Name, v13.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVM, 10*time.Second)
+		Expect(err).ToNot(HaveOccurred())
+		defer expecter.Close()
+		resp, err := expecter.ExpectBatch([]expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "screen -d -m nc -klp 1500 -e echo -e \"Hello World!\"\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: "0"},
+		}, 60*time.Second)
+		log.DefaultLogger().Infof("%v", resp)
+		Expect(err).ToNot(HaveOccurred())
 
-			inboundChan <- vm
-		}()
-
-		// Create a VM and log in, to allow executing arbitrary commands from the terminal
-		go func() {
-			defer GinkgoRecover()
-			vm := createAndLogin(nil, "", "")
-			outboundChan <- vm
-		}()
-
-		inboundVM = <-inboundChan
-		outboundVM = <-outboundChan
+		outboundVM, err = virtClient.VM(tests.NamespaceTestDefault).Get(outboundVM.Name, v13.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("VirtualMachine attached to the pod network", func() {
@@ -336,6 +330,45 @@ var _ = Describe("Networking", func() {
 			AfterEach(func() {
 				Expect(virtClient.CoreV1().Services(inboundVM.Namespace).Delete(inboundVM.Spec.Subdomain, &v13.DeleteOptions{})).To(Succeed())
 			})
+		})
+	})
+
+	checkNetworkVendor := func(vm *v1.VirtualMachine, expectedVendor string, prompt string) {
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+		defer expecter.Close()
+		Expect(err).ToNot(HaveOccurred())
+
+		out, err := expecter.ExpectBatch([]expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
+			&expect.BExp{R: expectedVendor},
+		}, 15*time.Second)
+		log.Log.Infof("%v", out)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	Context("VirtualMachine with custom interface model", func() {
+		It("should expose the right device type to the guest", func() {
+			By("checking the device vendor in /sys/class")
+			// Create a machine with e1000 interface model
+			e1000VM := tests.NewRandomVMWithe1000NetworkInterface()
+			_, err = virtClient.VM(tests.NamespaceTestDefault).Create(e1000VM)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitUntilVmReady(e1000VM, tests.LoggedInAlpineExpecter)
+			// as defined in https://vendev.org/pci/ven_8086/
+			checkNetworkVendor(e1000VM, "0x8086", "localhost:~#")
+		})
+	})
+
+	Context("VirtualMachine with default interface model", func() {
+		It("should expose the right device type to the guest", func() {
+			By("checking the device vendor in /sys/class")
+			for _, networkVm := range []*v1.VirtualMachine{inboundVM, outboundVM} {
+				// as defined in https://vendev.org/pci/ven_1af4/
+				checkNetworkVendor(networkVm, "0x1af4", "\\$ ")
+			}
 		})
 	})
 

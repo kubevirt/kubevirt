@@ -3,7 +3,7 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    special: key
+    special: vm-pvc
   name: vm-pvc
 spec:
   domain:

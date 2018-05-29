@@ -322,9 +322,10 @@ var _ = Describe("Vmlifecycle", func() {
 			var vm *v1.VirtualMachine
 			var nodeName string
 			var virtHandler *k8sv1.Pod
+			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
-				// schdule a vm and make sure that virt-handler gets evicted from the node where the vm was started
+				// Schedule a vm and make sure that virt-handler gets evicted from the node where the vm was started
 				vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
 				vm, err = virtClient.VM(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -332,6 +333,9 @@ var _ = Describe("Vmlifecycle", func() {
 				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
 				Expect(err).ToNot(HaveOccurred())
 				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				// Save virt-handler number of desired pods
+				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
 				ds.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
 					NodeAffinity: &k8sv1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
@@ -350,6 +354,7 @@ var _ = Describe("Vmlifecycle", func() {
 					return errors.IsNotFound(err)
 				}, 90*time.Second, 1*time.Second).Should(BeTrue())
 			})
+
 			It("the node controller should react", func() {
 
 				// Update virt-handler heartbeat, to trigger a timeout
@@ -380,6 +385,7 @@ var _ = Describe("Vmlifecycle", func() {
 					return failedVM.Status.Phase
 				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
 			})
+
 			AfterEach(func() {
 				// Restore virt-handler daemonset
 				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
@@ -387,6 +393,13 @@ var _ = Describe("Vmlifecycle", func() {
 				ds.Spec.Template.Spec.Affinity = nil
 				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
 				Expect(err).ToNot(HaveOccurred())
+
+				// Wait until virt-handler ds will have expected number of pods
+				Eventually(func() int32 {
+					ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return ds.Status.NumberAvailable
+				}, 60*time.Second, 1*time.Second).Should(Equal(virtHandlerAvailablePods))
 			})
 		})
 
