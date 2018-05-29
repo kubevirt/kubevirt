@@ -947,7 +947,7 @@ func NewRandomVMWithWatchdog() *v1.VirtualMachine {
 func NewRandomVMWithe1000NetworkInterface() *v1.VirtualMachine {
 	// Use alpine because cirros dhcp client starts prematurily before link is ready
 	vm := NewRandomVMWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
-	vm.ObjectMeta.Labels = map[string]string{v1.InterfaceModel: "e1000"}
+	vm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
 	return vm
 }
 
