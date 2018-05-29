@@ -260,7 +260,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"bootOrder": {
 							SchemaProps: spec.SchemaProps{
-								Description: "BootOrder is an integer value used to determine ordering of boot devices",
+								Description: "BootOrder is an integer value > 0, used to determine ordering of boot devices. Disks without a boot order are not tried if a disk with a boot order exists.",
 								Type:        []string{"integer"},
 								Format:      "int32",
 							},

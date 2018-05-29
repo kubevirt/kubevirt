@@ -129,7 +129,8 @@ type Disk struct {
 	// DiskDevice specifies as which device the disk should be added to the guest
 	// Defaults to Disk
 	DiskDevice `json:",inline"`
-	// BootOrder is an integer value used to determine ordering of boot devices
+	// BootOrder is an integer value > 0, used to determine ordering of boot devices.
+	// Disks without a boot order are not tried if a disk with a boot order exists.
 	// +optional
 	BootOrder *uint `json:"bootOrder,omitempty"`
 }

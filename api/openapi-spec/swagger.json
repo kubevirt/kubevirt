@@ -3292,7 +3292,7 @@
     ],
     "properties": {
      "bootOrder": {
-      "description": "BootOrder is an integer value used to determine ordering of boot devices\n+optional",
+      "description": "BootOrder is an integer value \u003e 0, used to determine ordering of boot devices.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
       "type": "integer",
       "format": "integer"
      },
