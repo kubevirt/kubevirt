@@ -785,7 +785,7 @@ func AddEphemeralDisk(vm *v1.VirtualMachine, name string, bus string, image stri
 	return vm
 }
 
-func AddBootOrderToDisk(vm *v1.VirtualMachine, diskName string, bootorder uint) *v1.VirtualMachine {
+func AddBootOrderToDisk(vm *v1.VirtualMachine, diskName string, bootorder *uint) *v1.VirtualMachine {
 	for i, d := range vm.Spec.Domain.Devices.Disks {
 		if d.Name == diskName {
 			vm.Spec.Domain.Devices.Disks[i].BootOrder = bootorder

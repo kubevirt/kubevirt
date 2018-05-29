@@ -131,7 +131,7 @@ type Disk struct {
 	DiskDevice `json:",inline"`
 	// BootOrder is an integer value used to determine ordering of boot devices
 	// +optional
-	BootOrder uint `json:"bootOrder,omitempty"`
+	BootOrder *uint `json:"bootOrder,omitempty"`
 }
 
 // Represents the target of a volume to mount.

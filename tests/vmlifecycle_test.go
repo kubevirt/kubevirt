@@ -167,8 +167,8 @@ var _ = Describe("Vmlifecycle", func() {
 				tests.AddEphemeralDisk(vm, "disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
 
 				By("setting boot order")
-				vm = tests.AddBootOrderToDisk(vm, "disk0", alpineBootOrder)
-				vm = tests.AddBootOrderToDisk(vm, "disk2", cirrosBootOrder)
+				vm = tests.AddBootOrderToDisk(vm, "disk0", &alpineBootOrder)
+				vm = tests.AddBootOrderToDisk(vm, "disk2", &cirrosBootOrder)
 
 				By("starting VM")
 				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)

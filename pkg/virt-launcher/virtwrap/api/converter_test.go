@@ -38,9 +38,10 @@ var _ = Describe("Converter", func() {
 
 	Context("with v1.Disk", func() {
 		It("Should add boot order when provided", func() {
+			order := uint(1)
 			kubevirtDisk := &v1.Disk{
 				Name:       "mydisk",
-				BootOrder:  1,
+				BootOrder:  &order,
 				VolumeName: "myvolume",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
@@ -80,6 +81,7 @@ var _ = Describe("Converter", func() {
 			fmt.Println(xml)
 			Expect(xml).To(Equal(convertedDisk))
 		})
+
 	})
 
 	Context("with v1.VirtualMachine", func() {

@@ -172,6 +172,15 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Field:   field.Index(idx).String(),
 			})
 		}
+
+		// Verify boot order is greater than 0, if provided
+		if disk.BootOrder != nil && *disk.BootOrder < 1 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
+				Field:   field.Index(idx).Child("bootorder").String(),
+			})
+		}
 	}
 
 	return causes
