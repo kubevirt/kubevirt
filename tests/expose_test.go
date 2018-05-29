@@ -20,6 +20,40 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+func newLabeledVM(label string, virtClient kubecli.KubevirtClient) (vm *v1.VirtualMachine) {
+	vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vm.Labels = map[string]string{"expose": label}
+	vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+	Expect(err).ToNot(HaveOccurred())
+	tests.WaitForSuccessfulVMStartIgnoreWarnings(vm)
+	vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, k8smetav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return
+}
+
+func generateHelloWorldServer(vm *v1.VirtualMachine, virtClient kubecli.KubevirtClient, testPort int, protocol string) {
+	_, err := tests.LoggedInCirrosExpecter(vm)
+	Expect(err).ToNot(HaveOccurred())
+
+	expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	defer expecter.Close()
+	Expect(err).ToNot(HaveOccurred())
+
+	serverCommand := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", testPort)
+	if protocol == "udp" {
+		serverCommand = fmt.Sprintf("screen -d -m nc -uklp %d -e echo -e \"Hello UDP World!\"\n", testPort)
+	}
+	_, err = expecter.ExpectBatch([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: serverCommand},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 60*time.Second)
+	Expect(err).ToNot(HaveOccurred())
+}
+
 var _ = Describe("Expose", func() {
 
 	flag.Parse()
@@ -29,58 +63,30 @@ var _ = Describe("Expose", func() {
 	const testPort = 1500
 
 	Context("Expose service on a VM", func() {
-		By("Creating a VM object")
-		vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		vm.Labels = map[string]string{"expose": "vm"}
-
-		It("Should start a VM and run a 'hello world' server on it", func() {
-			By("Starting the VM")
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStartIgnoreWarnings(vm)
-
-			By("Making sure the VM could be fetched")
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, k8smetav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Making sure that the OS is up and ready for login")
-			_, err := tests.LoggedInCirrosExpecter(vm)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Running a 'hello world' server on the VM")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", testPort)},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 60*time.Second)
-			Expect(err).ToNot(HaveOccurred())
+		var tcpVM *v1.VirtualMachine
+		tests.BeforeAll(func() {
+			tcpVM = newLabeledVM("vm", virtClient)
+			generateHelloWorldServer(tcpVM, virtClient, testPort, "tcp")
 		})
 
 		Context("Expose ClusterIP service", func() {
 			const servicePort = "27017"
 			const serviceName = "cluster-ip-vm"
-			It("Should expose a Cluster IP service on a VM", func() {
+			It("Should expose a Cluster IP service on a VM and connect to it", func() {
+				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
-					vm.Namespace, vm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
+					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
-			})
 
-			It("Should be able to connect to the exposed service", func() {
 				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
 				By("Starting a pod which tries to reach the VM via ClusterIP")
 				job := tests.NewHelloWorldJob(serviceIP, servicePort)
-				job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
+				job, err = virtClient.CoreV1().Pods(tcpVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
@@ -98,17 +104,16 @@ var _ = Describe("Expose", func() {
 			const serviceName = "node-port-vm"
 			const nodePort = "30017"
 
-			It("Should expose a NodePort service on a VM", func() {
+			It("Should expose a NodePort service on a VM and connect to it", func() {
+				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
-					vm.Namespace, vm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--type", "NodePort", "--node-port", nodePort)
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
-			})
 
-			It("Should be able to connect to the exposed service", func() {
 				By("Getting back the the service")
-				_, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				_, err = virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting the node IP from all nodes")
@@ -121,7 +126,7 @@ var _ = Describe("Expose", func() {
 
 					By("Starting a pod which tries to reach the VM via NodePort")
 					job := tests.NewHelloWorldJob(nodeIP, nodePort)
-					job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
+					job, err = virtClient.CoreV1().Pods(tcpVM.Namespace).Create(job)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
@@ -137,37 +142,10 @@ var _ = Describe("Expose", func() {
 	})
 
 	Context("Expose UDP service on a VM", func() {
-		By("Creating a VM object")
-		vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		vm.Labels = map[string]string{"expose": "udp-vm"}
-
-		It("Should start a VM and run a 'hello world' UDP server on it", func() {
-			By("Starting the VM")
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStartIgnoreWarnings(vm)
-
-			By("Making sure the VM could be fetched")
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, k8smetav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Making sure that the OS is up and ready for login")
-			_, err := tests.LoggedInCirrosExpecter(vm)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Running a 'hello world' server on the VM")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -uklp %d -e echo -e \"Hello UDP World!\"\n", testPort)},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 60*time.Second)
-			Expect(err).ToNot(HaveOccurred())
+		var udpVM *v1.VirtualMachine
+		tests.BeforeAll(func() {
+			udpVM = newLabeledVM("udp-vm", virtClient)
+			generateHelloWorldServer(udpVM, virtClient, testPort, "udp")
 		})
 
 		Context("Expose NodePort UDP service", func() {
@@ -175,17 +153,16 @@ var _ = Describe("Expose", func() {
 			const serviceName = "node-port-udp-vm"
 			const nodePort = "30018"
 
-			It("Should expose a NodePort service on a VM", func() {
+			It("Should expose a NodePort service on a VM and connect to it", func() {
+				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
-					vm.Namespace, vm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--type", "NodePort", "--node-port", nodePort, "--protocol", "UDP")
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
-			})
 
-			It("Should be able to connect to the exposed service", func() {
 				By("Getting back the the service")
-				_, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				_, err = virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting the node IP from all nodes")
@@ -198,7 +175,7 @@ var _ = Describe("Expose", func() {
 
 					By("Starting a pod which tries to reach the VM via NodePort")
 					job := tests.NewHelloWorldJobUDP(nodeIP, nodePort)
-					job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
+					job, err = virtClient.CoreV1().Pods(udpVM.Namespace).Create(job)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
@@ -214,13 +191,14 @@ var _ = Describe("Expose", func() {
 	})
 
 	Context("Expose service on a VM replica set", func() {
-		const numberOfVMs = 2
-		By("Creating a VMRS object with 2 replicas")
-		template := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		vmrs := tests.NewRandomReplicaSetFromVM(template, int32(numberOfVMs))
-		vmrs.Labels = map[string]string{"expose": "vmrs"}
+		var vmrs *v1.VirtualMachineReplicaSet
+		tests.BeforeAll(func() {
+			By("Creating a VMRS object with 2 replicas")
+			const numberOfVMs = 2
+			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmrs = tests.NewRandomReplicaSetFromVM(template, int32(numberOfVMs))
+			vmrs.Labels = map[string]string{"expose": "vmrs"}
 
-		It("Should start the VMRS and wait for all to be up", func() {
 			By("Start the replica set")
 			vmrs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(vmrs)
 			Expect(err).ToNot(HaveOccurred())
@@ -231,9 +209,8 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return int(rs.Status.ReadyReplicas)
 			}, 60*time.Second, 1*time.Second).Should(Equal(numberOfVMs))
-		})
 
-		It("Should add an 'hello world' server on each VM in the replica set", func() {
+			By("add an 'hello world' server on each VM in the replica set")
 			// TODO: add label to list options
 			// check size of list
 			// remove check for owner
@@ -241,23 +218,7 @@ var _ = Describe("Expose", func() {
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
-					By("Making sure that the OS is up and ready for login")
-					_, err := tests.LoggedInCirrosExpecter(&vm)
-					Expect(err).ToNot(HaveOccurred())
-
-					By("Running a 'hello world' server on each VM in the replica set")
-					expecter, _, err := tests.NewConsoleExpecter(virtClient, &vm, 10*time.Second)
-					defer expecter.Close()
-					Expect(err).ToNot(HaveOccurred())
-					_, err = expecter.ExpectBatch([]expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: "\\$ "},
-						&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", testPort)},
-						&expect.BExp{R: "\\$ "},
-						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: "0"},
-					}, 60*time.Second)
-					Expect(err).ToNot(HaveOccurred())
+					generateHelloWorldServer(&vm, virtClient, testPort, "tcp")
 				}
 			}
 		})
@@ -266,15 +227,13 @@ var _ = Describe("Expose", func() {
 			const servicePort = "27017"
 			const serviceName = "cluster-ip-vmrs"
 
-			It("Should create a ClusterIP service on VMRS", func() {
-				By("Expose a service on the VMRS")
+			It("Should create a ClusterIP service on VMRS and connect to it", func() {
+				By("Expose a service on the VMRS using virtctl")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmrs", "--namespace",
 					vmrs.Namespace, vmrs.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
-			})
 
-			It("Should be able to connect to the exposed service", func() {
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vmrs.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -297,68 +256,50 @@ var _ = Describe("Expose", func() {
 	})
 
 	Context("Expose service on an Offline VM", func() {
-		By("Creating an OVM object")
-		template := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		template.Labels = map[string]string{"expose": "vmrs"}
-		ovm := NewRandomOfflineVirtualMachine(template, false)
+		const servicePort = "27017"
+		const serviceName = "cluster-ip-ovm"
+		var ovm *v1.OfflineVirtualMachine
 
-		It("Should create the OVM", func() {
+		tests.BeforeAll(func() {
+			By("Creating an OVM object")
+			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			template.Labels = map[string]string{"expose": "vmrs"}
+			ovm = NewRandomOfflineVirtualMachine(template, false)
+
+			By("Creating the OVM")
 			_, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(ovm)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("Exposing a service on the OVM using virtctl")
+			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "offlinevirtualmachine", "--namespace",
+				ovm.Namespace, ovm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
+			err = virtctl()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Calling the start command")
+			virtctl = tests.NewRepeatableVirtctlCommand(offlinevm.COMMAND_START, "--namespace", ovm.Namespace, ovm.Name)
+			err = virtctl()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Getting the status of the OVM")
+			Eventually(func() bool {
+				ovm, err = virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return ovm.Status.Ready
+			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+
+			By("Getting the running VM")
+			var vm *v1.VirtualMachine
+			Eventually(func() bool {
+				vm, err = virtClient.VM(ovm.Namespace).Get(ovm.Name, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Phase == v1.Running
+			}, 120*time.Second, 1*time.Second).Should(BeTrue())
+
+			generateHelloWorldServer(vm, virtClient, testPort, "tcp")
 		})
 
 		Context("Expose ClusterIP service", func() {
-			const servicePort = "27017"
-			const serviceName = "cluster-ip-ovm"
-
-			It("Should create a ClusterIP service when VM is offline and run it", func() {
-				By("Expose a service on the OVM")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "offlinevirtualmachine", "--namespace",
-					ovm.Namespace, ovm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
-				err = virtctl()
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("Should start the VM", func() {
-				By("Calling the start command")
-				virtctl := tests.NewRepeatableVirtctlCommand(offlinevm.COMMAND_START, "--namespace", ovm.Namespace, ovm.Name)
-				err = virtctl()
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Getting the status of the OVM")
-				Eventually(func() bool {
-					ovm, err = virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return ovm.Status.Ready
-				}, 120*time.Second, 1*time.Second).Should(BeTrue())
-
-				By("Getting the running VM")
-				var vm *v1.VirtualMachine
-				Eventually(func() bool {
-					vm, err = virtClient.VM(ovm.Namespace).Get(ovm.Name, k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.Phase == v1.Running
-				}, 120*time.Second, 1*time.Second).Should(BeTrue())
-
-				By("Making sure that the OS is up and ready for login")
-				_, err := tests.LoggedInCirrosExpecter(vm)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Running a 'hello world' server on the VM")
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
-				defer expecter.Close()
-				Expect(err).ToNot(HaveOccurred())
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "\\$ "},
-					&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", testPort)},
-					&expect.BExp{R: "\\$ "},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
 			It("Connect to ClusterIP services that was set when VM was offline", func() {
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(ovm.Namespace).Get(serviceName, k8smetav1.GetOptions{})

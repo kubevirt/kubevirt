@@ -30,8 +30,8 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
-	"time"
 	"strconv"
+	"time"
 
 	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -91,8 +91,6 @@ const (
 )
 
 const SubresourceTestLabel = "subresource-access-test-pod"
-
-const NetworkAccessTestLabel = "network-access-test-pod"
 
 const (
 	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
@@ -1334,7 +1332,7 @@ func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
 	// local port is used to catch the reply - any number can be used
 	// we make it different than the port to be safe if both are running on the same machine
 	localPort--
-	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 1 -w 1 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, 
+	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 1 -w 1 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
 		localPort, host, port, localPort)}
 	job := RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
 
