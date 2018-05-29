@@ -30,6 +30,7 @@ import (
 	"github.com/google/goexpect"
 
 	"fmt"
+	"strconv"
 
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,14 +55,7 @@ var _ = Describe("Networking", func() {
 	var inboundVM *v1.VirtualMachine
 	var outboundVM *v1.VirtualMachine
 
-	// newHelloWorldJob takes a dns entry or an IP which it will use create a pod
-	// which tries to contact the host on port 1500. It expects to receive "Hello World!" to succeed.
-	newHelloWorldJob := func(host string) *v12.Pod {
-		check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s 1500 -i 1 -w 1))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host)}
-		job := tests.RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
-
-		return job
-	}
+	const testPort = 1500
 
 	logPodLogs := func(pod *v12.Pod) {
 		defer GinkgoRecover()
@@ -124,7 +118,7 @@ var _ = Describe("Networking", func() {
 			resp, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "screen -d -m nc -klp 1500 -e echo -e \"Hello World!\"\n"},
+				&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", testPort)},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: "0"},
@@ -231,7 +225,7 @@ var _ = Describe("Networking", func() {
 			}
 
 			// Run netcat and give it one second to ghet "Hello World!" back from the VM
-			job := newHelloWorldJob(ip)
+			job := tests.NewHelloWorldJob(ip, strconv.Itoa(testPort))
 			job.Spec.Affinity = &v12.Affinity{
 				NodeAffinity: &v12.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{
@@ -269,7 +263,7 @@ var _ = Describe("Networking", func() {
 							"expose": "me",
 						},
 						Ports: []v12.ServicePort{
-							{Protocol: v12.ProtocolTCP, Port: 1500, TargetPort: intstr.FromInt(1500)},
+							{Protocol: v12.ProtocolTCP, Port: testPort, TargetPort: intstr.FromInt(testPort)},
 						},
 					},
 				}
@@ -281,7 +275,7 @@ var _ = Describe("Networking", func() {
 			It(" should be able to reach the vm based on labels specified on the vm", func() {
 
 				By("starting a pod which tries to reach the vm via the defined service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVM.Namespace))
+				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVM.Namespace), strconv.Itoa(testPort))
 				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -292,7 +286,7 @@ var _ = Describe("Networking", func() {
 			It("should fail to reach the vm if an invalid servicename is used", func() {
 
 				By("starting a pod which tries to reach the vm via a non-existent service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVM.Namespace))
+				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVM.Namespace), strconv.Itoa(testPort))
 				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for the pod to report an  unsuccessful connection attempt")
@@ -320,7 +314,7 @@ var _ = Describe("Networking", func() {
 						https://github.com/kubernetes/kubernetes/issues/55158
 						*/
 						Ports: []v12.ServicePort{
-							{Protocol: v12.ProtocolTCP, Port: 1500, TargetPort: intstr.FromInt(1500)},
+							{Protocol: v12.ProtocolTCP, Port: testPort, TargetPort: intstr.FromInt(testPort)},
 						},
 					},
 				}
@@ -330,7 +324,7 @@ var _ = Describe("Networking", func() {
 
 			It("should be able to reach the vm via its unique fully qualified domain name", func() {
 				By("starting a pod which tries to reach the vm via the defined service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVM.Spec.Hostname, inboundVM.Spec.Subdomain, inboundVM.Namespace))
+				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVM.Spec.Hostname, inboundVM.Spec.Subdomain, inboundVM.Namespace), strconv.Itoa(testPort))
 				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 

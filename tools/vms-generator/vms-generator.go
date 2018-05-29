@@ -95,8 +95,8 @@ func getBaseVm(name string) *v1.VirtualMachine {
 			Kind:       "VirtualMachine",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{"special": "key"},
+			Name:   name,
+			Labels: map[string]string{"special": name},
 		},
 		Spec: *baseVmSpec,
 	}

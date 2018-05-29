@@ -1,22 +1,3 @@
-/*
-* This file is part of the KubeVirt project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*
-* Copyright 2018 Red Hat, Inc.
-*
- */
-
 package expose
 
 import (
@@ -53,6 +34,7 @@ var strProtocol string
 var intTargetPort int
 var strServiceType string
 var portName string
+var namespace string
 
 // generate a new "expose" command
 func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -192,7 +174,8 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	// actually create the service
 	service := &v1.Service{
 		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: serviceName,
+			Name:      serviceName,
+			Namespace: namespace,
 		},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
@@ -213,8 +196,8 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	// try to create the service on the cluster
 	_, err = virtClient.CoreV1().Services(namespace).Create(service)
 	if err != nil {
-		return fmt.Errorf("service cretion failed: %v", err)
+		return fmt.Errorf("service creation failed: %v", err)
 	}
-	fmt.Printf("Service %s successfully exposed for VirtualMachine %s\n", serviceName, vmName)
+	fmt.Printf("Service %s successfully exposed for %s %s\n", serviceName, vmType, vmName)
 	return nil
 }
