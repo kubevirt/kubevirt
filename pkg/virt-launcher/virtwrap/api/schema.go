@@ -225,6 +225,7 @@ type Disk struct {
 	Auth         *DiskAuth     `xml:"auth,omitempty"`
 	Alias        *Alias        `xml:"alias,omitempty"`
 	BackingStore *BackingStore `xml:"backingStore,omitempty"`
+	BootOrder    *BootOrder    `xml:"boot,omitempty"`
 }
 
 type DiskAuth struct {

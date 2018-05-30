@@ -611,6 +611,15 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.BootOrder != nil {
+		in, out := &in.BootOrder, &out.BootOrder
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(BootOrder)
+			**out = **in
+		}
+	}
 	return
 }
 

@@ -238,6 +238,15 @@ func (in *Devices) DeepCopy() *Devices {
 func (in *Disk) DeepCopyInto(out *Disk) {
 	*out = *in
 	in.DiskDevice.DeepCopyInto(&out.DiskDevice)
+	if in.BootOrder != nil {
+		in, out := &in.BootOrder, &out.BootOrder
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(uint)
+			**out = **in
+		}
+	}
 	return
 }
 
