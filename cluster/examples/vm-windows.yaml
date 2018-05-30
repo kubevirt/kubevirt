@@ -1,9 +1,9 @@
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 metadata:
-  creationTimestamp: null
-  labels:
+  annotations:
     alpha.kubevirt.io/interface-model: e1000
+  creationTimestamp: null
   name: vm-windows
 spec:
   domain:

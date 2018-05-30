@@ -5,20 +5,6 @@ resources: <http://kubernetes.io/docs/user-guide/thirdpartyresources/>.
 KubeVirt represents virtual machines as 3rd party resources and manages changes
 to libvirt domains based on the state of those resources.
 
-This project provides a Vagrant setup with the requisite components already
-installed. To boot a vanilla kubernetes environment as base for kubevirt,
-simply type `vagrant up` from the root directory of the git tree, which can be
-found here:
-
-<https://github.com/kubevirt/kubevirt>
-
-Once the Vagrant provisioning script has completed, run `./cluster/sync.sh` to
-build and deploy KubeVirt specific components to the Vagrant nodes.
-
-Note: KubeVirt is built in go. A properly configured go environment is
-therefore required. For best results, use this path:
-`$GOPATH/src/kubevirt.io/kubevirt/`
-
 ### Project Components
 
  * virt-api: This component provides a HTTP RESTful entrypoint to manage
