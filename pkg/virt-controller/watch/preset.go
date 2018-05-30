@@ -152,6 +152,9 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 		if !success {
 			logger.Object(vm).Warning("Marking VM as failed")
 			vm.Status.Phase = kubev1.Failed
+		} else {
+			logger.Object(vm).Info("Setting default values on VirtualMachine")
+			kubev1.SetObjectDefaults_VirtualMachine(vm)
 		}
 	} else {
 		logger.Object(vm).Infof("VM is excluded from VirtualMachinePresets")
