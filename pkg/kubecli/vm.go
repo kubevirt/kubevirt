@@ -219,6 +219,10 @@ type wsStreamer struct {
 	done chan struct{}
 }
 
+func (ws *wsStreamer) streamDone() {
+	close(ws.done)
+}
+
 func (ws *wsStreamer) Stream(options StreamOptions) error {
 	wsReadWriter := &BinaryReadWriter{Conn: ws.conn}
 
@@ -234,7 +238,7 @@ func (ws *wsStreamer) Stream(options StreamOptions) error {
 		copyErr <- err
 	}()
 
-	close(ws.done)
+	defer ws.streamDone()
 	return <-copyErr
 }
 
