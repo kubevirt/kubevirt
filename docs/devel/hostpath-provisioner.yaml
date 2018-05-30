@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hostpath-provisioner
+  labels:
+    app: hostpath-provisioner
+spec:
+  selector:
+    matchLabels:
+      app: hostpath-provisioner
+  replicas: 1
+  revisionHistoryLimit: 0
+  template:
+    metadata:
+      labels:
+        app: hostpath-provisioner
+    spec:
+      serviceAccount: hostpath-sa
+      serviceAccountName: hostpath-sa
+      containers:
+        - name: hostpath-provisioner
+          image: kubevirtdevelstorage/hostpath-provisioner:latest
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: PV_DIR
+              value: /var/run/kubevirt/hostpath
+          volumeMounts:
+            - name: pv-volume
+              mountPath: /var/run/kubevirt/hostpath
+      volumes:
+        - name: pv-volume
+          hostPath:
+            path: /var/run/kubevirt/hostpath
+
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: hostpath-sa
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hostpath-provisioner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hostpath-provisioner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hostpath-provisioner
+subjects:
+- kind: ServiceAccount
+  name: hostpath-sa
+  namespace: default
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: kubevirt
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: hostpath
+
