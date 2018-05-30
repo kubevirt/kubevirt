@@ -153,7 +153,7 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 			logger.Object(vm).Warning("Marking VM as failed")
 			vm.Status.Phase = kubev1.Failed
 		} else {
-			logger.Object(vm).Info("Setting default values on VirtualMachine")
+			logger.Object(vm).V(4).Info("Setting default values on VirtualMachine")
 			kubev1.SetObjectDefaults_VirtualMachine(vm)
 		}
 	} else {
