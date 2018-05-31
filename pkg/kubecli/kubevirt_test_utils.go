@@ -3,9 +3,10 @@ package kubecli
 import (
 	"errors"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 // GetMockKubevirtClientFromClientConfig, MockKubevirtClientInstance and InvalidMockClient are used to create a mechanism
