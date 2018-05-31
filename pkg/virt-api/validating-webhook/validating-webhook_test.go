@@ -662,6 +662,41 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
+
+		It("should accept a boot order greater than '0'", func() {
+			vm := v1.NewMinimalVM("testvm")
+			order := uint(1)
+
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume1",
+				BootOrder:  &order,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vm.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should reject a disk with a boot order of '0'", func() {
+			vm := v1.NewMinimalVM("testvm")
+			order := uint(0)
+
+			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume1",
+				BootOrder:  &order,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vm.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].bootorder"))
+		})
 	})
 })
 

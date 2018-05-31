@@ -36,6 +36,54 @@ import (
 
 var _ = Describe("Converter", func() {
 
+	Context("with v1.Disk", func() {
+		It("Should add boot order when provided", func() {
+			order := uint(1)
+			kubevirtDisk := &v1.Disk{
+				Name:       "mydisk",
+				BootOrder:  &order,
+				VolumeName: "myvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+			}
+			var convertedDisk = `<Disk device="disk" type="">
+  <source></source>
+  <target bus="virtio" dev="vda"></target>
+  <driver name="qemu" type=""></driver>
+  <alias name="mydisk"></alias>
+  <boot order="1"></boot>
+</Disk>`
+			xml := diskToDiskXML(kubevirtDisk)
+			fmt.Println(xml)
+			Expect(xml).To(Equal(convertedDisk))
+		})
+
+		It("Should omit boot order when not provided", func() {
+			kubevirtDisk := &v1.Disk{
+				Name:       "mydisk",
+				VolumeName: "myvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+			}
+			var convertedDisk = `<Disk device="disk" type="">
+  <source></source>
+  <target bus="virtio" dev="vda"></target>
+  <driver name="qemu" type=""></driver>
+  <alias name="mydisk"></alias>
+</Disk>`
+			xml := diskToDiskXML(kubevirtDisk)
+			fmt.Println(xml)
+			Expect(xml).To(Equal(convertedDisk))
+		})
+
+	})
+
 	Context("with v1.VirtualMachine", func() {
 
 		var vm *v1.VirtualMachine
@@ -413,6 +461,15 @@ var _ = Describe("Converter", func() {
 		})
 	})
 })
+
+func diskToDiskXML(disk *v1.Disk) string {
+	devicePerBus := make(map[string]int)
+	libvirtDisk := &Disk{}
+	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus)).To(Succeed())
+	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
+	Expect(err).ToNot(HaveOccurred())
+	return string(data)
+}
 
 func vmToDomainXML(vm *v1.VirtualMachine, c *ConverterContext) string {
 	domain := vmToDomain(vm, c)

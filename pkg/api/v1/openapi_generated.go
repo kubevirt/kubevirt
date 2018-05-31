@@ -258,6 +258,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget"),
 							},
 						},
+						"bootOrder": {
+							SchemaProps: spec.SchemaProps{
+								Description: "BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Disks without a boot order are not tried if a disk with a boot order exists.",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
 					},
 					Required: []string{"name", "volumeName"},
 				},
