@@ -48,10 +48,16 @@ import:
 - package: github.com/gorilla/websocket
   version: 0647012449a1878977514a346b26637dd022446c
 - package: google.golang.org/grpc
+- package: google.golang.org/genproto
+  version: 09f6ed296fc66555a25fe4ce95173148778dfa85
+  subpackages:
+  - googleapis/rpc/status
 - package: github.com/spf13/cobra
-  version: ^0.0.2
+  version: ^0.0.3
   subpackages:
   - cobra
+- package: github.com/spf13/pflag
+  version: 1.0.1
 - package: k8s.io/apiextensions-apiserver
   version: kubernetes-1.9.7
 - package: github.com/ant31/crd-validation
