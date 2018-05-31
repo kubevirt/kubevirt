@@ -76,11 +76,11 @@ type DomainSpec struct {
 // +k8s:openapi-gen=true
 type ResourceRequirements struct {
 	// Requests is a description of the initial vmi resources.
-	// Valid resource keys are "memory" and "cpu".
+	// Valid resource keys are "memory", "hugepages" and "cpu".
 	// +optional
 	Requests v1.ResourceList `json:"requests,omitempty"`
 	// Limits describes the maximum amount of compute resources allowed.
-	// Valid resource keys are "memory" and "cpu".
+	// Valid resource keys are "memory", "hugepages" and "cpu".
 	// +optional
 	Limits v1.ResourceList `json:"limits,omitempty"`
 }

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -370,9 +371,28 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	if v, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
-		if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
-			return err
+	for k, v := range vmi.Spec.Domain.Resources.Requests {
+		if k == k8sv1.ResourceMemory {
+			if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
+				return err
+			}
+		} else if strings.HasPrefix(string(k), k8sv1.ResourceHugePagesPrefix) {
+			var size = "2"
+			var unit = "M"
+			if strings.HasSuffix(string(k), "1G") {
+				size = "1"
+				unit = "G"
+			}
+			domain.Spec.MemoryBacking = &MemoryBacking{
+				HugePages: &HugePages{
+					HugePage: []HugePage{
+						{
+							Unit: unit,
+							Size: size,
+						},
+					},
+				},
+			}
 		}
 	}
 

@@ -148,6 +148,26 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	// Copy vmi resources requests to a container
 	for key, value := range vmiResources.Requests {
+		// By default libvirt uses /dev/hugepages for VM's that requested 2M hugepages
+		// and /dev/hugepages1G for VM's that requested 1G hugepages
+		if strings.HasPrefix(string(key), k8sv1.ResourceHugePagesPrefix) {
+			var dirName = "hugepages"
+			if strings.HasSuffix(string(key), "1G") {
+				dirName = "hugepages1G"
+			}
+			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+				Name:      "hugepages",
+				MountPath: filepath.Join("/dev/", dirName),
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: "hugepages",
+				VolumeSource: k8sv1.VolumeSource{
+					EmptyDir: &k8sv1.EmptyDirVolumeSource{
+						Medium: k8sv1.StorageMediumHugePages,
+					},
+				},
+			})
+		}
 		resources.Requests[key] = value
 	}
 
