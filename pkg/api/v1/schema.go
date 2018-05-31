@@ -25,6 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	Hugepage2MiResource = v1.ResourceName(v1.ResourceHugePagesPrefix + "2Mi")
+	Hugepage1GiResource = v1.ResourceName(v1.ResourceHugePagesPrefix + "1Gi")
+)
+
 //go:generate swagger-doc
 //go:generate openapi-gen -i . --output-package=kubevirt.io/kubevirt/pkg/api/v1  --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
 

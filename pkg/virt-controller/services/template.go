@@ -36,10 +36,13 @@ import (
 
 const configMapName = "kube-system/kubevirt-config"
 const allowEmulationKey = "debug.allowEmulation"
-const (
-	Hugepage2MiResource = k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + "2Mi")
-	Hugepage1GiResource = k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + "1Gi")
-)
+
+// By default libvirt uses /dev/hugepages for VM's that requested 2M hugepages
+// and /dev/hugepages1G for VM's that requested 1G hugepages
+var hugepagesMounts = map[k8sv1.ResourceName]string{
+	v1.Hugepage2MiResource: "hugepages",
+	v1.Hugepage1GiResource: "hugepages1G",
+}
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -150,15 +153,23 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	resources.Requests = make(k8sv1.ResourceList)
 
+	var configureHugepages = false
 	// Copy vmi resources requests to a container
 	for key, value := range vmiResources.Requests {
-		if key == Hugepage2MiResource || key == Hugepage1GiResource {
+		if key == v1.Hugepage2MiResource || key == v1.Hugepage1GiResource {
 			configureHugepages = true
-			// By default libvirt uses /dev/hugepages for VM's that requested 2M hugepages
-			// and /dev/hugepages1G for VM's that requested 1G hugepages
-			if key == Hugepage1GiResource {
-				hugepageMount = "hugepages1G"
-			}
+			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+				Name:      "hugepages",
+				MountPath: filepath.Join("/dev/", hugepagesMounts[key]),
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: "hugepages",
+				VolumeSource: k8sv1.VolumeSource{
+					EmptyDir: &k8sv1.EmptyDirVolumeSource{
+						Medium: k8sv1.StorageMediumHugePages,
+					},
+				},
+			})
 		}
 		resources.Requests[key] = value
 	}
@@ -168,37 +179,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits = make(k8sv1.ResourceList)
 	}
 	for key, value := range vmiResources.Limits {
-		if key == Hugepage2MiResource || key == Hugepage1GiResource {
-			configureHugepages = true
-			// By default libvirt uses /dev/hugepages for VM's that requested 2M hugepages
-			// and /dev/hugepages1G for VM's that requested 1G hugepages
-			if key == Hugepage1GiResource {
-				hugepageMount = "hugepages1G"
+		if key == v1.Hugepage2MiResource || key == v1.Hugepage1GiResource {
+			if _, ok := resources.Requests[key]; !ok {
+				configureHugepages = true
+				resources.Requests[key] = value
+				configureHugepagesMount(volumes, volumesMounts, key)
 			}
 		}
 		resources.Limits[key] = value
 	}
 
-	// Configure hugepages mount
-	if configureHugepages {
-		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
-			Name:      "hugepages",
-			MountPath: filepath.Join("/dev/", hugepageMount),
-		})
-		volumes = append(volumes, k8sv1.Volume{
-			Name: "hugepages",
-			VolumeSource: k8sv1.VolumeSource{
-				EmptyDir: &k8sv1.EmptyDirVolumeSource{
-					Medium: k8sv1.StorageMediumHugePages,
-				},
-			},
-		})
-	}
-
 	// Get memory overhead
 	memoryOverhead := getMemoryOverhead(vmi.Spec.Domain)
 
-	// if hugepages configured, use only overhead memory for the request and for the limit
+	// If hugepages configured, use only overhead memory for the request and for the limit
 	if configureHugepages {
 		resources.Requests[k8sv1.ResourceMemory] = *memoryOverhead
 		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
@@ -393,6 +387,21 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	overhead.Add(resource.MustParse("16Mi"))
 
 	return overhead
+}
+
+func configureHugepagesMount(volumes []k8sv1.Volume, volumesMounts []k8sv1.VolumeMount, hugepageResource k8sv1.ResourceName) {
+	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+		Name:      "hugepages",
+		MountPath: filepath.Join("/dev/", hugepagesMounts[hugepageResource]),
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "hugepages",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{
+				Medium: k8sv1.StorageMediumHugePages,
+			},
+		},
+	})
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {

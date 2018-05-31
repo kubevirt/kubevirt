@@ -318,8 +318,8 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3))
 				Expect(pod.Spec.Containers[0].VolumeMounts[2].MountPath).To(Equal(mountPath))
 			},
-				table.Entry("hugepages-2Mi", Hugepage2MiResource, "2Mi", "/dev/hugepages"),
-				table.Entry("hugepages-1Gi", Hugepage1GiResource, "1Gi", "/dev/hugepages1G"),
+				table.Entry("hugepages-2Mi", v1.Hugepage2MiResource, "2Mi", "/dev/hugepages"),
+				table.Entry("hugepages-1Gi", v1.Hugepage1GiResource, "1Gi", "/dev/hugepages1G"),
 			)
 		})
 

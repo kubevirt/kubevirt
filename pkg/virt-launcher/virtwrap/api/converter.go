@@ -39,6 +39,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
+var hugepagesTypes = map[k8sv1.ResourceName]HugePage{
+	v1.Hugepage2MiResource: HugePage{Size: "2", Unit: "M"},
+	v1.Hugepage1GiResource: HugePage{Size: "1", Unit: "G"},
+}
+
 type ConverterContext struct {
 	AllowEmulation bool
 	Secrets        map[string]*k8sv1.Secret
@@ -372,25 +377,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	for k, v := range vmi.Spec.Domain.Resources.Requests {
-		if k == k8sv1.ResourceMemory {
+		switch k {
+		case k8sv1.ResourceMemory:
 			if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
 				return err
 			}
-		} else if strings.HasPrefix(string(k), k8sv1.ResourceHugePagesPrefix) {
-			var size = "2"
-			var unit = "M"
-			if strings.HasSuffix(string(k), "1G") {
-				size = "1"
-				unit = "G"
-			}
+		case v1.Hugepage2MiResource, v1.Hugepage1GiResource:
 			domain.Spec.MemoryBacking = &MemoryBacking{
 				HugePages: &HugePages{
-					HugePage: []HugePage{
-						{
-							Unit: unit,
-							Size: size,
-						},
-					},
+					HugePage: []HugePage{hugepagesTypes[k]},
 				},
 			}
 		}
