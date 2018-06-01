@@ -125,15 +125,15 @@ func (_mr *_MockNetworkHandlerRecorder) ParseAddr(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ParseAddr", arg0)
 }
 
-func (_m *MockNetworkHandler) SetRandomMacAddr(iface string) (net.HardwareAddr, error) {
-	ret := _m.ctrl.Call(_m, "SetRandomMacAddr", iface)
+func (_m *MockNetworkHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
+	ret := _m.ctrl.Call(_m, "SetRandomMac", iface)
 	ret0, _ := ret[0].(net.HardwareAddr)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockNetworkHandlerRecorder) SetRandomMacAddr(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetRandomMacAddr", arg0)
+func (_mr *_MockNetworkHandlerRecorder) SetRandomMac(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetRandomMac", arg0)
 }
 
 func (_m *MockNetworkHandler) GetMacDetails(iface string) (net.HardwareAddr, error) {
@@ -145,17 +145,6 @@ func (_m *MockNetworkHandler) GetMacDetails(iface string) (net.HardwareAddr, err
 
 func (_mr *_MockNetworkHandlerRecorder) GetMacDetails(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMacDetails", arg0)
-}
-
-func (_m *MockNetworkHandler) RandomizeMac() (net.HardwareAddr, error) {
-	ret := _m.ctrl.Call(_m, "RandomizeMac")
-	ret0, _ := ret[0].(net.HardwareAddr)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockNetworkHandlerRecorder) RandomizeMac() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RandomizeMac")
 }
 
 func (_m *MockNetworkHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {

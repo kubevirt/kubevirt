@@ -60,9 +60,8 @@ type NetworkHandler interface {
 	LinkSetUp(link netlink.Link) error
 	LinkAdd(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
-	SetRandomMacAddr(iface string) (net.HardwareAddr, error)
+	SetRandomMac(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
-	RandomizeMac() (net.HardwareAddr, error)
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr)
 }
 
@@ -108,19 +107,8 @@ func (h *NetworkUtilsHandler) GetMacDetails(iface string) (net.HardwareAddr, err
 	return currentMac, nil
 }
 
-// RandomizeMac returns a random MAC address
-func (h *NetworkUtilsHandler) RandomizeMac() (net.HardwareAddr, error) {
-	bytes := []byte{0, 0, 0, 0, 0, 0}
-	mac, err := lmf.RandomizeMac(bytes, 0, false)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to generate a mac address")
-		return nil, err
-	}
-	return mac, nil
-}
-
-// SetRandomMacAddr changes the MAC address for a agiven interface
-func (h *NetworkUtilsHandler) SetRandomMacAddr(iface string) (net.HardwareAddr, error) {
+// SetRandomMac changes the MAC address for a agiven interface to a randomly generated, preserving the vendor prefix
+func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
 	var mac net.HardwareAddr
 
 	currentMac, err := Handler.GetMacDetails(iface)
@@ -128,9 +116,9 @@ func (h *NetworkUtilsHandler) SetRandomMacAddr(iface string) (net.HardwareAddr, 
 		return nil, err
 	}
 
-	changed, err := lmf.SpoofMacRandom(iface, false)
+	changed, err := lmf.SpoofMacSameVendor(iface, false)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to spoof MAC for iface: %s", iface)
+		log.Log.Reason(err).Errorf("failed to spoof MAC for an interface: %s", iface)
 		return nil, err
 	}
 
@@ -139,7 +127,7 @@ func (h *NetworkUtilsHandler) SetRandomMacAddr(iface string) (net.HardwareAddr, 
 		if err != nil {
 			return nil, err
 		}
-		log.Log.Reason(err).Errorf("updated Mac for iface: %s - %s", iface, mac)
+		log.Log.Reason(err).Errorf("updated MAC for interface: %s - %s", iface, mac)
 	}
 	return currentMac, nil
 }

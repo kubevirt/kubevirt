@@ -163,7 +163,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	_, err = Handler.SetRandomMacAddr(podInterface)
+	_, err = Handler.SetRandomMac(podInterface)
 	if err != nil {
 		return err
 	}
