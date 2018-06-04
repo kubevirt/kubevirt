@@ -1477,6 +1477,13 @@ func (in *VirtualMachineReplicaSetList) DeepCopyObject() runtime.Object {
 func (in *VirtualMachineSpec) DeepCopyInto(out *VirtualMachineSpec) {
 	*out = *in
 	in.Domain.DeepCopyInto(&out.Domain)
+	if in.InitContainers != nil {
+		in, out := &in.InitContainers, &out.InitContainers
+		*out = make([]core_v1.Container, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
 		*out = make(map[string]string, len(*in))

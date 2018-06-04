@@ -20,6 +20,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                              "VirtualMachineSpec is a description of a VirtualMachine.",
 		"domain":                        "Specification of the desired behavior of the VirtualMachine on the host.",
+		"initContainers":                "List of initialization containers. They are executed prior to VM-container starting",
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",

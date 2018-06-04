@@ -268,6 +268,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
+			InitContainers:                vm.Spec.InitContainers,
 			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,
