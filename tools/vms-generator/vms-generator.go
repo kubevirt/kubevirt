@@ -32,17 +32,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"encoding/json"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 const (
-	vmEphemeral   = "vm-ephemeral"
-	vmFlavorSmall = "vm-flavor-small"
-	vmSata        = "vm-sata"
-	vmFedora      = "vm-fedora"
-	vmNoCloud     = "vm-nocloud"
-	vmPvc         = "vm-pvc"
-	vmWindows     = "vm-windows"
+	vmEphemeral       = "vm-ephemeral"
+	vmFlavorSmall     = "vm-flavor-small"
+	vmSata            = "vm-sata"
+	vmFedora          = "vm-fedora"
+	vmNoCloud         = "vm-nocloud"
+	vmPvc             = "vm-pvc"
+	vmWindows         = "vm-windows"
+	vmTemplateFedora  = "vm-template-fedora"
+	vmTemplateRHEL7   = "vm-template-rhel7"
+	vmTemplateWindows = "vm-template-windows2012r2"
 )
 
 const (
@@ -176,7 +184,7 @@ func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualM
 	return spec
 }
 
-func addPvcDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
+func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
 		Name:       diskName,
 		VolumeName: volumeName,
@@ -243,7 +251,7 @@ func getVmFlavorSmall() *v1.VirtualMachineInstance {
 func getVmPvc() *v1.VirtualMachineInstance {
 	vm := getBaseVm(vmPvc)
 
-	addPvcDisk(&vm.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
+	addPVCDisk(&vm.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
 	return vm
 }
 
@@ -267,6 +275,7 @@ func getVmWindows() *v1.VirtualMachineInstance {
 					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
 				},
 			},
+			Machine: v1.Machine{Type: "q35"},
 			Clock: &v1.Clock{
 				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				Timer: &v1.Timer{
@@ -288,7 +297,7 @@ func getVmWindows() *v1.VirtualMachineInstance {
 	// pick e1000 network model type for windows machines
 	vm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
 
-	addPvcDisk(&vm.Spec, "disk-windows", busSata, "pvcdisk", "pvcvolume")
+	addPVCDisk(&vm.Spec, "disk-windows", busSata, "pvcdisk", "pvcvolume")
 	return vm
 }
 
@@ -326,13 +335,153 @@ func getOvmCirros() *v1.OfflineVirtualMachine {
 	return ovm
 }
 
+func getTemplateFedora() *Template {
+	ovm := getBaseOvm("", map[string]string{"kubevirt-ovm": "ovm-${NAME}"})
+	addRegistryDisk(&ovm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&ovm.Spec.Template.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+
+	template := getBaseTemplate(ovm, "4096Mi", "4")
+	template.ObjectMeta = metav1.ObjectMeta{
+		Name: vmTemplateFedora,
+		Annotations: map[string]string{
+			"description": "OCP KubeVirt Fedora 27 VM template",
+			"tags":        "kubevirt,ocp,template,linux",
+			"iconClass":   "icon-fedora",
+		},
+		Labels: map[string]string{
+			"kubevirt.io/os":                        "fedora27",
+			"miq.github.io/kubevirt-is-vm-template": "true",
+		},
+	}
+	return template
+}
+
+func getTemplateRHEL7() *Template {
+	ovm := getBaseOvm("", map[string]string{"kubevirt-ovm": "ovm-${NAME}"})
+	addPVCDisk(&ovm.Spec.Template.Spec, "linux-vm-pvc-${NAME}", busVirtio, "disk0", "disk0-pvc")
+
+	pvc := getPVCForTemplate("linux-vm-pvc-${NAME}")
+
+	template := getBaseTemplate(ovm, "4096Mi", "4")
+	template.ObjectMeta = metav1.ObjectMeta{
+		Name: vmTemplateRHEL7,
+		Annotations: map[string]string{
+			"iconClass":   "icon-rhel",
+			"description": "OCP KubeVirt Red Hat Enterprise Linux 7.4 VM template",
+			"tags":        "kubevirt,ocp,template,linux,virtualmachine",
+		},
+		Labels: map[string]string{
+			"kubevirt.io/os":                        "rhel-7.4",
+			"miq.github.io/kubevirt-is-vm-template": "true",
+		},
+	}
+	template.Objects = append(template.Objects, pvc)
+	return template
+}
+
+func getTemplateWindows() *Template {
+	ovm := getBaseOvm("", map[string]string{"kubevirt-ovm": "ovm-${NAME}"})
+	windows := getVmWindows()
+	ovm.Spec.Template.Spec = windows.Spec
+	ovm.Spec.Template.ObjectMeta.Annotations = windows.ObjectMeta.Annotations
+	addPVCDisk(&ovm.Spec.Template.Spec, "windows-vm-pvc-${NAME}", busVirtio, "disk0", "disk0-pvc")
+
+	pvc := getPVCForTemplate("windows-vm-pvc-${NAME}")
+
+	template := getBaseTemplate(ovm, "4096Mi", "4")
+	template.ObjectMeta = metav1.ObjectMeta{
+		Name: vmTemplateWindows,
+		Annotations: map[string]string{
+			"iconClass":   "icon-windows",
+			"description": "OCP KubeVirt Microsoft Windows Server 2012 R2 VM template",
+			"tags":        "kubevirt,ocp,template,windows,virtualmachine",
+		},
+		Labels: map[string]string{
+			"kubevirt.io/os":                        "win2k12r2",
+			"miq.github.io/kubevirt-is-vm-template": "true",
+		},
+	}
+	template.Objects = append(template.Objects, pvc)
+	return template
+}
+
+func getPVCForTemplate(name string) *k8sv1.PersistentVolumeClaim {
+
+	return &k8sv1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PersistentVolumeClaim",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("10Gi"),
+				},
+			},
+		},
+	}
+}
+
+func getBaseTemplate(ovm *v1.OfflineVirtualMachine, memory string, cores string) *Template {
+
+	obj := toUnstructured(ovm)
+	unstructured.SetNestedField(obj.Object, "${CPU_CORES}", "spec", "template", "spec", "domain", "cpu")
+	unstructured.SetNestedField(obj.Object, "${MEMORY}", "spec", "template", "spec", "domain", "resources", "requests", "memory")
+	obj.SetName("${NAME}")
+
+	return &Template{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Template",
+			APIVersion: "v1",
+		},
+		Objects: []runtime.Object{
+			obj,
+		},
+		Parameters: templateParameters(memory, cores),
+	}
+}
+
+func toUnstructured(object runtime.Object) *unstructured.Unstructured {
+	raw, err := json.Marshal(object)
+	if err != nil {
+		panic(err)
+	}
+	var objmap map[string]interface{}
+	err = json.Unmarshal(raw, &objmap)
+
+	return &unstructured.Unstructured{Object: objmap}
+}
+
+func templateParameters(memory string, cores string) []Parameter {
+	return []Parameter{
+		{
+			Name:        "NAME",
+			Description: "Name for the new VM",
+		},
+		{
+			Name:        "MEMORY",
+			Description: "Amount of memory",
+			Value:       memory,
+		},
+		{
+			Name:        "CPU_CORES",
+			Description: "Amount of cores",
+			Value:       cores,
+		},
+	}
+}
+
 func getOvmMultiPvc() *v1.OfflineVirtualMachine {
 	ovm := getBaseOvm(ovmAlpineMultiPvc, map[string]string{
 		"kubevirt.io/ovm": ovmAlpineMultiPvc,
 	})
 
-	addPvcDisk(&ovm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
-	addPvcDisk(&ovm.Spec.Template.Spec, "disk-custom", busVirtio, "pvcdisk2", "pvcvolume2")
+	addPVCDisk(&ovm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
+	addPVCDisk(&ovm.Spec.Template.Spec, "disk-custom", busVirtio, "pvcdisk2", "pvcvolume2")
 
 	return ovm
 }
@@ -423,6 +572,9 @@ func main() {
 		ovmAlpineMultiPvc:  getOvmMultiPvc(),
 		vmReplicaSetCirros: getVmReplicaSetCirros(),
 		vmPresetSmall:      getVmPresetSmall(),
+		vmTemplateFedora:   getTemplateFedora(),
+		vmTemplateRHEL7:    getTemplateRHEL7(),
+		vmTemplateWindows:  getTemplateWindows(),
 	}
 	for name, obj := range vms {
 		data, err := yaml.Marshal(obj)
