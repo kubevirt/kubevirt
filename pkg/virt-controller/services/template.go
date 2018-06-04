@@ -170,22 +170,19 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 					},
 				},
 			})
+			resources.Limits = make(k8sv1.ResourceList)
+			resources.Limits[key] = value
+
 		}
 		resources.Requests[key] = value
 	}
 
 	// Copy vmi resources limits to a container
-	if vmiResources.Limits != nil {
+	if vmiResources.Limits != nil && resources.Limits == nil {
 		resources.Limits = make(k8sv1.ResourceList)
 	}
+
 	for key, value := range vmiResources.Limits {
-		if key == v1.Hugepage2MiResource || key == v1.Hugepage1GiResource {
-			if _, ok := resources.Requests[key]; !ok {
-				configureHugepages = true
-				resources.Requests[key] = value
-				configureHugepagesMount(volumes, volumesMounts, key)
-			}
-		}
 		resources.Limits[key] = value
 	}
 

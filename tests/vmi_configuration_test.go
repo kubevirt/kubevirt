@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -104,6 +105,64 @@ var _ = Describe("Configurations", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 			}, 300)
+		})
+
+		FContext("with hugepages", func() {
+			var hugepagesVm *v1.VirtualMachine
+
+			BeforeEach(func() {
+				hugepagesVm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			})
+
+			table.DescribeTable("should consume hugepages ", func(resourceName kubev1.ResourceName, value string) {
+				nodeWithHugepages := tests.GetNodeWithHugepages(virtClient, resourceName)
+				if nodeWithHugepages == nil {
+					Skip(fmt.Sprintf("No node with hugepages %s capacity", resourceName))
+				}
+				// initialHugepages := nodeWithHugepages.Status.Capacity[resourceName]
+				hugepagesVm.Spec.Affinity = &v1.Affinity{
+					NodeAffinity: &kubev1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &kubev1.NodeSelector{
+							NodeSelectorTerms: []kubev1.NodeSelectorTerm{
+								{
+									MatchExpressions: []kubev1.NodeSelectorRequirement{
+										{Key: "kubernetes.io/hostname", Operator: kubev1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
+									},
+								},
+							},
+						},
+					},
+				}
+				if hugepagesVm.Spec.Domain.Resources.Limits == nil {
+					hugepagesVm.Spec.Domain.Resources.Limits = make(kubev1.ResourceList)
+				}
+				hugepagesVm.Spec.Domain.Resources.Limits[resourceName] = resource.MustParse(value)
+				hugepagesVm.Spec.Domain.Resources.Requests[resourceName] = resource.MustParse(value)
+
+				By("Starting a VM")
+				_, err = virtClient.VM(tests.NamespaceTestDefault).Create(hugepagesVm)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMStart(hugepagesVm)
+				
+				time.Sleep(5 * time.Minute)
+				By("Checking decrease of the node hugepage capacity")
+				pods, err := virtClient.Core().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(hugepagesVm))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(pods.Items)).To(Equal(1))
+
+				output, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					&pods.Items[0],
+					pods.Items[0].Spec.Containers[0].Name,
+					[]string{"cat", "/proc/meminfo"},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				fmt.Println(output)
+			},
+				table.Entry("hugepages-2Mi", v1.Hugepage2MiResource, "64Mi"),
+				table.Entry("hugepages-1Gi", v1.Hugepage1GiResource, "1Gi"),
+			)
 		})
 	})
 

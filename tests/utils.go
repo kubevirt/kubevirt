@@ -1351,3 +1351,15 @@ func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
 
 	return job
 }
+
+func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
+	nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, node := range nodes.Items {
+		if v, ok := node.Status.Capacity[hugepages]; ok && !v.IsZero() {
+			return &node
+		}
+	}
+	return nil
+}
