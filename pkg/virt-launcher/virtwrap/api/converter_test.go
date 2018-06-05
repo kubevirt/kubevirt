@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"fmt"
@@ -458,6 +459,41 @@ var _ = Describe("Converter", func() {
 			vm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
 			domain := vmToDomain(vm, c)
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
+		})
+
+		It("should calculate memory in bytes", func() {
+			By("specifying memory 64M")
+			m64, _ := resource.ParseQuantity("64M")
+			memory := QuantityToByte(m64)
+			Expect(memory.Value).To(Equal(uint64(64000000)))
+			Expect(memory.Unit).To(Equal("B"))
+
+			By("specifying memory 64Mi")
+			mi64, _ := resource.ParseQuantity("64Mi")
+			Expect(QuantityToByte(mi64).Value).To(Equal(uint64(67108864)))
+
+			By("specifying memory 3G")
+			g4, _ := resource.ParseQuantity("3G")
+			Expect(QuantityToByte(g4).Value).To(Equal(uint64(3000000000)))
+
+			By("specifying memory 3Gi")
+			gi4, _ := resource.ParseQuantity("3Gi")
+			Expect(QuantityToByte(gi4).Value).To(Equal(uint64(3221225472)))
+
+			By("specifying memory 45Gi")
+			gi45, _ := resource.ParseQuantity("45Gi")
+			Expect(QuantityToByte(gi45).Value).To(Equal(uint64(48318382080)))
+
+			By("specifying memory -45Gi")
+			// ParseQuantity accepts negative values
+			// because of conversion from int to unsigned int
+			// it must be tested as well
+			mgi45, _ := resource.ParseQuantity("-45Gi")
+			Expect(QuantityToByte(mgi45).Value).To(Equal(uint64(48318382080)))
+
+			By("specifying invalid memory 23Inv")
+			inv23, _ := resource.ParseQuantity("23Inv")
+			Expect(QuantityToByte(inv23).Value).To(Equal(uint64(0)))
 		})
 	})
 })
