@@ -484,12 +484,20 @@ var _ = Describe("Converter", func() {
 			gi45, _ := resource.ParseQuantity("45Gi")
 			Expect(QuantityToByte(gi45).Value).To(Equal(uint64(48318382080)))
 
+			By("specifying memory 451231 bytes")
+			b451231, _ := resource.ParseQuantity("451231")
+			Expect(QuantityToByte(b451231).Value).To(Equal(uint64(451231)))
+
 			By("specifying memory -45Gi")
 			// ParseQuantity accepts negative values
 			// because of conversion from int to unsigned int
 			// it must be tested as well
 			mgi45, _ := resource.ParseQuantity("-45Gi")
 			Expect(QuantityToByte(mgi45).Value).To(Equal(uint64(48318382080)))
+
+			By("specifying memory which exceeds int64 size")
+			exceeds, _ := resource.ParseQuantity("1Pi")
+			Expect(QuantityToByte(exceeds).Value).To(Equal(uint64(0)))
 
 			By("specifying invalid memory 23Inv")
 			inv23, _ := resource.ParseQuantity("23Inv")
