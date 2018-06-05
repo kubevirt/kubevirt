@@ -39,9 +39,10 @@ func generateHelloWorldServer(vm *v1.VirtualMachine, virtClient kubecli.Kubevirt
 	defer expecter.Close()
 	Expect(err).ToNot(HaveOccurred())
 
-	serverCommand := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", testPort)
+	serverCommand := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {
-		serverCommand = fmt.Sprintf("screen -d -m nc -uklp %d -e echo -e \"Hello UDP World!\"\n", testPort)
+		// nc has to be in a while loop in case of UDP, since it exists after one message
+		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true\n do nc -uklp %d -e echo -e 'Hello UDP World!'\ndone\n\"\n", testPort)
 	}
 	_, err = expecter.ExpectBatch([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
@@ -148,10 +149,42 @@ var _ = Describe("Expose", func() {
 			generateHelloWorldServer(udpVM, virtClient, testPort, "udp")
 		})
 
+		Context("Expose ClusterIP UDP service", func() {
+			const servicePort = "28017"
+			const serviceName = "cluster-ip-udp-vm"
+
+			It("Should expose a ClusterIP service on a VM and connect to it", func() {
+				By("Exposing the service via virtctl command")
+				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
+					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					"--protocol", "UDP")
+				err := virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Getting back the cluster IP given for the service")
+				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				serviceIP := svc.Spec.ClusterIP
+
+				By("Starting a pod which tries to reach the VM via ClusterIP")
+				job := tests.NewHelloWorldJobUDP(serviceIP, servicePort)
+				job, err = virtClient.CoreV1().Pods(udpVM.Namespace).Create(job)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the pod to report a successful connection attempt")
+				getStatus := func() k8sv1.PodPhase {
+					pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return pod.Status.Phase
+				}
+				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+			})
+		})
+
 		Context("Expose NodePort UDP service", func() {
-			const servicePort = "27018"
+			const servicePort = "29017"
 			const serviceName = "node-port-udp-vm"
-			const nodePort = "30018"
+			const nodePort = "31017"
 
 			It("Should expose a NodePort service on a VM and connect to it", func() {
 				By("Exposing the service via virtctl command")
@@ -161,8 +194,14 @@ var _ = Describe("Expose", func() {
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Getting back the the service")
-				_, err = virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				By("Getting back the cluster IP given for the service")
+				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				serviceIP := svc.Spec.ClusterIP
+
+				By("Starting a pod which tries to reach the VM via ClusterIP")
+				job := tests.NewHelloWorldJobUDP(serviceIP, servicePort)
+				job, err = virtClient.CoreV1().Pods(udpVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting the node IP from all nodes")

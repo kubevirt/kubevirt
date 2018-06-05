@@ -35,7 +35,6 @@ var _ = Describe("Expose", func() {
 		// create the wrapping environment that would retur the mock virt client
 		// to the code being unit tested
 		ctrl := gomock.NewController(GinkgoT())
-		kubecli.InvalidMockClient = false
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		// create mock interfaces
@@ -87,7 +86,7 @@ var _ = Describe("Expose", func() {
 		Context("When client has an error", func() {
 			BeforeEach(func() {
 				// only in this test the client call should fail
-				kubecli.InvalidMockClient = true
+				kubecli.GetKubevirtClientFromClientConfig = kubecli.GetInvalidKubevirtClientFromClientConfig
 			})
 			It("should fail", func() {
 				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
@@ -97,7 +96,7 @@ var _ = Describe("Expose", func() {
 			})
 			AfterEach(func() {
 				// set back the value so that other tests won't fail on client
-				kubecli.InvalidMockClient = false
+				kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 			})
 		})
 		Context("With missing resource", func() {
