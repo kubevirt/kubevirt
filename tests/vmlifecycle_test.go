@@ -422,11 +422,16 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Wait until virt-handler ds will have expected number of pods
-				Eventually(func() int32 {
+				Eventually(func() bool {
 					ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return ds.Status.NumberAvailable
-				}, 60*time.Second, 1*time.Second).Should(Equal(virtHandlerAvailablePods))
+
+					return ds.Status.NumberAvailable == virtHandlerAvailablePods &&
+						ds.Status.CurrentNumberScheduled == virtHandlerAvailablePods &&
+						ds.Status.DesiredNumberScheduled == virtHandlerAvailablePods &&
+						ds.Status.NumberReady == virtHandlerAvailablePods &&
+						ds.Status.UpdatedNumberScheduled == virtHandlerAvailablePods
+				}, 60*time.Second, 1*time.Second).Should(Equal(true))
 			})
 		})
 

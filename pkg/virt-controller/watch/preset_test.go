@@ -1021,6 +1021,35 @@ var _ = Describe("VM Initializer", func() {
 			// Prove that the VM was initialized
 			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 		})
+
+		It("should set default values to VM", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec = v1.VirtualMachineSpec{
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						Disks: []v1.Disk{
+							{Name: "testdisk"},
+						},
+					},
+				},
+			}
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			err := app.vmPresetController.initializeVirtualMachine(vm)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			disk := vm.Spec.Domain.Devices.Disks[0]
+			Expect(disk.Disk).ToNot(BeNil(), "DiskTarget should not be nil")
+			Expect(disk.Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
+		})
 	})
 })
 
