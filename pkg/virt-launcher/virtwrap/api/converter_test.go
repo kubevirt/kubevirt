@@ -294,7 +294,7 @@ var _ = Describe("Converter", func() {
 
 		var convertedDomain = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvm</name>
-  <memory unit="MB">9</memory>
+  <memory unit="B">8388608</memory>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
   </os>
