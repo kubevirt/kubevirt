@@ -59,12 +59,8 @@ func SetupNetworkInterfaces(vm *v1.VirtualMachine, domain *api.Domain) error {
 	interfaces := vm.Spec.Domain.Devices.Interfaces
 	if len(interfaces) == 0 {
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*getDefaultNetworkInterface()}
-		defaultNet := &v1.Network{
-			Name: "default",
-			NetworkSource: v1.NetworkSource{
-				Pod: &v1.PodNetwork{},
-			},
-		}
+		defaultNet := getDefaultPodNetwork()
+
 		networks["default"] = defaultNet
 		vm.Spec.Networks = []v1.Network{*defaultNet}
 	}
@@ -108,4 +104,15 @@ func getDefaultNetworkInterface() *v1.Interface {
 		},
 	}
 	return iface
+}
+
+// helper method to generate a default pod network
+func getDefaultPodNetwork() *v1.Network {
+	defaultNet := &v1.Network{
+		Name: "default",
+		NetworkSource: v1.NetworkSource{
+			Pod: &v1.PodNetwork{},
+		},
+	}
+	return defaultNet
 }

@@ -51,12 +51,7 @@ var _ = Describe("Network", func() {
 			vm := newVM("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
 			iface := getDefaultNetworkInterface()
-			defaultNet := &v1.Network{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Pod: &v1.PodNetwork{},
-				},
-			}
+			defaultNet := getDefaultPodNetwork()
 
 			mockNetworkInterface.EXPECT().Plug(iface, defaultNet, domain)
 			err := SetupNetworkInterfaces(vm, domain)
