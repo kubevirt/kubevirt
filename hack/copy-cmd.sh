@@ -13,4 +13,3 @@ for f in ${binaries}; do
     # copy all other (non-code) content for "make docker"
     rsync -avzq --exclude "**/*.md" --exclude "**/*.go" --exclude "**/.*" ${f}/ _out/cmd/${x}
 done
-
