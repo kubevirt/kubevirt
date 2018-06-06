@@ -178,14 +178,17 @@ var _ = Describe("CloudInit UserData", func() {
 				secret := kubev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      secretID,
-						Namespace: vm.GetObjectMeta().GetNamespace(),
+						Namespace: vm.Namespace,
+						Labels: map[string]string{
+							tests.SecretLabel: secretID,
+						},
 					},
 					Type: "Opaque",
 					Data: map[string][]byte{
 						"userdata": []byte(userData), // The client encrypts the secret for us
 					},
 				}
-				_, err := virtClient.CoreV1().Secrets(vm.GetObjectMeta().GetNamespace()).Create(&secret)
+				_, err := virtClient.CoreV1().Secrets(vm.Namespace).Create(&secret)
 				Expect(err).To(BeNil())
 				break
 			}
