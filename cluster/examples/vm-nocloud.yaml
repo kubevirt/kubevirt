@@ -28,7 +28,7 @@ spec:
   volumes:
   - name: registryvolume
     registryDisk:
-      image: kubevirt/cirros-registry-disk-demo:devel
+      image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
   - cloudInitNoCloud:
       userData: |
         #!/bin/sh

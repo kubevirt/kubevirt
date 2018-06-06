@@ -8,6 +8,11 @@ development cluster.
 The KubeVirt build system runs completely inside docker. In order to build
 KubeVirt you need to have `docker` and `rsync` installed.
 
+**Note:** For running KubeVirt in the dockerized cluster, **nested
+virtualization** must be enabled. As an alternative [software
+emulation](software-emulation.md) can be allowed. Enabling nested
+virtualization should be preferred.
+
 ### Dockerized environment
 
 Runs master and nodes containers, when each one of them run virtual machine via QEMU.

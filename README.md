@@ -54,8 +54,12 @@ on a recent Fedora or Ubuntu and follow [these steps](https://github.com/kubevir
 **Developer** To set up a development environment please read our
 [Getting Started Guide](docs/getting-started.md). To learn how to contribute, please read our [contribution guide](https://github.com/kubevirt/kubevirt/blob/master/CONTRIBUTING.md).
 
-
 ## Documentation
+
+ * [User-Guide](https://www.kubevirt.io/user-guide)
+ * [API Reference](https://www.kubevirt.io/api-reference/)
+
+## Architecture
 
 You can learn more about how KubeVirt is designed (and why it is that way),
 and learn more about the major components by taking a look at
