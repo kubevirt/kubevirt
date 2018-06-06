@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"net/http"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
