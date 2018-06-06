@@ -20,8 +20,6 @@
 package network
 
 import (
-	"fmt"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -50,21 +48,12 @@ var _ = Describe("Network", func() {
 			domain := &api.Domain{}
 			vm := newVM("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
-			iface := getDefaultNetworkInterface()
-			defaultNet := getDefaultPodNetwork()
+			iface := v1.DefaultNetworkInterface()
+			defaultNet := v1.DefaultPodNetwork()
 
 			mockNetworkInterface.EXPECT().Plug(iface, defaultNet, domain)
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
-		})
-		It("should fail when no network is specified", func() {
-			domain := &api.Domain{}
-			vm := newVM("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
-			iface := getDefaultNetworkInterface()
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface}
-			err := SetupNetworkInterfaces(vm, domain)
-			Expect(err).To(Equal(fmt.Errorf("no networks were specified for interface %s", iface.Name)))
 		})
 	})
 })

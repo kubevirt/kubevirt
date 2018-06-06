@@ -56,19 +56,11 @@ func SetupNetworkInterfaces(vm *v1.VirtualMachine, domain *api.Domain) error {
 		networks[network.Name] = network.DeepCopy()
 	}
 
-	interfaces := vm.Spec.Domain.Devices.Interfaces
-	if len(interfaces) == 0 {
-		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*getDefaultNetworkInterface()}
-		defaultNet := getDefaultPodNetwork()
-
-		networks["default"] = defaultNet
-		vm.Spec.Networks = []v1.Network{*defaultNet}
+	if len(networks) == 0 {
+		return fmt.Errorf("no networks were specified on a vm spec")
 	}
 
 	for _, iface := range vm.Spec.Domain.Devices.Interfaces {
-		if len(networks) == 0 {
-			return fmt.Errorf("no networks were specified for interface %s", iface.Name)
-		}
 
 		network, ok := networks[iface.Name]
 		if !ok {
@@ -93,26 +85,4 @@ func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
 		return new(PodInterface), nil
 	}
 	return nil, fmt.Errorf("Not implemented")
-}
-
-// If no interface specified, setup ip bound pod network
-func getDefaultNetworkInterface() *v1.Interface {
-	iface := &v1.Interface{
-		Name: "default",
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			Bridge: &v1.InterfaceBridge{},
-		},
-	}
-	return iface
-}
-
-// helper method to generate a default pod network
-func getDefaultPodNetwork() *v1.Network {
-	defaultNet := &v1.Network{
-		Name: "default",
-		NetworkSource: v1.NetworkSource{
-			Pod: &v1.PodNetwork{},
-		},
-	}
-	return defaultNet
 }
