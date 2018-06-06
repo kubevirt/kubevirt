@@ -166,7 +166,7 @@ var _ = Describe("User Access", func() {
 			}
 		},
 			table.Entry("given a vm", "virtualmachineinstances"),
-			table.Entry("given an ovm", "offlinevirtualmachines"),
+			table.Entry("given an ovm", "virtualmachines"),
 			table.Entry("given a vm preset", "virtualmachineinstancepresets"),
 			table.Entry("given a vm replica set", "virtualmachineinstancereplicasets"),
 		)

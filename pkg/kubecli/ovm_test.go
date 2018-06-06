@@ -35,11 +35,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
+var _ = Describe("Kubevirt VirtualMachine Client", func() {
 
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/kubevirt.io/v1alpha1/namespaces/default/offlinevirtualmachines"
+	basePath := "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines"
 	vmPath := basePath + "/testvm"
 
 	BeforeEach(func() {
@@ -55,32 +55,32 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 			ghttp.VerifyRequest("GET", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, ovm),
 		))
-		fetchedVM, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		fetchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedVM).To(Equal(ovm))
 	})
 
-	It("should detect non existent OfflineVirtualMachines", func() {
+	It("should detect non existent VirtualMachines", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		_, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	It("should fetch a OfflineVirtualMachine list", func() {
+	It("should fetch a VirtualMachine list", func() {
 		ovm := NewMinimalOVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewOVMList(*ovm)),
 		))
-		fetchedVMList, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedVMList, err := client.VirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -88,26 +88,26 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 		Expect(fetchedVMList.Items[0]).To(Equal(*ovm))
 	})
 
-	It("should create a OfflineVirtualMachine", func() {
+	It("should create a VirtualMachine", func() {
 		ovm := NewMinimalOVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("POST", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, ovm),
 		))
-		createdVM, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Create(ovm)
+		createdVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(ovm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(createdVM).To(Equal(ovm))
 	})
 
-	It("should update a OfflineVirtualMachine", func() {
+	It("should update a VirtualMachine", func() {
 		ovm := NewMinimalOVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("PUT", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, ovm),
 		))
-		updatedVM, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Update(ovm)
+		updatedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(ovm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -119,7 +119,7 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 			ghttp.VerifyRequest("DELETE", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
+		err := client.VirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -130,10 +130,10 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 	})
 })
 
-func NewMinimalOVM(name string) *v1.OfflineVirtualMachine {
-	return &v1.OfflineVirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "OfflineVirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalOVM(name string) *v1.VirtualMachine {
+	return &v1.VirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
 
-func NewOVMList(ovms ...v1.OfflineVirtualMachine) *v1.OfflineVirtualMachineList {
-	return &v1.OfflineVirtualMachineList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "OfflineVirtualMachineList"}, Items: ovms}
+func NewOVMList(ovms ...v1.VirtualMachine) *v1.VirtualMachineList {
+	return &v1.VirtualMachineList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineList"}, Items: ovms}
 }

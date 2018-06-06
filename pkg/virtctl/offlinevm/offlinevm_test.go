@@ -7,9 +7,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OfflineVirtualMachine", func() {
+var _ = Describe("VirtualMachine", func() {
 
-	Context("OfflineVirtualMachine command invocation", func() {
+	Context("VirtualMachine command invocation", func() {
 		var commandName string
 		var cmd *Command
 

@@ -1037,7 +1037,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)

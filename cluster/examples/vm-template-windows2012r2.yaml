@@ -12,7 +12,7 @@ metadata:
   name: vm-template-windows2012r2
 objects:
 - apiVersion: kubevirt.io/v1alpha1
-  kind: OfflineVirtualMachine
+  kind: VirtualMachine
   metadata:
     creationTimestamp: null
     labels:

@@ -301,19 +301,19 @@ func getVmWindows() *v1.VirtualMachineInstance {
 	return vm
 }
 
-func getBaseOvm(name string, labels map[string]string) *v1.OfflineVirtualMachine {
+func getBaseOvm(name string, labels map[string]string) *v1.VirtualMachine {
 	baseVmSpec := getBaseVmSpec()
 
-	return &v1.OfflineVirtualMachine{
+	return &v1.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: apiVersion,
-			Kind:       "OfflineVirtualMachine",
+			Kind:       "VirtualMachine",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: labels,
 		},
-		Spec: v1.OfflineVirtualMachineSpec{
+		Spec: v1.VirtualMachineSpec{
 			Running: false,
 			Template: &v1.VMTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -325,7 +325,7 @@ func getBaseOvm(name string, labels map[string]string) *v1.OfflineVirtualMachine
 	}
 }
 
-func getOvmCirros() *v1.OfflineVirtualMachine {
+func getOvmCirros() *v1.VirtualMachine {
 	ovm := getBaseOvm(ovmCirros, map[string]string{
 		"kubevirt.io/ovm": ovmCirros,
 	})
@@ -426,7 +426,7 @@ func getPVCForTemplate(name string) *k8sv1.PersistentVolumeClaim {
 	}
 }
 
-func getBaseTemplate(ovm *v1.OfflineVirtualMachine, memory string, cores string) *Template {
+func getBaseTemplate(ovm *v1.VirtualMachine, memory string, cores string) *Template {
 
 	obj := toUnstructured(ovm)
 	unstructured.SetNestedField(obj.Object, "${CPU_CORES}", "spec", "template", "spec", "domain", "cpu")
@@ -475,7 +475,7 @@ func templateParameters(memory string, cores string) []Parameter {
 	}
 }
 
-func getOvmMultiPvc() *v1.OfflineVirtualMachine {
+func getOvmMultiPvc() *v1.VirtualMachine {
 	ovm := getBaseOvm(ovmAlpineMultiPvc, map[string]string{
 		"kubevirt.io/ovm": ovmAlpineMultiPvc,
 	})

@@ -122,40 +122,40 @@ func (VirtualMachineInstancePresetSpec) SwaggerDoc() map[string]string {
 	}
 }
 
-func (OfflineVirtualMachine) SwaggerDoc() map[string]string {
+func (VirtualMachine) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachineInstance. It also mirrors the running state of the created\nVirtualMachineInstance in its status.",
+		"":       "VirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe VirtualMachine contains the template to create the\nVirtualMachineInstance. It also mirrors the running state of the created\nVirtualMachineInstance in its status.",
 		"spec":   "Spec contains the specification of VirtualMachineInstance created",
 		"status": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachineInstance",
 	}
 }
 
-func (OfflineVirtualMachineList) SwaggerDoc() map[string]string {
+func (VirtualMachineList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "OfflineVirtualMachineList is a list of offlinevirtualmachines",
-		"items": "Items is a list of OfflineVirtualMachines",
+		"":      "VirtualMachineList is a list of virtualmachines",
+		"items": "Items is a list of VirtualMachines",
 	}
 }
 
-func (OfflineVirtualMachineSpec) SwaggerDoc() map[string]string {
+func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
+		"":         "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
 		"running":  "Running controls whether the associatied VirtualMachineInstance is created or not",
 		"template": "Template is the direct specification of VirtualMachineInstance",
 	}
 }
 
-func (OfflineVirtualMachineStatus) SwaggerDoc() map[string]string {
+func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
+		"":           "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
 		"created":    "Created indicates if the virtual machine is created in the cluster",
 		"ready":      "Ready indicates if the virtual machine is running and ready",
-		"conditions": "Hold the state information of the OfflineVirtualMachine and its VirtualMachineInstance",
+		"conditions": "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
 	}
 }
 
-func (OfflineVirtualMachineCondition) SwaggerDoc() map[string]string {
+func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine",
+		"": "VirtualMachineCondition represents the state of VirtualMachine",
 	}
 }

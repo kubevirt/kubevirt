@@ -298,7 +298,7 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	return causes
 }
 
-func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
 	volumeNameMap := make(map[string]*v1.Volume)
@@ -366,7 +366,7 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineIns
 	return causes
 }
 
-func validateOfflineVirtualMachineSpec(field *k8sfield.Path, spec *v1.OfflineVirtualMachineSpec) []metav1.StatusCause {
+func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -377,7 +377,7 @@ func validateOfflineVirtualMachineSpec(field *k8sfield.Path, spec *v1.OfflineVir
 		})
 	}
 
-	causes = append(causes, validateVirtualMachineSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+	causes = append(causes, validateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
 	return causes
 }
 
@@ -406,7 +406,7 @@ func validateVMRSSpec(field *k8sfield.Path, spec *v1.VMReplicaSetSpec) []metav1.
 			Field:   field.Child("template").String(),
 		})
 	}
-	causes = append(causes, validateVirtualMachineSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+	causes = append(causes, validateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
 	if err != nil {
@@ -445,7 +445,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec)
+	causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vm.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -461,9 +461,9 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request) {
 
 func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
-		Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
-		Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
-		Resource: "offlinevirtualmachines",
+		Group:    v1.VirtualMachineGroupVersionKind.Group,
+		Version:  v1.VirtualMachineGroupVersionKind.Version,
+		Resource: "virtualmachines",
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
@@ -471,14 +471,14 @@ func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	ovm := v1.OfflineVirtualMachine{}
+	ovm := v1.VirtualMachine{}
 
 	err := json.Unmarshal(raw, &ovm)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateOfflineVirtualMachineSpec(k8sfield.NewPath("spec"), &ovm.Spec)
+	causes := validateVirtualMachineSpec(k8sfield.NewPath("spec"), &ovm.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}

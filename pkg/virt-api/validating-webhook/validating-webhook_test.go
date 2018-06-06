@@ -184,8 +184,8 @@ var _ = Describe("Validating Webhook", func() {
 				Name:       "testdisk",
 				VolumeName: "testvolume",
 			})
-			ovm := &v1.OfflineVirtualMachine{
-				Spec: v1.OfflineVirtualMachineSpec{
+			ovm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
 					Running: false,
 					Template: &v1.VMTemplateSpec{
 						Spec: vm.Spec,
@@ -197,9 +197,9 @@ var _ = Describe("Validating Webhook", func() {
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{
-						Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
-						Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
-						Resource: "offlinevirtualmachines",
+						Group:    v1.VirtualMachineGroupVersionKind.Group,
+						Version:  v1.VirtualMachineGroupVersionKind.Version,
+						Resource: "virtualmachines",
 					},
 					Object: runtime.RawExtension{
 						Raw: ovmBytes,
@@ -225,8 +225,8 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			ovm := &v1.OfflineVirtualMachine{
-				Spec: v1.OfflineVirtualMachineSpec{
+			ovm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
 					Running: false,
 					Template: &v1.VMTemplateSpec{
 						Spec: vm.Spec,
@@ -238,9 +238,9 @@ var _ = Describe("Validating Webhook", func() {
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{
-						Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
-						Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
-						Resource: "offlinevirtualmachines",
+						Group:    v1.VirtualMachineGroupVersionKind.Group,
+						Version:  v1.VirtualMachineGroupVersionKind.Version,
+						Resource: "virtualmachines",
 					},
 					Object: runtime.RawExtension{
 						Raw: ovmBytes,
@@ -339,7 +339,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject disk lists greater than max element length", func() {
@@ -354,7 +354,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			// if this is processed correctly, it should result in a single error
 			// If multiple causes occurred, then the spec was processed too far.
 			Expect(len(causes)).To(Equal(1))
@@ -373,7 +373,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			// if this is processed correctly, it should result in a single error
 			// If multiple causes occurred, then the spec was processed too far.
 			Expect(len(causes)).To(Equal(1))
@@ -388,7 +388,7 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeName: "testvolume",
 			})
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].volumeName"))
 		})
@@ -411,7 +411,7 @@ var _ = Describe("Validating Webhook", func() {
 					RegistryDisk: &v1.RegistryDiskSource{},
 				},
 			})
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[1].volumeName"))
 		})
@@ -427,7 +427,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			// missing volume and multiple targets set. should result in 2 causes
 			Expect(len(causes)).To(Equal(2))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].volumeName"))
@@ -445,7 +445,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 				vm.Spec.Volumes = append(vm.Spec.Volumes, *volume)
 
-				causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+				causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 				Expect(len(causes)).To(Equal(expectedErrors))
 			},
 			table.Entry("and reject non PVC sources",

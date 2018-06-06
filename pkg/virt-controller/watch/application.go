@@ -157,11 +157,11 @@ func Execute() {
 	app.configMapInformer = app.informerFactory.ConfigMap()
 	app.configMapCache = app.configMapInformer.GetStore()
 
-	app.ovmInformer = app.informerFactory.OfflineVirtualMachine()
+	app.ovmInformer = app.informerFactory.VirtualMachine()
 
 	app.initCommon()
 	app.initReplicaSet()
-	app.initOfflineVirtualMachines()
+	app.initVirtualMachines()
 	app.Run()
 }
 
@@ -262,8 +262,8 @@ func (vca *VirtControllerApp) initReplicaSet() {
 	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 }
 
-func (vca *VirtControllerApp) initOfflineVirtualMachines() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "offlinevirtualmachine-controller")
+func (vca *VirtControllerApp) initVirtualMachines() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 	vca.ovmController = NewOVMController(vca.vmInformer, vca.ovmInformer, recorder, vca.clientSet)
 }
 

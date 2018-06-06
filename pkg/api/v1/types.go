@@ -64,7 +64,7 @@ var VirtualMachineInstanceReplicaSetGroupVersionKind = schema.GroupVersionKind{G
 
 var VirtualMachineInstancePresetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstancePreset"}
 
-var OfflineVirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "OfflineVirtualMachine"}
+var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 
 var (
 	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
@@ -83,8 +83,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineInstancePreset{},
 		&VirtualMachineInstancePresetList{},
 		&metav1.GetOptions{},
-		&OfflineVirtualMachine{},
-		&OfflineVirtualMachineList{},
+		&VirtualMachine{},
+		&VirtualMachineList{},
 	)
 	return nil
 }
@@ -669,42 +669,42 @@ func (vl *VirtualMachineInstancePresetList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
 
-// OfflineVirtualMachine handles the VirtualMachines that are not running
+// VirtualMachine handles the VirtualMachines that are not running
 // or are in a stopped state
-// The OfflineVirtualMachine contains the template to create the
+// The VirtualMachine contains the template to create the
 // VirtualMachineInstance. It also mirrors the running state of the created
 // VirtualMachineInstance in its status.
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
-type OfflineVirtualMachine struct {
+type VirtualMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec contains the specification of VirtualMachineInstance created
-	Spec OfflineVirtualMachineSpec `json:"spec,omitempty"`
+	Spec VirtualMachineSpec `json:"spec,omitempty"`
 	// Status holds the current state of the controller and brief information
 	// about its associated VirtualMachineInstance
-	Status OfflineVirtualMachineStatus `json:"status,omitempty"`
+	Status VirtualMachineStatus `json:"status,omitempty"`
 }
 
-// OfflineVirtualMachineList is a list of offlinevirtualmachines
+// VirtualMachineList is a list of virtualmachines
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
-type OfflineVirtualMachineList struct {
+type VirtualMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	// Items is a list of OfflineVirtualMachines
-	Items []OfflineVirtualMachine `json:"items"`
+	// Items is a list of VirtualMachines
+	Items []VirtualMachine `json:"items"`
 }
 
-// OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine
+// VirtualMachineSpec describes how the proper VirtualMachine
 // should look like
 // ---
 // +k8s:openapi-gen=true
-type OfflineVirtualMachineSpec struct {
+type VirtualMachineSpec struct {
 	// Running controls whether the associatied VirtualMachineInstance is created or not
 	Running bool `json:"running"`
 
@@ -712,48 +712,48 @@ type OfflineVirtualMachineSpec struct {
 	Template *VMTemplateSpec `json:"template"`
 }
 
-// OfflineVirtualMachineStatus represents the status returned by the
-// controller to describe how the OfflineVirtualMachine is doing
+// VirtualMachineStatus represents the status returned by the
+// controller to describe how the VirtualMachine is doing
 // ---
 // +k8s:openapi-gen=true
-type OfflineVirtualMachineStatus struct {
+type VirtualMachineStatus struct {
 	// Created indicates if the virtual machine is created in the cluster
 	Created bool `json:"created,omitempty"`
 	// Ready indicates if the virtual machine is running and ready
 	Ready bool `json:"ready,omitempty"`
-	// Hold the state information of the OfflineVirtualMachine and its VirtualMachineInstance
-	Conditions []OfflineVirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
+	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
+	Conditions []VirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
 }
 
 // GetObjectKind is required to satisfy Object interface
-func (v *OfflineVirtualMachine) GetObjectKind() schema.ObjectKind {
+func (v *VirtualMachine) GetObjectKind() schema.ObjectKind {
 	return &v.TypeMeta
 }
 
 // GetObjectMeta is required to satisfy ObjectMetaAccessor interface
-func (v *OfflineVirtualMachine) GetObjectMeta() metav1.Object {
+func (v *VirtualMachine) GetObjectMeta() metav1.Object {
 	return &v.ObjectMeta
 }
 
-// OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine
+// VirtualMachineCondition represents the state of VirtualMachine
 // ---
 // +k8s:openapi-gen=true
-type OfflineVirtualMachineCondition struct {
-	Type               OfflineVirtualMachineConditionType `json:"type"`
-	Status             k8sv1.ConditionStatus              `json:"status"`
-	LastProbeTime      metav1.Time                        `json:"lastProbeTime,omitempty"`
-	LastTransitionTime metav1.Time                        `json:"lastTransitionTime,omitempty"`
-	Reason             string                             `json:"reason,omitempty"`
-	Message            string                             `json:"message,omitempty"`
+type VirtualMachineCondition struct {
+	Type               VirtualMachineConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus       `json:"status"`
+	LastProbeTime      metav1.Time                 `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time                 `json:"lastTransitionTime,omitempty"`
+	Reason             string                      `json:"reason,omitempty"`
+	Message            string                      `json:"message,omitempty"`
 }
 
 // ---
 // +k8s:openapi-gen=true
-type OfflineVirtualMachineConditionType string
+type VirtualMachineConditionType string
 
 const (
-	// OfflineVirtualMachineFailure is added in a offline virtual machine when its vm
+	// VirtualMachineFailure is added in a offline virtual machine when its vm
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
-	OfflineVirtualMachineFailure OfflineVirtualMachineConditionType = "Failure"
+	VirtualMachineFailure VirtualMachineConditionType = "Failure"
 )

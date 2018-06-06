@@ -747,201 +747,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachine handles the VirtualMachines that are not running or are in a stopped state The OfflineVirtualMachine contains the template to create the VirtualMachineInstance. It also mirrors the running state of the created VirtualMachineInstance in its status.",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-							},
-						},
-						"spec": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Spec contains the specification of VirtualMachineInstance created",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineSpec"),
-							},
-						},
-						"status": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineStatus"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineSpec", "kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineStatus"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineCondition": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine",
-					Properties: map[string]spec.Schema{
-						"type": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"status": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"lastProbeTime": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-							},
-						},
-						"lastTransitionTime": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-							},
-						},
-						"reason": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"message": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-					},
-					Required: []string{"type", "status"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineList": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachineList is a list of offlinevirtualmachines",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-							},
-						},
-						"items": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Items is a list of OfflineVirtualMachines",
-								Type:        []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine"),
-										},
-									},
-								},
-							},
-						},
-					},
-					Required: []string{"metadata", "items"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine should look like",
-					Properties: map[string]spec.Schema{
-						"running": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Running controls whether the associatied VirtualMachineInstance is created or not",
-								Type:        []string{"boolean"},
-								Format:      "",
-							},
-						},
-						"template": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Template is the direct specification of VirtualMachineInstance",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"),
-							},
-						},
-					},
-					Required: []string{"running", "template"},
-				},
-			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineStatus": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachineStatus represents the status returned by the controller to describe how the OfflineVirtualMachine is doing",
-					Properties: map[string]spec.Schema{
-						"created": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Created indicates if the virtual machine is created in the cluster",
-								Type:        []string{"boolean"},
-								Format:      "",
-							},
-						},
-						"ready": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Ready indicates if the virtual machine is running and ready",
-								Type:        []string{"boolean"},
-								Format:      "",
-							},
-						},
-						"conditions": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Hold the state information of the OfflineVirtualMachine and its VirtualMachineInstance",
-								Type:        []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineCondition"),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineCondition"},
-		},
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1190,6 +995,94 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachine handles the VirtualMachines that are not running or are in a stopped state The VirtualMachine contains the template to create the VirtualMachineInstance. It also mirrors the running state of the created VirtualMachineInstance in its status.",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+							},
+						},
+						"spec": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Spec contains the specification of VirtualMachineInstance created",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec"),
+							},
+						},
+						"status": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineCondition represents the state of VirtualMachine",
+					Properties: map[string]spec.Schema{
+						"type": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"status": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"lastProbeTime": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							},
+						},
+						"lastTransitionTime": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							},
+						},
+						"reason": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"message": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+					},
+					Required: []string{"type", "status"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance": {
 			Schema: spec.Schema{
@@ -1697,6 +1590,113 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceNetworkInterface"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineList": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineList is a list of virtualmachines",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+							},
+						},
+						"items": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Items is a list of VirtualMachines",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"),
+										},
+									},
+								},
+							},
+						},
+					},
+					Required: []string{"metadata", "items"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineSpec describes how the proper VirtualMachine should look like",
+					Properties: map[string]spec.Schema{
+						"running": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Running controls whether the associatied VirtualMachineInstance is created or not",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"template": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Template is the direct specification of VirtualMachineInstance",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"),
+							},
+						},
+					},
+					Required: []string{"running", "template"},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineStatus represents the status returned by the controller to describe how the VirtualMachine is doing",
+					Properties: map[string]spec.Schema{
+						"created": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Created indicates if the virtual machine is created in the cluster",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"ready": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Ready indicates if the virtual machine is running and ready",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"conditions": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Volume": {
 			Schema: spec.Schema{

@@ -67,7 +67,7 @@ var _ = Describe("VMDefaults", func() {
 
 		It("Should be applied to VMs", func() {
 			// create the VM first
-			err = virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
 			newVm := waitForVirtualMachine(virtClient)

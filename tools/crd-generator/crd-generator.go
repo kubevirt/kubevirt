@@ -45,22 +45,22 @@ func generateBlankCrd() *extensionsv1.CustomResourceDefinition {
 	}
 }
 
-func generateOfflineVirtualMachineCrd() {
+func generateVirtualMachineCrd() {
 	crd := generateBlankCrd()
 
-	crd.ObjectMeta.Name = "offlinevirtualmachines." + v1.OfflineVirtualMachineGroupVersionKind.Group
+	crd.ObjectMeta.Name = "virtualmachines." + v1.VirtualMachineGroupVersionKind.Group
 	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
-		Group:   v1.OfflineVirtualMachineGroupVersionKind.Group,
-		Version: v1.OfflineVirtualMachineGroupVersionKind.Version,
+		Group:   v1.VirtualMachineGroupVersionKind.Group,
+		Version: v1.VirtualMachineGroupVersionKind.Version,
 		Scope:   "Namespaced",
 
 		Names: extensionsv1.CustomResourceDefinitionNames{
-			Plural:     "offlinevirtualmachines",
-			Singular:   "offlinevirtualmachine",
-			Kind:       v1.OfflineVirtualMachineGroupVersionKind.Kind,
-			ShortNames: []string{"ovm", "ovms"},
+			Plural:     "virtualmachines",
+			Singular:   "virtualmachine",
+			Kind:       v1.VirtualMachineGroupVersionKind.Kind,
+			ShortNames: []string{"vm", "vms"},
 		},
-		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine", v1.GetOpenAPIDefinitions),
+		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine", v1.GetOpenAPIDefinitions),
 	}
 
 	crdutils.MarshallCrd(crd, "yaml")
@@ -108,7 +108,7 @@ func generateReplicaSetCrd() {
 	crdutils.MarshallCrd(crd, "yaml")
 }
 
-func generateVirtualMachineCrd() {
+func generateVirtualMachineInstanceCrd() {
 	crd := generateBlankCrd()
 
 	crd.ObjectMeta.Name = "virtualmachineinstances." + v1.VirtualMachineInstanceGroupVersionKind.Group
@@ -135,13 +135,13 @@ func main() {
 
 	switch *crdType {
 	case "vmi":
-		generateVirtualMachineCrd()
+		generateVirtualMachineInstanceCrd()
 	case "vmipreset":
 		generatePresetCrd()
 	case "vmirs":
 		generateReplicaSetCrd()
-	case "ovm":
-		generateOfflineVirtualMachineCrd()
+	case "vm":
+		generateVirtualMachineCrd()
 	default:
 		panic(fmt.Errorf("unknown crd type %s", *crdType))
 	}

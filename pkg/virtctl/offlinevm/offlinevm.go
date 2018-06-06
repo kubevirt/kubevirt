@@ -100,16 +100,16 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	options := &k8smetav1.GetOptions{}
-	ovm, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
+	ovm, err := virtClient.VirtualMachine(namespace).Get(vmName, options)
 	if err != nil {
-		return fmt.Errorf("Error fetching OfflineVirtualMachine: %v", err)
+		return fmt.Errorf("Error fetching VirtualMachine: %v", err)
 	}
 
 	if ovm.Spec.Running != running {
 		ovm.Spec.Running = running
-		_, err := virtClient.OfflineVirtualMachine(namespace).Update(ovm)
+		_, err := virtClient.VirtualMachine(namespace).Update(ovm)
 		if err != nil {
-			return fmt.Errorf("Error updating OfflineVirtualMachine: %v", err)
+			return fmt.Errorf("Error updating VirtualMachine: %v", err)
 		}
 	} else {
 		stateMsg := "stopped"

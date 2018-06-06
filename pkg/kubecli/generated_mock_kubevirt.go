@@ -84,14 +84,14 @@ func (_mr *_MockKubevirtClientRecorder) ReplicaSet(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReplicaSet", arg0)
 }
 
-func (_m *MockKubevirtClient) OfflineVirtualMachine(namespace string) OfflineVirtualMachineInterface {
-	ret := _m.ctrl.Call(_m, "OfflineVirtualMachine", namespace)
-	ret0, _ := ret[0].(OfflineVirtualMachineInterface)
+func (_m *MockKubevirtClient) VirtualMachine(namespace string) VirtualMachineInterface {
+	ret := _m.ctrl.Call(_m, "VirtualMachine", namespace)
+	ret0, _ := ret[0].(VirtualMachineInterface)
 	return ret0
 }
 
-func (_mr *_MockKubevirtClientRecorder) OfflineVirtualMachine(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "OfflineVirtualMachine", arg0)
+func (_mr *_MockKubevirtClientRecorder) VirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachine", arg0)
 }
 
 func (_m *MockKubevirtClient) ServerVersion() *ServerVersion {
@@ -841,77 +841,77 @@ func (_mr *_MockVMPresetInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-// Mock of OfflineVirtualMachineInterface interface
-type MockOfflineVirtualMachineInterface struct {
+// Mock of VirtualMachineInterface interface
+type MockVirtualMachineInterface struct {
 	ctrl     *gomock.Controller
-	recorder *_MockOfflineVirtualMachineInterfaceRecorder
+	recorder *_MockVirtualMachineInterfaceRecorder
 }
 
-// Recorder for MockOfflineVirtualMachineInterface (not exported)
-type _MockOfflineVirtualMachineInterfaceRecorder struct {
-	mock *MockOfflineVirtualMachineInterface
+// Recorder for MockVirtualMachineInterface (not exported)
+type _MockVirtualMachineInterfaceRecorder struct {
+	mock *MockVirtualMachineInterface
 }
 
-func NewMockOfflineVirtualMachineInterface(ctrl *gomock.Controller) *MockOfflineVirtualMachineInterface {
-	mock := &MockOfflineVirtualMachineInterface{ctrl: ctrl}
-	mock.recorder = &_MockOfflineVirtualMachineInterfaceRecorder{mock}
+func NewMockVirtualMachineInterface(ctrl *gomock.Controller) *MockVirtualMachineInterface {
+	mock := &MockVirtualMachineInterface{ctrl: ctrl}
+	mock.recorder = &_MockVirtualMachineInterfaceRecorder{mock}
 	return mock
 }
 
-func (_m *MockOfflineVirtualMachineInterface) EXPECT() *_MockOfflineVirtualMachineInterfaceRecorder {
+func (_m *MockVirtualMachineInterface) EXPECT() *_MockVirtualMachineInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockOfflineVirtualMachineInterface) Get(name string, options *v1.GetOptions) (*v19.OfflineVirtualMachine, error) {
+func (_m *MockVirtualMachineInterface) Get(name string, options *v1.GetOptions) (*v19.VirtualMachine, error) {
 	ret := _m.ctrl.Call(_m, "Get", name, options)
-	ret0, _ := ret[0].(*v19.OfflineVirtualMachine)
+	ret0, _ := ret[0].(*v19.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+func (_mr *_MockVirtualMachineInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
 }
 
-func (_m *MockOfflineVirtualMachineInterface) List(opts *v1.ListOptions) (*v19.OfflineVirtualMachineList, error) {
+func (_m *MockVirtualMachineInterface) List(opts *v1.ListOptions) (*v19.VirtualMachineList, error) {
 	ret := _m.ctrl.Call(_m, "List", opts)
-	ret0, _ := ret[0].(*v19.OfflineVirtualMachineList)
+	ret0, _ := ret[0].(*v19.VirtualMachineList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
+func (_mr *_MockVirtualMachineInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
 }
 
-func (_m *MockOfflineVirtualMachineInterface) Create(_param0 *v19.OfflineVirtualMachine) (*v19.OfflineVirtualMachine, error) {
+func (_m *MockVirtualMachineInterface) Create(_param0 *v19.VirtualMachine) (*v19.VirtualMachine, error) {
 	ret := _m.ctrl.Call(_m, "Create", _param0)
-	ret0, _ := ret[0].(*v19.OfflineVirtualMachine)
+	ret0, _ := ret[0].(*v19.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
+func (_mr *_MockVirtualMachineInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
 }
 
-func (_m *MockOfflineVirtualMachineInterface) Update(_param0 *v19.OfflineVirtualMachine) (*v19.OfflineVirtualMachine, error) {
+func (_m *MockVirtualMachineInterface) Update(_param0 *v19.VirtualMachine) (*v19.VirtualMachine, error) {
 	ret := _m.ctrl.Call(_m, "Update", _param0)
-	ret0, _ := ret[0].(*v19.OfflineVirtualMachine)
+	ret0, _ := ret[0].(*v19.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
+func (_mr *_MockVirtualMachineInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
 }
 
-func (_m *MockOfflineVirtualMachineInterface) Delete(name string, options *v1.DeleteOptions) error {
+func (_m *MockVirtualMachineInterface) Delete(name string, options *v1.DeleteOptions) error {
 	ret := _m.ctrl.Call(_m, "Delete", name, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockOfflineVirtualMachineInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+func (_mr *_MockVirtualMachineInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
 }

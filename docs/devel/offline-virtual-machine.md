@@ -1,6 +1,6 @@
 # Offline Virtual Machine developer documentation
 
-This document introduces the OfflineVirtualMachine kind and provides a
+This document introduces the VirtualMachine kind and provides a
 guide how to use it and build upon it.
 
 ## What is Offline Virtual Machine
@@ -10,26 +10,26 @@ and stopped virtual machines. Such system allows you to edit configuration of
 both types of VMs and show its statuses.
 
 To allow building such VM management systems on top of the KubeVirt, the
-OfflineVirtualMachine is introduced to provide the access to the stopped
+VirtualMachine is introduced to provide the access to the stopped
 virtual machines. When working with running virtual machines, please see
-the [VirtualMachineInstance] object documentation. The Virtual Machine object is
-designed to work in tandem with the OfflineVirtualMachine and provides the
+the [VirtualMachine] object documentation. The Virtual Machine object is
+designed to work in tandem with the VirtualMachine and provides the
 configuration and status for running virtual machines.
 
-OfflineVirtualMachine is a Kubernetes [custom resource definition](https://kubernetes.io/docs/concepts/api-extension/custom-resources/), which
+VirtualMachine is a Kubernetes [custom resource definition](https://kubernetes.io/docs/concepts/api-extension/custom-resources/), which
 allows for using the Kubernetes machanisms for storing the objects and
 exposing it through the API.
 
 ## What it does and how to use it
 
-The OfflineVirtualMachine provides the functionality to:
+The VirtualMachine provides the functionality to:
 
-* Store OfflineVirtualMachine,
-* Manipulate the OfflineVirtualMachine through the kubectl,
-* Manipulate the OfflineVirtualMachine through the Kubernetes API,
-* Watch for changes in the OfflineVirtualMachine and react to them:
-  * Convert the OfflineVirtualMachine to VirtualMachineInstance and thus launch it
-  * Stop VirtualMachineInstance and update status of OfflineVirtualMachine accordingly
+* Store VirtualMachine,
+* Manipulate the VirtualMachine through the kubectl,
+* Manipulate the VirtualMachine through the Kubernetes API,
+* Watch for changes in the VirtualMachine and react to them:
+  * Convert the VirtualMachine to VirtualMachine and thus launch it
+  * Stop VirtualMachine and update status of VirtualMachine accordingly
 
 ### Kubectl interface
 
@@ -37,35 +37,35 @@ The kubectl allows you to manipulate the Kubernetes objects imperatively.
 You can create, delete, update and query objects in the API. More details on
 how to use kubectl and what it can do are in the [Kubernetes documentation](https://kubernetes.io/docs/reference/kubectl/overview/).
 
-Following are the examples of working with OfflineVirtualMachine and kubectl:
+Following are the examples of working with VirtualMachine and kubectl:
 
 ```bash
-# Define an OfflineVirtualMachine:
+# Define an VirtualMachine:
 kubectl create -f myofflinevm.yaml
 
-# Start an OfflineVirtualMachine:
-kubectl patch offlinevirtualmachine myvm --type=merge -p \
+# Start an VirtualMachine:
+kubectl patch virtualmachine myvm --type=merge -p \
     '{"spec":{"running": true}}'
 
-# Look at OfflineVirtualMachine status and associated events:
-kubectl describe offlinevirtualmachine myvm
+# Look at VirtualMachine status and associated events:
+kubectl describe virtualmachine myvm
 
 # Look at the now created VirtualMachineInstance status and associated events:
 kubectl describe virtualmachine myvm
 
-# Stop an OfflineVirtualMachine:
-kubectl patch offlinevirtualmachine myvm --type=merge -p \
+# Stop an VirtualMachine:
+kubectl patch virtualmachine myvm --type=merge -p \
     '{"spec":{"running": false}}'
 
 # Implicit cascade delete (first deletes the vm and then the ovm)
-kubectl delete offlinevirtualmachine myvm
+kubectl delete virtualmachine myvm
 
 # Explicit cascade delete (first deletes the vm and then the ovm)
-kubectl delete offlinevirtualmachine myvm --cascade=true
+kubectl delete virtualmachine myvm --cascade=true
 
 # Orphan delete (The running vm is only detached, not deleted)
 # Recreating the ovm would lead to the adoption of the vm
-kubectl delete offlinevirtualmachine myvm --cascade=false
+kubectl delete virtualmachine myvm --cascade=false
 ```
 
 ### The REST API
@@ -76,29 +76,29 @@ needs to access the cluster programaticaly, it is better to have a API endpoint.
 Thats where the Kubernetes REST API endpoint comes right in. Kubernetes provides
 for its users the native REST API, which is easily extendable and in one place.
 
-The OfflineVirtualMachine object is a CRD, which implies that Kubernetes
+The VirtualMachine object is a CRD, which implies that Kubernetes
 provides the API automatically. The API is located at the path
 
 ```text
-<your-api-server-adress>/apis/kubevirt.io/v1alpha/offlinevirtualmachine/
+<your-api-server-adress>/apis/kubevirt.io/v1alpha/virtualmachine/
 ```
 
 and you can do typical REST manipulation, you would expect. All CRUD is
 supported, as shown in following example.
 
 ```text
-POST /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachine
-GET /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachine
-GET /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachine/{name}
-DELETE /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachine/{name}
-PUT /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachine/{name}
-PATCH /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachine/{name}
+POST /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine
+GET /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine
+GET /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine/{name}
+DELETE /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine/{name}
+PUT /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine/{name}
+PATCH /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine/{name}
 ```
 
 By **POST** you can store new object in the etcd. With **GET** you either
-get the list of all OfflineVirtualMachines or get the concrete one. **DELETE**
+get the list of all VirtualMachines or get the concrete one. **DELETE**
 removes the object from etcd and all its resources. If you want to update the
-existing OfflineVirtualMachine object use **PUT** and if you want to change
+existing VirtualMachine object use **PUT** and if you want to change
 an item inside the object use **PATCH**.
 More details on the API are in the [documentation](https://kubevirt.github.io/api-reference/master/operations.html).
 
@@ -106,15 +106,15 @@ To data format used when communicating with the API is the JSON. The format is
 set up the usual way by setting the Content-Type header to 'application/json'.
 The 'application/yaml' can also be used.
 
-## OfflineVirtualMachine object content
+## VirtualMachine object content
 
-Now its time to discuss the content of the OfflineVirtualMachine object.
+Now its time to discuss the content of the VirtualMachine object.
 The object is defined in the same way as any other Kubernetes object. You can
 use YAML or JSON format to specify the content. The example structure is bellow:
 
 ```yaml
 apiVersion: kubevirt.io/v1alpha1
-kind: OfflineVirtualMachine
+kind: VirtualMachine
 metadata:
   name: myvm
 spec:
@@ -150,13 +150,13 @@ Let us go over each of these fields.
 
 ### Name
 
-The `metadata.name` is important for the OfflineVirtualMachine, it is used to find
-created VirtualMachineInstance. The VirtualMachineInstance name is directly derived from
-the OfflineVirtualMachine. This means, if OfflineVirtualMachine is names 'testvm',
-the VirtualMachineInstance is named 'testvm' too.
+The `metadata.name` is important for the VirtualMachine, it is used to find
+created VirtualMachine. The VirtualMachine name is directly derived from
+the VirtualMachine. This means, if VirtualMachine is names 'testvm',
+the VirtualMachine is named 'testvm' too.
 
 Moreover, the pair namespace and name: `namepace/metadata.name` creates the
-unique identifier for the OfflineVirtualMachine. This fact implies that two
+unique identifier for the VirtualMachine. This fact implies that two
 identical names in the same namespace are considered as an error.
 
 ### Template
@@ -187,19 +187,19 @@ but it does not have a `kind` and `apiVersion`. These are implicitely added.
 Thus for the complete list of supported fields in the spec.template please refer
 to the [VirtualMachineInstance] documentation.
 
-## OfflineVirtualMachine behaviour
+## VirtualMachine behaviour
 
-The OfflineVirtualMachine has to be in sync with its VirtualMachineInstance. This means
-that the OfflineVirtualMachine controller has to observe both, the OfflineVirtualMachine
-and created VirtualMachineInstance. When the [link](#ownerreference) is established the config changes
-are translated to the VirtualMachineInstance, and coresponding status changes are
-translated back to OfflineVirtualMachine.
+The VirtualMachine has to be in sync with its VirtualMachine. This means
+that the VirtualMachine controller has to observe both, the VirtualMachine
+and created VirtualMachine. When the [link](#ownerreference) is established the config changes
+are translated to the VirtualMachine, and coresponding status changes are
+translated back to VirtualMachine.
 
 TBD this needs to be more specific
 
 ### Status
 
-Shows the information about current OfflineVirtualMachine. The example status
+Shows the information about current VirtualMachine. The example status
 is shown below.
 
 ```yaml
@@ -211,8 +211,8 @@ status:
   conditions: [] # additional possible states
 ```
 
-The status of the VirtualMachineInstance is watched and is reflected in the
-OfflineVirtualMachine status. The info propagated from the VirtualMachineInstance is:
+The status of the VirtualMachine is watched and is reflected in the
+VirtualMachine status. The info propagated from the VirtualMachine is:
 
 * if the vm exists in the cluster
 * readiness of the VM
@@ -232,9 +232,9 @@ status:
 
 ### OwnerReference
 
-Linking the created VirtualMachineInstance to its parent OfflineVirtualMachine pose
+Linking the created VirtualMachine to its parent VirtualMachine pose
 a challenge. Using the same name is only part of the solution. To find the
-parent OfflineVirtualMachine programatically in the Kubernetes, the OwnerReference
+parent VirtualMachine programatically in the Kubernetes, the OwnerReference
 is used. As described in the
 [design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/api-machinery/controller-ref.md),
 the OwnerReference lives in the metadata section of the object and is created
@@ -248,7 +248,7 @@ metadata:
   ownerReferences:
     - controller: true
       uid: 1234-1234-1234-1234
-      kind: OfflineVirtualMachine
+      kind: VirtualMachine
       version: kubevirt.io/v1alpha1
 ```
 
@@ -262,45 +262,45 @@ the VM will be re-created by the controller with the new spec.
 
 ### Delete strategy
 
-The delete has a cascade that deletes the created VirtualMachineInstance. If a cascade
-is turned off the VirtualMachineInstance is orphaned and leaved running.
-When the OfflineVirtualMachine with the same name as orphaned VirtualMachineInstance
-is created, the VirtualMachineInstance gets adopted and OwnerReference
+The delete has a cascade that deletes the created VirtualMachine. If a cascade
+is turned off the VirtualMachine is orphaned and leaved running.
+When the VirtualMachine with the same name as orphaned VirtualMachine
+is created, the VirtualMachine gets adopted and OwnerReference
 is updated accordingly.
 
 ### Reset and Reboot
 
-This is not covered by the OfflineVirtualMachine. This functionality shall
-be achieved by subresources for the VirtualMachineInstance (imperative),
-and will not result in a recreation of the VirtualMachineInstance object or its Pod.
-From the KubeVirt perspective, the VirtualMachineInstance is running all the time.
-Thus spec changes on OfflineVirtualMachine will not be propagated to
-the VirtualMachineInstance in that case.
+This is not covered by the VirtualMachine. This functionality shall
+be achieved by subresources for the VirtualMachine (imperative),
+and will not result in a recreation of the VirtualMachine object or its Pod.
+From the KubeVirt perspective, the VirtualMachine is running all the time.
+Thus spec changes on VirtualMachine will not be propagated to
+the VirtualMachine in that case.
 
 ## How it is implemented
 
-The first implementation of the OfflineVirtualMachine kind has two parts:
+The first implementation of the VirtualMachine kind has two parts:
 
-1) The OfflineVirtualMachine custom resource definition,
+1) The VirtualMachine custom resource definition,
 2) The controller watching for the changes and updating the state.
 
 ### Custom resource definition
 
-The OfflineVirtualMachine custom resource is straightforward and is shown bellow:
+The VirtualMachine custom resource is straightforward and is shown bellow:
 
 ```yaml
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: offlinevirtualmachines.kubevirt.io
+  name: virtualmachines.kubevirt.io
 spec:
   scope: Namespaced
   group: kubevirt.io
   version: v1alpha1
   names:
-    kind: OfflineVirtualMachine
-    plural: offlinevirtualmachines
-    singular: offlinevirtualmachine
+    kind: VirtualMachine
+    plural: virtualmachines
+    singular: virtualmachine
     shortNames:
     - ovm
     - ovms
@@ -315,7 +315,7 @@ The controller is responsible for watching the change in the registered
 offline virtual machines and update the state of the system. It is also
 responsible for creating new VirtualMachineInstance when the `running` is set to `true`.
 Moreover the controller attaches the `metadata.OwnerReference` to the created
-VirtualMachineInstance. With this mechanism it can link the OfflineVirtualMachine to the
+VirtualMachineInstance. With this mechanism it can link the VirtualMachine to the
 VirtualMachineInstance and show combined status.
 
 The controller is designed to be a standalone service running in its own pod.

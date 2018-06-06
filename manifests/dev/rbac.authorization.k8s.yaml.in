@@ -250,7 +250,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachineinstances
-      - offlinevirtualmachines
+      - virtualmachines
       - virtualmachineinstancepresets
       - virtualmachineinstancereplicasets
     verbs:
@@ -290,7 +290,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachineinstances
-      - offlinevirtualmachines
+      - virtualmachines
       - virtualmachineinstancepresets
       - virtualmachineinstancereplicasets
     verbs:
@@ -313,7 +313,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachineinstances
-      - offlinevirtualmachines
+      - virtualmachines
       - virtualmachineinstancepresets
       - virtualmachineinstancereplicasets
     verbs:

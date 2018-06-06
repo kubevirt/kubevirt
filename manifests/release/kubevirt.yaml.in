@@ -17,7 +17,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachineinstances
-      - offlinevirtualmachines
+      - virtualmachines
       - virtualmachineinstancepresets
       - virtualmachineinstancereplicasets
     verbs:
@@ -59,7 +59,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachineinstances
-      - offlinevirtualmachines
+      - virtualmachines
       - virtualmachineinstancepresets
       - virtualmachineinstancereplicasets
     verbs:
@@ -82,7 +82,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachineinstances
-      - offlinevirtualmachines
+      - virtualmachines
       - virtualmachineinstancepresets
       - virtualmachineinstancereplicasets
     verbs:
@@ -244,7 +244,7 @@ rules:
       - virtualmachineinstances
       - virtualmachineinstancereplicasets
       - virtualmachineinstancepresets
-      - offlinevirtualmachines
+      - virtualmachines
     verbs:
       - get
       - list
@@ -509,7 +509,7 @@ spec:
         - name: virt-private-dir
           hostPath:
             path: /var/run/kubevirt-private
+{{index .GeneratedManifests "vmi-resource.yaml"}}
+{{index .GeneratedManifests "vmirs-resource.yaml"}}
+{{index .GeneratedManifests "vmipreset-resource.yaml"}}
 {{index .GeneratedManifests "vm-resource.yaml"}}
-{{index .GeneratedManifests "vmrs-resource.yaml"}}
-{{index .GeneratedManifests "vmpreset-resource.yaml"}}
-{{index .GeneratedManifests "ovm-resource.yaml"}}

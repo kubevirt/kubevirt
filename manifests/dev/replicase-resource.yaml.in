@@ -1,1 +1,1 @@
-{{index .GeneratedManifests "vmrs-resource.yaml"}}
+{{index .GeneratedManifests "vmirs-resource.yaml"}}
