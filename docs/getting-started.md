@@ -19,8 +19,8 @@ Build all required artifacts and launch the
 dockerizied environment:
 
 ```bash
-# Build and deploy KubeVirt on Kubernetes 1.9.3 in our vms inside containers
-export KUBEVIRT_PROVIDER=k8s-1.9.3 # this is also the default if no KUBEVIRT_PROVIDER is set
+# Build and deploy KubeVirt on Kubernetes 1.10.3 in our vms inside containers
+export KUBEVIRT_PROVIDER=k8s-1.10.3 # this is also the default if no KUBEVIRT_PROVIDER is set
 make cluster-up
 make cluster-sync
 ```
