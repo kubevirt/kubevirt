@@ -507,9 +507,6 @@ func SecretToLibvirtSecret(vm *v1.VirtualMachine, secretName string) string {
 
 func QuantityToByte(quantity resource.Quantity) Memory {
 	memorySize, _ := quantity.AsInt64()
-	if memorySize < 0 {
-		memorySize = -memorySize
-	}
 	return Memory{
 		Value: uint64(memorySize),
 		Unit:  "B",
