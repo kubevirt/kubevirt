@@ -24,7 +24,7 @@ spec:
   volumes:
   - name: registryvolume
     registryDisk:
-      image: kubevirt/fedora-cloud-registry-disk-demo:devel
+      image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
   - cloudInitNoCloud:
       userData: |-
         #cloud-config
