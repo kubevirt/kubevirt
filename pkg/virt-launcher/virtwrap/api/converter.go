@@ -371,7 +371,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	}
 
 	if v, ok := vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
-		domain.Spec.Memory = QuantityToByte(v)
+		if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
+			return err
+		}
 	}
 
 	volumes := map[string]*v1.Volume{}
@@ -505,12 +507,15 @@ func SecretToLibvirtSecret(vm *v1.VirtualMachine, secretName string) string {
 	return fmt.Sprintf("%s-%s-%s---", secretName, vm.Namespace, vm.Name)
 }
 
-func QuantityToByte(quantity resource.Quantity) Memory {
+func QuantityToByte(quantity resource.Quantity) (Memory, error) {
 	memorySize, _ := quantity.AsInt64()
+	if memorySize < 0 {
+		return Memory{Unit: "B"}, fmt.Errorf("Memory size '%s' must be greater than or equal to 0", quantity.String())
+	}
 	return Memory{
 		Value: uint64(memorySize),
 		Unit:  "B",
-	}
+	}, nil
 }
 
 func boolToOnOff(value *bool, defaultOn bool) string {

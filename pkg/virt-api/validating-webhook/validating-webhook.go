@@ -324,20 +324,20 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	// Validate memory size if values are not negative
 	if spec.Domain.Resources.Requests.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s is specified as negative value", field.Child("domain", "resources", "requests", "memory").String()),
-			Field:   field.Child("domain", "resources", "requests", "memory").String(),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "requests", "memory").String(),
+				spec.Domain.Resources.Requests.Memory()),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
 		})
-		// We won't process anything with negative requests.memory size
-		return causes
-	} else if spec.Domain.Resources.Limits.Memory().Value() < 0 {
+	}
+
+	if spec.Domain.Resources.Limits.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s is specified as negative value", field.Child("domain", "resources", "limits", "memory").String()),
-			Field:   field.Child("domain", "resources", "limits", "memory").String(),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "limits", "memory").String(),
+				spec.Domain.Resources.Limits.Memory()),
+			Field: field.Child("domain", "resources", "limits", "memory").String(),
 		})
-		// We won't process anything with negative limits.memory size
-		return causes
 	}
 
 	for _, volume := range spec.Volumes {
