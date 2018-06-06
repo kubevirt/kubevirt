@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"net/http"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -321,14 +322,22 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		return causes
 	}
 
-	// Validate requested memory size if value is not negative
+	// Validate memory size if values are not negative
 	if spec.Domain.Resources.Requests.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s is specified as negative value", field.Child("domain", "resources", "requests", "memory").String()),
 			Field:   field.Child("domain", "resources", "requests", "memory").String(),
 		})
-		// We won't process anything with requested negative memory size
+		// We won't process anything with negative requests.memory size
+		return causes
+	} else if spec.Domain.Resources.Limits.Memory().Value() < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s is specified as negative value", field.Child("domain", "resources", "limits", "memory").String()),
+			Field:   field.Child("domain", "resources", "limits", "memory").String(),
+		})
+		// We won't process anything with negative limits.memory size
 		return causes
 	}
 

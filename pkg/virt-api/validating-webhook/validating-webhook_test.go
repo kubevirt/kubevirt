@@ -30,6 +30,7 @@ import (
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -432,6 +433,41 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(2))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].volumeName"))
 			Expect(causes[1].Field).To(Equal("fake.domain.devices.disks[0]"))
+		})
+		It("should reject negative requests.memory size value", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("-64Mi"),
+			}
+
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+		It("should reject negative limits.memory size value", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("-65Mi"),
+			}
+
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
+		})
+		It("should accept correct memory size values", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
+			}
+
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(0))
 		})
 		table.DescribeTable("should verify LUN is mapped to PVC volume",
 			func(volume *v1.Volume, expectedErrors int) {
