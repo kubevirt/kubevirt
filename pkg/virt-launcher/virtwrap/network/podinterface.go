@@ -62,7 +62,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		return fmt.Errorf("failed to find a default interface configuration")
 	}
 
-	ifconf, err := getCachedInterface()
+	ifconf, err := getCachedInterface(iface.Name)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		// After the network is configured, cache the result
 		// in case this function is called again.
 		driver.decorateInterfaceConfig(&defaultIconf)
-		err = setCachedInterface(&defaultIconf)
+		err = setCachedInterface(iface.Name, &defaultIconf)
 		if err != nil {
 			panic(err)
 		}

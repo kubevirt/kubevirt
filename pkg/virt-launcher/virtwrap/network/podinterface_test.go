@@ -56,7 +56,7 @@ var _ = Describe("Pod Network", func() {
 
 	BeforeEach(func() {
 		tmpDir, _ := ioutil.TempDir("", "networktest")
-		setInterfaceCacheFile(tmpDir + "/cache.json")
+		setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = NewMockNetworkHandler(ctrl)
