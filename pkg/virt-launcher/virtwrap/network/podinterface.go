@@ -67,6 +67,9 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		return err
 	}
 
+	// TODO:(ihar) don't assume pod interface is single / first
+	podInterfaceNum := 0
+
 	if ifconf == nil {
 		err := driver.discoverPodNetworkInterface()
 		if err != nil {
@@ -77,7 +80,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 			panic(err)
 		}
 
-		defaultIconf := interfaces[0]
+		defaultIconf := interfaces[podInterfaceNum]
 		driver.startDHCPServer()
 
 		// After the network is configured, cache the result
@@ -91,7 +94,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	}
 
 	// TODO:(vladikr) Currently we support only one interface per vm.
-	interfaces[0] = *ifconf
+	interfaces[podInterfaceNum] = *ifconf
 
 	return nil
 }
