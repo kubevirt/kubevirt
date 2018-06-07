@@ -456,6 +456,20 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
 		})
+		It("should reject greater requests.memory than limits.memory", func() {
+			vm := v1.NewMinimalVM("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+			}
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
 		It("should accept correct memory size values", func() {
 			vm := v1.NewMinimalVM("testvm")
 

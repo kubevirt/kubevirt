@@ -340,6 +340,18 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		})
 	}
 
+	if spec.Domain.Resources.Limits.Memory().Value() > 0 &&
+		spec.Domain.Resources.Requests.Memory().Value() > spec.Domain.Resources.Limits.Memory().Value() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' is greater than %s '%s'", field.Child("domain", "resources", "requests", "memory").String(),
+				spec.Domain.Resources.Requests.Memory(),
+				field.Child("domain", "resources", "limits", "memory").String(),
+				spec.Domain.Resources.Limits.Memory()),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
+		})
+	}
+
 	for _, volume := range spec.Volumes {
 		volumeNameMap[volume.Name] = &volume
 	}
