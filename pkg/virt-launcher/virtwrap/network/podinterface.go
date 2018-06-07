@@ -61,7 +61,6 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	if len(interfaces) == 0 {
 		return fmt.Errorf("failed to find a default interface configuration")
 	}
-	defaultIconf := interfaces[0]
 
 	ifconf, err := getCachedInterface()
 	if err != nil {
@@ -78,6 +77,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 			panic(err)
 		}
 
+		defaultIconf := interfaces[0]
 		driver.startDHCPServer()
 
 		// After the network is configured, cache the result
