@@ -2,7 +2,7 @@ apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
   creationTimestamp: null
-  name: vm-fedora
+  name: vmi-fedora
 spec:
   domain:
     devices:

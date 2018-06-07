@@ -2,17 +2,15 @@ apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
   creationTimestamp: null
-  labels:
-    kubevirt.io/flavor: small
-  name: vm-flavor-small
+  name: vmi-pvc
 spec:
   domain:
     devices:
       disks:
       - disk:
           bus: virtio
-        name: registrydisk
-        volumeName: registryvolume
+        name: pvcdisk
+        volumeName: pvcvolume
     machine:
       type: ""
     resources:
@@ -20,7 +18,7 @@ spec:
         memory: 64M
   terminationGracePeriodSeconds: 0
   volumes:
-  - name: registryvolume
-    registryDisk:
-      image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
+  - name: pvcvolume
+    persistentVolumeClaim:
+      claimName: disk-alpine
 status: {}

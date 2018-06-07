@@ -4,7 +4,7 @@ metadata:
   annotations:
     alpha.kubevirt.io/interface-model: e1000
   creationTimestamp: null
-  name: vm-windows
+  name: vmi-windows
 spec:
   domain:
     clock:

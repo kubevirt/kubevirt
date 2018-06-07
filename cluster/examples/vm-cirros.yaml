@@ -3,27 +3,27 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    kubevirt.io/ovm: ovm-alpine-multipvc
-  name: ovm-alpine-multipvc
+    kubevirt.io/ovm: vm-cirros
+  name: vm-cirros
 spec:
   running: false
   template:
     metadata:
       creationTimestamp: null
       labels:
-        kubevirt.io/ovm: ovm-alpine-multipvc
+        kubevirt.io/ovm: vm-cirros
     spec:
       domain:
         devices:
           disks:
           - disk:
               bus: virtio
-            name: pvcdisk1
-            volumeName: pvcvolume1
+            name: registrydisk
+            volumeName: registryvolume
           - disk:
               bus: virtio
-            name: pvcdisk2
-            volumeName: pvcvolume2
+            name: cloudinitdisk
+            volumeName: cloudinitvolume
         machine:
           type: ""
         resources:
@@ -31,10 +31,13 @@ spec:
             memory: 64M
       terminationGracePeriodSeconds: 0
       volumes:
-      - name: pvcvolume1
-        persistentVolumeClaim:
-          claimName: disk-alpine
-      - name: pvcvolume2
-        persistentVolumeClaim:
-          claimName: disk-custom
+      - name: registryvolume
+        registryDisk:
+          image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
+      - cloudInitNoCloud:
+          userData: |
+            #!/bin/sh
+
+            echo 'printed from cloud-init userdata'
+        name: cloudinitvolume
 status: {}

@@ -41,21 +41,21 @@ import (
 )
 
 const (
-	vmEphemeral       = "vm-ephemeral"
-	vmFlavorSmall     = "vm-flavor-small"
-	vmSata            = "vm-sata"
-	vmFedora          = "vm-fedora"
-	vmNoCloud         = "vm-nocloud"
-	vmPvc             = "vm-pvc"
-	vmWindows         = "vm-windows"
-	vmTemplateFedora  = "vm-template-fedora"
-	vmTemplateRHEL7   = "vm-template-rhel7"
-	vmTemplateWindows = "vm-template-windows2012r2"
+	vmiEphemeral      = "vmi-ephemeral"
+	vmiFlavorSmall    = "vmi-flavor-small"
+	vmiSata           = "vmi-sata"
+	vmiFedora         = "vmi-fedora"
+	vmiNoCloud        = "vmi-nocloud"
+	vmiPVC            = "vmi-pvc"
+	vmiWindows        = "vmi-windows"
+	vmTemplateFedora  = "vmi-template-fedora"
+	vmTemplateRHEL7   = "vmi-template-rhel7"
+	vmTemplateWindows = "vmi-template-windows2012r2"
 )
 
 const (
-	ovmCirros         = "ovm-cirros"
-	ovmAlpineMultiPvc = "ovm-alpine-multipvc"
+	vmCirros         = "vm-cirros"
+	vmAlpineMultiPvc = "vm-alpine-multipvc"
 )
 
 const vmReplicaSetCirros = "vm-replicaset-cirros"
@@ -207,21 +207,21 @@ func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus strin
 }
 
 func getVmEphemeral() *v1.VirtualMachineInstance {
-	vm := getBaseVm(vmEphemeral)
+	vm := getBaseVm(vmiEphemeral)
 
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
 	return vm
 }
 
 func getVmSata() *v1.VirtualMachineInstance {
-	vm := getBaseVm(vmSata)
+	vm := getBaseVm(vmiSata)
 
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busSata)
 	return vm
 }
 
 func getVmEphemeralFedora() *v1.VirtualMachineInstance {
-	vm := getBaseVm(vmFedora)
+	vm := getBaseVm(vmiFedora)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
@@ -230,7 +230,7 @@ func getVmEphemeralFedora() *v1.VirtualMachineInstance {
 }
 
 func getVmNoCloud() *v1.VirtualMachineInstance {
-	vm := getBaseVm(vmNoCloud)
+	vm := getBaseVm(vmiNoCloud)
 
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
 	addNoCloudDisk(&vm.Spec)
@@ -239,7 +239,7 @@ func getVmNoCloud() *v1.VirtualMachineInstance {
 }
 
 func getVmFlavorSmall() *v1.VirtualMachineInstance {
-	vm := getBaseVm(vmFlavorSmall)
+	vm := getBaseVm(vmiFlavorSmall)
 	vm.ObjectMeta.Labels = map[string]string{
 		"kubevirt.io/flavor": "small",
 	}
@@ -249,14 +249,14 @@ func getVmFlavorSmall() *v1.VirtualMachineInstance {
 }
 
 func getVmPvc() *v1.VirtualMachineInstance {
-	vm := getBaseVm(vmPvc)
+	vm := getBaseVm(vmiPVC)
 
 	addPVCDisk(&vm.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
 	return vm
 }
 
 func getVmWindows() *v1.VirtualMachineInstance {
-	vm := getBaseVm(vmWindows)
+	vm := getBaseVm(vmiWindows)
 
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
@@ -326,8 +326,8 @@ func getBaseOvm(name string, labels map[string]string) *v1.VirtualMachine {
 }
 
 func getOvmCirros() *v1.VirtualMachine {
-	ovm := getBaseOvm(ovmCirros, map[string]string{
-		"kubevirt.io/ovm": ovmCirros,
+	ovm := getBaseOvm(vmCirros, map[string]string{
+		"kubevirt.io/ovm": vmCirros,
 	})
 
 	addRegistryDisk(&ovm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
@@ -476,8 +476,8 @@ func templateParameters(memory string, cores string) []Parameter {
 }
 
 func getOvmMultiPvc() *v1.VirtualMachine {
-	ovm := getBaseOvm(ovmAlpineMultiPvc, map[string]string{
-		"kubevirt.io/ovm": ovmAlpineMultiPvc,
+	ovm := getBaseOvm(vmAlpineMultiPvc, map[string]string{
+		"kubevirt.io/ovm": vmAlpineMultiPvc,
 	})
 
 	addPVCDisk(&ovm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
@@ -561,15 +561,15 @@ func main() {
 	flag.Parse()
 
 	var vms = map[string]interface{}{
-		vmEphemeral:        getVmEphemeral(),
-		vmFlavorSmall:      getVmFlavorSmall(),
-		vmSata:             getVmSata(),
-		vmFedora:           getVmEphemeralFedora(),
-		vmNoCloud:          getVmNoCloud(),
-		vmPvc:              getVmPvc(),
-		vmWindows:          getVmWindows(),
-		ovmCirros:          getOvmCirros(),
-		ovmAlpineMultiPvc:  getOvmMultiPvc(),
+		vmiEphemeral:       getVmEphemeral(),
+		vmiFlavorSmall:     getVmFlavorSmall(),
+		vmiSata:            getVmSata(),
+		vmiFedora:          getVmEphemeralFedora(),
+		vmiNoCloud:         getVmNoCloud(),
+		vmiPVC:             getVmPvc(),
+		vmiWindows:         getVmWindows(),
+		vmCirros:           getOvmCirros(),
+		vmAlpineMultiPvc:   getOvmMultiPvc(),
 		vmReplicaSetCirros: getVmReplicaSetCirros(),
 		vmPresetSmall:      getVmPresetSmall(),
 		vmTemplateFedora:   getTemplateFedora(),

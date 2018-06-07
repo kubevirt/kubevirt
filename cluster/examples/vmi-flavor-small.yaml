@@ -2,13 +2,15 @@ apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
   creationTimestamp: null
-  name: vm-sata
+  labels:
+    kubevirt.io/flavor: small
+  name: vmi-flavor-small
 spec:
   domain:
     devices:
       disks:
       - disk:
-          bus: sata
+          bus: virtio
         name: registrydisk
         volumeName: registryvolume
     machine:

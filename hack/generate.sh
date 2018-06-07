@@ -16,6 +16,7 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 
 (cd ${KUBEVIRT_DIR}/tools/crd-generator/ && go build)
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
+rm -f ${KUBEVIRT_DIR}/cluster/examples/*
 ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=vmi >${KUBEVIRT_DIR}/manifests/generated/vmi-resource.yaml
 ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=vmirs >${KUBEVIRT_DIR}/manifests/generated/vmirs-resource.yaml
 ${KUBEVIRT_DIR}/tools/crd-generator/crd-generator --crd-type=vmipreset >${KUBEVIRT_DIR}/manifests/generated/vmipreset-resource.yaml
