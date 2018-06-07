@@ -1,6 +1,7 @@
 export GO15VENDOREXPERIMENT := 1
 
-all: build manifests
+all:
+	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
 
 generate:
 	hack/dockerized "./hack/generate.sh"
