@@ -27,14 +27,18 @@ manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 args=$(cd ${KUBEVIRT_DIR}/manifests && find * -type f -name "*.yaml.in")
 
 rm -rf ${MANIFESTS_OUT_DIR}
+rm -rf ${MANIFEST_TEMPLATES_OUT_DIR}
 
 (cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go build)
 
 for arg in $args; do
     final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
+    final_templates_out_dir=$(dirname ${MANIFEST_TEMPLATES_OUT_DIR}/${arg})
     mkdir -p ${final_out_dir}
+    mkdir -p ${final_templates_out_dir}
     manifest=$(basename -s .in ${arg})
     outfile=${final_out_dir}/${manifest}
+    template_outfile=${final_templates_out_dir}/${manifest}.j2
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --namespace=${namespace} \
@@ -42,4 +46,11 @@ for arg in $args; do
         --docker-tag=${docker_tag} \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
+
+    ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+        --namespace="{{ namespace }}" \
+        --docker-prefix="{{ docker_prefix }}" \
+        --docker-tag="{{docker_tag}}" \
+        --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
+        --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
