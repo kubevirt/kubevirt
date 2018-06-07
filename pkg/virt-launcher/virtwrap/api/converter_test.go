@@ -505,13 +505,17 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should covert hugepages", func() {
+		It("should convert hugepages", func() {
 			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm.Spec.Domain.Resources.Requests[v1.Hugepage2MiResource] = resource.MustParse("8Mi")
+			vm.Spec.Domain.Hugepages = &v1.Hugepages{}
+			vm.Spec.Domain.Hugepages.Size = "2Mi"
 			domainSpec := vmToDomainXMLToDomainSpec(vm, c)
 			Expect(domainSpec.MemoryBacking.HugePages.HugePage).ToNot(BeEmpty())
 			Expect(domainSpec.MemoryBacking.HugePages.HugePage[0].Unit).To(Equal("M"))
 			Expect(domainSpec.MemoryBacking.HugePages.HugePage[0].Size).To(Equal("2"))
+
+			Expect(domainSpec.Memory.Value).To(Equal(uint(8)))
+			Expect(domainSpec.Memory.Unit).To(Equal("MB"))
 		})
 	})
 })

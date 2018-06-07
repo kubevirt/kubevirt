@@ -61,6 +61,9 @@ type DomainSpec struct {
 	// CPU allow specified the detailed CPU topology inside the vmi.
 	// +optional
 	CPU *CPU `json:"cpu,omitempty"`
+	// Hugepages allow to specify desured hugepages size for vmi usage
+	// +optional
+	Hugepages *Hugepages `json:"hugepages,omitempty"`
 	// Machine type
 	// +optional
 	Machine Machine `json:"machine,omitempty"`
@@ -85,7 +88,7 @@ type ResourceRequirements struct {
 	// +optional
 	Requests v1.ResourceList `json:"requests,omitempty"`
 	// Limits describes the maximum amount of compute resources allowed.
-	// Valid resource keys are "memory", "hugepages" and "cpu".
+	// Valid resource keys are "memory" and "cpu".
 	// +optional
 	Limits v1.ResourceList `json:"limits,omitempty"`
 }
@@ -97,6 +100,10 @@ type CPU struct {
 	// Cores specifies the number of cores inside the vmi.
 	// Must be a value greater or equal 1.
 	Cores uint32 `json:"cores,omitempty"`
+}
+
+type Hugepages struct {
+	Size string `json:"size,omitempty"`
 }
 
 // ---

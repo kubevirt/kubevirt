@@ -288,13 +288,14 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineSpec{
 						Domain: v1.DomainSpec{
+							Hugepages: &v1.Hugepages{
+								Size: value,
+							},
 							Resources: v1.ResourceRequirements{
 								Requests: kubev1.ResourceList{
-									resourceName:          resource.MustParse(value),
 									kubev1.ResourceMemory: resource.MustParse("64M"),
 								},
 								Limits: kubev1.ResourceList{
-									resourceName:          resource.MustParse(value),
 									kubev1.ResourceMemory: resource.MustParse("64M"),
 								},
 							},
@@ -305,11 +306,13 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vm)
 				Expect(err).ToNot(HaveOccurred())
 
-				podHugepages := pod.Spec.Containers[0].Resources.Requests[resourceName]
-				Expect(podHugepages.String()).To(Equal(value))
-
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
+
+				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[resourceName]
+				hugepagesLimit := pod.Spec.Containers[0].Resources.Limits[resourceName]
+				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
 				Expect(len(pod.Spec.Volumes)).To(Equal(3))
 				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
@@ -321,6 +324,33 @@ var _ = Describe("Template", func() {
 				table.Entry("hugepages-2Mi", v1.Hugepage2MiResource, "2Mi", "/dev/hugepages"),
 				table.Entry("hugepages-1Gi", v1.Hugepage1GiResource, "1Gi", "/dev/hugepages1G"),
 			)
+
+			It("should reject not supported hugepages size", func() {
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvm",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Domain: v1.DomainSpec{
+							Hugepages: &v1.Hugepages{
+								Size: "3Mi",
+							},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+							},
+						},
+					},
+				}
+				_, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).To(HaveOccurred())
+			})
 		})
 
 		Context("with pvc source", func() {

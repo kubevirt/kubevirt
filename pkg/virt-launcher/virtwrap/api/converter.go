@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -39,9 +38,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
-var hugepagesTypes = map[k8sv1.ResourceName]HugePage{
-	v1.Hugepage2MiResource: HugePage{Size: "2", Unit: "M"},
-	v1.Hugepage1GiResource: HugePage{Size: "1", Unit: "G"},
+var hugepagesTypes = map[string]HugePage{
+	"2Mi": HugePage{Size: "2", Unit: "M"},
+	"1Gi": HugePage{Size: "1", Unit: "G"},
 }
 
 type ConverterContext struct {
@@ -376,18 +375,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	for k, v := range vmi.Spec.Domain.Resources.Requests {
-		switch k {
-		case k8sv1.ResourceMemory:
-			if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
-				return err
-			}
-		case v1.Hugepage2MiResource, v1.Hugepage1GiResource:
-			domain.Spec.MemoryBacking = &MemoryBacking{
-				HugePages: &HugePages{
-					HugePage: []HugePage{hugepagesTypes[k]},
-				},
-			}
+	if v, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
+		if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
+			return err
+		}
+	}
+
+	if vmi.Spec.Domain.Hugepages != nil {
+		domain.Spec.MemoryBacking = &MemoryBacking{
+			HugePages: &HugePages{
+				HugePage: []HugePage{hugepagesTypes[vm.Spec.Domain.Hugepages.Size]},
+			},
 		}
 	}
 

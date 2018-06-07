@@ -112,6 +112,7 @@ var _ = Describe("Configurations", func() {
 
 			BeforeEach(func() {
 				hugepagesVm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				hugepagesVm.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64Mi")
 			})
 
 			table.DescribeTable("should consume hugepages ", func(resourceName kubev1.ResourceName, value string) {
@@ -133,18 +134,16 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
-				if hugepagesVm.Spec.Domain.Resources.Limits == nil {
-					hugepagesVm.Spec.Domain.Resources.Limits = make(kubev1.ResourceList)
-				}
-				hugepagesVm.Spec.Domain.Resources.Limits[resourceName] = resource.MustParse(value)
-				hugepagesVm.Spec.Domain.Resources.Requests[resourceName] = resource.MustParse(value)
+				hugepagesVm.Spec.Domain.Hugepages = &v1.Hugepages{}
+				hugepagesVm.Spec.Domain.Hugepages.Size = value
 
 				By("Starting a VM")
 				_, err = virtClient.VM(tests.NamespaceTestDefault).Create(hugepagesVm)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMStart(hugepagesVm)
-				
-				time.Sleep(5 * time.Minute)
+
+				time.Sleep(2 * time.Minute)
+
 				By("Checking decrease of the node hugepage capacity")
 				pods, err := virtClient.Core().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(hugepagesVm))
 				Expect(err).ToNot(HaveOccurred())
@@ -154,13 +153,13 @@ var _ = Describe("Configurations", func() {
 					virtClient,
 					&pods.Items[0],
 					pods.Items[0].Spec.Containers[0].Name,
-					[]string{"cat", "/proc/meminfo"},
+					[]string{"cat", "/proc/meminfo", "|", "grep", "HugePages_Free:"},
 				)
 				Expect(err).ToNot(HaveOccurred())
 
 				fmt.Println(output)
 			},
-				table.Entry("hugepages-2Mi", v1.Hugepage2MiResource, "64Mi"),
+				table.Entry("hugepages-2Mi", v1.Hugepage2MiResource, "2Mi"),
 				table.Entry("hugepages-1Gi", v1.Hugepage1GiResource, "1Gi"),
 			)
 		})

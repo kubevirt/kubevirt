@@ -20,6 +20,7 @@
 package services
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -39,9 +40,14 @@ const allowEmulationKey = "debug.allowEmulation"
 
 // By default libvirt uses /dev/hugepages for VM's that requested 2M hugepages
 // and /dev/hugepages1G for VM's that requested 1G hugepages
-var hugepagesMounts = map[k8sv1.ResourceName]string{
-	v1.Hugepage2MiResource: "hugepages",
-	v1.Hugepage1GiResource: "hugepages1G",
+var hugepagesMounts = map[string]string{
+	"2Mi": "hugepages",
+	"1Gi": "hugepages1G",
+}
+
+var hugepagesTypes = map[string]k8sv1.ResourceName{
+	"2Mi": v1.Hugepage2MiResource,
+	"1Gi": v1.Hugepage1GiResource,
 }
 
 type TemplateService interface {
@@ -147,38 +153,22 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
+	// Get memory overhead
+	memoryOverhead := getMemoryOverhead(vm.Spec.Domain)
+
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
 	vmiResources := vmi.Spec.Domain.Resources
 
 	resources.Requests = make(k8sv1.ResourceList)
 
-	var configureHugepages = false
 	// Copy vmi resources requests to a container
 	for key, value := range vmiResources.Requests {
-		if key == v1.Hugepage2MiResource || key == v1.Hugepage1GiResource {
-			configureHugepages = true
-			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
-				Name:      "hugepages",
-				MountPath: filepath.Join("/dev/", hugepagesMounts[key]),
-			})
-			volumes = append(volumes, k8sv1.Volume{
-				Name: "hugepages",
-				VolumeSource: k8sv1.VolumeSource{
-					EmptyDir: &k8sv1.EmptyDirVolumeSource{
-						Medium: k8sv1.StorageMediumHugePages,
-					},
-				},
-			})
-			resources.Limits = make(k8sv1.ResourceList)
-			resources.Limits[key] = value
-
-		}
 		resources.Requests[key] = value
 	}
 
 	// Copy vmi resources limits to a container
-	if vmiResources.Limits != nil && resources.Limits == nil {
+	if vmiResources.Limits != nil {
 		resources.Limits = make(k8sv1.ResourceList)
 	}
 
@@ -186,16 +176,41 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[key] = value
 	}
 
-	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vmi.Spec.Domain)
+	// Consider hugepages resource for pod scheduling
+	if vmi.Spec.Domain.Hugepages != nil {
+		hugepageType, ok := hugepagesTypes[vm.Spec.Domain.Hugepages.Size]
+		if !ok {
+			return nil, fmt.Errorf("not supported hugepages size %s", vm.Spec.Domain.Hugepages.Size)
+		}
 
-	// If hugepages configured, use only overhead memory for the request and for the limit
-	if configureHugepages {
+		if resources.Limits == nil {
+			resources.Limits = make(k8sv1.ResourceList)
+		}
+
+		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
+		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
+
+		// Configure hugepages mount on a pod
+		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+			Name:      "hugepages",
+			MountPath: filepath.Join("/dev/", hugepagesMounts[vm.Spec.Domain.Hugepages.Size]),
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "hugepages",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{
+					Medium: k8sv1.StorageMediumHugePages,
+				},
+			},
+		})
+
+		// Set requested memory equals to overhead memory
 		resources.Requests[k8sv1.ResourceMemory] = *memoryOverhead
 		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
 			resources.Limits[k8sv1.ResourceMemory] = *memoryOverhead
 		}
 	} else {
+		// Add overhead memory
 		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
 		memoryRequest.Add(*memoryOverhead)
 		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
@@ -384,21 +399,6 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	overhead.Add(resource.MustParse("16Mi"))
 
 	return overhead
-}
-
-func configureHugepagesMount(volumes []k8sv1.Volume, volumesMounts []k8sv1.VolumeMount, hugepageResource k8sv1.ResourceName) {
-	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
-		Name:      "hugepages",
-		MountPath: filepath.Join("/dev/", hugepagesMounts[hugepageResource]),
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "hugepages",
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{
-				Medium: k8sv1.StorageMediumHugePages,
-			},
-		},
-	})
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
