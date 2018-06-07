@@ -45,6 +45,16 @@ type PodInterface struct{}
 
 func (l *PodInterface) Unplug() {}
 
+func findPodInterface(ifaces []api.Interface) (int, error) {
+	for i, iface := range ifaces {
+		// TODO:(ihar) find a more robust way to detect pod interface
+		if iface.Type == "bridge" && iface.Source.Bridge == api.DefaultBridgeName {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("failed to find a default interface configuration")
+}
+
 // Plug connect a Pod network device to the virtual machine
 func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
@@ -55,20 +65,16 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		return err
 	}
 
-	interfaces := domain.Spec.Devices.Interfaces
-
-	// There should always be a pre-configured interface for the default pod interface.
-	if len(interfaces) == 0 {
-		return fmt.Errorf("failed to find a default interface configuration")
-	}
-
 	ifconf, err := getCachedInterface(iface.Name)
 	if err != nil {
 		return err
 	}
 
-	// TODO:(ihar) don't assume pod interface is single / first
-	podInterfaceNum := 0
+	interfaces := domain.Spec.Devices.Interfaces
+	podInterfaceNum, err := findPodInterface(interfaces)
+	if err != nil {
+		return err
+	}
 
 	if ifconf == nil {
 		err := driver.discoverPodNetworkInterface()
@@ -93,7 +99,6 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		ifconf = &defaultIconf
 	}
 
-	// TODO:(vladikr) Currently we support only one interface per vm.
 	interfaces[podInterfaceNum] = *ifconf
 
 	return nil

@@ -173,6 +173,38 @@ var _ = Describe("Pod Network", func() {
 				Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
 			})
 		})
+		Context("func findPodInterface()", func() {
+			It("should fail on empty interface list", func() {
+				_, err := findPodInterface([]api.Interface{})
+				Expect(err).To(HaveOccurred())
+			})
+			It("should fail when pod interface is missing", func() {
+				interfaces := []api.Interface{
+					api.Interface{Type: "not-bridge", Source: api.InterfaceSource{Bridge: api.DefaultBridgeName}},
+					api.Interface{Type: "bridge", Source: api.InterfaceSource{Bridge: "other_br"}},
+				}
+				_, err := findPodInterface(interfaces)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should pass when pod interface is single", func() {
+				interfaces := []api.Interface{
+					api.Interface{Type: "bridge", Source: api.InterfaceSource{Bridge: api.DefaultBridgeName}},
+				}
+				idx, err := findPodInterface(interfaces)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(idx).To(Equal(0))
+			})
+			It("should pass when pod interface is not the first in the list", func() {
+				interfaces := []api.Interface{
+					api.Interface{Type: "not-bridge", Source: api.InterfaceSource{Bridge: api.DefaultBridgeName}},
+					api.Interface{Type: "bridge", Source: api.InterfaceSource{Bridge: "other_br"}},
+					api.Interface{Type: "bridge", Source: api.InterfaceSource{Bridge: api.DefaultBridgeName}},
+				}
+				idx, err := findPodInterface(interfaces)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(idx).To(Equal(2))
+			})
+		})
 	})
 })
 

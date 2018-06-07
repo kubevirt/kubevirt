@@ -502,6 +502,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		},
 		Type: "bridge",
 		Source: InterfaceSource{
+			// If it is ever allowed to change, we may need to adjust
+			// findPodInterface
 			Bridge: DefaultBridgeName,
 		}},
 	}
