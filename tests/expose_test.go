@@ -247,7 +247,7 @@ var _ = Describe("Expose", func() {
 				rs, err := virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(rs.Status.ReadyReplicas)
-			}, 60*time.Second, 1*time.Second).Should(Equal(numberOfVMs))
+			}, 120*time.Second, 1*time.Second).Should(Equal(numberOfVMs))
 
 			By("add an 'hello world' server on each VM in the replica set")
 			// TODO: add label to list options
