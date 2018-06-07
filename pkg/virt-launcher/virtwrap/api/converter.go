@@ -41,7 +41,7 @@ import (
 type ConverterContext struct {
 	AllowEmulation bool
 	Secrets        map[string]*k8sv1.Secret
-	VirtualMachine *v1.VirtualMachine
+	VirtualMachine *v1.VirtualMachineInstance
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
@@ -333,7 +333,7 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	return nil
 }
 
-func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Domain, c *ConverterContext) (err error) {
+func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) (err error) {
 	precond.MustNotBeNil(vm)
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
@@ -501,7 +501,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 	return nil
 }
 
-func SecretToLibvirtSecret(vm *v1.VirtualMachine, secretName string) string {
+func SecretToLibvirtSecret(vm *v1.VirtualMachineInstance, secretName string) string {
 	return fmt.Sprintf("%s-%s-%s---", secretName, vm.Namespace, vm.Name)
 }
 

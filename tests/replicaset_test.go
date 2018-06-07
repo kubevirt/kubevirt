@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("VirtualMachineReplicaSet", func() {
+var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 
 	flag.Parse()
 
@@ -58,7 +58,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 
 		// Status updates can conflict with our desire to change the spec
 		By(fmt.Sprintf("Scaling to %d", scale))
-		var rs *v1.VirtualMachineReplicaSet
+		var rs *v1.VirtualMachineInstanceReplicaSet
 		for {
 			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -79,13 +79,13 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 			return rs.Status.Replicas
 		}, 60, 1).Should(Equal(int32(scale)))
 
-		vms, err := virtClient.VM(tests.NamespaceTestDefault).List(v12.ListOptions{})
+		vms, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(tests.NotDeleted(vms)).To(HaveLen(int(scale)))
 	}
 
-	newReplicaSet := func() *v1.VirtualMachineReplicaSet {
-		By("Create a new VM replica set")
+	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
+		By("Create a new VirtualMachineInstance replica set")
 		template := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 		newRS := tests.NewRandomReplicaSetFromVM(template, int32(0))
 		newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
@@ -108,7 +108,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		newRS := newReplicaSet()
 		newRS.TypeMeta = v12.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachineReplicaSet",
+			Kind:       "VirtualMachineInstanceReplicaSet",
 		}
 
 		jsonBytes, err := json.Marshal(newRS)
@@ -117,7 +117,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		// change the name of a required field (like domain) so validation will fail
 		jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
 
-		result := virtClient.RestClient().Post().Resource("virtualmachinereplicasets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
+		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
 
 		// Verify validation failed.
 		statusCode := 0
@@ -129,7 +129,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		newRS := newReplicaSet()
 		newRS.TypeMeta = v12.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachineReplicaSet",
+			Kind:       "VirtualMachineInstanceReplicaSet",
 		}
 
 		// Add a disk that doesn't map to a volume.
@@ -139,7 +139,7 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 			VolumeName: "testvolume",
 		})
 
-		result := virtClient.RestClient().Post().Resource("virtualmachinereplicasets").Namespace(tests.NamespaceTestDefault).Body(newRS).Do()
+		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(tests.NamespaceTestDefault).Body(newRS).Do()
 
 		// Verify validation failed.
 		statusCode := 0
@@ -171,31 +171,31 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
 		// Delete it
-		By("Deleting the VM replica set")
+		By("Deleting the VirtualMachineInstance replica set")
 		Expect(virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Delete(newRS.ObjectMeta.Name, &v12.DeleteOptions{})).To(Succeed())
 		// Wait until VMs are gone
 		By("Waiting until all VMs are gone")
 		Eventually(func() int {
-			vms, err := virtClient.VM(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+			vms, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vms.Items)
 		}, 60*time.Second, 1*time.Second).Should(BeZero())
 	})
 
-	It("should remove owner references on the VM if it is orphan deleted", func() {
+	It("should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
 
 		// Check for owner reference
-		vms, err := virtClient.VM(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+		vms, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
 		Expect(vms.Items).To(HaveLen(2))
 		for _, vm := range vms.Items {
 			Expect(vm.OwnerReferences).ToNot(BeEmpty())
 		}
 
 		// Delete it
-		By("Deleting the VM replica set with the 'orphan' deletion strategy")
+		By("Deleting the VirtualMachineInstance replica set with the 'orphan' deletion strategy")
 		orphanPolicy := v12.DeletePropagationOrphan
 		Expect(virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).
 			Delete(newRS.ObjectMeta.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
@@ -210,10 +210,10 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 		By("Checking if two VMs are orphaned and still exist")
-		vms, err = virtClient.VM(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+		vms, err = virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
 		Expect(vms.Items).To(HaveLen(2))
 
-		By("Checking a VM owner references")
+		By("Checking a VirtualMachineInstance owner references")
 		for _, vm := range vms.Items {
 			Expect(vm.OwnerReferences).To(BeEmpty())
 		}
@@ -228,14 +228,14 @@ var _ = Describe("VirtualMachineReplicaSet", func() {
 		_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() v1.VMReplicaSetConditionType {
+		Eventually(func() v1.VirtualMachineInstanceReplicaSetConditionType {
 			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(rs.Status.Conditions) > 0 {
 				return rs.Status.Conditions[0].Type
 			}
 			return ""
-		}, 10*time.Second, 1*time.Second).Should(Equal(v1.VMReplicaSetReplicaPaused))
+		}, 10*time.Second, 1*time.Second).Should(Equal(v1.VirtualMachineInstanceReplicaSetReplicaPaused))
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")

@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-type VMCreationFunc func(string) *v1.VirtualMachine
+type VMCreationFunc func(string) *v1.VirtualMachineInstance
 
 var _ = Describe("Storage", func() {
 
@@ -99,16 +99,16 @@ var _ = Describe("Storage", func() {
 		Expect(logs).To(ContainSubstring("State: ready"))
 	}
 
-	RunVMAndExpectLaunch := func(vm *v1.VirtualMachine, withAuth bool, timeout int) *v1.VirtualMachine {
-		By("Starting a VM")
+	RunVMAndExpectLaunch := func(vm *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+		By("Starting a VirtualMachineInstance")
 
-		var obj *v1.VirtualMachine
+		var obj *v1.VirtualMachineInstance
 		var err error
 		Eventually(func() error {
-			obj, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+			obj, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-		By("Waiting until the VM will start")
+		By("Waiting until the VirtualMachineInstance will start")
 		tests.WaitForSuccessfulVMStartWithTimeout(obj, timeout)
 		return obj
 	}
@@ -119,12 +119,12 @@ var _ = Describe("Storage", func() {
 		})
 	})
 
-	Describe("Starting a VM", func() {
+	Describe("Starting a VirtualMachineInstance", func() {
 		Context("with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVM VMCreationFunc) {
 				checkReadiness()
 
-				// Start the VM with the PVC attached
+				// Start the VirtualMachineInstance with the PVC attached
 				vm := newVM(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				RunVMAndExpectLaunch(vm, false, 90)
@@ -133,7 +133,7 @@ var _ = Describe("Storage", func() {
 				Expect(err).To(BeNil())
 				defer expecter.Close()
 
-				By("Checking that the VM console has expected output")
+				By("Checking that the VirtualMachineInstance console has expected output")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
@@ -151,14 +151,14 @@ var _ = Describe("Storage", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				num := 3
-				By("Starting and stopping the VM number of times")
+				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
 					vm := RunVMAndExpectLaunch(vm, false, 90)
 
-					// Verify console on last iteration to verify the VM is still booting properly
+					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
-						By("Checking that the VM console has expected output")
+						By("Checking that the VirtualMachineInstance console has expected output")
 						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 						Expect(err).To(BeNil())
 						defer expecter.Close()
@@ -169,7 +169,7 @@ var _ = Describe("Storage", func() {
 						Expect(err).To(BeNil())
 					}
 
-					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 				}
@@ -180,10 +180,10 @@ var _ = Describe("Storage", func() {
 		})
 
 		Context("With an emptyDisk defined", func() {
-			// The following case is mostly similar to the alpine PVC test above, except using different VM.
+			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			It("should create a writeable emptyDisk with the right capacity", func() {
 
-				// Start the VM with the empty disk attached
+				// Start the VirtualMachineInstance with the empty disk attached
 				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:       "emptydisk1",
@@ -230,11 +230,11 @@ var _ = Describe("Storage", func() {
 		})
 
 		Context("With ephemeral alpine PVC", func() {
-			// The following case is mostly similar to the alpine PVC test above, except using different VM.
+			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			It("should be successfully started", func() {
 				checkReadiness()
 
-				// Start the VM with the PVC attached
+				// Start the VirtualMachineInstance with the PVC attached
 				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				RunVMAndExpectLaunch(vm, false, 90)
@@ -243,7 +243,7 @@ var _ = Describe("Storage", func() {
 				Expect(err).To(BeNil())
 				defer expecter.Close()
 
-				By("Checking that the VM console has expected output")
+				By("Checking that the VirtualMachineInstance console has expected output")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "Welcome to Alpine"},
@@ -256,7 +256,7 @@ var _ = Describe("Storage", func() {
 				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
-				By("Starting the VM")
+				By("Starting the VirtualMachineInstance")
 				createdVM := RunVMAndExpectLaunch(vm, false, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
@@ -280,12 +280,12 @@ var _ = Describe("Storage", func() {
 				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Killing a VM")
-				err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+				By("Killing a VirtualMachineInstance")
+				err = virtClient.VirtualMachineInstance(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVM, 120)
 
-				By("Starting the VM again")
+				By("Starting the VirtualMachineInstance again")
 				RunVMAndExpectLaunch(vm, false, 90)
 
 				By("Making sure that the previously written file is not present")
@@ -299,7 +299,7 @@ var _ = Describe("Storage", func() {
 					&expect.BExp{R: "login"},
 					&expect.BSnd{S: "root\n"},
 					&expect.BExp{R: "#"},
-					// Same story as when first starting the VM - the checkpoint, if persisted, is located at /dev/sda2.
+					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},
@@ -311,7 +311,7 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
-		Context("With VM with two PVCs", func() {
+		Context("With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
 				tests.CreatePvISCSI(tests.CustomISCSI, 1)
@@ -331,11 +331,11 @@ var _ = Describe("Storage", func() {
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				num := 3
-				By("Starting and stopping the VM number of times")
+				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
 					obj := RunVMAndExpectLaunch(vm, false, 120)
 
-					// Verify console on last iteration to verify the VM is still booting properly
+					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the second disk is present")
@@ -353,7 +353,7 @@ var _ = Describe("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 
-					err = virtClient.VM(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
 
 					tests.WaitForVirtualMachineToDisappearWithTimeout(obj, 120)

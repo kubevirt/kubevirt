@@ -39,7 +39,7 @@ func (CPU) SwaggerDoc() map[string]string {
 
 func (Machine) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"type": "QEMU machine type is the actual chipset of the VM.",
+		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
 	}
 }
 

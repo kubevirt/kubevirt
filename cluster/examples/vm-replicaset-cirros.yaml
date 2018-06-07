@@ -1,5 +1,5 @@
 apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachineReplicaSet
+kind: VirtualMachineInstanceReplicaSet
 metadata:
   creationTimestamp: null
   name: vm-replicaset-cirros

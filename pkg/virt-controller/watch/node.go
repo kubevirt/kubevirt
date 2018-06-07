@@ -84,14 +84,14 @@ func (c *NodeController) enqueueNode(obj interface{}) {
 }
 
 func (c *NodeController) addVirtualMachine(obj interface{}) {
-	vm := obj.(*virtv1.VirtualMachine)
+	vm := obj.(*virtv1.VirtualMachineInstance)
 	if vm.Status.NodeName != "" {
 		c.Queue.Add(vm.Status.NodeName)
 	}
 }
 
 func (c *NodeController) updateVirtualMachine(old, curr interface{}) {
-	currVM := curr.(*virtv1.VirtualMachine)
+	currVM := curr.(*virtv1.VirtualMachineInstance)
 	if currVM.Status.NodeName != "" {
 		c.Queue.Add(currVM.Status.NodeName)
 	}
@@ -192,7 +192,7 @@ func (c *NodeController) execute(key string) error {
 		// Do sequential updates, we don't want to create update storms in situations where something might already be wrong
 		for _, vm := range vms {
 			logger.V(2).Infof("Moving vm %s in namespace %s on unresponsive node to failed state", vm.Name, vm.Namespace)
-			_, err := c.clientset.VM(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/status/phase\", \"value\": \"%s\" }]", virtv1.Failed)))
+			_, err := c.clientset.VirtualMachineInstance(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/status/phase\", \"value\": \"%s\" }]", virtv1.Failed)))
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("failed to move vm %s in namespace %s to final state: %v", vm.Name, vm.Namespace, err))
 				logger.Reason(err).Errorf("Failed to move vm %s in namespace %s to final state", vm.Name, vm.Namespace)
@@ -209,12 +209,12 @@ func (c *NodeController) execute(key string) error {
 	return nil
 }
 
-func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*virtv1.VirtualMachine, error) {
+func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*virtv1.VirtualMachineInstance, error) {
 	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", virtv1.NodeNameLabel, nodeName))
 	if err != nil {
 		return nil, err
 	}
-	list, err := c.clientset.VM(v1.NamespaceAll).List(metav1.ListOptions{
+	list, err := c.clientset.VirtualMachineInstance(v1.NamespaceAll).List(metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 
@@ -222,7 +222,7 @@ func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*virtv1.Virtua
 		return nil, err
 	}
 
-	vms := []*virtv1.VirtualMachine{}
+	vms := []*virtv1.VirtualMachineInstance{}
 
 	for i := range list.Items {
 		vms = append(vms, &list.Items[i])
@@ -252,7 +252,7 @@ func (c *NodeController) podsOnNode(nodeName string) ([]*v1.Pod, error) {
 	return pods, nil
 }
 
-func filterStuckVirtualMachinesWithoutPods(vms []*virtv1.VirtualMachine, pods []*v1.Pod) []*virtv1.VirtualMachine {
+func filterStuckVirtualMachinesWithoutPods(vms []*virtv1.VirtualMachineInstance, pods []*v1.Pod) []*virtv1.VirtualMachineInstance {
 	podsPerNamespace := map[string]map[string]*v1.Pod{}
 
 	for _, pod := range pods {
@@ -268,7 +268,7 @@ func filterStuckVirtualMachinesWithoutPods(vms []*virtv1.VirtualMachine, pods []
 		podsPerNamespace[pod.Namespace] = podsForVM
 	}
 
-	filtered := []*virtv1.VirtualMachine{}
+	filtered := []*virtv1.VirtualMachineInstance{}
 	for _, vm := range vms {
 		if vm.IsScheduled() || vm.IsRunning() {
 			if podsForVM, exists := podsPerNamespace[vm.Namespace]; exists {

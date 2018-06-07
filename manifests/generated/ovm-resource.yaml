@@ -20,8 +20,8 @@ spec:
     openAPIV3Schema:
       description: OfflineVirtualMachine handles the VirtualMachines that are not
         running or are in a stopped state The OfflineVirtualMachine contains the template
-        to create the VirtualMachine. It also mirrors the running state of the created
-        VirtualMachine in its status.
+        to create the VirtualMachineInstance. It also mirrors the running state of
+        the created VirtualMachineInstance in its status.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -39,18 +39,18 @@ spec:
             should look like
           properties:
             running:
-              description: Running controls whether the associatied VirtualMachine
+              description: Running controls whether the associatied VirtualMachineInstance
                 is created or not
               type: boolean
             template:
               properties:
                 metadata: {}
                 spec:
-                  description: VirtualMachineSpec is a description of a VirtualMachine.
+                  description: VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
                   properties:
                     affinity:
                       description: Affinity groups all the affinity rules related
-                        to a VM
+                        to a VirtualMachineInstance
                       properties:
                         nodeAffinity: {}
                     domain:
@@ -291,7 +291,7 @@ spec:
                           properties:
                             type:
                               description: QEMU machine type is the actual chipset
-                                of the VM.
+                                of the VirtualMachineInstance.
                               type: string
                           required:
                           - type
@@ -328,8 +328,8 @@ spec:
                         itself can pick up a hostname.
                       type: string
                     terminationGracePeriodSeconds:
-                      description: Grace period observed after signalling a VM to
-                        stop after which the VM is force terminated.
+                      description: Grace period observed after signalling a VirtualMachineInstance
+                        to stop after which the VirtualMachineInstance is force terminated.
                       format: int64
                       type: integer
                     volumes:
@@ -395,7 +395,7 @@ spec:
           properties:
             conditions:
               description: Hold the state information of the OfflineVirtualMachine
-                and its VirtualMachine
+                and its VirtualMachineInstance
               items:
                 description: OfflineVirtualMachineCondition represents the state of
                   OfflineVirtualMachine

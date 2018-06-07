@@ -47,11 +47,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-var _ = Describe("VM watcher", func() {
+var _ = Describe("VirtualMachineInstance watcher", func() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	var ctrl *gomock.Controller
-	var vmInterface *kubecli.MockVMInterface
+	var vmInterface *kubecli.MockVirtualMachineInstanceInterface
 	var vmSource *framework.FakeControllerSource
 	var podSource *framework.FakeControllerSource
 	var vmInformer cache.SharedIndexInformer
@@ -87,11 +87,11 @@ var _ = Describe("VM watcher", func() {
 		})
 	}
 
-	shouldExpectVirtualMachineHandover := func(vm *v1.VirtualMachine) {
+	shouldExpectVirtualMachineHandover := func(vm *v1.VirtualMachineInstance) {
 		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduled))
-			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduled))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 		}).Return(vm, nil)
 	}
 
@@ -104,19 +104,19 @@ var _ = Describe("VM watcher", func() {
 		})
 	}
 
-	shouldExpectVirtualMachineSchedulingState := func(vm *v1.VirtualMachine) {
+	shouldExpectVirtualMachineSchedulingState := func(vm *v1.VirtualMachineInstance) {
 		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduling))
-			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduling))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 		}).Return(vm, nil)
 	}
 
-	shouldExpectVirtualMachineFailedState := func(vm *v1.VirtualMachine) {
+	shouldExpectVirtualMachineFailedState := func(vm *v1.VirtualMachineInstance) {
 		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Failed))
-			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Failed))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+			Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 		}).Return(vm, nil)
 	}
 
@@ -130,9 +130,9 @@ var _ = Describe("VM watcher", func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVMInterface(ctrl)
+		vmInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 
@@ -144,7 +144,7 @@ var _ = Describe("VM watcher", func() {
 		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
 
 		// Set up mock client
-		virtClient.EXPECT().VM(k8sv1.NamespaceDefault).Return(vmInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
@@ -162,14 +162,14 @@ var _ = Describe("VM watcher", func() {
 		ctrl.Finish()
 	})
 
-	addVirtualMachine := func(vm *v1.VirtualMachine) {
+	addVirtualMachine := func(vm *v1.VirtualMachineInstance) {
 		mockQueue.ExpectAdds(1)
 		vmSource.Add(vm)
 		mockQueue.Wait()
 	}
 
-	Context("On valid VirtualMachine given", func() {
-		It("should create a corresponding Pod on VirtualMachine creation", func() {
+	Context("On valid VirtualMachineInstance given", func() {
+		It("should create a corresponding Pod on VirtualMachineInstance creation", func() {
 			vm := NewPendingVirtualMachine("testvm")
 
 			addVirtualMachine(vm)
@@ -180,7 +180,7 @@ var _ = Describe("VM watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
-		table.DescribeTable("should delete the corresponding Pod on VirtualMachine deletion with vm", func(phase v1.VMPhase) {
+		table.DescribeTable("should delete the corresponding Pod on VirtualMachineInstance deletion with vm", func(phase v1.VirtualMachineInstancePhase) {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = phase
 			vm.DeletionTimestamp = now()
@@ -231,7 +231,7 @@ var _ = Describe("VM watcher", func() {
 
 			controller.Execute()
 		})
-		table.DescribeTable("should not delete the corresponding Pod if the vm is in", func(phase v1.VMPhase) {
+		table.DescribeTable("should not delete the corresponding Pod if the vm is in", func(phase v1.VirtualMachineInstancePhase) {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = phase
 			pod := NewPodForVirtualMachine(vm, k8sv1.PodRunning)
@@ -263,7 +263,7 @@ var _ = Describe("VM watcher", func() {
 			})
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -272,7 +272,7 @@ var _ = Describe("VM watcher", func() {
 		})
 		It("should remove the error condition if the sync finally succeeds", func() {
 			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Conditions = []v1.VirtualMachineCondition{{Type: v1.VirtualMachineSynchronized}}
+			vm.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceSynchronized}}
 
 			addVirtualMachine(vm)
 
@@ -286,7 +286,7 @@ var _ = Describe("VM watcher", func() {
 			})
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -372,7 +372,7 @@ var _ = Describe("VM watcher", func() {
 			podFeeder.Add(pod)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedDeletePodReason))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal(FailedDeletePodReason))
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -392,7 +392,7 @@ var _ = Describe("VM watcher", func() {
 			podFeeder.Add(pod)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedHandOverPodReason))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal(FailedHandOverPodReason))
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -410,7 +410,7 @@ var _ = Describe("VM watcher", func() {
 			addVirtualMachine(vm)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedCreatePodReason))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal(FailedCreatePodReason))
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -465,17 +465,17 @@ var _ = Describe("VM watcher", func() {
 
 			controller.Execute()
 		})
-		table.DescribeTable("should remove the finalizer if no pod is present and the vm is in ", func(phase v1.VMPhase) {
+		table.DescribeTable("should remove the finalizer if no pod is present and the vm is in ", func(phase v1.VirtualMachineInstancePhase) {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = phase
-			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
+			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 
 			addVirtualMachine(vm)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(phase))
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-				Expect(arg.(*v1.VirtualMachine).Finalizers).ToNot(ContainElement(v1.VirtualMachineFinalizer))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(phase))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+				Expect(arg.(*v1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(v1.VirtualMachineInstanceFinalizer))
 			}).Return(vm, nil)
 
 			controller.Execute()
@@ -511,7 +511,7 @@ var _ = Describe("VM watcher", func() {
 		table.DescribeTable("should move the vm to failed if pod is not handed over", func(phase k8sv1.PodPhase) {
 			vm := NewPendingVirtualMachine("testvm")
 			vm.Status.Phase = v1.Scheduling
-			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
+			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 			pod := NewPodForVirtualMachine(vm, phase)
 
 			addVirtualMachine(vm)
@@ -527,7 +527,7 @@ var _ = Describe("VM watcher", func() {
 	})
 })
 
-func NewPendingVirtualMachine(name string) *v1.VirtualMachine {
+func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
 	vm := v1.NewMinimalVM(name)
 	vm.UID = "1234"
 	vm.Status.Phase = v1.Pending
@@ -535,7 +535,7 @@ func NewPendingVirtualMachine(name string) *v1.VirtualMachine {
 	return vm
 }
 
-func NewPodForVirtualMachine(vm *v1.VirtualMachine, phase k8sv1.PodPhase) *k8sv1.Pod {
+func NewPodForVirtualMachine(vm *v1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
 	return &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",

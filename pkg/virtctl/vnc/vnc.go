@@ -89,9 +89,9 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	// setup connection with VM
+	// setup connection with VirtualMachineInstance
 	go func() {
-		err := virtCli.VM(namespace).VNC(vm, pipeInReader, pipeOutWriter)
+		err := virtCli.VirtualMachineInstance(namespace).VNC(vm, pipeInReader, pipeOutWriter)
 		k8ResChan <- err
 	}()
 

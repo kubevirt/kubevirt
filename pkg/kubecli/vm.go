@@ -42,13 +42,13 @@ const (
 	WebsocketMessageBufferSize = 10240
 )
 
-func (k *kubevirt) VM(namespace string) VMInterface {
+func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
 	return &vms{
 		restClient: k.restClient,
 		config:     k.config,
 		clientSet:  k.Clientset,
 		namespace:  namespace,
-		resource:   "virtualmachines",
+		resource:   "virtualmachineinstances",
 	}
 }
 
@@ -221,7 +221,7 @@ func RequestFromConfig(config *rest.Config, vm string, namespace string, resourc
 		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
 	}
 
-	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/v1alpha1/namespaces/%s/virtualmachines/%s/%s", namespace, vm, resource)
+	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineinstances/%s/%s", namespace, vm, resource)
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
@@ -274,8 +274,8 @@ func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out 
 	}
 }
 
-func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMachine, err error) {
-	vm = &v1.VirtualMachine{}
+func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMachineInstance, err error) {
+	vm = &v1.VirtualMachineInstance{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -283,12 +283,12 @@ func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMach
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(vm)
-	vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	vm.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VirtualMachineList, err error) {
-	vmList = &v1.VirtualMachineList{}
+func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VirtualMachineInstanceList, err error) {
+	vmList = &v1.VirtualMachineInstanceList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
@@ -296,26 +296,26 @@ func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VirtualMachineList
 		Do().
 		Into(vmList)
 	for _, vm := range vmList.Items {
-		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+		vm.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	}
 
 	return
 }
 
-func (v *vms) Create(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
+func (v *vms) Create(vm *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vm).
 		Do().
 		Into(result)
-	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vms) Update(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
+func (v *vms) Update(vm *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Put().
 		Name(vm.ObjectMeta.Name).
 		Namespace(v.namespace).
@@ -323,7 +323,7 @@ func (v *vms) Update(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err erro
 		Body(vm).
 		Do().
 		Into(result)
-	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
@@ -337,8 +337,8 @@ func (v *vms) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Error()
 }
 
-func (v *vms) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
+func (v *vms) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
 		Resource(v.resource).

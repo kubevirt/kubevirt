@@ -50,7 +50,7 @@ var _ = Describe("LeaderElection", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("Start a VM", func() {
+	Describe("Start a VirtualMachineInstance", func() {
 		Context("when the controller pod is not running", func() {
 			It("should success", func() {
 				newLeaderPod := getNewLeaderPod(virtClient)
@@ -86,8 +86,8 @@ var _ = Describe("LeaderElection", func() {
 
 				vm := tests.NewRandomVM()
 
-				By("Starting a new VM")
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+				By("Starting a new VirtualMachineInstance")
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMStart(obj)
 			}, 150)

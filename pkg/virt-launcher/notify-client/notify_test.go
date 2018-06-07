@@ -114,7 +114,7 @@ var _ = Describe("Domain notify", func() {
 		)
 	})
 
-	It("should receive a delete event when a VM is undefined",
+	It("should receive a delete event when a VirtualMachineInstance is undefined",
 		func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})

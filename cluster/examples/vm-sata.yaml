@@ -1,5 +1,5 @@
 apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachine
+kind: VirtualMachineInstance
 metadata:
   creationTimestamp: null
   name: vm-sata

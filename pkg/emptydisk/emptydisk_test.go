@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("EmptyDisk", func() {
 
-	AppendEmptyDisk := func(vm *v1.VirtualMachine, diskName string, volumeName string) {
+	AppendEmptyDisk := func(vm *v1.VirtualMachineInstance, diskName string, volumeName string) {
 		vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 			Name:       diskName,
 			VolumeName: volumeName,

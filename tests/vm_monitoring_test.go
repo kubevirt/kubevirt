@@ -41,9 +41,9 @@ var _ = Describe("Health Monitoring", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	launchVM := func(vm *v1.VirtualMachine) {
-		By("Starting a VM")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+	launchVM := func(vm *v1.VirtualMachineInstance) {
+		By("Starting a VirtualMachineInstance")
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 
 		tests.WaitForSuccessfulVMStart(obj)
@@ -53,13 +53,13 @@ var _ = Describe("Health Monitoring", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("A VM with a watchdog device", func() {
+	Describe("A VirtualMachineInstance with a watchdog device", func() {
 		It("should be shut down when the watchdog expires", func() {
 			vm := tests.NewRandomVMWithWatchdog()
 			Expect(err).ToNot(HaveOccurred())
 			launchVM(vm)
 
-			By("Expecting the VM console")
+			By("Expecting the VirtualMachineInstance console")
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
@@ -82,9 +82,9 @@ var _ = Describe("Health Monitoring", func() {
 			namespace := vm.ObjectMeta.Namespace
 			name := vm.ObjectMeta.Name
 
-			By("Checking that the VM has Failed status")
-			Eventually(func() v1.VMPhase {
-				startedVM, err := virtClient.VM(namespace).Get(name, metav1.GetOptions{})
+			By("Checking that the VirtualMachineInstance has Failed status")
+			Eventually(func() v1.VirtualMachineInstancePhase {
+				startedVM, err := virtClient.VirtualMachineInstance(namespace).Get(name, metav1.GetOptions{})
 
 				Expect(err).ToNot(HaveOccurred())
 				return startedVM.Status.Phase

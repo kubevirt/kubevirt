@@ -9,17 +9,17 @@ rules:
   - apiGroups:
       - subresources.kubevirt.io
     resources:
-      - virtualmachines/console
-      - virtualmachines/vnc
+      - virtualmachineinstances/console
+      - virtualmachineinstances/vnc
     verbs:
       - get
   - apiGroups:
       - kubevirt.io
     resources:
-      - virtualmachines
+      - virtualmachineinstances
       - offlinevirtualmachines
-      - virtualmachinepresets
-      - virtualmachinereplicasets
+      - virtualmachineinstancepresets
+      - virtualmachineinstancereplicasets
     verbs:
       - get
       - delete
@@ -51,17 +51,17 @@ rules:
   - apiGroups:
       - subresources.kubevirt.io
     resources:
-      - virtualmachines/console
-      - virtualmachines/vnc
+      - virtualmachineinstances/console
+      - virtualmachineinstances/vnc
     verbs:
       - get
   - apiGroups:
       - kubevirt.io
     resources:
-      - virtualmachines
+      - virtualmachineinstances
       - offlinevirtualmachines
-      - virtualmachinepresets
-      - virtualmachinereplicasets
+      - virtualmachineinstancepresets
+      - virtualmachineinstancereplicasets
     verbs:
       - get
       - delete
@@ -81,10 +81,10 @@ rules:
   - apiGroups:
       - kubevirt.io
     resources:
-      - virtualmachines
+      - virtualmachineinstances
       - offlinevirtualmachines
-      - virtualmachinepresets
-      - virtualmachinereplicasets
+      - virtualmachineinstancepresets
+      - virtualmachineinstancereplicasets
     verbs:
       - get
       - list
@@ -205,7 +205,7 @@ rules:
   - apiGroups:
       - kubevirt.io
     resources:
-      - virtualmachines
+      - virtualmachineinstances
     verbs:
       - get
       - list
@@ -241,9 +241,9 @@ rules:
   - apiGroups:
       - kubevirt.io
     resources:
-      - virtualmachines
-      - virtualmachinereplicasets
-      - virtualmachinepresets
+      - virtualmachineinstances
+      - virtualmachineinstancereplicasets
+      - virtualmachineinstancepresets
       - offlinevirtualmachines
     verbs:
       - get

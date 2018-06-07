@@ -5,16 +5,16 @@ metadata:
   creationTimestamp: null
   labels:
     kubevirt.io: ""
-  name: virtualmachinereplicasets.kubevirt.io
+  name: virtualmachineinstancereplicasets.kubevirt.io
 spec:
   group: kubevirt.io
   names:
-    kind: VirtualMachineReplicaSet
-    plural: virtualmachinereplicasets
+    kind: VirtualMachineInstanceReplicaSet
+    plural: virtualmachineinstancereplicasets
     shortNames:
-    - vmrs
-    - vmrss
-    singular: virtualmachinereplicaset
+    - vmirs
+    - vmirss
+    singular: virtualmachineinstancereplicaset
   scope: Namespaced
   validation:
     openAPIV3Schema:
@@ -47,7 +47,7 @@ spec:
               properties:
                 metadata: {}
                 spec:
-                  description: VirtualMachineSpec is a description of a VirtualMachine.
+                  description: VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
                   properties:
                     affinity:
                       description: Affinity groups all the affinity rules related

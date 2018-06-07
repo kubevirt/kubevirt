@@ -38,8 +38,8 @@ import (
 )
 
 var _ = Describe("Validating Webhook", func() {
-	Context("with VM admission review", func() {
-		It("reject invalid VM spec", func() {
+	Context("with VirtualMachineInstance admission review", func() {
+		It("reject invalid VirtualMachineInstance spec", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -49,7 +49,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
+					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
 					Object: runtime.RawExtension{
 						Raw: vmBytes,
 					},
@@ -77,7 +77,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
+					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
 					Object: runtime.RawExtension{
 						Raw: vmBytes,
 					},
@@ -88,15 +88,15 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 	Context("with VMRS admission review", func() {
-		table.DescribeTable("reject invalid VM spec", func(vmrs *v1.VirtualMachineReplicaSet, causes []string) {
+		table.DescribeTable("reject invalid VirtualMachineInstance spec", func(vmrs *v1.VirtualMachineInstanceReplicaSet, causes []string) {
 			vmrsBytes, _ := json.Marshal(&vmrs)
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{
-						Group:    v1.VMReplicaSetGroupVersionKind.Group,
-						Version:  v1.VMReplicaSetGroupVersionKind.Version,
-						Resource: "virtualmachinereplicasets",
+						Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+						Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+						Resource: "virtualmachineinstancereplicasets",
 					},
 					Object: runtime.RawExtension{
 						Raw: vmrsBytes,
@@ -111,7 +111,7 @@ var _ = Describe("Validating Webhook", func() {
 				Expect(resp.Result.Details.Causes[i].Field).To(Equal(cause))
 			}
 		},
-			table.Entry("with missing volume and missing labels", &v1.VirtualMachineReplicaSet{
+			table.Entry("with missing volume and missing labels", &v1.VirtualMachineInstanceReplicaSet{
 				Spec: v1.VMReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "this"},
@@ -125,7 +125,7 @@ var _ = Describe("Validating Webhook", func() {
 				"spec.template.spec.domain.devices.disks[0].volumeName",
 				"spec.selector",
 			}),
-			table.Entry("with mismatching label selectors", &v1.VirtualMachineReplicaSet{
+			table.Entry("with mismatching label selectors", &v1.VirtualMachineInstanceReplicaSet{
 				Spec: v1.VMReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "not"},
@@ -137,7 +137,7 @@ var _ = Describe("Validating Webhook", func() {
 			}),
 		)
 		It("should accept valid vm spec", func() {
-			vmrs := &v1.VirtualMachineReplicaSet{
+			vmrs := &v1.VirtualMachineInstanceReplicaSet{
 				Spec: v1.VMReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "me"},
@@ -162,9 +162,9 @@ var _ = Describe("Validating Webhook", func() {
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{
-						Group:    v1.VMReplicaSetGroupVersionKind.Group,
-						Version:  v1.VMReplicaSetGroupVersionKind.Version,
-						Resource: "virtualmachinereplicasets",
+						Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+						Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+						Resource: "virtualmachineinstancereplicasets",
 					},
 					Object: runtime.RawExtension{
 						Raw: vmrsBytes,
@@ -178,7 +178,7 @@ var _ = Describe("Validating Webhook", func() {
 	})
 
 	Context("with OVM admission review", func() {
-		It("reject invalid VM spec", func() {
+		It("reject invalid VirtualMachineInstance spec", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -253,7 +253,7 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 	Context("with VMPreset admission review", func() {
-		It("reject invalid VM spec", func() {
+		It("reject invalid VirtualMachineInstance spec", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -263,8 +263,8 @@ var _ = Describe("Validating Webhook", func() {
 					Floppy: &v1.FloppyTarget{},
 				},
 			})
-			vmPreset := &v1.VirtualMachinePreset{
-				Spec: v1.VirtualMachinePresetSpec{
+			vmPreset := &v1.VirtualMachineInstancePreset{
+				Spec: v1.VirtualMachineInstancePresetSpec{
 					Domain: &vm.Spec.Domain,
 				},
 			}
@@ -273,9 +273,9 @@ var _ = Describe("Validating Webhook", func() {
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachinePresetGroupVersionKind.Group,
-						Version:  v1.VirtualMachinePresetGroupVersionKind.Version,
-						Resource: "virtualmachinepresets",
+						Group:    v1.VirtualMachineInstancePresetGroupVersionKind.Group,
+						Version:  v1.VirtualMachineInstancePresetGroupVersionKind.Version,
+						Resource: "virtualmachineinstancepresets",
 					},
 					Object: runtime.RawExtension{
 						Raw: vmPresetBytes,
@@ -295,8 +295,8 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeName: "testvolume",
 			})
 
-			vmPreset := &v1.VirtualMachinePreset{
-				Spec: v1.VirtualMachinePresetSpec{
+			vmPreset := &v1.VirtualMachineInstancePreset{
+				Spec: v1.VirtualMachineInstancePresetSpec{
 					Domain: &v1.DomainSpec{},
 				},
 			}
@@ -305,9 +305,9 @@ var _ = Describe("Validating Webhook", func() {
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachinePresetGroupVersionKind.Group,
-						Version:  v1.VirtualMachinePresetGroupVersionKind.Version,
-						Resource: "virtualmachinepresets",
+						Group:    v1.VirtualMachineInstancePresetGroupVersionKind.Group,
+						Version:  v1.VirtualMachineInstancePresetGroupVersionKind.Version,
+						Resource: "virtualmachineinstancepresets",
 					},
 					Object: runtime.RawExtension{
 						Raw: vmPresetBytes,
@@ -320,7 +320,7 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 
-	Context("with VM spec", func() {
+	Context("with VirtualMachineInstance spec", func() {
 		It("should accept disk and volume lists equal to max element length", func() {
 			vm := v1.NewMinimalVM("testvm")
 
@@ -721,7 +721,7 @@ func (b *virtualMachineBuilder) WithVolume(volume v1.Volume) *virtualMachineBuil
 	return b
 }
 
-func (b *virtualMachineBuilder) Build() *v1.VirtualMachine {
+func (b *virtualMachineBuilder) Build() *v1.VirtualMachineInstance {
 
 	vm := v1.NewMinimalVM("testvm")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, b.disks...)

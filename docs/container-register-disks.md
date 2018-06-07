@@ -74,7 +74,7 @@ anywhere in the cluster referencing the same image.
 
 Example:
 ```
-kind: VirtualMachine
+kind: VirtualMachineInstance
 spec:
   domain:
     devices:

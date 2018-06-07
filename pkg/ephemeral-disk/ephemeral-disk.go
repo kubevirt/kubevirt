@@ -77,7 +77,7 @@ func GetFilePath(volumeName string) string {
 	return filepath.Join(volumeMountDir, "disk.qcow2")
 }
 
-func CreateEphemeralImages(vm *v1.VirtualMachine) error {
+func CreateEphemeralImages(vm *v1.VirtualMachineInstance) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetFilePath)
 	// for each disk that requires it.

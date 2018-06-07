@@ -298,7 +298,7 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	return causes
 }
 
-func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
+func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
 	volumeNameMap := make(map[string]*v1.Volume)
@@ -381,7 +381,7 @@ func validateOfflineVirtualMachineSpec(field *k8sfield.Path, spec *v1.OfflineVir
 	return causes
 }
 
-func validateVMPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachinePresetSpec) []metav1.StatusCause {
+func validateVMPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstancePresetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Domain == nil {
@@ -428,9 +428,9 @@ func validateVMRSSpec(field *k8sfield.Path, spec *v1.VMReplicaSetSpec) []metav1.
 
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	vmResource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineGroupVersionKind.Group,
-		Version:  v1.VirtualMachineGroupVersionKind.Version,
-		Resource: "virtualmachines",
+		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
+		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
+		Resource: "virtualmachineinstances",
 	}
 	if ar.Request.Resource != vmResource {
 		err := fmt.Errorf("expect resource to be '%s'", vmResource.Resource)
@@ -438,7 +438,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	vm := v1.VirtualMachine{}
+	vm := v1.VirtualMachineInstance{}
 
 	err := json.Unmarshal(raw, &vm)
 	if err != nil {
@@ -494,9 +494,9 @@ func ServeOVMs(resp http.ResponseWriter, req *http.Request) {
 
 func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
-		Group:    v1.VMReplicaSetGroupVersionKind.Group,
-		Version:  v1.VMReplicaSetGroupVersionKind.Version,
-		Resource: "virtualmachinereplicasets",
+		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+		Resource: "virtualmachineinstancereplicasets",
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
@@ -504,7 +504,7 @@ func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	vmrs := v1.VirtualMachineReplicaSet{}
+	vmrs := v1.VirtualMachineInstanceReplicaSet{}
 
 	err := json.Unmarshal(raw, &vmrs)
 	if err != nil {
@@ -526,9 +526,9 @@ func ServeVMRS(resp http.ResponseWriter, req *http.Request) {
 }
 func admitVMPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
-		Group:    v1.VMReplicaSetGroupVersionKind.Group,
-		Version:  v1.VMReplicaSetGroupVersionKind.Version,
-		Resource: "virtualmachinepresets",
+		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+		Resource: "virtualmachineinstancepresets",
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
@@ -536,7 +536,7 @@ func admitVMPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	vmpreset := v1.VirtualMachinePreset{}
+	vmpreset := v1.VirtualMachineInstancePreset{}
 
 	err := json.Unmarshal(raw, &vmpreset)
 	if err != nil {

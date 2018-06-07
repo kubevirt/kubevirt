@@ -49,7 +49,7 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should fetch a VM", func() {
+	It("should fetch a VirtualMachineInstance", func() {
 		ovm := NewMinimalOVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vmPath),
@@ -114,7 +114,7 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 		Expect(updatedVM).To(Equal(ovm))
 	})
 
-	It("should delete a VM", func() {
+	It("should delete a VirtualMachineInstance", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("DELETE", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),

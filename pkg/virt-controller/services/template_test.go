@@ -47,7 +47,7 @@ var _ = Describe("Template", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
 
-				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "testns", UID: "1234"}, Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}})
+				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "testns", UID: "1234"}, Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
@@ -83,7 +83,7 @@ var _ = Describe("Template", func() {
 					"kubernetes.io/hostname": "master",
 					v1.NodeSchedulable:       "true",
 				}
-				vm := v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}, Spec: v1.VirtualMachineSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{}}}
+				vm := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}, Spec: v1.VirtualMachineInstanceSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{}}}
 
 				pod, err := svc.RenderLaunchManifest(&vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -112,9 +112,9 @@ var _ = Describe("Template", func() {
 
 			It("should add node affinity to pod", func() {
 				nodeAffinity := kubev1.NodeAffinity{}
-				vm := v1.VirtualMachine{
+				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
-					Spec: v1.VirtualMachineSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
 						Affinity: &v1.Affinity{NodeAffinity: &nodeAffinity},
 						Domain:   v1.DomainSpec{},
 					},
@@ -126,12 +126,12 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should use the hostname and subdomain if specified on the vm", func() {
-				vm := v1.VirtualMachine{
+				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
 						Namespace: "default",
 						UID:       "1234",
 					},
-					Spec: v1.VirtualMachineSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
 						Domain:    v1.DomainSpec{},
 						Hostname:  "myhost",
 						Subdomain: "mydomain",
@@ -144,7 +144,7 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should add vm labels to pod", func() {
-				vm := v1.VirtualMachine{
+				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
 						Namespace: "default",
 						UID:       "1234",
@@ -153,7 +153,7 @@ var _ = Describe("Template", func() {
 							"key2": "val2",
 						},
 					},
-					Spec: v1.VirtualMachineSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{},
 					},
 				}
@@ -171,9 +171,9 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should not add empty node affinity to pod", func() {
-				vm := v1.VirtualMachine{
+				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
-					Spec: v1.VirtualMachineSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{},
 					},
 				}
@@ -186,13 +186,13 @@ var _ = Describe("Template", func() {
 		Context("with cpu and memory constraints", func() {
 			It("should add cpu and memory constraints to a template", func() {
 
-				vm := v1.VirtualMachine{
+				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvm",
 						Namespace: "default",
 						UID:       "1234",
 					},
-					Spec: v1.VirtualMachineSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Resources: v1.ResourceRequirements{
 								Requests: kubev1.ResourceList{
@@ -218,13 +218,13 @@ var _ = Describe("Template", func() {
 			})
 			It("should not add unset resources", func() {
 
-				vm := v1.VirtualMachine{
+				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvm",
 						Namespace: "default",
 						UID:       "1234",
 					},
-					Spec: v1.VirtualMachineSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{Cores: 3},
 							Resources: v1.ResourceRequirements{
@@ -257,11 +257,11 @@ var _ = Describe("Template", func() {
 						},
 					},
 				}
-				vm := v1.VirtualMachine{
+				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvm", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vm)
@@ -276,11 +276,11 @@ var _ = Describe("Template", func() {
 
 		Context("with launcher's pull secret", func() {
 			It("should contain launcher's secret in pod spec", func() {
-				vm := v1.VirtualMachine{
+				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvm", Namespace: "default", UID: "1234",
 					},
-					Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vm)
@@ -313,11 +313,11 @@ var _ = Describe("Template", func() {
 				},
 			}
 
-			vm := v1.VirtualMachine{
+			vm := v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testvm", Namespace: "default", UID: "1234",
 				},
-				Spec: v1.VirtualMachineSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 			}
 
 			It("should add secret to pod spec", func() {
@@ -361,7 +361,7 @@ var _ = Describe("Template", func() {
 
 		It("Should return false if configmap is not present", func() {
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			cmStore = cmInformer.GetStore()
 			go cmInformer.Run(stopChan)
 			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
@@ -380,7 +380,7 @@ var _ = Describe("Template", func() {
 				Data: map[string]string{},
 			}
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			cmStore = cmInformer.GetStore()
 			go cmInformer.Run(stopChan)
 			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
@@ -399,7 +399,7 @@ var _ = Describe("Template", func() {
 				Data: map[string]string{"debug.allowEmulation": "true"},
 			}
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			cmStore = cmInformer.GetStore()
 			go cmInformer.Run(stopChan)
 			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)

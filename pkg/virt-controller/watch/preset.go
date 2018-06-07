@@ -50,7 +50,7 @@ type VirtualMachinePresetController struct {
 }
 
 const initializerMarking = "presets.virtualmachines." + kubev1.GroupName + "/presets-applied"
-const exclusionMarking = "virtualmachinepresets.admission.kubevirt.io/exclude"
+const exclusionMarking = "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
 
 func NewVirtualMachinePresetController(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachinePresetController {
 	vmi := VirtualMachinePresetController{
@@ -95,10 +95,10 @@ func (c *VirtualMachinePresetController) Execute() bool {
 	err := c.execute(key.(string))
 
 	if err != nil {
-		log.Log.Reason(err).Infof("reenqueuing VM %v", key)
+		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VM %v", key)
+		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
 		c.queue.Forget(key)
 	}
 	return true
@@ -106,19 +106,19 @@ func (c *VirtualMachinePresetController) Execute() bool {
 
 func (c *VirtualMachinePresetController) execute(key string) error {
 
-	// Fetch the latest VM state from cache
+	// Fetch the latest VirtualMachineInstance state from cache
 	obj, exists, err := c.store.GetByKey(key)
 
 	if err != nil {
 		return err
 	}
 
-	// If the VM isn't in the cache, it was just deleted, so shouldn't
+	// If the VirtualMachineInstance isn't in the cache, it was just deleted, so shouldn't
 	// be initialized
 	if exists {
-		vm := &kubev1.VirtualMachine{}
-		obj.(*kubev1.VirtualMachine).DeepCopyInto(vm)
-		// only process VM's that aren't initialized by this controller yet
+		vm := &kubev1.VirtualMachineInstance{}
+		obj.(*kubev1.VirtualMachineInstance).DeepCopyInto(vm)
+		// only process VirtualMachineInstance's that aren't initialized by this controller yet
 		if !isVirtualMachineInitialized(vm) {
 			return c.initializeVirtualMachine(vm)
 		}
@@ -127,15 +127,15 @@ func (c *VirtualMachinePresetController) execute(key string) error {
 	return nil
 }
 
-func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.VirtualMachine) error {
-	// All VM's must be marked as initialized or they are held in limbo forever
+func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.VirtualMachineInstance) error {
+	// All VirtualMachineInstance's must be marked as initialized or they are held in limbo forever
 	// Collect all errors and defer returning until after the update
 	logger := log.Log
 	var err error
 	success := true
 
 	if !isVmExcluded(vm) {
-		logger.Object(vm).Info("Initializing VirtualMachine")
+		logger.Object(vm).Info("Initializing VirtualMachineInstance")
 
 		allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
 		if err != nil {
@@ -150,55 +150,55 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.Vir
 		}
 
 		if !success {
-			logger.Object(vm).Warning("Marking VM as failed")
+			logger.Object(vm).Warning("Marking VirtualMachineInstance as failed")
 			vm.Status.Phase = kubev1.Failed
 		} else {
 			logger.Object(vm).V(4).Info("Setting default values on VirtualMachine")
-			kubev1.SetObjectDefaults_VirtualMachine(vm)
+			kubev1.SetObjectDefaults_VirtualMachineInstance(vm)
 		}
 	} else {
-		logger.Object(vm).Infof("VM is excluded from VirtualMachinePresets")
+		logger.Object(vm).Infof("VirtualMachineInstance is excluded from VirtualMachinePresets")
 	}
-	// Even failed VM's need to be marked as initialized so they're
+	// Even failed VirtualMachineInstance's need to be marked as initialized so they're
 	// not re-processed by this controller
-	logger.Object(vm).Info("Marking VM as initialized")
+	logger.Object(vm).Info("Marking VirtualMachineInstance as initialized")
 	addInitializedAnnotation(vm)
-	_, err = c.clientset.VM(vm.Namespace).Update(vm)
+	_, err = c.clientset.VirtualMachineInstance(vm.Namespace).Update(vm)
 	if err != nil {
-		logger.Object(vm).Errorf("Could not update VirtualMachine: %v", err)
+		logger.Object(vm).Errorf("Could not update VirtualMachineInstance: %v", err)
 		return err
 	}
 	return nil
 }
 
 // listPresets returns all VirtualMachinePresets by namespace
-func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachinePreset, error) {
+func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachineInstancePreset, error) {
 	indexer := vmPresetInformer.GetIndexer()
 	selector := labels.NewSelector()
-	result := []kubev1.VirtualMachinePreset{}
+	result := []kubev1.VirtualMachineInstancePreset{}
 	err := cache.ListAllByNamespace(indexer, namespace, selector, func(obj interface{}) {
-		vm := obj.(*kubev1.VirtualMachinePreset)
+		vm := obj.(*kubev1.VirtualMachineInstancePreset)
 		result = append(result, *vm)
 	})
 
 	return result, err
 }
 
-// filterPresets returns list of VirtualMachinePresets which match given VirtualMachine.
-func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine, recorder record.EventRecorder) []kubev1.VirtualMachinePreset {
-	matchingPresets := []kubev1.VirtualMachinePreset{}
+// filterPresets returns list of VirtualMachinePresets which match given VirtualMachineInstance.
+func filterPresets(list []kubev1.VirtualMachineInstancePreset, vm *kubev1.VirtualMachineInstance, recorder record.EventRecorder) []kubev1.VirtualMachineInstancePreset {
+	matchingPresets := []kubev1.VirtualMachineInstancePreset{}
 	logger := log.Log
 
 	for _, preset := range list {
 		selector, err := k8smetav1.LabelSelectorAsSelector(&preset.Spec.Selector)
 
 		if err != nil {
-			// Do not return an error from this function--or the VM will be
+			// Do not return an error from this function--or the VirtualMachineInstance will be
 			// re-enqueued for processing again.
 			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Invalid Preset '%s': %v", preset.Name, err))
 			logger.Object(&preset).Reason(err).Errorf("label selector conversion failed: %v", err)
 		} else if selector.Matches(labels.Set(vm.GetLabels())) {
-			logger.Object(vm).Infof("VirtualMachinePreset %s matches VirtualMachine", preset.GetName())
+			logger.Object(vm).Infof("VirtualMachineInstancePreset %s matches VirtualMachineInstance", preset.GetName())
 			matchingPresets = append(matchingPresets, preset)
 		}
 	}
@@ -327,9 +327,9 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 }
 
 // Compare the domain of every preset to ensure they can all be applied cleanly
-func checkPresetConflicts(presets []kubev1.VirtualMachinePreset) error {
+func checkPresetConflicts(presets []kubev1.VirtualMachineInstancePreset) error {
 	errors := []error{}
-	visitedPresets := []kubev1.VirtualMachinePreset{}
+	visitedPresets := []kubev1.VirtualMachineInstancePreset{}
 	for _, preset := range presets {
 		for _, visited := range visitedPresets {
 			err := checkMergeConflicts(preset.Spec.Domain, visited.Spec.Domain)
@@ -345,7 +345,7 @@ func checkPresetConflicts(presets []kubev1.VirtualMachinePreset) error {
 	return nil
 }
 
-func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset, recorder record.EventRecorder) bool {
+func applyPresets(vm *kubev1.VirtualMachineInstance, presets []kubev1.VirtualMachineInstancePreset, recorder record.EventRecorder) bool {
 	logger := log.Log
 	err := checkPresetConflicts(presets)
 	if err != nil {
@@ -358,9 +358,9 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 	for _, preset := range presets {
 		applied, err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
 		if err != nil {
-			msg := fmt.Sprintf("Unable to apply VirtualMachinePreset '%s': %v", preset.Name, err)
+			msg := fmt.Sprintf("Unable to apply VirtualMachineInstancePreset '%s': %v", preset.Name, err)
 			if applied {
-				msg = fmt.Sprintf("Some settings were not applied for VirtualMachinePreset '%s': %v", preset.Name, err)
+				msg = fmt.Sprintf("Some settings were not applied for VirtualMachineInstancePreset '%s': %v", preset.Name, err)
 			}
 
 			recorder.Event(vm, k8sv1.EventTypeNormal, kubev1.Override.String(), msg)
@@ -374,7 +374,7 @@ func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePres
 }
 
 // isVirtualMachineInitialized checks if this module has applied presets
-func isVirtualMachineInitialized(vm *kubev1.VirtualMachine) bool {
+func isVirtualMachineInitialized(vm *kubev1.VirtualMachineInstance) bool {
 	if vm.Annotations != nil {
 		_, found := vm.Annotations[initializerMarking]
 		return found
@@ -382,7 +382,7 @@ func isVirtualMachineInitialized(vm *kubev1.VirtualMachine) bool {
 	return false
 }
 
-func isVmExcluded(vm *kubev1.VirtualMachine) bool {
+func isVmExcluded(vm *kubev1.VirtualMachineInstance) bool {
 	if vm.Annotations != nil {
 		excluded, ok := vm.Annotations[exclusionMarking]
 		return ok && (excluded == "true")
@@ -390,17 +390,17 @@ func isVmExcluded(vm *kubev1.VirtualMachine) bool {
 	return false
 }
 
-func addInitializedAnnotation(vm *kubev1.VirtualMachine) {
+func addInitializedAnnotation(vm *kubev1.VirtualMachineInstance) {
 	if vm.Annotations == nil {
 		vm.Annotations = map[string]string{}
 	}
 	vm.Annotations[initializerMarking] = kubev1.GroupVersion.String()
-	if !controller.HasFinalizer(vm, kubev1.VirtualMachineFinalizer) {
-		vm.Finalizers = append(vm.Finalizers, kubev1.VirtualMachineFinalizer)
+	if !controller.HasFinalizer(vm, kubev1.VirtualMachineInstanceFinalizer) {
+		vm.Finalizers = append(vm.Finalizers, kubev1.VirtualMachineInstanceFinalizer)
 	}
 }
 
-func annotateVM(vm *kubev1.VirtualMachine, preset kubev1.VirtualMachinePreset) {
+func annotateVM(vm *kubev1.VirtualMachineInstance, preset kubev1.VirtualMachineInstancePreset) {
 	if vm.Annotations == nil {
 		vm.Annotations = map[string]string{}
 	}

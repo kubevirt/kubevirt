@@ -12,7 +12,7 @@ both types of VMs and show its statuses.
 To allow building such VM management systems on top of the KubeVirt, the
 OfflineVirtualMachine is introduced to provide the access to the stopped
 virtual machines. When working with running virtual machines, please see
-the [VirtualMachine] object documentation. The Virtual Machine object is
+the [VirtualMachineInstance] object documentation. The Virtual Machine object is
 designed to work in tandem with the OfflineVirtualMachine and provides the
 configuration and status for running virtual machines.
 
@@ -28,8 +28,8 @@ The OfflineVirtualMachine provides the functionality to:
 * Manipulate the OfflineVirtualMachine through the kubectl,
 * Manipulate the OfflineVirtualMachine through the Kubernetes API,
 * Watch for changes in the OfflineVirtualMachine and react to them:
-  * Convert the OfflineVirtualMachine to VirtualMachine and thus launch it
-  * Stop VirtualMachine and update status of OfflineVirtualMachine accordingly
+  * Convert the OfflineVirtualMachine to VirtualMachineInstance and thus launch it
+  * Stop VirtualMachineInstance and update status of OfflineVirtualMachine accordingly
 
 ### Kubectl interface
 
@@ -50,7 +50,7 @@ kubectl patch offlinevirtualmachine myvm --type=merge -p \
 # Look at OfflineVirtualMachine status and associated events:
 kubectl describe offlinevirtualmachine myvm
 
-# Look at the now created VirtualMachine status and associated events:
+# Look at the now created VirtualMachineInstance status and associated events:
 kubectl describe virtualmachine myvm
 
 # Stop an OfflineVirtualMachine:
@@ -143,17 +143,17 @@ with the Kubevirt release cycle.
 
 In the metadata section, there is a *required* field, the **name**. Then
 following the spec section, there are two important parts. The **running**, which
-indicates the current state of the VirtualMachine attached to this VirtualMachine.
-Second is the **template**, which is the VirtualMachine template.
+indicates the current state of the VirtualMachineInstance attached to this VirtualMachineInstance.
+Second is the **template**, which is the VirtualMachineInstance template.
 
 Let us go over each of these fields.
 
 ### Name
 
 The `metadata.name` is important for the OfflineVirtualMachine, it is used to find
-created VirtualMachine. The VirtualMachine name is directly derived from
+created VirtualMachineInstance. The VirtualMachineInstance name is directly derived from
 the OfflineVirtualMachine. This means, if OfflineVirtualMachine is names 'testvm',
-the VirtualMachine is named 'testvm' too.
+the VirtualMachineInstance is named 'testvm' too.
 
 Moreover, the pair namespace and name: `namepace/metadata.name` creates the
 unique identifier for the OfflineVirtualMachine. This fact implies that two
@@ -161,8 +161,8 @@ identical names in the same namespace are considered as an error.
 
 ### Template
 
-The spec.template is a VirtualMachine specification used to create an actual
-VirtualMachine. Below is an example of such VirtualMachine specification.
+The spec.template is a VirtualMachineInstance specification used to create an actual
+VirtualMachineInstance. Below is an example of such VirtualMachineInstance specification.
 
 ```yaml
 metadata:
@@ -181,18 +181,18 @@ spec:
         claimName: myclaim
 ```
 
-It is easy to see that it is exactly the same as [VirtualMachine],
+It is easy to see that it is exactly the same as [VirtualMachineInstance],
 but it does not have a `kind` and `apiVersion`. These are implicitely added.
 
 Thus for the complete list of supported fields in the spec.template please refer
-to the [VirtualMachine] documentation.
+to the [VirtualMachineInstance] documentation.
 
 ## OfflineVirtualMachine behaviour
 
-The OfflineVirtualMachine has to be in sync with its VirtualMachine. This means
+The OfflineVirtualMachine has to be in sync with its VirtualMachineInstance. This means
 that the OfflineVirtualMachine controller has to observe both, the OfflineVirtualMachine
-and created VirtualMachine. When the [link](#ownerreference) is established the config changes
-are translated to the VirtualMachine, and coresponding status changes are
+and created VirtualMachineInstance. When the [link](#ownerreference) is established the config changes
+are translated to the VirtualMachineInstance, and coresponding status changes are
 translated back to OfflineVirtualMachine.
 
 TBD this needs to be more specific
@@ -206,22 +206,22 @@ is shown below.
 status:
   observedGeneration: 124 # current observed revision
   virtualMachine: my-vm
-  created: true # is the attached VirtualMachine reated
+  created: true # is the attached VirtualMachineInstance reated
   ready: true # based on http readiness check libvirt info
   conditions: [] # additional possible states
 ```
 
-The status of the VirtualMachine is watched and is reflected in the
-OfflineVirtualMachine status. The info propagated from the VirtualMachine is:
+The status of the VirtualMachineInstance is watched and is reflected in the
+OfflineVirtualMachine status. The info propagated from the VirtualMachineInstance is:
 
 * if the vm exists in the cluster
 * readiness of the VM
-* name of the VirtualMachine
+* name of the VirtualMachineInstance
 
-For more information, user have to check the VirtualMachine object itself.
+For more information, user have to check the VirtualMachineInstance object itself.
 
-The conditions can show additional information about state of VirtualMachine.
-One possible case would be to show how VirtualMachine was stopped, e.g.:
+The conditions can show additional information about state of VirtualMachineInstance.
+One possible case would be to show how VirtualMachineInstance was stopped, e.g.:
 
 ```yaml
 status:
@@ -232,7 +232,7 @@ status:
 
 ### OwnerReference
 
-Linking the created VirtualMachine to its parent OfflineVirtualMachine pose
+Linking the created VirtualMachineInstance to its parent OfflineVirtualMachine pose
 a challenge. Using the same name is only part of the solution. To find the
 parent OfflineVirtualMachine programatically in the Kubernetes, the OwnerReference
 is used. As described in the
@@ -242,7 +242,7 @@ automaticaly. Example:
 
 ```YAML
 apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachine
+kind: VirtualMachineInstance
 metadata:
   name: myvm
   ownerReferences:
@@ -262,20 +262,20 @@ the VM will be re-created by the controller with the new spec.
 
 ### Delete strategy
 
-The delete has a cascade that deletes the created VirtualMachine. If a cascade
-is turned off the VirtualMachine is orphaned and leaved running.
-When the OfflineVirtualMachine with the same name as orphaned VirtualMachine
-is created, the VirtualMachine gets adopted and OwnerReference
+The delete has a cascade that deletes the created VirtualMachineInstance. If a cascade
+is turned off the VirtualMachineInstance is orphaned and leaved running.
+When the OfflineVirtualMachine with the same name as orphaned VirtualMachineInstance
+is created, the VirtualMachineInstance gets adopted and OwnerReference
 is updated accordingly.
 
 ### Reset and Reboot
 
 This is not covered by the OfflineVirtualMachine. This functionality shall
-be achieved by subresources for the VirtualMachine (imperative),
-and will not result in a recreation of the VirtualMachine object or its Pod.
-From the KubeVirt perspective, the VirtualMachine is running all the time.
+be achieved by subresources for the VirtualMachineInstance (imperative),
+and will not result in a recreation of the VirtualMachineInstance object or its Pod.
+From the KubeVirt perspective, the VirtualMachineInstance is running all the time.
 Thus spec changes on OfflineVirtualMachine will not be propagated to
-the VirtualMachine in that case.
+the VirtualMachineInstance in that case.
 
 ## How it is implemented
 
@@ -313,14 +313,14 @@ autogenerating the Kubernetes resources: client, lister and watcher.
 
 The controller is responsible for watching the change in the registered
 offline virtual machines and update the state of the system. It is also
-responsible for creating new VirtualMachine when the `running` is set to `true`.
+responsible for creating new VirtualMachineInstance when the `running` is set to `true`.
 Moreover the controller attaches the `metadata.OwnerReference` to the created
-VirtualMachine. With this mechanism it can link the OfflineVirtualMachine to the
-VirtualMachine and show combined status.
+VirtualMachineInstance. With this mechanism it can link the OfflineVirtualMachine to the
+VirtualMachineInstance and show combined status.
 
 The controller is designed to be a standalone service running in its own pod.
 Since the whole KubeVirt is designed to be modular, this approach allows for
 a more flexbility and less codebase in the core. Moreover it can be scaled
 up separately if the need arise.
 
-[VirtualMachine]: https://kubevirt.github.io/api-reference/master/definitions.html#_v1_virtualmachine
+[VirtualMachineInstance]: https://kubevirt.github.io/api-reference/master/definitions.html#_v1_virtualmachine

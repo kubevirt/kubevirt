@@ -28,12 +28,12 @@ import (
 )
 
 var exampleJSON = `{
-  "kind": "VirtualMachine",
+  "kind": "VirtualMachineInstance",
   "apiVersion": "kubevirt.io/v1alpha1",
   "metadata": {
     "name": "testvm",
     "namespace": "default",
-    "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
+    "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm",
     "creationTimestamp": null
   },
   "spec": {
@@ -176,7 +176,7 @@ var exampleJSON = `{
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
-	var exampleVM *VirtualMachine
+	var exampleVM *VirtualMachineInstance
 
 	BeforeEach(func() {
 		exampleVM = NewMinimalVM("testvm")
@@ -285,11 +285,11 @@ var _ = Describe("Schema", func() {
 		exampleVM.Spec.Domain.CPU = &CPU{
 			Cores: 3,
 		}
-		SetObjectDefaults_VirtualMachine(exampleVM)
+		SetObjectDefaults_VirtualMachineInstance(exampleVM)
 	})
 	Context("With example schema in json", func() {
 		It("Unmarshal json into struct", func() {
-			newVM := &VirtualMachine{}
+			newVM := &VirtualMachineInstance{}
 			err := json.Unmarshal([]byte(exampleJSON), newVM)
 			Expect(err).To(BeNil())
 			Expect(newVM).To(Equal(exampleVM))

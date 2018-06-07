@@ -1,5 +1,5 @@
 apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachinePreset
+kind: VirtualMachineInstancePreset
 metadata:
   creationTimestamp: null
   name: vm-preset-small

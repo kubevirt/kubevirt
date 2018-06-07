@@ -46,7 +46,7 @@ type Launcher struct {
 	allowEmulation bool
 }
 
-func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachine, error) {
+func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, error) {
 	if args.VM == nil {
 		return nil, goerror.New(fmt.Sprintf("vm object not present in command server args"))
 	}

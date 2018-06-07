@@ -47,9 +47,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-var _ = Describe("VM", func() {
+var _ = Describe("VirtualMachineInstance", func() {
 	var client *cmdclient.MockLauncherClient
-	var vmInterface *kubecli.MockVMInterface
+	var vmInterface *kubecli.MockVirtualMachineInstanceInterface
 	var virtClient *kubecli.MockKubevirtClient
 
 	var ctrl *gomock.Controller
@@ -83,15 +83,15 @@ var _ = Describe("VM", func() {
 
 		Expect(err).ToNot(HaveOccurred())
 
-		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVMInterface(ctrl)
-		virtClient.EXPECT().VM(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
+		vmInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
@@ -127,12 +127,12 @@ var _ = Describe("VM", func() {
 		os.RemoveAll(shareDir)
 	})
 
-	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachine, dom *api.Domain) {
+	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachineInstance, dom *api.Domain) {
 		vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 
-	Context("VM controller gets informed about a Domain change through the Domain controller", func() {
+	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
 
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomain("testvm")
@@ -239,7 +239,7 @@ var _ = Describe("VM", func() {
 			Expect(mockQueue.NumRequeues("a/b/c/d/e")).To(Equal(1))
 		})
 
-		It("should create the Domain if it sees the first time on a new VM", func() {
+		It("should create the Domain if it sees the first time on a new VirtualMachineInstance", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
@@ -284,38 +284,38 @@ var _ = Describe("VM", func() {
 			controller.Execute()
 		})
 
-		It("should move VM from Scheduled to Failed if watchdog file is missing", func() {
+		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 
 			vmFeeder.Add(vm)
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachineInstance) {
 				Expect(vm.Status.Phase).To(Equal(v1.Failed))
 			})
 			controller.Execute()
 		})
-		It("should move VM from Scheduled to Failed if watchdog file is expired", func() {
+		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is expired", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachineInstance) {
 				Expect(vm.Status.Phase).To(Equal(v1.Failed))
 			})
 			time.Sleep(2 * time.Second)
 			controller.Execute()
 		}, 2)
 
-		It("should move VM from Running to Failed if domain does not exist in cache", func() {
+		It("should move VirtualMachineInstance from Running to Failed if domain does not exist in cache", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Running
 
 			vmFeeder.Add(vm)
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachine) {
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachineInstance) {
 				Expect(vm.Status.Phase).To(Equal(v1.Failed))
 			})
 			controller.Execute()
@@ -325,9 +325,9 @@ var _ = Describe("VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
-			vm.Status.Conditions = []v1.VirtualMachineCondition{
+			vm.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
-					Type:   v1.VirtualMachineSynchronized,
+					Type:   v1.VirtualMachineInstanceSynchronized,
 					Status: k8sv1.ConditionFalse,
 				},
 			}
@@ -344,7 +344,7 @@ var _ = Describe("VM", func() {
 			controller.Execute()
 		})
 
-		table.DescribeTable("should leave the VM alone if it is in the final phase", func(phase v1.VMPhase) {
+		table.DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = phase
 			vmFeeder.Add(vm)
@@ -362,7 +362,7 @@ type MockGracefulShutdown struct {
 	baseDir string
 }
 
-func (m *MockGracefulShutdown) TriggerShutdown(vm *v1.VirtualMachine) {
+func (m *MockGracefulShutdown) TriggerShutdown(vm *v1.VirtualMachineInstance) {
 	Expect(os.MkdirAll(virtlauncher.GracefulShutdownTriggerDir(m.baseDir), os.ModePerm)).To(Succeed())
 
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -376,7 +376,7 @@ type MockWatchdog struct {
 	baseDir string
 }
 
-func (m *MockWatchdog) CreateFile(vm *v1.VirtualMachine) {
+func (m *MockWatchdog) CreateFile(vm *v1.VirtualMachineInstance) {
 	Expect(os.MkdirAll(watchdog.WatchdogFileDirectory(m.baseDir), os.ModePerm)).To(Succeed())
 	err := watchdog.WatchdogFileUpdate(
 		watchdog.WatchdogFileFromNamespaceName(m.baseDir, vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),

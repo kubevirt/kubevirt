@@ -38,7 +38,7 @@ const configMapName = "kube-system/kubevirt-config"
 const allowEmulationKey = "debug.allowEmulation"
 
 type TemplateService interface {
-	RenderLaunchManifest(*v1.VirtualMachine) (*k8sv1.Pod, error)
+	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
 
 type templateService struct {
@@ -67,7 +67,7 @@ func IsEmulationAllowed(store cache.Store) (bool, error) {
 	return allowEmulation, nil
 }
 
-func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Pod, error) {
+func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vm)
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
@@ -179,7 +179,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		command = append(command, "--allow-emulation")
 	}
 
-	// VM target container
+	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,

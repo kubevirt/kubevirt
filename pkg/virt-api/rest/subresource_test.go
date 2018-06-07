@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-var _ = Describe("VM Subresources", func() {
+var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var server *ghttp.Server
 
 	log.Log.SetIOWriter(GinkgoWriter)
@@ -49,7 +49,7 @@ var _ = Describe("VM Subresources", func() {
 	})
 
 	Context("Subresource api", func() {
-		It("should find matching pod for running VM", func(done Done) {
+		It("should find matching pod for running VirtualMachineInstance", func(done Done) {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = v1.Running
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
@@ -68,7 +68,7 @@ var _ = Describe("VM Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 				ghttp.CombineHandlers(
@@ -85,14 +85,14 @@ var _ = Describe("VM Subresources", func() {
 			close(done)
 		}, 5)
 
-		It("should fail if VM is not in running state", func(done Done) {
+		It("should fail if VirtualMachineInstance is not in running state", func(done Done) {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Status.Phase = v1.Succeeded
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -114,7 +114,7 @@ var _ = Describe("VM Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 				ghttp.CombineHandlers(

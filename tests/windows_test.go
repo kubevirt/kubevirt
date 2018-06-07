@@ -54,19 +54,19 @@ const (
 	winrmCliCmd = "winrm-cli"
 )
 
-var _ = Describe("Windows VM", func() {
+var _ = Describe("Windows VirtualMachineInstance", func() {
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var windowsVm *v1.VirtualMachine
+	var windowsVm *v1.VirtualMachineInstance
 
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(windowsFirmware)
 	_false := false
-	windowsVmSpec := v1.VirtualMachineSpec{
+	windowsVmSpec := v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
 			CPU: &v1.CPU{Cores: 2},
@@ -130,19 +130,19 @@ var _ = Describe("Windows VM", func() {
 	})
 
 	It("should succeed to start a vm", func() {
-		vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(windowsVm)
+		vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVm)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
 	}, 300)
 
 	It("should succeed to stop a running vm", func() {
 		By("Starting the vm")
-		vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(windowsVm)
+		vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVm)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
 
 		By("Stopping the vm")
-		err = virtClient.VM(tests.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
+		err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
 		Expect(err).To(BeNil())
 	}, 300)
 
@@ -170,12 +170,12 @@ var _ = Describe("Windows VM", func() {
 			winrmcliPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(winrmcliPod)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Starting the windows VM")
-			vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(windowsVm)
+			By("Starting the windows VirtualMachineInstance")
+			vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVm)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
 
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.Name, metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, metav1.GetOptions{})
 			vmIp = vm.Status.Interfaces[0].IP
 			cli = []string{
 				winrmCliCmd,
@@ -200,7 +200,7 @@ var _ = Describe("Windows VM", func() {
 				)
 				return err
 			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
-			By("Checking that the Windows VM has expected UUID")
+			By("Checking that the Windows VirtualMachineInstance has expected UUID")
 			Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
 		}, 360)
 
@@ -217,7 +217,7 @@ var _ = Describe("Windows VM", func() {
 				return err
 			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
 
-			By("Checking that the Windows VM has expected IP address")
+			By("Checking that the Windows VirtualMachineInstance has expected IP address")
 			Expect(output).Should(ContainSubstring(vmIp))
 		}, 360)
 	})

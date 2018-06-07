@@ -116,7 +116,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		if running {
 			stateMsg = "running"
 		}
-		return fmt.Errorf("Error: VirtualMachine '%s' is already %s", vmName, stateMsg)
+		return fmt.Errorf("Error: VirtualMachineInstance '%s' is already %s", vmName, stateMsg)
 	}
 
 	return nil

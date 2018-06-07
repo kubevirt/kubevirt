@@ -55,7 +55,7 @@ type Console struct {
 }
 
 func usage() string {
-	usage := "# Connect to the console on VM 'myvm':\n"
+	usage := "# Connect to the console on VirtualMachineInstance 'myvm':\n"
 	usage += "virtctl console myvm"
 	return usage
 }
@@ -94,7 +94,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	readStop := make(chan error)
 
 	go func() {
-		err := virtCli.VM(namespace).SerialConsole(vm, stdinReader, stdoutWriter)
+		err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vm, stdinReader, stdoutWriter)
 		resChan <- err
 	}()
 

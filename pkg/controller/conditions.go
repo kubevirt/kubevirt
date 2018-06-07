@@ -10,24 +10,24 @@ import (
 type VirtualMachineConditionManager struct {
 }
 
-func (d *VirtualMachineConditionManager) CheckFailure(vm *v1.VirtualMachine, syncErr error, reason string) (changed bool) {
-	if syncErr != nil && !d.HasCondition(vm, v1.VirtualMachineSynchronized) {
-		vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
-			Type:               v1.VirtualMachineSynchronized,
+func (d *VirtualMachineConditionManager) CheckFailure(vm *v1.VirtualMachineInstance, syncErr error, reason string) (changed bool) {
+	if syncErr != nil && !d.HasCondition(vm, v1.VirtualMachineInstanceSynchronized) {
+		vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstanceSynchronized,
 			Reason:             reason,
 			Message:            syncErr.Error(),
 			LastTransitionTime: metav1.Now(),
 			Status:             k8sv1.ConditionFalse,
 		})
 		return true
-	} else if syncErr == nil && d.HasCondition(vm, v1.VirtualMachineSynchronized) {
-		d.RemoveCondition(vm, v1.VirtualMachineSynchronized)
+	} else if syncErr == nil && d.HasCondition(vm, v1.VirtualMachineInstanceSynchronized) {
+		d.RemoveCondition(vm, v1.VirtualMachineInstanceSynchronized)
 		return true
 	}
 	return false
 }
 
-func (d *VirtualMachineConditionManager) HasCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) bool {
+func (d *VirtualMachineConditionManager) HasCondition(vm *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) bool {
 	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
 			return true
@@ -36,8 +36,8 @@ func (d *VirtualMachineConditionManager) HasCondition(vm *v1.VirtualMachine, con
 	return false
 }
 
-func (d *VirtualMachineConditionManager) RemoveCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
-	var conds []v1.VirtualMachineCondition
+func (d *VirtualMachineConditionManager) RemoveCondition(vm *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) {
+	var conds []v1.VirtualMachineInstanceCondition
 	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
 			continue

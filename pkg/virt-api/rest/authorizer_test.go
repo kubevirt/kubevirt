@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-var _ = Describe("VM Subresources", func() {
+var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var server *ghttp.Server
 	var req *restful.Request
 
@@ -53,7 +53,7 @@ var _ = Describe("VM Subresources", func() {
 		req.Request.Header[userHeader] = []string{"user"}
 		req.Request.Header[groupHeader] = []string{"userGroup"}
 		req.Request.Header[userExtraHeaderPrefix+"test"] = []string{"userExtraValue"}
-		req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm/console"
+		req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm/console"
 
 		server = ghttp.NewServer()
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
@@ -168,7 +168,7 @@ var _ = Describe("VM Subresources", func() {
 		},
 			table.Entry("random1", "/apis/subresources.kubevirt.io/v1alpha1/madethisup"),
 			table.Entry("random2", "/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9"),
-			table.Entry("no subresource provided", "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
+			table.Entry("no subresource provided", "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
 			table.Entry("invalid resource type", "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/madeupresource/testvm/console"),
 		)
 	})

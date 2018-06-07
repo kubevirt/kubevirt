@@ -141,7 +141,7 @@ func RemoveLocalData(domain string, namespace string) error {
 	return err
 }
 
-func GetCloudInitNoCloudSource(vm *v1.VirtualMachine) *v1.CloudInitNoCloudSource {
+func GetCloudInitNoCloudSource(vm *v1.VirtualMachineInstance) *v1.CloudInitNoCloudSource {
 	precond.MustNotBeNil(vm)
 	// search various places cloud init spec may live.
 	// at the moment, cloud init only exists on disks.
@@ -256,6 +256,6 @@ func GenerateLocalData(vmName string, hostname string, namespace string, source 
 }
 
 // Lists all vms cloud-init has local data for
-func ListVmWithLocalData() ([]*v1.VirtualMachine, error) {
+func ListVmWithLocalData() ([]*v1.VirtualMachineInstance, error) {
 	return diskutils.ListVmWithEphemeralDisk(cloudInitLocalDir)
 }

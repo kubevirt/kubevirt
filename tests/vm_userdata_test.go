@@ -50,24 +50,24 @@ var _ = Describe("CloudInit UserData", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	LaunchVM := func(vm *v1.VirtualMachine) {
-		By("Starting a VM")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+	LaunchVM := func(vm *v1.VirtualMachineInstance) {
+		By("Starting a VirtualMachineInstance")
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
 
-		By("Waiting the VM start")
-		_, ok := obj.(*v1.VirtualMachine)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+		By("Waiting the VirtualMachineInstance start")
+		_, ok := obj.(*v1.VirtualMachineInstance)
+		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 		Expect(tests.WaitForSuccessfulVMStart(obj)).ToNot(BeEmpty())
 	}
 
-	VerifyUserDataVM := func(vm *v1.VirtualMachine, commands []expect.Batcher, timeout time.Duration) {
-		By("Expecting the VM console")
+	VerifyUserDataVM := func(vm *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+		By("Expecting the VirtualMachineInstance console")
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Checking that the VM serial console output equals to expected one")
+		By("Checking that the VirtualMachineInstance serial console output equals to expected one")
 		resp, err := expecter.ExpectBatch(commands, timeout)
 		log.DefaultLogger().Object(vm).Infof("%v", resp)
 		Expect(err).ToNot(HaveOccurred())
@@ -77,7 +77,7 @@ var _ = Describe("CloudInit UserData", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("A new VM", func() {
+	Describe("A new VirtualMachineInstance", func() {
 		Context("with cloudInitNoCloud userDataBase64 source", func() {
 			It("should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
@@ -198,7 +198,7 @@ var _ = Describe("CloudInit UserData", func() {
 			}, time.Second*120)
 
 			// Expect that the secret is not present on the vm itself
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.Name, metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
 			Expect(vm.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())

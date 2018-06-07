@@ -607,7 +607,7 @@ func (dl *DomainList) GetListMeta() meta.List {
 
 // VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
-func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
+func VMNamespaceKeyFunc(vm *v1.VirtualMachineInstance) string {
 	domName := fmt.Sprintf("%s_%s", vm.Namespace, vm.Name)
 	return domName
 }

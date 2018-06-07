@@ -111,7 +111,7 @@ func SetDefaults_Firmware(obj *Firmware) {
 	}
 }
 
-func SetDefaults_VirtualMachine(obj *VirtualMachine) {
+func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 	// FIXME we need proper validation and configurable defaulting instead of this
 	if _, exists := obj.Spec.Domain.Resources.Requests[v1.ResourceMemory]; !exists {
 		obj.Spec.Domain.Resources.Requests = v1.ResourceList{
@@ -131,7 +131,7 @@ func SetDefaults_VirtualMachine(obj *VirtualMachine) {
 	setDefaults_DiskFromMachineType(obj)
 }
 
-func setDefaults_DiskFromMachineType(obj *VirtualMachine) {
+func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
 	bus := diskBusFromMachine(obj.Spec.Domain.Machine.Type)
 
 	for i := range obj.Spec.Domain.Devices.Disks {

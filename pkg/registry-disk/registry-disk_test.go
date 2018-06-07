@@ -97,7 +97,7 @@ var _ = Describe("RegistryDisk", func() {
 	})
 })
 
-func appendRegistryDisk(vm *v1.VirtualMachine, diskName string) {
+func appendRegistryDisk(vm *v1.VirtualMachineInstance, diskName string) {
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
 		DiskDevice: v1.DiskDevice{

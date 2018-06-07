@@ -66,7 +66,7 @@ func ConvReason(status libvirt.DomainState, reason int) api.StateChangeReason {
 	}
 }
 
-func SetDomainSpec(virConn cli.Connection, vm *v1.VirtualMachine, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
+func SetDomainSpec(virConn cli.Connection, vm *v1.VirtualMachineInstance, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
 	xmlStr, err := xml.Marshal(&wantedSpec)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Generating the domain XML failed.")
@@ -75,7 +75,7 @@ func SetDomainSpec(virConn cli.Connection, vm *v1.VirtualMachine, wantedSpec api
 	log.Log.Object(vm).V(3).With("xml", string(xmlStr)).Info("Domain XML generated.")
 	dom, err := virConn.DomainDefineXML(string(xmlStr))
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Defining the VM failed.")
+		log.Log.Object(vm).Reason(err).Error("Defining the VirtualMachineInstance failed.")
 		return nil, err
 	}
 	return dom, nil
@@ -201,7 +201,7 @@ func SplitVMNamespaceKey(domainName string) (namespace, name string) {
 
 // VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
-func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
+func VMNamespaceKeyFunc(vm *v1.VirtualMachineInstance) string {
 	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
 	return domName
 }

@@ -97,7 +97,7 @@ type CPU struct {
 // ---
 // +k8s:openapi-gen=true
 type Machine struct {
-	// QEMU machine type is the actual chipset of the VM.
+	// QEMU machine type is the actual chipset of the VirtualMachineInstance.
 	Type string `json:"type"`
 }
 

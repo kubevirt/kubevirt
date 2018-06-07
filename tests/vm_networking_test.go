@@ -51,8 +51,8 @@ var _ = Describe("Networking", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var inboundVM *v1.VirtualMachine
-	var outboundVM *v1.VirtualMachine
+	var inboundVM *v1.VirtualMachineInstance
+	var outboundVM *v1.VirtualMachineInstance
 
 	// newHelloWorldJob takes a dns entry or an IP which it will use create a pod
 	// which tries to contact the host on port 1500. It expects to receive "Hello World!" to succeed.
@@ -85,12 +85,12 @@ var _ = Describe("Networking", func() {
 		return j.Status.Phase
 	}
 
-	waitUntilVmReady := func(vm *v1.VirtualMachine, expecterFactory tests.VmExpecterFactory) {
-		// Wait for VM start
+	waitUntilVmReady := func(vm *v1.VirtualMachineInstance, expecterFactory tests.VmExpecterFactory) {
+		// Wait for VirtualMachineInstance start
 		tests.WaitForSuccessfulVMStart(vm)
 
-		// Fetch the new VM with updated status
-		vm, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.Name, v13.GetOptions{})
+		// Fetch the new VirtualMachineInstance with updated status
+		vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Lets make sure that the OS is up by waiting until we can login
@@ -103,24 +103,24 @@ var _ = Describe("Networking", func() {
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 
-		// Create and start inbound VM
+		// Create and start inbound VirtualMachineInstance
 		inboundVM = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		inboundVM.Labels = map[string]string{"expose": "me"}
 		inboundVM.Spec.Subdomain = "myvm"
 		inboundVM.Spec.Hostname = "my-subdomain"
-		_, err = virtClient.VM(tests.NamespaceTestDefault).Create(inboundVM)
+		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(inboundVM)
 		Expect(err).ToNot(HaveOccurred())
 
-		// Create and start outbound VM
+		// Create and start outbound VirtualMachineInstance
 		outboundVM = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		_, err = virtClient.VM(tests.NamespaceTestDefault).Create(outboundVM)
+		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(outboundVM)
 		Expect(err).ToNot(HaveOccurred())
 
-		for _, networkVm := range []*v1.VirtualMachine{inboundVM, outboundVM} {
+		for _, networkVm := range []*v1.VirtualMachineInstance{inboundVM, outboundVM} {
 			waitUntilVmReady(networkVm, tests.LoggedInCirrosExpecter)
 		}
 
-		inboundVM, err = virtClient.VM(tests.NamespaceTestDefault).Get(inboundVM.Name, v13.GetOptions{})
+		inboundVM, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(inboundVM.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVM, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
@@ -136,11 +136,11 @@ var _ = Describe("Networking", func() {
 		log.DefaultLogger().Infof("%v", resp)
 		Expect(err).ToNot(HaveOccurred())
 
-		outboundVM, err = virtClient.VM(tests.NamespaceTestDefault).Get(outboundVM.Name, v13.GetOptions{})
+		outboundVM, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(outboundVM.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("VirtualMachine attached to the pod network", func() {
+	Context("VirtualMachineInstance attached to the pod network", func() {
 
 		table.DescribeTable("should be able to reach", func(destination string) {
 			var cmdCheck, addrShow, addr string
@@ -150,7 +150,7 @@ var _ = Describe("Networking", func() {
 			ipHeaderSize := 28 // IPv4 specific
 			payloadSize := expectedMtu - ipHeaderSize
 
-			// Wait until the VM is booted, ping google and check if we can reach the internet
+			// Wait until the VirtualMachineInstance is booted, ping google and check if we can reach the internet
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVM, 10*time.Second)
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
@@ -176,7 +176,7 @@ var _ = Describe("Networking", func() {
 			expectedMtuString := fmt.Sprintf("mtu %d", expectedMtu)
 			Expect(strings.Contains(output, expectedMtuString)).To(BeTrue())
 
-			By("checking eth0 MTU inside the VM")
+			By("checking eth0 MTU inside the VirtualMachineInstance")
 			addrShow = "ip address show eth0\n"
 			out, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -189,8 +189,8 @@ var _ = Describe("Networking", func() {
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("checking the VM can send MTU sized frames to another VM")
-			// NOTE: VM is not directly accessible from inside the pod because
+			By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
+			// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
 			// we transferred its IP address under DHCP server control, so the
 			// only thing we can validate is connectivity between VMs
 			//
@@ -208,7 +208,7 @@ var _ = Describe("Networking", func() {
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("the Inbound VM", "InboundVM"),
+			table.Entry("the Inbound VirtualMachineInstance", "InboundVM"),
 			table.Entry("the internet", "Internet"),
 		)
 
@@ -224,7 +224,7 @@ var _ = Describe("Networking", func() {
 				Skip("Skip network test that requires multiple nodes when only one node is present.")
 			}
 
-			// Run netcat and give it one second to ghet "Hello World!" back from the VM
+			// Run netcat and give it one second to ghet "Hello World!" back from the VirtualMachineInstance
 			job := newHelloWorldJob(ip)
 			job.Spec.Affinity = &v12.Affinity{
 				NodeAffinity: &v12.NodeAffinity{
@@ -339,7 +339,7 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
-	checkNetworkVendor := func(vm *v1.VirtualMachine, expectedVendor string, prompt string) {
+	checkNetworkVendor := func(vm *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
@@ -354,12 +354,12 @@ var _ = Describe("Networking", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	Context("VirtualMachine with custom interface model", func() {
+	Context("VirtualMachineInstance with custom interface model", func() {
 		It("should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
 			e1000VM := tests.NewRandomVMWithe1000NetworkInterface()
-			_, err = virtClient.VM(tests.NamespaceTestDefault).Create(e1000VM)
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(e1000VM)
 			Expect(err).ToNot(HaveOccurred())
 
 			waitUntilVmReady(e1000VM, tests.LoggedInAlpineExpecter)
@@ -368,10 +368,10 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
-	Context("VirtualMachine with default interface model", func() {
+	Context("VirtualMachineInstance with default interface model", func() {
 		It("should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
-			for _, networkVm := range []*v1.VirtualMachine{inboundVM, outboundVM} {
+			for _, networkVm := range []*v1.VirtualMachineInstance{inboundVM, outboundVM} {
 				// as defined in https://vendev.org/pci/ven_1af4/
 				checkNetworkVendor(networkVm, "0x1af4", "\\$ ")
 			}

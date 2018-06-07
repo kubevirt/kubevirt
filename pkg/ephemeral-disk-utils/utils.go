@@ -127,8 +127,8 @@ func FilesAreEqual(path1 string, path2 string) (bool, error) {
 }
 
 // Lists all vms ephemeral disk has local data for
-func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachine, error) {
-	var keys []*v1.VirtualMachine
+func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachineInstance, error) {
+	var keys []*v1.VirtualMachineInstance
 
 	exists, err := FileExists(localPath)
 	if err != nil {

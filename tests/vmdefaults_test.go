@@ -36,13 +36,13 @@ var _ = Describe("VMDefaults", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var vm *v1.VirtualMachine
+	var vm *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 		// create VM with missing disk target
 		vm = tests.NewRandomVM()
-		vm.Spec = v1.VirtualMachineSpec{
+		vm.Spec = v1.VirtualMachineInstanceSpec{
 			Domain: v1.DomainSpec{
 				Devices: v1.Devices{
 					Disks: []v1.Disk{

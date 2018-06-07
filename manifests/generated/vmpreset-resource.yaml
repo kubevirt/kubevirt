@@ -5,16 +5,16 @@ metadata:
   creationTimestamp: null
   labels:
     kubevirt.io: ""
-  name: virtualmachinepresets.kubevirt.io
+  name: virtualmachineinstancepresets.kubevirt.io
 spec:
   group: kubevirt.io
   names:
-    kind: VirtualMachinePreset
-    plural: virtualmachinepresets
+    kind: VirtualMachineInstancePreset
+    plural: virtualmachineinstancepresets
     shortNames:
-    - vmpreset
-    - vmpresets
-    singular: virtualmachinepreset
+    - vmipreset
+    - vmipresets
+    singular: virtualmachineinstancepreset
   scope: Namespaced
   validation:
     openAPIV3Schema:

@@ -45,12 +45,12 @@ var _ = Describe("VNC", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("A new VM", func() {
+	Describe("A new VirtualMachineInstance", func() {
 		Context("with VNC connection", func() {
 			It("should allow accessing the VNC device", func() {
-				By("Starting a VM")
+				By("Starting a VirtualMachineInstance")
 				vm := tests.NewRandomVM()
-				Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
+				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
 				tests.WaitForSuccessfulVMStart(vm)
 
 				pipeInReader, _ := io.Pipe()
@@ -63,7 +63,7 @@ var _ = Describe("VNC", func() {
 
 				go func() {
 					GinkgoRecover()
-					k8ResChan <- virtClient.VM(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
+					k8ResChan <- virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
 				}()
 				// write to FD <- pipeOutReader
 				By("Reading from the VNC socket")

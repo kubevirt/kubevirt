@@ -40,18 +40,18 @@ The design of these items is out of scope of this document.
 
 
 ## API
-In addition to the existing `VM` type, a new `VirtualMachineConfig` type is
+In addition to the existing `VM` type, a new `VirtualMachineInstanceConfig` type is
 getting introduced.
 In contrast to the `VM` object which represents a running VM, the
-`VirtualMachineConfig` object represents a static VM configuration.
-A `VirtualMachineConfig` object is used to create one or more `VM` instances.
+`VirtualMachineInstanceConfig` object represents a static VM configuration.
+A `VirtualMachineInstanceConfig` object is used to create one or more `VM` instances.
 
 ### Kinds
 
-**VirtualMachineConfig**
+**VirtualMachineInstanceConfig**
 
 ```yaml
-Kind: VirtualMachineConfig
+Kind: VirtualMachineInstanceConfig
 Spec:
   Template:
     Metadata:
@@ -79,10 +79,10 @@ State:
     …
 ```
 
-The new `ownerReferences` field is pointing back to the `VirtualMachineConfig`
+The new `ownerReferences` field is pointing back to the `VirtualMachineInstanceConfig`
 object which was used to create this `VM` object.
 It will be added to the metadata by the controller owning the
-`VirtualMachineConfig` type.
+`VirtualMachineInstanceConfig` type.
 The scheme can look similar to the `ownerReferences` field of a ReplicaSet
 if it got created by a Deployment.
 
@@ -91,7 +91,7 @@ if it got created by a Deployment.
 
 ## Flow
 
-The general concept is that the `VirtualMachineConfig` contains a static VM
+The general concept is that the `VirtualMachineInstanceConfig` contains a static VM
 configuration.
 Static refers to the fact that no runtime information is kept in such objects.
 
@@ -99,22 +99,22 @@ The runtime information of a VM is kept in the `VM` object, i.e. it's state
 or computed values like bus addresses.
 
 ## Creation
-To create a VM definition, a user needs to `POST` a `VirtualMachineConfig`.
+To create a VM definition, a user needs to `POST` a `VirtualMachineInstanceConfig`.
 
 ## Starting a VM, the `/start` sub-resource
-To create an instance from a `VirtualMachineConfig` a user must `GET` the `start`
-sub-resource of a `VirtualMachineConfig` instance.
+To create an instance from a `VirtualMachineInstanceConfig` a user must `GET` the `start`
+sub-resource of a `VirtualMachineInstanceConfig` instance.
 
 ## Stopping a VM, the `/stop` sub-resource
 To stop a VM, a user must `GET` the `stop` sub-resource of the associated
-`VirtualMachineConfig` object.
+`VirtualMachineInstanceConfig` object.
 
 **Note:** The semantics of a `DELETE` on the `VM` object of a
-`VirtualMachineConfig` still need to be defined.
+`VirtualMachineInstanceConfig` still need to be defined.
 
-## Changing a `VirtualMachineConfig`
-Changes to a `VirtualMachineConfig` instance can be performed through the usual
-`PATH` calls. Changing a `VirtualMachineConfig` does not lead to an automatic
+## Changing a `VirtualMachineInstanceConfig`
+Changes to a `VirtualMachineInstanceConfig` instance can be performed through the usual
+`PATH` calls. Changing a `VirtualMachineInstanceConfig` does not lead to an automatic
 propagation of the changes to the instances.
 However, in future there could be a specific metadata or action to trigger
 such propagation automatically.
@@ -154,9 +154,9 @@ In other words:
    `GET` $c1/stop
    → deletes instance `DELETE` $i2
 
-In this example, the user defines a `VirtualMachineConfig`, then starts it and
+In this example, the user defines a `VirtualMachineInstanceConfig`, then starts it and
 a `VM` instance is created. Once the user stops it, the instance is removed.
-After changing the `VirtualMachineConfig` (in step 4), he starts and stops the
+After changing the `VirtualMachineInstanceConfig` (in step 4), he starts and stops the
 VM again.
 
 
@@ -169,13 +169,13 @@ Does this design meet the requirements?
   the separate objects.
 * _Support expanding sparse VM definitions_ can happen at several stages.
 * _Support detailed VM definitions_ is also given, if needed a fully fledged
-  definition can be specified in the VirtualMachineConfig
+  definition can be specified in the VirtualMachineInstanceConfig
 
 
 Does the design obviously prevent any other use-case we already aware of?
 
 * _"Flavour", "Instance Type", or "Template" like functionality_ it looks like
-  the static `VirtualMachineConfig` object provides enough flexibility.
+  the static `VirtualMachineInstanceConfig` object provides enough flexibility.
 * _Hot-(un-)plugging_ does not seem to be conflicting
 * _Representation of dynamic instance specific data_ VM instance is well suited
   for this.
@@ -189,6 +189,6 @@ Does the design obviously prevent any other use-case we already aware of?
 
 
 The implementation for the current feature scope should be pretty straight
-forward, as the flow is currently uni-directional, from `VirtualMachineConfig`
+forward, as the flow is currently uni-directional, from `VirtualMachineInstanceConfig`
 to `VM`.
 Thus a new simple controller can be used to handle this new type.

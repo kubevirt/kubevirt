@@ -129,7 +129,7 @@ var _ = Describe("CloudInit", func() {
 			})
 
 			Context("with multiple data dirs and files", func() {
-				It("should list all VM's", func() {
+				It("should list all VirtualMachineInstance's", func() {
 					var domains []string
 					fmt.Println(tmpDir)
 					domains = append(domains, "fakens1/fakedomain1")
@@ -165,7 +165,7 @@ var _ = Describe("CloudInit", func() {
 			})
 		})
 
-		Describe("A new VM definition", func() {
+		Describe("A new VirtualMachineInstance definition", func() {
 			verifyCloudInitIso := func(dataSource *v1.CloudInitNoCloudSource) {
 				namespace := "fake-namespace"
 				domain := "fake-domain"

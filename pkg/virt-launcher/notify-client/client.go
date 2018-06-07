@@ -92,7 +92,7 @@ func libvirtEventCallback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, 
 
 	// No matter which event, try to fetch the domain xml
 	// and the state. If we get a IsNotFound error, that
-	// means that the VM was removed.
+	// means that the VirtualMachineInstance was removed.
 	spec, err := util.GetDomainSpec(d)
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {

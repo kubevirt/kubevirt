@@ -43,7 +43,7 @@ func WatchdogFileFromNamespaceName(baseDir string, namespace string, name string
 	return filepath.Join(baseDir, "watchdog-files", watchdogFile)
 }
 
-func WatchdogFileRemove(baseDir string, vm *v1.VirtualMachine) error {
+func WatchdogFileRemove(baseDir string, vm *v1.VirtualMachineInstance) error {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
@@ -62,7 +62,7 @@ func WatchdogFileUpdate(watchdogFile string) error {
 	return nil
 }
 
-func WatchdogFileExists(baseDir string, vm *v1.VirtualMachine) (bool, error) {
+func WatchdogFileExists(baseDir string, vm *v1.VirtualMachineInstance) (bool, error) {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 
@@ -76,7 +76,7 @@ func WatchdogFileExists(baseDir string, vm *v1.VirtualMachine) (bool, error) {
 	return exists, nil
 }
 
-func WatchdogFileIsExpired(timeoutSeconds int, baseDir string, vm *v1.VirtualMachine) (bool, error) {
+func WatchdogFileIsExpired(timeoutSeconds int, baseDir string, vm *v1.VirtualMachineInstance) (bool, error) {
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 

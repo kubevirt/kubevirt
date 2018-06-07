@@ -5,21 +5,21 @@ metadata:
   creationTimestamp: null
   labels:
     kubevirt.io: ""
-  name: virtualmachines.kubevirt.io
+  name: virtualmachineinstances.kubevirt.io
 spec:
   group: kubevirt.io
   names:
-    kind: VirtualMachine
-    plural: virtualmachines
+    kind: VirtualMachineInstance
+    plural: virtualmachineinstances
     shortNames:
-    - vm
-    - vms
-    singular: virtualmachine
+    - vmi
+    - vmis
+    singular: virtualmachineinstance
   scope: Namespaced
   validation:
     openAPIV3Schema:
-      description: VirtualMachine is *the* VM Definition. It represents a virtual
-        machine in the runtime environment of kubernetes.
+      description: VirtualMachineInstance is *the* VM Definition. It represents a
+        virtual machine in the runtime environment of kubernetes.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -33,7 +33,7 @@ spec:
           type: string
         metadata: {}
         spec:
-          description: VirtualMachineSpec is a description of a VirtualMachine.
+          description: VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
           properties:
             affinity:
               description: Affinity groups all the affinity rules related to a VM
@@ -344,8 +344,8 @@ spec:
           required:
           - domain
         status:
-          description: VirtualMachineStatus represents information about the status
-            of a VM. Status may trail the actual state of a system.
+          description: VirtualMachineInstanceStatus represents information about the
+            status of a VM. Status may trail the actual state of a system.
           properties:
             conditions:
               description: Conditions are specific points in VM's pod runtime.

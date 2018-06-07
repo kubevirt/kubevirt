@@ -30,7 +30,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Affinity": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Affinity groups all the affinity rules related to a VM",
+					Description: "Affinity groups all the affinity rules related to a VirtualMachineInstance",
 					Properties: map[string]spec.Schema{
 						"nodeAffinity": {
 							SchemaProps: spec.SchemaProps{
@@ -736,7 +736,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"type": {
 							SchemaProps: spec.SchemaProps{
-								Description: "QEMU machine type is the actual chipset of the VM.",
+								Description: "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -750,7 +750,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachine handles the VirtualMachines that are not running or are in a stopped state The OfflineVirtualMachine contains the template to create the VirtualMachine. It also mirrors the running state of the created VirtualMachine in its status.",
+					Description: "OfflineVirtualMachine handles the VirtualMachines that are not running or are in a stopped state The OfflineVirtualMachine contains the template to create the VirtualMachineInstance. It also mirrors the running state of the created VirtualMachineInstance in its status.",
 					Properties: map[string]spec.Schema{
 						"kind": {
 							SchemaProps: spec.SchemaProps{
@@ -773,13 +773,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"spec": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Spec contains the specification of VirtualMachine created",
+								Description: "Spec contains the specification of VirtualMachineInstance created",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineSpec"),
 							},
 						},
 						"status": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Status holds the current state of the controller and brief information about its associated VirtualMachine",
+								Description: "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineStatus"),
 							},
 						},
@@ -886,14 +886,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"running": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Running controls whether the associatied VirtualMachine is created or not",
+								Description: "Running controls whether the associatied VirtualMachineInstance is created or not",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
 						},
 						"template": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Template is the direct specification of VirtualMachine",
+								Description: "Template is the direct specification of VirtualMachineInstance",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"),
 							},
 						},
@@ -925,7 +925,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"conditions": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
+								Description: "Hold the state information of the OfflineVirtualMachine and its VirtualMachineInstance",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -1097,51 +1097,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.HPETTimer", "kubevirt.io/kubevirt/pkg/api/v1.HypervTimer", "kubevirt.io/kubevirt/pkg/api/v1.KVMTimer", "kubevirt.io/kubevirt/pkg/api/v1.PITTimer", "kubevirt.io/kubevirt/pkg/api/v1.RTCTimer"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetCondition": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"type": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"status": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"lastProbeTime": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-							},
-						},
-						"lastTransitionTime": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-							},
-						},
-						"reason": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"message": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-					},
-					Required: []string{"type", "status"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1203,7 +1158,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetCondition"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"),
 										},
 									},
 								},
@@ -1213,7 +1168,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetCondition"},
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec": {
 			Schema: spec.Schema{
@@ -1226,20 +1181,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"spec": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VM Spec contains the VM specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec"),
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"),
 							},
 						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+					Description: "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
 					Properties: map[string]spec.Schema{
 						"kind": {
 							SchemaProps: spec.SchemaProps{
@@ -1262,23 +1217,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"spec": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VM Spec contains the VM specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec"),
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"),
 							},
 						},
 						"status": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus"),
+								Description: "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus"),
 							},
 						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
@@ -1323,10 +1278,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineList": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceList": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachineList is a list of VirtualMachines",
+					Description: "VirtualMachineInstanceList is a list of VirtualMachines",
 					Properties: map[string]spec.Schema{
 						"kind": {
 							SchemaProps: spec.SchemaProps{
@@ -1353,7 +1308,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance"),
 										},
 									},
 								},
@@ -1364,9 +1319,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineNetworkInterface": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceNetworkInterface": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
@@ -1389,7 +1344,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePreset": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePreset": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
@@ -1414,20 +1369,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"spec": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VM Spec contains the VM specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePresetSpec"),
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePresetSpec"),
 							},
 						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePresetSpec"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePresetSpec"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePresetList": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePresetList": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachinePresetList is a list of VirtualMachinePresets",
+					Description: "VirtualMachineInstancePresetList is a list of VirtualMachinePresets",
 					Properties: map[string]spec.Schema{
 						"kind": {
 							SchemaProps: spec.SchemaProps{
@@ -1454,7 +1409,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePreset"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePreset"),
 										},
 									},
 								},
@@ -1465,9 +1420,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePreset"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePreset"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePresetSpec": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePresetSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
@@ -1479,7 +1434,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"domain": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Domain is the same object type as contained in VirtualMachineSpec",
+								Description: "Domain is the same object type as contained in VirtualMachineInstanceSpec",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
 							},
 						},
@@ -1490,10 +1445,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSet": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+					Description: "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
 					Properties: map[string]spec.Schema{
 						"kind": {
 							SchemaProps: spec.SchemaProps{
@@ -1516,13 +1471,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"spec": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VM Spec contains the VM specification.",
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec"),
 							},
 						},
 						"status": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
+								Description: "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetStatus"),
 							},
 						},
@@ -1532,7 +1487,52 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec", "kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetStatus"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSetList": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"type": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"status": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"lastProbeTime": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							},
+						},
+						"lastTransitionTime": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							},
+						},
+						"reason": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"message": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+					},
+					Required: []string{"type", "status"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetList": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Description: "VMList is a list of VMs",
@@ -1562,7 +1562,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSet"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet"),
 										},
 									},
 								},
@@ -1573,16 +1573,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSet"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachineSpec is a description of a VirtualMachine.",
+					Description: "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
 					Properties: map[string]spec.Schema{
 						"domain": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Specification of the desired behavior of the VirtualMachine on the host.",
+								Description: "Specification of the desired behavior of the VirtualMachineInstance on the host.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
 							},
 						},
@@ -1608,7 +1608,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"terminationGracePeriodSeconds": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
+								Description: "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
 								Type:        []string{"integer"},
 								Format:      "int64",
 							},
@@ -1647,26 +1647,26 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual state of a system.",
+					Description: "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual state of a system.",
 					Properties: map[string]spec.Schema{
 						"nodeName": {
 							SchemaProps: spec.SchemaProps{
-								Description: "NodeName is the name where the VM is currently running.",
+								Description: "NodeName is the name where the VirtualMachineInstance is currently running.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"conditions": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Conditions are specific points in VM's pod runtime.",
+								Description: "Conditions are specific points in VirtualMachineInstance's pod runtime.",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition"),
 										},
 									},
 								},
@@ -1674,7 +1674,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"phase": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
+								Description: "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -1686,7 +1686,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineNetworkInterface"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceNetworkInterface"),
 										},
 									},
 								},
@@ -1696,7 +1696,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineNetworkInterface"},
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceNetworkInterface"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Volume": {
 			Schema: spec.Schema{

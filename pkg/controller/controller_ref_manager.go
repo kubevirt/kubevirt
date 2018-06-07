@@ -178,7 +178,7 @@ func NewVirtualMachineControllerRefManager(
 //   * Adopt orphans if the selector matches.
 //   * Release owned objects if the selector no longer matches.
 //
-// Optional: If one or more filters are specified, a VirtualMachine will only be claimed if
+// Optional: If one or more filters are specified, a VirtualMachineInstance will only be claimed if
 // all filters return true.
 //
 // A non-nil error is returned if some form of reconciliation was attempted and
@@ -187,12 +187,12 @@ func NewVirtualMachineControllerRefManager(
 //
 // If the error is nil, either the reconciliation succeeded, or no
 // reconciliation was necessary. The list of VirtualMachines that you now own is returned.
-func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.VirtualMachine, filters ...func(machine *virtv1.VirtualMachine) bool) ([]*virtv1.VirtualMachine, error) {
-	var claimed []*virtv1.VirtualMachine
+func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.VirtualMachineInstance, filters ...func(machine *virtv1.VirtualMachineInstance) bool) ([]*virtv1.VirtualMachineInstance, error) {
+	var claimed []*virtv1.VirtualMachineInstance
 	var errlist []error
 
 	match := func(obj metav1.Object) bool {
-		vm := obj.(*virtv1.VirtualMachine)
+		vm := obj.(*virtv1.VirtualMachineInstance)
 		// Check selector first so filters only run on potentially matching VirtualMachines.
 		if !m.Selector.Matches(labels.Set(vm.Labels)) {
 			return false
@@ -205,10 +205,10 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.
 		return true
 	}
 	adopt := func(obj metav1.Object) error {
-		return m.AdoptVirtualMachine(obj.(*virtv1.VirtualMachine))
+		return m.AdoptVirtualMachine(obj.(*virtv1.VirtualMachineInstance))
 	}
 	release := func(obj metav1.Object) error {
-		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachine))
+		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachineInstance))
 	}
 
 	for _, vm := range vms {
@@ -224,13 +224,13 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
-// ClaimVirtualMachineByName tries to take ownership of a VirtualMachine.
+// ClaimVirtualMachineByName tries to take ownership of a VirtualMachineInstance.
 //
 // It will reconcile the following:
 //   * Adopt orphans if the selector matches.
 //   * Release owned objects if the selector no longer matches.
 //
-// Optional: If one or more filters are specified, a VirtualMachine will only be claimed if
+// Optional: If one or more filters are specified, a VirtualMachineInstance will only be claimed if
 // all filters return true.
 //
 // A non-nil error is returned if some form of reconciliation was attempted and
@@ -239,9 +239,9 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vms []*virtv1.
 //
 // If the error is nil, either the reconciliation succeeded, or no
 // reconciliation was necessary. The list of VirtualMachines that you now own is returned.
-func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vm *virtv1.VirtualMachine, filters ...func(machine *virtv1.VirtualMachine) bool) (*virtv1.VirtualMachine, error) {
+func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vm *virtv1.VirtualMachineInstance, filters ...func(machine *virtv1.VirtualMachineInstance) bool) (*virtv1.VirtualMachineInstance, error) {
 	match := func(obj metav1.Object) bool {
-		vm := obj.(*virtv1.VirtualMachine)
+		vm := obj.(*virtv1.VirtualMachineInstance)
 		// Check selector first so filters only run on potentially matching VirtualMachines.
 		if m.Controller.GetName() != vm.Name {
 			return false
@@ -254,10 +254,10 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vm *virtv
 		return true
 	}
 	adopt := func(obj metav1.Object) error {
-		return m.AdoptVirtualMachine(obj.(*virtv1.VirtualMachine))
+		return m.AdoptVirtualMachine(obj.(*virtv1.VirtualMachineInstance))
 	}
 	release := func(obj metav1.Object) error {
-		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachine))
+		return m.ReleaseVirtualMachine(obj.(*virtv1.VirtualMachineInstance))
 	}
 
 	ok, err := m.ClaimObject(vm, match, adopt, release)
@@ -272,9 +272,9 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineByName(vm *virtv
 
 // AdoptVirtualMachine sends a patch to take control of the vm. It returns the error if
 // the patching fails.
-func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vm *virtv1.VirtualMachine) error {
+func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vm *virtv1.VirtualMachineInstance) error {
 	if err := m.CanAdopt(); err != nil {
-		return fmt.Errorf("can't adopt VirtualMachine %v/%v (%v): %v", vm.Namespace, vm.Name, vm.UID, err)
+		return fmt.Errorf("can't adopt VirtualMachineInstance %v/%v (%v): %v", vm.Namespace, vm.Name, vm.UID, err)
 	}
 	// Note that ValidateOwnerReferences() will reject this patch if another
 	// OwnerReference exists with controller=true.
@@ -287,7 +287,7 @@ func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vm *virtv1.Virt
 
 // ReleaseVirtualMachine sends a patch to free the virtual machine from the control of the controller.
 // It returns the error if the patching fails. 404 and 422 errors are ignored.
-func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachine(vm *virtv1.VirtualMachine) error {
+func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachine(vm *virtv1.VirtualMachineInstance) error {
 	log.Log.V(2).Object(vm).Infof("patching vm to remove its controllerRef to %s/%s:%s",
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
 	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
@@ -323,7 +323,7 @@ type RealVirtualMachineControl struct {
 
 func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
-	_, err := r.Clientset.VM(namespace).Patch(name, types.MergePatchType, data)
+	_, err := r.Clientset.VirtualMachineInstance(namespace).Patch(name, types.MergePatchType, data)
 	return err
 }
 

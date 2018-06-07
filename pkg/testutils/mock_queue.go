@@ -72,19 +72,19 @@ type VirtualMachineFeeder struct {
 	Source    *framework.FakeControllerSource
 }
 
-func (v *VirtualMachineFeeder) Add(vm *v1.VirtualMachine) {
+func (v *VirtualMachineFeeder) Add(vm *v1.VirtualMachineInstance) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Add(vm)
 	v.MockQueue.Wait()
 }
 
-func (v *VirtualMachineFeeder) Modify(vm *v1.VirtualMachine) {
+func (v *VirtualMachineFeeder) Modify(vm *v1.VirtualMachineInstance) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Modify(vm)
 	v.MockQueue.Wait()
 }
 
-func (v *VirtualMachineFeeder) Delete(vm *v1.VirtualMachine) {
+func (v *VirtualMachineFeeder) Delete(vm *v1.VirtualMachineInstance) {
 	v.MockQueue.ExpectAdds(1)
 	v.Source.Delete(vm)
 	v.MockQueue.Wait()

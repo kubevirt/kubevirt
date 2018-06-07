@@ -142,7 +142,7 @@ func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, er
 	}
 
 	if len(podList.Items) == 0 {
-		return "", goerror.New("connection failed. No VM pod is running")
+		return "", goerror.New("connection failed. No VirtualMachineInstance pod is running")
 	}
 	return podList.Items[0].ObjectMeta.Name, nil
 }
@@ -150,16 +150,16 @@ func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, er
 func (app *SubresourceAPIApp) remoteExecInfo(name string, namespace string) (string, int, error) {
 	podName := ""
 
-	vm, err := app.VirtCli.VM(namespace).Get(name, k8smetav1.GetOptions{})
+	vm, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return "", http.StatusNotFound, goerror.New(fmt.Sprintf("VM %s in namespace %s not found.", name, namespace))
+			return "", http.StatusNotFound, goerror.New(fmt.Sprintf("VirtualMachineInstance %s in namespace %s not found.", name, namespace))
 		}
 		return podName, http.StatusInternalServerError, err
 	}
 
 	if vm.IsRunning() == false {
-		return podName, http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VM because phase is %s instead of %s", vm.Status.Phase, v1.Running))
+		return podName, http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vm.Status.Phase, v1.Running))
 	}
 
 	podName, err = app.findPod(namespace, name)

@@ -35,11 +35,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
+var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachinereplicasets"
+	basePath := "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstancereplicasets"
 	rsPath := basePath + "/testrs"
 
 	BeforeEach(func() {
@@ -49,8 +49,8 @@ var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should fetch a VirtualMachineReplicaSet", func() {
-		rs := NewMinimalVMReplicaSet("testrs")
+	It("should fetch a VirtualMachineInstanceReplicaSet", func() {
+		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", rsPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
@@ -74,11 +74,11 @@ var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	It("should fetch a VirtualMachineReplicaSet list", func() {
-		rs := NewMinimalVMReplicaSet("testrs")
+	It("should fetch a VirtualMachineInstanceReplicaSet list", func() {
+		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", basePath),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMReplicaSetList(*rs)),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstanceReplicaSetList(*rs)),
 		))
 		fetchedVMReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
 
@@ -88,8 +88,8 @@ var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
 		Expect(fetchedVMReplicaSetList.Items[0]).To(Equal(*rs))
 	})
 
-	It("should create a VirtualMachineReplicaSet", func() {
-		rs := NewMinimalVMReplicaSet("testrs")
+	It("should create a VirtualMachineInstanceReplicaSet", func() {
+		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("POST", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, rs),
@@ -101,8 +101,8 @@ var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
 		Expect(createdVMReplicaSet).To(Equal(rs))
 	})
 
-	It("should update a VirtualMachineReplicaSet", func() {
-		rs := NewMinimalVMReplicaSet("testrs")
+	It("should update a VirtualMachineInstanceReplicaSet", func() {
+		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("PUT", rsPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
@@ -114,7 +114,7 @@ var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
 		Expect(updatedVMReplicaSet).To(Equal(rs))
 	})
 
-	It("should delete a VirtualMachineReplicaSet", func() {
+	It("should delete a VirtualMachineInstanceReplicaSet", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("DELETE", rsPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
@@ -130,10 +130,10 @@ var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
 	})
 })
 
-func NewVMReplicaSetList(rss ...v1.VirtualMachineReplicaSet) *v1.VirtualMachineReplicaSetList {
-	return &v1.VirtualMachineReplicaSetList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineReplicaSetList"}, Items: rss}
+func NewVirtualMachineInstanceReplicaSetList(rss ...v1.VirtualMachineInstanceReplicaSet) *v1.VirtualMachineInstanceReplicaSetList {
+	return &v1.VirtualMachineInstanceReplicaSetList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceReplicaSetList"}, Items: rss}
 }
 
-func NewMinimalVMReplicaSet(name string) *v1.VirtualMachineReplicaSet {
-	return &v1.VirtualMachineReplicaSet{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineReplicaSet"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+func NewMinimalVirtualMachineInstanceReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
+	return &v1.VirtualMachineInstanceReplicaSet{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceReplicaSet"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }

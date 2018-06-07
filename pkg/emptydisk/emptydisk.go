@@ -11,7 +11,7 @@ import (
 
 var EmptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
 
-func CreateTemporaryDisks(vm *v1.VirtualMachine) error {
+func CreateTemporaryDisks(vm *v1.VirtualMachineInstance) error {
 
 	for _, volume := range vm.Spec.Volumes {
 

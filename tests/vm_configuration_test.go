@@ -47,9 +47,9 @@ var _ = Describe("Configurations", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("VM definition", func() {
+	Describe("VirtualMachineInstance definition", func() {
 		Context("with 3 CPU cores", func() {
-			var vm *v1.VirtualMachine
+			var vm *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
 				vm = tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
@@ -64,12 +64,12 @@ var _ = Describe("Configurations", func() {
 					},
 				}
 
-				By("Starting a VM")
-				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+				By("Starting a VirtualMachineInstance")
+				vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMStart(vm)
 
-				By("Expecting the VM console")
+				By("Expecting the VirtualMachineInstance console")
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
@@ -107,9 +107,9 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("New VM with all supported drives", func() {
+	Context("New VirtualMachineInstance with all supported drives", func() {
 
-		var vm *v1.VirtualMachine
+		var vm *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			// ordering:
@@ -131,7 +131,7 @@ var _ = Describe("Configurations", func() {
 
 		// FIXME ide and floppy is not recognized by the used image right now
 		It("should have all the device nodes", func() {
-			vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+			vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMStart(vm)
 

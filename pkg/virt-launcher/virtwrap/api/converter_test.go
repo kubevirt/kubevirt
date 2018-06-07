@@ -84,9 +84,9 @@ var _ = Describe("Converter", func() {
 
 	})
 
-	Context("with v1.VirtualMachine", func() {
+	Context("with v1.VirtualMachineInstance", func() {
 
-		var vm *v1.VirtualMachine
+		var vm *v1.VirtualMachineInstance
 		_false := false
 		_true := true
 		domainType := "kvm"
@@ -96,13 +96,13 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 
-			vm = &v1.VirtualMachine{
+			vm = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvm",
 					Namespace: "mynamespace",
 				},
 			}
-			v1.SetObjectDefaults_VirtualMachine(vm)
+			v1.SetObjectDefaults_VirtualMachineInstance(vm)
 			vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 				Name: "mywatchdog",
 				WatchdogDevice: v1.WatchdogDevice{
@@ -431,17 +431,17 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should be converted to a libvirt Domain with vm defaults set", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
+			v1.SetObjectDefaults_VirtualMachineInstance(vm)
 			Expect(vmToDomainXML(vm, c)).To(Equal(convertedDomain))
 		})
 
 		It("should use kvm if present", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
+			v1.SetObjectDefaults_VirtualMachineInstance(vm)
 			Expect(vmToDomainXMLToDomainSpec(vm, c).Type).To(Equal(domainType))
 		})
 
 		It("should convert CPU cores", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
+			v1.SetObjectDefaults_VirtualMachineInstance(vm)
 			vm.Spec.Domain.CPU = &v1.CPU{
 				Cores: 3,
 			}
@@ -454,7 +454,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should select explicitly chosen network model", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
+			v1.SetObjectDefaults_VirtualMachineInstance(vm)
 			vm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
 			domain := vmToDomain(vm, c)
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
@@ -471,14 +471,14 @@ func diskToDiskXML(disk *v1.Disk) string {
 	return string(data)
 }
 
-func vmToDomainXML(vm *v1.VirtualMachine, c *ConverterContext) string {
+func vmToDomainXML(vm *v1.VirtualMachineInstance, c *ConverterContext) string {
 	domain := vmToDomain(vm, c)
 	data, err := xml.MarshalIndent(domain.Spec, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 	return string(data)
 }
 
-func vmToDomain(vm *v1.VirtualMachine, c *ConverterContext) *Domain {
+func vmToDomain(vm *v1.VirtualMachineInstance, c *ConverterContext) *Domain {
 	domain := &Domain{}
 	Expect(Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())
 	SetObjectDefaults_Domain(domain)
@@ -494,6 +494,6 @@ func xmlToDomainSpec(data string) *DomainSpec {
 	return newDomain
 }
 
-func vmToDomainXMLToDomainSpec(vm *v1.VirtualMachine, c *ConverterContext) *DomainSpec {
+func vmToDomainXMLToDomainSpec(vm *v1.VirtualMachineInstance, c *ConverterContext) *DomainSpec {
 	return xmlToDomainSpec(vmToDomainXML(vm, c))
 }

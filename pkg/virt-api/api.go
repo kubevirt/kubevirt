@@ -141,9 +141,9 @@ func (app *virtAPIApp) Execute() {
 
 func (app *virtAPIApp) composeResources(ctx context.Context) {
 
-	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
-	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
-	vmpGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinepresets"}
+	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstances"}
+	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancereplicasets"}
+	vmpGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancepresets"}
 	ovmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "offlinevirtualmachines"}
 
 	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
@@ -151,17 +151,17 @@ func (app *virtAPIApp) composeResources(ctx context.Context) {
 		panic(err)
 	}
 
-	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VirtualMachineInstance{}, v1.VirtualMachineInstanceGroupVersionKind.Kind, &v1.VirtualMachineInstanceList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = rest.GenericResourceProxy(ws, ctx, vmrsGVR, &v1.VirtualMachineReplicaSet{}, v1.VMReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineReplicaSetList{})
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmrsGVR, &v1.VirtualMachineInstanceReplicaSet{}, v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineInstanceReplicaSetList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachinePreset{}, v1.VirtualMachinePresetGroupVersionKind.Kind, &v1.VirtualMachinePresetList{})
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachineInstancePreset{}, v1.VirtualMachineInstancePresetGroupVersionKind.Kind, &v1.VirtualMachineInstancePresetList{})
 	if err != nil {
 		panic(err)
 	}
@@ -211,7 +211,7 @@ func subresourceAPIGroup() metav1.APIGroup {
 
 func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 
-	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
+	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachineinstances"}
 
 	subws := new(restful.WebService)
 	subws.Doc("The KubeVirt Subresource API.")
@@ -225,13 +225,13 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		To(subresourceApp.ConsoleRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("console").
-		Doc("Open a websocket connection to a serial console on the specified VM."))
+		Doc("Open a websocket connection to a serial console on the specified VirtualMachineInstance."))
 
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("vnc")).
 		To(subresourceApp.VNCRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("vnc").
-		Doc("Open a websocket connection to connect to VNC on the specified VM."))
+		Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
 
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("test")).
 		To(func(request *restful.Request, response *restful.Response) {
@@ -532,8 +532,8 @@ func (app *virtAPIApp) createWebhook() error {
 				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineGroupVersionKind.Version},
-					Resources:   []string{"virtualmachines"},
+					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstances"},
 				},
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
@@ -570,8 +570,8 @@ func (app *virtAPIApp) createWebhook() error {
 				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VMReplicaSetGroupVersionKind.Version},
-					Resources:   []string{"virtualmachinereplicasets"},
+					APIVersions: []string{v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstancereplicasets"},
 				},
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
@@ -589,8 +589,8 @@ func (app *virtAPIApp) createWebhook() error {
 				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachinePresetGroupVersionKind.Version},
-					Resources:   []string{"virtualmachinepresets"},
+					APIVersions: []string{v1.VirtualMachineInstancePresetGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstancepresets"},
 				},
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{

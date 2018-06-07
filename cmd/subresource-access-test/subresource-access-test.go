@@ -45,7 +45,7 @@ func main() {
 	if os.Args[1] == "version" {
 		result = restClient.Get().Resource("version").Do()
 	} else {
-		result = restClient.Get().Resource("virtualmachines").Namespace("default").Name("fake").SubResource("test").Do()
+		result = restClient.Get().Resource("virtualmachineinstances").Namespace("default").Name("fake").SubResource("test").Do()
 	}
 
 	err = result.Error()

@@ -154,10 +154,10 @@ func (c *VMController) Execute() bool {
 	err := c.execute(key.(string))
 
 	if err != nil {
-		log.Log.Reason(err).Infof("reenqueuing VM %v", key)
+		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VM %v", key)
+		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
@@ -178,11 +178,11 @@ func (c *VMController) execute(key string) error {
 		c.handoverExpectations.DeleteExpectations(key)
 		return nil
 	}
-	vm := obj.(*virtv1.VirtualMachine)
+	vm := obj.(*virtv1.VirtualMachineInstance)
 
-	// If the VM is exists still, don't process the VM until it is fully initialized.
+	// If the VirtualMachineInstance is exists still, don't process the VirtualMachineInstance until it is fully initialized.
 	// Initialization is handled by the initialization controller and must take place
-	// before the VM is acted upon.
+	// before the VirtualMachineInstance is acted upon.
 	if !isVirtualMachineInitialized(vm) {
 		return nil
 	}
@@ -218,7 +218,7 @@ func (c *VMController) execute(key string) error {
 	return c.updateStatus(vm, pods, syncErr)
 }
 
-func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod, syncErr syncError) error {
+func (c *VMController) updateStatus(vm *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncErr syncError) error {
 
 	var pod *k8sv1.Pod = nil
 	podExists := len(pods) > 0
@@ -244,7 +244,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 			if isPodOwnedByHandler(pod) {
 				// vm is still owned by the controller but pod is already handed over,
 				// so let's hand over the vm too
-				vmCopy.Status.Interfaces = []virtv1.VirtualMachineNetworkInterface{
+				vmCopy.Status.Interfaces = []virtv1.VirtualMachineInstanceNetworkInterface{
 					{
 						IP: pod.Status.PodIP,
 					},
@@ -264,7 +264,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 		}
 	case vm.IsFinal():
 		if !podExists {
-			controller.RemoveFinalizer(vmCopy, virtv1.VirtualMachineFinalizer)
+			controller.RemoveFinalizer(vmCopy, virtv1.VirtualMachineInstanceFinalizer)
 		}
 	case vm.IsRunning() || vm.IsScheduled():
 		// Don't process states where the vm is clearly owned by virt-handler
@@ -284,7 +284,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod
 	if !reflect.DeepEqual(vm.Status, vmCopy.Status) ||
 		!reflect.DeepEqual(vm.Finalizers, vmCopy.Finalizers) ||
 		!reflect.DeepEqual(vm.Annotations, vmCopy.Annotations) {
-		_, err := c.clientset.VM(vm.Namespace).Update(vmCopy)
+		_, err := c.clientset.VirtualMachineInstance(vm.Namespace).Update(vmCopy)
 		if err != nil {
 			return err
 		}
@@ -314,7 +314,7 @@ func podIsDown(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
-func (c *VMController) sync(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) (err syncError) {
+func (c *VMController) sync(vm *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) (err syncError) {
 
 	var pod *k8sv1.Pod = nil
 	podExists := len(pods) > 0
@@ -495,7 +495,7 @@ func (c *VMController) updateVirtualMachine(old, curr interface{}) {
 
 func (c *VMController) enqueueVirtualMachine(obj interface{}) {
 	logger := log.Log
-	vm := obj.(*virtv1.VirtualMachine)
+	vm := obj.(*virtv1.VirtualMachineInstance)
 	key, err := controller.KeyFunc(vm)
 	if err != nil {
 		logger.Object(vm).Reason(err).Error("Failed to extract key from virtualmachine.")
@@ -506,10 +506,10 @@ func (c *VMController) enqueueVirtualMachine(obj interface{}) {
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachine {
+func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstance {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
-	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
+	if controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
 	vm, exists, err := c.vmInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
@@ -520,12 +520,12 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.
 		return nil
 	}
 
-	if vm.(*virtv1.VirtualMachine).UID != controllerRef.UID {
+	if vm.(*virtv1.VirtualMachineInstance).UID != controllerRef.UID {
 		// The controller we found with this Name is not the same one that the
 		// ControllerRef points to.
 		return nil
 	}
-	return vm.(*virtv1.VirtualMachine)
+	return vm.(*virtv1.VirtualMachineInstance)
 }
 
 // listPodsFromNamespace takes a namespace and returns all Pods from the pod cache which run in this namespace
@@ -542,7 +542,7 @@ func (c *VMController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, er
 	return pods, nil
 }
 
-func (c *VMController) filterMatchingPods(vm *virtv1.VirtualMachine, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
+func (c *VMController) filterMatchingPods(vm *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
 	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{MatchLabels: map[string]string{virtv1.DomainLabel: vm.Name, virtv1.AppLabel: "virt-launcher"}})
 	if err != nil {
 		return nil, err
@@ -565,7 +565,7 @@ func isPodOwnedByHandler(pod *k8sv1.Pod) bool {
 
 // checkHandOverExpectation checks if a pod is owned by virt-handler and marks the
 // handover expectation as observed, if so.
-func (c *VMController) checkHandOverExpectation(pod *k8sv1.Pod, vm *virtv1.VirtualMachine) {
+func (c *VMController) checkHandOverExpectation(pod *k8sv1.Pod, vm *virtv1.VirtualMachineInstance) {
 	if isPodOwnedByHandler(pod) {
 		c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vm))
 	}
@@ -574,7 +574,7 @@ func (c *VMController) checkHandOverExpectation(pod *k8sv1.Pod, vm *virtv1.Virtu
 func (c *VMController) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
 	t := true
 	return &v1.OwnerReference{
-		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+		Kind:               virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
 		Name:               pod.Labels[virtv1.DomainLabel],
 		UID:                types.UID(pod.Annotations[virtv1.CreatedByAnnotation]),
 		Controller:         &t,

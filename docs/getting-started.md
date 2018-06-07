@@ -184,7 +184,7 @@ $ ./cluster/kubectl.sh get vms -o json
                 "name": "vm-ephemeral",
                 "namespace": "default",
                 "resourceVersion": "102534",
-                "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
+                "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm",
                 "uid": "7e89280a-be62-11e6-a69f-525400efd09f"
             },
             "spec": {

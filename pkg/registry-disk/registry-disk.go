@@ -37,12 +37,12 @@ var registryDiskOwner = "qemu"
 
 var mountBaseDir = "/var/run/libvirt/kubevirt-disk-dir"
 
-func generateVMBaseDir(vm *v1.VirtualMachine) string {
+func generateVMBaseDir(vm *v1.VirtualMachineInstance) string {
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	return fmt.Sprintf("%s/%s/%s", mountBaseDir, namespace, domain)
 }
-func generateVolumeMountDir(vm *v1.VirtualMachine, volumeName string) string {
+func generateVolumeMountDir(vm *v1.VirtualMachineInstance, volumeName string) string {
 	baseDir := generateVMBaseDir(vm)
 	return fmt.Sprintf("%s/disk_%s", baseDir, volumeName)
 }
@@ -57,7 +57,7 @@ func SetLocalDataOwner(user string) {
 	registryDiskOwner = user
 }
 
-func GetFilePath(vm *v1.VirtualMachine, volumeName string) (string, string, error) {
+func GetFilePath(vm *v1.VirtualMachineInstance, volumeName string) (string, string, error) {
 
 	volumeMountDir := generateVolumeMountDir(vm, volumeName)
 	suffixes := map[string]string{".raw": "raw", ".qcow2": "qcow2", ".raw.virt": "raw", ".qcow2.virt": "qcow2"}
@@ -75,7 +75,7 @@ func GetFilePath(vm *v1.VirtualMachine, volumeName string) (string, string, erro
 	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", volumeMountDir))
 }
 
-func SetFilePermissions(vm *v1.VirtualMachine) error {
+func SetFilePermissions(vm *v1.VirtualMachineInstance) error {
 	for _, volume := range vm.Spec.Volumes {
 		if volume.RegistryDisk != nil {
 			diskPath, _, err := GetFilePath(vm, volume.Name)
@@ -95,7 +95,7 @@ func SetFilePermissions(vm *v1.VirtualMachine) error {
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vm *v1.VirtualMachine, podVolumeName string, podVolumeMountDir string) []kubev1.Container {
+func GenerateContainers(vm *v1.VirtualMachineInstance, podVolumeName string, podVolumeMountDir string) []kubev1.Container {
 	var containers []kubev1.Container
 
 	initialDelaySeconds := 2
@@ -104,7 +104,7 @@ func GenerateContainers(vm *v1.VirtualMachine, podVolumeName string, podVolumeMo
 	successThreshold := 2
 	failureThreshold := 5
 
-	// Make VM Image Wrapper Containers
+	// Make VirtualMachineInstance Image Wrapper Containers
 	for _, volume := range vm.Spec.Volumes {
 		if volume.RegistryDisk != nil {
 
