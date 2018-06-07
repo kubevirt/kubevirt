@@ -20,7 +20,7 @@ A new object `VirtualMachineInstanceReplicaSet`, backed with a controller will b
 implemented:
 
 ```yaml
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstanceReplicaSet
 metadata:
   name: myreplicaset

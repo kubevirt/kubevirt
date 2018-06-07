@@ -5,23 +5,21 @@ metadata:
   creationTimestamp: null
   labels:
     kubevirt.io: ""
-  name: virtualmachines.kubevirt.io
+  name: virtualmachineinstancereplicasets.kubevirt.io
 spec:
   group: kubevirt.io
   names:
-    kind: VirtualMachine
-    plural: virtualmachines
+    kind: VirtualMachineInstanceReplicaSet
+    plural: virtualmachineinstancereplicasets
     shortNames:
-    - vm
-    - vms
-    singular: virtualmachine
+    - vmirs
+    - vmirss
+    singular: virtualmachineinstancereplicaset
   scope: Namespaced
   validation:
     openAPIV3Schema:
-      description: VirtualMachine handles the VirtualMachines that are not running
-        or are in a stopped state The VirtualMachine contains the template to create
-        the VirtualMachineInstance. It also mirrors the running state of the created
-        VirtualMachineInstance in its status.
+      description: VirtualMachineInstance is *the* VirtualMachineInstance Definition.
+        It represents a virtual machine in the runtime environment of kubernetes.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -35,13 +33,16 @@ spec:
           type: string
         metadata: {}
         spec:
-          description: VirtualMachineSpec describes how the proper VirtualMachine
-            should look like
           properties:
-            running:
-              description: Running controls whether the associatied VirtualMachineInstance
-                is created or not
+            paused:
+              description: Indicates that the replica set is paused.
               type: boolean
+            replicas:
+              description: Number of desired pods. This is a pointer to distinguish
+                between explicit zero and not specified. Defaults to 1.
+              format: int32
+              type: integer
+            selector: {}
             template:
               properties:
                 metadata: {}
@@ -387,17 +388,12 @@ spec:
                   required:
                   - domain
           required:
-          - running
+          - selector
           - template
         status:
-          description: VirtualMachineStatus represents the status returned by the
-            controller to describe how the VirtualMachine is doing
           properties:
             conditions:
-              description: Hold the state information of the VirtualMachine and its
-                VirtualMachineInstance
               items:
-                description: VirtualMachineCondition represents the state of VirtualMachine
                 properties:
                   lastProbeTime: {}
                   lastTransitionTime: {}
@@ -413,13 +409,15 @@ spec:
                 - type
                 - status
               type: array
-            created:
-              description: Created indicates if the virtual machine is created in
-                the cluster
-              type: boolean
-            ready:
-              description: Ready indicates if the virtual machine is running and ready
-              type: boolean
+            readyReplicas:
+              description: The number of ready replicas for this replica set.
+              format: int32
+              type: integer
+            replicas:
+              description: Total number of non-terminated pods targeted by this deployment
+                (their labels match the selector).
+              format: int32
+              type: integer
   version: v1alpha2
 status:
   acceptedNames:

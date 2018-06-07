@@ -93,14 +93,14 @@ var _ = Describe("Kubeproxy", func() {
 	})
 
 	Context("To allow autodiscovery for kubectl", func() {
-		It("should proxy /apis/kubevirt.io/v1alpha1/", func() {
+		It("should proxy /apis/kubevirt.io/v1alpha2/", func() {
 			apiserverMock.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest(http.MethodGet, "/apis/kubevirt.io/v1alpha1/"),
+					ghttp.VerifyRequest(http.MethodGet, "/apis/kubevirt.io/v1alpha2/"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, sourceVM),
 				),
 			)
-			result := restClient.Get().AbsPath("/apis/kubevirt.io/v1alpha1/").Do()
+			result := restClient.Get().AbsPath("/apis/kubevirt.io/v1alpha2/").Do()
 			Expect(result).To(HaveStatusCode(http.StatusOK))
 			body, _ := result.Raw()
 			var obj v1.VirtualMachineInstance
@@ -164,7 +164,7 @@ var _ = Describe("Kubeproxy", func() {
 					ghttp.VerifyJSONRepresenting(&v12.DeleteOptions{
 						TypeMeta: v12.TypeMeta{
 							Kind:       "DeleteOptions",
-							APIVersion: "kubevirt.io/v1alpha1"},
+							APIVersion: "kubevirt.io/v1alpha2"},
 						PropagationPolicy: &policy}),
 				),
 			)
@@ -345,7 +345,7 @@ var _ = Describe("Kubeproxy", func() {
 })
 
 func vmBasePath() string {
-	return "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances"
+	return "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances"
 }
 
 func vmPath(vm *v1.VirtualMachineInstance) string {

@@ -116,9 +116,8 @@ Simple `VirtualMachineInstancePreset` Example
 ------------------------
 
 ```yaml
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstancePreset
-version: v1alpha1
 metadata:
   name: example-preset
 spec:
@@ -135,7 +134,7 @@ spec:
         spinlocks:
           spinlocks: 8191
 ---
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 version: v1
 metadata:
@@ -155,17 +154,17 @@ resulting resource would look like this:
 ```yaml
 apiVersion: v1
 items:
-- apiVersion: kubevirt.io/v1alpha1
+- apiVersion: kubevirt.io/v1alpha2
   kind: VirtualMachineInstance
   metadata:
     annotations:
-      presets.virtualmachines.kubevirt.io/presets-applied: kubevirt.io/v1alpha1
-      virtualmachinepreset.kubevirt.io/example-preset: kubevirt.io/v1alpha1
+      presets.virtualmachines.kubevirt.io/presets-applied: kubevirt.io/v1alpha2
+      virtualmachinepreset.kubevirt.io/example-preset: kubevirt.io/v1alpha2
     labels:
       kubevirt.io/flavor: windows-10
     name: myvm
     namespace: default
-    selfLink: /apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/myvm
+    selfLink: /apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/myvm
   spec:
     domain:
       devices: {}
@@ -205,9 +204,8 @@ and `VirtualMachineInstancePreset` request different number of CPU's.
 
 
 ```yaml
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstancePreset
-version: v1alpha1
 metadata:
   name: example-preset
 spec:
@@ -218,7 +216,7 @@ spec:
     cpu:
       cores: 4
 ---
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 version: v1
 metadata:
@@ -237,17 +235,17 @@ In this case the `VirtualMachineInstance` Spec will remain unmodified. Use
 ```yaml
 apiVersion: v1
 items:
-- apiVersion: kubevirt.io/v1alpha1
+- apiVersion: kubevirt.io/v1alpha2
   kind: VirtualMachineInstance
   metadata:
     annotations:
-      presets.virtualmachines.kubevirt.io/presets-applied: kubevirt.io/v1alpha1
+      presets.virtualmachines.kubevirt.io/presets-applied: kubevirt.io/v1alpha2
     clusterName: ""
     labels:
       kubevirt.io/flavor: default-features
     name: myvm
     namespace: default
-    selfLink: /apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/myvm
+    selfLink: /apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/myvm
   spec:
     domain:
       cpu:

@@ -80,19 +80,19 @@ The VirtualMachine object is a CRD, which implies that Kubernetes
 provides the API automatically. The API is located at the path
 
 ```text
-<your-api-server-adress>/apis/kubevirt.io/v1alpha/virtualmachine/
+<your-api-server-adress>/apis/kubevirt.io/v1alpha2/virtualmachine/
 ```
 
 and you can do typical REST manipulation, you would expect. All CRUD is
 supported, as shown in following example.
 
 ```text
-POST /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine
-GET /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine
-GET /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine/{name}
-DELETE /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine/{name}
-PUT /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine/{name}
-PATCH /apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachine/{name}
+POST /apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachine
+GET /apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachine
+GET /apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachine/{name}
+DELETE /apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachine/{name}
+PUT /apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachine/{name}
+PATCH /apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachine/{name}
 ```
 
 By **POST** you can store new object in the etcd. With **GET** you either
@@ -113,7 +113,7 @@ The object is defined in the same way as any other Kubernetes object. You can
 use YAML or JSON format to specify the content. The example structure is bellow:
 
 ```yaml
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: myvm
@@ -241,15 +241,15 @@ the OwnerReference lives in the metadata section of the object and is created
 automaticaly. Example:
 
 ```YAML
-apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachineInstance
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachine
 metadata:
   name: myvm
   ownerReferences:
     - controller: true
       uid: 1234-1234-1234-1234
       kind: VirtualMachine
-      version: kubevirt.io/v1alpha1
+      version: kubevirt.io/v1alpha2
 ```
 
 ### Update strategy
@@ -296,7 +296,7 @@ metadata:
 spec:
   scope: Namespaced
   group: kubevirt.io
-  version: v1alpha1
+  version: v1alpha2
   names:
     kind: VirtualMachine
     plural: virtualmachines

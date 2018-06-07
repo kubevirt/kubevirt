@@ -165,7 +165,7 @@ virt-launcher-vm-ephemeral9q7es   1/1       Running   0          10s
 
 $ ./cluster/kubectl.sh get vms
 NAME           LABELS                        DATA
-vm-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha1","kind":"VM","...
+vm-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VM","...
 
 $ ./cluster/kubectl.sh get vms -o json
 {
@@ -174,7 +174,7 @@ $ ./cluster/kubectl.sh get vms -o json
     "metadata": {},
     "items": [
         {
-            "apiVersion": "kubevirt.io/v1alpha1",
+            "apiVersion": "kubevirt.io/v1alpha2",
             "kind": "VirtualMachine",
             "metadata": {
                 "creationTimestamp": "2016-12-09T17:54:52Z",
@@ -184,7 +184,7 @@ $ ./cluster/kubectl.sh get vms -o json
                 "name": "vm-ephemeral",
                 "namespace": "default",
                 "resourceVersion": "102534",
-                "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm",
+                "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm",
                 "uid": "7e89280a-be62-11e6-a69f-525400efd09f"
             },
             "spec": {

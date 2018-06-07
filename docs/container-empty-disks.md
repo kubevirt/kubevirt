@@ -35,7 +35,7 @@ type EmptyDiskSource struct {
 A usage example:
 
 ```yaml
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
   name: testvm

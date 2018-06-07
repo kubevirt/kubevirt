@@ -36,7 +36,7 @@ Example
 ```
 metadata:
   name: testvm-nocloud
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 spec:
   domain:
@@ -94,7 +94,7 @@ Then reference the secret in the userDataSecretRef field.
 ```
 metadata:
   name: testvm-nocloud
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 spec:
   domain:

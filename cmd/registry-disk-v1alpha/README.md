@@ -35,7 +35,7 @@ Example: Create a KubeVirt VM definition with container backed ephemeral disk.
 
 ```
 cat << END > vm.yaml
-apiVersion: kubevirt.io/v1alpha1
+apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachine
 metadata:
   creationTimestamp: null

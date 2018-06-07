@@ -91,7 +91,7 @@ var _ = Describe("VMPreset", func() {
 
 		It("Should reject POST if schema is invalid", func() {
 			// Preset with missing selector should fail CRD validation
-			jsonString := "{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"kubevirt.io/v1alpha1\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}"
+			jsonString := "{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"kubevirt.io/v1alpha2\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}"
 
 			result := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
 
@@ -203,7 +203,7 @@ var _ = Describe("VMPreset", func() {
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
-			Expect(newVm.Annotations[annotationKey]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(newVm.Annotations[annotationKey]).To(Equal("kubevirt.io/v1alpha2"))
 
 			// check a setting from the preset itself to show it was applied
 			Expect(int(newVm.Spec.Domain.CPU.Cores)).To(Equal(cores))

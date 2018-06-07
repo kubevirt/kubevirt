@@ -555,15 +555,15 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 
 			By("checking annotations were applied")
 			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
 			Expect(ok).To(BeTrue())
 
 			annotation, ok = vm.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
 			Expect(ok).To(BeTrue())
 
 			annotation, ok = vm.Annotations["virtualmachinepreset.kubevirt.io/duplicate-mem"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
 			Expect(ok).To(BeTrue())
 
 			By("checking settings were applied")
@@ -600,7 +600,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.CPU.Cores).To(Equal(uint32(4)))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -615,7 +615,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Resources.Requests["memory"]).To(Equal(memory))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -629,7 +629,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(uuid))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -645,7 +645,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Clock).To(Equal(clock))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -663,7 +663,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Features).To(Equal(features))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -678,7 +678,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			applyPresets(&vm, presets, recorder)
 
 			Expect(vm.Spec.Domain.Devices.Watchdog).To(Equal(watchdog))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -844,7 +844,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -867,7 +867,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -887,7 +887,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -898,7 +898,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			// Prove that the VirtualMachineInstance was annotated (indicates successful application of preset)
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 		})
 
 		It("should annotate partially applied presets", func() {
@@ -909,7 +909,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -920,7 +920,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			// Prove that the VirtualMachineInstance was annotated (indicates successful application of preset)
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 		})
 
 		It("should should not annotate presets with no settings successfully applied", func() {
@@ -933,7 +933,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -955,7 +955,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -979,7 +979,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -1005,7 +1005,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -1037,7 +1037,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)

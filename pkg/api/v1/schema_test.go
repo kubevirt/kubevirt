@@ -29,11 +29,11 @@ import (
 
 var exampleJSON = `{
   "kind": "VirtualMachineInstance",
-  "apiVersion": "kubevirt.io/v1alpha1",
+  "apiVersion": "kubevirt.io/v1alpha2",
   "metadata": {
     "name": "testvm",
     "namespace": "default",
-    "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm",
+    "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm",
     "creationTimestamp": null
   },
   "spec": {

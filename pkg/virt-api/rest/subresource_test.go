@@ -68,7 +68,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 				ghttp.CombineHandlers(
@@ -92,7 +92,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -114,7 +114,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 				ghttp.CombineHandlers(
