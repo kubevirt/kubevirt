@@ -513,6 +513,68 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				}, 0),
 		)
+		It("should accept a single interface and network", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject interface lists with more than one element", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface()}
+
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			// if this is processed correctly, it should result in a single error
+			// If multiple causes occurred, then the spec was processed too far.
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces"))
+		})
+		It("should reject network lists with more than one element", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Networks = []v1.Network{
+				*v1.DefaultPodNetwork(),
+				*v1.DefaultPodNetwork()}
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			// if this is processed correctly, it should result in a single error
+			// If multiple causes occurred, then the spec was processed too far.
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.networks"))
+		})
+
+		It("should reject interfaces with missing network", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "redtest",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+			}
+
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
+		})
+		It("should only accept networks with a pod network source ", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{},
+				},
+			}
+
+			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.networks[0].pod"))
+		})
 
 	})
 	Context("with Volume", func() {

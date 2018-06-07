@@ -40,6 +40,7 @@ import (
 const (
 	cloudInitMaxLen = 2048
 	arrayLenMax     = 256
+	maxNetworks     = 1
 )
 
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
@@ -302,6 +303,7 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
 	volumeNameMap := make(map[string]*v1.Volume)
+	networkNameMap := make(map[string]*v1.Network)
 
 	if len(spec.Domain.Devices.Disks) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
@@ -352,6 +354,23 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		})
 	}
 
+	// TODO: Currently, we support only a single network interface attached to a single pod network
+	if len(spec.Domain.Devices.Interfaces) > maxNetworks {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("domain", "devices", "interfaces").String(), maxNetworks),
+			Field:   field.Child("domain", "devices", "interfaces").String(),
+		})
+		return causes
+	} else if len(spec.Networks) > maxNetworks {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("networks").String(), maxNetworks),
+			Field:   field.Child("networks").String(),
+		})
+		return causes
+	}
+
 	for _, volume := range spec.Volumes {
 		volumeNameMap[volume.Name] = &volume
 	}
@@ -389,6 +408,35 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 				Message: fmt.Sprintf("%s can only be mapped to a PersistentVolumeClaim volume.", field.Child("domain", "devices", "disks").Index(idx).Child("lun").String()),
 				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("lun").String(),
 			})
+		}
+	}
+
+	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
+		for _, network := range spec.Networks {
+			networkNameMap[network.Name] = &network
+		}
+
+		// Validate that each interface has a matching network
+		for idx, iface := range spec.Domain.Devices.Interfaces {
+
+			_, networkExists := networkNameMap[iface.Name]
+
+			if !networkExists {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
+			}
+
+			// verify that pod network is selected
+			if spec.Networks[0].Pod == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("only a %s network source can be selected.", field.Child("domain", "devices", "networks").Index(0).Child("pod").String()),
+					Field:   field.Child("domain", "devices", "networks").Index(0).Child("pod").String(),
+				})
+			}
 		}
 	}
 
