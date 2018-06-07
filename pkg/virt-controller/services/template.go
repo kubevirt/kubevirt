@@ -20,6 +20,7 @@
 package services
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/virt-handler/kvm-monitor"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -219,6 +221,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 	if allowEmulation {
 		command = append(command, "--allow-emulation")
+	} else {
+		if resources.Limits == nil {
+			resources.Limits = make(k8sv1.ResourceList)
+		}
+		deviceName := k8sv1.ResourceName(fmt.Sprintf("%s/%s", kvm_monitor.ResourceNamespace, kvm_monitor.KVMName))
+		resources.Limits[deviceName] = resource.MustParse("1")
 	}
 
 	// VirtualMachineInstance target container

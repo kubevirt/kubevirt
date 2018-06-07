@@ -39,7 +39,7 @@ import (
 const (
 	KVMPath           = "/dev/kvm"
 	KVMName           = "kvm"
-	resourceNamespace = "devices.kubevirt.io"
+	ResourceNamespace = "devices.kubevirt.io"
 	connectionTimeout = 5 * time.Second
 	serverSock        = pluginapi.DevicePluginPath + "kubevirt-kvm.sock"
 )
