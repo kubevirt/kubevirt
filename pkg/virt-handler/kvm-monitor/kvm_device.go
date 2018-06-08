@@ -39,7 +39,7 @@ import (
 const (
 	KVMPath           = "/dev/kvm"
 	KVMName           = "kvm"
-	ResourceNamespace = "devices.kubevirt.io"
+	KvmDevice         = "devices.kubevirt.io/kvm"
 	connectionTimeout = 5 * time.Second
 	serverSock        = pluginapi.DevicePluginPath + "kubevirt-kvm.sock"
 )
@@ -108,11 +108,6 @@ func (dpi *KVMDevicePlugin) Start(stop chan struct{}) error {
 		return err
 	}
 
-	err = os.MkdirAll(pluginapi.DevicePluginPath, 0775)
-	if err != nil {
-		return err
-	}
-
 	sock, err := net.Listen("unix", dpi.socketPath)
 	if err != nil {
 		return err
@@ -120,6 +115,8 @@ func (dpi *KVMDevicePlugin) Start(stop chan struct{}) error {
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+
+	dpi.Register()
 
 	go dpi.server.Serve(sock)
 
@@ -143,8 +140,8 @@ func (dpi *KVMDevicePlugin) Stop() error {
 }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *KVMDevicePlugin) Register(kubeletEndpoint, resourceName string) error {
-	conn, err := connect(kubeletEndpoint, connectionTimeout)
+func (dpi *KVMDevicePlugin) Register() error {
+	conn, err := connect(pluginapi.KubeletSocket, connectionTimeout)
 	if err != nil {
 		return err
 	}
@@ -154,7 +151,7 @@ func (dpi *KVMDevicePlugin) Register(kubeletEndpoint, resourceName string) error
 	reqt := &pluginapi.RegisterRequest{
 		Version:      pluginapi.Version,
 		Endpoint:     path.Base(dpi.socketPath),
-		ResourceName: resourceName,
+		ResourceName: KvmDevice,
 	}
 
 	_, err = client.Register(context.Background(), reqt)
@@ -210,6 +207,13 @@ func (dpi *KVMDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateR
 	dev.ContainerPath = KVMPath
 	dev.Permissions = "rw"
 	response.Devices = append(response.Devices, dev)
+
+	// FIXME: This does not belong here.
+	tundev := new(pluginapi.DeviceSpec)
+	tundev.HostPath = "/dev/net/tun"
+	tundev.ContainerPath = "/dev/net/tun"
+	tundev.Permissions = "rw"
+	response.Devices = append(response.Devices, tundev)
 
 	return &response, nil
 }

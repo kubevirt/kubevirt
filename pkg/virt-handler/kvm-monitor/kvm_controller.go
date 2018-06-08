@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/fsnotify/fsnotify"
@@ -50,12 +49,6 @@ func NewKVMController(vmInformer cache.SharedIndexInformer, clientset kubecli.Ku
 		host:       host,
 		vmInformer: vmInformer,
 	}
-}
-
-func (c *KVMController) AddNodeKVMLabel() error {
-	data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "true"}}}`, KVMLabel))
-	_, err := c.clientset.CoreV1().Nodes().Patch(c.host, types.StrategicMergePatchType, data)
-	return err
 }
 
 func (c *KVMController) isNodeKVMCapable() bool {
@@ -98,12 +91,7 @@ func (c *KVMController) Run(stop chan struct{}) error {
 		}
 	}
 
-	err := c.AddNodeKVMLabel()
-	if err != nil {
-		return err
-	}
-
-	err = c.dpi.Start(stop)
+	err := c.dpi.Start(stop)
 	if err != nil {
 		logger.Errorf("Error starting KVM device plugin: %v", err)
 		return err

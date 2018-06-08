@@ -236,16 +236,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
-		// Privileged mode is required for /dev/kvm and the
-		// ability to create macvtap devices
 		SecurityContext: &k8sv1.SecurityContext{
-			RunAsUser:  &userId,
+			RunAsUser: &userId,
+			// Privileged mode is disabled.
 			Privileged: &privileged,
 			Capabilities: &k8sv1.Capabilities{
-				// FIXME: giving MKNOD to the container defeats the entire point of using device plugins.
-				// Add /dev/net/tun to the plugin framework and remove that capability from this list.
 				// NET_ADMIN is needed to set up networking for the VM
-				Add: []k8sv1.Capability{"NET_ADMIN", "MKNOD"},
+				Add: []k8sv1.Capability{"NET_ADMIN"},
 			},
 		},
 		Command:      command,
