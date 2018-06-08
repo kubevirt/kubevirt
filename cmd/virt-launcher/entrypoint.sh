@@ -13,18 +13,6 @@ trap _term SIGTERM SIGINT SIGQUIT
 chown :qemu /dev/kvm
 chmod 660 /dev/kvm
 
-# HACK
-# /dev/net and associated devices are not present in
-# non privileged containers
-#
-# FIXME: this should probably be incorporated into the plugin framework,
-# but that might be part of a bigger architectural change.
-#
-if [ ! -e /dev/net/tun ]; then
-    mkdir -p /dev/net
-    mknod /dev/net/tun c 10 $(grep '\<tun\>' /proc/misc | cut -f 1 -d' ')
-fi
-
 # Cockpit/OCP hack to all shoing the vm terminal
 mv /usr/bin/sh /usr/bin/sh.orig
 mv /sh.sh /usr/bin/sh
