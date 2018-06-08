@@ -128,13 +128,16 @@ const (
 )
 
 const (
-	iscsiIqn        = "iqn.2017-01.io.kubevirt:sn.42"
-	iscsiSecretName = "iscsi-demo-secret"
+	iscsiIqn = "iqn.2017-01.io.kubevirt:sn.42"
 )
 
 const (
 	defaultDiskSize        = "1Gi"
 	defaultWindowsDiskSize = "30Gi"
+)
+
+const (
+	SecretLabel = "kubevirt.io/secret"
 )
 
 const VmResource = "virtualmachines"
@@ -310,7 +313,6 @@ func AfterTestSuitCleanup() {
 
 func BeforeTestCleanup() {
 	cleanNamespaces()
-	createIscsiSecrets()
 }
 
 func BeforeTestSuitSetup() {
@@ -320,7 +322,6 @@ func BeforeTestSuitSetup() {
 
 	createNamespaces()
 	createServiceAccounts()
-	createIscsiSecrets()
 
 	CreatePvISCSI(osAlpineISCSI, 2)
 	CreatePVC(osAlpineISCSI, defaultDiskSize)
@@ -656,7 +657,12 @@ func cleanNamespaces() {
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
 
 		// Remove all VM Secrets
-		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("secrets").Do().Error())
+		labelSelector := fmt.Sprintf("%s", SecretLabel)
+		PanicOnError(
+			virtCli.CoreV1().Secrets(namespace).DeleteCollection(
+				&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
+			),
+		)
 
 		// Remove all VM Presets
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachinepresets").Do().Error())
@@ -681,30 +687,6 @@ func removeNamespaces() {
 		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
 		Eventually(func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 180*time.Second, 1*time.Second).
 			Should(BeTrue())
-	}
-}
-
-func createIscsiSecrets() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	// Create a Test Namespaces
-	for _, namespace := range testNamespaces {
-		secret := k8sv1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: iscsiSecretName,
-			},
-			Type: "kubernetes.io/iscsi-chap",
-			Data: map[string][]byte{
-				"node.session.auth.password": []byte("demopassword"),
-				"node.session.auth.username": []byte("demouser"),
-			},
-		}
-
-		_, err := virtCli.CoreV1().Secrets(namespace).Create(&secret)
-		if !errors.IsAlreadyExists(err) {
-			PanicOnError(err)
-		}
 	}
 }
 
@@ -962,17 +944,18 @@ func NewRandomVMWithe1000NetworkInterface() *v1.VirtualMachine {
 }
 
 // Block until the specified VM started and return the target node name.
-func waitForVmStart(vm runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
-	_, ok := vm.(*v1.VirtualMachine)
+func waitForVmStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+	vm, ok := obj.(*v1.VirtualMachine)
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 
 	// Fetch the VM, to make sure we have a resourceVersion as a starting point for the watch
-	vmMeta := vm.(*v1.VirtualMachine).ObjectMeta
-	obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
+	vm, err = virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
-	objectEventWatcher := NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds) * time.Second)
+	objectEventWatcher := NewObjectEventWatcher(vm).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds) * time.Second)
 	if ignoreWarnings != true {
 		objectEventWatcher.FailOnWarnings()
 	}
@@ -980,13 +963,13 @@ func waitForVmStart(vm runtime.Object, seconds int, ignoreWarnings bool) (nodeNa
 
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() bool {
-		obj, err := virtClient.RestClient().Get().Resource("virtualmachines").Namespace(vmMeta.Namespace).Name(vmMeta.Name).Do().Get()
+		vm, err = virtClient.VM(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		fetchedVM := obj.(*v1.VirtualMachine)
-		nodeName = fetchedVM.Status.NodeName
+
+		nodeName = vm.Status.NodeName
 
 		// wait on both phase and graphics
-		if fetchedVM.Status.Phase == v1.Running {
+		if vm.Status.Phase == v1.Running {
 			return true
 		}
 		return false

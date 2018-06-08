@@ -243,7 +243,10 @@ var _ = Describe("Vmlifecycle", func() {
 					secret := k8sv1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "nonexistent",
-							Namespace: vm.GetObjectMeta().GetNamespace(),
+							Namespace: vm.Namespace,
+							Labels: map[string]string{
+								tests.SecretLabel: "nonexistent",
+							},
 						},
 						Type: "Opaque",
 						Data: map[string][]byte{
