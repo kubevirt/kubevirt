@@ -20,7 +20,6 @@
 package services
 
 import (
-	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -33,11 +32,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
-	"kubevirt.io/kubevirt/pkg/virt-handler/kvm-monitor"
 )
 
 const configMapName = "kube-system/kubevirt-config"
 const allowEmulationKey = "debug.allowEmulation"
+const KvmDevice = "devices.kubevirt.io/kvm"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -82,7 +81,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	var volumes []k8sv1.Volume
 	var userId int64 = 0
-	var privileged bool = true
+	var privileged bool = false
 	var volumesMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
@@ -219,14 +218,17 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	if err != nil {
 		return nil, err
 	}
+
+	// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
+	// but if the KVM resource is not requested then it's guaranteed to be not present
+	// This code works for now, but the semantics are wrong. revisit this.
 	if allowEmulation {
 		command = append(command, "--allow-emulation")
 	} else {
 		if resources.Limits == nil {
 			resources.Limits = make(k8sv1.ResourceList)
 		}
-		deviceName := k8sv1.ResourceName(fmt.Sprintf("%s/%s", kvm_monitor.ResourceNamespace, kvm_monitor.KVMName))
-		resources.Limits[deviceName] = resource.MustParse("1")
+		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
 	// VirtualMachineInstance target container
@@ -239,6 +241,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		SecurityContext: &k8sv1.SecurityContext{
 			RunAsUser:  &userId,
 			Privileged: &privileged,
+			Capabilities: &k8sv1.Capabilities{
+				// FIXME: giving MKNOD to the container defeats the entire point of using device plugins.
+				// Add /dev/net/tun to the plugin framework and remove that capability from this list.
+				// NET_ADMIN is needed to set up networking for the VM
+				Add: []k8sv1.Capability{"NET_ADMIN", "MKNOD"},
+			},
 		},
 		Command:      command,
 		VolumeMounts: volumesMounts,
