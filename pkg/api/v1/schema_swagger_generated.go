@@ -51,8 +51,9 @@ func (Firmware) SwaggerDoc() map[string]string {
 
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"disks":    "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
-		"watchdog": "Watchdog describes a watchdog device which can be added to the vm",
+		"disks":      "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
+		"watchdog":   "Watchdog describes a watchdog device which can be added to the vm",
+		"interfaces": "Interfaces describe network interfaces which are added to the vm",
 	}
 }
 
@@ -278,5 +279,40 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "i6300esb watchdog device",
 		"action": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
+	}
+}
+
+func (Interface) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+	}
+}
+
+func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Represents the method which will be used to connect the interface to the guest.\nOnly one of its members may be specified.",
+	}
+}
+
+func (InterfaceBridge) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (Network) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "Network represents a network type and a resource that should be connected to the vm.",
+		"name": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+	}
+}
+
+func (NetworkSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Represents the source resource that will be connected to the vm.\nOnly one of its members may be specified.",
+	}
+}
+
+func (PodNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Represents the stock pod network interface",
 	}
 }

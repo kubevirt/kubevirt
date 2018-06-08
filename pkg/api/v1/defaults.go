@@ -129,6 +129,7 @@ func SetDefaults_VirtualMachine(obj *VirtualMachine) {
 		obj.Spec.Domain.Machine.Type = "q35"
 	}
 	setDefaults_DiskFromMachineType(obj)
+	setDefaults_NetworkInterface(obj)
 }
 
 func setDefaults_DiskFromMachineType(obj *VirtualMachine) {
@@ -149,6 +150,37 @@ func setDefaults_DiskFromMachineType(obj *VirtualMachine) {
 			disk.LUN.Bus = bus
 		}
 	}
+}
+
+func setDefaults_NetworkInterface(obj *VirtualMachine) {
+	networks := obj.Spec.Networks
+
+	//TODO: Currently, we support only one interface associated to a network
+	//      This should be improved when we will start supporting multimple interfaces and networks
+	if len(networks) == 0 || networks[0].Pod == nil {
+		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultNetworkInterface()}
+		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
+	}
+}
+
+func DefaultNetworkInterface() *Interface {
+	iface := &Interface{
+		Name: "default",
+		InterfaceBindingMethod: InterfaceBindingMethod{
+			Bridge: &InterfaceBridge{},
+		},
+	}
+	return iface
+}
+
+func DefaultPodNetwork() *Network {
+	defaultNet := &Network{
+		Name: "default",
+		NetworkSource: NetworkSource{
+			Pod: &PodNetwork{},
+		},
+	}
+	return defaultNet
 }
 
 func diskBusFromMachine(machine string) string {

@@ -129,6 +129,20 @@ spec:
                         - name
                         - volumeName
                       type: array
+                    interfaces:
+                      description: Interfaces describe network interfaces which are
+                        added to the vm
+                      items:
+                        properties:
+                          bridge: {}
+                          name:
+                            description: Logical name of the interface as well as
+                              a reference to the associated networks Must match the
+                              Name of a Network
+                            type: string
+                        required:
+                        - name
+                      type: array
                     watchdog:
                       description: Named watchdog device
                       properties:

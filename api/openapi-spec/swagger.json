@@ -3292,6 +3292,13 @@
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "interfaces": {
+      "description": "Interfaces describe network interfaces which are added to the vm",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Interface"
+      }
+     },
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vm",
       "$ref": "#/definitions/v1.Watchdog"
@@ -3601,6 +3608,21 @@
      }
     }
    },
+   "v1.Interface": {
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "bridge": {
+      "$ref": "#/definitions/v1.InterfaceBridge"
+     },
+     "name": {
+      "description": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+      "type": "string"
+     }
+    }
+   },
+   "v1.InterfaceBridge": {},
    "v1.KVMTimer": {
     "properties": {
      "present": {
@@ -3695,6 +3717,21 @@
      "type": {
       "description": "QEMU machine type is the actual chipset of the VM.",
       "type": "string"
+     }
+    }
+   },
+   "v1.Network": {
+    "description": "Network represents a network type and a resource that should be connected to the vm.",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "type": "string"
+     },
+     "pod": {
+      "$ref": "#/definitions/v1.PodNetwork"
      }
     }
    },
@@ -4025,6 +4062,9 @@
       "type": "boolean"
      }
     }
+   },
+   "v1.PodNetwork": {
+    "description": "Represents the stock pod network interface"
    },
    "v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",
@@ -4521,6 +4561,13 @@
      "hostname": {
       "description": "Specifies the hostname of the vm\nIf not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.\n+optional",
       "type": "string"
+     },
+     "networks": {
+      "description": "List of networks that can be attached to a vm's virtual interface.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Network"
+      }
      },
      "nodeSelector": {
       "description": "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
