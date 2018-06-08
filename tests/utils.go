@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/google/goexpect"
@@ -1316,4 +1317,33 @@ func UnfinishedVMPodSelector(vm *v1.VirtualMachine) metav1.ListOptions {
 		panic(err)
 	}
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+}
+
+// NewHelloWorldJob takes a DNS entry or an IP and a port which it will use create a pod
+// which tries to contact the host on the provided port. It expects to receive "Hello World!" to succeed.
+func NewHelloWorldJob(host string, port string) *k8sv1.Pod {
+	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 1 -w 1))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)}
+	job := RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
+
+	return job
+}
+
+// NewHelloWorldJobUDP takes a DNS entry or an IP and a port which it will use create a pod
+// which tries to contact the host on the provided port. It expects to receive "Hello World!" to succeed.
+// Note that in case of UDP, the server will not see the connection unless something is sent over it
+// However, netcat does not work well with UDP and closes before the answer arrives, for that another netcat call is needed,
+// this time as a UDP listener
+func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
+	localPort, err := strconv.Atoi(port)
+	if err != nil {
+		return nil
+	}
+	// local port is used to catch the reply - any number can be used
+	// we make it different than the port to be safe if both are running on the same machine
+	localPort--
+	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 1 -w 1 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
+		localPort, host, port, localPort)}
+	job := RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
+
+	return job
 }

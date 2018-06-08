@@ -150,7 +150,7 @@ func (c *OVMController) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
-		fresh, err := c.clientset.OfflineVirtualMachine(OVM.ObjectMeta.Namespace).Get(OVM.ObjectMeta.Name, &v1.GetOptions{})
+		fresh, err := c.clientset.OfflineVirtualMachine(OVM.ObjectMeta.Namespace).Get(OVM.ObjectMeta.Name, v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}

@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
@@ -55,7 +53,7 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 			ghttp.VerifyRequest("GET", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, ovm),
 		))
-		fetchedVM, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		fetchedVM, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -67,7 +65,7 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 			ghttp.VerifyRequest("GET", vmPath),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		_, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
@@ -80,7 +78,7 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 			ghttp.VerifyRequest("GET", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewOVMList(*ovm)),
 		))
-		fetchedVMList, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedVMList, err := client.OfflineVirtualMachine(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -129,11 +127,3 @@ var _ = Describe("Kubevirt OfflineVirtualMachine Client", func() {
 		server.Close()
 	})
 })
-
-func NewMinimalOVM(name string) *v1.OfflineVirtualMachine {
-	return &v1.OfflineVirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "OfflineVirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
-}
-
-func NewOVMList(ovms ...v1.OfflineVirtualMachine) *v1.OfflineVirtualMachineList {
-	return &v1.OfflineVirtualMachineList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "OfflineVirtualMachineList"}, Items: ovms}
-}

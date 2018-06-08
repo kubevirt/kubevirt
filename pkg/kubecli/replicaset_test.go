@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
@@ -129,11 +127,3 @@ var _ = Describe("Kubevirt VirtualMachineReplicaSet Client", func() {
 		server.Close()
 	})
 })
-
-func NewVMReplicaSetList(rss ...v1.VirtualMachineReplicaSet) *v1.VirtualMachineReplicaSetList {
-	return &v1.VirtualMachineReplicaSetList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineReplicaSetList"}, Items: rss}
-}
-
-func NewMinimalVMReplicaSet(name string) *v1.VirtualMachineReplicaSet {
-	return &v1.VirtualMachineReplicaSet{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineReplicaSet"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
-}

@@ -129,7 +129,3 @@ var _ = Describe("Kubevirt VM Client", func() {
 		server.Close()
 	})
 })
-
-func NewVMList(vms ...v1.VirtualMachine) *v1.VirtualMachineList {
-	return &v1.VirtualMachineList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineList"}, Items: vms}
-}

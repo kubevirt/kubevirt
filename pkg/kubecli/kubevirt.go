@@ -89,8 +89,8 @@ type VMPresetInterface interface {
 // OfflineVirtualMachineInterface provides convenience methods to work with
 // offline virtual machines inside the cluster
 type OfflineVirtualMachineInterface interface {
-	Get(name string, options *k8smetav1.GetOptions) (*v1.OfflineVirtualMachine, error)
-	List(opts *k8smetav1.ListOptions) (*v1.OfflineVirtualMachineList, error)
+	Get(name string, options k8smetav1.GetOptions) (*v1.OfflineVirtualMachine, error)
+	List(opts k8smetav1.ListOptions) (*v1.OfflineVirtualMachineList, error)
 	Create(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
 	Update(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
