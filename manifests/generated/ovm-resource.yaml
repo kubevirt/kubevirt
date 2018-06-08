@@ -53,6 +53,7 @@ spec:
                         to a VM
                       properties:
                         nodeAffinity: {}
+                        podAffinity: {}
                     domain:
                       properties:
                         clock:

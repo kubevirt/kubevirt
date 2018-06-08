@@ -38,6 +38,15 @@ func (in *Affinity) DeepCopyInto(out *Affinity) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.PodAffinity != nil {
+		in, out := &in.PodAffinity, &out.PodAffinity
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(core_v1.PodAffinity)
+			(*in).DeepCopyInto(*out)
+		}
+	}
 	return
 }
 

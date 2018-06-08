@@ -39,6 +39,7 @@ spec:
               description: Affinity groups all the affinity rules related to a VM
               properties:
                 nodeAffinity: {}
+                podAffinity: {}
             domain:
               properties:
                 clock:

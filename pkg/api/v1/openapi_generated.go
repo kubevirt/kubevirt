@@ -38,11 +38,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("k8s.io/api/core/v1.NodeAffinity"),
 							},
 						},
+						"podAffinity": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Pod affinity support",
+								Ref:         ref("k8s.io/api/core/v1.PodAffinity"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/api/core/v1.NodeAffinity"},
+				"k8s.io/api/core/v1.NodeAffinity", "k8s.io/api/core/v1.PodAffinity"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget": {
 			Schema: spec.Schema{

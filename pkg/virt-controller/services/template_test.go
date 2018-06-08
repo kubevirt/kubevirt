@@ -125,6 +125,21 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{NodeAffinity: &nodeAffinity}))
 			})
 
+			It("should add pod affinity to pod", func() {
+				podAffinity := kubev1.PodAffinity{}
+				vm := v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineSpec{
+						Affinity: &v1.Affinity{PodAffinity: &podAffinity},
+						Domain:   v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{PodAffinity: &podAffinity}))
+			})
+
 			It("should use the hostname and subdomain if specified on the vm", func() {
 				vm := v1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
@@ -170,7 +185,7 @@ var _ = Describe("Template", func() {
 				))
 			})
 
-			It("should not add empty node affinity to pod", func() {
+			It("should not add empty affinity to pod", func() {
 				vm := v1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineSpec{
