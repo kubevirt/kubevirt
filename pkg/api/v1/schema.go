@@ -56,7 +56,7 @@ type DomainSpec struct {
 	// CPU allow specified the detailed CPU topology inside the vmi.
 	// +optional
 	CPU *CPU `json:"cpu,omitempty"`
-	// Hugepages allow to specify desured hugepages size for vmi usage
+	// Hugepages allow to specify desired hugepages size for the vmi usage.
 	// +optional
 	Hugepages *Hugepages `json:"hugepages,omitempty"`
 	// Machine type
@@ -97,7 +97,11 @@ type CPU struct {
 	Cores uint32 `json:"cores,omitempty"`
 }
 
+// Hugepages allow specifying the hugepages size
+// ---
+// +k8s:openapi-gen=true
 type Hugepages struct {
+	// Size specifies the page size to use for the VMI memory.
 	Size string `json:"size,omitempty"`
 }
 
