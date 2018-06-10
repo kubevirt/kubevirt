@@ -3619,10 +3619,24 @@
      "name": {
       "description": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
       "type": "string"
+     },
+     "slirp": {
+      "$ref": "#/definitions/v1.InterfaceSlirp"
      }
     }
    },
    "v1.InterfaceBridge": {},
+   "v1.InterfaceSlirp": {
+    "properties": {
+     "Ports": {
+      "description": "List of ports to be forwarded to the virtual machine",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Port"
+      }
+     }
+    }
+   },
    "v1.KVMTimer": {
     "properties": {
      "present": {
@@ -3732,6 +3746,9 @@
      },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
+     },
+     "proxy": {
+      "$ref": "#/definitions/v1.ProxyNetwork"
      }
     }
    },
@@ -4066,6 +4083,25 @@
    "v1.PodNetwork": {
     "description": "Represents the stock pod network interface"
    },
+   "v1.Port": {
+    "description": "Port repesents a port to expose from the virtual machine\nDefault protocol TCP\nDefault podPort as VMPort",
+    "required": [
+     "vmPort"
+    ],
+    "properties": {
+     "podPort": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "protocol": {
+      "type": "string"
+     },
+     "vmPort": {
+      "type": "integer",
+      "format": "int32"
+     }
+    }
+   },
    "v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",
     "properties": {
@@ -4090,6 +4126,15 @@
       "description": "Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.",
       "type": "integer",
       "format": "int32"
+     }
+    }
+   },
+   "v1.ProxyNetwork": {
+    "description": "Represents proxy connection for virtual machine",
+    "properties": {
+     "vmNetworkCIDR": {
+      "description": "CIDR for vm network\nDefault 10.0.2.0/24 if not specified",
+      "type": "string"
      }
     }
    },

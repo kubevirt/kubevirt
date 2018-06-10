@@ -298,6 +298,18 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (InterfaceSlirp) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"Ports": "List of ports to be forwarded to the virtual machine",
+	}
+}
+
+func (Port) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Port repesents a port to expose from the virtual machine\nDefault protocol TCP\nDefault podPort as VMPort",
+	}
+}
+
 func (Network) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "Network represents a network type and a resource that should be connected to the vm.",
@@ -314,5 +326,12 @@ func (NetworkSource) SwaggerDoc() map[string]string {
 func (PodNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "Represents the stock pod network interface",
+	}
+}
+
+func (ProxyNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "Represents proxy connection for virtual machine",
+		"vmNetworkCIDR": "CIDR for vm network\nDefault 10.0.2.0/24 if not specified",
 	}
 }

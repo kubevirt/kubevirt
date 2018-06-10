@@ -628,11 +628,30 @@ type Interface struct {
 // +k8s:openapi-gen=true
 type InterfaceBindingMethod struct {
 	Bridge *InterfaceBridge `json:"bridge,omitempty"`
+	Slirp  *InterfaceSlirp  `json:"slirp,omitempty"`
 }
 
 // ---
 // +k8s:openapi-gen=true
 type InterfaceBridge struct{}
+
+// ---
+// +k8s:openapi-gen=true
+type InterfaceSlirp struct {
+	// List of ports to be forwarded to the virtual machine
+	Ports []Port `json:",omitempty"`
+}
+
+// Port repesents a port to expose from the virtual machine
+// Default protocol TCP
+// Default podPort as VMPort
+// ---
+// +k8s:openapi-gen=true
+type Port struct {
+	Protocol v1.Protocol `json:"protocol,omitempty"`
+	VMPort   int32       `json:"vmPort"`
+	PodPort  int32       `json:"podPort,omitempty"`
+}
 
 // Network represents a network type and a resource that should be connected to the vm.
 // ---
@@ -652,10 +671,20 @@ type Network struct {
 // ---
 // +k8s:openapi-gen=true
 type NetworkSource struct {
-	Pod *PodNetwork `json:"pod,omitempty"`
+	Pod   *PodNetwork   `json:"pod,omitempty"`
+	Proxy *ProxyNetwork `json:"proxy,omitempty"`
 }
 
 // Represents the stock pod network interface
 // ---
 // +k8s:openapi-gen=true
 type PodNetwork struct{}
+
+// Represents proxy connection for virtual machine
+// ---
+// +k8s:openapi-gen=true
+type ProxyNetwork struct {
+	// CIDR for vm network
+	// Default 10.0.2.0/24 if not specified
+	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
+}

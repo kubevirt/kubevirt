@@ -720,12 +720,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
 							},
 						},
+						"slirp": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"},
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod": {
 			Schema: spec.Schema{
@@ -737,13 +742,26 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
 							},
 						},
+						"slirp": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"},
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{},
+				},
+			},
+			Dependencies: []string{},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{},
@@ -824,12 +842,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"proxy": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.ProxyNetwork"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork", "kubevirt.io/kubevirt/pkg/api/v1.ProxyNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.NetworkSource": {
 			Schema: spec.Schema{
@@ -841,11 +864,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"proxy": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.ProxyNetwork"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork", "kubevirt.io/kubevirt/pkg/api/v1.ProxyNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine": {
 			Schema: spec.Schema{
@@ -1070,6 +1098,52 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: spec.SchemaProps{
 					Description: "Represents the stock pod network interface",
 					Properties:  map[string]spec.Schema{},
+				},
+			},
+			Dependencies: []string{},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.Port": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Port repesents a port to expose from the virtual machine Default protocol TCP Default podPort as VMPort",
+					Properties: map[string]spec.Schema{
+						"protocol": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"vmPort": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int32",
+							},
+						},
+						"podPort": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int32",
+							},
+						},
+					},
+					Required: []string{"vmPort"},
+				},
+			},
+			Dependencies: []string{},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.ProxyNetwork": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents proxy connection for virtual machine",
+					Properties: map[string]spec.Schema{
+						"vmNetworkCIDR": {
+							SchemaProps: spec.SchemaProps{
+								Description: "CIDR for vm network Default 10.0.2.0/24 if not specified",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
 				},
 			},
 			Dependencies: []string{},

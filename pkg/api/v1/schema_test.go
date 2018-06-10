@@ -20,12 +20,19 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
+	"text/template"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/core/v1"
 )
+
+type NetworkTemplateConfig struct {
+	InterfaceConfig string
+	NetworkConfig   string
+}
 
 var exampleJSON = `{
   "kind": "VirtualMachine",
@@ -149,7 +156,7 @@ var exampleJSON = `{
         "interfaces": [
           {
             "name": "default",
-            "bridge": {}
+            {{.InterfaceConfig}}
           }
         ]
       }
@@ -179,7 +186,7 @@ var exampleJSON = `{
     "networks": [
       {
         "name": "default",
-        "pod": {}
+        {{.NetworkConfig}}
       }
     ]
   },
@@ -297,36 +304,148 @@ var _ = Describe("Schema", func() {
 		exampleVM.Spec.Domain.CPU = &CPU{
 			Cores: 3,
 		}
-		exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
-			Interface{
-				Name: "default",
-				InterfaceBindingMethod: InterfaceBindingMethod{
-					Bridge: &InterfaceBridge{},
-				},
-			},
-		}
-		exampleVM.Spec.Networks = []Network{
-			Network{
-				Name: "default",
-				NetworkSource: NetworkSource{
-					Pod: &PodNetwork{},
-				},
-			},
-		}
 
 		SetObjectDefaults_VirtualMachine(exampleVM)
 	})
-	Context("With example schema in json", func() {
-		It("Unmarshal json into struct", func() {
+	Context("With example schema in json use pod network and bridge interface", func() {
+		It("Unmarshal json into struct ", func() {
+			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Bridge: &InterfaceBridge{},
+					},
+				},
+			}
+			exampleVM.Spec.Networks = []Network{
+				Network{
+					Name: "default",
+					NetworkSource: NetworkSource{
+						Pod: &PodNetwork{},
+					},
+				},
+			}
+
+			networkTemplateData := NetworkTemplateConfig{NetworkConfig: `"pod": {}`, InterfaceConfig: `"bridge": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
 			newVM := &VirtualMachine{}
-			err := json.Unmarshal([]byte(exampleJSON), newVM)
+			exampleJSONParsed := tpl.String()
+			err = json.Unmarshal([]byte(exampleJSONParsed), newVM)
 			Expect(err).To(BeNil())
 			Expect(newVM).To(Equal(exampleVM))
 		})
 		It("Marshal struct into json", func() {
+			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Bridge: &InterfaceBridge{},
+					},
+				},
+			}
+			exampleVM.Spec.Networks = []Network{
+				Network{
+					Name: "default",
+					NetworkSource: NetworkSource{
+						Pod: &PodNetwork{},
+					},
+				},
+			}
+
+			networkTemplateData := NetworkTemplateConfig{NetworkConfig: `"pod": {}`, InterfaceConfig: `"bridge": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVM, "", "  ")
 			Expect(err).To(BeNil())
-			Expect(string(buf)).To(Equal(exampleJSON))
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
+		})
+	})
+	Context("With example schema in json use proxy network and slirp interface", func() {
+		It("Unmarshal json into struct", func() {
+			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Slirp: &InterfaceSlirp{},
+					},
+				},
+			}
+			exampleVM.Spec.Networks = []Network{
+				Network{
+					Name: "default",
+					NetworkSource: NetworkSource{
+						Proxy: &ProxyNetwork{},
+					},
+				},
+			}
+
+			networkTemplateData := NetworkTemplateConfig{NetworkConfig: `"proxy": {}`, InterfaceConfig: `"slirp": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+
+			newVM := &VirtualMachine{}
+			newVM.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Slirp: &InterfaceSlirp{},
+					},
+				},
+			}
+			newVM.Spec.Networks = []Network{
+				Network{
+					Name: "default",
+					NetworkSource: NetworkSource{
+						Proxy: &ProxyNetwork{},
+					},
+				},
+			}
+
+			exampleJSONParsed := tpl.String()
+			err = json.Unmarshal([]byte(exampleJSONParsed), newVM)
+			Expect(err).To(BeNil())
+			Expect(newVM).To(Equal(exampleVM))
+		})
+		It("Marshal struct into json", func() {
+			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Slirp: &InterfaceSlirp{},
+					},
+				},
+			}
+			exampleVM.Spec.Networks = []Network{
+				Network{
+					Name: "default",
+					NetworkSource: NetworkSource{
+						Proxy: &ProxyNetwork{},
+					},
+				},
+			}
+
+			networkTemplateData := NetworkTemplateConfig{NetworkConfig: `"proxy": {}`, InterfaceConfig: `"slirp": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+			exampleJSONParsed := tpl.String()
+			buf, err := json.MarshalIndent(*exampleVM, "", "  ")
+			Expect(err).To(BeNil())
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})
 })

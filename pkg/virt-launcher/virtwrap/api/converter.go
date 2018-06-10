@@ -489,15 +489,47 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 		interfaceType = vm.ObjectMeta.Annotations[v1.InterfaceModel]
 	}
 
-	// For now connect every virtual machine to the pod network
-	domain.Spec.Devices.Interfaces = []Interface{{
-		Model: &Model{
-			Type: interfaceType,
-		},
-		Type: "bridge",
-		Source: InterfaceSource{
-			Bridge: DefaultBridgeName,
-		}},
+	// For now if networks not define in vm specs connect the virtual machine to the pod network
+	if vm.Spec.Domain.Devices.Interfaces == nil {
+		domain.Spec.Devices.Interfaces = []Interface{{
+			Model: &Model{
+				Type: interfaceType,
+			},
+			Type: "bridge",
+			Source: InterfaceSource{
+				Bridge: DefaultBridgeName,
+			}},
+		}
+	} else {
+		// prepare networks map
+		networks := map[string]*v1.Network{}
+		for _, network := range vm.Spec.Networks {
+			networks[network.Name] = network.DeepCopy()
+		}
+
+		domain.Spec.Devices.Interfaces = make([]Interface, len(vm.Spec.Domain.Devices.Interfaces))
+		for index, iface := range vm.Spec.Domain.Devices.Interfaces {
+			if _, ok := networks[iface.Name]; !ok {
+				return fmt.Errorf("Fail to match the Name of a Network")
+			}
+			if iface.Bridge != nil {
+				domain.Spec.Devices.Interfaces[index] = Interface{
+					Model: &Model{
+						Type: interfaceType,
+					},
+					Type: "bridge",
+					Source: InterfaceSource{
+						Bridge: DefaultBridgeName,
+					}}
+			} else if iface.Slirp != nil {
+				// SLIRP is not added as interface, Need to be added as qemu commandlist
+				// Create network interface
+				domain.Spec.QEMUCmd.QEMUEnv = append(domain.Spec.QEMUCmd.QEMUEnv, Env{Value: "-device"})
+				domain.Spec.QEMUCmd.QEMUEnv = append(domain.Spec.QEMUCmd.QEMUEnv, Env{Value: fmt.Sprintf("%s,netdev=%s", interfaceType, iface.Name)})
+				// The network itself will be created on preStartHook
+			}
+
+		}
 	}
 
 	return nil
