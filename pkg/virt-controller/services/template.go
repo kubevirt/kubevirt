@@ -20,7 +20,6 @@
 package services
 
 import (
-	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -37,18 +36,6 @@ import (
 
 const configMapName = "kube-system/kubevirt-config"
 const allowEmulationKey = "debug.allowEmulation"
-
-// By default libvirt uses /dev/hugepages for VM's that requested 2M hugepages
-// and /dev/hugepages1G for VM's that requested 1G hugepages
-var hugepagesMounts = map[string]string{
-	"2Mi": "hugepages",
-	"1Gi": "hugepages1G",
-}
-
-var hugepagesTypes = map[string]k8sv1.ResourceName{
-	"2Mi": v1.Hugepage2MiResource,
-	"1Gi": v1.Hugepage1GiResource,
-}
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -178,22 +165,18 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	// Consider hugepages resource for pod scheduling
 	if vmi.Spec.Domain.Hugepages != nil {
-		hugepageType, ok := hugepagesTypes[vm.Spec.Domain.Hugepages.Size]
-		if !ok {
-			return nil, fmt.Errorf("not supported hugepages size %s", vm.Spec.Domain.Hugepages.Size)
-		}
-
 		if resources.Limits == nil {
 			resources.Limits = make(k8sv1.ResourceList)
 		}
 
+		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vm.Spec.Domain.Hugepages.Size)
 		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
 		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
 
 		// Configure hugepages mount on a pod
 		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
 			Name:      "hugepages",
-			MountPath: filepath.Join("/dev/", hugepagesMounts[vm.Spec.Domain.Hugepages.Size]),
+			MountPath: filepath.Join("/dev/hugepages"),
 		})
 		volumes = append(volumes, k8sv1.Volume{
 			Name: "hugepages",

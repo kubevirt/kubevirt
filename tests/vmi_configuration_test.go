@@ -22,8 +22,8 @@ package tests_test
 import (
 	"flag"
 	"fmt"
-	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/goexpect"
@@ -119,21 +119,30 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
+				vmHugepages := resource.MustParse(hugepagesVm.Spec.Domain.Hugepages.Size)
+				hugepagesDir := fmt.Sprintf("/sys/kernel/mm/hugepages/hugepages-%dkB", vmHugepages.Value()/int64(1024))
+
 				// Get a hugepages statistics from virt-launcher pod
 				output, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					&pods.Items[0],
 					pods.Items[0].Spec.Containers[0].Name,
-					[]string{"cat", "/proc/meminfo"},
+					[]string{"cat", fmt.Sprintf("%s/nr_hugepages", hugepagesDir)},
 				)
 				Expect(err).ToNot(HaveOccurred())
 
-				hostHugepages := regexp.MustCompile(`HugePages_Total:\s*([0-9]+)\nHugePages_Free:\s*([0-9]+)`)
-
-				totalHugepages, err := strconv.Atoi(hostHugepages.FindStringSubmatch(output)[1])
+				totalHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
 				Expect(err).ToNot(HaveOccurred())
 
-				freeHugepages, err := strconv.Atoi(hostHugepages.FindStringSubmatch(output)[2])
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					&pods.Items[0],
+					pods.Items[0].Spec.Containers[0].Name,
+					[]string{"cat", fmt.Sprintf("%s/free_hugepages", hugepagesDir)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				freeHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
 				Expect(err).ToNot(HaveOccurred())
 
 				// Verify that the VM memory equals to a number of consumed hugepages
@@ -146,13 +155,14 @@ var _ = Describe("Configurations", func() {
 
 			BeforeEach(func() {
 				hugepagesVm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				hugepagesVm.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64Mi")
 			})
 
-			table.DescribeTable("should consume hugepages ", func(resourceName kubev1.ResourceName, value string) {
-				nodeWithHugepages := tests.GetNodeWithHugepages(virtClient, resourceName)
+			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
+				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
+
+				nodeWithHugepages := tests.GetNodeWithHugepages(virtClient, hugepageType)
 				if nodeWithHugepages == nil {
-					Skip(fmt.Sprintf("No node with hugepages %s capacity", resourceName))
+					Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
 				}
 				// initialHugepages := nodeWithHugepages.Status.Capacity[resourceName]
 				hugepagesVm.Spec.Affinity = &v1.Affinity{
@@ -168,8 +178,10 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
+				hugepagesVm.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse(memory)
+
 				hugepagesVm.Spec.Domain.Hugepages = &v1.Hugepages{}
-				hugepagesVm.Spec.Domain.Hugepages.Size = value
+				hugepagesVm.Spec.Domain.Hugepages.Size = hugepageSize
 
 				By("Starting a VM")
 				_, err = virtClient.VM(tests.NamespaceTestDefault).Create(hugepagesVm)
@@ -177,12 +189,10 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMStart(hugepagesVm)
 
 				By("Checking that the VM memory equals to a number of consumed hugepages")
-				// TODO: we need to check hugepages state via node allocated resources, but currently it has the issue
-				// https://github.com/kubernetes/kubernetes/issues/64691
 				verifyHugepagesConsumption()
 			},
-				table.Entry("hugepages-2Mi", v1.Hugepage2MiResource, "2Mi"),
-				table.Entry("hugepages-1Gi", v1.Hugepage1GiResource, "1Gi"),
+				table.Entry("hugepages-2Mi", "2Mi", "64Mi"),
+				table.Entry("hugepages-1Gi", "1Gi", "1Gi"),
 			)
 		})
 	})

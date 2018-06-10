@@ -279,7 +279,7 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with hugepages constraints", func() {
-			table.DescribeTable("should add to the template constraints ", func(resourceName kubev1.ResourceName, value string, mountPath string) {
+			table.DescribeTable("should add to the template constraints ", func(value string) {
 				vm := v1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvm",
@@ -309,8 +309,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
 
-				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[resourceName]
-				hugepagesLimit := pod.Spec.Containers[0].Resources.Limits[resourceName]
+				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + value)
+				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[hugepageType]
+				hugepagesLimit := pod.Spec.Containers[0].Resources.Limits[hugepageType]
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
@@ -319,38 +320,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
 				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3))
-				Expect(pod.Spec.Containers[0].VolumeMounts[2].MountPath).To(Equal(mountPath))
+				Expect(pod.Spec.Containers[0].VolumeMounts[2].MountPath).To(Equal("/dev/hugepages"))
 			},
-				table.Entry("hugepages-2Mi", v1.Hugepage2MiResource, "2Mi", "/dev/hugepages"),
-				table.Entry("hugepages-1Gi", v1.Hugepage1GiResource, "1Gi", "/dev/hugepages1G"),
+				table.Entry("hugepages-2Mi", "2Mi"),
+				table.Entry("hugepages-1Gi", "1Gi"),
 			)
-
-			It("should reject not supported hugepages size", func() {
-				vm := v1.VirtualMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvm",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineSpec{
-						Domain: v1.DomainSpec{
-							Hugepages: &v1.Hugepages{
-								Size: "3Mi",
-							},
-							Resources: v1.ResourceRequirements{
-								Requests: kubev1.ResourceList{
-									kubev1.ResourceMemory: resource.MustParse("64M"),
-								},
-								Limits: kubev1.ResourceList{
-									kubev1.ResourceMemory: resource.MustParse("64M"),
-								},
-							},
-						},
-					},
-				}
-				_, err := svc.RenderLaunchManifest(&vm)
-				Expect(err).To(HaveOccurred())
-			})
 		})
 
 		Context("with pvc source", func() {
