@@ -1,4 +1,4 @@
-FROM fedora:27
+FROM fedora:28
 
 ENV LIBVIRT_VERSION 3.7.0
 
