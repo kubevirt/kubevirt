@@ -20,8 +20,11 @@
 package kubecli
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -37,6 +40,7 @@ import (
 
 var _ = Describe("Kubevirt VM Client", func() {
 
+	var upgrader websocket.Upgrader
 	var server *ghttp.Server
 	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines"
@@ -123,6 +127,97 @@ var _ = Describe("Kubevirt VM Client", func() {
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should allow to connect a stream to a VM", func() {
+		vncPath := "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm/vnc"
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", vncPath),
+			func(w http.ResponseWriter, r *http.Request) {
+				_, err := upgrader.Upgrade(w, r, nil)
+				if err != nil {
+					return
+				}
+			},
+		))
+		_, err := client.VM(k8sv1.NamespaceDefault).VNC("testvm")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should handle a failure connecting to the VM", func() {
+		vncPath := "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm/vnc"
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", vncPath),
+			func(w http.ResponseWriter, r *http.Request) {
+				return
+			},
+		))
+		_, err := client.VM(k8sv1.NamespaceDefault).VNC("testvm")
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should exchange data with the VM", func() {
+		vncPath := "/apis/subresources.kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm/vnc"
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", vncPath),
+			func(w http.ResponseWriter, r *http.Request) {
+				c, err := upgrader.Upgrade(w, r, nil)
+				if err != nil {
+					panic("server upgrader failed")
+				}
+				defer c.Close()
+
+				for {
+					mt, message, err := c.ReadMessage()
+					if err != nil {
+						io.WriteString(GinkgoWriter, fmt.Sprintf("server read failed: %v\n", err))
+						break
+					}
+
+					err = c.WriteMessage(mt, message)
+					if err != nil {
+						io.WriteString(GinkgoWriter, fmt.Sprintf("server write failed: %v\n", err))
+						break
+					}
+				}
+			},
+		))
+
+		By("establishing connection")
+
+		vnc, err := client.VM(k8sv1.NamespaceDefault).VNC("testvm")
+		Expect(err).ToNot(HaveOccurred())
+
+		By("wiring the pipes")
+
+		pipeInReader, pipeInWriter := io.Pipe()
+		pipeOutReader, pipeOutWriter := io.Pipe()
+
+		go func() {
+			vnc.Stream(StreamOptions{
+				In:  pipeInReader,
+				Out: pipeOutWriter,
+			})
+		}()
+
+		By("sending data around")
+		msg := "hello, vnc!"
+		bufIn := make([]byte, 64)
+		copy(bufIn[:], msg)
+
+		_, err = pipeInWriter.Write(bufIn)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("reading back data")
+		bufOut := make([]byte, 64)
+		_, err = pipeOutReader.Read(bufOut)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("checking the result")
+		Expect(bufOut).To(Equal(bufIn))
 	})
 
 	AfterEach(func() {

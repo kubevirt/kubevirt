@@ -4,8 +4,6 @@
 package kubecli
 
 import (
-	io "io"
-
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -564,6 +562,37 @@ func (_mr *_MockKubevirtClientRecorder) StorageV1alpha1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StorageV1alpha1")
 }
 
+// Mock of StreamInterface interface
+type MockStreamInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockStreamInterfaceRecorder
+}
+
+// Recorder for MockStreamInterface (not exported)
+type _MockStreamInterfaceRecorder struct {
+	mock *MockStreamInterface
+}
+
+func NewMockStreamInterface(ctrl *gomock.Controller) *MockStreamInterface {
+	mock := &MockStreamInterface{ctrl: ctrl}
+	mock.recorder = &_MockStreamInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockStreamInterface) EXPECT() *_MockStreamInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockStreamInterface) Stream(options StreamOptions) error {
+	ret := _m.ctrl.Call(_m, "Stream", options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockStreamInterfaceRecorder) Stream(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stream", arg0)
+}
+
 // Mock of VMInterface interface
 type MockVMInterface struct {
 	ctrl     *gomock.Controller
@@ -655,24 +684,26 @@ func (_mr *_MockVMInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ..
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVMInterface) SerialConsole(name string, in io.Reader, out io.Writer) error {
-	ret := _m.ctrl.Call(_m, "SerialConsole", name, in, out)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (_m *MockVMInterface) SerialConsole(name string) (StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "SerialConsole", name)
+	ret0, _ := ret[0].(StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-func (_mr *_MockVMInterfaceRecorder) SerialConsole(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SerialConsole", arg0, arg1, arg2)
+func (_mr *_MockVMInterfaceRecorder) SerialConsole(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SerialConsole", arg0)
 }
 
-func (_m *MockVMInterface) VNC(name string, in io.Reader, out io.Writer) error {
-	ret := _m.ctrl.Call(_m, "VNC", name, in, out)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (_m *MockVMInterface) VNC(name string) (StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "VNC", name)
+	ret0, _ := ret[0].(StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-func (_mr *_MockVMInterfaceRecorder) VNC(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "VNC", arg0, arg1, arg2)
+func (_mr *_MockVMInterfaceRecorder) VNC(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VNC", arg0)
 }
 
 // Mock of ReplicaSetInterface interface
