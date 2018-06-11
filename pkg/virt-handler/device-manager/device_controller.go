@@ -32,32 +32,38 @@ import (
 )
 
 const (
-	KVMLabel = "kubevirt.io/kvm"
+	KVMPath = "/dev/kvm"
+	KVMName = "kvm"
+	TunPath = "/dev/net/tun"
+	TunName = "tun"
 )
 
-type KVMController struct {
-	clientset  kubecli.KubevirtClient
-	dpi        *KVMDevicePlugin
-	host       string
-	vmInformer cache.SharedIndexInformer
+type DeviceController struct {
+	clientset     kubecli.KubevirtClient
+	devicePlugins []*GenericDevicePlugin
+	host          string
+	vmInformer    cache.SharedIndexInformer
 }
 
-func NewKVMController(vmInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient, host string) *KVMController {
-	return &KVMController{
-		clientset:  clientset,
-		dpi:        NewKVMDevicePlugin(),
+func NewDeviceController(vmInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient, host string) *DeviceController {
+	return &DeviceController{
+		clientset: clientset,
+		devicePlugins: []*GenericDevicePlugin{
+			NewGenericDevicePlugin(KVMName, KVMPath),
+			NewGenericDevicePlugin(TunName, TunPath),
+		},
 		host:       host,
 		vmInformer: vmInformer,
 	}
 }
 
-func (c *KVMController) isNodeKVMCapable() bool {
-	_, err := os.Stat(KVMPath)
+func (c *DeviceController) nodeHasDevice(devicePath string) bool {
+	_, err := os.Stat(devicePath)
 	// Since this is a boolean question, any error means "no"
 	return (err == nil)
 }
 
-func (c *KVMController) waitForPath(path string, stop chan struct{}) error {
+func (c *DeviceController) waitForPath(path string, stop chan struct{}) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil
@@ -78,30 +84,35 @@ func (c *KVMController) waitForPath(path string, stop chan struct{}) error {
 	}
 }
 
-func (c *KVMController) Run(stop chan struct{}) error {
+func (c *DeviceController) StartDevicePlugin(dev *GenericDevicePlugin, stop chan struct{}) error {
 	logger := log.DefaultLogger()
-	logger.Info("Starting KVM device controller")
-
-	if !c.isNodeKVMCapable() {
-		logger.Infof("KVM device not found. Waiting.")
-		err := c.waitForPath(KVMPath, stop)
+	if !c.nodeHasDevice(dev.devicePath) {
+		logger.Infof("%s device not found. Waiting.", dev.deviceName)
+		err := c.waitForPath(dev.devicePath, stop)
 		if err != nil {
-			logger.Errorf("error waiting for kvm device: %v", err)
+			logger.Errorf("error waiting for %s device: %v", dev.deviceName, err)
 			return err
 		}
 	}
 
-	err := c.dpi.Start(stop)
+	err := dev.Start(stop)
 	if err != nil {
-		logger.Errorf("Error starting KVM device plugin: %v", err)
+		logger.Errorf("Error starting %s device plugin: %v", dev.deviceName, err)
 		return err
 	}
+	return nil
+}
 
-	// FIXME: need to monitor for changes in the overall
-	// number of VM's (and allocate more devices as needed)
-	// block until shut down
+func (c *DeviceController) Run(stop chan struct{}) error {
+	logger := log.DefaultLogger()
+	logger.Info("Starting device plugin controller")
+
+	for _, dev := range c.devicePlugins {
+		c.StartDevicePlugin(dev, stop)
+	}
+
 	<-stop
 
-	logger.Info("Shutting down KVM device controller")
+	logger.Info("Shutting down device plugin controller")
 	return nil
 }

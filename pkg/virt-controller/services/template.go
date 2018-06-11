@@ -37,6 +37,7 @@ import (
 const configMapName = "kube-system/kubevirt-config"
 const allowEmulationKey = "debug.allowEmulation"
 const KvmDevice = "devices.kubevirt.io/kvm"
+const TunDevice = "devices.kubevirt.io/tun"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -219,15 +220,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		return nil, err
 	}
 
+	if resources.Limits == nil {
+		resources.Limits = make(k8sv1.ResourceList)
+	}
+
+	// TODO: This can be hardcoded in the current model, but will need to be revisted
+	// once dynamic network device allocation is added
+	resources.Limits[TunDevice] = resource.MustParse("1")
+
 	// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
 	// but if the KVM resource is not requested then it's guaranteed to be not present
 	// This code works for now, but the semantics are wrong. revisit this.
 	if allowEmulation {
 		command = append(command, "--allow-emulation")
 	} else {
-		if resources.Limits == nil {
-			resources.Limits = make(k8sv1.ResourceList)
-		}
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 

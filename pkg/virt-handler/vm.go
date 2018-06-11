@@ -98,7 +98,7 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
-	c.kvmController = device_manager.NewKVMController(vmInformer, c.clientset, c.host)
+	c.kvmController = device_manager.NewDeviceController(vmInformer, c.clientset, c.host)
 
 	return c
 }
@@ -116,7 +116,7 @@ type VirtualMachineController struct {
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
-	kvmController            *device_manager.KVMController
+	kvmController            *device_manager.DeviceController
 }
 
 // Determines if a domain's grace period has expired during shutdown.

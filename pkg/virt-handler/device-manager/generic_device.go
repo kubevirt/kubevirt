@@ -20,6 +20,7 @@
 package device_manager
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -37,32 +38,34 @@ import (
 )
 
 const (
-	KVMPath           = "/dev/kvm"
-	KVMName           = "kvm"
-	KvmDevice         = "devices.kubevirt.io/kvm"
+	DeviceNamespace   = "devices.kubevirt.io"
 	connectionTimeout = 5 * time.Second
-	serverSock        = pluginapi.DevicePluginPath + "kubevirt-kvm.sock"
 )
 
-type KVMDevicePlugin struct {
+type GenericDevicePlugin struct {
 	counter    int
 	devs       []*pluginapi.Device
-	update     chan struct{}
+	allocate   chan struct{}
 	server     *grpc.Server
 	socketPath string
 	stop       chan struct{}
 	health     chan string
+	devicePath string
+	deviceName string
 }
 
-func NewKVMDevicePlugin() *KVMDevicePlugin {
-	dpi := &KVMDevicePlugin{
+func NewGenericDevicePlugin(deviceName string, devicePath string) *GenericDevicePlugin {
+	serverSock := fmt.Sprintf(pluginapi.DevicePluginPath+"kubevirt-%s.sock", deviceName)
+	dpi := &GenericDevicePlugin{
 		counter:    0,
 		devs:       []*pluginapi.Device{},
 		socketPath: serverSock,
-		update:     make(chan struct{}),
+		allocate:   make(chan struct{}),
 		health:     make(chan string),
+		deviceName: deviceName,
+		devicePath: devicePath,
 	}
-	dpi.addNewKVMDevice()
+	dpi.addNewGenericDevice()
 	return dpi
 }
 
@@ -94,11 +97,9 @@ func connect(socketPath string, timeout time.Duration) (*grpc.ClientConn, error)
 }
 
 // Start starts the gRPC server of the device plugin
-func (dpi *KVMDevicePlugin) Start(stop chan struct{}) error {
-	// FIXME: decide if starting twice is normal or error
+func (dpi *GenericDevicePlugin) Start(stop chan struct{}) error {
 	if dpi.server != nil {
-		dpi.Stop()
-		// return fmt.Errorf("gRPC server already started")
+		return fmt.Errorf("gRPC server already started")
 	}
 
 	dpi.stop = stop
@@ -128,7 +129,7 @@ func (dpi *KVMDevicePlugin) Start(stop chan struct{}) error {
 }
 
 // Stop stops the gRPC server
-func (dpi *KVMDevicePlugin) Stop() error {
+func (dpi *GenericDevicePlugin) Stop() error {
 	if dpi.server == nil {
 		return nil
 	}
@@ -140,7 +141,7 @@ func (dpi *KVMDevicePlugin) Stop() error {
 }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *KVMDevicePlugin) Register() error {
+func (dpi *GenericDevicePlugin) Register() error {
 	conn, err := connect(pluginapi.KubeletSocket, connectionTimeout)
 	if err != nil {
 		return err
@@ -151,7 +152,7 @@ func (dpi *KVMDevicePlugin) Register() error {
 	reqt := &pluginapi.RegisterRequest{
 		Version:      pluginapi.Version,
 		Endpoint:     path.Base(dpi.socketPath),
-		ResourceName: KvmDevice,
+		ResourceName: fmt.Sprintf("%s/%s", DeviceNamespace, dpi.deviceName),
 	}
 
 	_, err = client.Register(context.Background(), reqt)
@@ -161,32 +162,33 @@ func (dpi *KVMDevicePlugin) Register() error {
 	return nil
 }
 
-func (dpi *KVMDevicePlugin) addNewKVMDevice() {
-	deviceId := KVMName + strconv.Itoa(dpi.counter)
+func (dpi *GenericDevicePlugin) addNewGenericDevice() {
+	deviceId := dpi.deviceName + strconv.Itoa(dpi.counter)
 	dpi.devs = append(dpi.devs, &pluginapi.Device{
 		ID:     deviceId,
 		Health: pluginapi.Healthy,
 	})
 
 	logger := log.DefaultLogger()
-	logger.Infof("Allocated new KVM device: %s", deviceId)
+	logger.Infof("Allocated new device: %s", deviceId)
 
 	dpi.counter += 1
 }
 
-func (dpi *KVMDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
+func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 
 	for {
 		select {
 		case health := <-dpi.health:
-			// There's only one shared kvm device
+			// There's only one shared generic device
 			// so update each plugin device to reflect overall device health
 			for _, dev := range dpi.devs {
 				dev.Health = health
 			}
 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case <-dpi.update:
+		case <-dpi.allocate:
+			dpi.addNewGenericDevice()
 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 		case <-dpi.stop:
 			return nil
@@ -195,30 +197,21 @@ func (dpi *KVMDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DeviceP
 }
 
 // We can only allocate new devices. There is no provision to de-allocate
-func (dpi *KVMDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	// FIXME: This isn't threadsafe... Maybe tell ListAndWatch to make the device?
-	// Or maybe add a mutex?
-	dpi.addNewKVMDevice()
-	dpi.update <- struct{}{}
+func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+	// Prompt ListAndWatch to make a new Device
+	dpi.allocate <- struct{}{}
 
 	var response pluginapi.AllocateResponse
 	dev := new(pluginapi.DeviceSpec)
-	dev.HostPath = KVMPath
-	dev.ContainerPath = KVMPath
+	dev.HostPath = dpi.devicePath
+	dev.ContainerPath = dpi.devicePath
 	dev.Permissions = "rw"
 	response.Devices = append(response.Devices, dev)
-
-	// FIXME: This does not belong here.
-	tundev := new(pluginapi.DeviceSpec)
-	tundev.HostPath = "/dev/net/tun"
-	tundev.ContainerPath = "/dev/net/tun"
-	tundev.Permissions = "rw"
-	response.Devices = append(response.Devices, tundev)
 
 	return &response, nil
 }
 
-func (dpi *KVMDevicePlugin) cleanup() error {
+func (dpi *GenericDevicePlugin) cleanup() error {
 	if err := os.Remove(dpi.socketPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -226,21 +219,21 @@ func (dpi *KVMDevicePlugin) cleanup() error {
 	return nil
 }
 
-func (dpi *KVMDevicePlugin) healthCheck() error {
+func (dpi *GenericDevicePlugin) healthCheck() error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil
 	}
 	defer watcher.Close()
 
-	watcher.Add(KVMPath)
+	watcher.Add(dpi.devicePath)
 
 	healthy := pluginapi.Healthy
 	for {
 		select {
 
 		case event := <-watcher.Events:
-			// Health in this case is if the KVM device actually exists
+			// Health in this case is if the device path actually exists
 			if event.Op == fsnotify.Create {
 				healthy = pluginapi.Healthy
 			} else if event.Op == fsnotify.Remove {
