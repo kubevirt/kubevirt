@@ -410,6 +410,13 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			Field:   field.Child("networks").String(),
 		})
 		return causes
+	} else if v1.GetNumberOfPodInterfaces(spec) > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: fmt.Sprintf("multiple pod interfaces in %s", field.Child("interfaces").String()),
+			Field:   field.Child("interfaces").String(),
+		})
+		return causes
 	}
 
 	for _, volume := range spec.Volumes {
