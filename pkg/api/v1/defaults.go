@@ -152,12 +152,24 @@ func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
 	}
 }
 
-func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
-	networks := obj.Spec.Networks
+func isPodInterfaceConfigured(obj *VirtualMachineInstance) bool {
+	for _, net := range obj.Spec.Networks {
+		if net.Pod != nil {
+			for _, iface := range obj.Spec.Domain.Devices.Interfaces {
+				if iface.Name == net.Name {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	return false
+}
 
+func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
 	//TODO: Currently, we support only one interface associated to a network
 	//      This should be improved when we will start supporting multimple interfaces and networks
-	if len(networks) == 0 || networks[0].Pod == nil {
+	if !isPodInterfaceConfigured(obj) {
 		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultNetworkInterface()}
 		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
 	}
