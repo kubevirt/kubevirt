@@ -16,7 +16,7 @@ objects:
   metadata:
     creationTimestamp: null
     labels:
-      kubevirt-ovm: ovm-${NAME}
+      kubevirt-vm: vm-${NAME}
     name: ${NAME}
   spec:
     running: false
@@ -24,7 +24,7 @@ objects:
       metadata:
         creationTimestamp: null
         labels:
-          kubevirt-ovm: ovm-${NAME}
+          kubevirt-vm: vm-${NAME}
       spec:
         domain:
           cpu: ${CPU_CORES}

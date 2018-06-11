@@ -3,7 +3,7 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    kubevirt.io/ovm: vm-alpine-multipvc
+    kubevirt.io/vm: vm-alpine-multipvc
   name: vm-alpine-multipvc
 spec:
   running: false
@@ -11,7 +11,7 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        kubevirt.io/ovm: vm-alpine-multipvc
+        kubevirt.io/vm: vm-alpine-multipvc
     spec:
       domain:
         devices:

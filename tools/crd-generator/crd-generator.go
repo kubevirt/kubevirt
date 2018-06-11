@@ -130,7 +130,7 @@ func generateVirtualMachineInstanceCrd() {
 }
 
 func main() {
-	crdType := flag.String("crd-type", "", "Type of crd to generate. vm | vmpreset | vmrs | ovm")
+	crdType := flag.String("crd-type", "", "Type of crd to generate. vmi | vmipreset | vmirs | vm")
 	flag.Parse()
 
 	switch *crdType {
