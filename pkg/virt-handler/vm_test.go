@@ -66,7 +66,7 @@ var _ = Describe("VM", func() {
 	var vmFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
 
-	var recorder record.EventRecorder
+	var recorder *record.FakeRecorder
 
 	var err error
 	var shareDir string
@@ -125,6 +125,13 @@ var _ = Describe("VM", func() {
 		close(stop)
 		ctrl.Finish()
 		os.RemoveAll(shareDir)
+		Expect(recorder.Events).To(BeEmpty())
+		/*
+			if len(recorder.Events) > 0 {
+				fmt.Println(<-recorder.Events)
+				Expect(true).To(Equal(false))
+			}
+		*/
 	})
 
 	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachine, dom *api.Domain) {
@@ -178,6 +185,8 @@ var _ = Describe("VM", func() {
 			domainFeeder.Add(domain)
 
 			controller.Execute()
+
+			testutils.ExpectEvent(recorder, "Signaled Graceful Shutdown")
 		}, 3)
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
@@ -193,6 +202,8 @@ var _ = Describe("VM", func() {
 			domainFeeder.Add(domain)
 
 			controller.Execute()
+
+			testutils.ExpectEvent(recorder, "Signaled Graceful Shutdown")
 		}, 3)
 
 		It("should attempt force terminate Domain if grace period expires", func() {
@@ -239,7 +250,7 @@ var _ = Describe("VM", func() {
 			Expect(mockQueue.NumRequeues("a/b/c/d/e")).To(Equal(1))
 		})
 
-		It("should create the Domain if it sees the first time on a new VM", func() {
+		It("should create the Domain if it sees the first time a new VM", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
@@ -282,6 +293,52 @@ var _ = Describe("VM", func() {
 			virtClient.EXPECT().CoreV1().Return(fakeClient).AnyTimes()
 
 			controller.Execute()
+
+			testutils.ExpectEvent(recorder, "VM started")
+		})
+
+		It("should update from Running to Succeeded, if it sees a successful Domain shutdown", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Phase = v1.Running
+
+			updatedVM := vm.DeepCopy()
+			updatedVM.Status.Phase = v1.Succeeded
+
+			mockWatchdog.CreateFile(vm)
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonShutdown
+			vmFeeder.Add(vm)
+			domainFeeder.Add(domain)
+
+			vmInterface.EXPECT().Update(updatedVM)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, "The VM was shut down.")
+		})
+
+		It("should update from Running to Crashed, if it sees a crash", func() {
+			vm := v1.NewMinimalVM("testvm")
+			vm.ObjectMeta.ResourceVersion = "1"
+			vm.Status.Phase = v1.Running
+
+			updatedVM := vm.DeepCopy()
+			updatedVM.Status.Phase = v1.Failed
+
+			mockWatchdog.CreateFile(vm)
+			domain := api.NewMinimalDomain("testvm")
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonCrashed
+			vmFeeder.Add(vm)
+			domainFeeder.Add(domain)
+
+			vmInterface.EXPECT().Update(updatedVM)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, "The VM crashed.")
 		})
 
 		It("should move VM from Scheduled to Failed if watchdog file is missing", func() {
@@ -319,6 +376,8 @@ var _ = Describe("VM", func() {
 				Expect(vm.Status.Phase).To(Equal(v1.Failed))
 			})
 			controller.Execute()
+
+			testutils.ExpectEvent(recorder, "No watchdog file found for vm")
 		})
 
 		It("should remove an error condition if a synchronization run succeeds", func() {
