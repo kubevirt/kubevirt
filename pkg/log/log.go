@@ -43,15 +43,13 @@ var lock sync.Mutex
 type logLevel int
 
 const (
-	DEBUG logLevel = iota
-	INFO
+	INFO logLevel = iota
 	WARNING
 	ERROR
 	CRITICAL
 )
 
 var logLevelNames = map[logLevel]string{
-	DEBUG:    "debug",
 	INFO:     "info",
 	WARNING:  "warning",
 	ERROR:    "error",
@@ -162,12 +160,9 @@ func (l FilteredLogger) Log(params ...interface{}) error {
 
 func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 	// messages should be logged if any of these conditions are met:
-	// The log filtering level is debug
 	// The log filtering level is info and verbosity checks match
 	// The log message priority is warning or higher
-	force := (l.filterLevel == DEBUG) || (l.currentLogLevel >= WARNING)
-
-	if force || (l.filterLevel == INFO &&
+	if l.currentLogLevel >= WARNING || (l.filterLevel == INFO &&
 		(l.currentLogLevel == l.filterLevel) &&
 		(l.currentVerbosityLevel <= l.verbosityLevel)) {
 		now := time.Now().UTC()
@@ -236,7 +231,7 @@ func (l *FilteredLogger) WithPrefix(obj ...interface{}) *FilteredLogger {
 }
 
 func (l *FilteredLogger) SetLogLevel(filterLevel logLevel) error {
-	if (filterLevel >= DEBUG) && (filterLevel <= CRITICAL) {
+	if (filterLevel >= INFO) && (filterLevel <= CRITICAL) {
 		l.filterLevel = filterLevel
 		return nil
 	}
@@ -269,14 +264,6 @@ func (l FilteredLogger) Reason(err error) *FilteredLogger {
 func (l FilteredLogger) Level(level logLevel) *FilteredLogger {
 	l.currentLogLevel = level
 	return &l
-}
-
-func (l FilteredLogger) Debug(msg string) {
-	l.Level(DEBUG).msg(msg)
-}
-
-func (l FilteredLogger) Debugf(msg string, args ...interface{}) {
-	l.Level(DEBUG).msgf(msg, args...)
 }
 
 func (l FilteredLogger) Info(msg string) {

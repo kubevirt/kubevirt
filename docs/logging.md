@@ -5,7 +5,7 @@ That struct offers several functions for providing logs with different log level
 
 ## Log Levels and Verbosity
 
-The Log struct offers several functions for logging with a decent log level: `Debug(msg)`, `Info(msg)`, `Warning(msg)`, `Error(msg)`, `Critical(msg)`.
+The Log struct offers several functions for logging with a decent log level: `Info(msg)`, `Warning(msg)`, `Error(msg)`, `Critical(msg)`.
 These functions also exist in a second flavor, where you can use a formatted string with additional arguments.
 
 Additionally you can set the verbosity with `V(verbosity)`, which takes effect on info level messages.
@@ -14,7 +14,6 @@ Please check the [Kubernetes Logging Conventions](https://github.com/kubernetes/
 
 During runtime you will see:
 
-- all debug logs
 - all info logs with a verbosity equal or lower to verbosity set by the `-v` command line flag
 - all warning, error and critical logs
 
