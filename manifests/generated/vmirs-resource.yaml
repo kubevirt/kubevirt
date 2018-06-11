@@ -57,7 +57,7 @@ spec:
                     domain:
                       properties:
                         clock:
-                          description: Represents the clock and timers of a vm
+                          description: Represents the clock and timers of a vmi
                           properties:
                             timezone:
                               description: Timezone sets the guest clock to the specified
@@ -80,14 +80,14 @@ spec:
                           properties:
                             cores:
                               description: Cores specifies the number of cores inside
-                                the vm. Must be a value greater or equal 1.
+                                the vmi. Must be a value greater or equal 1.
                               format: int64
                               type: integer
                         devices:
                           properties:
                             disks:
                               description: Disks describes disks, cdroms, floppy and
-                                luns which are connected to the vm
+                                luns which are connected to the vmi
                               items:
                                 properties:
                                   bootOrder:
@@ -270,7 +270,7 @@ spec:
                                       type: boolean
                                     vendorid:
                                       description: VendorID sets the hypervisor vendor
-                                        id, visible to the vm String up to twelve
+                                        id, visible to the vmi String up to twelve
                                         characters
                                       type: string
                                 vpindex:
@@ -285,8 +285,8 @@ spec:
                         firmware:
                           properties:
                             uuid:
-                              description: UUID reported by the vm bios Defaults to
-                                a random generated uid
+                              description: UUID reported by the vmi bios Defaults
+                                to a random generated uid
                               type: string
                         machine:
                           properties:
@@ -305,28 +305,28 @@ spec:
                               type: object
                             requests:
                               description: Requests is a description of the initial
-                                vm resources. Valid resource keys are "memory" and
+                                vmi resources. Valid resource keys are "memory" and
                                 "cpu".
                               type: object
                       required:
                       - devices
                     hostname:
-                      description: Specifies the hostname of the vm If not specified,
-                        the hostname will be set to the name of the vm, if dhcp or
+                      description: Specifies the hostname of the vmi If not specified,
+                        the hostname will be set to the name of the vmi, if dhcp or
                         cloud-init is configured properly.
                       type: string
                     nodeSelector:
                       description: 'NodeSelector is a selector which must be true
-                        for the vm to fit on a node. Selector which must match a node''s
-                        labels for the vm to be scheduled on that node. More info:
-                        https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                        for the vmi to fit on a node. Selector which must match a
+                        node''s labels for the vmi to be scheduled on that node. More
+                        info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                       type: object
                     subdomain:
-                      description: If specified, the fully qualified vm hostname will
-                        be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
-                        If not specified, the vm will not have a domainname at all.
-                        The DNS entry will resolve to the vm, no matter if the vm
-                        itself can pick up a hostname.
+                      description: If specified, the fully qualified vmi hostname
+                        will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster
+                        domain>". If not specified, the vmi will not have a domainname
+                        at all. The DNS entry will resolve to the vmi, no matter if
+                        the vmi itself can pick up a hostname.
                       type: string
                     terminationGracePeriodSeconds:
                       description: Grace period observed after signalling a VirtualMachineInstance
@@ -335,9 +335,9 @@ spec:
                       type: integer
                     volumes:
                       description: List of volumes that can be mounted by disks belonging
-                        to the vm.
+                        to the vmi.
                       items:
-                        description: Volume represents a named volume in a vm.
+                        description: Volume represents a named volume in a vmi.
                         properties:
                           cloudInitNoCloud:
                             description: 'Represents a cloud-init nocloud user data
@@ -354,7 +354,7 @@ spec:
                                 type: string
                           emptyDisk:
                             description: EmptyDisk represents a temporary disk which
-                              shares the vms lifecycle
+                              shares the vmis lifecycle
                             properties:
                               capacity: {}
                             required:
@@ -364,7 +364,7 @@ spec:
                               persistentVolumeClaim: {}
                           name:
                             description: 'Volume''s name. Must be a DNS_LABEL and
-                              unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                             type: string
                           persistentVolumeClaim: {}
                           registryDisk:

@@ -38,7 +38,7 @@ func AddGlogFlags(fs *pflag.FlagSet) {
 	register(global, local, "alsologtostderr")
 	register(global, local, "v")
 	register(global, local, "stderrthreshold")
-	register(global, local, "vmodule")
+	register(global, local, "vmiodule")
 	register(global, local, "log_backtrace_at")
 	register(global, local, "log_dir")
 

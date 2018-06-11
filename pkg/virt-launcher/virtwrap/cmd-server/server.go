@@ -48,7 +48,7 @@ type Launcher struct {
 
 func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, error) {
 	if args.VMI == nil {
-		return nil, goerror.New(fmt.Sprintf("vm object not present in command server args"))
+		return nil, goerror.New(fmt.Sprintf("vmi object not present in command server args"))
 	}
 	return args.VMI, nil
 }
@@ -56,66 +56,66 @@ func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, erro
 func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	reply.Success = true
 
-	vm, err := getVmfromClientArgs(args)
+	vmi, err := getVmfromClientArgs(args)
 	if err != nil {
 		reply.Success = false
 		reply.Message = err.Error()
 		return nil
 	}
 
-	_, err = s.domainManager.SyncVMI(vm, s.allowEmulation)
+	_, err = s.domainManager.SyncVMI(vmi, s.allowEmulation)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Failed to sync vm")
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		reply.Success = false
 		reply.Message = err.Error()
 		return nil
 	}
 
-	log.Log.Object(vm).Info("Synced vm")
+	log.Log.Object(vmi).Info("Synced vmi")
 	return nil
 }
 
 func (s *Launcher) Kill(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	reply.Success = true
 
-	vm, err := getVmfromClientArgs(args)
+	vmi, err := getVmfromClientArgs(args)
 	if err != nil {
 		reply.Success = false
 		reply.Message = err.Error()
 		return nil
 	}
 
-	err = s.domainManager.KillVMI(vm)
+	err = s.domainManager.KillVMI(vmi)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Failed to kill vm")
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to kill vmi")
 		reply.Success = false
 		reply.Message = err.Error()
 		return nil
 	}
 
-	log.Log.Object(vm).Info("Signaled vm kill")
+	log.Log.Object(vmi).Info("Signaled vmi kill")
 	return nil
 }
 
 func (s *Launcher) Shutdown(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	reply.Success = true
 
-	vm, err := getVmfromClientArgs(args)
+	vmi, err := getVmfromClientArgs(args)
 	if err != nil {
 		reply.Success = false
 		reply.Message = err.Error()
 		return nil
 	}
 
-	err = s.domainManager.SignalShutdownVMI(vm)
+	err = s.domainManager.SignalShutdownVMI(vmi)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Failed to signal shutdown for vm")
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal shutdown for vmi")
 		reply.Success = false
 		reply.Message = err.Error()
 		return nil
 	}
 
-	log.Log.Object(vm).Info("Signaled vm shutdown")
+	log.Log.Object(vmi).Info("Signaled vmi shutdown")
 	return nil
 }
 

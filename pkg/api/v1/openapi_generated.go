@@ -81,7 +81,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"cores": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Cores specifies the number of cores inside the vm. Must be a value greater or equal 1.",
+								Description: "Cores specifies the number of cores inside the vmi. Must be a value greater or equal 1.",
 								Type:        []string{"integer"},
 								Format:      "int64",
 							},
@@ -94,7 +94,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Clock": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents the clock and timers of a vm",
+					Description: "Represents the clock and timers of a vmi",
 					Properties: map[string]spec.Schema{
 						"utc": {
 							SchemaProps: spec.SchemaProps{
@@ -193,7 +193,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"disks": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
+								Description: "Disks describes disks, cdroms, floppy and luns which are connected to the vmi",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -206,7 +206,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"watchdog": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Watchdog describes a watchdog device which can be added to the vm",
+								Description: "Watchdog describes a watchdog device which can be added to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Watchdog"),
 							},
 						},
@@ -236,25 +236,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"disk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a disk to the vm",
+								Description: "Attach a volume as a disk to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DiskTarget"),
 							},
 						},
 						"lun": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a LUN to the vm",
+								Description: "Attach a volume as a LUN to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.LunTarget"),
 							},
 						},
 						"floppy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a floppy to the vm",
+								Description: "Attach a volume as a floppy to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FloppyTarget"),
 							},
 						},
 						"cdrom": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a cdrom to the vm",
+								Description: "Attach a volume as a cdrom to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget"),
 							},
 						},
@@ -279,25 +279,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"disk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a disk to the vm",
+								Description: "Attach a volume as a disk to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DiskTarget"),
 							},
 						},
 						"lun": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a LUN to the vm",
+								Description: "Attach a volume as a LUN to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.LunTarget"),
 							},
 						},
 						"floppy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a floppy to the vm",
+								Description: "Attach a volume as a floppy to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FloppyTarget"),
 							},
 						},
 						"cdrom": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a cdrom to the vm",
+								Description: "Attach a volume as a cdrom to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget"),
 							},
 						},
@@ -336,13 +336,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"resources": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Resources describes the Compute Resources required by this vm.",
+								Description: "Resources describes the Compute Resources required by this vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"),
 							},
 						},
 						"cpu": {
 							SchemaProps: spec.SchemaProps{
-								Description: "CPU allow specified the detailed CPU topology inside the vm.",
+								Description: "CPU allow specified the detailed CPU topology inside the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CPU"),
 							},
 						},
@@ -360,7 +360,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"clock": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Clock sets the clock and timers of the vm.",
+								Description: "Clock sets the clock and timers of the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Clock"),
 							},
 						},
@@ -386,7 +386,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "EmptyDisk represents a temporary disk which shares the vms lifecycle",
+					Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle",
 					Properties: map[string]spec.Schema{
 						"capacity": {
 							SchemaProps: spec.SchemaProps{
@@ -407,7 +407,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
-								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vm via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
 								Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
 							},
 						},
@@ -489,7 +489,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"reset": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Reset enables Hyperv reboot/reset for the vm Defaults to the machine type setting",
+								Description: "Reset enables Hyperv reboot/reset for the vmi Defaults to the machine type setting",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
@@ -558,7 +558,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"vendorid": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VendorID sets the hypervisor vendor id, visible to the vm String up to twelve characters",
+								Description: "VendorID sets the hypervisor vendor id, visible to the vmi String up to twelve characters",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -602,7 +602,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"uuid": {
 							SchemaProps: spec.SchemaProps{
-								Description: "UUID reported by the vm bios Defaults to a random generated uid",
+								Description: "UUID reported by the vmi bios Defaults to a random generated uid",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -831,7 +831,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"requests": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Requests is a description of the initial vm resources. Valid resource keys are \"memory\" and \"cpu\".",
+								Description: "Requests is a description of the initial vmi resources. Valid resource keys are \"memory\" and \"cpu\".",
 								Type:        []string{"object"},
 								AdditionalProperties: &spec.SchemaOrBool{
 									Schema: &spec.Schema{
@@ -864,7 +864,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents all available timers in a vm",
+					Description: "Represents all available timers in a vmi",
 					Properties: map[string]spec.Schema{
 						"hpet": {
 							SchemaProps: spec.SchemaProps{
@@ -1460,7 +1460,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"nodeSelector": {
 							SchemaProps: spec.SchemaProps{
-								Description: "NodeSelector is a selector which must be true for the vm to fit on a node. Selector which must match a node's labels for the vm to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+								Description: "NodeSelector is a selector which must be true for the vmi to fit on a node. Selector which must match a node's labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
 								Type:        []string{"object"},
 								AdditionalProperties: &spec.SchemaOrBool{
 									Schema: &spec.Schema{
@@ -1487,7 +1487,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"volumes": {
 							SchemaProps: spec.SchemaProps{
-								Description: "List of volumes that can be mounted by disks belonging to the vm.",
+								Description: "List of volumes that can be mounted by disks belonging to the vmi.",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -1500,14 +1500,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"hostname": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Specifies the hostname of the vm If not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.",
+								Description: "Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"subdomain": {
 							SchemaProps: spec.SchemaProps{
-								Description: "If specified, the fully qualified vm hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm, no matter if the vm itself can pick up a hostname.",
+								Description: "If specified, the fully qualified vmi hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -1701,24 +1701,24 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Volume": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Volume represents a named volume in a vm.",
+					Description: "Volume represents a named volume in a vmi.",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Volume's name. Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+								Description: "Volume's name. Must be a DNS_LABEL and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
-								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vm via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
 								Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
 							},
 						},
 						"cloudInitNoCloud": {
 							SchemaProps: spec.SchemaProps{
-								Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+								Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource"),
 							},
 						},
@@ -1736,7 +1736,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"emptyDisk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "EmptyDisk represents a temporary disk which shares the vms lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+								Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},
@@ -1754,13 +1754,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
-								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vm via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
 								Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
 							},
 						},
 						"cloudInitNoCloud": {
 							SchemaProps: spec.SchemaProps{
-								Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+								Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource"),
 							},
 						},
@@ -1778,7 +1778,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"emptyDisk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "EmptyDisk represents a temporary disk which shares the vms lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+								Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},

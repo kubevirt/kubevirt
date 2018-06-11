@@ -31,9 +31,9 @@ var exampleJSON = `{
   "kind": "VirtualMachineInstance",
   "apiVersion": "kubevirt.io/v1alpha2",
   "metadata": {
-    "name": "testvm",
+    "name": "testvmi",
     "namespace": "default",
-    "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm",
+    "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi",
     "creationTimestamp": null
   },
   "spec": {
@@ -179,7 +179,7 @@ var _ = Describe("Schema", func() {
 	var exampleVMI *VirtualMachineInstance
 
 	BeforeEach(func() {
-		exampleVMI = NewMinimalVMI("testvm")
+		exampleVMI = NewMinimalVMI("testvmi")
 		exampleVMI.Spec.Domain.Devices.Disks = []Disk{
 			{
 				Name:       "disk0",

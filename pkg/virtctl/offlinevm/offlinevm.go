@@ -37,7 +37,7 @@ const (
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "start (vm)",
+		Use:     "start (vmi)",
 		Short:   "Start a virtual machine which is managed by an offline virtual machine.",
 		Example: usage(COMMAND_START),
 		Args:    cobra.ExactArgs(1),
@@ -52,7 +52,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return &cobra.Command{
-		Use:     "stop (vm)",
+		Use:     "stop (vmi)",
 		Short:   "Stop a virtual machine which is managed by an offline virtual machine.",
 		Example: usage(COMMAND_STOP),
 		Args:    cobra.ExactArgs(1),
@@ -73,14 +73,14 @@ func NewCommand(command string) *Command {
 }
 
 func usage(cmd string) string {
-	usage := "#Start a virtual machine called 'myvm':\n"
-	usage += fmt.Sprintf("virtctl %s myvm", cmd)
+	usage := "#Start a virtual machine called 'myvmi':\n"
+	usage += fmt.Sprintf("virtctl %s myvmi", cmd)
 	return usage
 }
 
 func (o *Command) Run(cmd *cobra.Command, args []string) error {
 
-	vmName := args[0]
+	vmiName := args[0]
 
 	namespace, _, err := o.clientConfig.Namespace()
 	if err != nil {
@@ -100,14 +100,14 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	options := &k8smetav1.GetOptions{}
-	ovm, err := virtClient.VirtualMachine(namespace).Get(vmName, options)
+	vm, err := virtClient.VirtualMachine(namespace).Get(vmiName, options)
 	if err != nil {
 		return fmt.Errorf("Error fetching VirtualMachine: %v", err)
 	}
 
-	if ovm.Spec.Running != running {
-		ovm.Spec.Running = running
-		_, err := virtClient.VirtualMachine(namespace).Update(ovm)
+	if vm.Spec.Running != running {
+		vm.Spec.Running = running
+		_, err := virtClient.VirtualMachine(namespace).Update(vm)
 		if err != nil {
 			return fmt.Errorf("Error updating VirtualMachine: %v", err)
 		}
@@ -116,7 +116,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		if running {
 			stateMsg = "running"
 		}
-		return fmt.Errorf("Error: VirtualMachineInstance '%s' is already %s", vmName, stateMsg)
+		return fmt.Errorf("Error: VirtualMachineInstance '%s' is already %s", vmiName, stateMsg)
 	}
 
 	return nil

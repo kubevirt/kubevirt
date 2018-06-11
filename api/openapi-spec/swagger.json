@@ -3199,19 +3199,19 @@
     "description": "CPU allow specifying the CPU topology",
     "properties": {
      "cores": {
-      "description": "Cores specifies the number of cores inside the vm.\nMust be a value greater or equal 1.",
+      "description": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
       "type": "integer"
      }
     }
    },
    "v1.Clock": {
-    "description": "Represents the clock and timers of a vm",
+    "description": "Represents the clock and timers of a vmi",
     "required": [
      "timer"
     ],
     "properties": {
      "timer": {
-      "description": "Timer specifies whih timers are attached to the vm",
+      "description": "Timer specifies whih timers are attached to the vmi",
       "$ref": "#/definitions/v1.Timer"
      },
      "timezone": {
@@ -3286,14 +3286,14 @@
    "v1.Devices": {
     "properties": {
      "disks": {
-      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
+      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
       }
      },
      "watchdog": {
-      "description": "Watchdog describes a watchdog device which can be added to the vm",
+      "description": "Watchdog describes a watchdog device which can be added to the vmi",
       "$ref": "#/definitions/v1.Watchdog"
      }
     }
@@ -3310,19 +3310,19 @@
       "format": "integer"
      },
      "cdrom": {
-      "description": "Attach a volume as a cdrom to the vm",
+      "description": "Attach a volume as a cdrom to the vmi",
       "$ref": "#/definitions/v1.CDRomTarget"
      },
      "disk": {
-      "description": "Attach a volume as a disk to the vm",
+      "description": "Attach a volume as a disk to the vmi",
       "$ref": "#/definitions/v1.DiskTarget"
      },
      "floppy": {
-      "description": "Attach a volume as a floppy to the vm",
+      "description": "Attach a volume as a floppy to the vmi",
       "$ref": "#/definitions/v1.FloppyTarget"
      },
      "lun": {
-      "description": "Attach a volume as a LUN to the vm",
+      "description": "Attach a volume as a LUN to the vmi",
       "$ref": "#/definitions/v1.LunTarget"
      },
      "name": {
@@ -3353,11 +3353,11 @@
     ],
     "properties": {
      "clock": {
-      "description": "Clock sets the clock and timers of the vm.\n+optional",
+      "description": "Clock sets the clock and timers of the vmi.\n+optional",
       "$ref": "#/definitions/v1.Clock"
      },
      "cpu": {
-      "description": "CPU allow specified the detailed CPU topology inside the vm.\n+optional",
+      "description": "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
       "$ref": "#/definitions/v1.CPU"
      },
      "devices": {
@@ -3377,13 +3377,13 @@
       "$ref": "#/definitions/v1.Machine"
      },
      "resources": {
-      "description": "Resources describes the Compute Resources required by this vm.",
+      "description": "Resources describes the Compute Resources required by this vmi.",
       "$ref": "#/definitions/v1.ResourceRequirements"
      }
     }
    },
    "v1.EmptyDiskSource": {
-    "description": "EmptyDisk represents a temporary disk which shares the vms lifecycle",
+    "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle",
     "required": [
      "capacity"
     ],
@@ -3397,7 +3397,7 @@
    "v1.EphemeralVolumeSource": {
     "properties": {
      "persistentVolumeClaim": {
-      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      }
     }
@@ -3422,7 +3422,7 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "reset": {
-      "description": "Reset enables Hyperv reboot/reset for the vm\nDefaults to the machine type setting\n+optional",
+      "description": "Reset enables Hyperv reboot/reset for the vmi\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "runtime": {
@@ -3483,7 +3483,7 @@
       "type": "boolean"
      },
      "vendorid": {
-      "description": "VendorID sets the hypervisor vendor id, visible to the vm\nString up to twelve characters",
+      "description": "VendorID sets the hypervisor vendor id, visible to the vmi\nString up to twelve characters",
       "type": "string"
      }
     }
@@ -3507,7 +3507,7 @@
    "v1.Firmware": {
     "properties": {
      "uuid": {
-      "description": "UUID reported by the vm bios\nDefaults to a random generated uid",
+      "description": "UUID reported by the vmi bios\nDefaults to a random generated uid",
       "type": "string"
      }
     }
@@ -3977,7 +3977,7 @@
       "type": "object"
      },
      "requests": {
-      "description": "Requests is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+      "description": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
       "type": "object"
      }
     }
@@ -4088,7 +4088,7 @@
     }
    },
    "v1.Timer": {
-    "description": "Represents all available timers in a vm",
+    "description": "Represents all available timers in a vmi",
     "properties": {
      "hpet": {
       "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
@@ -4444,15 +4444,15 @@
       "$ref": "#/definitions/v1.DomainSpec"
      },
      "hostname": {
-      "description": "Specifies the hostname of the vm\nIf not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.\n+optional",
+      "description": "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
       "type": "string"
      },
      "nodeSelector": {
-      "description": "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
+      "description": "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
       "type": "object"
      },
      "subdomain": {
-      "description": "If specified, the fully qualified vm hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\".\nIf not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm,\nno matter if the vm itself can pick up a hostname.\n+optional",
+      "description": "If specified, the fully qualified vmi hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\".\nIf not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,\nno matter if the vmi itself can pick up a hostname.\n+optional",
       "type": "string"
      },
      "terminationGracePeriodSeconds": {
@@ -4461,7 +4461,7 @@
       "format": "int64"
      },
      "volumes": {
-      "description": "List of volumes that can be mounted by disks belonging to the vm.",
+      "description": "List of volumes that can be mounted by disks belonging to the vmi.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Volume"
@@ -4572,17 +4572,17 @@
     }
    },
    "v1.Volume": {
-    "description": "Volume represents a named volume in a vm.",
+    "description": "Volume represents a named volume in a vmi.",
     "required": [
      "name"
     ],
     "properties": {
      "cloudInitNoCloud": {
-      "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
+      "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
      },
      "emptyDisk": {
-      "description": "EmptyDisk represents a temporary disk which shares the vms lifecycle\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
+      "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
       "$ref": "#/definitions/v1.EmptyDiskSource"
      },
      "ephemeral": {
@@ -4590,11 +4590,11 @@
       "$ref": "#/definitions/v1.EphemeralVolumeSource"
      },
      "name": {
-      "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vmi.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
      },
      "persistentVolumeClaim": {
-      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      },
      "registryDisk": {

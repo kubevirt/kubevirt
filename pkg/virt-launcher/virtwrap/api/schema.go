@@ -413,7 +413,7 @@ type BootMenu struct {
 	Timeout *uint `xml:"timeout,attr,omitempty"`
 }
 
-// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
+// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmiloader</loader>
 type BIOS struct {
 }
 
@@ -546,10 +546,10 @@ type SecretSpec struct {
 	Usage       SecretUsage `xml:"usage,omitempty"`
 }
 
-func NewMinimalDomainSpec(vmName string) *DomainSpec {
-	precond.MustNotBeEmpty(vmName)
+func NewMinimalDomainSpec(vmiName string) *DomainSpec {
+	precond.MustNotBeEmpty(vmiName)
 	domain := &DomainSpec{}
-	domain.Name = vmName
+	domain.Name = vmiName
 	domain.Memory = Memory{Unit: "MB", Value: 9}
 	domain.Devices = Devices{}
 	return domain
@@ -607,7 +607,7 @@ func (dl *DomainList) GetListMeta() meta.List {
 
 // VMINamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
-func VMINamespaceKeyFunc(vm *v1.VirtualMachineInstance) string {
-	domName := fmt.Sprintf("%s_%s", vm.Namespace, vm.Name)
+func VMINamespaceKeyFunc(vmi *v1.VirtualMachineInstance) string {
+	domName := fmt.Sprintf("%s_%s", vmi.Namespace, vmi.Name)
 	return domName
 }

@@ -62,7 +62,7 @@ func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
 }
 
 func toAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
-	log.Log.Reason(err).Error("admitting vms with generic error")
+	log.Log.Reason(err).Error("admitting vmis with generic error")
 
 	return &v1beta1.AdmissionResponse{
 		Result: &metav1.Status{
@@ -72,7 +72,7 @@ func toAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
 	}
 }
 func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
-	log.Log.Infof("rejected vm admission")
+	log.Log.Infof("rejected vmi admission")
 
 	globalMessage := ""
 	for _, cause := range causes {
@@ -427,25 +427,25 @@ func validateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 }
 
 func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	vmResource := metav1.GroupVersionResource{
+	vmiResource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
 		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
 		Resource: "virtualmachineinstances",
 	}
-	if ar.Request.Resource != vmResource {
-		err := fmt.Errorf("expect resource to be '%s'", vmResource.Resource)
+	if ar.Request.Resource != vmiResource {
+		err := fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
 		return toAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
-	vm := v1.VirtualMachineInstance{}
+	vmi := v1.VirtualMachineInstance{}
 
-	err := json.Unmarshal(raw, &vm)
+	err := json.Unmarshal(raw, &vmi)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vm.Spec)
+	causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -471,14 +471,14 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	ovm := v1.VirtualMachine{}
+	vm := v1.VirtualMachine{}
 
-	err := json.Unmarshal(raw, &ovm)
+	err := json.Unmarshal(raw, &vm)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVirtualMachineSpec(k8sfield.NewPath("spec"), &ovm.Spec)
+	causes := validateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -504,14 +504,14 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	vmrs := v1.VirtualMachineInstanceReplicaSet{}
+	vmirs := v1.VirtualMachineInstanceReplicaSet{}
 
-	err := json.Unmarshal(raw, &vmrs)
+	err := json.Unmarshal(raw, &vmirs)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMIRSSpec(k8sfield.NewPath("spec"), &vmrs.Spec)
+	causes := validateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -536,14 +536,14 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	vmpreset := v1.VirtualMachineInstancePreset{}
+	vmipreset := v1.VirtualMachineInstancePreset{}
 
-	err := json.Unmarshal(raw, &vmpreset)
+	err := json.Unmarshal(raw, &vmipreset)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMIPresetSpec(k8sfield.NewPath("spec"), &vmpreset.Spec)
+	causes := validateVMIPresetSpec(k8sfield.NewPath("spec"), &vmipreset.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}

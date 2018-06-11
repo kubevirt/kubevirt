@@ -133,8 +133,8 @@ type VirtualMachineInstanceList struct {
 type VirtualMachineInstanceSpec struct {
 	// Specification of the desired behavior of the VirtualMachineInstance on the host.
 	Domain DomainSpec `json:"domain"`
-	// NodeSelector is a selector which must be true for the vm to fit on a node.
-	// Selector which must match a node's labels for the vm to be scheduled on that node.
+	// NodeSelector is a selector which must be true for the vmi to fit on a node.
+	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -142,15 +142,15 @@ type VirtualMachineInstanceSpec struct {
 	Affinity *Affinity `json:"affinity,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
-	// List of volumes that can be mounted by disks belonging to the vm.
+	// List of volumes that can be mounted by disks belonging to the vmi.
 	Volumes []Volume `json:"volumes,omitempty"`
-	// Specifies the hostname of the vm
-	// If not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.
+	// Specifies the hostname of the vmi
+	// If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.
 	// +optional
 	Hostname string `json:"hostname,omitempty"`
-	// If specified, the fully qualified vm hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
-	// If not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm,
-	// no matter if the vm itself can pick up a hostname.
+	// If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
+	// If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,
+	// no matter if the vmi itself can pick up a hostname.
 	// +optional
 	Subdomain string `json:"subdomain,omitempty"`
 }
@@ -315,7 +315,7 @@ const (
 	// Succeeded means that the VirtualMachineInstance stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
 	// inside the VirtualMachineInstance.
 	Succeeded VirtualMachineInstancePhase = "Succeeded"
-	// Failed means that the vm crashed, disappeared unexpectedly or got deleted from the cluster before it was ever started.
+	// Failed means that the vmi crashed, disappeared unexpectedly or got deleted from the cluster before it was ever started.
 	Failed VirtualMachineInstancePhase = "Failed"
 	// Unknown means that for some reason the state of the VirtualMachineInstance could not be obtained, typically due
 	// to an error in communicating with the host of the VirtualMachineInstance.
@@ -372,19 +372,19 @@ func (s SyncEvent) String() string {
 	return string(s)
 }
 
-func NewMinimalVMI(vmName string) *VirtualMachineInstance {
-	return NewMinimalVMIWithNS(k8sv1.NamespaceDefault, vmName)
+func NewMinimalVMI(vmiName string) *VirtualMachineInstance {
+	return NewMinimalVMIWithNS(k8sv1.NamespaceDefault, vmiName)
 }
 
-func NewMinimalVMIWithNS(namespace string, vmName string) *VirtualMachineInstance {
-	precond.CheckNotEmpty(vmName)
-	vm := NewVMIReferenceFromNameWithNS(namespace, vmName)
-	vm.Spec = VirtualMachineInstanceSpec{Domain: NewMinimalDomainSpec()}
-	vm.TypeMeta = metav1.TypeMeta{
+func NewMinimalVMIWithNS(namespace string, vmiName string) *VirtualMachineInstance {
+	precond.CheckNotEmpty(vmiName)
+	vmi := NewVMIReferenceFromNameWithNS(namespace, vmiName)
+	vmi.Spec = VirtualMachineInstanceSpec{Domain: NewMinimalDomainSpec()}
+	vmi.TypeMeta = metav1.TypeMeta{
 		APIVersion: GroupVersion.String(),
 		Kind:       "VirtualMachineInstance",
 	}
-	return vm
+	return vmi
 }
 
 // TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
@@ -393,15 +393,15 @@ func NewVMIReferenceFromName(name string) *VirtualMachineInstance {
 }
 
 func NewVMIReferenceFromNameWithNS(namespace string, name string) *VirtualMachineInstance {
-	vm := &VirtualMachineInstance{
+	vmi := &VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/virtualmachineinstances/%s", GroupVersion.String(), namespace, name),
 		},
 	}
-	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VirtualMachineInstance", Version: GroupVersion.Version})
-	return vm
+	vmi.SetGroupVersionKind(schema.GroupVersionKind{Group: GroupVersion.Group, Kind: "VirtualMachineInstance", Version: GroupVersion.Version})
+	return vmi
 }
 
 type VMISelector struct {
@@ -412,7 +412,7 @@ type VMISelector struct {
 // Given a VirtualMachineInstance, update all NodeSelectorTerms with anti-affinity for that VirtualMachineInstance's node.
 // This is useful for the case when a migration away from a node must occur.
 // This method returns the full Affinity structure updated the anti affinity terms
-func UpdateAntiAffinityFromVMINode(pod *k8sv1.Pod, vm *VirtualMachineInstance) *k8sv1.Affinity {
+func UpdateAntiAffinityFromVMINode(pod *k8sv1.Pod, vmi *VirtualMachineInstance) *k8sv1.Affinity {
 	if pod.Spec.Affinity == nil {
 		pod.Spec.Affinity = &k8sv1.Affinity{}
 	}
@@ -438,7 +438,7 @@ func UpdateAntiAffinityFromVMINode(pod *k8sv1.Pod, vm *VirtualMachineInstance) *
 			term.MatchExpressions = []k8sv1.NodeSelectorRequirement{}
 		}
 
-		term.MatchExpressions = append(term.MatchExpressions, PrepareVMINodeAntiAffinitySelectorRequirement(vm))
+		term.MatchExpressions = append(term.MatchExpressions, PrepareVMINodeAntiAffinitySelectorRequirement(vmi))
 		selector.NodeSelectorTerms[idx] = term
 	}
 
@@ -447,11 +447,11 @@ func UpdateAntiAffinityFromVMINode(pod *k8sv1.Pod, vm *VirtualMachineInstance) *
 
 // Given a VirtualMachineInstance, create a NodeSelectorTerm with anti-affinity for that VirtualMachineInstance's node.
 // This is useful for the case when a migration away from a node must occur.
-func PrepareVMINodeAntiAffinitySelectorRequirement(vm *VirtualMachineInstance) k8sv1.NodeSelectorRequirement {
+func PrepareVMINodeAntiAffinitySelectorRequirement(vmi *VirtualMachineInstance) k8sv1.NodeSelectorRequirement {
 	return k8sv1.NodeSelectorRequirement{
 		Key:      "kubernetes.io/hostname",
 		Operator: k8sv1.NodeSelectorOpNotIn,
-		Values:   []string{vm.Status.NodeName},
+		Values:   []string{vmi.Status.NodeName},
 	}
 }
 
@@ -528,13 +528,13 @@ type VirtualMachineInstanceReplicaSetCondition struct {
 type VirtualMachineInstanceReplicaSetConditionType string
 
 const (
-	// VirtualMachineInstanceReplicaSetReplicaFailure is added in a replica set when one of its vms
+	// VirtualMachineInstanceReplicaSetReplicaFailure is added in a replica set when one of its vmis
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineInstanceReplicaSetReplicaFailure VirtualMachineInstanceReplicaSetConditionType = "ReplicaFailure"
 
 	// VirtualMachineInstanceReplicaSetReplicaPaused is added in a replica set when the replica set got paused by the controller.
-	// After this condition was added, it is safe to remove or add vms by hand and adjust the replica count by hand.
+	// After this condition was added, it is safe to remove or add vmis by hand and adjust the replica count by hand.
 	VirtualMachineInstanceReplicaSetReplicaPaused VirtualMachineInstanceReplicaSetConditionType = "ReplicaPaused"
 )
 
@@ -752,7 +752,7 @@ type VirtualMachineCondition struct {
 type VirtualMachineConditionType string
 
 const (
-	// VirtualMachineFailure is added in a offline virtual machine when its vm
+	// VirtualMachineFailure is added in a offline virtual machine when its vmi
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"

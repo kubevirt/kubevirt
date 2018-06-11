@@ -30,69 +30,69 @@ import (
 )
 
 func (k *kubevirt) VMIPreset(namespace string) VMIPresetInterface {
-	return &vmPresets{k.restClient, namespace, "virtualmachineinstancepresets"}
+	return &vmiPresets{k.restClient, namespace, "virtualmachineinstancepresets"}
 }
 
-type vmPresets struct {
+type vmiPresets struct {
 	restClient *rest.RESTClient
 	namespace  string
 	resource   string
 }
 
-func (v *vmPresets) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMachineInstancePreset, err error) {
-	vm = &v1.VirtualMachineInstancePreset{}
+func (v *vmiPresets) Get(name string, options k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstancePreset, err error) {
+	vmi = &v1.VirtualMachineInstancePreset{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
-		Into(vm)
-	vm.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
+		Into(vmi)
+	vmi.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	return
 }
 
-func (v *vmPresets) List(options k8smetav1.ListOptions) (vmList *v1.VirtualMachineInstancePresetList, err error) {
-	vmList = &v1.VirtualMachineInstancePresetList{}
+func (v *vmiPresets) List(options k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstancePresetList, err error) {
+	vmiList = &v1.VirtualMachineInstancePresetList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
-		Into(vmList)
-	for _, vm := range vmList.Items {
-		vm.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
+		Into(vmiList)
+	for _, vmi := range vmiList.Items {
+		vmi.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	}
 
 	return
 }
 
-func (v *vmPresets) Create(vm *v1.VirtualMachineInstancePreset) (result *v1.VirtualMachineInstancePreset, err error) {
+func (v *vmiPresets) Create(vmi *v1.VirtualMachineInstancePreset) (result *v1.VirtualMachineInstancePreset, err error) {
 	result = &v1.VirtualMachineInstancePreset{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
 		Resource(v.resource).
-		Body(vm).
+		Body(vmi).
 		Do().
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	return
 }
 
-func (v *vmPresets) Update(vm *v1.VirtualMachineInstancePreset) (result *v1.VirtualMachineInstancePreset, err error) {
+func (v *vmiPresets) Update(vmi *v1.VirtualMachineInstancePreset) (result *v1.VirtualMachineInstancePreset, err error) {
 	result = &v1.VirtualMachineInstancePreset{}
 	err = v.restClient.Put().
-		Name(vm.ObjectMeta.Name).
+		Name(vmi.ObjectMeta.Name).
 		Namespace(v.namespace).
 		Resource(v.resource).
-		Body(vm).
+		Body(vmi).
 		Do().
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	return
 }
 
-func (v *vmPresets) Delete(name string, options *k8smetav1.DeleteOptions) error {
+func (v *vmiPresets) Delete(name string, options *k8smetav1.DeleteOptions) error {
 	return v.restClient.Delete().
 		Namespace(v.namespace).
 		Resource(v.resource).
@@ -102,7 +102,7 @@ func (v *vmPresets) Delete(name string, options *k8smetav1.DeleteOptions) error 
 		Error()
 }
 
-func (v *vmPresets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error) {
+func (v *vmiPresets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error) {
 	result = &v1.VirtualMachineInstancePreset{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).

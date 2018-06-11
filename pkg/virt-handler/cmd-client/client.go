@@ -55,9 +55,9 @@ type Args struct {
 }
 
 type LauncherClient interface {
-	SyncVirtualMachine(vm *v1.VirtualMachineInstance) error
-	ShutdownVirtualMachine(vm *v1.VirtualMachineInstance) error
-	KillVirtualMachine(vm *v1.VirtualMachineInstance) error
+	SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	Ping() error
 	Close()
@@ -140,22 +140,22 @@ func (c *VirtLauncherClient) genericSendCmd(args *Args, cmd string) (*Reply, err
 	return reply, nil
 }
 
-func (c *VirtLauncherClient) ShutdownVirtualMachine(vm *v1.VirtualMachineInstance) error {
+func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	cmd := "Launcher.Shutdown"
 
 	args := &Args{
-		VMI: vm,
+		VMI: vmi,
 	}
 	_, err := c.genericSendCmd(args, cmd)
 
 	return err
 }
 
-func (c *VirtLauncherClient) KillVirtualMachine(vm *v1.VirtualMachineInstance) error {
+func (c *VirtLauncherClient) KillVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	cmd := "Launcher.Kill"
 
 	args := &Args{
-		VMI: vm,
+		VMI: vmi,
 	}
 	_, err := c.genericSendCmd(args, cmd)
 
@@ -181,12 +181,12 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	return domain, exists, nil
 
 }
-func (c *VirtLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachineInstance) error {
+func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 
 	cmd := "Launcher.Sync"
 
 	args := &Args{
-		VMI: vm,
+		VMI: vmi,
 	}
 
 	_, err := c.genericSendCmd(args, cmd)

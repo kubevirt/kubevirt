@@ -27,10 +27,10 @@ import (
 )
 
 var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <name>mynamespace_testvm</name>
+  <name>mynamespace_testvmi</name>
   <memory unit="MB">9</memory>
   <os>
-    <type arch="x86_64" machine="q35">hvm</type>
+    <type arch="x86_64" machine="q35">hvmi</type>
   </os>
   <sysinfo type="smbios">
     <system>
@@ -52,7 +52,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
       <alias name="mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso"></source>
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="mydisk1"></alias>
@@ -81,7 +81,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the xml above
-	var exampleDomain = NewMinimalDomainWithNS("mynamespace", "testvm")
+	var exampleDomain = NewMinimalDomainWithNS("mynamespace", "testvmi")
 	SetObjectDefaults_Domain(exampleDomain)
 	exampleDomain.Spec.Devices.Disks = []Disk{
 		{Type: "network",
@@ -101,7 +101,7 @@ var _ = Describe("Schema", func() {
 			Driver: &DiskDriver{Name: "qemu",
 				Type: "raw"},
 			Source: DiskSource{
-				File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso",
+				File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso",
 			},
 			Target: DiskTarget{Device: "vdb"},
 			Alias: &Alias{
@@ -148,7 +148,7 @@ var _ = Describe("Schema", func() {
 
 	Context("With schema", func() {
 		It("Generate expected libvirt xml", func() {
-			domain := NewMinimalDomainSpec("mynamespace_testvm")
+			domain := NewMinimalDomainSpec("mynamespace_testvmi")
 			buf, err := xml.Marshal(domain)
 			Expect(err).To(BeNil())
 

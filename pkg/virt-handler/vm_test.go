@@ -49,13 +49,13 @@ import (
 
 var _ = Describe("VirtualMachineInstance", func() {
 	var client *cmdclient.MockLauncherClient
-	var vmInterface *kubecli.MockVirtualMachineInstanceInterface
+	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var virtClient *kubecli.MockKubevirtClient
 
 	var ctrl *gomock.Controller
 	var controller *VirtualMachineController
-	var vmSource *framework.FakeControllerSource
-	var vmInformer cache.SharedIndexInformer
+	var vmiSource *framework.FakeControllerSource
+	var vmiInformer cache.SharedIndexInformer
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
 	var gracefulShutdownInformer cache.SharedIndexInformer
@@ -63,7 +63,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockWatchdog *MockWatchdog
 	var mockGracefulShutdown *MockGracefulShutdown
 
-	var vmFeeder *testutils.VirtualMachineFeeder
+	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
 
 	var recorder record.EventRecorder
@@ -83,15 +83,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		Expect(err).ToNot(HaveOccurred())
 
-		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
+		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
@@ -100,25 +100,25 @@ var _ = Describe("VirtualMachineInstance", func() {
 			virtClient,
 			host,
 			shareDir,
-			vmInformer,
+			vmiInformer,
 			domainInformer,
 			gracefulShutdownInformer,
 			1)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		sockFile := cmdclient.SocketFromNamespaceName(shareDir, "default", "testvm")
+		sockFile := cmdclient.SocketFromNamespaceName(shareDir, "default", "testvmi")
 		controller.addLauncherClient(client, sockFile)
 
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 
-		vmFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmSource)
+		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)
 
-		go vmInformer.Run(stop)
+		go vmiInformer.Run(stop)
 		go domainInformer.Run(stop)
 		go gracefulShutdownInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
+		Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 	})
 
 	AfterEach(func() {
@@ -127,89 +127,89 @@ var _ = Describe("VirtualMachineInstance", func() {
 		os.RemoveAll(shareDir)
 	})
 
-	initGracePeriodHelper := func(gracePeriod int64, vm *v1.VirtualMachineInstance, dom *api.Domain) {
-		vm.Spec.TerminationGracePeriodSeconds = &gracePeriod
+	initGracePeriodHelper := func(gracePeriod int64, vmi *v1.VirtualMachineInstance, dom *api.Domain) {
+		vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
 
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
-			domain := api.NewMinimalDomain("testvm")
+			domain := api.NewMinimalDomain("testvmi")
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
 			client.EXPECT().Close()
 			controller.Execute()
 		})
 
 		It("should delete running Domains if no cluster wide equivalent exists and no grace period info exists", func() {
-			domain := api.NewMinimalDomain("testvm")
+			domain := api.NewMinimalDomain("testvmi")
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
 			client.EXPECT().Close()
 
 			controller.Execute()
 		})
 
-		It("should perform cleanup of local ephemeral data if domain and vm are deleted", func() {
-			mockQueue.Add("default/testvm")
+		It("should perform cleanup of local ephemeral data if domain and vmi are deleted", func() {
+			mockQueue.Add("default/testvmi")
 			client.EXPECT().Close()
 			controller.Execute()
 		})
 
 		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.Status.Phase = v1.Running
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Status.Phase = v1.Running
 
-			domain := api.NewMinimalDomain("testvm")
+			domain := api.NewMinimalDomain("testvmi")
 			domain.Status.Status = api.Running
 
-			initGracePeriodHelper(1, vm, domain)
-			mockWatchdog.CreateFile(vm)
-			mockGracefulShutdown.TriggerShutdown(vm)
+			initGracePeriodHelper(1, vmi, domain)
+			mockWatchdog.CreateFile(vmi)
+			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
 		}, 3)
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			domain := api.NewMinimalDomain("testvm")
+			vmi := v1.NewMinimalVMI("testvmi")
+			domain := api.NewMinimalDomain("testvmi")
 			domain.Status.Status = api.Running
 
-			initGracePeriodHelper(1, vm, domain)
-			mockWatchdog.CreateFile(vm)
+			initGracePeriodHelper(1, vmi, domain)
+			mockWatchdog.CreateFile(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
 		}, 3)
 
 		It("should attempt force terminate Domain if grace period expires", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			domain := api.NewMinimalDomain("testvm")
+			vmi := v1.NewMinimalVMI("testvmi")
+			domain := api.NewMinimalDomain("testvmi")
 			domain.Status.Status = api.Running
 
-			initGracePeriodHelper(1, vm, domain)
+			initGracePeriodHelper(1, vmi, domain)
 			metav1.Now()
 			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
 			domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
 
-			mockWatchdog.CreateFile(vm)
-			mockGracefulShutdown.TriggerShutdown(vm)
+			mockWatchdog.CreateFile(vmi)
+			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
 			client.EXPECT().Close()
 			domainFeeder.Add(domain)
 
@@ -217,16 +217,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}, 3)
 
 		It("should immediately kill domain with grace period of 0", func() {
-			domain := api.NewMinimalDomain("testvm")
+			domain := api.NewMinimalDomain("testvmi")
 			domain.Status.Status = api.Running
-			vm := v1.NewMinimalVMI("testvm")
+			vmi := v1.NewMinimalVMI("testvmi")
 
-			initGracePeriodHelper(0, vm, domain)
-			mockWatchdog.CreateFile(vm)
-			mockGracefulShutdown.TriggerShutdown(vm)
+			initGracePeriodHelper(0, vmi, domain)
+			mockWatchdog.CreateFile(vmi)
+			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
 			client.EXPECT().Close()
 			domainFeeder.Add(domain)
 			controller.Execute()
@@ -240,33 +240,33 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should create the Domain if it sees the first time on a new VirtualMachineInstance", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.ObjectMeta.ResourceVersion = "1"
-			vm.Status.Phase = v1.Scheduled
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
 
-			mockWatchdog.CreateFile(vm)
-			vmFeeder.Add(vm)
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
 
-			client.EXPECT().SyncVirtualMachine(vm)
+			client.EXPECT().SyncVirtualMachine(vmi)
 
 			controller.Execute()
 		})
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.ObjectMeta.ResourceVersion = "1"
-			vm.Status.Phase = v1.Scheduled
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
 
-			updatedVMI := vm.DeepCopy()
+			updatedVMI := vmi.DeepCopy()
 			updatedVMI.Status.Phase = v1.Running
 
-			mockWatchdog.CreateFile(vm)
-			domain := api.NewMinimalDomain("testvm")
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomain("testvmi")
 			domain.Status.Status = api.Running
-			vmFeeder.Add(vm)
+			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			vmInterface.EXPECT().Update(updatedVMI)
+			vmiInterface.EXPECT().Update(updatedVMI)
 
 			node := &k8sv1.Node{
 				Status: k8sv1.NodeStatus{
@@ -285,72 +285,72 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.ObjectMeta.ResourceVersion = "1"
-			vm.Status.Phase = v1.Scheduled
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
 
-			vmFeeder.Add(vm)
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachineInstance) {
-				Expect(vm.Status.Phase).To(Equal(v1.Failed))
+			vmiFeeder.Add(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
 			controller.Execute()
 		})
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is expired", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.ObjectMeta.ResourceVersion = "1"
-			vm.Status.Phase = v1.Scheduled
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
 
-			mockWatchdog.CreateFile(vm)
-			vmFeeder.Add(vm)
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachineInstance) {
-				Expect(vm.Status.Phase).To(Equal(v1.Failed))
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
 			time.Sleep(2 * time.Second)
 			controller.Execute()
 		}, 2)
 
 		It("should move VirtualMachineInstance from Running to Failed if domain does not exist in cache", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.ObjectMeta.ResourceVersion = "1"
-			vm.Status.Phase = v1.Running
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
 
-			vmFeeder.Add(vm)
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(vm *v1.VirtualMachineInstance) {
-				Expect(vm.Status.Phase).To(Equal(v1.Failed))
+			vmiFeeder.Add(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
 			controller.Execute()
 		})
 
 		It("should remove an error condition if a synchronization run succeeds", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.ObjectMeta.ResourceVersion = "1"
-			vm.Status.Phase = v1.Scheduled
-			vm.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceSynchronized,
 					Status: k8sv1.ConditionFalse,
 				},
 			}
 
-			updatedVMI := vm.DeepCopy()
+			updatedVMI := vmi.DeepCopy()
 			updatedVMI.Status.Conditions = nil
 
-			mockWatchdog.CreateFile(vm)
-			vmFeeder.Add(vm)
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
 
-			client.EXPECT().SyncVirtualMachine(vm)
-			vmInterface.EXPECT().Update(updatedVMI)
+			client.EXPECT().SyncVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(updatedVMI)
 
 			controller.Execute()
 		})
 
 		table.DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.Status.Phase = phase
-			vmFeeder.Add(vm)
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Status.Phase = phase
+			vmiFeeder.Add(vmi)
 			controller.Execute()
 			// expect no errors and no mock interactions
-			Expect(mockQueue.NumRequeues("default/testvm")).To(Equal(0))
+			Expect(mockQueue.NumRequeues("default/testvmi")).To(Equal(0))
 		},
 			table.Entry("succeeded", v1.Succeeded),
 			table.Entry("failed", v1.Failed),
@@ -362,11 +362,11 @@ type MockGracefulShutdown struct {
 	baseDir string
 }
 
-func (m *MockGracefulShutdown) TriggerShutdown(vm *v1.VirtualMachineInstance) {
+func (m *MockGracefulShutdown) TriggerShutdown(vmi *v1.VirtualMachineInstance) {
 	Expect(os.MkdirAll(virtlauncher.GracefulShutdownTriggerDir(m.baseDir), os.ModePerm)).To(Succeed())
 
-	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
 	err := virtlauncher.GracefulShutdownTriggerInitiate(triggerFile)
 	Expect(err).NotTo(HaveOccurred())
@@ -376,10 +376,10 @@ type MockWatchdog struct {
 	baseDir string
 }
 
-func (m *MockWatchdog) CreateFile(vm *v1.VirtualMachineInstance) {
+func (m *MockWatchdog) CreateFile(vmi *v1.VirtualMachineInstance) {
 	Expect(os.MkdirAll(watchdog.WatchdogFileDirectory(m.baseDir), os.ModePerm)).To(Succeed())
 	err := watchdog.WatchdogFileUpdate(
-		watchdog.WatchdogFileFromNamespaceName(m.baseDir, vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),
+		watchdog.WatchdogFileFromNamespaceName(m.baseDir, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
 	)
 	Expect(err).NotTo(HaveOccurred())
 }

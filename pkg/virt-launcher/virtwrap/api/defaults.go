@@ -20,7 +20,7 @@ func SetDefaults_Devices(devices *Devices) {
 }
 
 func SetDefaults_OSType(ostype *OSType) {
-	ostype.OS = "hvm"
+	ostype.OS = "hvmi"
 
 	if ostype.Arch == "" {
 		ostype.Arch = "x86_64"

@@ -47,32 +47,32 @@ var _ = Describe("Template", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
 
-				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "testns", UID: "1234"}, Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
+				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns", UID: "1234"}, Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:    "virt-launcher",
-					v1.DomainLabel: "testvm",
+					v1.DomainLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					v1.CreatedByAnnotation: "1234",
 					v1.OwnedByAnnotation:   "virt-controller",
 				}))
-				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					v1.NodeSchedulable: "true",
 				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
 					"--qemu-timeout", "5m",
-					"--name", "testvm",
+					"--name", "testvmi",
 					"--namespace", "testns",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45"}))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 				By("setting the right hostname")
-				Expect(pod.Spec.Hostname).To(Equal("testvm"))
+				Expect(pod.Spec.Hostname).To(Equal("testvmi"))
 				Expect(pod.Spec.Subdomain).To(BeEmpty())
 			})
 		})
@@ -83,24 +83,24 @@ var _ = Describe("Template", func() {
 					"kubernetes.io/hostname": "master",
 					v1.NodeSchedulable:       "true",
 				}
-				vm := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}, Spec: v1.VirtualMachineInstanceSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{}}}
+				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"}, Spec: v1.VirtualMachineInstanceSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{}}}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:    "virt-launcher",
-					v1.DomainLabel: "testvm",
+					v1.DomainLabel: "testvmi",
 				}))
-				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvm-"))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					"kubernetes.io/hostname": "master",
 					v1.NodeSchedulable:       "true",
 				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
 					"--qemu-timeout", "5m",
-					"--name", "testvm",
+					"--name", "testvmi",
 					"--namespace", "default",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
@@ -112,22 +112,22 @@ var _ = Describe("Template", func() {
 
 			It("should add node affinity to pod", func() {
 				nodeAffinity := kubev1.NodeAffinity{}
-				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Affinity: &v1.Affinity{NodeAffinity: &nodeAffinity},
 						Domain:   v1.DomainSpec{},
 					},
 				}
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{NodeAffinity: &nodeAffinity}))
 			})
 
-			It("should use the hostname and subdomain if specified on the vm", func() {
-				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
+			It("should use the hostname and subdomain if specified on the vmi", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvmi",
 						Namespace: "default",
 						UID:       "1234",
 					},
@@ -137,15 +137,15 @@ var _ = Describe("Template", func() {
 						Subdomain: "mydomain",
 					},
 				}
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.Hostname).To(Equal(vm.Spec.Hostname))
-				Expect(pod.Spec.Subdomain).To(Equal(vm.Spec.Subdomain))
+				Expect(pod.Spec.Hostname).To(Equal(vmi.Spec.Hostname))
+				Expect(pod.Spec.Subdomain).To(Equal(vmi.Spec.Subdomain))
 			})
 
-			It("should add vm labels to pod", func() {
-				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
+			It("should add vmi labels to pod", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvmi",
 						Namespace: "default",
 						UID:       "1234",
 						Labels: map[string]string{
@@ -157,7 +157,7 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{},
 					},
 				}
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Labels).To(Equal(
@@ -165,19 +165,19 @@ var _ = Describe("Template", func() {
 						"key1":         "val1",
 						"key2":         "val2",
 						v1.AppLabel:    "virt-launcher",
-						v1.DomainLabel: "testvm",
+						v1.DomainLabel: "testvmi",
 					},
 				))
 			})
 
 			It("should not add empty node affinity to pod", func() {
-				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{},
 					},
 				}
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Affinity).To(BeNil())
@@ -186,9 +186,9 @@ var _ = Describe("Template", func() {
 		Context("with cpu and memory constraints", func() {
 			It("should add cpu and memory constraints to a template", func() {
 
-				vm := v1.VirtualMachineInstance{
+				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvm",
+						Name:      "testvmi",
 						Namespace: "default",
 						UID:       "1234",
 					},
@@ -208,7 +208,7 @@ var _ = Describe("Template", func() {
 					},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
@@ -218,9 +218,9 @@ var _ = Describe("Template", func() {
 			})
 			It("should not add unset resources", func() {
 
-				vm := v1.VirtualMachineInstance{
+				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvm",
+						Name:      "testvmi",
 						Namespace: "default",
 						UID:       "1234",
 					},
@@ -237,10 +237,10 @@ var _ = Describe("Template", func() {
 					},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(vm.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 				Expect(pod.Spec.Containers[0].Resources.Limits).To(BeNil())
@@ -257,14 +257,14 @@ var _ = Describe("Template", func() {
 						},
 					},
 				}
-				vm := v1.VirtualMachineInstance{
+				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvm", Namespace: "default", UID: "1234",
+						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
@@ -276,14 +276,14 @@ var _ = Describe("Template", func() {
 
 		Context("with launcher's pull secret", func() {
 			It("should contain launcher's secret in pod spec", func() {
-				vm := v1.VirtualMachineInstance{
+				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvm", Namespace: "default", UID: "1234",
+						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(1))
@@ -313,15 +313,15 @@ var _ = Describe("Template", func() {
 				},
 			}
 
-			vm := v1.VirtualMachineInstance{
+			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvm", Namespace: "default", UID: "1234",
+					Name: "testvmi", Namespace: "default", UID: "1234",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 			}
 
 			It("should add secret to pod spec", func() {
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))
@@ -334,7 +334,7 @@ var _ = Describe("Template", func() {
 			It("should deduplicate identical secrets", func() {
 				volumes[1].VolumeSource.RegistryDisk.ImagePullSecret = "pull-secret-2"
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))

@@ -593,7 +593,7 @@ var _ = Describe("VMIlifecycle", func() {
 				api.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
 
 				expectedType := ""
-				if _, err := os.Stat("/dev/kvmi"); os.IsNotExist(err) {
+				if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 					expectedType = "qemu"
 				}
 

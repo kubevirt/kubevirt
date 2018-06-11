@@ -56,7 +56,7 @@ func newControllerRef(controller metav1.Object) *metav1.OwnerReference {
 }
 
 func newVirtualMachine(virtualmachineName string, label map[string]string, owner metav1.Object) *virtv1.VirtualMachineInstance {
-	vm := &virtv1.VirtualMachineInstance{
+	vmi := &virtv1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      virtualmachineName,
 			Labels:    label,
@@ -65,9 +65,9 @@ func newVirtualMachine(virtualmachineName string, label map[string]string, owner
 		Spec: virtv1.VirtualMachineInstanceSpec{},
 	}
 	if owner != nil {
-		vm.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
+		vmi.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
 	}
-	return vm
+	return vmi
 }
 
 func TestClaimVirtualMachine(t *testing.T) {

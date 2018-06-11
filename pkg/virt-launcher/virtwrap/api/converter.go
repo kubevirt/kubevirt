@@ -154,7 +154,7 @@ func Covert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk,
 	disk.Driver.Type = "raw"
 	disk.Source.File = filepath.Join(
 		"/var/run/kubevirt-private",
-		"vm-disks",
+		"vmi-disks",
 		volumeName,
 		"disk.img")
 	return nil
@@ -333,14 +333,14 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	return nil
 }
 
-func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) (err error) {
-	precond.MustNotBeNil(vm)
+func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) (err error) {
+	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
-	domain.Spec.Name = VMINamespaceKeyFunc(vm)
-	domain.ObjectMeta.Name = vm.ObjectMeta.Name
-	domain.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
+	domain.Spec.Name = VMINamespaceKeyFunc(vmi)
+	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
+	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 		if c.AllowEmulation {
@@ -355,32 +355,32 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, doma
 	}
 
 	// Spec metadata
-	domain.Spec.Metadata.KubeVirt.UID = vm.UID
-	if vm.Spec.TerminationGracePeriodSeconds != nil {
-		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
+	if vmi.Spec.TerminationGracePeriodSeconds != nil {
+		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 
 	domain.Spec.SysInfo = &SysInfo{}
-	if vm.Spec.Domain.Firmware != nil {
+	if vmi.Spec.Domain.Firmware != nil {
 		domain.Spec.SysInfo.System = []Entry{
 			{
 				Name:  "uuid",
-				Value: string(vm.Spec.Domain.Firmware.UUID),
+				Value: string(vmi.Spec.Domain.Firmware.UUID),
 			},
 		}
 	}
 
-	if v, ok := vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
+	if v, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
 		domain.Spec.Memory = QuantityToMegaByte(v)
 	}
 
 	volumes := map[string]*v1.Volume{}
-	for _, volume := range vm.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
 	devicePerBus := make(map[string]int)
-	for _, disk := range vm.Spec.Domain.Devices.Disks {
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
 		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus)
@@ -398,17 +398,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, doma
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 	}
 
-	if vm.Spec.Domain.Devices.Watchdog != nil {
+	if vmi.Spec.Domain.Devices.Watchdog != nil {
 		newWatchdog := &Watchdog{}
-		err := Convert_v1_Watchdog_To_api_Watchdog(vm.Spec.Domain.Devices.Watchdog, newWatchdog, c)
+		err := Convert_v1_Watchdog_To_api_Watchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog, c)
 		if err != nil {
 			return err
 		}
 		domain.Spec.Devices.Watchdog = newWatchdog
 	}
 
-	if vm.Spec.Domain.Clock != nil {
-		clock := vm.Spec.Domain.Clock
+	if vmi.Spec.Domain.Clock != nil {
+		clock := vmi.Spec.Domain.Clock
 		newClock := &Clock{}
 		err := Convert_v1_Clock_To_api_Clock(clock, newClock, c)
 		if err != nil {
@@ -417,28 +417,28 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, doma
 		domain.Spec.Clock = newClock
 	}
 
-	if vm.Spec.Domain.Features != nil {
+	if vmi.Spec.Domain.Features != nil {
 		domain.Spec.Features = &Features{}
-		err := Convert_v1_Features_To_api_Features(vm.Spec.Domain.Features, domain.Spec.Features, c)
+		err := Convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, c)
 		if err != nil {
 			return err
 		}
 	}
-	apiOst := &vm.Spec.Domain.Machine
+	apiOst := &vmi.Spec.Domain.Machine
 	err = Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
 	if err != nil {
 		return err
 	}
 
-	if vm.Spec.Domain.CPU != nil {
+	if vmi.Spec.Domain.CPU != nil {
 		domain.Spec.CPU.Topology = &CPUTopology{
 			Sockets: 1,
-			Cores:   vm.Spec.Domain.CPU.Cores,
+			Cores:   vmi.Spec.Domain.CPU.Cores,
 			Threads: 1,
 		}
 		domain.Spec.VCPU = &VCPU{
 			Placement: "static",
-			CPUs:      vm.Spec.Domain.CPU.Cores,
+			CPUs:      vmi.Spec.Domain.CPU.Cores,
 		}
 	}
 
@@ -463,7 +463,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, doma
 			},
 			Source: &SerialSource{
 				Mode: "bind",
-				Path: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-serial%d", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name, serialPort),
+				Path: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-serial%d", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name, serialPort),
 			},
 		},
 	}
@@ -473,7 +473,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, doma
 		{
 			Listen: &GraphicsListen{
 				Type:   "socket",
-				Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),
+				Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
 			},
 			Type: "vnc",
 		},
@@ -482,9 +482,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, doma
 	// Add mandatory interface
 	interfaceType := "virtio"
 
-	_, ok := vm.ObjectMeta.Annotations[v1.InterfaceModel]
+	_, ok := vmi.ObjectMeta.Annotations[v1.InterfaceModel]
 	if ok {
-		interfaceType = vm.ObjectMeta.Annotations[v1.InterfaceModel]
+		interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
 	}
 
 	// For now connect every virtual machine to the pod network
@@ -501,8 +501,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachineInstance, doma
 	return nil
 }
 
-func SecretToLibvirtSecret(vm *v1.VirtualMachineInstance, secretName string) string {
-	return fmt.Sprintf("%s-%s-%s---", secretName, vm.Namespace, vm.Name)
+func SecretToLibvirtSecret(vmi *v1.VirtualMachineInstance, secretName string) string {
+	return fmt.Sprintf("%s-%s-%s---", secretName, vmi.Namespace, vmi.Name)
 }
 
 func QuantityToMegaByte(quantity resource.Quantity) Memory {

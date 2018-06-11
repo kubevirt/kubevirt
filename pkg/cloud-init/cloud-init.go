@@ -141,11 +141,11 @@ func RemoveLocalData(domain string, namespace string) error {
 	return err
 }
 
-func GetCloudInitNoCloudSource(vm *v1.VirtualMachineInstance) *v1.CloudInitNoCloudSource {
-	precond.MustNotBeNil(vm)
+func GetCloudInitNoCloudSource(vmi *v1.VirtualMachineInstance) *v1.CloudInitNoCloudSource {
+	precond.MustNotBeNil(vmi)
 	// search various places cloud init spec may live.
 	// at the moment, cloud init only exists on disks.
-	for _, volume := range vm.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.CloudInitNoCloud != nil {
 			return volume.CloudInitNoCloud
 		}
@@ -177,11 +177,11 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 	return nil
 }
 
-func GenerateLocalData(vmName string, hostname string, namespace string, source *v1.CloudInitNoCloudSource) error {
-	precond.MustNotBeEmpty(vmName)
+func GenerateLocalData(vmiName string, hostname string, namespace string, source *v1.CloudInitNoCloudSource) error {
+	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(source)
 
-	domainBasePath := GetDomainBasePath(vmName, namespace)
+	domainBasePath := GetDomainBasePath(vmiName, namespace)
 	err := os.MkdirAll(domainBasePath, 0755)
 	if err != nil {
 		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
@@ -203,7 +203,7 @@ func GenerateLocalData(vmName string, hostname string, namespace string, source 
 	} else {
 		return errors.New(fmt.Sprintf("userDataBase64 or userData is required for no-cloud data source"))
 	}
-	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmName, namespace, hostname))
+	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmiName, namespace, hostname))
 
 	diskutils.RemoveFile(userFile)
 	diskutils.RemoveFile(metaFile)
@@ -255,7 +255,7 @@ func GenerateLocalData(vmName string, hostname string, namespace string, source 
 	return nil
 }
 
-// Lists all vms cloud-init has local data for
+// Lists all vmis cloud-init has local data for
 func ListVmWithLocalData() ([]*v1.VirtualMachineInstance, error) {
 	return diskutils.ListVmWithEphemeralDisk(cloudInitLocalDir)
 }

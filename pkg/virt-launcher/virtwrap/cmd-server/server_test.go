@@ -75,33 +75,33 @@ var _ = Describe("Virt remote commands", func() {
 	})
 
 	Context("server", func() {
-		It("should start a vm", func() {
-			vm := v1.NewVMIReferenceFromName("testvm")
-			domain := api.NewMinimalDomain("testvm")
-			domainManager.EXPECT().SyncVMI(vm, allowEmulation).Return(&domain.Spec, nil)
+		It("should start a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domain := api.NewMinimalDomain("testvmi")
+			domainManager.EXPECT().SyncVMI(vmi, allowEmulation).Return(&domain.Spec, nil)
 
-			err := client.SyncVirtualMachine(vm)
+			err := client.SyncVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should kill a vm", func() {
-			vm := v1.NewVMIReferenceFromName("testvm")
-			domainManager.EXPECT().KillVMI(vm)
+		It("should kill a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().KillVMI(vmi)
 
-			err := client.KillVirtualMachine(vm)
+			err := client.KillVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should shutdown a vm", func() {
-			vm := v1.NewVMIReferenceFromName("testvm")
-			domainManager.EXPECT().SignalShutdownVMI(vm)
-			err := client.ShutdownVirtualMachine(vm)
+		It("should shutdown a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().SignalShutdownVMI(vmi)
+			err := client.ShutdownVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should list domains", func() {
 			var list []*api.Domain
-			list = append(list, api.NewMinimalDomain("testvm1"))
+			list = append(list, api.NewMinimalDomain("testvmi1"))
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domain, exists, err := client.GetDomain()

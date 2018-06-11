@@ -43,7 +43,7 @@ const (
 )
 
 func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
-	return &vms{
+	return &vmis{
 		restClient: k.restClient,
 		config:     k.config,
 		clientSet:  k.Clientset,
@@ -52,7 +52,7 @@ func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstan
 	}
 }
 
-type vms struct {
+type vmis struct {
 	restClient *rest.RESTClient
 	config     *rest.Config
 	clientSet  *kubernetes.Clientset
@@ -205,7 +205,7 @@ func roundTripperFromConfig(config *rest.Config, in io.Reader, out io.Writer) (h
 	return rest.HTTPWrappersForConfig(config, rt)
 }
 
-func RequestFromConfig(config *rest.Config, vm string, namespace string, resource string) (*http.Request, error) {
+func RequestFromConfig(config *rest.Config, vmi string, namespace string, resource string) (*http.Request, error) {
 
 	u, err := url.Parse(config.Host)
 	if err != nil {
@@ -221,7 +221,7 @@ func RequestFromConfig(config *rest.Config, vm string, namespace string, resourc
 		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
 	}
 
-	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/v1alpha2/namespaces/%s/virtualmachineinstances/%s/%s", namespace, vm, resource)
+	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/v1alpha2/namespaces/%s/virtualmachineinstances/%s/%s", namespace, vmi, resource)
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
@@ -230,14 +230,14 @@ func RequestFromConfig(config *rest.Config, vm string, namespace string, resourc
 	return req, nil
 }
 
-func (v *vms) VNC(name string, in io.Reader, out io.Writer) error {
+func (v *vmis) VNC(name string, in io.Reader, out io.Writer) error {
 	return v.subresourceHelper(name, "vnc", in, out)
 }
-func (v *vms) SerialConsole(name string, in io.Reader, out io.Writer) error {
+func (v *vmis) SerialConsole(name string, in io.Reader, out io.Writer) error {
 	return v.subresourceHelper(name, "console", in, out)
 }
 
-func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out io.Writer) error {
+func (v *vmis) subresourceHelper(name string, resource string, in io.Reader, out io.Writer) error {
 
 	// Create a round tripper with all necessary kubernetes security details
 	wrappedRoundTripper, err := roundTripperFromConfig(v.config, in, out)
@@ -274,60 +274,60 @@ func (v *vms) subresourceHelper(name string, resource string, in io.Reader, out 
 	}
 }
 
-func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMachineInstance, err error) {
-	vm = &v1.VirtualMachineInstance{}
+func (v *vmis) Get(name string, options k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
+	vmi = &v1.VirtualMachineInstance{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
-		Into(vm)
-	vm.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
+		Into(vmi)
+	vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VirtualMachineInstanceList, err error) {
-	vmList = &v1.VirtualMachineInstanceList{}
+func (v *vmis) List(options k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
+	vmiList = &v1.VirtualMachineInstanceList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
-		Into(vmList)
-	for _, vm := range vmList.Items {
-		vm.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
+		Into(vmiList)
+	for _, vmi := range vmiList.Items {
+		vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	}
 
 	return
 }
 
-func (v *vms) Create(vm *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Create(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Post().
 		Namespace(v.namespace).
 		Resource(v.resource).
-		Body(vm).
+		Body(vmi).
 		Do().
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vms) Update(vm *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Update(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Put().
-		Name(vm.ObjectMeta.Name).
+		Name(vmi.ObjectMeta.Name).
 		Namespace(v.namespace).
 		Resource(v.resource).
-		Body(vm).
+		Body(vmi).
 		Do().
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vms) Delete(name string, options *k8smetav1.DeleteOptions) error {
+func (v *vmis) Delete(name string, options *k8smetav1.DeleteOptions) error {
 	return v.restClient.Delete().
 		Namespace(v.namespace).
 		Resource(v.resource).
@@ -337,7 +337,7 @@ func (v *vms) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Error()
 }
 
-func (v *vms) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).

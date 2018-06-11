@@ -35,7 +35,7 @@ spec:
             domain:
               properties:
                 clock:
-                  description: Represents the clock and timers of a vm
+                  description: Represents the clock and timers of a vmi
                   properties:
                     timezone:
                       description: Timezone sets the guest clock to the specified
@@ -56,14 +56,14 @@ spec:
                   properties:
                     cores:
                       description: Cores specifies the number of cores inside the
-                        vm. Must be a value greater or equal 1.
+                        vmi. Must be a value greater or equal 1.
                       format: int64
                       type: integer
                 devices:
                   properties:
                     disks:
                       description: Disks describes disks, cdroms, floppy and luns
-                        which are connected to the vm
+                        which are connected to the vmi
                       items:
                         properties:
                           bootOrder:
@@ -228,7 +228,7 @@ spec:
                               type: boolean
                             vendorid:
                               description: VendorID sets the hypervisor vendor id,
-                                visible to the vm String up to twelve characters
+                                visible to the vmi String up to twelve characters
                               type: string
                         vpindex:
                           description: Represents if a feature is enabled or disabled
@@ -240,7 +240,7 @@ spec:
                 firmware:
                   properties:
                     uuid:
-                      description: UUID reported by the vm bios Defaults to a random
+                      description: UUID reported by the vmi bios Defaults to a random
                         generated uid
                       type: string
                 machine:
@@ -258,7 +258,7 @@ spec:
                         resources allowed. Valid resource keys are "memory" and "cpu".
                       type: object
                     requests:
-                      description: Requests is a description of the initial vm resources.
+                      description: Requests is a description of the initial vmi resources.
                         Valid resource keys are "memory" and "cpu".
                       type: object
               required:

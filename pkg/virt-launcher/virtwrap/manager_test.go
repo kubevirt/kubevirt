@@ -41,7 +41,7 @@ var _ = Describe("Manager", func() {
 	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
 	var ctrl *gomock.Controller
-	testVmName := "testvm"
+	testVmName := "testvmi"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 
@@ -55,13 +55,13 @@ var _ = Describe("Manager", func() {
 		mockDomain.EXPECT().Free()
 	})
 
-	expectIsolationDetectionForVMI := func(vm *v1.VirtualMachineInstance) *api.DomainSpec {
+	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
 		domain := &api.Domain{}
 		c := &api.ConverterContext{
-			VirtualMachine: vm,
+			VirtualMachine: vmi,
 			AllowEmulation: true,
 		}
-		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())
+		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec
@@ -70,10 +70,10 @@ var _ = Describe("Manager", func() {
 	Context("on successful VirtualMachineInstance sync", func() {
 		It("should define and start a new VirtualMachineInstance", func() {
 			StubOutNetworkForTest()
-			vm := newVMI(testNamespace, testVmName)
+			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
-			domainSpec := expectIsolationDetectionForVMI(vm)
+			domainSpec := expectIsolationDetectionForVMI(vmi)
 
 			xml, err := xml.Marshal(domainSpec)
 			Expect(err).To(BeNil())
@@ -82,27 +82,27 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVMI(vm, true)
+			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
 		It("should leave a defined and started VirtualMachineInstance alone", func() {
-			vm := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vm)
+			vmi := newVMI(testNamespace, testVmName)
+			domainSpec := expectIsolationDetectionForVMI(vmi)
 			xml, err := xml.Marshal(domainSpec)
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVMI(vm, true)
+			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
 		table.DescribeTable("should try to start a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
-				vm := newVMI(testNamespace, testVmName)
-				domainSpec := expectIsolationDetectionForVMI(vm)
+				vmi := newVMI(testNamespace, testVmName)
+				domainSpec := expectIsolationDetectionForVMI(vmi)
 				xml, err := xml.Marshal(domainSpec)
 
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
@@ -111,7 +111,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
-				newspec, err := manager.SyncVMI(vm, true)
+				newspec, err := manager.SyncVMI(vmi, true)
 				Expect(newspec).ToNot(BeNil())
 				Expect(err).To(BeNil())
 			},
@@ -121,8 +121,8 @@ var _ = Describe("Manager", func() {
 			table.Entry("unknown", libvirt.DOMAIN_NOSTATE),
 		)
 		It("should resume a paused VirtualMachineInstance", func() {
-			vm := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vm)
+			vmi := newVMI(testNamespace, testVmName)
+			domainSpec := expectIsolationDetectionForVMI(vmi)
 			xml, err := xml.Marshal(domainSpec)
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
@@ -130,7 +130,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
-			newspec, err := manager.SyncVMI(vm, true)
+			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -202,12 +202,12 @@ var _ = Describe("Manager", func() {
 })
 
 func newVMI(namespace string, name string) *v1.VirtualMachineInstance {
-	vm := &v1.VirtualMachineInstance{
+	vmi := &v1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.NewMinimalDomainSpec()},
 	}
-	v1.SetObjectDefaults_VirtualMachineInstance(vm)
-	return vm
+	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+	return vmi
 }
 
 func StubOutNetworkForTest() {

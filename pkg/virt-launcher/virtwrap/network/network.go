@@ -161,8 +161,8 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 		panic(err)
 	}
 
-	// panic in case the DHCP server failed during the vm creation
-	// but ignore dhcp errors when the vm is destroyed or shutting down
+	// panic in case the DHCP server failed during the vmi creation
+	// but ignore dhcp errors when the vmi is destroyed or shutting down
 	if err = DHCPServer(
 		nic.MAC,
 		nic.IP.IP,
@@ -313,7 +313,7 @@ func SetupDefaultPodNetwork(domain *api.Domain) error {
 		}
 	}
 
-	// TODO:(vladikr) Currently we support only one interface per vm.
+	// TODO:(vladikr) Currently we support only one interface per vmi.
 	domain.Spec.Devices.Interfaces[0] = defaultIconf
 
 	return nil
