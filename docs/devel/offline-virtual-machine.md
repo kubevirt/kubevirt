@@ -1,11 +1,11 @@
-# Offline Virtual Machine developer documentation
+# Virtual Machine developer documentation
 
 This document introduces the VirtualMachine kind and provides a
 guide how to use it and build upon it.
 
-## What is Offline Virtual Machine
+## What is a Virtual Machine
 
-Almost all virtual machine (VMI) management systems allow you to manage both running
+Almost all virtual machine management systems allow you to manage both running
 and stopped virtual machines. Such system allows you to edit configuration of
 both types of VMIs and show its statuses.
 
@@ -24,12 +24,12 @@ exposing it through the API.
 
 The VirtualMachine provides the functionality to:
 
-* Store VirtualMachine,
-* Manipulate the VirtualMachine through the kubectl,
-* Manipulate the VirtualMachine through the Kubernetes API,
-* Watch for changes in the VirtualMachine and react to them:
-  * Convert the VirtualMachine to VirtualMachine and thus launch it
-  * Stop VirtualMachine and update status of VirtualMachine accordingly
+* Store VirtualMachineInstances as a template,
+* Manipulate the VirtualMachineInstance through the kubectl,
+* Manipulate the VirtualMachineInstance through the Kubernetes API,
+* Watch for changes in the VirtualMachineInstance and react to them:
+  * Convert the VirtualMachineInstance template to a VirtualMachineInstance and thus launch it
+  * Stop VirtualMachineInstance and update status of VirtualMachine accordingly
 
 ### Kubectl interface
 
@@ -41,7 +41,7 @@ Following are the examples of working with VirtualMachine and kubectl:
 
 ```bash
 # Define an VirtualMachine:
-kubectl create -f myofflinevm.yaml
+kubectl create -f myvm.yaml
 
 # Start an VirtualMachine:
 kubectl patch virtualmachine myvm --type=merge -p \
@@ -57,14 +57,14 @@ kubectl describe virtualmachine myvm
 kubectl patch virtualmachine myvm --type=merge -p \
     '{"spec":{"running": false}}'
 
-# Implicit cascade delete (first deletes the vm and then the ovm)
+# Implicit cascade delete (first deletes the vm and then the vm)
 kubectl delete virtualmachine myvm
 
-# Explicit cascade delete (first deletes the vm and then the ovm)
+# Explicit cascade delete (first deletes the vm and then the vm)
 kubectl delete virtualmachine myvm --cascade=true
 
 # Orphan delete (The running vm is only detached, not deleted)
-# Recreating the ovm would lead to the adoption of the vm
+# Recreating the vm would lead to the adoption of the vm
 kubectl delete virtualmachine myvm --cascade=false
 ```
 
@@ -302,8 +302,8 @@ spec:
     plural: virtualmachines
     singular: virtualmachine
     shortNames:
-    - ovm
-    - ovms
+    - vm
+    - vms
 ```
 
 Part of the definition of custom resource is a API specification used for
@@ -312,7 +312,7 @@ autogenerating the Kubernetes resources: client, lister and watcher.
 ### Controller
 
 The controller is responsible for watching the change in the registered
-offline virtual machines and update the state of the system. It is also
+virtual machines and update the state of the system. It is also
 responsible for creating new VirtualMachineInstance when the `running` is set to `true`.
 Moreover the controller attaches the `metadata.OwnerReference` to the created
 VirtualMachineInstance. With this mechanism it can link the VirtualMachine to the
