@@ -2,16 +2,16 @@
 
 ## Overview
 
-In order to allow scaling up or down similar VMs, add a way to specify
+In order to allow scaling up or down similar VMIs, add a way to specify
 `VirtualMachineInstance` templates and the amount of replicas required, to let the
 runtime create these `VirtualMachineInstance`s.
 
 ## Use-cases
 
-### Ephemeral VMs
+### Ephemeral VMIs
 
-Scaling ephemeral VMs which only have read-only mounts, or work with a backing
-store, to keep temporary data, which can be deleted after the VM gets
+Scaling ephemeral VMIs which only have read-only mounts, or work with a backing
+store, to keep temporary data, which can be deleted after the VMI gets
 undefined.
 
 ## Implementation
@@ -70,7 +70,7 @@ status:
   - type: "ReplicaFailure"
     status: True
     reason: "FailureDelete"
-    message: "no permission to delete VMs"
+    message: "no permission to delete VMIs"
     lastTransmissionTime: "..."
   replicas: 4
   readyReplicas: 3
@@ -84,7 +84,7 @@ status:
   - type: "ReplicaFailure"
     status: True
     reason: "FailureCreate"
-    message: "no permission to create VMs"
+    message: "no permission to create VMIs"
     lastTransmissionTime: "..."
   replicas: 2
   readyReplicas: 3
@@ -110,7 +110,7 @@ There two *hard* reasons why one was chose over the other:
  1. Allow possible VirtualMachineInstance related optimizations by implementing a
     custom deletion order. When scaling down, it can make sense to take
     migrating VirtualMachineInstances into account. A possible deletion order would be:
-    not ready VMs, migrating VMs, ready VMs. This would be impossible to
+    not ready VMIs, migrating VMIs, ready VMIs. This would be impossible to
     represent by wrapping around the ReplicaSet.
  2. Make Live Migrations an orthogonal feature for every VirtualMachineInstance
     controller. If a controller does not have to care about the
@@ -150,7 +150,7 @@ There are several *soft* reasons why one was chosen over the other:
 
 The basic functionality includes scaling up, down and reporting errors if
 scaling does not work. In this stage it is the full responsibility of the user
-to attach labels to the VMs in a way, so that selectors of multiple
+to attach labels to the VMIs in a way, so that selectors of multiple
 VirtualMachineInstanceReplicaSets don't overlap.
 
 ### References

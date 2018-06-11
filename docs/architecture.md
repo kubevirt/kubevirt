@@ -24,7 +24,7 @@ pattern.
 
 Users requiring virtualization services are speaking to the Virtualization API
 (see below) which in turn is speaking to the Kubernetes cluster to schedule
-requested VMs. Scheduling, networking, and storage are all delegated to
+requested VMIs. Scheduling, networking, and storage are all delegated to
 Kubernetes, while KubeVirt provides the virtualization functionality.
 
 
@@ -53,17 +53,17 @@ to provide the new functionality:
 
 Once all three steps have been completed, you are able to
 
-- create new objects of these new types in Kubernetes (VMs in our
+- create new objects of these new types in Kubernetes (VMIs in our
   case)
-- and the new controllers take care to get the VMs scheduled on some host,
+- and the new controllers take care to get the VMIs scheduled on some host,
 - and a daemon - the `virt-handler` - is taking care on a host - alongside the
-  `kubelet` - to launch the VM and configure it until it matches the required
+  `kubelet` - to launch the VMI and configure it until it matches the required
   state.
 
 One a final note it is to say that both, the controllers and daemons are running
 as Pods (or similar) _on top of_ the Kubernetes cluster, and are not installed
 alongside of it. The type is - as said before - even defined inside the
-Kubernetes API server. This allows users to speak to Kubernetes, but modify VMs.
+Kubernetes API server. This allows users to speak to Kubernetes, but modify VMIs.
 
 The following diagram illustrates how the additional controllers and daemons
 communicate with Kubernetes and where the additional types are stored:
@@ -80,12 +80,12 @@ communicate with Kubernetes and where the additional types are stored:
     * libvirtd
     * …
   * KubeVirt Managed Pods
-    * VM Foo
-    * VM Bar
+    * VMI Foo
+    * VMI Bar
     * …
 
 ## Native Workloads
 
 KubeVirt is deployed on top of a Kubernetes cluster.
 This means that you can continue to run your Kubernetes-native workloads next
-to the VMs managed through KubeVirt.
+to the VMIs managed through KubeVirt.

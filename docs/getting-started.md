@@ -30,7 +30,7 @@ make cluster-up
 make cluster-sync
 ```
 
-This will create a VM called `node01` which acts as node and master. To create
+This will create a VMI called `node01` which acts as node and master. To create
 more nodes which will register themselves on master, you can use the
 `KUBEVIRT_NUM_NODES` environment variable. This would create a master and one
 node:
@@ -110,7 +110,7 @@ up dockerizied environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
-    make functest # run the functional tests against the VMs
+    make functest # run the functional tests against the VMIs
 ```
 
 If you'd like to run specific functional tests only, you can leverage `ginkgo`
@@ -128,15 +128,15 @@ Now it's time to get hands on and give it a try.
 
 ### Create a first Virtual Machine
 
-Finally start a VM called `vm-ephemeral`:
+Finally start a VMI called `vm-ephemeral`:
 
 ```bash
-    # This can be done from your GIT repo, no need to log into a VM
+    # This can be done from your GIT repo, no need to log into a VMI
 
-    # Create a VM
+    # Create a VMI
     ./cluster/kubectl.sh create -f cluster/examples/vm-ephemeral.yaml
 
-    # Sure? Let's list all created VMs
+    # Sure? Let's list all created VMIs
     ./cluster/kubectl.sh get vms
 
     # Enough, let's get rid of it
@@ -147,7 +147,7 @@ Finally start a VM called `vm-ephemeral`:
     ./cluster/kubectl.sh get pods
 ```
 
-This will start a VM on master or one of the running nodes with a macvtap and a
+This will start a VMI on master or one of the running nodes with a macvtap and a
 tap networking device attached.
 
 #### Example
@@ -165,7 +165,7 @@ virt-launcher-vm-ephemeral9q7es   1/1       Running   0          10s
 
 $ ./cluster/kubectl.sh get vms
 NAME           LABELS                        DATA
-vm-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VM","...
+vm-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
 
 $ ./cluster/kubectl.sh get vms -o json
 {
@@ -199,7 +199,7 @@ First make sure you have `remote-viewer` installed. On Fedora run
 dnf install virt-viewer
 ```
 
-Then, after you made sure that the VM `vm-ephemeral` is running, type
+Then, after you made sure that the VMI `vm-ephemeral` is running, type
 
 ```
 cluster/virtctl.sh vnc vm-ephemeral

@@ -42,7 +42,7 @@ disks to use, or it may require license key reactivation. Changing the backend
 configuration is totally transparent to the guest (aside from performance
 differences inherent in different backend choices).
 
-![VM configuration diagram](vm-configuration.png "VM Configuration")
+![VMI configuration diagram](vm-configuration.png "VMI Configuration")
 
 
 Portability issues
@@ -157,10 +157,10 @@ Bearing all this in mind there can be multiple configurations associated with
 a single instance of a virtual machine.
 
  1. Initial minimal tenant provided configuration
- 2. Expanded configuration for inactive VM
- 3. Expanded configuration for running VM reflecting desired state
- 4. Expanded configuration for running VM reflecting current state
- 5. Zero or many snapshots of the config for either inactive or running VM
+ 2. Expanded configuration for inactive VMI
+ 3. Expanded configuration for running VMI reflecting desired state
+ 4. Expanded configuration for running VMI reflecting current state
+ 5. Zero or many snapshots of the config for either inactive or running VMI
 
 An application may choose not to track all of these configurations explicitly.
 For example, by converting the minimal configuration, to the expanded inactive
@@ -172,7 +172,7 @@ adapt to changes dynamically. Similarly an application tracking the inactive
 configuration of the guest, has a choice about how to handle updates to reflect
 hotplug/unplug operations. An unplug operation could be applied to the inactive
 configuration unconditionally, without waiting for completion on the running
-VM. This would ensure that the device goes away on the next cold boot, even if
+VMI. This would ensure that the device goes away on the next cold boot, even if
 the guest OS ignores the hotunplug.
 
 

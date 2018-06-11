@@ -5,11 +5,11 @@ guide how to use it and build upon it.
 
 ## What is Offline Virtual Machine
 
-Almost all virtual machine (VM) management systems allow you to manage both running
+Almost all virtual machine (VMI) management systems allow you to manage both running
 and stopped virtual machines. Such system allows you to edit configuration of
-both types of VMs and show its statuses.
+both types of VMIs and show its statuses.
 
-To allow building such VM management systems on top of the KubeVirt, the
+To allow building such VMI management systems on top of the KubeVirt, the
 VirtualMachine is introduced to provide the access to the stopped
 virtual machines. When working with running virtual machines, please see
 the [VirtualMachine] object documentation. The Virtual Machine object is
@@ -215,7 +215,7 @@ The status of the VirtualMachine is watched and is reflected in the
 VirtualMachine status. The info propagated from the VirtualMachine is:
 
 * if the vm exists in the cluster
-* readiness of the VM
+* readiness of the VMI
 * name of the VirtualMachineInstance
 
 For more information, user have to check the VirtualMachineInstance object itself.
@@ -255,10 +255,10 @@ metadata:
 ### Update strategy
 
 For now implicit: OnDelete. Can later be extended to RollingUpdate if needed.
-Spec changes have no direct effect on already running VMs, and they will not
-directly be propagated to the VM. If a VM should be running (spec.running=true)
-and it is powered down (VM object delete, OS shutdown, ...),
-the VM will be re-created by the controller with the new spec.
+Spec changes have no direct effect on already running VMIs, and they will not
+directly be propagated to the VMI. If a VMI should be running (spec.running=true)
+and it is powered down (VMI object delete, OS shutdown, ...),
+the VMI will be re-created by the controller with the new spec.
 
 ### Delete strategy
 
