@@ -357,14 +357,14 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	// Validate hugepages
-	if spec.Domain.Hugepages != nil {
-		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Hugepages.Size)
+	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
+		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
 		if err != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s '%s': %s",
 					field.Child("domain", "hugepages", "size").String(),
-					spec.Domain.Hugepages.Size,
+					spec.Domain.Memory.Hugepages.PageSize,
 					resource.ErrFormatWrong,
 				),
 				Field: field.Child("domain", "hugepages", "size").String(),
@@ -378,7 +378,7 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						field.Child("domain", "resources", "requests", "memory").String(),
 						spec.Domain.Resources.Requests.Memory(),
 						field.Child("domain", "hugepages", "size").String(),
-						spec.Domain.Hugepages.Size,
+						spec.Domain.Memory.Hugepages.PageSize,
 					),
 					Field: field.Child("domain", "resources", "requests", "memory").String(),
 				})
@@ -389,7 +389,7 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						field.Child("domain", "resources", "requests", "memory").String(),
 						spec.Domain.Resources.Requests.Memory(),
 						field.Child("domain", "hugepages", "size").String(),
-						spec.Domain.Hugepages.Size,
+						spec.Domain.Memory.Hugepages.PageSize,
 					),
 					Field: field.Child("domain", "resources", "requests", "memory").String(),
 				})

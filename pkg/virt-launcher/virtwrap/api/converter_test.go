@@ -507,7 +507,9 @@ var _ = Describe("Converter", func() {
 
 		It("should convert hugepages", func() {
 			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm.Spec.Domain.Hugepages = &v1.Hugepages{}
+			vm.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{},
+			}
 			domainSpec := vmToDomainXMLToDomainSpec(vm, c)
 			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
 

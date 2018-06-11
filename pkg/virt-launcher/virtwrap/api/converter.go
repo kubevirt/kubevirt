@@ -381,7 +381,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	if vmi.Spec.Domain.Hugepages != nil {
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		domain.Spec.MemoryBacking = &MemoryBacking{
 			HugePages: &HugePages{},
 		}

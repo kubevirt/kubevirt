@@ -489,8 +489,8 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
-			vm.Spec.Domain.Hugepages = &v1.Hugepages{}
-			vm.Spec.Domain.Hugepages.Size = "2ab"
+			vm.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vm.Spec.Domain.Memory.Hugepages.PageSize = "2ab"
 
 			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
@@ -502,8 +502,8 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
-			vm.Spec.Domain.Hugepages = &v1.Hugepages{}
-			vm.Spec.Domain.Hugepages.Size = "1Gi"
+			vm.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vm.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
 
 			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
@@ -515,8 +515,8 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
 			}
-			vm.Spec.Domain.Hugepages = &v1.Hugepages{}
-			vm.Spec.Domain.Hugepages.Size = "2Gi"
+			vm.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vm.Spec.Domain.Memory.Hugepages.PageSize = "2Gi"
 
 			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
@@ -528,8 +528,8 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
-			vm.Spec.Domain.Hugepages = &v1.Hugepages{}
-			vm.Spec.Domain.Hugepages.Size = "2Mi"
+			vm.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vm.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
 
 			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))

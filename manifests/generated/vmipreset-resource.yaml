@@ -265,6 +265,16 @@ spec:
                       type: string
                   required:
                   - type
+                memory:
+                  description: Memory allow specifying the VM memory features
+                  properties:
+                    hugepages:
+                      description: Hugepages allow to use hugepages for the VM instead
+                        of regular memory.
+                      properties:
+                        pageSize:
+                          description: PageSize specifies the hugepage size.
+                          type: string
                 resources:
                   properties:
                     limits:

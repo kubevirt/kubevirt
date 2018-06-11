@@ -119,8 +119,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
-				vmHugepages := resource.MustParse(hugepagesVm.Spec.Domain.Hugepages.Size)
-				hugepagesDir := fmt.Sprintf("/sys/kernel/mm/hugepages/hugepages-%dkB", vmHugepages.Value()/int64(1024))
+				hugepagesSize := resource.MustParse(hugepagesVm.Spec.Domain.Memory.Hugepages.PageSize)
+				hugepagesDir := fmt.Sprintf("/sys/kernel/mm/hugepages/hugepages-%dkB", hugepagesSize.Value()/int64(1024))
 
 				// Get a hugepages statistics from virt-launcher pod
 				output, err := tests.ExecuteCommandOnPod(
@@ -146,7 +146,6 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Verify that the VM memory equals to a number of consumed hugepages
-				hugepagesSize := resource.MustParse(hugepagesVm.Spec.Domain.Hugepages.Size)
 				vmHugepagesConsumption := int64(totalHugepages-freeHugepages) * hugepagesSize.Value()
 				vmMemory := hugepagesVm.Spec.Domain.Resources.Requests[kubev1.ResourceMemory]
 
@@ -180,8 +179,9 @@ var _ = Describe("Configurations", func() {
 				}
 				hugepagesVm.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse(memory)
 
-				hugepagesVm.Spec.Domain.Hugepages = &v1.Hugepages{}
-				hugepagesVm.Spec.Domain.Hugepages.Size = hugepageSize
+				hugepagesVm.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{PageSize: hugepageSize},
+				}
 
 				By("Starting a VM")
 				_, err = virtClient.VM(tests.NamespaceTestDefault).Create(hugepagesVm)

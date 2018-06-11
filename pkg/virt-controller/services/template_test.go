@@ -288,8 +288,10 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineSpec{
 						Domain: v1.DomainSpec{
-							Hugepages: &v1.Hugepages{
-								Size: value,
+							Memory: &v1.Memory{
+								Hugepages: &v1.Hugepages{
+									PageSize: value,
+								},
 							},
 							Resources: v1.ResourceRequirements{
 								Requests: kubev1.ResourceList{
