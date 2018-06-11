@@ -413,7 +413,7 @@ type BootMenu struct {
 	Timeout *uint `xml:"timeout,attr,omitempty"`
 }
 
-// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmiloader</loader>
+// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
 type BIOS struct {
 }
 
