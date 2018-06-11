@@ -249,30 +249,30 @@ var _ = Describe("Defaults", func() {
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 
 	It("should work for empty network list", func() {
-		vmi := &VirtualMachineInstance{}
-		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(0))
+		spec := &VirtualMachineInstanceSpec{}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(0))
 	})
 
 	It("should work for non-empty network list without pod network", func() {
-		vmi := &VirtualMachineInstance{}
+		spec := &VirtualMachineInstanceSpec{}
 		net := Network{}
-		vmi.Spec.Networks = []Network{net}
-		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(0))
+		spec.Networks = []Network{net}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(0))
 	})
 
 	It("should work for pod network with missing pod interface", func() {
-		vmi := &VirtualMachineInstance{}
+		spec := &VirtualMachineInstanceSpec{}
 		net := Network{
 			NetworkSource: NetworkSource{
 				Pod: &PodNetwork{},
 			},
 		}
-		vmi.Spec.Networks = []Network{net}
-		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(0))
+		spec.Networks = []Network{net}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(0))
 	})
 
 	It("should work for valid pod network / interface combination", func() {
-		vmi := &VirtualMachineInstance{}
+		spec := &VirtualMachineInstanceSpec{}
 		net := Network{
 			NetworkSource: NetworkSource{
 				Pod: &PodNetwork{},
@@ -280,13 +280,13 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 			Name: "testnet",
 		}
 		iface := Interface{Name: net.Name}
-		vmi.Spec.Networks = []Network{net}
-		vmi.Spec.Domain.Devices.Interfaces = []Interface{iface}
-		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(1))
+		spec.Networks = []Network{net}
+		spec.Domain.Devices.Interfaces = []Interface{iface}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(1))
 	})
 
 	It("should work for multiple pod network / interface combinations", func() {
-		vmi := &VirtualMachineInstance{}
+		spec := &VirtualMachineInstanceSpec{}
 		net1 := Network{
 			NetworkSource: NetworkSource{
 				Pod: &PodNetwork{},
@@ -301,9 +301,9 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 			Name: "testnet2",
 		}
 		iface2 := Interface{Name: net2.Name}
-		vmi.Spec.Networks = []Network{net1, net2}
-		vmi.Spec.Domain.Devices.Interfaces = []Interface{iface1, iface2}
-		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(2))
+		spec.Networks = []Network{net1, net2}
+		spec.Domain.Devices.Interfaces = []Interface{iface1, iface2}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(2))
 	})
 })
 
