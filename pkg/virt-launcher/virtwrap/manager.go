@@ -115,7 +115,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	return domain, err
 }
 
-func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
@@ -123,7 +123,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
-		AllowEmulation: allowEmulation,
+		UseEmulation: useEmulation,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")

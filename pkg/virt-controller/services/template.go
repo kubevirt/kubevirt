@@ -35,7 +35,7 @@ import (
 )
 
 const configMapName = "kube-system/kubevirt-config"
-const allowEmulationKey = "debug.allowEmulation"
+const useEmulationKey = "debug.useEmulation"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 
@@ -58,15 +58,13 @@ func IsEmulationAllowed(store cache.Store) (bool, error) {
 	if !exists {
 		return exists, nil
 	}
-	allowEmulation := false
+	useEmulation := false
 	cm := obj.(*k8sv1.ConfigMap)
-	emu, ok := cm.Data[allowEmulationKey]
+	emu, ok := cm.Data[useEmulationKey]
 	if ok {
-		// TODO: is this too specific? should we just look for the existence of
-		// the 'allowEmulation' key itself regardless of content?
-		allowEmulation = (strings.ToLower(emu) == "true")
+		useEmulation = (strings.ToLower(emu) == "true")
 	}
-	return allowEmulation, nil
+	return useEmulation, nil
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -215,7 +213,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 	}
 
-	allowEmulation, err := IsEmulationAllowed(t.store)
+	useEmulation, err := IsEmulationAllowed(t.store)
 	if err != nil {
 		return nil, err
 	}
@@ -231,8 +229,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
 	// but if the KVM resource is not requested then it's guaranteed to be not present
 	// This code works for now, but the semantics are wrong. revisit this.
-	if allowEmulation {
-		command = append(command, "--allow-emulation")
+	if useEmulation {
+		command = append(command, "--use-emulation")
 	} else {
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}

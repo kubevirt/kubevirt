@@ -432,7 +432,7 @@ var _ = Describe("Converter", func() {
 						},
 					},
 				},
-				AllowEmulation: true,
+				UseEmulation: true,
 			}
 		})
 

@@ -34,16 +34,16 @@ import (
 )
 
 type ServerOptions struct {
-	allowEmulation bool
+	useEmulation bool
 }
 
-func NewServerOptions(allowEmulation bool) *ServerOptions {
-	return &ServerOptions{allowEmulation: allowEmulation}
+func NewServerOptions(useEmulation bool) *ServerOptions {
+	return &ServerOptions{useEmulation: useEmulation}
 }
 
 type Launcher struct {
 	domainManager  virtwrap.DomainManager
-	allowEmulation bool
+	useEmulation bool
 }
 
 func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, error) {
@@ -63,7 +63,7 @@ func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	_, err = s.domainManager.SyncVMI(vmi, s.allowEmulation)
+	_, err = s.domainManager.SyncVMI(vmi, s.useEmulation)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		reply.Success = false
@@ -162,14 +162,14 @@ func RunServer(socketPath string,
 	stopChan chan struct{},
 	options *ServerOptions) error {
 
-	allowEmulation := false
+	useEmulation := false
 	if options != nil {
-		allowEmulation = options.allowEmulation
+		useEmulation = options.useEmulation
 	}
 	rpcServer := rpc.NewServer()
 	server := &Launcher{
 		domainManager:  domainManager,
-		allowEmulation: allowEmulation,
+		useEmulation: useEmulation,
 	}
 	rpcServer.Register(server)
 	sock, err := createSocket(socketPath)

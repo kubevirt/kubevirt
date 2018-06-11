@@ -505,10 +505,10 @@ var _ = Describe("VMIlifecycle", func() {
 				options := metav1.GetOptions{}
 				cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
 				if err == nil {
-					val, ok := cfgMap.Data["debug.allowEmulation"]
+					val, ok := cfgMap.Data["debug.useEmulation"]
 					allowEmuation = ok && (val == "true")
 				} else {
-					// If the cfgMap is missing, default to allowEmulation=false
+					// If the cfgMap is missing, default to useEmulation=false
 					// no other error is expected
 					if !errors.IsNotFound(err) {
 						Expect(err).ToNot(HaveOccurred())
@@ -545,7 +545,7 @@ var _ = Describe("VMIlifecycle", func() {
 						computeContainerFound = true
 						for _, cmd := range container.Command {
 							By(cmd)
-							if cmd == "--allow-emulation" {
+							if cmd == "--use-emulation" {
 								emulationFlagFound = true
 							}
 						}
@@ -553,7 +553,7 @@ var _ = Describe("VMIlifecycle", func() {
 				}
 
 				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-				Expect(emulationFlagFound).To(BeTrue(), "Expected VirtualMachineInstance pod to have '--allow-emulation' flag")
+				Expect(emulationFlagFound).To(BeTrue(), "Expected VirtualMachineInstance pod to have '--use-emulation' flag")
 			})
 
 			It("should be reflected in domain XML", func() {
@@ -587,7 +587,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 				domain := &api.Domain{}
 				context := &api.ConverterContext{
-					AllowEmulation: true,
+					UseEmulation: true,
 					VirtualMachine: newVMI,
 				}
 				api.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
