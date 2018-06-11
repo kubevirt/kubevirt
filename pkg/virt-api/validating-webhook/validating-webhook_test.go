@@ -572,28 +572,25 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
-		It("should reject interface lists with more than one element", func() {
+		It("should accept interface lists with more than one element", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				*v1.DefaultNetworkInterface(),
 				*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			// if this is processed correctly, it should result in a single error
-			// If multiple causes occurred, then the spec was processed too far.
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces"))
+			// if this is processed correctly, it should not result in any error
+			Expect(len(causes)).To(Equal(0))
 		})
-		It("should reject network lists with more than one element", func() {
+		It("should accept network lists with more than one element", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Networks = []v1.Network{
 				*v1.DefaultPodNetwork(),
 				*v1.DefaultPodNetwork()}
 			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			// if this is processed correctly, it should result in a single error
-			// If multiple causes occurred, then the spec was processed too far.
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.networks"))
+			// if this is processed correctly, it should not result in any error
+			Expect(len(causes)).To(Equal(0))
 		})
 
 		It("should reject interfaces with missing network", func() {
