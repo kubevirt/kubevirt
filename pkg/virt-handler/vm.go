@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/virt-handler/kvm-monitor"
+	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -98,7 +98,7 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
-	c.kvmController = kvm_monitor.NewKVMController(vmInformer, c.clientset, c.host)
+	c.kvmController = device_manager.NewKVMController(vmInformer, c.clientset, c.host)
 
 	return c
 }
@@ -116,7 +116,7 @@ type VirtualMachineController struct {
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
-	kvmController            *kvm_monitor.KVMController
+	kvmController            *device_manager.KVMController
 }
 
 // Determines if a domain's grace period has expired during shutdown.

@@ -17,7 +17,7 @@
  *
  */
 
-package kvm_monitor
+package device_manager
 
 import (
 	"net"
