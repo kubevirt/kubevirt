@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-type VMCreationFunc func(string) *v1.VirtualMachineInstance
+type VMICreationFunc func(string) *v1.VirtualMachineInstance
 
 var _ = Describe("Storage", func() {
 
@@ -99,7 +99,7 @@ var _ = Describe("Storage", func() {
 		Expect(logs).To(ContainSubstring("State: ready"))
 	}
 
-	RunVMAndExpectLaunch := func(vm *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+	RunVMIAndExpectLaunch := func(vm *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
 		By("Starting a VirtualMachineInstance")
 
 		var obj *v1.VirtualMachineInstance
@@ -109,7 +109,7 @@ var _ = Describe("Storage", func() {
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VirtualMachineInstance will start")
-		tests.WaitForSuccessfulVMStartWithTimeout(obj, timeout)
+		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 		return obj
 	}
 
@@ -121,13 +121,13 @@ var _ = Describe("Storage", func() {
 
 	Describe("Starting a VirtualMachineInstance", func() {
 		Context("with Alpine PVC", func() {
-			table.DescribeTable("should be successfully started", func(newVM VMCreationFunc) {
+			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc) {
 				checkReadiness()
 
 				// Start the VirtualMachineInstance with the PVC attached
-				vm := newVM(tests.DiskAlpineISCSI)
+				vm := newVMI(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				RunVMAndExpectLaunch(vm, false, 90)
+				RunVMIAndExpectLaunch(vm, false, 90)
 
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				Expect(err).To(BeNil())
@@ -140,20 +140,20 @@ var _ = Describe("Storage", func() {
 				}, 200*time.Second)
 				Expect(err).To(BeNil())
 			},
-				table.Entry("with Disk PVC", tests.NewRandomVMWithPVC),
-				table.Entry("with CDRom PVC", tests.NewRandomVMWithCDRom),
+				table.Entry("with Disk PVC", tests.NewRandomVMIWithPVC),
+				table.Entry("with CDRom PVC", tests.NewRandomVMIWithCDRom),
 			)
 
-			table.DescribeTable("should be successfully started and stopped multiple times", func(newVM VMCreationFunc) {
+			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
 				checkReadiness()
 
-				vm := newVM(tests.DiskAlpineISCSI)
+				vm := newVMI(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					vm := RunVMAndExpectLaunch(vm, false, 90)
+					vm := RunVMIAndExpectLaunch(vm, false, 90)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
@@ -174,8 +174,8 @@ var _ = Describe("Storage", func() {
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
 				}
 			},
-				table.Entry("with Disk PVC", tests.NewRandomVMWithPVC),
-				table.Entry("with CDRom PVC", tests.NewRandomVMWithCDRom),
+				table.Entry("with Disk PVC", tests.NewRandomVMIWithPVC),
+				table.Entry("with CDRom PVC", tests.NewRandomVMIWithCDRom),
 			)
 		})
 
@@ -184,7 +184,7 @@ var _ = Describe("Storage", func() {
 			It("should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
+				vm := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:       "emptydisk1",
 					VolumeName: "emptydiskvolume1",
@@ -202,7 +202,7 @@ var _ = Describe("Storage", func() {
 						},
 					},
 				})
-				RunVMAndExpectLaunch(vm, false, 90)
+				RunVMIAndExpectLaunch(vm, false, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vm)
 				Expect(err).To(BeNil())
@@ -235,9 +235,9 @@ var _ = Describe("Storage", func() {
 				checkReadiness()
 
 				// Start the VirtualMachineInstance with the PVC attached
-				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
+				vm := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				RunVMAndExpectLaunch(vm, false, 90)
+				RunVMIAndExpectLaunch(vm, false, 90)
 
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 				Expect(err).To(BeNil())
@@ -253,11 +253,11 @@ var _ = Describe("Storage", func() {
 
 			It("should not persist data", func() {
 				checkReadiness()
-				vm := tests.NewRandomVMWithEphemeralPVC(tests.DiskAlpineISCSI)
+				vm := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				By("Starting the VirtualMachineInstance")
-				createdVM := RunVMAndExpectLaunch(vm, false, 90)
+				createdVMI := RunVMIAndExpectLaunch(vm, false, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
@@ -283,10 +283,10 @@ var _ = Describe("Storage", func() {
 				By("Killing a VirtualMachineInstance")
 				err = virtClient.VirtualMachineInstance(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVM, 120)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120)
 
 				By("Starting the VirtualMachineInstance again")
-				RunVMAndExpectLaunch(vm, false, 90)
+				RunVMIAndExpectLaunch(vm, false, 90)
 
 				By("Making sure that the previously written file is not present")
 				expecter, _, err = tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
@@ -326,14 +326,14 @@ var _ = Describe("Storage", func() {
 			It("should start vm multiple times", func() {
 				checkReadiness()
 
-				vm := tests.NewRandomVMWithPVC(tests.DiskAlpineISCSI)
+				vm := tests.NewRandomVMIWithPVC(tests.DiskAlpineISCSI)
 				tests.AddPVCDisk(vm, "disk1", "virtio", tests.DiskCustomISCSI)
 				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					obj := RunVMAndExpectLaunch(vm, false, 120)
+					obj := RunVMIAndExpectLaunch(vm, false, 120)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times

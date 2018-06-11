@@ -53,7 +53,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vm = tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+		vm = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 	})
 
 	Describe("Creating a VirtualMachineInstance", func() {
@@ -65,13 +65,13 @@ var _ = Describe("Vmlifecycle", func() {
 		It("should start it", func() {
 			vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStart(vm)
+			tests.WaitForSuccessfulVMIStart(vm)
 		})
 
 		It("should attach virt-launcher to it", func() {
 			vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStart(vm)
+			tests.WaitForSuccessfulVMIStart(vm)
 
 			By("Getting virt-launcher logs")
 			logs := func() string { return getVirtLauncherLogs(virtClient, vm) }
@@ -159,7 +159,7 @@ var _ = Describe("Vmlifecycle", func() {
 		Context("with boot order", func() {
 			table.DescribeTable("should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
 				By("defining a VirtualMachineInstance with an Alpine disk")
-				vm = tests.NewRandomVMWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
+				vm = tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
 				By("adding a Cirros Disk")
 				tests.AddEphemeralDisk(vm, "disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
 
@@ -172,7 +172,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				By("Waiting the VirtualMachineInstance start")
-				tests.WaitForSuccessfulVMStart(vm)
+				tests.WaitForSuccessfulVMIStart(vm)
 
 				By("Checking console text")
 				err = tests.CheckForTextExpecter(vm, consoleText, wait)
@@ -187,7 +187,7 @@ var _ = Describe("Vmlifecycle", func() {
 			Context("without k8s secret", func() {
 				It("should retry starting the VirtualMachineInstance", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
-					vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
+					vm = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 
 					for _, volume := range vm.Spec.Volumes {
 						if volume.CloudInitNoCloud != nil {
@@ -218,7 +218,7 @@ var _ = Describe("Vmlifecycle", func() {
 				It("should log warning and proceed once the secret is there", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
 					userData64 := ""
-					vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
+					vm = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 
 					for _, volume := range vm.Spec.Volumes {
 						if volume.CloudInitNoCloud != nil {
@@ -230,12 +230,12 @@ var _ = Describe("Vmlifecycle", func() {
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					createdVM, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
+					createdVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 					Expect(err).To(BeNil())
 
 					// Wait until we see that starting the VirtualMachineInstance is failing
 					By("Checking that VirtualMachineInstance start failed")
-					event := tests.NewObjectEventWatcher(createdVM).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
+					event := tests.NewObjectEventWatcher(createdVMI).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
 					Expect(event.Message).To(ContainSubstring("nonexistent"))
 
 					// Creat nonexistent secret, so that the VirtualMachineInstance can recover
@@ -258,7 +258,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 					// Wait for the VirtualMachineInstance to be started, allow warning events to occur
 					By("Checking that VirtualMachineInstance start succeeded")
-					tests.NewObjectEventWatcher(createdVM).SinceWatchedObjectResourceVersion().Timeout(30*time.Second).WaitFor(tests.NormalEvent, v1.Started)
+					tests.NewObjectEventWatcher(createdVMI).SinceWatchedObjectResourceVersion().Timeout(30*time.Second).WaitFor(tests.NormalEvent, v1.Started)
 				})
 			})
 		})
@@ -268,7 +268,7 @@ var _ = Describe("Vmlifecycle", func() {
 				vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).To(BeNil())
 
-				nodeName := tests.WaitForSuccessfulVMStart(vm)
+				nodeName := tests.WaitForSuccessfulVMIStart(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Crashing the virt-launcher")
@@ -292,7 +292,7 @@ var _ = Describe("Vmlifecycle", func() {
 				Expect(err).To(BeNil())
 
 				// Start a VirtualMachineInstance
-				nodeName := tests.WaitForSuccessfulVMStart(vm)
+				nodeName := tests.WaitForSuccessfulVMIStart(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Kill virt-handler on the node the VirtualMachineInstance is active on.
@@ -356,10 +356,10 @@ var _ = Describe("Vmlifecycle", func() {
 
 			BeforeEach(func() {
 				// Schedule a vm and make sure that virt-handler gets evicted from the node where the vm was started
-				vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
+				vm = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
 				vm, err = virtClient.VirtualMachineInstance(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
-				nodeName = tests.WaitForSuccessfulVMStart(vm)
+				nodeName = tests.WaitForSuccessfulVMIStart(vm)
 				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
 				Expect(err).ToNot(HaveOccurred())
 				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
@@ -410,9 +410,9 @@ var _ = Describe("Vmlifecycle", func() {
 
 				By("moving stuck vms to failed state")
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					failedVM, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+					failedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return failedVM.Status.Phase
+					return failedVMI.Status.Phase
 				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
 			})
 
@@ -451,7 +451,7 @@ var _ = Describe("Vmlifecycle", func() {
 				node := nodes.Items[0].Name
 
 				By("Creating a VirtualMachineInstance with different namespace")
-				vm = tests.NewRandomVMWithNS(namespace)
+				vm = tests.NewRandomVMIWithNS(namespace)
 				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(node).Pod()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -466,7 +466,7 @@ var _ = Describe("Vmlifecycle", func() {
 				// Start the VirtualMachineInstance and wait for the confirmation of the start
 				vm, err = virtClient.VirtualMachineInstance(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMStart(vm)
+				tests.WaitForSuccessfulVMIStart(vm)
 
 				// Check if the start event was logged
 				By("Checking that virt-handler logs VirtualMachineInstance creation")
@@ -620,10 +620,10 @@ var _ = Describe("Vmlifecycle", func() {
 			By("Creating the VirtualMachineInstance")
 			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStart(obj)
+			tests.WaitForSuccessfulVMIStart(obj)
 
 			By("Verifying VirtualMachineInstance's pod is active")
-			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(vm))
+			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vm))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(pods.Items)).To(Equal(1))
 			pod := pods.Items[0]
@@ -654,10 +654,10 @@ var _ = Describe("Vmlifecycle", func() {
 				By("Creating the VirtualMachineInstance")
 				obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMStart(obj)
+				tests.WaitForSuccessfulVMIStart(obj)
 
 				By("Verifying VirtualMachineInstance's pod is active")
-				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(vm))
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vm))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
@@ -666,7 +666,7 @@ var _ = Describe("Vmlifecycle", func() {
 
 				By("Verifying VirtualMachineInstance's pod terminates")
 				Eventually(func() int {
-					pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(vm))
+					pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vm))
 					Expect(err).ToNot(HaveOccurred())
 					return len(pods.Items)
 				}, 75, 0.5).Should(Equal(0))
@@ -698,7 +698,7 @@ var _ = Describe("Vmlifecycle", func() {
 				By("Creating the VirtualMachineInstance")
 				obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMStart(obj)
+				tests.WaitForSuccessfulVMIStart(obj)
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
@@ -730,7 +730,7 @@ var _ = Describe("Vmlifecycle", func() {
 			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 			Expect(err).To(BeNil())
 
-			nodeName := tests.WaitForSuccessfulVMStart(obj)
+			nodeName := tests.WaitForSuccessfulVMIStart(obj)
 			_, ok := obj.(*v1.VirtualMachineInstance)
 			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 			Expect(err).ToNot(HaveOccurred())
@@ -757,7 +757,7 @@ var _ = Describe("Vmlifecycle", func() {
 			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 			Expect(err).To(BeNil())
 
-			nodeName := tests.WaitForSuccessfulVMStart(obj)
+			nodeName := tests.WaitForSuccessfulVMIStart(obj)
 			_, ok := obj.(*v1.VirtualMachineInstance)
 			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 			Expect(err).ToNot(HaveOccurred())

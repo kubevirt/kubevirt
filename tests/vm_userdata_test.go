@@ -50,7 +50,7 @@ var _ = Describe("CloudInit UserData", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	LaunchVM := func(vm *v1.VirtualMachineInstance) {
+	LaunchVMI := func(vm *v1.VirtualMachineInstance) {
 		By("Starting a VirtualMachineInstance")
 		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 		Expect(err).To(BeNil())
@@ -58,10 +58,10 @@ var _ = Describe("CloudInit UserData", func() {
 		By("Waiting the VirtualMachineInstance start")
 		_, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		Expect(tests.WaitForSuccessfulVMStart(obj)).ToNot(BeEmpty())
+		Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
 	}
 
-	VerifyUserDataVM := func(vm *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+	VerifyUserDataVMI := func(vm *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 		By("Expecting the VirtualMachineInstance console")
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
 		defer expecter.Close()
@@ -82,9 +82,9 @@ var _ = Describe("CloudInit UserData", func() {
 			It("should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
-				vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
-				LaunchVM(vm)
-				VerifyUserDataVM(vm, []expect.Batcher{
+				vm := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
+				LaunchVMI(vm)
+				VerifyUserDataVMI(vm, []expect.Batcher{
 					&expect.BExp{R: expectedUserData},
 				}, time.Second*120)
 			})
@@ -96,11 +96,11 @@ var _ = Describe("CloudInit UserData", func() {
 						fedoraPassword,
 						sshAuthorizedKey,
 					)
-					vm := tests.NewRandomVMWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+					vm := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
 
-					LaunchVM(vm)
+					LaunchVMI(vm)
 
-					VerifyUserDataVM(vm, []expect.Batcher{
+					VerifyUserDataVMI(vm, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
 						&expect.BSnd{S: "\n"},
 						&expect.BExp{R: "login:"},
@@ -119,7 +119,7 @@ var _ = Describe("CloudInit UserData", func() {
 			It("should process provided cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
-				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+				vm := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:       "disk1",
 					VolumeName: "disk1",
@@ -138,10 +138,10 @@ var _ = Describe("CloudInit UserData", func() {
 					},
 				})
 
-				LaunchVM(vm)
+				LaunchVMI(vm)
 
 				By("executing a user-data script")
-				VerifyUserDataVM(vm, []expect.Batcher{
+				VerifyUserDataVMI(vm, []expect.Batcher{
 					&expect.BExp{R: expectedUserData},
 				}, time.Second*120)
 
@@ -160,7 +160,7 @@ var _ = Describe("CloudInit UserData", func() {
 
 		It("should take user-data from k8s secret", func() {
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
-			vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "")
+			vm := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "")
 
 			idx := 0
 			for i, volume := range vm.Spec.Volumes {
@@ -192,8 +192,8 @@ var _ = Describe("CloudInit UserData", func() {
 				Expect(err).To(BeNil())
 				break
 			}
-			LaunchVM(vm)
-			VerifyUserDataVM(vm, []expect.Batcher{
+			LaunchVMI(vm)
+			VerifyUserDataVMI(vm, []expect.Batcher{
 				&expect.BExp{R: expectedUserData},
 			}, time.Second*120)
 

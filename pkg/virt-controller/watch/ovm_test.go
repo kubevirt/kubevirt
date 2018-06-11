@@ -35,7 +35,7 @@ var _ = Describe("VirtualMachine", func() {
 		var vmInformer cache.SharedIndexInformer
 		var ovmInformer cache.SharedIndexInformer
 		var stop chan struct{}
-		var controller *OVMController
+		var controller *VMController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var vmFeeder *testutils.VirtualMachineFeeder
@@ -57,7 +57,7 @@ var _ = Describe("VirtualMachine", func() {
 			ovmInformer, ovmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			recorder = record.NewFakeRecorder(100)
 
-			controller = NewOVMController(vmInformer, ovmInformer, recorder, virtClient)
+			controller = NewVMController(vmInformer, ovmInformer, recorder, virtClient)
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
@@ -129,16 +129,16 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should have stable firmware UUIDs", func() {
 			ovm1, _ := DefaultVirtualMachineWithNames(true, "testovm1", "testvm1")
-			vm1 := controller.setupVMFromOVM(ovm1)
+			vm1 := controller.setupVMIFromVM(ovm1)
 
 			// intentionally use the same names
 			ovm2, _ := DefaultVirtualMachineWithNames(true, "testovm1", "testvm1")
-			vm2 := controller.setupVMFromOVM(ovm2)
+			vm2 := controller.setupVMIFromVM(ovm2)
 			Expect(vm1.Spec.Domain.Firmware.UUID).To(Equal(vm2.Spec.Domain.Firmware.UUID))
 
 			// now we want different names
 			ovm3, _ := DefaultVirtualMachineWithNames(true, "testovm3", "testvm3")
-			vm3 := controller.setupVMFromOVM(ovm3)
+			vm3 := controller.setupVMIFromVM(ovm3)
 			Expect(vm1.Spec.Domain.Firmware.UUID).NotTo(Equal(vm3.Spec.Domain.Firmware.UUID))
 		})
 
@@ -147,7 +147,7 @@ var _ = Describe("VirtualMachine", func() {
 			ovm1, _ := DefaultVirtualMachineWithNames(true, "testovm1", "testvm1")
 			ovm1.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: types.UID(uid)}
 
-			vm1 := controller.setupVMFromOVM(ovm1)
+			vm1 := controller.setupVMIFromVM(ovm1)
 			Expect(string(vm1.Spec.Domain.Firmware.UUID)).To(Equal(uid))
 		})
 
@@ -167,16 +167,16 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
-		It("should ignore non-matching VMs", func() {
+		It("should ignore non-matching VMIs", func() {
 			ovm, vm := DefaultVirtualMachine(true)
 
-			nonMatchingVM := v1.NewMinimalVM("testvm1")
-			nonMatchingVM.ObjectMeta.Labels = map[string]string{"test": "test1"}
+			nonMatchingVMI := v1.NewMinimalVMI("testvm1")
+			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
 			addVirtualMachine(ovm)
 
-			// We still expect three calls to create VMs, since VirtualMachineInstance does not meet the requirements
-			vmSource.Add(nonMatchingVM)
+			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
+			vmSource.Add(nonMatchingVMI)
 
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
 			ovmInterface.EXPECT().Update(gomock.Any()).Times(2).Return(ovm, nil)
@@ -237,9 +237,9 @@ var _ = Describe("VirtualMachine", func() {
 
 			// We should see the failed condition, replicas should stay at 0
 			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
-				objOVM := obj.(*v1.VirtualMachine)
-				Expect(objOVM.Status.Conditions).To(HaveLen(1))
-				cond := objOVM.Status.Conditions[0]
+				objVM := obj.(*v1.VirtualMachine)
+				Expect(objVM.Status.Conditions).To(HaveLen(1))
+				cond := objVM.Status.Conditions[0]
 				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedCreate"))
 				Expect(cond.Message).To(Equal("failure"))
@@ -260,9 +260,9 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Delete(vm.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
 
 			ovmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
-				objOVM := obj.(*v1.VirtualMachine)
-				Expect(objOVM.Status.Conditions).To(HaveLen(1))
-				cond := objOVM.Status.Conditions[0]
+				objVM := obj.(*v1.VirtualMachine)
+				Expect(objVM.Status.Conditions).To(HaveLen(1))
+				cond := objVM.Status.Conditions[0]
 				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
 				Expect(cond.Reason).To(Equal("FailedDelete"))
 				Expect(cond.Message).To(Equal("failure"))
@@ -276,12 +276,12 @@ var _ = Describe("VirtualMachine", func() {
 	})
 })
 
-func VirtualMachineFromVM(name string, vm *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
+func VirtualMachineFromVMI(name string, vm *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
 	ovm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
 		Spec: v1.VirtualMachineSpec{
 			Running: started,
-			Template: &v1.VMTemplateSpec{
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   vm.ObjectMeta.Name,
 					Labels: vm.ObjectMeta.Labels,
@@ -294,9 +294,9 @@ func VirtualMachineFromVM(name string, vm *v1.VirtualMachineInstance, started bo
 }
 
 func DefaultVirtualMachineWithNames(started bool, ovmName string, vmName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-	vm := v1.NewMinimalVM(vmName)
+	vm := v1.NewMinimalVMI(vmName)
 	vm.Status.Phase = v1.Running
-	ovm := VirtualMachineFromVM(ovmName, vm, started)
+	ovm := VirtualMachineFromVMI(ovmName, vm, started)
 	t := true
 	vm.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),

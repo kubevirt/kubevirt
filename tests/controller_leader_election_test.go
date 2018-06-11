@@ -84,12 +84,12 @@ var _ = Describe("LeaderElection", func() {
 					return k8sv1.ConditionUnknown
 				}()).To(Equal(k8sv1.ConditionTrue))
 
-				vm := tests.NewRandomVM()
+				vm := tests.NewRandomVMI()
 
 				By("Starting a new VirtualMachineInstance")
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
 				Expect(err).To(BeNil())
-				tests.WaitForSuccessfulVMStart(obj)
+				tests.WaitForSuccessfulVMIStart(obj)
 			}, 150)
 		})
 	})

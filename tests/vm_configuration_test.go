@@ -52,7 +52,7 @@ var _ = Describe("Configurations", func() {
 			var vm *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vm = tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vm = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 			})
 			It("should report 3 cpu cores under guest OS", func() {
 				vm.Spec.Domain.CPU = &v1.CPU{
@@ -67,7 +67,7 @@ var _ = Describe("Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMStart(vm)
+				tests.WaitForSuccessfulVMIStart(vm)
 
 				By("Expecting the VirtualMachineInstance console")
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
@@ -115,8 +115,8 @@ var _ = Describe("Configurations", func() {
 			// ordering:
 			// use a small disk for the other ones
 			containerImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
-			// virtio - added by NewRandomVMWithEphemeralDisk
-			vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
+			// virtio - added by NewRandomVMIWithEphemeralDisk
+			vm = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
 			tests.AddEphemeralDisk(vm, "disk2", "sata", containerImage)
 			// ide
@@ -133,7 +133,7 @@ var _ = Describe("Configurations", func() {
 		It("should have all the device nodes", func() {
 			vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMStart(vm)
+			tests.WaitForSuccessfulVMIStart(vm)
 
 			expecter, err := tests.LoggedInCirrosExpecter(vm)
 			Expect(err).ToNot(HaveOccurred())

@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-func (k *kubevirt) VMPreset(namespace string) VMPresetInterface {
+func (k *kubevirt) VMIPreset(namespace string) VMIPresetInterface {
 	return &vmPresets{k.restClient, namespace, "virtualmachineinstancepresets"}
 }
 

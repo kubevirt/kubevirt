@@ -160,7 +160,7 @@ func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachineInstance, er
 		if namespace == "" || domain == "" {
 			return nil
 		}
-		keys = append(keys, v1.NewVMReferenceFromNameWithNS(dirs[0], dirs[1]))
+		keys = append(keys, v1.NewVMIReferenceFromNameWithNS(dirs[0], dirs[1]))
 		return nil
 	})
 

@@ -124,7 +124,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		windowsVm = tests.NewRandomVM()
+		windowsVm = tests.NewRandomVMI()
 		windowsVm.Spec = windowsVmSpec
 		windowsVm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
 	})
@@ -132,14 +132,14 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 	It("should succeed to start a vm", func() {
 		vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVm)
 		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
+		tests.WaitForSuccessfulVMIStartWithTimeout(vm, 180)
 	}, 300)
 
 	It("should succeed to stop a running vm", func() {
 		By("Starting the vm")
 		vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVm)
 		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
+		tests.WaitForSuccessfulVMIStartWithTimeout(vm, 180)
 
 		By("Stopping the vm")
 		err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
@@ -173,7 +173,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			By("Starting the windows VirtualMachineInstance")
 			vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVm)
 			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMStartWithTimeout(vm, 180)
+			tests.WaitForSuccessfulVMIStartWithTimeout(vm, 180)
 
 			vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, metav1.GetOptions{})
 			vmIp = vm.Status.Interfaces[0].IP
@@ -243,7 +243,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			_, err = tests.RunKubectlCommand("create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
+			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVm, 120)
 		})
 
 		It("should succeed to stop a vm", func() {
@@ -251,7 +251,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			_, err = tests.RunKubectlCommand("create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForSuccessfulVMStartWithTimeout(windowsVm, 120)
+			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVm, 120)
 
 			By("Deleting the vm via kubectl command")
 			_, err = tests.RunKubectlCommand("delete", "-f", yamlFile)
@@ -263,7 +263,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 			By("Checking that the vm pod terminated")
 			Eventually(func() int {
-				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(windowsVm))
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(windowsVm))
 				Expect(err).ToNot(HaveOccurred())
 				return len(pods.Items)
 			}, 75, 0.5).Should(Equal(0))

@@ -315,7 +315,7 @@ func getBaseOvm(name string, labels map[string]string) *v1.VirtualMachine {
 		},
 		Spec: v1.VirtualMachineSpec{
 			Running: false,
-			Template: &v1.VMTemplateSpec{
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
@@ -498,12 +498,12 @@ func getBaseVmReplicaSet(name string, replicas int, selectorLabels map[string]st
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1.VMReplicaSetSpec{
+		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 			Replicas: &replicasInt32,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
-			Template: &v1.VMTemplateSpec{
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: selectorLabels,
 				},

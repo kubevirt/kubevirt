@@ -381,7 +381,7 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	return causes
 }
 
-func validateVMPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstancePresetSpec) []metav1.StatusCause {
+func validateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstancePresetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Domain == nil {
@@ -396,7 +396,7 @@ func validateVMPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceP
 	return causes
 }
 
-func validateVMRSSpec(field *k8sfield.Path, spec *v1.VMReplicaSetSpec) []metav1.StatusCause {
+func validateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -426,7 +426,7 @@ func validateVMRSSpec(field *k8sfield.Path, spec *v1.VMReplicaSetSpec) []metav1.
 	return causes
 }
 
-func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	vmResource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
 		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
@@ -455,11 +455,11 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMs)
+func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMIs)
 }
 
-func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineGroupVersionKind.Group,
 		Version:  v1.VirtualMachineGroupVersionKind.Version,
@@ -488,11 +488,11 @@ func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeOVMs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitOVMs)
+func ServeVMs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMs)
 }
 
-func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
 		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
@@ -511,7 +511,7 @@ func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMRSSpec(k8sfield.NewPath("spec"), &vmrs.Spec)
+	causes := validateVMIRSSpec(k8sfield.NewPath("spec"), &vmrs.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -521,10 +521,10 @@ func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeVMRS(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMRS)
+func ServeVMIRS(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMIRS)
 }
-func admitVMPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
 		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
@@ -543,7 +543,7 @@ func admitVMPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMPresetSpec(k8sfield.NewPath("spec"), &vmpreset.Spec)
+	causes := validateVMIPresetSpec(k8sfield.NewPath("spec"), &vmpreset.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -553,6 +553,6 @@ func admitVMPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeVMPreset(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMPreset)
+func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMIPreset)
 }

@@ -40,7 +40,7 @@ var _ = Describe("Replicaset", func() {
 		var vmInformer cache.SharedIndexInformer
 		var rsInformer cache.SharedIndexInformer
 		var stop chan struct{}
-		var controller *VMReplicaSet
+		var controller *VMIReplicaSet
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var vmFeeder *testutils.VirtualMachineFeeder
@@ -62,7 +62,7 @@ var _ = Describe("Replicaset", func() {
 			rsInformer, rsSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 			recorder = record.NewFakeRecorder(100)
 
-			controller = NewVMReplicaSet(vmInformer, rsInformer, recorder, virtClient, uint(10))
+			controller = NewVMIReplicaSet(vmInformer, rsInformer, recorder, virtClient, uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
@@ -80,7 +80,7 @@ var _ = Describe("Replicaset", func() {
 			mockQueue.Wait()
 		}
 
-		It("should create missing VMs", func() {
+		It("should create missing VMIs", func() {
 			rs, vm := DefaultReplicaSet(3)
 
 			addReplicaSet(rs)
@@ -96,7 +96,7 @@ var _ = Describe("Replicaset", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
-		It("should create missing VMs when it gets unpaused", func() {
+		It("should create missing VMIs when it gets unpaused", func() {
 			rs, vm := DefaultReplicaSet(3)
 			rs.Spec.Paused = false
 			rs.Status.Conditions = []v1.VirtualMachineInstanceReplicaSetCondition{
@@ -126,7 +126,7 @@ var _ = Describe("Replicaset", func() {
 			testutils.ExpectEvent(recorder, SuccessfulResumedReplicaSetReason)
 		})
 
-		It("should not create missing VMs when it is paused and add paused condition", func() {
+		It("should not create missing VMIs when it is paused and add paused condition", func() {
 			rs, _ := DefaultReplicaSet(3)
 			rs.Spec.Paused = true
 
@@ -153,7 +153,7 @@ var _ = Describe("Replicaset", func() {
 			testutils.ExpectEvent(recorder, SuccessfulPausedReplicaSetReason)
 		})
 
-		It("should create missing VMs in batches of a maximum of 10 VMs at once", func() {
+		It("should create missing VMIs in batches of a maximum of 10 VMIs at once", func() {
 			rs, vm := DefaultReplicaSet(15)
 
 			addReplicaSet(rs)
@@ -174,14 +174,14 @@ var _ = Describe("Replicaset", func() {
 			// TODO test for missing 5
 		})
 
-		It("should delete missing VMs in batches of a maximum of 10 VMs at once", func() {
+		It("should delete missing VMIs in batches of a maximum of 10 VMIs at once", func() {
 			rs, _ := DefaultReplicaSet(0)
 
 			addReplicaSet(rs)
 
-			// Add 15 VMs to the cache
+			// Add 15 VMIs to the cache
 			for x := 0; x < 15; x++ {
-				vm := v1.NewMinimalVM(fmt.Sprintf("testvm%d", x))
+				vm := v1.NewMinimalVMI(fmt.Sprintf("testvm%d", x))
 				vm.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vm.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmFeeder.Add(vm)
@@ -202,16 +202,16 @@ var _ = Describe("Replicaset", func() {
 			// TODO test for missing 5
 		})
 
-		It("should ignore non-matching VMs", func() {
+		It("should ignore non-matching VMIs", func() {
 			rs, vm := DefaultReplicaSet(3)
 
-			nonMatchingVM := v1.NewMinimalVM("testvm1")
-			nonMatchingVM.ObjectMeta.Labels = map[string]string{"test": "test1"}
+			nonMatchingVMI := v1.NewMinimalVMI("testvm1")
+			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
 			addReplicaSet(rs)
 
-			// We still expect three calls to create VMs, since VirtualMachineInstance does not meet the requirements
-			vmSource.Add(nonMatchingVM)
+			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
+			vmSource.Add(nonMatchingVMI)
 
 			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Return(vm, nil)
 
@@ -300,10 +300,10 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			// Move one VirtualMachineInstance to a final state
-			modifiedVM := vm.DeepCopy()
-			modifiedVM.Status.Phase = v1.Succeeded
-			modifiedVM.ResourceVersion = "1"
-			vmFeeder.Modify(modifiedVM)
+			modifiedVMI := vm.DeepCopy()
+			modifiedVMI.Status.Phase = v1.Succeeded
+			modifiedVMI.ResourceVersion = "1"
+			vmFeeder.Modify(modifiedVMI)
 
 			// Expect the re-crate of the VirtualMachineInstance
 			vmInterface.EXPECT().Create(gomock.Any()).Return(vm, nil)
@@ -332,10 +332,10 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			// Move one VirtualMachineInstance to a final state
-			modifiedVM := vm.DeepCopy()
-			modifiedVM.Status.Phase = v1.Running
-			modifiedVM.ResourceVersion = "1"
-			vmFeeder.Modify(modifiedVM)
+			modifiedVMI := vm.DeepCopy()
+			modifiedVMI.Status.Phase = v1.Running
+			modifiedVMI.ResourceVersion = "1"
+			vmFeeder.Modify(modifiedVMI)
 
 			// Run the controller again
 			controller.Execute()
@@ -497,15 +497,15 @@ var _ = Describe("Replicaset", func() {
 	})
 })
 
-func ReplicaSetFromVM(name string, vm *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
+func ReplicaSetFromVMI(name string, vm *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	rs := &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
-		Spec: v1.VMReplicaSetSpec{
+		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: vm.ObjectMeta.Labels,
 			},
-			Template: &v1.VMTemplateSpec{
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   vm.ObjectMeta.Name,
 					Labels: vm.ObjectMeta.Labels,
@@ -518,9 +518,9 @@ func ReplicaSetFromVM(name string, vm *v1.VirtualMachineInstance, replicas int32
 }
 
 func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstance) {
-	vm := v1.NewMinimalVM("testvm")
+	vm := v1.NewMinimalVMI("testvm")
 	vm.ObjectMeta.Labels = map[string]string{"test": "test"}
-	rs := ReplicaSetFromVM("rs", vm, replicas)
+	rs := ReplicaSetFromVMI("rs", vm, replicas)
 	vm.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 	return rs, vm
 }

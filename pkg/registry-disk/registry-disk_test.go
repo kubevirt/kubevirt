@@ -39,11 +39,11 @@ var _ = Describe("RegistryDisk", func() {
 	}
 
 	VerifyDiskType := func(diskExtension string) {
-		vm := v1.NewMinimalVM("fake-vm")
+		vm := v1.NewMinimalVMI("fake-vm")
 		appendRegistryDisk(vm, "r0")
 
 		// create a fake disk file
-		volumeMountDir := generateVMBaseDir(vm)
+		volumeMountDir := generateVMIBaseDir(vm)
 		err = os.MkdirAll(volumeMountDir+"/disk_r0", 0750)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -78,14 +78,14 @@ var _ = Describe("RegistryDisk", func() {
 			)
 			It("by verifying error when no disk is present", func() {
 
-				vm := v1.NewMinimalVM("fake-vm")
+				vm := v1.NewMinimalVMI("fake-vm")
 				appendRegistryDisk(vm, "r0")
 
 				err := SetFilePermissions(vm)
 				Expect(err).To(HaveOccurred())
 			})
 			It("by verifying container generation", func() {
-				vm := v1.NewMinimalVM("fake-vm")
+				vm := v1.NewMinimalVMI("fake-vm")
 				appendRegistryDisk(vm, "r1")
 				appendRegistryDisk(vm, "r0")
 				containers := GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")

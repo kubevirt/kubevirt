@@ -750,82 +750,82 @@ func (_mr *_MockReplicaSetInterfaceRecorder) Delete(arg0, arg1 interface{}) *gom
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
 }
 
-// Mock of VMPresetInterface interface
-type MockVMPresetInterface struct {
+// Mock of VMIPresetInterface interface
+type MockVMIPresetInterface struct {
 	ctrl     *gomock.Controller
-	recorder *_MockVMPresetInterfaceRecorder
+	recorder *_MockVMIPresetInterfaceRecorder
 }
 
-// Recorder for MockVMPresetInterface (not exported)
-type _MockVMPresetInterfaceRecorder struct {
-	mock *MockVMPresetInterface
+// Recorder for MockVMIPresetInterface (not exported)
+type _MockVMIPresetInterfaceRecorder struct {
+	mock *MockVMIPresetInterface
 }
 
-func NewMockVMPresetInterface(ctrl *gomock.Controller) *MockVMPresetInterface {
-	mock := &MockVMPresetInterface{ctrl: ctrl}
-	mock.recorder = &_MockVMPresetInterfaceRecorder{mock}
+func NewMockVMIPresetInterface(ctrl *gomock.Controller) *MockVMIPresetInterface {
+	mock := &MockVMIPresetInterface{ctrl: ctrl}
+	mock.recorder = &_MockVMIPresetInterfaceRecorder{mock}
 	return mock
 }
 
-func (_m *MockVMPresetInterface) EXPECT() *_MockVMPresetInterfaceRecorder {
+func (_m *MockVMIPresetInterface) EXPECT() *_MockVMIPresetInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVMPresetInterface) Get(name string, options v1.GetOptions) (*v19.VirtualMachineInstancePreset, error) {
+func (_m *MockVMIPresetInterface) Get(name string, options v1.GetOptions) (*v19.VirtualMachineInstancePreset, error) {
 	ret := _m.ctrl.Call(_m, "Get", name, options)
 	ret0, _ := ret[0].(*v19.VirtualMachineInstancePreset)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVMPresetInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+func (_mr *_MockVMIPresetInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
 }
 
-func (_m *MockVMPresetInterface) List(opts v1.ListOptions) (*v19.VirtualMachineInstancePresetList, error) {
+func (_m *MockVMIPresetInterface) List(opts v1.ListOptions) (*v19.VirtualMachineInstancePresetList, error) {
 	ret := _m.ctrl.Call(_m, "List", opts)
 	ret0, _ := ret[0].(*v19.VirtualMachineInstancePresetList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVMPresetInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
+func (_mr *_MockVMIPresetInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
 }
 
-func (_m *MockVMPresetInterface) Create(_param0 *v19.VirtualMachineInstancePreset) (*v19.VirtualMachineInstancePreset, error) {
+func (_m *MockVMIPresetInterface) Create(_param0 *v19.VirtualMachineInstancePreset) (*v19.VirtualMachineInstancePreset, error) {
 	ret := _m.ctrl.Call(_m, "Create", _param0)
 	ret0, _ := ret[0].(*v19.VirtualMachineInstancePreset)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVMPresetInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
+func (_mr *_MockVMIPresetInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
 }
 
-func (_m *MockVMPresetInterface) Update(_param0 *v19.VirtualMachineInstancePreset) (*v19.VirtualMachineInstancePreset, error) {
+func (_m *MockVMIPresetInterface) Update(_param0 *v19.VirtualMachineInstancePreset) (*v19.VirtualMachineInstancePreset, error) {
 	ret := _m.ctrl.Call(_m, "Update", _param0)
 	ret0, _ := ret[0].(*v19.VirtualMachineInstancePreset)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVMPresetInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
+func (_mr *_MockVMIPresetInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
 }
 
-func (_m *MockVMPresetInterface) Delete(name string, options *v1.DeleteOptions) error {
+func (_m *MockVMIPresetInterface) Delete(name string, options *v1.DeleteOptions) error {
 	ret := _m.ctrl.Call(_m, "Delete", name, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVMPresetInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+func (_mr *_MockVMIPresetInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
 }
 
-func (_m *MockVMPresetInterface) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (*v19.VirtualMachineInstancePreset, error) {
+func (_m *MockVMIPresetInterface) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (*v19.VirtualMachineInstancePreset, error) {
 	_s := []interface{}{name, pt, data}
 	for _, _x := range subresources {
 		_s = append(_s, _x)
@@ -836,7 +836,7 @@ func (_m *MockVMPresetInterface) Patch(name string, pt types.PatchType, data []b
 	return ret0, ret1
 }
 
-func (_mr *_MockVMPresetInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+func (_mr *_MockVMIPresetInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }

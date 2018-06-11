@@ -80,7 +80,7 @@ type VirtControllerApp struct {
 	nodeController *NodeController
 
 	vmCache      cache.Store
-	vmController *VMController
+	vmController *VMIController
 	vmInformer   cache.SharedIndexInformer
 
 	vmPresetCache      cache.Store
@@ -93,10 +93,10 @@ type VirtControllerApp struct {
 	configMapCache    cache.Store
 	configMapInformer cache.SharedIndexInformer
 
-	rsController *VMReplicaSet
+	rsController *VMIReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
-	ovmController *OVMController
+	ovmController *VMController
 	ovmInformer   cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
@@ -138,7 +138,7 @@ func Execute() {
 
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet)
 
-	app.vmInformer = app.informerFactory.VM()
+	app.vmInformer = app.informerFactory.VMI()
 	app.podInformer = app.informerFactory.KubeVirtPod()
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
 
@@ -151,7 +151,7 @@ func Execute() {
 
 	app.vmPresetInformer = app.informerFactory.VirtualMachinePreset()
 
-	app.rsInformer = app.informerFactory.VMReplicaSet()
+	app.rsInformer = app.informerFactory.VMIReplicaSet()
 	app.vmPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
 
 	app.configMapInformer = app.informerFactory.ConfigMap()
@@ -252,19 +252,19 @@ func (vca *VirtControllerApp) initCommon() {
 		golog.Fatal(err)
 	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
-	vca.vmController = NewVMController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet, vca.configMapInformer)
+	vca.vmController = NewVMIController(vca.templateService, vca.vmInformer, vca.podInformer, vca.vmRecorder, vca.clientSet, vca.configMapInformer)
 	vca.vmPresetController = NewVirtualMachinePresetController(vca.vmPresetInformer, vca.vmInformer, vca.vmPresetQueue, vca.vmPresetCache, vca.clientSet, vca.vmPresetRecorder)
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmInformer, nil)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
-	vca.rsController = NewVMReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+	vca.rsController = NewVMIReplicaSet(vca.vmInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 }
 
 func (vca *VirtControllerApp) initVirtualMachines() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
-	vca.ovmController = NewOVMController(vca.vmInformer, vca.ovmInformer, recorder, vca.clientSet)
+	vca.ovmController = NewVMController(vca.vmInformer, vca.ovmInformer, recorder, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
@@ -294,7 +294,7 @@ func (vca *VirtControllerApp) AddFlags() {
 	vca.AddCommonFlags()
 
 	flag.StringVar(&vca.launcherImage, "launcher-image", launcherImage,
-		"Shim container for containerized VMs")
+		"Shim container for containerized VMIs")
 
 	flag.StringVar(&vca.imagePullSecret, "image-pull-secret", imagePullSecret,
 		"Secret to use for pulling virt-launcher and/or registry disks")

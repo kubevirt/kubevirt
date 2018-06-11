@@ -76,25 +76,25 @@ var _ = Describe("Virt remote commands", func() {
 
 	Context("server", func() {
 		It("should start a vm", func() {
-			vm := v1.NewVMReferenceFromName("testvm")
+			vm := v1.NewVMIReferenceFromName("testvm")
 			domain := api.NewMinimalDomain("testvm")
-			domainManager.EXPECT().SyncVM(vm, allowEmulation).Return(&domain.Spec, nil)
+			domainManager.EXPECT().SyncVMI(vm, allowEmulation).Return(&domain.Spec, nil)
 
 			err := client.SyncVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should kill a vm", func() {
-			vm := v1.NewVMReferenceFromName("testvm")
-			domainManager.EXPECT().KillVM(vm)
+			vm := v1.NewVMIReferenceFromName("testvm")
+			domainManager.EXPECT().KillVMI(vm)
 
 			err := client.KillVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should shutdown a vm", func() {
-			vm := v1.NewVMReferenceFromName("testvm")
-			domainManager.EXPECT().SignalShutdownVM(vm)
+			vm := v1.NewVMIReferenceFromName("testvm")
+			domainManager.EXPECT().SignalShutdownVMI(vm)
 			err := client.ShutdownVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})

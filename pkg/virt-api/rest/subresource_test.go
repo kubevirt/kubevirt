@@ -50,7 +50,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	Context("Subresource api", func() {
 		It("should find matching pod for running VirtualMachineInstance", func(done Done) {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Status.Phase = v1.Running
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 			templateService := services.NewTemplateService("whatever", "whatever", "whatever", configCache)
@@ -86,7 +86,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		}, 5)
 
 		It("should fail if VirtualMachineInstance is not in running state", func(done Done) {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Status.Phase = v1.Succeeded
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 
@@ -105,7 +105,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		}, 5)
 
 		It("should fail no matching pod is found", func(done Done) {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Status.Phase = v1.Running
 			vm.ObjectMeta.SetUID(uuid.NewUUID())
 

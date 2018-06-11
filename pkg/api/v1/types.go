@@ -228,8 +228,8 @@ func (vl *VirtualMachineInstanceList) GetListMeta() meta.List {
 }
 
 func (v *VirtualMachineInstance) UnmarshalJSON(data []byte) error {
-	type VMCopy VirtualMachineInstance
-	tmp := VMCopy{}
+	type VMICopy VirtualMachineInstance
+	tmp := VMICopy{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
@@ -240,8 +240,8 @@ func (v *VirtualMachineInstance) UnmarshalJSON(data []byte) error {
 }
 
 func (vl *VirtualMachineInstanceList) UnmarshalJSON(data []byte) error {
-	type VMListCopy VirtualMachineInstanceList
-	tmp := VMListCopy{}
+	type VMIListCopy VirtualMachineInstanceList
+	tmp := VMIListCopy{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
@@ -263,9 +263,9 @@ func (v *VirtualMachineInstance) UnmarshalBinary(data []byte) error {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceConditionType string
 
-// These are valid conditions of VMs.
+// These are valid conditions of VMIs.
 const (
-	// VMReady means the pod is able to service requests and should be added to the
+	// VMIReady means the pod is able to service requests and should be added to the
 	// load balancing pools of all matching services.
 	VirtualMachineInstanceReady VirtualMachineInstanceConditionType = "Ready"
 
@@ -336,7 +336,7 @@ const (
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 )
 
-func NewVM(name string, uid types.UID) *VirtualMachineInstance {
+func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
 	return &VirtualMachineInstance{
 		Spec: VirtualMachineInstanceSpec{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -372,13 +372,13 @@ func (s SyncEvent) String() string {
 	return string(s)
 }
 
-func NewMinimalVM(vmName string) *VirtualMachineInstance {
-	return NewMinimalVMWithNS(k8sv1.NamespaceDefault, vmName)
+func NewMinimalVMI(vmName string) *VirtualMachineInstance {
+	return NewMinimalVMIWithNS(k8sv1.NamespaceDefault, vmName)
 }
 
-func NewMinimalVMWithNS(namespace string, vmName string) *VirtualMachineInstance {
+func NewMinimalVMIWithNS(namespace string, vmName string) *VirtualMachineInstance {
 	precond.CheckNotEmpty(vmName)
-	vm := NewVMReferenceFromNameWithNS(namespace, vmName)
+	vm := NewVMIReferenceFromNameWithNS(namespace, vmName)
 	vm.Spec = VirtualMachineInstanceSpec{Domain: NewMinimalDomainSpec()}
 	vm.TypeMeta = metav1.TypeMeta{
 		APIVersion: GroupVersion.String(),
@@ -388,11 +388,11 @@ func NewMinimalVMWithNS(namespace string, vmName string) *VirtualMachineInstance
 }
 
 // TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly
-func NewVMReferenceFromName(name string) *VirtualMachineInstance {
-	return NewVMReferenceFromNameWithNS(k8sv1.NamespaceDefault, name)
+func NewVMIReferenceFromName(name string) *VirtualMachineInstance {
+	return NewVMIReferenceFromNameWithNS(k8sv1.NamespaceDefault, name)
 }
 
-func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachineInstance {
+func NewVMIReferenceFromNameWithNS(namespace string, name string) *VirtualMachineInstance {
 	vm := &VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -404,7 +404,7 @@ func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine
 	return vm
 }
 
-type VMSelector struct {
+type VMISelector struct {
 	// Name of the VirtualMachineInstance to migrate
 	Name string `json:"name" valid:"required"`
 }
@@ -412,7 +412,7 @@ type VMSelector struct {
 // Given a VirtualMachineInstance, update all NodeSelectorTerms with anti-affinity for that VirtualMachineInstance's node.
 // This is useful for the case when a migration away from a node must occur.
 // This method returns the full Affinity structure updated the anti affinity terms
-func UpdateAntiAffinityFromVMNode(pod *k8sv1.Pod, vm *VirtualMachineInstance) *k8sv1.Affinity {
+func UpdateAntiAffinityFromVMINode(pod *k8sv1.Pod, vm *VirtualMachineInstance) *k8sv1.Affinity {
 	if pod.Spec.Affinity == nil {
 		pod.Spec.Affinity = &k8sv1.Affinity{}
 	}
@@ -438,7 +438,7 @@ func UpdateAntiAffinityFromVMNode(pod *k8sv1.Pod, vm *VirtualMachineInstance) *k
 			term.MatchExpressions = []k8sv1.NodeSelectorRequirement{}
 		}
 
-		term.MatchExpressions = append(term.MatchExpressions, PrepareVMNodeAntiAffinitySelectorRequirement(vm))
+		term.MatchExpressions = append(term.MatchExpressions, PrepareVMINodeAntiAffinitySelectorRequirement(vm))
 		selector.NodeSelectorTerms[idx] = term
 	}
 
@@ -447,7 +447,7 @@ func UpdateAntiAffinityFromVMNode(pod *k8sv1.Pod, vm *VirtualMachineInstance) *k
 
 // Given a VirtualMachineInstance, create a NodeSelectorTerm with anti-affinity for that VirtualMachineInstance's node.
 // This is useful for the case when a migration away from a node must occur.
-func PrepareVMNodeAntiAffinitySelectorRequirement(vm *VirtualMachineInstance) k8sv1.NodeSelectorRequirement {
+func PrepareVMINodeAntiAffinitySelectorRequirement(vm *VirtualMachineInstance) k8sv1.NodeSelectorRequirement {
 	return k8sv1.NodeSelectorRequirement{
 		Key:      "kubernetes.io/hostname",
 		Operator: k8sv1.NodeSelectorOpNotIn,
@@ -463,12 +463,12 @@ type VirtualMachineInstanceReplicaSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
-	Spec VMReplicaSetSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineInstanceReplicaSetSpec `json:"spec,omitempty" valid:"required"`
 	// Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.
-	Status VMReplicaSetStatus `json:"status,omitempty"`
+	Status VirtualMachineInstanceReplicaSetStatus `json:"status,omitempty"`
 }
 
-// VMList is a list of VMs
+// VMIList is a list of VMIs
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
@@ -480,7 +480,7 @@ type VirtualMachineInstanceReplicaSetList struct {
 
 // ---
 // +k8s:openapi-gen=true
-type VMReplicaSetSpec struct {
+type VirtualMachineInstanceReplicaSetSpec struct {
 	// Number of desired pods. This is a pointer to distinguish between explicit
 	// zero and not specified. Defaults to 1.
 	// +optional
@@ -491,7 +491,7 @@ type VMReplicaSetSpec struct {
 	Selector *metav1.LabelSelector `json:"selector" valid:"required"`
 
 	// Template describes the pods that will be created.
-	Template *VMTemplateSpec `json:"template" valid:"required"`
+	Template *VirtualMachineInstanceTemplateSpec `json:"template" valid:"required"`
 
 	// Indicates that the replica set is paused.
 	// +optional
@@ -500,7 +500,7 @@ type VMReplicaSetSpec struct {
 
 // ---
 // +k8s:openapi-gen=true
-type VMReplicaSetStatus struct {
+type VirtualMachineInstanceReplicaSetStatus struct {
 	// Total number of non-terminated pods targeted by this deployment (their labels match the selector).
 	// +optional
 	Replicas int32 `json:"replicas,omitempty" protobuf:"varint,2,opt,name=replicas"`
@@ -540,7 +540,7 @@ const (
 
 // ---
 // +k8s:openapi-gen=true
-type VMTemplateSpec struct {
+type VirtualMachineInstanceTemplateSpec struct {
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
 	Spec VirtualMachineInstanceSpec `json:"spec,omitempty" valid:"required"`
@@ -557,8 +557,8 @@ func (v *VirtualMachineInstanceReplicaSet) GetObjectMeta() metav1.Object {
 }
 
 func (v *VirtualMachineInstanceReplicaSet) UnmarshalJSON(data []byte) error {
-	type VMReplicaSetCopy VirtualMachineInstanceReplicaSet
-	tmp := VMReplicaSetCopy{}
+	type VMIReplicaSetCopy VirtualMachineInstanceReplicaSet
+	tmp := VMIReplicaSetCopy{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
@@ -569,8 +569,8 @@ func (v *VirtualMachineInstanceReplicaSet) UnmarshalJSON(data []byte) error {
 }
 
 func (vl *VirtualMachineInstanceReplicaSetList) UnmarshalJSON(data []byte) error {
-	type VMReplicaSetListCopy VirtualMachineInstanceReplicaSetList
-	tmp := VMReplicaSetListCopy{}
+	type VMIReplicaSetListCopy VirtualMachineInstanceReplicaSetList
+	tmp := VMIReplicaSetListCopy{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
@@ -623,7 +623,7 @@ type VirtualMachineInstancePresetList struct {
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstancePresetSpec struct {
-	// Selector is a label query over a set of VMs.
+	// Selector is a label query over a set of VMIs.
 	// Required.
 	Selector metav1.LabelSelector `json:"selector"`
 	// Domain is the same object type as contained in VirtualMachineInstanceSpec
@@ -709,7 +709,7 @@ type VirtualMachineSpec struct {
 	Running bool `json:"running"`
 
 	// Template is the direct specification of VirtualMachineInstance
-	Template *VMTemplateSpec `json:"template"`
+	Template *VirtualMachineInstanceTemplateSpec `json:"template"`
 }
 
 // VirtualMachineStatus represents the status returned by the

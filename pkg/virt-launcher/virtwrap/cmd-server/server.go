@@ -47,10 +47,10 @@ type Launcher struct {
 }
 
 func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, error) {
-	if args.VM == nil {
+	if args.VMI == nil {
 		return nil, goerror.New(fmt.Sprintf("vm object not present in command server args"))
 	}
-	return args.VM, nil
+	return args.VMI, nil
 }
 
 func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
@@ -63,7 +63,7 @@ func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	_, err = s.domainManager.SyncVM(vm, s.allowEmulation)
+	_, err = s.domainManager.SyncVMI(vm, s.allowEmulation)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Failed to sync vm")
 		reply.Success = false
@@ -85,7 +85,7 @@ func (s *Launcher) Kill(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	err = s.domainManager.KillVM(vm)
+	err = s.domainManager.KillVMI(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Failed to kill vm")
 		reply.Success = false
@@ -107,7 +107,7 @@ func (s *Launcher) Shutdown(args *cmdclient.Args, reply *cmdclient.Reply) error 
 		return nil
 	}
 
-	err = s.domainManager.SignalShutdownVM(vm)
+	err = s.domainManager.SignalShutdownVMI(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Failed to signal shutdown for vm")
 		reply.Success = false

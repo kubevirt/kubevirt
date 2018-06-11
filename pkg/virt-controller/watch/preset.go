@@ -367,7 +367,7 @@ func applyPresets(vm *kubev1.VirtualMachineInstance, presets []kubev1.VirtualMac
 			logger.Object(vm).Info(msg)
 		}
 		if applied {
-			annotateVM(vm, preset)
+			annotateVMI(vm, preset)
 		}
 	}
 	return true
@@ -400,7 +400,7 @@ func addInitializedAnnotation(vm *kubev1.VirtualMachineInstance) {
 	}
 }
 
-func annotateVM(vm *kubev1.VirtualMachineInstance, preset kubev1.VirtualMachineInstancePreset) {
+func annotateVMI(vm *kubev1.VirtualMachineInstance, preset kubev1.VirtualMachineInstancePreset) {
 	if vm.Annotations == nil {
 		vm.Annotations = map[string]string{}
 	}

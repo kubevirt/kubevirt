@@ -90,7 +90,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			preset := v1.VirtualMachineInstancePreset{}
 			preset.ObjectMeta.Name = "test-preset"
 
-			annotateVM(&vm, preset)
+			annotateVMI(&vm, preset)
 			Expect(len(vm.Annotations)).To(Equal(1))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal(v1.GroupVersion.String()))
 		})
@@ -99,10 +99,10 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			vm := v1.VirtualMachineInstance{}
 			preset := v1.VirtualMachineInstancePreset{}
 			preset.ObjectMeta.Name = "preset-foo"
-			annotateVM(&vm, preset)
+			annotateVMI(&vm, preset)
 			preset = v1.VirtualMachineInstancePreset{}
 			preset.ObjectMeta.Name = "preset-bar"
-			annotateVM(&vm, preset)
+			annotateVMI(&vm, preset)
 
 			Expect(len(vm.Annotations)).To(Equal(2))
 			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/preset-foo"]).To(Equal(v1.GroupVersion.String()))
@@ -833,7 +833,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 
 		It("should not process an initialized VirtualMachineInstance", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			addInitializedAnnotation(vm)
 			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 
@@ -858,7 +858,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 
 		It("should initialize a VirtualMachineInstance if needed", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			key, _ := cache.MetaNamespaceKeyFunc(vm)
 			app.vmPresetCache.Add(vm)
@@ -881,7 +881,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 
 		It("should apply presets", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 
 			// Register the expected REST call
@@ -902,7 +902,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 
 		It("should annotate partially applied presets", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 			vm.Spec.Domain = v1.DomainSpec{CPU: &v1.CPU{Cores: 6}}
 
@@ -924,7 +924,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 
 		It("should should not annotate presets with no settings successfully applied", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 			vm.Spec.Domain = v1.DomainSpec{
 				CPU:      &v1.CPU{Cores: 6},
@@ -951,7 +951,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 
 		It("should not mark a VirtualMachineInstance without presets as failed", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -971,7 +971,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 
 		It("should check if exclusion annotation is \"true\"", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 			vm.Annotations = map[string]string{}
 			vm.Annotations[exclusionMarking] = "anything"
@@ -997,7 +997,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 
 		It("should not add annotations to VirtualMachineInstance's with exclusion marking", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Labels = map[string]string{flavorKey: presetFlavor}
 			vm.Annotations = map[string]string{}
 			vm.Annotations[exclusionMarking] = "true"
@@ -1022,8 +1022,8 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
 		})
 
-		It("should set default values to VM", func() {
-			vm := v1.NewMinimalVM("testvm")
+		It("should set default values to VMI", func() {
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec = v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{

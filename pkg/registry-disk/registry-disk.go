@@ -37,13 +37,13 @@ var registryDiskOwner = "qemu"
 
 var mountBaseDir = "/var/run/libvirt/kubevirt-disk-dir"
 
-func generateVMBaseDir(vm *v1.VirtualMachineInstance) string {
+func generateVMIBaseDir(vm *v1.VirtualMachineInstance) string {
 	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 	return fmt.Sprintf("%s/%s/%s", mountBaseDir, namespace, domain)
 }
 func generateVolumeMountDir(vm *v1.VirtualMachineInstance, volumeName string) string {
-	baseDir := generateVMBaseDir(vm)
+	baseDir := generateVMIBaseDir(vm)
 	return fmt.Sprintf("%s/disk_%s", baseDir, volumeName)
 }
 

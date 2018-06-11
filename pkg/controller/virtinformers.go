@@ -46,10 +46,10 @@ type KubeInformerFactory interface {
 	Start(stopCh <-chan struct{})
 
 	// Watches for vm objects
-	VM() cache.SharedIndexInformer
+	VMI() cache.SharedIndexInformer
 
 	// Watches for VirtualMachineInstanceReplicaSet objects
-	VMReplicaSet() cache.SharedIndexInformer
+	VMIReplicaSet() cache.SharedIndexInformer
 
 	// Watches for VirtualMachineInstancePreset objects
 	VirtualMachinePreset() cache.SharedIndexInformer
@@ -60,7 +60,7 @@ type KubeInformerFactory interface {
 	// Watches for nodes
 	KubeVirtNode() cache.SharedIndexInformer
 
-	// VirtualMachine handles the VMs that are stopped or not running
+	// VirtualMachine handles the VMIs that are stopped or not running
 	VirtualMachine() cache.SharedIndexInformer
 
 	// Watches for ConfigMap objects
@@ -124,14 +124,14 @@ func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer)
 	return informer
 }
 
-func (f *kubeInformerFactory) VM() cache.SharedIndexInformer {
+func (f *kubeInformerFactory) VMI() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstance{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
-func (f *kubeInformerFactory) VMReplicaSet() cache.SharedIndexInformer {
+func (f *kubeInformerFactory) VMIReplicaSet() cache.SharedIndexInformer {
 	return f.getInformer("vmrsInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstancereplicasets", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstanceReplicaSet{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})

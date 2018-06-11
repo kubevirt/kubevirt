@@ -101,27 +101,27 @@ var _ = Describe("Node controller with", func() {
 	Context("pods and vms given", func() {
 		It("should only select stuck vms", func() {
 			node := NewHealthyNode("test")
-			finalVM := NewRunningVirtualMachine("finalVM", node)
-			finalVM.Status.Phase = virtv1.Succeeded
+			finalVMI := NewRunningVirtualMachine("finalVMI", node)
+			finalVMI.Status.Phase = virtv1.Succeeded
 			vmWithPod := NewRunningVirtualMachine("vmWithPod", node)
-			podForVM := NewHealthyPodForVirtualMachine("podForVM", vmWithPod)
+			podForVMI := NewHealthyPodForVirtualMachine("podForVMI", vmWithPod)
 			vmWithPodInDifferentNamespace := NewRunningVirtualMachine("vmWithPodInDifferentNamespace", node)
 			podInDifferentNamespace := NewHealthyPodForVirtualMachine("podInDifferentnamespace", vmWithPodInDifferentNamespace)
 			podInDifferentNamespace.Namespace = "wrong"
 			vmWithoutPod := NewRunningVirtualMachine("vmWithoutPod", node)
 
 			vms := filterStuckVirtualMachinesWithoutPods([]*virtv1.VirtualMachineInstance{
-				finalVM,
+				finalVMI,
 				vmWithPod,
 				vmWithPodInDifferentNamespace,
 				vmWithoutPod,
 			}, []*k8sv1.Pod{
-				podForVM,
+				podForVMI,
 				podInDifferentNamespace,
 			})
 
 			By("filtering out vms in final state")
-			Expect(vms).ToNot(ContainElement(finalVM))
+			Expect(vms).ToNot(ContainElement(finalVMI))
 
 			By("filtering out vms which have a pod")
 			Expect(vms).ToNot(ContainElement(vmWithPod))
@@ -338,7 +338,7 @@ func nowAsJSONWithOffset(offset time.Duration) string {
 }
 
 func NewRunningVirtualMachine(vmName string, node *k8sv1.Node) *virtv1.VirtualMachineInstance {
-	vm := virtv1.NewMinimalVM(vmName)
+	vm := virtv1.NewMinimalVMI(vmName)
 	vm.UID = "1234"
 	vm.Status.Phase = virtv1.Running
 	vm.Status.NodeName = node.Name

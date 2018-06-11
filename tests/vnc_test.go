@@ -49,9 +49,9 @@ var _ = Describe("VNC", func() {
 		Context("with VNC connection", func() {
 			It("should allow accessing the VNC device", func() {
 				By("Starting a VirtualMachineInstance")
-				vm := tests.NewRandomVM()
+				vm := tests.NewRandomVMI()
 				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
-				tests.WaitForSuccessfulVMStart(vm)
+				tests.WaitForSuccessfulVMIStart(vm)
 
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()

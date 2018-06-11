@@ -639,7 +639,7 @@ func cleanNamespaces() {
 		// Remove all VirtualMachineReplicaSets
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do().Error())
 
-		// Remove all VMs
+		// Remove all VMIs
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do().Error())
 		vms, err := virtCli.VirtualMachineInstance(namespace).List(metav1.ListOptions{})
 		PanicOnError(err)
@@ -713,34 +713,34 @@ func PanicOnError(err error) {
 	}
 }
 
-func NewRandomVM() *v1.VirtualMachineInstance {
-	return NewRandomVMWithNS(NamespaceTestDefault)
+func NewRandomVMI() *v1.VirtualMachineInstance {
+	return NewRandomVMIWithNS(NamespaceTestDefault)
 }
 
-func NewRandomVMWithNS(namespace string) *v1.VirtualMachineInstance {
-	vm := v1.NewMinimalVMWithNS(namespace, "testvm"+rand.String(5))
+func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
+	vm := v1.NewMinimalVMIWithNS(namespace, "testvm"+rand.String(5))
 
 	t := defaultTestGracePeriod
 	vm.Spec.TerminationGracePeriodSeconds = &t
 	return vm
 }
 
-func NewRandomVMWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMWithEphemeralDisk(containerImage)
+func NewRandomVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMachineInstance {
+	vm := NewRandomVMIWithEphemeralDisk(containerImage)
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vm
 }
 
-func NewRandomVMWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMWithEphemeralDiskAndUserdata(containerImage, userData)
+func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vm := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vm
 }
 
-func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vm := NewRandomVM()
+func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
+	vm := NewRandomVMI()
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	AddEphemeralDisk(vm, "disk0", "virtio", containerImage)
@@ -821,8 +821,8 @@ func AddEphemeralFloppy(vm *v1.VirtualMachineInstance, name string, image string
 	return vm
 }
 
-func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMWithEphemeralDisk(containerImage)
+func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vm := NewRandomVMIWithEphemeralDisk(containerImage)
 
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "disk1",
@@ -844,8 +844,8 @@ func NewRandomVMWithEphemeralDiskAndUserdata(containerImage string, userData str
 	return vm
 }
 
-func NewRandomVMWithPVC(claimName string) *v1.VirtualMachineInstance {
-	vm := NewRandomVM()
+func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
+	vm := NewRandomVMI()
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
@@ -868,8 +868,8 @@ func NewRandomVMWithPVC(claimName string) *v1.VirtualMachineInstance {
 	return vm
 }
 
-func NewRandomVMWithCDRom(claimName string) *v1.VirtualMachineInstance {
-	vm := NewRandomVM()
+func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
+	vm := NewRandomVMI()
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
@@ -894,8 +894,8 @@ func NewRandomVMWithCDRom(claimName string) *v1.VirtualMachineInstance {
 	return vm
 }
 
-func NewRandomVMWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
-	vm := NewRandomVM()
+func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
+	vm := NewRandomVMI()
 
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
@@ -921,8 +921,8 @@ func NewRandomVMWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 	return vm
 }
 
-func NewRandomVMWithWatchdog() *v1.VirtualMachineInstance {
-	vm := NewRandomVMWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
+	vm := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
 
 	vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",
@@ -935,9 +935,9 @@ func NewRandomVMWithWatchdog() *v1.VirtualMachineInstance {
 	return vm
 }
 
-func NewRandomVMWithe1000NetworkInterface() *v1.VirtualMachineInstance {
+func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurily before link is ready
-	vm := NewRandomVMWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	vm := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
 	vm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
 	return vm
 }
@@ -945,7 +945,7 @@ func NewRandomVMWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVmStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vm, ok := obj.(*v1.VirtualMachineInstance)
-	Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+	Expect(ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
@@ -977,11 +977,11 @@ func waitForVmStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeN
 	return
 }
 
-func WaitForSuccessfulVMStartIgnoreWarnings(vm runtime.Object) string {
+func WaitForSuccessfulVMIStartIgnoreWarnings(vm runtime.Object) string {
 	return waitForVmStart(vm, 30, true)
 }
 
-func WaitForSuccessfulVMStartWithTimeout(vm runtime.Object, seconds int) (nodeName string) {
+func WaitForSuccessfulVMIStartWithTimeout(vm runtime.Object, seconds int) (nodeName string) {
 	return waitForVmStart(vm, seconds, false)
 }
 
@@ -994,7 +994,7 @@ func WaitForVirtualMachineToDisappearWithTimeout(vm *v1.VirtualMachineInstance, 
 	}, seconds, 1*time.Second).Should(BeTrue())
 }
 
-func WaitForSuccessfulVMStart(vm runtime.Object) string {
+func WaitForSuccessfulVMIStart(vm runtime.Object) string {
 	return waitForVmStart(vm, 90, false)
 }
 
@@ -1002,16 +1002,16 @@ func NewInt32(x int32) *int32 {
 	return &x
 }
 
-func NewRandomReplicaSetFromVM(vm *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
+func NewRandomReplicaSetFromVMI(vm *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(5)},
-		Spec: v1.VMReplicaSetSpec{
+		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"name": name},
 			},
-			Template: &v1.VMTemplateSpec{
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"name": name},
 					Name:   vm.ObjectMeta.Name,
@@ -1307,7 +1307,7 @@ func NotDeleted(vms *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMach
 	return
 }
 
-func UnfinishedVMPodSelector(vm *v1.VirtualMachineInstance) metav1.ListOptions {
+func UnfinishedVMIPodSelector(vm *v1.VirtualMachineInstance) metav1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(k8sv1.PodFailed) +
 			",status.phase!=" + string(k8sv1.PodSucceeded))

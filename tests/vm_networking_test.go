@@ -51,8 +51,8 @@ var _ = Describe("Networking", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var inboundVM *v1.VirtualMachineInstance
-	var outboundVM *v1.VirtualMachineInstance
+	var inboundVMI *v1.VirtualMachineInstance
+	var outboundVMI *v1.VirtualMachineInstance
 
 	// newHelloWorldJob takes a dns entry or an IP which it will use create a pod
 	// which tries to contact the host on port 1500. It expects to receive "Hello World!" to succeed.
@@ -67,7 +67,7 @@ var _ = Describe("Networking", func() {
 		defer GinkgoRecover()
 
 		var s int64 = 500
-		logs := virtClient.CoreV1().Pods(inboundVM.Namespace).GetLogs(pod.Name, &v12.PodLogOptions{SinceSeconds: &s})
+		logs := virtClient.CoreV1().Pods(inboundVMI.Namespace).GetLogs(pod.Name, &v12.PodLogOptions{SinceSeconds: &s})
 		rawLogs, err := logs.DoRaw()
 		Expect(err).ToNot(HaveOccurred())
 		log.Log.Infof("%v", rawLogs)
@@ -75,11 +75,11 @@ var _ = Describe("Networking", func() {
 
 	waitForPodToFinish := func(pod *v12.Pod) v12.PodPhase {
 		Eventually(func() v12.PodPhase {
-			j, err := virtClient.Core().Pods(inboundVM.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
+			j, err := virtClient.Core().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return j.Status.Phase
 		}, 30*time.Second, 1*time.Second).Should(Or(Equal(v12.PodSucceeded), Equal(v12.PodFailed)))
-		j, err := virtClient.Core().Pods(inboundVM.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
+		j, err := virtClient.Core().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		logPodLogs(pod)
 		return j.Status.Phase
@@ -87,7 +87,7 @@ var _ = Describe("Networking", func() {
 
 	waitUntilVmReady := func(vm *v1.VirtualMachineInstance, expecterFactory tests.VmExpecterFactory) {
 		// Wait for VirtualMachineInstance start
-		tests.WaitForSuccessfulVMStart(vm)
+		tests.WaitForSuccessfulVMIStart(vm)
 
 		// Fetch the new VirtualMachineInstance with updated status
 		vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, v13.GetOptions{})
@@ -104,25 +104,25 @@ var _ = Describe("Networking", func() {
 		tests.BeforeTestCleanup()
 
 		// Create and start inbound VirtualMachineInstance
-		inboundVM = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		inboundVM.Labels = map[string]string{"expose": "me"}
-		inboundVM.Spec.Subdomain = "myvm"
-		inboundVM.Spec.Hostname = "my-subdomain"
-		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(inboundVM)
+		inboundVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		inboundVMI.Labels = map[string]string{"expose": "me"}
+		inboundVMI.Spec.Subdomain = "myvm"
+		inboundVMI.Spec.Hostname = "my-subdomain"
+		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(inboundVMI)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Create and start outbound VirtualMachineInstance
-		outboundVM = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(outboundVM)
+		outboundVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(outboundVMI)
 		Expect(err).ToNot(HaveOccurred())
 
-		for _, networkVm := range []*v1.VirtualMachineInstance{inboundVM, outboundVM} {
+		for _, networkVm := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 			waitUntilVmReady(networkVm, tests.LoggedInCirrosExpecter)
 		}
 
-		inboundVM, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(inboundVM.Name, v13.GetOptions{})
+		inboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(inboundVMI.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVM, 10*time.Second)
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVMI, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 		defer expecter.Close()
 		resp, err := expecter.ExpectBatch([]expect.Batcher{
@@ -136,7 +136,7 @@ var _ = Describe("Networking", func() {
 		log.DefaultLogger().Infof("%v", resp)
 		Expect(err).ToNot(HaveOccurred())
 
-		outboundVM, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(outboundVM.Name, v13.GetOptions{})
+		outboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(outboundVMI.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -151,19 +151,19 @@ var _ = Describe("Networking", func() {
 			payloadSize := expectedMtu - ipHeaderSize
 
 			// Wait until the VirtualMachineInstance is booted, ping google and check if we can reach the internet
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVM, 10*time.Second)
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVMI, 10*time.Second)
 			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
 
 			switch destination {
 			case "Internet":
 				addr = "www.google.com"
-			case "InboundVM":
-				addr = inboundVM.Status.Interfaces[0].IP
+			case "InboundVMI":
+				addr = inboundVMI.Status.Interfaces[0].IP
 			}
 
 			By("checking br1 MTU inside the pod")
-			vmPod := tests.GetRunningPodByLabel(outboundVM.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+			vmPod := tests.GetRunningPodByLabel(outboundVMI.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
 				vmPod,
@@ -192,7 +192,7 @@ var _ = Describe("Networking", func() {
 			By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
 			// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
 			// we transferred its IP address under DHCP server control, so the
-			// only thing we can validate is connectivity between VMs
+			// only thing we can validate is connectivity between VMIs
 			//
 			// NOTE: cirros ping doesn't support -M do that could be used to
 			// validate end-to-end connectivity with Don't Fragment flag set
@@ -208,13 +208,13 @@ var _ = Describe("Networking", func() {
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("the Inbound VirtualMachineInstance", "InboundVM"),
+			table.Entry("the Inbound VirtualMachineInstance", "InboundVMI"),
 			table.Entry("the internet", "Internet"),
 		)
 
 		table.DescribeTable("should be reachable via the propagated IP from a Pod", func(op v12.NodeSelectorOperator, hostNetwork bool) {
 
-			ip := inboundVM.Status.Interfaces[0].IP
+			ip := inboundVMI.Status.Interfaces[0].IP
 
 			//TODO if node count 1, skip whe nv12.NodeSelectorOpOut
 			nodes, err := virtClient.CoreV1().Nodes().List(v13.ListOptions{})
@@ -232,7 +232,7 @@ var _ = Describe("Networking", func() {
 						NodeSelectorTerms: []v12.NodeSelectorTerm{
 							{
 								MatchExpressions: []v12.NodeSelectorRequirement{
-									{Key: "kubernetes.io/hostname", Operator: op, Values: []string{inboundVM.Status.NodeName}},
+									{Key: "kubernetes.io/hostname", Operator: op, Values: []string{inboundVMI.Status.NodeName}},
 								},
 							},
 						},
@@ -241,7 +241,7 @@ var _ = Describe("Networking", func() {
 			}
 			job.Spec.HostNetwork = hostNetwork
 
-			job, err = virtClient.CoreV1().Pods(inboundVM.ObjectMeta.Namespace).Create(job)
+			job, err = virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Create(job)
 			Expect(err).ToNot(HaveOccurred())
 			phase := waitForPodToFinish(job)
 			Expect(phase).To(Equal(v12.PodSucceeded))
@@ -268,15 +268,15 @@ var _ = Describe("Networking", func() {
 					},
 				}
 
-				_, err := virtClient.CoreV1().Services(inboundVM.Namespace).Create(service)
+				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
 
 			})
 			It(" should be able to reach the vm based on labels specified on the vm", func() {
 
 				By("starting a pod which tries to reach the vm via the defined service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVM.Namespace))
-				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
+				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace))
+				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("waiting for the pod to report a successful connection attempt")
@@ -286,8 +286,8 @@ var _ = Describe("Networking", func() {
 			It("should fail to reach the vm if an invalid servicename is used", func() {
 
 				By("starting a pod which tries to reach the vm via a non-existent service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVM.Namespace))
-				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
+				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace))
+				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for the pod to report an  unsuccessful connection attempt")
 				phase := waitForPodToFinish(job)
@@ -295,7 +295,7 @@ var _ = Describe("Networking", func() {
 			})
 
 			AfterEach(func() {
-				Expect(virtClient.CoreV1().Services(inboundVM.Namespace).Delete("myservice", &v13.DeleteOptions{})).To(Succeed())
+				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete("myservice", &v13.DeleteOptions{})).To(Succeed())
 			})
 		})
 
@@ -303,7 +303,7 @@ var _ = Describe("Networking", func() {
 			BeforeEach(func() {
 				service := &v12.Service{
 					ObjectMeta: v13.ObjectMeta{
-						Name: inboundVM.Spec.Subdomain,
+						Name: inboundVMI.Spec.Subdomain,
 					},
 					Spec: v12.ServiceSpec{
 						ClusterIP: v12.ClusterIPNone,
@@ -318,14 +318,14 @@ var _ = Describe("Networking", func() {
 						},
 					},
 				}
-				_, err := virtClient.CoreV1().Services(inboundVM.Namespace).Create(service)
+				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("should be able to reach the vm via its unique fully qualified domain name", func() {
 				By("starting a pod which tries to reach the vm via the defined service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVM.Spec.Hostname, inboundVM.Spec.Subdomain, inboundVM.Namespace))
-				job, err = virtClient.CoreV1().Pods(inboundVM.Namespace).Create(job)
+				job := newHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace))
+				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("waiting for the pod to report a successful connection attempt")
@@ -334,7 +334,7 @@ var _ = Describe("Networking", func() {
 			})
 
 			AfterEach(func() {
-				Expect(virtClient.CoreV1().Services(inboundVM.Namespace).Delete(inboundVM.Spec.Subdomain, &v13.DeleteOptions{})).To(Succeed())
+				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(inboundVMI.Spec.Subdomain, &v13.DeleteOptions{})).To(Succeed())
 			})
 		})
 	})
@@ -358,20 +358,20 @@ var _ = Describe("Networking", func() {
 		It("should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
-			e1000VM := tests.NewRandomVMWithe1000NetworkInterface()
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(e1000VM)
+			e1000VMI := tests.NewRandomVMIWithe1000NetworkInterface()
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(e1000VMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVmReady(e1000VM, tests.LoggedInAlpineExpecter)
+			waitUntilVmReady(e1000VMI, tests.LoggedInAlpineExpecter)
 			// as defined in https://vendev.org/pci/ven_8086/
-			checkNetworkVendor(e1000VM, "0x8086", "localhost:~#")
+			checkNetworkVendor(e1000VMI, "0x8086", "localhost:~#")
 		})
 	})
 
 	Context("VirtualMachineInstance with default interface model", func() {
 		It("should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
-			for _, networkVm := range []*v1.VirtualMachineInstance{inboundVM, outboundVM} {
+			for _, networkVm := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 				// as defined in https://vendev.org/pci/ven_1af4/
 				checkNetworkVendor(networkVm, "0x1af4", "\\$ ")
 			}

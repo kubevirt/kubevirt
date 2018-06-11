@@ -162,7 +162,7 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	return
 }
 
-func (d *VirtualMachineController) updateVMStatus(vm *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
+func (d *VirtualMachineController) updateVMIStatus(vm *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
 	if vm.IsFinal() {
@@ -211,7 +211,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	// Poplulate the VirtualMachineInstance store with known Domains on the host, to get deletes since the last run
 	for _, domain := range c.domainInformer.GetStore().List() {
 		d := domain.(*api.Domain)
-		c.vmInformer.GetStore().Add(v1.NewVMReferenceFromNameWithNS(d.ObjectMeta.Namespace, d.ObjectMeta.Name))
+		c.vmInformer.GetStore().Add(v1.NewVMIReferenceFromNameWithNS(d.ObjectMeta.Namespace, d.ObjectMeta.Name))
 	}
 
 	go c.vmInformer.Run(stopCh)
@@ -250,7 +250,7 @@ func (c *VirtualMachineController) Execute() bool {
 	return true
 }
 
-func (d *VirtualMachineController) getVMFromCache(key string) (vm *v1.VirtualMachineInstance, exists bool, err error) {
+func (d *VirtualMachineController) getVMIFromCache(key string) (vm *v1.VirtualMachineInstance, exists bool, err error) {
 
 	// Fetch the latest Vm state from cache
 	obj, exists, err := d.vmInformer.GetStore().GetByKey(key)
@@ -266,7 +266,7 @@ func (d *VirtualMachineController) getVMFromCache(key string) (vm *v1.VirtualMac
 			// TODO log and don't retry
 			return nil, false, err
 		}
-		vm = v1.NewVMReferenceFromNameWithNS(namespace, name)
+		vm = v1.NewVMIReferenceFromNameWithNS(namespace, name)
 	} else {
 		vm = obj.(*v1.VirtualMachineInstance)
 	}
@@ -296,7 +296,7 @@ func (d *VirtualMachineController) execute(key string) error {
 	// set to true when VirtualMachineInstance is active or about to become active.
 	shouldUpdate := false
 
-	vm, vmExists, err := d.getVMFromCache(key)
+	vm, vmExists, err := d.getVMIFromCache(key)
 	if err != nil {
 		return err
 	}
@@ -349,7 +349,7 @@ func (d *VirtualMachineController) execute(key string) error {
 	// Determine if an active (or about to be active) VirtualMachineInstance should be updated.
 	if vmExists && !vm.IsFinal() {
 		// requiring the phase of the domain and VirtualMachineInstance to be in sync is an
-		// optimization that prevents unnecessary re-processing VMs during the start flow.
+		// optimization that prevents unnecessary re-processing VMIs during the start flow.
 		phase, err := d.calculateVmPhaseForStatusReason(domain, vm)
 		if err != nil {
 			return err
@@ -370,7 +370,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// Process the VirtualMachineInstance update in this order.
 	// * Shutdown and Deletion due to VirtualMachineInstance deletion, process stopping, graceful shutdown trigger, etc...
-	// * Cleanup of already shutdown and Deleted VMs
+	// * Cleanup of already shutdown and Deleted VMIs
 	// * Update due to spec change and initial start flow.
 	if shouldShutdownAndDelete {
 		log.Log.Object(vm).V(3).Info("Processing shutdown.")
@@ -392,7 +392,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
 	if vmExists {
-		err = d.updateVMStatus(vm.DeepCopy(), domain, syncErr)
+		err = d.updateVMIStatus(vm.DeepCopy(), domain, syncErr)
 		if err != nil {
 			log.Log.Object(vm).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
 			return err
@@ -549,9 +549,9 @@ func (d *VirtualMachineController) processVmShutdown(vm *v1.VirtualMachineInstan
 
 }
 
-func (d *VirtualMachineController) processVmUpdate(origVM *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 
-	vm := origVM.DeepCopy()
+	vm := origVMI.DeepCopy()
 
 	isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vm)
 

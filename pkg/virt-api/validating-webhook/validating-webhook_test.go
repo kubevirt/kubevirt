@@ -40,7 +40,7 @@ import (
 var _ = Describe("Validating Webhook", func() {
 	Context("with VirtualMachineInstance admission review", func() {
 		It("reject invalid VirtualMachineInstance spec", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
@@ -56,13 +56,13 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMs(ar)
+			resp := admitVMIs(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].volumeName"))
 		})
 		It("should accept valid vm spec", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
@@ -83,11 +83,11 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				},
 			}
-			resp := admitVMs(ar)
+			resp := admitVMIs(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})
-	Context("with VMRS admission review", func() {
+	Context("with VMIRS admission review", func() {
 		table.DescribeTable("reject invalid VirtualMachineInstance spec", func(vmrs *v1.VirtualMachineInstanceReplicaSet, causes []string) {
 			vmrsBytes, _ := json.Marshal(&vmrs)
 
@@ -104,7 +104,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMRS(ar)
+			resp := admitVMIRS(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(resp.Result.Details.Causes).To(HaveLen(len(causes)))
 			for i, cause := range causes {
@@ -112,7 +112,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 		},
 			table.Entry("with missing volume and missing labels", &v1.VirtualMachineInstanceReplicaSet{
-				Spec: v1.VMReplicaSetSpec{
+				Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "this"},
 					},
@@ -126,7 +126,7 @@ var _ = Describe("Validating Webhook", func() {
 				"spec.selector",
 			}),
 			table.Entry("with mismatching label selectors", &v1.VirtualMachineInstanceReplicaSet{
-				Spec: v1.VMReplicaSetSpec{
+				Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "not"},
 					},
@@ -138,7 +138,7 @@ var _ = Describe("Validating Webhook", func() {
 		)
 		It("should accept valid vm spec", func() {
 			vmrs := &v1.VirtualMachineInstanceReplicaSet{
-				Spec: v1.VMReplicaSetSpec{
+				Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "me"},
 					},
@@ -172,14 +172,14 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMRS(ar)
+			resp := admitVMIRS(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})
 
-	Context("with OVM admission review", func() {
+	Context("with VM admission review", func() {
 		It("reject invalid VirtualMachineInstance spec", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
@@ -187,7 +187,7 @@ var _ = Describe("Validating Webhook", func() {
 			ovm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
 					Running: false,
-					Template: &v1.VMTemplateSpec{
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vm.Spec,
 					},
 				},
@@ -207,13 +207,13 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitOVMs(ar)
+			resp := admitVMs(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].volumeName"))
 		})
 		It("should accept valid vm spec", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
@@ -228,7 +228,7 @@ var _ = Describe("Validating Webhook", func() {
 			ovm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
 					Running: false,
-					Template: &v1.VMTemplateSpec{
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vm.Spec,
 					},
 				},
@@ -248,13 +248,13 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitOVMs(ar)
+			resp := admitVMs(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})
-	Context("with VMPreset admission review", func() {
+	Context("with VMIPreset admission review", func() {
 		It("reject invalid VirtualMachineInstance spec", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
@@ -283,13 +283,13 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMPreset(ar)
+			resp := admitVMIPreset(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0]"))
 		})
 		It("should accept valid vm spec", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
@@ -315,14 +315,14 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMPreset(ar)
+			resp := admitVMIPreset(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})
 
 	Context("with VirtualMachineInstance spec", func() {
 		It("should accept disk and volume lists equal to max element length", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			for i := 0; i < arrayLenMax; i++ {
 				diskName := fmt.Sprintf("testDisk%d", i)
@@ -343,7 +343,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject disk lists greater than max element length", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			for i := 0; i <= arrayLenMax; i++ {
 				diskName := "testDisk"
@@ -361,7 +361,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks"))
 		})
 		It("should reject volume lists greater than max element length", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			for i := 0; i <= arrayLenMax; i++ {
 				volumeName := "testVolume"
@@ -381,7 +381,7 @@ var _ = Describe("Validating Webhook", func() {
 		})
 
 		It("should reject disk with missing volume", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -393,7 +393,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].volumeName"))
 		})
 		It("should reject multiple disks referencing same volume", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			// verify two disks referencing the same volume are rejected
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
@@ -416,7 +416,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[1].volumeName"))
 		})
 		It("should generate multiple causes", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -435,7 +435,7 @@ var _ = Describe("Validating Webhook", func() {
 		})
 		table.DescribeTable("should verify LUN is mapped to PVC volume",
 			func(volume *v1.Volume, expectedErrors int) {
-				vm := v1.NewMinimalVM("testvm")
+				vm := v1.NewMinimalVMI("testvm")
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:       "testdisk",
 					VolumeName: "testvolume",
@@ -468,7 +468,7 @@ var _ = Describe("Validating Webhook", func() {
 	Context("with Volume", func() {
 		table.DescribeTable("should accept valid volumes",
 			func(volumeSource v1.VolumeSource) {
-				vm := v1.NewMinimalVM("testvm")
+				vm := v1.NewMinimalVMI("testvm")
 				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 					Name:         "testvolume",
 					VolumeSource: volumeSource,
@@ -484,7 +484,7 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
 		)
 		It("should reject volume with no volume source set", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -495,7 +495,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volume with multiple volume sources set", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -510,7 +510,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volumes with duplicate names", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -530,7 +530,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
 		table.DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			// generate fake userdata
 			userdata := ""
@@ -561,7 +561,7 @@ var _ = Describe("Validating Webhook", func() {
 		)
 
 		It("should reject cloud-init with invalid base64 data", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -579,7 +579,7 @@ var _ = Describe("Validating Webhook", func() {
 	Context("with Disk", func() {
 		table.DescribeTable("should accept valid disks",
 			func(disk v1.Disk) {
-				vm := v1.NewMinimalVM("testvm")
+				vm := v1.NewMinimalVMI("testvm")
 
 				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, disk)
 
@@ -601,7 +601,7 @@ var _ = Describe("Validating Webhook", func() {
 			),
 		)
 		It("should allow disk without a target", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -619,7 +619,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject disks with duplicate names ", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -641,7 +641,7 @@ var _ = Describe("Validating Webhook", func() {
 		})
 
 		It("should reject disk with multiple targets ", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -664,7 +664,7 @@ var _ = Describe("Validating Webhook", func() {
 		})
 
 		It("should accept a boot order greater than '0'", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			order := uint(1)
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
@@ -681,7 +681,7 @@ var _ = Describe("Validating Webhook", func() {
 		})
 
 		It("should reject a disk with a boot order of '0'", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			order := uint(0)
 
 			vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
@@ -723,7 +723,7 @@ func (b *virtualMachineBuilder) WithVolume(volume v1.Volume) *virtualMachineBuil
 
 func (b *virtualMachineBuilder) Build() *v1.VirtualMachineInstance {
 
-	vm := v1.NewMinimalVM("testvm")
+	vm := v1.NewMinimalVMI("testvm")
 	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, b.disks...)
 	vm.Spec.Volumes = append(vm.Spec.Volumes, b.volumes...)
 	vm.Labels = b.labels
@@ -731,10 +731,10 @@ func (b *virtualMachineBuilder) Build() *v1.VirtualMachineInstance {
 	return vm
 }
 
-func (b *virtualMachineBuilder) BuildTemplate() *v1.VMTemplateSpec {
+func (b *virtualMachineBuilder) BuildTemplate() *v1.VirtualMachineInstanceTemplateSpec {
 	vm := b.Build()
 
-	return &v1.VMTemplateSpec{
+	return &v1.VirtualMachineInstanceTemplateSpec{
 		ObjectMeta: vm.ObjectMeta,
 		Spec:       vm.Spec,
 	}

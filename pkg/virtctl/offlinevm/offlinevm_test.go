@@ -24,7 +24,7 @@ var _ = Describe("VirtualMachine", func() {
 	})
 })
 
-func TestOVM(t *testing.T) {
+func TestVM(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OfflineVM")
+	RunSpecs(t, "OfflineVMI")
 }

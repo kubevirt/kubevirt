@@ -77,7 +77,7 @@ type ReplicaSetInterface interface {
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 }
 
-type VMPresetInterface interface {
+type VMIPresetInterface interface {
 	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachineInstancePreset, error)
 	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineInstancePresetList, error)
 	Create(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)

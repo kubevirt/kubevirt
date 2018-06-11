@@ -57,7 +57,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var vmInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
 	var stop chan struct{}
-	var controller *VMController
+	var controller *VMIController
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var podFeeder *testutils.PodFeeder
@@ -137,7 +137,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		recorder = record.NewFakeRecorder(100)
 
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		controller = NewVMController(services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()), vmInformer, podInformer, recorder, virtClient, configMapInformer)
+		controller = NewVMIController(services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()), vmInformer, podInformer, recorder, virtClient, configMapInformer)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
@@ -528,7 +528,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 })
 
 func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
-	vm := v1.NewMinimalVM(name)
+	vm := v1.NewMinimalVMI(name)
 	vm.UID = "1234"
 	vm.Status.Phase = v1.Pending
 	addInitializedAnnotation(vm)

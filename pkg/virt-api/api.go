@@ -635,16 +635,16 @@ func (app *virtAPIApp) createWebhook() error {
 	}
 
 	http.HandleFunc(vmiValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r)
+		validating_webhook.ServeVMIs(w, r)
 	})
 	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeOVMs(w, r)
+		validating_webhook.ServeVMs(w, r)
 	})
 	http.HandleFunc(vmrsValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMRS(w, r)
+		validating_webhook.ServeVMIRS(w, r)
 	})
 	http.HandleFunc(vmpresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMPreset(w, r)
+		validating_webhook.ServeVMIPreset(w, r)
 	})
 
 	return nil

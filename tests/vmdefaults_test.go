@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("VMDefaults", func() {
+var _ = Describe("VMIDefaults", func() {
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -40,8 +40,8 @@ var _ = Describe("VMDefaults", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		// create VM with missing disk target
-		vm = tests.NewRandomVM()
+		// create VMI with missing disk target
+		vm = tests.NewRandomVMI()
 		vm.Spec = v1.VirtualMachineInstanceSpec{
 			Domain: v1.DomainSpec{
 				Devices: v1.Devices{
@@ -65,8 +65,8 @@ var _ = Describe("VMDefaults", func() {
 
 	Context("Disk defaults", func() {
 
-		It("Should be applied to VMs", func() {
-			// create the VM first
+		It("Should be applied to VMIs", func() {
+			// create the VMI first
 			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 

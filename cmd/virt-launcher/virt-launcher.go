@@ -200,10 +200,10 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	// There are many conditions that can cause the qemu pid to exit that
 	// don't involve the VirtualMachineInstance's domain from being deleted from libvirt.
 	//
-	// KillVM is idempotent. Making a call to KillVM here ensures that the deletion
+	// KillVMI is idempotent. Making a call to KillVMI here ensures that the deletion
 	// occurs regardless if the VirtualMachineInstance crashed unexpectedly or if virt-handler requested
 	// a graceful shutdown.
-	domainManager.KillVM(vm)
+	domainManager.KillVMI(vm)
 
 	log.Log.Info("Waiting on final notifications to be sent to virt-handler.")
 
@@ -235,7 +235,7 @@ func main() {
 
 	log.InitializeLogging("virt-launcher")
 
-	vm := v1.NewVMReferenceFromNameWithNS(*namespace, *name)
+	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 
 	// Initialize local and shared directories
 	initializeDirs(*virtShareDir, *ephemeralDiskDir, *namespace, *name)
@@ -277,7 +277,7 @@ func main() {
 	}
 
 	shutdownCallback := func(pid int) {
-		err := domainManager.KillVM(vm)
+		err := domainManager.KillVMI(vm)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
 			syscall.Kill(pid, syscall.SIGTERM)

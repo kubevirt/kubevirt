@@ -55,14 +55,14 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", rsPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
-		fetchedVMReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
+		fetchedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(fetchedVMReplicaSet).To(Equal(rs))
+		Expect(fetchedVMIReplicaSet).To(Equal(rs))
 	})
 
-	It("should detect non existent VMReplicaSets", func() {
+	It("should detect non existent VMIReplicaSets", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", rsPath),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testrs")),
@@ -80,12 +80,12 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstanceReplicaSetList(*rs)),
 		))
-		fetchedVMReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
+		fetchedVMIReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(fetchedVMReplicaSetList.Items).To(HaveLen(1))
-		Expect(fetchedVMReplicaSetList.Items[0]).To(Equal(*rs))
+		Expect(fetchedVMIReplicaSetList.Items).To(HaveLen(1))
+		Expect(fetchedVMIReplicaSetList.Items[0]).To(Equal(*rs))
 	})
 
 	It("should create a VirtualMachineInstanceReplicaSet", func() {
@@ -94,11 +94,11 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("POST", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, rs),
 		))
-		createdVMReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Create(rs)
+		createdVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Create(rs)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(createdVMReplicaSet).To(Equal(rs))
+		Expect(createdVMIReplicaSet).To(Equal(rs))
 	})
 
 	It("should update a VirtualMachineInstanceReplicaSet", func() {
@@ -107,11 +107,11 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("PUT", rsPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
-		updatedVMReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Update(rs)
+		updatedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Update(rs)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(updatedVMReplicaSet).To(Equal(rs))
+		Expect(updatedVMIReplicaSet).To(Equal(rs))
 	})
 
 	It("should delete a VirtualMachineInstanceReplicaSet", func() {

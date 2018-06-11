@@ -4112,62 +4112,6 @@
      }
     }
    },
-   "v1.VMReplicaSetSpec": {
-    "required": [
-     "selector",
-     "template"
-    ],
-    "properties": {
-     "paused": {
-      "description": "Indicates that the replica set is paused.\n+optional",
-      "type": "boolean"
-     },
-     "replicas": {
-      "description": "Number of desired pods. This is a pointer to distinguish between explicit\nzero and not specified. Defaults to 1.\n+optional",
-      "type": "integer",
-      "format": "int32"
-     },
-     "selector": {
-      "description": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.",
-      "$ref": "#/definitions/v1.LabelSelector"
-     },
-     "template": {
-      "description": "Template describes the pods that will be created.",
-      "$ref": "#/definitions/v1.VMTemplateSpec"
-     }
-    }
-   },
-   "v1.VMReplicaSetStatus": {
-    "properties": {
-     "conditions": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetCondition"
-      }
-     },
-     "readyReplicas": {
-      "description": "The number of ready replicas for this replica set.\n+optional",
-      "type": "integer",
-      "format": "int32"
-     },
-     "replicas": {
-      "description": "Total number of non-terminated pods targeted by this deployment (their labels match the selector).\n+optional",
-      "type": "integer",
-      "format": "int32"
-     }
-    }
-   },
-   "v1.VMTemplateSpec": {
-    "properties": {
-     "metadata": {
-      "$ref": "#/definitions/v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-      "$ref": "#/definitions/v1.VirtualMachineInstanceSpec"
-     }
-    }
-   },
    "v1.VirtualMachine": {
     "description": "VirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe VirtualMachine contains the template to create the\nVirtualMachineInstance. It also mirrors the running state of the created\nVirtualMachineInstance in its status.",
     "properties": {
@@ -4360,7 +4304,7 @@
       "$ref": "#/definitions/v1.DomainSpec"
      },
      "selector": {
-      "description": "Selector is a label query over a set of VMs.\nRequired.",
+      "description": "Selector is a label query over a set of VMIs.\nRequired.",
       "$ref": "#/definitions/v1.LabelSelector"
      }
     }
@@ -4381,11 +4325,11 @@
      },
      "spec": {
       "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-      "$ref": "#/definitions/v1.VMReplicaSetSpec"
+      "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetSpec"
      },
      "status": {
       "description": "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
-      "$ref": "#/definitions/v1.VMReplicaSetStatus"
+      "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetStatus"
      }
     }
    },
@@ -4416,7 +4360,7 @@
     }
    },
    "v1.VirtualMachineInstanceReplicaSetList": {
-    "description": "VMList is a list of VMs",
+    "description": "VMIList is a list of VMIs",
     "required": [
      "items"
     ],
@@ -4437,6 +4381,51 @@
      },
      "metadata": {
       "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceReplicaSetSpec": {
+    "required": [
+     "selector",
+     "template"
+    ],
+    "properties": {
+     "paused": {
+      "description": "Indicates that the replica set is paused.\n+optional",
+      "type": "boolean"
+     },
+     "replicas": {
+      "description": "Number of desired pods. This is a pointer to distinguish between explicit\nzero and not specified. Defaults to 1.\n+optional",
+      "type": "integer",
+      "format": "int32"
+     },
+     "selector": {
+      "description": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.",
+      "$ref": "#/definitions/v1.LabelSelector"
+     },
+     "template": {
+      "description": "Template describes the pods that will be created.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceTemplateSpec"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceReplicaSetStatus": {
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetCondition"
+      }
+     },
+     "readyReplicas": {
+      "description": "The number of ready replicas for this replica set.\n+optional",
+      "type": "integer",
+      "format": "int32"
+     },
+     "replicas": {
+      "description": "Total number of non-terminated pods targeted by this deployment (their labels match the selector).\n+optional",
+      "type": "integer",
+      "format": "int32"
      }
     }
    },
@@ -4507,6 +4496,17 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceTemplateSpec": {
+    "properties": {
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceSpec"
+     }
+    }
+   },
    "v1.VirtualMachineList": {
     "description": "VirtualMachineList is a list of virtualmachines",
     "required": [
@@ -4547,7 +4547,7 @@
      },
      "template": {
       "description": "Template is the direct specification of VirtualMachineInstance",
-      "$ref": "#/definitions/v1.VMTemplateSpec"
+      "$ref": "#/definitions/v1.VirtualMachineInstanceTemplateSpec"
      }
     }
    },

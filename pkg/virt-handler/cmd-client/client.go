@@ -51,7 +51,7 @@ type Reply struct {
 
 type Args struct {
 	// used for domain management
-	VM *v1.VirtualMachineInstance
+	VMI *v1.VirtualMachineInstance
 }
 
 type LauncherClient interface {
@@ -144,7 +144,7 @@ func (c *VirtLauncherClient) ShutdownVirtualMachine(vm *v1.VirtualMachineInstanc
 	cmd := "Launcher.Shutdown"
 
 	args := &Args{
-		VM: vm,
+		VMI: vm,
 	}
 	_, err := c.genericSendCmd(args, cmd)
 
@@ -155,7 +155,7 @@ func (c *VirtLauncherClient) KillVirtualMachine(vm *v1.VirtualMachineInstance) e
 	cmd := "Launcher.Kill"
 
 	args := &Args{
-		VM: vm,
+		VMI: vm,
 	}
 	_, err := c.genericSendCmd(args, cmd)
 
@@ -186,7 +186,7 @@ func (c *VirtLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachineInstance) e
 	cmd := "Launcher.Sync"
 
 	args := &Args{
-		VM: vm,
+		VMI: vm,
 	}
 
 	_, err := c.genericSendCmd(args, cmd)

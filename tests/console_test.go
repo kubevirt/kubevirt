@@ -43,11 +43,11 @@ var _ = Describe("Console", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	RunVMAndExpectConsoleOutput := func(vm *v1.VirtualMachineInstance, expected string) {
+	RunVMIAndExpectConsoleOutput := func(vm *v1.VirtualMachineInstance, expected string) {
 
 		By("Creating a new VirtualMachineInstance")
 		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
-		tests.WaitForSuccessfulVMStart(vm)
+		tests.WaitForSuccessfulVMIStart(vm)
 
 		By("Expecting the VirtualMachineInstance console")
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
@@ -65,8 +65,8 @@ var _ = Describe("Console", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
 				It("should return that we are running cirros", func() {
-					vm := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-					RunVMAndExpectConsoleOutput(
+					vm := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+					RunVMIAndExpectConsoleOutput(
 						vm,
 						"login as 'cirros' user",
 					)
@@ -75,8 +75,8 @@ var _ = Describe("Console", func() {
 
 			Context("with a fedora image", func() {
 				It("should return that we are running fedora", func() {
-					vm := tests.NewRandomVMWithEphemeralDiskHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora))
-					RunVMAndExpectConsoleOutput(
+					vm := tests.NewRandomVMIWithEphemeralDiskHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora))
+					RunVMIAndExpectConsoleOutput(
 						vm,
 						"Welcome to",
 					)
@@ -84,11 +84,11 @@ var _ = Describe("Console", func() {
 			})
 
 			It("should be able to reconnect to console multiple times", func() {
-				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vm := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 
 				By("Creating a new VirtualMachineInstance")
 				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
-				tests.WaitForSuccessfulVMStart(vm)
+				tests.WaitForSuccessfulVMIStart(vm)
 
 				for i := 0; i < 5; i++ {
 					By("Expecting a VirtualMachineInstance console")

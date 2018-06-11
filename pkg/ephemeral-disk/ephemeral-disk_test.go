@@ -111,12 +111,12 @@ var _ = Describe("RegistryDisk", func() {
 		Context("With single ephemeral volume", func() {
 			It("Should create VirtualMachineInstance's ephemeral image", func() {
 				By("Creating a minimal VirtualMachineInstance object")
-				vm := v1.NewMinimalVM("fake-vm")
+				vm := v1.NewMinimalVMI("fake-vm")
 
 				By("Adding a single ephemeral-backed PVC to the VirtualMachineInstance")
 				AppendEphemeralPVC(vm, "fake-disk", "fake-volume", "fake-pvc")
 
-				By("Creating VirtualMachineInstance disk image that corresponds to the VMs PVC")
+				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
 				err := CreateEphemeralImages(vm)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -129,14 +129,14 @@ var _ = Describe("RegistryDisk", func() {
 		Context("With multiple ephemeral volumes", func() {
 			It("Should create VirtualMachineInstance's ephemeral images", func() {
 				By("Creating a minimal VirtualMachineInstance object")
-				vm := v1.NewMinimalVM("fake-vm")
+				vm := v1.NewMinimalVMI("fake-vm")
 
 				By("Adding multiple ephemeral-backed PVCs to the VirtualMachineInstance")
 				AppendEphemeralPVC(vm, "fake-disk1", "fake-volume1", "fake-pvc1")
 				AppendEphemeralPVC(vm, "fake-disk2", "fake-volume2", "fake-pvc2")
 				AppendEphemeralPVC(vm, "fake-disk3", "fake-volume3", "fake-pvc3")
 
-				By("Creating VirtualMachineInstance disk image that corresponds to the VMs PVC")
+				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
 				err := CreateEphemeralImages(vm)
 				Expect(err).NotTo(HaveOccurred())
 

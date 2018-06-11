@@ -902,100 +902,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.HPETTimer", "kubevirt.io/kubevirt/pkg/api/v1.HypervTimer", "kubevirt.io/kubevirt/pkg/api/v1.KVMTimer", "kubevirt.io/kubevirt/pkg/api/v1.PITTimer", "kubevirt.io/kubevirt/pkg/api/v1.RTCTimer"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"replicas": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
-								Type:        []string{"integer"},
-								Format:      "int32",
-							},
-						},
-						"selector": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment.",
-								Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-							},
-						},
-						"template": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Template describes the pods that will be created.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"),
-							},
-						},
-						"paused": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Indicates that the replica set is paused.",
-								Type:        []string{"boolean"},
-								Format:      "",
-							},
-						},
-					},
-					Required: []string{"selector", "template"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetStatus": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"replicas": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Total number of non-terminated pods targeted by this deployment (their labels match the selector).",
-								Type:        []string{"integer"},
-								Format:      "int32",
-							},
-						},
-						"readyReplicas": {
-							SchemaProps: spec.SchemaProps{
-								Description: "The number of ready replicas for this replica set.",
-								Type:        []string{"integer"},
-								Format:      "int32",
-							},
-						},
-						"conditions": {
-							SchemaProps: spec.SchemaProps{
-								Type: []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-							},
-						},
-						"spec": {
-							SchemaProps: spec.SchemaProps{
-								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"},
-		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1321,7 +1227,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"selector": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Selector is a label query over a set of VMs. Required.",
+								Description: "Selector is a label query over a set of VMIs. Required.",
 								Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
 							},
 						},
@@ -1365,20 +1271,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"spec": {
 							SchemaProps: spec.SchemaProps{
 								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetSpec"),
 							},
 						},
 						"status": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetStatus"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetStatus"),
 							},
 						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec", "kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetStatus"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetStatus"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition": {
 			Schema: spec.Schema{
@@ -1428,7 +1334,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetList": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "VMList is a list of VMs",
+					Description: "VMIList is a list of VMIs",
 					Properties: map[string]spec.Schema{
 						"kind": {
 							SchemaProps: spec.SchemaProps{
@@ -1467,6 +1373,79 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetSpec": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"replicas": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+						"selector": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment.",
+								Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+							},
+						},
+						"template": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Template describes the pods that will be created.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"),
+							},
+						},
+						"paused": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Indicates that the replica set is paused.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+					},
+					Required: []string{"selector", "template"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetStatus": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"replicas": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Total number of non-terminated pods targeted by this deployment (their labels match the selector).",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+						"readyReplicas": {
+							SchemaProps: spec.SchemaProps{
+								Description: "The number of ready replicas for this replica set.",
+								Type:        []string{"integer"},
+								Format:      "int32",
+							},
+						},
+						"conditions": {
+							SchemaProps: spec.SchemaProps{
+								Type: []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec": {
 			Schema: spec.Schema{
@@ -1591,6 +1570,27 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceNetworkInterface"},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+							},
+						},
+						"spec": {
+							SchemaProps: spec.SchemaProps{
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineList": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1650,7 +1650,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"template": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Template is the direct specification of VirtualMachineInstance",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"),
 							},
 						},
 					},
@@ -1658,7 +1658,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"},
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus": {
 			Schema: spec.Schema{

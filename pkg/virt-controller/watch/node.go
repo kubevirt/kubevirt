@@ -91,9 +91,9 @@ func (c *NodeController) addVirtualMachine(obj interface{}) {
 }
 
 func (c *NodeController) updateVirtualMachine(old, curr interface{}) {
-	currVM := curr.(*virtv1.VirtualMachineInstance)
-	if currVM.Status.NodeName != "" {
-		c.Queue.Add(currVM.Status.NodeName)
+	currVMI := curr.(*virtv1.VirtualMachineInstance)
+	if currVMI.Status.NodeName != "" {
+		c.Queue.Add(currVMI.Status.NodeName)
 	}
 }
 
@@ -256,23 +256,23 @@ func filterStuckVirtualMachinesWithoutPods(vms []*virtv1.VirtualMachineInstance,
 	podsPerNamespace := map[string]map[string]*v1.Pod{}
 
 	for _, pod := range pods {
-		podsForVM, ok := podsPerNamespace[pod.Namespace]
+		podsForVMI, ok := podsPerNamespace[pod.Namespace]
 		if !ok {
-			podsForVM = map[string]*v1.Pod{}
+			podsForVMI = map[string]*v1.Pod{}
 		}
 		name := pod.Labels[virtv1.DomainLabel]
 		if len(name) == 0 {
 			continue
 		}
-		podsForVM[name] = pod
-		podsPerNamespace[pod.Namespace] = podsForVM
+		podsForVMI[name] = pod
+		podsPerNamespace[pod.Namespace] = podsForVMI
 	}
 
 	filtered := []*virtv1.VirtualMachineInstance{}
 	for _, vm := range vms {
 		if vm.IsScheduled() || vm.IsRunning() {
-			if podsForVM, exists := podsPerNamespace[vm.Namespace]; exists {
-				if _, exists := podsForVM[vm.Name]; exists {
+			if podsForVMI, exists := podsPerNamespace[vm.Namespace]; exists {
+				if _, exists := podsForVMI[vm.Name]; exists {
 					continue
 				}
 			}

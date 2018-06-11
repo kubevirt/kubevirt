@@ -57,7 +57,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VMSelector) SwaggerDoc() map[string]string {
+func (VMISelector) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "Name of the VirtualMachineInstance to migrate",
 	}
@@ -73,11 +73,11 @@ func (VirtualMachineInstanceReplicaSet) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceReplicaSetList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VMList is a list of VMs",
+		"": "VMIList is a list of VMIs",
 	}
 }
 
-func (VMReplicaSetSpec) SwaggerDoc() map[string]string {
+func (VirtualMachineInstanceReplicaSetSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"replicas": "Number of desired pods. This is a pointer to distinguish between explicit\nzero and not specified. Defaults to 1.\n+optional",
 		"selector": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.",
@@ -86,7 +86,7 @@ func (VMReplicaSetSpec) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VMReplicaSetStatus) SwaggerDoc() map[string]string {
+func (VirtualMachineInstanceReplicaSetStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"replicas":      "Total number of non-terminated pods targeted by this deployment (their labels match the selector).\n+optional",
 		"readyReplicas": "The number of ready replicas for this replica set.\n+optional",
@@ -97,7 +97,7 @@ func (VirtualMachineInstanceReplicaSetCondition) SwaggerDoc() map[string]string 
 	return map[string]string{}
 }
 
-func (VMTemplateSpec) SwaggerDoc() map[string]string {
+func (VirtualMachineInstanceTemplateSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"spec": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
 	}
@@ -117,7 +117,7 @@ func (VirtualMachineInstancePresetList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstancePresetSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"selector": "Selector is a label query over a set of VMs.\nRequired.",
+		"selector": "Selector is a label query over a set of VMIs.\nRequired.",
 		"domain":   "Domain is the same object type as contained in VirtualMachineInstanceSpec",
 	}
 }

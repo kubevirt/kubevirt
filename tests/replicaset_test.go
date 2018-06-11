@@ -86,8 +86,8 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
 		By("Create a new VirtualMachineInstance replica set")
-		template := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
-		newRS := tests.NewRandomReplicaSetFromVM(template, int32(0))
+		template := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(0))
 		newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())
 		return newRS
@@ -154,7 +154,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
 		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].volumeName"))
 	})
-	It("should update readyReplicas once VMs are up", func() {
+	It("should update readyReplicas once VMIs are up", func() {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
@@ -166,15 +166,15 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
 	})
 
-	It("should remove VMs once it is marked for deletion", func() {
+	It("should remove VMIs once it is marked for deletion", func() {
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
 		// Delete it
 		By("Deleting the VirtualMachineInstance replica set")
 		Expect(virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Delete(newRS.ObjectMeta.Name, &v12.DeleteOptions{})).To(Succeed())
-		// Wait until VMs are gone
-		By("Waiting until all VMs are gone")
+		// Wait until VMIs are gone
+		By("Waiting until all VMIs are gone")
 		Eventually(func() int {
 			vms, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -209,7 +209,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 			return false
 		}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
-		By("Checking if two VMs are orphaned and still exist")
+		By("Checking if two VMIs are orphaned and still exist")
 		vms, err = virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
 		Expect(vms.Items).To(HaveLen(2))
 

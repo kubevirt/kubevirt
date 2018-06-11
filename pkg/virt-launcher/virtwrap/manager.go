@@ -47,9 +47,9 @@ import (
 )
 
 type DomainManager interface {
-	SyncVM(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
-	KillVM(*v1.VirtualMachineInstance) error
-	SignalShutdownVM(*v1.VirtualMachineInstance) error
+	SyncVMI(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
+	KillVMI(*v1.VirtualMachineInstance) error
+	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
 }
 
@@ -115,7 +115,7 @@ func (l *LibvirtDomainManager) preStartHook(vm *v1.VirtualMachineInstance, domai
 	return domain, err
 }
 
-func (l *LibvirtDomainManager) SyncVM(vm *v1.VirtualMachineInstance, allowEmulation bool) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVMI(vm *v1.VirtualMachineInstance, allowEmulation bool) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vm)
 
 	domain := &api.Domain{}
@@ -212,8 +212,8 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 	return util.GetDomainSpec(dom)
 }
 
-func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachineInstance) error {
-	domName := util.VMNamespaceKeyFunc(vm)
+func (l *LibvirtDomainManager) SignalShutdownVMI(vm *v1.VirtualMachineInstance) error {
+	domName := util.VMINamespaceKeyFunc(vm)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VirtualMachineInstance does not exist, we are done
@@ -260,8 +260,8 @@ func (l *LibvirtDomainManager) SignalShutdownVM(vm *v1.VirtualMachineInstance) e
 	return nil
 }
 
-func (l *LibvirtDomainManager) KillVM(vm *v1.VirtualMachineInstance) error {
-	domName := api.VMNamespaceKeyFunc(vm)
+func (l *LibvirtDomainManager) KillVMI(vm *v1.VirtualMachineInstance) error {
+	domName := api.VMINamespaceKeyFunc(vm)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		// If the VirtualMachineInstance does not exist, we are done

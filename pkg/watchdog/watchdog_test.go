@@ -72,7 +72,7 @@ var _ = Describe("Watchdog", func() {
 
 		It("should successfully remove watchdog file", func() {
 
-			vm := v1.NewMinimalVM("tvm")
+			vm := v1.NewMinimalVMI("tvm")
 			namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
 			domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
 

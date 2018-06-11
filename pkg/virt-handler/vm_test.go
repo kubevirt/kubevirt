@@ -139,7 +139,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
 			client.EXPECT().Close()
 			controller.Execute()
 		})
@@ -150,7 +150,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
 			client.EXPECT().Close()
 
 			controller.Execute()
@@ -163,7 +163,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Status.Phase = v1.Running
 
 			domain := api.NewMinimalDomain("testvm")
@@ -174,14 +174,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockGracefulShutdown.TriggerShutdown(vm)
 
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
 		}, 3)
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
 
@@ -189,14 +189,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(vm)
 
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
 		}, 3)
 
 		It("should attempt force terminate Domain if grace period expires", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
 
@@ -209,7 +209,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockGracefulShutdown.TriggerShutdown(vm)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
 			client.EXPECT().Close()
 			domainFeeder.Add(domain)
 
@@ -219,14 +219,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should immediately kill domain with grace period of 0", func() {
 			domain := api.NewMinimalDomain("testvm")
 			domain.Status.Status = api.Running
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 
 			initGracePeriodHelper(0, vm, domain)
 			mockWatchdog.CreateFile(vm)
 			mockGracefulShutdown.TriggerShutdown(vm)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMReferenceFromName("testvm"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvm"))
 			client.EXPECT().Close()
 			domainFeeder.Add(domain)
 			controller.Execute()
@@ -240,7 +240,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should create the Domain if it sees the first time on a new VirtualMachineInstance", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 
@@ -253,12 +253,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 
-			updatedVM := vm.DeepCopy()
-			updatedVM.Status.Phase = v1.Running
+			updatedVMI := vm.DeepCopy()
+			updatedVMI.Status.Phase = v1.Running
 
 			mockWatchdog.CreateFile(vm)
 			domain := api.NewMinimalDomain("testvm")
@@ -266,7 +266,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmFeeder.Add(vm)
 			domainFeeder.Add(domain)
 
-			vmInterface.EXPECT().Update(updatedVM)
+			vmInterface.EXPECT().Update(updatedVMI)
 
 			node := &k8sv1.Node{
 				Status: k8sv1.NodeStatus{
@@ -285,7 +285,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 
@@ -296,7 +296,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is expired", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 
@@ -310,7 +310,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}, 2)
 
 		It("should move VirtualMachineInstance from Running to Failed if domain does not exist in cache", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Running
 
@@ -322,7 +322,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should remove an error condition if a synchronization run succeeds", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.ObjectMeta.ResourceVersion = "1"
 			vm.Status.Phase = v1.Scheduled
 			vm.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -332,20 +332,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			updatedVM := vm.DeepCopy()
-			updatedVM.Status.Conditions = nil
+			updatedVMI := vm.DeepCopy()
+			updatedVMI.Status.Conditions = nil
 
 			mockWatchdog.CreateFile(vm)
 			vmFeeder.Add(vm)
 
 			client.EXPECT().SyncVirtualMachine(vm)
-			vmInterface.EXPECT().Update(updatedVM)
+			vmInterface.EXPECT().Update(updatedVMI)
 
 			controller.Execute()
 		})
 
 		table.DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			vm.Status.Phase = phase
 			vmFeeder.Add(vm)
 			controller.Execute()

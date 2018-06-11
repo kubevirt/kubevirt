@@ -44,7 +44,7 @@ var _ = Describe("EmptyDisk", func() {
 
 	Describe("a vm with emptyDisks attached", func() {
 		It("should get a new qcow2 image if not already present", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			AppendEmptyDisk(vm, "testdisk", "testvolume")
 			err := CreateTemporaryDisks(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -54,7 +54,7 @@ var _ = Describe("EmptyDisk", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should not override ", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			AppendEmptyDisk(vm, "testdisk", "testvolume")
 			err := CreateTemporaryDisks(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -67,7 +67,7 @@ var _ = Describe("EmptyDisk", func() {
 			Expect(FilePathForVolumeName("volume1")).ToNot(Equal(FilePathForVolumeName("volume2")))
 		})
 		It("should leave pre-existing disks alone", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vm := v1.NewMinimalVMI("testvm")
 			AppendEmptyDisk(vm, "testdisk", "testvolume")
 			ioutil.WriteFile(FilePathForVolumeName("testvolume"), []byte("test"), 0777)
 			err := CreateTemporaryDisks(vm)
