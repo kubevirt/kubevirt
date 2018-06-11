@@ -246,18 +246,18 @@ var _ = Describe("Defaults", func() {
 	})
 })
 
-var _ = Describe("Function isPodInterfaceConfigured()", func() {
+var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 
 	It("should work for empty network list", func() {
 		vmi := &VirtualMachineInstance{}
-		Expect(isPodInterfaceConfigured(vmi)).To(BeFalse())
+		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(0))
 	})
 
 	It("should work for non-empty network list without pod network", func() {
 		vmi := &VirtualMachineInstance{}
 		net := Network{}
 		vmi.Spec.Networks = []Network{net}
-		Expect(isPodInterfaceConfigured(vmi)).To(BeFalse())
+		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(0))
 	})
 
 	It("should work for pod network with missing pod interface", func() {
@@ -268,7 +268,7 @@ var _ = Describe("Function isPodInterfaceConfigured()", func() {
 			},
 		}
 		vmi.Spec.Networks = []Network{net}
-		Expect(isPodInterfaceConfigured(vmi)).To(BeFalse())
+		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(0))
 	})
 
 	It("should work for valid pod network / interface combination", func() {
@@ -282,7 +282,28 @@ var _ = Describe("Function isPodInterfaceConfigured()", func() {
 		iface := Interface{Name: net.Name}
 		vmi.Spec.Networks = []Network{net}
 		vmi.Spec.Domain.Devices.Interfaces = []Interface{iface}
-		Expect(isPodInterfaceConfigured(vmi)).To(BeTrue())
+		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(1))
+	})
+
+	It("should work for multiple pod network / interface combinations", func() {
+		vmi := &VirtualMachineInstance{}
+		net1 := Network{
+			NetworkSource: NetworkSource{
+				Pod: &PodNetwork{},
+			},
+			Name: "testnet1",
+		}
+		iface1 := Interface{Name: net1.Name}
+		net2 := Network{
+			NetworkSource: NetworkSource{
+				Pod: &PodNetwork{},
+			},
+			Name: "testnet2",
+		}
+		iface2 := Interface{Name: net2.Name}
+		vmi.Spec.Networks = []Network{net1, net2}
+		vmi.Spec.Domain.Devices.Interfaces = []Interface{iface1, iface2}
+		Expect(getNumberOfPodInterfaces(vmi)).To(Equal(2))
 	})
 })
 
