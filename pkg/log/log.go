@@ -87,15 +87,21 @@ func MakeLogger(logger log.Logger) *FilteredLogger {
 	if verbosityFlag := flag.Lookup("v"); verbosityFlag != nil {
 		defaultVerbosity, _ = strconv.Atoi(verbosityFlag.Value.String())
 	} else {
-		defaultVerbosity = 0
+		// "the practical default level is V(2)"
+		// see https://github.com/kubernetes/community/blob/master/contributors/devel/logging.md
+		defaultVerbosity = 2
 	}
+
+	// This verbosity will be used for info logs without setting a custom verbosity level
+	defaultCurrentVerbosity := 2
+
 	return &FilteredLogger{
 		logContext:            log.NewContext(logger),
 		component:             defaultComponent,
 		filterLevel:           defaultLogLevel,
 		currentLogLevel:       defaultLogLevel,
 		verbosityLevel:        defaultVerbosity,
-		currentVerbosityLevel: defaultVerbosity,
+		currentVerbosityLevel: defaultCurrentVerbosity,
 	}
 }
 

@@ -230,6 +230,9 @@ func main() {
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	allowEmulation := flag.Bool("allow-emulation", false, "Allow fallback to emulation if /dev/kvm is not present")
 
+	// set new default verbosity, was set to 0 by glog
+	flag.Set("v", "2")
+
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
