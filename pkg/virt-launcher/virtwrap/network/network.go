@@ -84,5 +84,9 @@ func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
 	if network.Pod != nil {
 		return new(PodInterface), nil
 	}
-	return nil, fmt.Errorf("Not implemented")
+
+	if network.Proxy != nil {
+		return new(ProxyInterface), nil
+	}
+	return nil, fmt.Errorf("Network not implemented")
 }

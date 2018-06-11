@@ -157,7 +157,8 @@ func setDefaults_NetworkInterface(obj *VirtualMachine) {
 
 	//TODO: Currently, we support only one interface associated to a network
 	//      This should be improved when we will start supporting multimple interfaces and networks
-	if len(networks) == 0 || networks[0].Pod == nil {
+	// 		Add Bridge interface as default network
+	if len(networks) == 0 {
 		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultNetworkInterface()}
 		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
 	}

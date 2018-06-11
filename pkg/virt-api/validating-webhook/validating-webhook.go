@@ -419,7 +419,7 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		// Validate that each interface has a matching network
 		for idx, iface := range spec.Domain.Devices.Interfaces {
 
-			_, networkExists := networkNameMap[iface.Name]
+			networkData, networkExists := networkNameMap[iface.Name]
 
 			if !networkExists {
 				causes = append(causes, metav1.StatusCause{
@@ -427,17 +427,29 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 					Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
-			}
-
-			// verify that pod network is selected
-			if spec.Networks[0].Pod == nil {
+			} else if iface.Bridge != nil && networkData.Pod == nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("only a %s network source can be selected.", field.Child("domain", "devices", "networks").Index(0).Child("pod").String()),
-					Field:   field.Child("domain", "devices", "networks").Index(0).Child("pod").String(),
+					Message: fmt.Sprintf("Bridge interface only implemented with pod network"),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
+			} else if iface.Slirp != nil && networkData.Proxy == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Slirp interface only implemented with proxy network"),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			}
 		}
+
+		// verify that pod network is selected
+		// if spec.Networks[0].Pod == nil {
+		// 	causes = append(causes, metav1.StatusCause{
+		// 		Type:    metav1.CauseTypeFieldValueInvalid,
+		// 		Message: fmt.Sprintf("only a %s network source can be selected.", field.Child("domain", "devices", "networks").Index(0).Child("pod").String()),
+		// 		Field:   field.Child("domain", "devices", "networks").Index(0).Child("pod").String(),
+		// 	})
+		// }
 	}
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)

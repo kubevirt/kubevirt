@@ -507,25 +507,32 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 			networks[network.Name] = network.DeepCopy()
 		}
 
-		domain.Spec.Devices.Interfaces = make([]Interface, len(vm.Spec.Domain.Devices.Interfaces))
-		for index, iface := range vm.Spec.Domain.Devices.Interfaces {
+		domain.Spec.Devices.Interfaces = make([]Interface, 0)
+		for _, iface := range vm.Spec.Domain.Devices.Interfaces {
 			if _, ok := networks[iface.Name]; !ok {
 				return fmt.Errorf("Fail to match the Name of a Network")
 			}
 			if iface.Bridge != nil {
-				domain.Spec.Devices.Interfaces[index] = Interface{
+				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, Interface{
 					Model: &Model{
 						Type: interfaceType,
 					},
 					Type: "bridge",
 					Source: InterfaceSource{
 						Bridge: DefaultBridgeName,
-					}}
+					}})
 			} else if iface.Slirp != nil {
 				// SLIRP is not added as interface, Need to be added as qemu commandlist
 				// Create network interface
-				domain.Spec.QEMUCmd.QEMUEnv = append(domain.Spec.QEMUCmd.QEMUEnv, Env{Value: "-device"})
-				domain.Spec.QEMUCmd.QEMUEnv = append(domain.Spec.QEMUCmd.QEMUEnv, Env{Value: fmt.Sprintf("%s,netdev=%s", interfaceType, iface.Name)})
+				if domain.Spec.QEMUCmd == nil {
+					domain.Spec.QEMUCmd = &Commandline{}
+				}
+
+				if domain.Spec.QEMUCmd.QEMUArg == nil {
+					domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
+				}
+				domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-device"})
+				domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("%s,netdev=%s", "e1000", iface.Name)})
 				// The network itself will be created on preStartHook
 			}
 

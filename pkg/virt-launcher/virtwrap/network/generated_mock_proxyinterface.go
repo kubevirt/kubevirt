@@ -57,3 +57,13 @@ func (_m *MockProxyBindMechanism) configDNSSearchName() error {
 func (_mr *_MockProxyBindMechanismRecorder) configDNSSearchName() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "configDNSSearchName")
 }
+
+func (_m *MockProxyBindMechanism) CommitConfiguration() error {
+	ret := _m.ctrl.Call(_m, "CommitConfiguration")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockProxyBindMechanismRecorder) CommitConfiguration() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CommitConfiguration")
+}

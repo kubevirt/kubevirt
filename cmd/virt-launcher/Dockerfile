@@ -36,6 +36,9 @@ COPY virt-launcher /virt-launcher
 COPY kubevirt-sudo /etc/sudoers.d/kubevirt
 RUN chmod 0640 /etc/sudoers.d/kubevirt
 
+# Allow qemu to bind privilaged ports
+RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/bin/qemu-system-x86_64
+
 # libvirtd.sh in this image differs from upstream
 RUN rm -f /libvirtd.sh
 COPY libvirtd.sh /libvirtd.sh

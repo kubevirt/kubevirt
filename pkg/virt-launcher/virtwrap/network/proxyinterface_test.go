@@ -18,3 +18,85 @@
  */
 
 package network
+
+import (
+	"fmt"
+
+	"github.com/golang/mock/gomock"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+)
+
+var _ = Describe("Proxy Network", func() {
+	var mockNetwork *MockNetworkHandler
+	var ctrl *gomock.Controller
+	var vm *v1.VirtualMachine
+	var domain *api.Domain
+	var dnsname string
+	var iface *v1.Interface
+	var network *v1.Network
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockNetwork = NewMockNetworkHandler(ctrl)
+		Handler = mockNetwork
+		iface = &v1.Interface{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
+		network = &v1.Network{Name: "testnet", NetworkSource: v1.NetworkSource{Proxy: &v1.ProxyNetwork{}}}
+
+		vm = newVM("testnamespace", "testvm")
+		domain = DomainWithProxyNetwork()
+		api.SetObjectDefaults_Domain(domain)
+
+		_, dnsnamelist, err := getResolvConfDetailsFromPod()
+		Expect(err).NotTo(HaveOccurred())
+		for _, dnsSearchName := range dnsnamelist {
+			dnsname += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
+		}
+	})
+
+	Context("on successful setup", func() {
+		It("Should create the qemu configuration for interface", func() {
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{PodPort: 80, VMPort: 80, Protocol: "TCP"}}}
+
+			// Change default network
+			vm.Spec.Networks[0] = *network
+
+			// Change default interface
+			vm.Spec.Domain.Devices.Interfaces[0] = *iface
+			proxyBinding, err := getProxyBinding(iface, network, domain)
+			Expect(err).NotTo(HaveOccurred())
+			err = proxyBinding.configVMCIDR()
+			Expect(err).NotTo(HaveOccurred())
+			err = proxyBinding.configDNSSearchName()
+			Expect(err).NotTo(HaveOccurred())
+			err = proxyBinding.configPortForward()
+			Expect(err).NotTo(HaveOccurred())
+			err = proxyBinding.CommitConfiguration()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(4))
+			Expect(domain.Spec.QEMUCmd.QEMUArg[1].Value).To(Equal("virtio,netdev=testnet"))
+			Expect(domain.Spec.QEMUCmd.QEMUArg[3].Value).To(Equal("user,id=testnet,net=10.0.2.0/24" + dnsname + ",hostfwd=tcp::80-:80"))
+
+		})
+	})
+})
+
+func DomainWithProxyNetwork() *api.Domain {
+	domain := &api.Domain{}
+
+	if domain.Spec.QEMUCmd == nil {
+		domain.Spec.QEMUCmd = &api.Commandline{}
+	}
+
+	if domain.Spec.QEMUCmd.QEMUArg == nil {
+		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
+	}
+
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: fmt.Sprintf("%s,netdev=%s", "virtio", "testnet")})
+
+	return domain
+}
