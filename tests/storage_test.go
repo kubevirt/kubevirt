@@ -99,13 +99,13 @@ var _ = Describe("Storage", func() {
 		Expect(logs).To(ContainSubstring("State: ready"))
 	}
 
-	RunVMIAndExpectLaunch := func(vm *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+	RunVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
 		By("Starting a VirtualMachineInstance")
 
 		var obj *v1.VirtualMachineInstance
 		var err error
 		Eventually(func() error {
-			obj, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
+			obj, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VirtualMachineInstance will start")
@@ -125,11 +125,11 @@ var _ = Describe("Storage", func() {
 				checkReadiness()
 
 				// Start the VirtualMachineInstance with the PVC attached
-				vm := newVMI(tests.DiskAlpineISCSI)
-				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				RunVMIAndExpectLaunch(vm, false, 90)
+				vmi := newVMI(tests.DiskAlpineISCSI)
+				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				RunVMIAndExpectLaunch(vmi, false, 90)
 
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 				Expect(err).To(BeNil())
 				defer expecter.Close()
 
@@ -147,19 +147,19 @@ var _ = Describe("Storage", func() {
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
 				checkReadiness()
 
-				vm := newVMI(tests.DiskAlpineISCSI)
-				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				vmi := newVMI(tests.DiskAlpineISCSI)
+				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					vm := RunVMIAndExpectLaunch(vm, false, 90)
+					vmi := RunVMIAndExpectLaunch(vmi, false, 90)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
-						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+						expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 						Expect(err).To(BeNil())
 						defer expecter.Close()
 						_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -169,9 +169,9 @@ var _ = Describe("Storage", func() {
 						Expect(err).To(BeNil())
 					}
 
-					err = virtClient.VirtualMachineInstance(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
-					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			},
 				table.Entry("with Disk PVC", tests.NewRandomVMIWithPVC),
@@ -184,8 +184,8 @@ var _ = Describe("Storage", func() {
 			It("should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vm := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
-				vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:       "emptydisk1",
 					VolumeName: "emptydiskvolume1",
 					DiskDevice: v1.DiskDevice{
@@ -194,7 +194,7 @@ var _ = Describe("Storage", func() {
 						},
 					},
 				})
-				vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: "emptydiskvolume1",
 					VolumeSource: v1.VolumeSource{
 						EmptyDisk: &v1.EmptyDiskSource{
@@ -202,9 +202,9 @@ var _ = Describe("Storage", func() {
 						},
 					},
 				})
-				RunVMIAndExpectLaunch(vm, false, 90)
+				RunVMIAndExpectLaunch(vmi, false, 90)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vm)
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).To(BeNil())
 				defer expecter.Close()
 
@@ -213,7 +213,7 @@ var _ = Describe("Storage", func() {
 					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
 					&expect.BExp{R: "2147483648"}, // 2Gi in bytes
 				}, 10*time.Second)
-				log.DefaultLogger().Object(vm).Infof("%v", res)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).To(BeNil())
 
 				By("Checking if we can write to /dev/vdc")
@@ -223,7 +223,7 @@ var _ = Describe("Storage", func() {
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},
 				}, 20*time.Second)
-				log.DefaultLogger().Object(vm).Infof("%v", res)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).To(BeNil())
 			})
 
@@ -235,11 +235,11 @@ var _ = Describe("Storage", func() {
 				checkReadiness()
 
 				// Start the VirtualMachineInstance with the PVC attached
-				vm := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineISCSI)
-				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				RunVMIAndExpectLaunch(vm, false, 90)
+				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineISCSI)
+				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				RunVMIAndExpectLaunch(vmi, false, 90)
 
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 				Expect(err).To(BeNil())
 				defer expecter.Close()
 
@@ -253,14 +253,14 @@ var _ = Describe("Storage", func() {
 
 			It("should not persist data", func() {
 				checkReadiness()
-				vm := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineISCSI)
-				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineISCSI)
+				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				By("Starting the VirtualMachineInstance")
-				createdVMI := RunVMIAndExpectLaunch(vm, false, 90)
+				createdVMI := RunVMIAndExpectLaunch(vmi, false, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -281,15 +281,15 @@ var _ = Describe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Killing a VirtualMachineInstance")
-				err = virtClient.VirtualMachineInstance(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120)
 
 				By("Starting the VirtualMachineInstance again")
-				RunVMIAndExpectLaunch(vm, false, 90)
+				RunVMIAndExpectLaunch(vmi, false, 90)
 
 				By("Making sure that the previously written file is not present")
-				expecter, _, err = tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+				expecter, _, err = tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -323,23 +323,23 @@ var _ = Describe("Storage", func() {
 				tests.DeletePV(tests.CustomISCSI)
 			}, 120)
 
-			It("should start vm multiple times", func() {
+			It("should start vmi multiple times", func() {
 				checkReadiness()
 
-				vm := tests.NewRandomVMIWithPVC(tests.DiskAlpineISCSI)
-				tests.AddPVCDisk(vm, "disk1", "virtio", tests.DiskCustomISCSI)
-				vm.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineISCSI)
+				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomISCSI)
+				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					obj := RunVMIAndExpectLaunch(vm, false, 120)
+					obj := RunVMIAndExpectLaunch(vmi, false, 120)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the second disk is present")
-						expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+						expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 						Expect(err).To(BeNil())
 						defer expecter.Close()
 						_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -353,7 +353,7 @@ var _ = Describe("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 
-					err = virtClient.VirtualMachineInstance(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).To(BeNil())
 
 					tests.WaitForVirtualMachineToDisappearWithTimeout(obj, 120)

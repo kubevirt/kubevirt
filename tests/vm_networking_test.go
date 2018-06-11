@@ -85,16 +85,16 @@ var _ = Describe("Networking", func() {
 		return j.Status.Phase
 	}
 
-	waitUntilVmReady := func(vm *v1.VirtualMachineInstance, expecterFactory tests.VmExpecterFactory) {
+	waitUntilVMIReady := func(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) {
 		// Wait for VirtualMachineInstance start
-		tests.WaitForSuccessfulVMIStart(vm)
+		tests.WaitForSuccessfulVMIStart(vmi)
 
 		// Fetch the new VirtualMachineInstance with updated status
-		vm, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, v13.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Lets make sure that the OS is up by waiting until we can login
-		expecter, err := expecterFactory(vm)
+		expecter, err := expecterFactory(vmi)
 		Expect(err).ToNot(HaveOccurred())
 		expecter.Close()
 	}
@@ -106,7 +106,7 @@ var _ = Describe("Networking", func() {
 		// Create and start inbound VirtualMachineInstance
 		inboundVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		inboundVMI.Labels = map[string]string{"expose": "me"}
-		inboundVMI.Spec.Subdomain = "myvm"
+		inboundVMI.Spec.Subdomain = "myvmi"
 		inboundVMI.Spec.Hostname = "my-subdomain"
 		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(inboundVMI)
 		Expect(err).ToNot(HaveOccurred())
@@ -116,8 +116,8 @@ var _ = Describe("Networking", func() {
 		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(outboundVMI)
 		Expect(err).ToNot(HaveOccurred())
 
-		for _, networkVm := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
-			waitUntilVmReady(networkVm, tests.LoggedInCirrosExpecter)
+		for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
+			waitUntilVMIReady(networkVMI, tests.LoggedInCirrosExpecter)
 		}
 
 		inboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(inboundVMI.Name, v13.GetOptions{})
@@ -163,11 +163,11 @@ var _ = Describe("Networking", func() {
 			}
 
 			By("checking br1 MTU inside the pod")
-			vmPod := tests.GetRunningPodByLabel(outboundVMI.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByLabel(outboundVMI.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
-				vmPod,
-				vmPod.Spec.Containers[0].Name,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
 				[]string{"ip", "address", "show", "br1"},
 			)
 			log.Log.Infof("%v", output)
@@ -252,7 +252,7 @@ var _ = Describe("Networking", func() {
 			table.Entry("on a different node from Node", v12.NodeSelectorOpNotIn, true),
 		)
 
-		Context("with a service matching the vm exposed", func() {
+		Context("with a service matching the vmi exposed", func() {
 			BeforeEach(func() {
 				service := &v12.Service{
 					ObjectMeta: v13.ObjectMeta{
@@ -272,9 +272,9 @@ var _ = Describe("Networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 			})
-			It(" should be able to reach the vm based on labels specified on the vm", func() {
+			It(" should be able to reach the vmi based on labels specified on the vmi", func() {
 
-				By("starting a pod which tries to reach the vm via the defined service")
+				By("starting a pod which tries to reach the vmi via the defined service")
 				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace))
 				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
@@ -283,9 +283,9 @@ var _ = Describe("Networking", func() {
 				phase := waitForPodToFinish(job)
 				Expect(phase).To(Equal(v12.PodSucceeded))
 			})
-			It("should fail to reach the vm if an invalid servicename is used", func() {
+			It("should fail to reach the vmi if an invalid servicename is used", func() {
 
-				By("starting a pod which tries to reach the vm via a non-existent service")
+				By("starting a pod which tries to reach the vmi via a non-existent service")
 				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace))
 				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
@@ -322,8 +322,8 @@ var _ = Describe("Networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should be able to reach the vm via its unique fully qualified domain name", func() {
-				By("starting a pod which tries to reach the vm via the defined service")
+			It("should be able to reach the vmi via its unique fully qualified domain name", func() {
+				By("starting a pod which tries to reach the vmi via the defined service")
 				job := newHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace))
 				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
@@ -339,8 +339,8 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
-	checkNetworkVendor := func(vm *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -362,7 +362,7 @@ var _ = Describe("Networking", func() {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(e1000VMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVmReady(e1000VMI, tests.LoggedInAlpineExpecter)
+			waitUntilVMIReady(e1000VMI, tests.LoggedInAlpineExpecter)
 			// as defined in https://vendev.org/pci/ven_8086/
 			checkNetworkVendor(e1000VMI, "0x8086", "localhost:~#")
 		})
@@ -371,9 +371,9 @@ var _ = Describe("Networking", func() {
 	Context("VirtualMachineInstance with default interface model", func() {
 		It("should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
-			for _, networkVm := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
+			for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 				// as defined in https://vendev.org/pci/ven_1af4/
-				checkNetworkVendor(networkVm, "0x1af4", "\\$ ")
+				checkNetworkVendor(networkVMI, "0x1af4", "\\$ ")
 			}
 		})
 	})

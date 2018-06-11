@@ -49,28 +49,28 @@ var _ = Describe("Configurations", func() {
 
 	Describe("VirtualMachineInstance definition", func() {
 		Context("with 3 CPU cores", func() {
-			var vm *v1.VirtualMachineInstance
+			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vm = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 			})
 			It("should report 3 cpu cores under guest OS", func() {
-				vm.Spec.Domain.CPU = &v1.CPU{
+				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 3,
 				}
-				vm.Spec.Domain.Resources = v1.ResourceRequirements{
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceMemory: resource.MustParse("64M"),
 					},
 				}
 
 				By("Starting a VirtualMachineInstance")
-				vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vm)
+				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -87,9 +87,9 @@ var _ = Describe("Configurations", func() {
 				}, 250*time.Second)
 
 				By("Checking the requested amount of memory allocated for a guest")
-				Expect(vm.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 
-				readyPod := tests.GetRunningPodByLabel(vm.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+				readyPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 				var computeContainer *kubev1.Container
 				for _, container := range readyPod.Spec.Containers {
 					println(container.Name)
@@ -109,33 +109,33 @@ var _ = Describe("Configurations", func() {
 
 	Context("New VirtualMachineInstance with all supported drives", func() {
 
-		var vm *v1.VirtualMachineInstance
+		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			// ordering:
 			// use a small disk for the other ones
 			containerImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
 			// virtio - added by NewRandomVMIWithEphemeralDisk
-			vm = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
+			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
-			tests.AddEphemeralDisk(vm, "disk2", "sata", containerImage)
+			tests.AddEphemeralDisk(vmi, "disk2", "sata", containerImage)
 			// ide
-			tests.AddEphemeralDisk(vm, "disk3", "ide", containerImage)
+			tests.AddEphemeralDisk(vmi, "disk3", "ide", containerImage)
 			// floppy
-			tests.AddEphemeralFloppy(vm, "disk4", containerImage)
+			tests.AddEphemeralFloppy(vmi, "disk4", containerImage)
 			// NOTE: we have one disk per bus, so we expect vda, sda, hda, fda
 
 			// We need ide support for the test, q35 does not support ide
-			vm.Spec.Domain.Machine.Type = "pc"
+			vmi.Spec.Domain.Machine.Type = "pc"
 		})
 
 		// FIXME ide and floppy is not recognized by the used image right now
 		It("should have all the device nodes", func() {
-			vm, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vm)
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vm)
+			tests.WaitForSuccessfulVMIStart(vmi)
 
-			expecter, err := tests.LoggedInCirrosExpecter(vm)
+			expecter, err := tests.LoggedInCirrosExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 			res, err := expecter.ExpectBatch([]expect.Batcher{
@@ -143,7 +143,7 @@ var _ = Describe("Configurations", func() {
 				&expect.BSnd{S: "ls /dev/sda  /dev/vda  /dev/vdb\n"},
 				&expect.BExp{R: "/dev/sda  /dev/vda  /dev/vdb"},
 			}, 10*time.Second)
-			log.DefaultLogger().Object(vm).Infof("%v", res)
+			log.DefaultLogger().Object(vmi).Infof("%v", res)
 
 			Expect(err).ToNot(HaveOccurred())
 		})

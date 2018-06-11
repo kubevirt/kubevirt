@@ -58,8 +58,8 @@ var _ = Describe("VirtualMachine", func() {
 	Context("An invalid VirtualMachine given", func() {
 
 		It("should be rejected on POST", func() {
-			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
+			vmiImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			newVMI := NewRandomVirtualMachine(template, false)
 			newVMI.TypeMeta = v12.TypeMeta{
 				APIVersion: v1.GroupVersion.String(),
@@ -81,8 +81,8 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 		It("should reject POST if validation webhoook deems the spec is invalid", func() {
-			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
+			vmiImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			// Add a disk that doesn't map to a volume.
 			// This should get rejected which tells us the webhook validator is working.
 			template.Spec.Domain.Devices.Disks = append(template.Spec.Domain.Devices.Disks, v1.Disk{
@@ -115,8 +115,8 @@ var _ = Describe("VirtualMachine", func() {
 	Context("A valid VirtualMachine given", func() {
 
 		newVirtualMachine := func(running bool) *v1.VirtualMachine {
-			vmImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmImage, "echo Hi\n")
+			vmiImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 
 			var newVMI *v1.VirtualMachine
 			var err error
@@ -129,18 +129,18 @@ var _ = Describe("VirtualMachine", func() {
 			return newVMI
 		}
 
-		startVMI := func(ovm *v1.VirtualMachine) *v1.VirtualMachine {
+		startVMI := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
 			By("Starting the VirtualMachineInstance")
 
 			Eventually(func() error {
-				updatedVMI, err := virtClient.VirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
+				updatedVMI, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				updatedVMI.Spec.Running = true
 				_, err = virtClient.VirtualMachine(updatedVMI.Namespace).Update(updatedVMI)
 				return err
 			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-			updatedVMI, err := virtClient.VirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
+			updatedVMI, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Observe the VirtualMachineInstance created
@@ -151,26 +151,26 @@ var _ = Describe("VirtualMachine", func() {
 
 			By("VMI has the running condition")
 			Eventually(func() bool {
-				ovm, err := virtClient.VirtualMachine(updatedVMI.Namespace).Get(updatedVMI.Name, &v12.GetOptions{})
+				vm, err := virtClient.VirtualMachine(updatedVMI.Namespace).Get(updatedVMI.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return ovm.Status.Ready
+				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 
 			return updatedVMI
 		}
 
-		stopVMI := func(ovm *v1.VirtualMachine) *v1.VirtualMachine {
+		stopVMI := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
 			By("Stopping the VirtualMachineInstance")
 
 			Eventually(func() error {
-				updatedVMI, err := virtClient.VirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
+				updatedVMI, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				updatedVMI.Spec.Running = false
 				_, err = virtClient.VirtualMachine(updatedVMI.Namespace).Update(updatedVMI)
 				return err
 			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-			updatedVMI, err := virtClient.VirtualMachine(ovm.Namespace).Get(ovm.Name, &v12.GetOptions{})
+			updatedVMI, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Observe the VirtualMachineInstance deleted
@@ -180,13 +180,13 @@ var _ = Describe("VirtualMachine", func() {
 					return true
 				}
 				return false
-			}, 300*time.Second, 1*time.Second).Should(BeTrue(), "The vm did not disappear")
+			}, 300*time.Second, 1*time.Second).Should(BeTrue(), "The vmi did not disappear")
 
 			By("VMI has not the running condition")
 			Eventually(func() bool {
-				ovm, err := virtClient.VirtualMachine(updatedVMI.Namespace).Get(updatedVMI.Name, &v12.GetOptions{})
+				vm, err := virtClient.VirtualMachine(updatedVMI.Namespace).Get(updatedVMI.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return ovm.Status.Ready
+				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeFalse())
 
 			return updatedVMI
@@ -195,22 +195,22 @@ var _ = Describe("VirtualMachine", func() {
 		It("should update VirtualMachine once VMIs are up", func() {
 			newVMI := newVirtualMachine(true)
 			Eventually(func() bool {
-				ovm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(newVMI.Name, &v12.GetOptions{})
+				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(newVMI.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return ovm.Status.Ready
+				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
 		It("should remove VirtualMachineInstance once the VMI is marked for deletion", func() {
 			newVMI := newVirtualMachine(true)
-			// Create a offlinevm with vm
+			// Create a offlinevmi with vmi
 			// Delete it
 			Expect(virtClient.VirtualMachine(newVMI.Namespace).Delete(newVMI.Name, &v12.DeleteOptions{})).To(Succeed())
 			// Wait until VMIs are gone
 			Eventually(func() int {
-				vms, err := virtClient.VirtualMachineInstance(newVMI.Namespace).List(v12.ListOptions{})
+				vmis, err := virtClient.VirtualMachineInstance(newVMI.Namespace).List(v12.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return len(vms.Items)
+				return len(vmis.Items)
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		})
 
@@ -219,15 +219,15 @@ var _ = Describe("VirtualMachine", func() {
 
 			Eventually(func() []v12.OwnerReference {
 				// Check for owner reference
-				vm, _ := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
-				return vm.OwnerReferences
+				vmi, _ := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
+				return vmi.OwnerReferences
 			}, 300*time.Second, 1*time.Second).ShouldNot(BeEmpty())
 
 			// Delete it
 			orphanPolicy := v12.DeletePropagationOrphan
 			Expect(virtClient.VirtualMachine(newVMI.Namespace).
 				Delete(newVMI.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
-			// Wait until the offlinevm is deleted
+			// Wait until the offlinevmi is deleted
 			Eventually(func() bool {
 				_, err := virtClient.VirtualMachine(newVMI.Namespace).Get(newVMI.Name, &v12.GetOptions{})
 				if errors.IsNotFound(err) {
@@ -236,9 +236,9 @@ var _ = Describe("VirtualMachine", func() {
 				return false
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 
-			vm, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.OwnerReferences).To(BeEmpty())
+			Expect(vmi.OwnerReferences).To(BeEmpty())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -251,11 +251,11 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(virtClient.VirtualMachineInstance(newVMI.Namespace).Delete(newVMI.Name, &v12.DeleteOptions{})).To(Succeed())
 
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
 				if errors.IsNotFound(err) {
 					return false
 				}
-				if vm.UID != currentVMI.UID {
+				if vmi.UID != currentVMI.UID {
 					return true
 				}
 				return false
@@ -278,7 +278,7 @@ var _ = Describe("VirtualMachine", func() {
 					return err
 				}
 				if !firstVMI.IsRunning() {
-					return fmt.Errorf("vm still isn't running")
+					return fmt.Errorf("vmi still isn't running")
 				}
 				return nil
 			}, 120*time.Second, 1*time.Second).Should(Succeed())
@@ -364,31 +364,31 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting the old VirtualMachineInstance spec still running")
-			vm, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmMemory := vm.Spec.Domain.Resources.Requests.Memory()
-			ovmMemory := newVMI.Spec.Template.Spec.Domain.Resources.Requests.Memory()
-			Expect(vmMemory.Cmp(*ovmMemory)).To(Equal(0))
+			vmiMemory := vmi.Spec.Domain.Resources.Requests.Memory()
+			vmMemory := newVMI.Spec.Template.Spec.Domain.Resources.Requests.Memory()
+			Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
 
 			By("Restarting the VMI")
 			newVMI = stopVMI(newVMI)
 			newVMI = startVMI(newVMI)
 
 			By("Expecting updated spec running")
-			vm, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmMemory = vm.Spec.Domain.Resources.Requests.Memory()
-			ovmMemory = updatedVMI.Spec.Template.Spec.Domain.Resources.Requests.Memory()
-			Expect(vmMemory.Cmp(*ovmMemory)).To(Equal(0))
+			vmiMemory = vmi.Spec.Domain.Resources.Requests.Memory()
+			vmMemory = updatedVMI.Spec.Template.Spec.Domain.Resources.Requests.Memory()
+			Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
 		})
 
 		It("should survive guest shutdown, multiple times", func() {
 			By("Creating new VMI, not running")
 			newVMI := newVirtualMachine(false)
 			newVMI = startVMI(newVMI)
-			var vm *v1.VirtualMachineInstance
+			var vmi *v1.VirtualMachineInstance
 
 			for i := 0; i < 3; i++ {
 				currentVMI, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
@@ -396,13 +396,13 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Getting the running VirtualMachineInstance")
 				Eventually(func() bool {
-					vm, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.Phase == v1.Running
+					return vmi.Status.Phase == v1.Running
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Obtaining the serial console")
-				expecter, err := tests.LoggedInCirrosExpecter(vm)
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -413,16 +413,16 @@ var _ = Describe("VirtualMachine", func() {
 				}, 240*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("waiting for the controller to replace the shut-down vm with a new instance")
+				By("waiting for the controller to replace the shut-down vmi with a new instance")
 				Eventually(func() bool {
-					vm, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
 					// Almost there, a new instance should be spawned soon
 					if errors.IsNotFound(err) {
 						return false
 					}
 					Expect(err).ToNot(HaveOccurred())
-					// If the UID of the vm changed we see the new vm
-					if vm.UID != currentVMI.UID {
+					// If the UID of the vmi changed we see the new vmi
+					if vmi.UID != currentVMI.UID {
 						return true
 					}
 					return false
@@ -434,7 +434,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		Context("Using virtctl interface", func() {
 			It("should start a VirtualMachineInstance once", func() {
-				var vm *v1.VirtualMachineInstance
+				var vmi *v1.VirtualMachineInstance
 				var err error
 				By("getting an VMI")
 				newVMI := newVirtualMachine(false)
@@ -454,9 +454,9 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Getting the running VirtualMachineInstance")
 				Eventually(func() bool {
-					vm, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.Phase == v1.Running
+					return vmi.Status.Phase == v1.Running
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Ensuring a second invocation should fail")
@@ -505,10 +505,10 @@ var _ = Describe("VirtualMachine", func() {
 })
 
 // NewRandomVirtualMachine creates new VirtualMachine
-func NewRandomVirtualMachine(vm *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
-	name := vm.Name
-	namespace := vm.Namespace
-	ovm := &v1.VirtualMachine{
+func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
+	name := vmi.Name
+	namespace := vmi.Namespace
+	vm := &v1.VirtualMachine{
 		ObjectMeta: v12.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -521,9 +521,9 @@ func NewRandomVirtualMachine(vm *v1.VirtualMachineInstance, running bool) *v1.Vi
 					Name:      name,
 					Namespace: namespace,
 				},
-				Spec: vm.Spec,
+				Spec: vmi.Spec,
 			},
 		},
 	}
-	return ovm
+	return vm
 }

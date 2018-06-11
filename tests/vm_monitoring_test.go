@@ -41,9 +41,9 @@ var _ = Describe("Health Monitoring", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	launchVMI := func(vm *v1.VirtualMachineInstance) {
+	launchVMI := func(vmi *v1.VirtualMachineInstance) {
 		By("Starting a VirtualMachineInstance")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
 		Expect(err).To(BeNil())
 
 		tests.WaitForSuccessfulVMIStart(obj)
@@ -55,12 +55,12 @@ var _ = Describe("Health Monitoring", func() {
 
 	Describe("A VirtualMachineInstance with a watchdog device", func() {
 		It("should be shut down when the watchdog expires", func() {
-			vm := tests.NewRandomVMIWithWatchdog()
+			vmi := tests.NewRandomVMIWithWatchdog()
 			Expect(err).ToNot(HaveOccurred())
-			launchVMI(vm)
+			launchVMI(vmi)
 
 			By("Expecting the VirtualMachineInstance console")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
@@ -79,8 +79,8 @@ var _ = Describe("Health Monitoring", func() {
 			}, 250*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
-			namespace := vm.ObjectMeta.Namespace
-			name := vm.ObjectMeta.Name
+			namespace := vmi.ObjectMeta.Namespace
+			name := vmi.ObjectMeta.Name
 
 			By("Checking that the VirtualMachineInstance has Failed status")
 			Eventually(func() v1.VirtualMachineInstancePhase {

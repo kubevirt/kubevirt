@@ -79,9 +79,9 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 			return rs.Status.Replicas
 		}, 60, 1).Should(Equal(int32(scale)))
 
-		vms, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(v12.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(tests.NotDeleted(vms)).To(HaveLen(int(scale)))
+		Expect(tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
 	}
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
@@ -176,9 +176,9 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		// Wait until VMIs are gone
 		By("Waiting until all VMIs are gone")
 		Eventually(func() int {
-			vms, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+			vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return len(vms.Items)
+			return len(vmis.Items)
 		}, 60*time.Second, 1*time.Second).Should(BeZero())
 	})
 
@@ -188,10 +188,10 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		doScale(newRS.ObjectMeta.Name, 2)
 
 		// Check for owner reference
-		vms, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
-		Expect(vms.Items).To(HaveLen(2))
-		for _, vm := range vms.Items {
-			Expect(vm.OwnerReferences).ToNot(BeEmpty())
+		vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+		Expect(vmis.Items).To(HaveLen(2))
+		for _, vmi := range vmis.Items {
+			Expect(vmi.OwnerReferences).ToNot(BeEmpty())
 		}
 
 		// Delete it
@@ -210,12 +210,12 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 		By("Checking if two VMIs are orphaned and still exist")
-		vms, err = virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
-		Expect(vms.Items).To(HaveLen(2))
+		vmis, err = virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(v12.ListOptions{})
+		Expect(vmis.Items).To(HaveLen(2))
 
 		By("Checking a VirtualMachineInstance owner references")
-		for _, vm := range vms.Items {
-			Expect(vm.OwnerReferences).To(BeEmpty())
+		for _, vmi := range vmis.Items {
+			Expect(vmi.OwnerReferences).To(BeEmpty())
 		}
 		Expect(err).ToNot(HaveOccurred())
 	})

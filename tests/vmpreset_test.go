@@ -45,7 +45,7 @@ var _ = Describe("VMIPreset", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var vm *v1.VirtualMachineInstance
+	var vmi *v1.VirtualMachineInstance
 	var memoryPreset *v1.VirtualMachineInstancePreset
 	var cpuPreset *v1.VirtualMachineInstancePreset
 
@@ -60,8 +60,8 @@ var _ = Describe("VMIPreset", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vm = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
-		vm.Labels = map[string]string{flavorKey: memoryFlavor}
+		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+		vmi.Labels = map[string]string{flavorKey: memoryFlavor}
 
 		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: memoryFlavor}}
 		memoryPreset = &v1.VirtualMachineInstancePreset{
@@ -109,7 +109,7 @@ var _ = Describe("VMIPreset", func() {
 				},
 			}
 			// disk with two targets is invalid
-			preset.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+			preset.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
 				DiskDevice: v1.DiskDevice{
@@ -170,17 +170,17 @@ var _ = Describe("VMIPreset", func() {
 
 			newPreset := waitForPreset(virtClient, memoryPrefix)
 
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := waitForVirtualMachine(virtClient)
+			newVMI := waitForVirtualMachine(virtClient)
 
-			Expect(newVm.Labels[flavorKey]).To(Equal(memoryFlavor))
+			Expect(newVMI.Labels[flavorKey]).To(Equal(memoryFlavor))
 			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(memoryFlavor))
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
-			_, found := newVm.Annotations[annotationKey]
+			_, found := newVMI.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
 		})
 
@@ -190,23 +190,23 @@ var _ = Describe("VMIPreset", func() {
 
 			newPreset := waitForPreset(virtClient, cpuPrefix)
 
-			vm = tests.NewRandomVMIWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
-			vm.Labels = map[string]string{flavorKey: cpuFlavor}
+			vmi = tests.NewRandomVMIWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := waitForVirtualMachine(virtClient)
+			newVMI := waitForVirtualMachine(virtClient)
 
-			Expect(newVm.Labels[flavorKey]).To(Equal(cpuFlavor))
+			Expect(newVMI.Labels[flavorKey]).To(Equal(cpuFlavor))
 			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(cpuFlavor))
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
-			Expect(newVm.Annotations[annotationKey]).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(newVMI.Annotations[annotationKey]).To(Equal("kubevirt.io/v1alpha2"))
 
 			// check a setting from the preset itself to show it was applied
-			Expect(int(newVm.Spec.Domain.CPU.Cores)).To(Equal(cores))
+			Expect(int(newVMI.Spec.Domain.CPU.Cores)).To(Equal(cores))
 		})
 
 		It("Should ignore VMIs that don't match", func() {
@@ -216,26 +216,26 @@ var _ = Describe("VMIPreset", func() {
 			newPreset := waitForPreset(virtClient, memoryPrefix)
 
 			// reset the label so it will not match
-			vm = tests.NewRandomVMIWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			vmi = tests.NewRandomVMIWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := waitForVirtualMachine(virtClient)
+			newVMI := waitForVirtualMachine(virtClient)
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
-			_, found := newVm.Annotations[annotationKey]
+			_, found := newVMI.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
 
-			Expect(newVm.Status.Phase).ToNot(Equal(v1.Failed))
+			Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
 		It("Should not be applied to existing VMIs", func() {
 			// create the VirtualMachineInstance first
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := waitForVirtualMachine(virtClient)
+			newVMI := waitForVirtualMachine(virtClient)
 
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
@@ -244,9 +244,9 @@ var _ = Describe("VMIPreset", func() {
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
-			_, found := newVm.Annotations[annotationKey]
+			_, found := newVMI.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
-			Expect(newVm.Status.Phase).ToNot(Equal(v1.Failed))
+			Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 	})
 
@@ -257,27 +257,27 @@ var _ = Describe("VMIPreset", func() {
 
 			newPreset := waitForPreset(virtClient, cpuPrefix)
 
-			vm = tests.NewRandomVMIWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
-			vm.Labels = map[string]string{flavorKey: cpuFlavor}
+			vmi = tests.NewRandomVMIWithEphemeralDisk("kubevirt/alpine-registry-disk-demo:devel")
+			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
-			vm.Annotations = map[string]string{exclusionMarking: "true"}
+			vmi.Annotations = map[string]string{exclusionMarking: "true"}
 
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := waitForVirtualMachine(virtClient)
+			newVMI := waitForVirtualMachine(virtClient)
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
-			_, ok := newVm.Annotations[annotationKey]
+			_, ok := newVMI.Annotations[annotationKey]
 			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
 
 			// check a setting from the preset itself to show it was applied
-			Expect(newVm.Spec.Domain.CPU).To(BeNil(),
+			Expect(newVMI.Spec.Domain.CPU).To(BeNil(),
 				"CPU should still have been the default value (not defined in spec)")
 
 			initializerMarking := "presets.virtualmachines." + v1.GroupName + "/presets-applied"
-			_, ok = newVm.Annotations[initializerMarking]
+			_, ok = newVMI.Annotations[initializerMarking]
 			Expect(ok).To(BeTrue(), "VirtualMachineInstance should have been initialized")
 		})
 	})
@@ -315,22 +315,22 @@ var _ = Describe("VMIPreset", func() {
 
 			newMemoryPreset := waitForPreset(virtClient, memoryPrefix)
 
-			vm.Labels = map[string]string{flavorKey: memoryFlavor, conflictKey: conflictFlavor}
+			vmi.Labels = map[string]string{flavorKey: memoryFlavor, conflictKey: conflictFlavor}
 			By("creating the VirtualMachineInstance")
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := waitForVirtualMachine(virtClient)
+			newVMI := waitForVirtualMachine(virtClient)
 
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newMemoryPreset.Name)
-			_, found := newVm.Annotations[annotationKey]
+			_, found := newVMI.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
 
 			annotationKey = fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newConflictPreset.Name)
-			_, found = newVm.Annotations[annotationKey]
+			_, found = newVMI.Annotations[annotationKey]
 			Expect(found).To(BeFalse())
 
-			Expect(newVm.Status.Phase).To(Equal(v1.Failed))
+			Expect(newVMI.Status.Phase).To(Equal(v1.Failed))
 		})
 	})
 })
@@ -355,18 +355,18 @@ func waitForPreset(virtClient kubecli.KubevirtClient, prefix string) v1.VirtualM
 func waitForVirtualMachine(virtClient kubecli.KubevirtClient) v1.VirtualMachineInstance {
 	initializerMarking := "presets.virtualmachines." + v1.GroupName + "/presets-applied"
 
-	vm := v1.VirtualMachineInstance{}
+	vmi := v1.VirtualMachineInstance{}
 	Eventually(func() bool {
-		vmList := v1.VirtualMachineInstanceList{}
-		err := virtClient.RestClient().Get().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Do().Into(&vmList)
+		vmiList := v1.VirtualMachineInstanceList{}
+		err := virtClient.RestClient().Get().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Do().Into(&vmiList)
 		Expect(err).ToNot(HaveOccurred())
-		if len(vmList.Items) == 1 {
-			vm = vmList.Items[0]
-			_, found := vm.Annotations[initializerMarking]
+		if len(vmiList.Items) == 1 {
+			vmi = vmiList.Items[0]
+			_, found := vmi.Annotations[initializerMarking]
 			return found
 		}
 		return false
 	}, time.Duration(60)*time.Second).Should(Equal(true), "Timed out waiting for VirtualMachineInstance to appear")
 
-	return vm
+	return vmi
 }

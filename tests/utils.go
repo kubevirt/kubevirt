@@ -135,7 +135,7 @@ const (
 	defaultWindowsDiskSize = "30Gi"
 )
 
-const VmResource = "virtualmachineinstances"
+const VMIResource = "virtualmachineinstances"
 
 const (
 	SecretLabel = "kubevirt.io/secret"
@@ -641,11 +641,11 @@ func cleanNamespaces() {
 
 		// Remove all VMIs
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do().Error())
-		vms, err := virtCli.VirtualMachineInstance(namespace).List(metav1.ListOptions{})
+		vmis, err := virtCli.VirtualMachineInstance(namespace).List(metav1.ListOptions{})
 		PanicOnError(err)
-		for _, vm := range vms.Items {
-			if controller.HasFinalizer(&vm, v1.VirtualMachineInstanceFinalizer) {
-				_, err := virtCli.VirtualMachineInstance(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+		for _, vmi := range vmis.Items {
+			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
+				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
 				if !errors.IsNotFound(err) {
 					PanicOnError(err)
 				}
@@ -718,37 +718,37 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
-	vm := v1.NewMinimalVMIWithNS(namespace, "testvm"+rand.String(5))
+	vmi := v1.NewMinimalVMIWithNS(namespace, "testvmi"+rand.String(5))
 
 	t := defaultTestGracePeriod
-	vm.Spec.TerminationGracePeriodSeconds = &t
-	return vm
+	vmi.Spec.TerminationGracePeriodSeconds = &t
+	return vmi
 }
 
 func NewRandomVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMIWithEphemeralDisk(containerImage)
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	return vm
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return vmi
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	return vm
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return vmi
 }
 
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMI()
+	vmi := NewRandomVMI()
 
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
-	AddEphemeralDisk(vm, "disk0", "virtio", containerImage)
-	return vm
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	return vmi
 }
 
-func AddEphemeralDisk(vm *v1.VirtualMachineInstance, name string, bus string, image string) *v1.VirtualMachineInstance {
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus string, image string) *v1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       name,
 		VolumeName: name,
 		DiskDevice: v1.DiskDevice{
@@ -757,7 +757,7 @@ func AddEphemeralDisk(vm *v1.VirtualMachineInstance, name string, bus string, im
 			},
 		},
 	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			RegistryDisk: &v1.RegistryDiskSource{
@@ -766,21 +766,21 @@ func AddEphemeralDisk(vm *v1.VirtualMachineInstance, name string, bus string, im
 		},
 	})
 
-	return vm
+	return vmi
 }
 
-func AddBootOrderToDisk(vm *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
-	for i, d := range vm.Spec.Domain.Devices.Disks {
+func AddBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
+	for i, d := range vmi.Spec.Domain.Devices.Disks {
 		if d.Name == diskName {
-			vm.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
-			return vm
+			vmi.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
+			return vmi
 		}
 	}
-	return vm
+	return vmi
 }
 
-func AddPVCDisk(vm *v1.VirtualMachineInstance, name string, bus string, claimName string) *v1.VirtualMachineInstance {
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus string, claimName string) *v1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       name,
 		VolumeName: name,
 		DiskDevice: v1.DiskDevice{
@@ -789,7 +789,7 @@ func AddPVCDisk(vm *v1.VirtualMachineInstance, name string, bus string, claimNam
 			},
 		},
 	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -798,18 +798,18 @@ func AddPVCDisk(vm *v1.VirtualMachineInstance, name string, bus string, claimNam
 		},
 	})
 
-	return vm
+	return vmi
 }
 
-func AddEphemeralFloppy(vm *v1.VirtualMachineInstance, name string, image string) *v1.VirtualMachineInstance {
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+func AddEphemeralFloppy(vmi *v1.VirtualMachineInstance, name string, image string) *v1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       name,
 		VolumeName: name,
 		DiskDevice: v1.DiskDevice{
 			Floppy: &v1.FloppyTarget{},
 		},
 	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			RegistryDisk: &v1.RegistryDiskSource{
@@ -818,13 +818,13 @@ func AddEphemeralFloppy(vm *v1.VirtualMachineInstance, name string, image string
 		},
 	})
 
-	return vm
+	return vmi
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMIWithEphemeralDisk(containerImage)
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "disk1",
 		VolumeName: "disk1",
 		DiskDevice: v1.DiskDevice{
@@ -833,7 +833,7 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 			},
 		},
 	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: "disk1",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
@@ -841,14 +841,14 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 			},
 		},
 	})
-	return vm
+	return vmi
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMI()
+	vmi := NewRandomVMI()
 
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "disk0",
 		VolumeName: "disk0",
 		DiskDevice: v1.DiskDevice{
@@ -857,7 +857,7 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 			},
 		},
 	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: "disk0",
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -865,14 +865,14 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 			},
 		},
 	})
-	return vm
+	return vmi
 }
 
 func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMI()
+	vmi := NewRandomVMI()
 
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "disk0",
 		VolumeName: "disk0",
 		DiskDevice: v1.DiskDevice{
@@ -883,7 +883,7 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 			},
 		},
 	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: "disk0",
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -891,14 +891,14 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 			},
 		},
 	})
-	return vm
+	return vmi
 }
 
 func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
-	vm := NewRandomVMI()
+	vmi := NewRandomVMI()
 
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "disk0",
 		VolumeName: "disk0",
 		DiskDevice: v1.DiskDevice{
@@ -907,7 +907,7 @@ func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 			},
 		},
 	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: "disk0",
 
 		VolumeSource: v1.VolumeSource{
@@ -918,13 +918,13 @@ func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 			},
 		},
 	})
-	return vm
+	return vmi
 }
 
 func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
-	vm := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
 
-	vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+	vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",
 		WatchdogDevice: v1.WatchdogDevice{
 			I6300ESB: &v1.I6300ESBWatchdog{
@@ -932,29 +932,29 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 			},
 		},
 	}
-	return vm
+	return vmi
 }
 
 func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurily before link is ready
-	vm := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
-	vm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
-	return vm
+	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	vmi.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
+	return vmi
 }
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
-func waitForVmStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
-	vm, ok := obj.(*v1.VirtualMachineInstance)
+func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	Expect(ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 
 	// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
-	vm, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	objectEventWatcher := NewObjectEventWatcher(vm).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds) * time.Second)
+	objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds) * time.Second)
 	if ignoreWarnings != true {
 		objectEventWatcher.FailOnWarnings()
 	}
@@ -962,13 +962,13 @@ func waitForVmStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeN
 
 	// FIXME the event order is wrong. First the document should be updated
 	Eventually(func() bool {
-		vm, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		nodeName = vm.Status.NodeName
+		nodeName = vmi.Status.NodeName
 
 		// wait on both phase and graphics
-		if vm.Status.Phase == v1.Running {
+		if vmi.Status.Phase == v1.Running {
 			return true
 		}
 		return false
@@ -977,32 +977,32 @@ func waitForVmStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeN
 	return
 }
 
-func WaitForSuccessfulVMIStartIgnoreWarnings(vm runtime.Object) string {
-	return waitForVmStart(vm, 30, true)
+func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) string {
+	return waitForVMIStart(vmi, 30, true)
 }
 
-func WaitForSuccessfulVMIStartWithTimeout(vm runtime.Object, seconds int) (nodeName string) {
-	return waitForVmStart(vm, seconds, false)
+func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (nodeName string) {
+	return waitForVMIStart(vmi, seconds, false)
 }
 
-func WaitForVirtualMachineToDisappearWithTimeout(vm *v1.VirtualMachineInstance, seconds int) {
+func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() bool {
-		_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, metav1.GetOptions{})
 		return errors.IsNotFound(err)
 	}, seconds, 1*time.Second).Should(BeTrue())
 }
 
-func WaitForSuccessfulVMIStart(vm runtime.Object) string {
-	return waitForVmStart(vm, 90, false)
+func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
+	return waitForVMIStart(vmi, 90, false)
 }
 
 func NewInt32(x int32) *int32 {
 	return &x
 }
 
-func NewRandomReplicaSetFromVMI(vm *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
+func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(5)},
@@ -1014,9 +1014,9 @@ func NewRandomReplicaSetFromVMI(vm *v1.VirtualMachineInstance, replicas int32) *
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"name": name},
-					Name:   vm.ObjectMeta.Name,
+					Name:   vmi.ObjectMeta.Name,
 				},
-				Spec: vm.Spec,
+				Spec: vmi.Spec,
 			},
 		},
 	}
@@ -1040,7 +1040,7 @@ func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 			Containers: []k8sv1.Container{
 				{
 					Name:    name,
-					Image:   fmt.Sprintf("%s/vm-killer:%s", KubeVirtRepoPrefix, KubeVirtVersionTag),
+					Image:   fmt.Sprintf("%s/vmi-killer:%s", KubeVirtRepoPrefix, KubeVirtVersionTag),
 					Command: cmd,
 					Args:    args,
 					SecurityContext: &k8sv1.SecurityContext{
@@ -1059,18 +1059,18 @@ func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &job
 }
 
-func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachineInstance, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
-	vmReader, vmWriter := io.Pipe()
+func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
+	vmiReader, vmiWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 	stopChan := make(chan struct{})
-	go func(vm *v1.VirtualMachineInstance, vmReader *io.PipeReader, expecterWriter *io.PipeWriter, resCh chan error) {
-		err := virtCli.VirtualMachineInstance(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, vmReader, expecterWriter)
+	go func(vmi *v1.VirtualMachineInstance, vmiReader *io.PipeReader, expecterWriter *io.PipeWriter, resCh chan error) {
+		err := virtCli.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, vmiReader, expecterWriter)
 		resCh <- err
-	}(vm, vmReader, expecterWriter, resCh)
+	}(vmi, vmiReader, expecterWriter, resCh)
 
 	return expect.SpawnGeneric(&expect.GenOptions{
-		In:  vmWriter,
+		In:  vmiWriter,
 		Out: expecterReader,
 		Wait: func() error {
 			return <-resCh
@@ -1102,10 +1102,10 @@ func RegistryDiskFor(name RegistryDisk) string {
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
 
-func CheckForTextExpecter(vm *v1.VirtualMachineInstance, text string, wait int) error {
+func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, text string, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return err
 	}
@@ -1118,36 +1118,36 @@ func CheckForTextExpecter(vm *v1.VirtualMachineInstance, text string, wait int) 
 	return err
 }
 
-func LoggedInCirrosExpecter(vm *v1.VirtualMachineInstance) (expect.Expecter, error) {
+func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
-	vmName := vm.Name
-	if vm.Spec.Hostname != "" {
-		vmName = vm.Spec.Hostname
+	vmiName := vmi.Name
+	if vmi.Spec.Hostname != "" {
+		vmiName = vmi.Spec.Hostname
 	}
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: vmName + " login:"},
+		&expect.BExp{R: vmiName + " login:"},
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: "$"}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
-	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
+	log.DefaultLogger().Object(vmi).V(4).Infof("%v", res)
 	return expecter, err
 }
 
-func LoggedInAlpineExpecter(vm *v1.VirtualMachineInstance) (expect.Expecter, error) {
+func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -1158,11 +1158,11 @@ func LoggedInAlpineExpecter(vm *v1.VirtualMachineInstance) (expect.Expecter, err
 		&expect.BSnd{S: "root\n"},
 		&expect.BExp{R: "localhost:~#"}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
-	log.DefaultLogger().Object(vm).V(4).Infof("%v", res)
+	log.DefaultLogger().Object(vmi).V(4).Infof("%v", res)
 	return expecter, err
 }
 
-type VmExpecterFactory func(*v1.VirtualMachineInstance) (expect.Expecter, error)
+type VMIExpecterFactory func(*v1.VirtualMachineInstance) (expect.Expecter, error)
 
 func NewVirtctlCommand(args ...string) *cobra.Command {
 	commandline := []string{}
@@ -1284,13 +1284,13 @@ func RunKubectlCommand(args ...string) (string, error) {
 	return string(stdOutBytes), nil
 }
 
-func GenerateVmJson(vm *v1.VirtualMachineInstance) (string, error) {
-	data, err := json.Marshal(vm)
+func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
+	data, err := json.Marshal(vmi)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
+		return "", fmt.Errorf("failed to generate json for vmi %s", vmi.Name)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", vm.Name)
+	jsonFile := fmt.Sprintf("%s.json", vmi.Name)
 	err = ioutil.WriteFile(jsonFile, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
@@ -1298,20 +1298,20 @@ func GenerateVmJson(vm *v1.VirtualMachineInstance) (string, error) {
 	return jsonFile, nil
 }
 
-func NotDeleted(vms *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMachineInstance) {
-	for _, vm := range vms.Items {
-		if vm.DeletionTimestamp == nil {
-			notDeleted = append(notDeleted, vm)
+func NotDeleted(vmis *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMachineInstance) {
+	for _, vmi := range vmis.Items {
+		if vmi.DeletionTimestamp == nil {
+			notDeleted = append(notDeleted, vmi)
 		}
 	}
 	return
 }
 
-func UnfinishedVMIPodSelector(vm *v1.VirtualMachineInstance) metav1.ListOptions {
+func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions {
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(k8sv1.PodFailed) +
 			",status.phase!=" + string(k8sv1.PodSucceeded))
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", vm.GetName()))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", vmi.GetName()))
 	if err != nil {
 		panic(err)
 	}

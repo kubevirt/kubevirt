@@ -165,10 +165,10 @@ var _ = Describe("User Access", func() {
 				Expect(result).To(ContainSubstring(expectedRes))
 			}
 		},
-			table.Entry("given a vm", "virtualmachineinstances"),
-			table.Entry("given an ovm", "virtualmachines"),
-			table.Entry("given a vm preset", "virtualmachineinstancepresets"),
-			table.Entry("given a vm replica set", "virtualmachineinstancereplicasets"),
+			table.Entry("given a vmi", "virtualmachineinstances"),
+			table.Entry("given an vm", "virtualmachines"),
+			table.Entry("given a vmi preset", "virtualmachineinstancepresets"),
+			table.Entry("given a vmi replica set", "virtualmachineinstancereplicasets"),
 		)
 	})
 })

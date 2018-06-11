@@ -43,14 +43,14 @@ var _ = Describe("Console", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	RunVMIAndExpectConsoleOutput := func(vm *v1.VirtualMachineInstance, expected string) {
+	RunVMIAndExpectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 
 		By("Creating a new VirtualMachineInstance")
-		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
-		tests.WaitForSuccessfulVMIStart(vm)
+		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+		tests.WaitForSuccessfulVMIStart(vmi)
 
 		By("Expecting the VirtualMachineInstance console")
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -65,9 +65,9 @@ var _ = Describe("Console", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
 				It("should return that we are running cirros", func() {
-					vm := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					RunVMIAndExpectConsoleOutput(
-						vm,
+						vmi,
 						"login as 'cirros' user",
 					)
 				}, 140)
@@ -75,24 +75,24 @@ var _ = Describe("Console", func() {
 
 			Context("with a fedora image", func() {
 				It("should return that we are running fedora", func() {
-					vm := tests.NewRandomVMIWithEphemeralDiskHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora))
+					vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora))
 					RunVMIAndExpectConsoleOutput(
-						vm,
+						vmi,
 						"Welcome to",
 					)
 				}, 140)
 			})
 
 			It("should be able to reconnect to console multiple times", func() {
-				vm := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 
 				By("Creating a new VirtualMachineInstance")
-				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
-				tests.WaitForSuccessfulVMIStart(vm)
+				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+				tests.WaitForSuccessfulVMIStart(vmi)
 
 				for i := 0; i < 5; i++ {
 					By("Expecting a VirtualMachineInstance console")
-					expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+					expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 					defer expecter.Close()
 					Expect(err).ToNot(HaveOccurred())
 

@@ -36,13 +36,13 @@ var _ = Describe("VMIDefaults", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var vm *v1.VirtualMachineInstance
+	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 		// create VMI with missing disk target
-		vm = tests.NewRandomVMI()
-		vm.Spec = v1.VirtualMachineInstanceSpec{
+		vmi = tests.NewRandomVMI()
+		vmi.Spec = v1.VirtualMachineInstanceSpec{
 			Domain: v1.DomainSpec{
 				Devices: v1.Devices{
 					Disks: []v1.Disk{
@@ -67,13 +67,13 @@ var _ = Describe("VMIDefaults", func() {
 
 		It("Should be applied to VMIs", func() {
 			// create the VMI first
-			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+			err = virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			newVm := waitForVirtualMachine(virtClient)
+			newVMI := waitForVirtualMachine(virtClient)
 
 			// check defaults
-			disk := newVm.Spec.Domain.Devices.Disks[0]
+			disk := newVMI.Spec.Domain.Devices.Disks[0]
 			Expect(disk.Disk).ToNot(BeNil(), "DiskTarget should not be nil")
 			Expect(disk.Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
 		})
