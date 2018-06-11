@@ -167,11 +167,9 @@ func isPodInterfaceConfigured(obj *VirtualMachineInstance) bool {
 }
 
 func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
-	//TODO: Currently, we support only one interface associated to a network
-	//      This should be improved when we will start supporting multimple interfaces and networks
 	if !isPodInterfaceConfigured(obj) {
-		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultNetworkInterface()}
-		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
+		obj.Spec.Domain.Devices.Interfaces = append(obj.Spec.Domain.Devices.Interfaces, *DefaultNetworkInterface())
+		obj.Spec.Networks = append(obj.Spec.Networks, *DefaultPodNetwork())
 	}
 }
 
