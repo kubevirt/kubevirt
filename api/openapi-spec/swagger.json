@@ -3487,6 +3487,10 @@
       "description": "Name is the device name",
       "type": "string"
      },
+     "serial": {
+      "description": "Serial provides the ability to specifiy a serial number for the disk\ndevice.\n+optional",
+      "type": "string"
+     },
      "volumeName": {
       "description": "Name of the volume which is referenced\nMust match the Name of a Volume.",
       "type": "string"
