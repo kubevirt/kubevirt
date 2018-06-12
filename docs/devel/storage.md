@@ -12,6 +12,7 @@ The hostPath provisioner needs to write to a directory on the node, we will need
 
 ```bash
 cluster/cli.sh ssh node01 -- sudo mkdir /var/run/kubevirt/hostpath
+```
 
 ## deploy hostPath PVC provisioner
 
