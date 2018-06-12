@@ -50,7 +50,19 @@ for arg in $args; do
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --namespace="{{ namespace }}" \
         --docker-prefix="{{ docker_prefix }}" \
-        --docker-tag="{{docker_tag}}" \
+        --docker-tag="{{ docker_tag }}" \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
+
+# make sure that template manifests align with release manifests
+export namespace=${namespace}
+export docker_tag=${docker_tag}
+export docker_prefix=${manifest_docker_prefix}
+
+# Very cheap test to make sure that our jinja2 template produces the exact same output like our released manifests
+# This diff is a little bit hacky:
+# First, find all full manifests and templates and sort them.
+# Next in case of the templates apply j2cli on them, in case of processed manifests simply cat them
+# Finally apply sed to make sure that every file has a proper newline at the end (j2cli tends to clean the file unasked).
+diff <(find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -print0 | sort -z | xargs -I {} -0 -n1 sh -c "j2 {} | sed -e '/.$/a\'") <(find ${MANIFESTS_OUT_DIR}/ -type f -print0 | sort -z | xargs -0 -I {} -n1 sh -c "cat {} | sed -e '/.$/a\'")

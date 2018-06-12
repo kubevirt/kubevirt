@@ -40,6 +40,8 @@ RUN \
     git checkout release-1.9 && \
     go install
 
+RUN pip install j2cli
+
 ADD entrypoint.sh /entrypoint.sh
 
 ENTRYPOINT [ "/entrypoint.sh" ]
