@@ -1,44 +1,36 @@
 package device_manager
 
 import (
+	"fmt"
 	"io/ioutil"
-	"path"
 	"os"
+	"path"
 	"time"
+	"testing"
 
-	//"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	//"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	//"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
 var _ = Describe("Device Controller", func() {
-	//var virtClient *kubecli.MockKubevirtClient
-	//var ctrl *gomock.Controller
 	var workDir string
 	var err error
 	var host string
 	var deviceController *DeviceController
 	var stop chan struct{}
 
-	Context("", func() {
+	Context("Basic Tests", func() {
 		BeforeEach(func() {
 			workDir, err = ioutil.TempDir("", "kubevirt-test")
 			Expect(err).ToNot(HaveOccurred())
 
-			//ctrl = gomock.NewController(GinkgoT())
-
-			//virtClient = kubecli.NewMockKubevirtClient(ctrl)
-			//virtClient.EXPECT().VM(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-
 			host = "master"
-			stop = make(chan struct {})
+			stop = make(chan struct{})
 		})
 
 		AfterEach(func() {
-			//ctrl.Finish()
 			close(stop)
+			os.RemoveAll(workDir)
 		})
 
 		It("Should indicate if node has device", func() {
@@ -58,7 +50,7 @@ var _ = Describe("Device Controller", func() {
 		It("Should stop waiting if channel is closed", func() {
 			deviceController = NewDeviceController(host, 10)
 			devicePath := path.Join(workDir, "fake-device")
-			stopChan := make(chan struct {})
+			stopChan := make(chan struct{})
 			close(stopChan)
 			err := deviceController.waitForPath(devicePath, stopChan)
 			Expect(err).To(HaveOccurred())
@@ -68,24 +60,31 @@ var _ = Describe("Device Controller", func() {
 			deviceController = NewDeviceController(host, 10)
 			devicePath := path.Join(workDir, "fake-device")
 
-			result := make(chan error)
+			By(fmt.Sprintf("Device Path: %s", devicePath))
 
 			timeout := make(chan struct{})
+
 			go func() {
 				time.Sleep(1 * time.Second)
+
+				fileObj, err := os.Create(devicePath)
+				Expect(err).ToNot(HaveOccurred())
+				fileObj.Close()
+			}()
+
+			go func() {
+				time.Sleep(5 * time.Second)
 				close(timeout)
 			}()
 
-			go func() {
-				err := deviceController.waitForPath(devicePath, timeout)
-				result <- err
-			}()
+			err := deviceController.waitForPath(devicePath, timeout)
 
-			fileObj, err := os.Create(devicePath)
-			fileObj.Close()
-
-			err = <-result
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
+
+func TestController(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Device Controller")
+}
