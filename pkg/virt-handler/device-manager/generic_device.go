@@ -45,7 +45,6 @@ const (
 type GenericDevicePlugin struct {
 	counter    int
 	devs       []*pluginapi.Device
-	allocate   chan struct{}
 	server     *grpc.Server
 	socketPath string
 	stop       chan struct{}
@@ -54,18 +53,20 @@ type GenericDevicePlugin struct {
 	deviceName string
 }
 
-func NewGenericDevicePlugin(deviceName string, devicePath string) *GenericDevicePlugin {
+func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int) *GenericDevicePlugin {
 	serverSock := fmt.Sprintf(pluginapi.DevicePluginPath+"kubevirt-%s.sock", deviceName)
 	dpi := &GenericDevicePlugin{
 		counter:    0,
 		devs:       []*pluginapi.Device{},
 		socketPath: serverSock,
-		allocate:   make(chan struct{}),
 		health:     make(chan string),
 		deviceName: deviceName,
 		devicePath: devicePath,
 	}
-	dpi.addNewGenericDevice()
+	for i := 0; i < maxDevices; i++ {
+		dpi.addNewGenericDevice()
+	}
+
 	return dpi
 }
 
@@ -187,20 +188,13 @@ func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.Dev
 				dev.Health = health
 			}
 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case <-dpi.allocate:
-			dpi.addNewGenericDevice()
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 		case <-dpi.stop:
 			return nil
 		}
 	}
 }
 
-// We can only allocate new devices. There is no provision to de-allocate
 func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	// Prompt ListAndWatch to make a new Device
-	dpi.allocate <- struct{}{}
-
 	var response pluginapi.AllocateResponse
 	dev := new(pluginapi.DeviceSpec)
 	dev.HostPath = dpi.devicePath

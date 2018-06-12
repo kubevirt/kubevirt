@@ -61,6 +61,7 @@ func NewController(
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
+	maxDevices int,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -98,7 +99,7 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
-	c.kvmController = device_manager.NewDeviceController(vmInformer, c.clientset, c.host)
+	c.kvmController = device_manager.NewDeviceController(c.clientset, c.host, maxDevices)
 
 	return c
 }

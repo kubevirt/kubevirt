@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"os"
 
-	"k8s.io/client-go/tools/cache"
-
 	"github.com/fsnotify/fsnotify"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -42,18 +40,18 @@ type DeviceController struct {
 	clientset     kubecli.KubevirtClient
 	devicePlugins []*GenericDevicePlugin
 	host          string
-	vmInformer    cache.SharedIndexInformer
+	maxDevices    int
 }
 
-func NewDeviceController(vmInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient, host string) *DeviceController {
+func NewDeviceController(clientset kubecli.KubevirtClient, host string, maxDevices int) *DeviceController {
 	return &DeviceController{
 		clientset: clientset,
 		devicePlugins: []*GenericDevicePlugin{
-			NewGenericDevicePlugin(KVMName, KVMPath),
-			NewGenericDevicePlugin(TunName, TunPath),
+			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices),
+			NewGenericDevicePlugin(TunName, TunPath, maxDevices),
 		},
 		host:       host,
-		vmInformer: vmInformer,
+		maxDevices: maxDevices,
 	}
 }
 
