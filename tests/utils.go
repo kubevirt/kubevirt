@@ -122,8 +122,8 @@ const (
 )
 
 const (
-	HostPathAlpine = "/hostImages/alpine"
-	HostPathCustom = "/hostImages/custom"
+	HostPathAlpine = "/tmp/hostImages/alpine"
+	HostPathCustom = "/tmp/hostImages/custom"
 )
 
 const (

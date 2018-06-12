@@ -30,7 +30,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: /hostImages/alpine
+    path: /tmp/hostImages/alpine
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -63,7 +63,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: /hostImages/custom
+    path: /tmp/hostImages/custom
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
@@ -92,5 +92,5 @@ spec:
       volumes:
         - name: images
           hostPath:
-            path: /hostImages
+            path: /tmp/hostImages
             type: DirectoryOrCreate
