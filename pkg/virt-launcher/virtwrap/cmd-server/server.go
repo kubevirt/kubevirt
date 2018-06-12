@@ -42,8 +42,8 @@ func NewServerOptions(useEmulation bool) *ServerOptions {
 }
 
 type Launcher struct {
-	domainManager  virtwrap.DomainManager
-	useEmulation bool
+	domainManager virtwrap.DomainManager
+	useEmulation  bool
 }
 
 func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, error) {
@@ -168,8 +168,8 @@ func RunServer(socketPath string,
 	}
 	rpcServer := rpc.NewServer()
 	server := &Launcher{
-		domainManager:  domainManager,
-		useEmulation: useEmulation,
+		domainManager: domainManager,
+		useEmulation:  useEmulation,
 	}
 	rpcServer.Register(server)
 	sock, err := createSocket(socketPath)

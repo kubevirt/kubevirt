@@ -587,8 +587,8 @@ var _ = Describe("VMIlifecycle", func() {
 
 				domain := &api.Domain{}
 				context := &api.ConverterContext{
-					UseEmulation: true,
 					VirtualMachine: newVMI,
+					UseEmulation:   true,
 				}
 				api.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
 

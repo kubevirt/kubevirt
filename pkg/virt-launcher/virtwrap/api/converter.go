@@ -39,7 +39,7 @@ import (
 )
 
 type ConverterContext struct {
-	UseEmulation bool
+	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 }

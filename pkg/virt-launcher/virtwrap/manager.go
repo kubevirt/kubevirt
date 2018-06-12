@@ -123,7 +123,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
-		UseEmulation: useEmulation,
+		UseEmulation:   useEmulation,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")

@@ -59,7 +59,7 @@ var _ = Describe("Manager", func() {
 		domain := &api.Domain{}
 		c := &api.ConverterContext{
 			VirtualMachine: vmi,
-			UseEmulation: true,
+			UseEmulation:   true,
 		}
 		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.SetObjectDefaults_Domain(domain)
