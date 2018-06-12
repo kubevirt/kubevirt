@@ -42,7 +42,7 @@ var _ = Describe("Network", func() {
 
 	Context("interface configuration", func() {
 		It("should configure bridged pod networking by default", func() {
-			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
+			NetworkInterfaceFactory = func(iface *v1.Interface, network *v1.Network) (NetworkInterface, error) {
 				return mockNetworkInterface, nil
 			}
 			domain := &api.Domain{}

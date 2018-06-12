@@ -26,15 +26,13 @@ import (
 	"net"
 	"strings"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // DefaultProtocol is the default port protocol
-const DefaultProtocol k8sv1.Protocol = "TCP"
+const DefaultProtocol string = "TCP"
 
 // DefaultVMCIDR is the default CIRD for vm network
 const DefaultVMCIDR = "10.0.2.0/24"
@@ -84,79 +82,79 @@ func (l *ProxyInterface) Plug(iface *v1.Interface, network *v1.Network, domain *
 }
 
 func getProxyBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain) (ProxyBindMechanism, error) {
-	if iface.Slirp != nil {
-		slirpConfig := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-		return &SlirpProxyInterface{iface: iface, network: network, domain: domain, slirpConfig: slirpConfig}, nil
+	if iface.Proxy != nil {
+		proxyConfig := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+		return &ProxyPodInterface{iface: iface, network: network, domain: domain, proxyConfig: proxyConfig}, nil
 	}
 	return nil, fmt.Errorf("Interface Type not implemented for proxy network")
 }
 
-type SlirpProxyInterface struct {
+type ProxyPodInterface struct {
 	iface       *v1.Interface
 	network     *v1.Network
 	domain      *api.Domain
-	slirpConfig api.Arg
+	proxyConfig api.Arg
 }
 
-func (s *SlirpProxyInterface) configPortForward() error {
-	if s.iface.Slirp.Ports == nil {
+func (p *ProxyPodInterface) configPortForward() error {
+	if p.iface.Proxy.Ports == nil {
 		return nil
 	}
 
-	portForwardMap := make(map[int32]k8sv1.Protocol)
+	portForwardMap := make(map[int32]string)
 
-	for _, vmPort := range s.iface.Slirp.Ports {
+	for _, forwardPort := range p.iface.Proxy.Ports {
 		protocol := DefaultProtocol
 
 		// Check protocol, its case sensitive like kubernetes
-		if vmPort.Protocol != "" {
-			if vmPort.Protocol != "TCP" && vmPort.Protocol != "UDP" {
+		if forwardPort.Protocol != "" {
+			if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
 				return fmt.Errorf("Unknow protocol only TCP or UDP allowed")
 			} else {
-				protocol = vmPort.Protocol
+				protocol = forwardPort.Protocol
 			}
 		}
 		//Check for duplicate pod port allocation
-		if portProtocol, ok := portForwardMap[vmPort.PodPort]; ok && portProtocol == protocol {
+		if portProtocol, ok := portForwardMap[forwardPort.PodPort]; ok && portProtocol == protocol {
 			return fmt.Errorf("Duplicated pod port allocation")
 		}
 
 		// Check if PodPort is configure If not Get the same Port as the vm port
-		if vmPort.PodPort == 0 {
-			vmPort.PodPort = vmPort.VMPort
+		if forwardPort.VMPort == 0 {
+			forwardPort.VMPort = forwardPort.PodPort
 		}
 
-		portForwardMap[vmPort.PodPort] = protocol
-		s.slirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), vmPort.VMPort, vmPort.PodPort)
+		portForwardMap[forwardPort.PodPort] = protocol
+		p.proxyConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.VMPort)
 
 	}
 
 	return nil
 }
 
-func (s *SlirpProxyInterface) configVMCIDR() error {
-	if s.network.Proxy == nil {
-		return fmt.Errorf("Slirp works only with proxy network")
+func (p *ProxyPodInterface) configVMCIDR() error {
+	if p.network.Pod == nil {
+		return fmt.Errorf("Proxy works only with proxy network")
 	}
 
 	vmNetworkCIDR := ""
-	if s.network.Proxy.VMNetworkCIDR != "" {
-		_, _, err := net.ParseCIDR(s.network.Proxy.VMNetworkCIDR)
+	if p.network.Pod.VMNetworkCIDR != "" {
+		_, _, err := net.ParseCIDR(p.network.Pod.VMNetworkCIDR)
 		if err != nil {
 			return fmt.Errorf("Failed parsing CIDR")
 		}
-		vmNetworkCIDR = s.network.Proxy.VMNetworkCIDR
+		vmNetworkCIDR = p.network.Pod.VMNetworkCIDR
 	} else {
 		vmNetworkCIDR = DefaultVMCIDR
 	}
 
 	// Insert configuration to qemu commandline
-	s.slirpConfig.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
+	p.proxyConfig.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
 
 	return nil
 }
 
-func (s *SlirpProxyInterface) configDNSSearchName() error {
+func (p *ProxyPodInterface) configDNSSearchName() error {
 	// remove the search string from the output and convert to string
 	_, dnsSearchNames, err := getResolvConfDetailsFromPod()
 	if err != nil {
@@ -165,15 +163,15 @@ func (s *SlirpProxyInterface) configDNSSearchName() error {
 
 	// Insert configuration to qemu commandline
 	for _, dnsSearchName := range dnsSearchNames {
-		s.slirpConfig.Value += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
+		p.proxyConfig.Value += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
 	}
 
 	return nil
 }
 
-func (s *SlirpProxyInterface) CommitConfiguration() error {
-	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-netdev"})
-	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, s.slirpConfig)
+func (p *ProxyPodInterface) CommitConfiguration() error {
+	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-netdev"})
+	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, p.proxyConfig)
 
 	return nil
 }

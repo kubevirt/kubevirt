@@ -521,8 +521,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 					Source: InterfaceSource{
 						Bridge: DefaultBridgeName,
 					}})
-			} else if iface.Slirp != nil {
-				// SLIRP is not added as interface, Need to be added as qemu commandlist
+			} else if iface.Proxy != nil {
+				// TODO: maybe add interface model to vm spec
+				// Slirp configuration works only with e1000 or rtl8139
+				if interfaceType == "virtio" {
+					interfaceType = "e1000"
+				}
+
+				// Proxy is not added as interface, Need to be added as qemu commandlist
 				// Create network interface
 				if domain.Spec.QEMUCmd == nil {
 					domain.Spec.QEMUCmd = &Commandline{}
@@ -532,7 +538,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 					domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
 				}
 				domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-device"})
-				domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("%s,netdev=%s", "e1000", iface.Name)})
+				domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("%s,netdev=%s", interfaceType, iface.Name)})
 				// The network itself will be created on preStartHook
 			}
 

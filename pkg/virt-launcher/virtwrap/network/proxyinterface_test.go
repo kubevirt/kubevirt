@@ -44,7 +44,7 @@ var _ = Describe("Proxy Network", func() {
 		mockNetwork = NewMockNetworkHandler(ctrl)
 		Handler = mockNetwork
 		iface = &v1.Interface{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-		network = &v1.Network{Name: "testnet", NetworkSource: v1.NetworkSource{Proxy: &v1.ProxyNetwork{}}}
+		network = &v1.Network{Name: "testnet", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}
 
 		vm = newVM("testnamespace", "testvm")
 		domain = DomainWithProxyNetwork()
@@ -59,13 +59,11 @@ var _ = Describe("Proxy Network", func() {
 
 	Context("on successful setup", func() {
 		It("Should create the qemu configuration for interface", func() {
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{PodPort: 80, VMPort: 80, Protocol: "TCP"}}}
+			iface.InterfaceBindingMethod.Proxy = &v1.InterfaceProxy{Ports: []v1.Port{{PodPort: 80, VMPort: 80, Protocol: "TCP"}}}
 
-			// Change default network
-			vm.Spec.Networks[0] = *network
-
-			// Change default interface
+			// Change interface
 			vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
 			proxyBinding, err := getProxyBinding(iface, network, domain)
 			Expect(err).NotTo(HaveOccurred())
 			err = proxyBinding.configVMCIDR()

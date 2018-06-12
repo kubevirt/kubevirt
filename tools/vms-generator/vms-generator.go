@@ -43,6 +43,7 @@ const (
 	vmNoCloud     = "vm-nocloud"
 	vmPvc         = "vm-pvc"
 	vmWindows     = "vm-windows"
+	vmProxy       = "vm-proxy"
 )
 
 const (
@@ -219,6 +220,20 @@ func getVmEphemeralFedora() *v1.VirtualMachine {
 
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	return vm
+}
+
+func getVmProxy() *v1.VirtualMachine {
+	vm := getBaseVm(vmProxy)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testProxy", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
+
+	proxy := &v1.InterfaceProxy{Ports: []v1.Port{v1.Port{Name: "http", Protocol: "TCP", VMPort: 80, PodPort: 80}}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testProxy", InterfaceBindingMethod: v1.InterfaceBindingMethod{Proxy: proxy}}}
+
 	return vm
 }
 
@@ -424,6 +439,7 @@ func main() {
 		ovmAlpineMultiPvc:  getOvmMultiPvc(),
 		vmReplicaSetCirros: getVmReplicaSetCirros(),
 		vmPresetSmall:      getVmPresetSmall(),
+		vmProxy:            getVmProxy(),
 	}
 	for name, obj := range vms {
 		data, err := yaml.Marshal(obj)
