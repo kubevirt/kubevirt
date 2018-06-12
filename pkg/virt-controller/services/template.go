@@ -284,6 +284,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		if vm.Spec.Affinity.PodAffinity != nil {
 			pod.Spec.Affinity.PodAffinity = vm.Spec.Affinity.PodAffinity
 		}
+
+		if vm.Spec.Affinity.PodAntiAffinity != nil {
+			pod.Spec.Affinity.PodAntiAffinity = vm.Spec.Affinity.PodAntiAffinity
+		}
 	}
 
 	return &pod, nil

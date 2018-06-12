@@ -54,6 +54,7 @@ spec:
                       properties:
                         nodeAffinity: {}
                         podAffinity: {}
+                        podAntiAffinity: {}
                     domain:
                       properties:
                         clock:

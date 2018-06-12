@@ -32,9 +32,10 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 
 func (Affinity) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":             "Affinity groups all the affinity rules related to a VM",
-		"nodeAffinity": "Node affinity support",
-		"podAffinity":  "Pod affinity support",
+		"":                "Affinity groups all the affinity rules related to a VM",
+		"nodeAffinity":    "Node affinity support",
+		"podAffinity":     "Pod affinity support",
+		"podAntiAffinity": "Pod anti-affinity support",
 	}
 }
 
