@@ -1,4 +1,4 @@
-package offlinevm
+package vm
 
 import (
 	"testing"

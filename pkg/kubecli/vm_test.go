@@ -13,18 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
 package kubecli
 
 import (
-	"fmt"
-	"io"
 	"net/http"
 
-	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -34,16 +31,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
+var _ = Describe("Kubevirt VirtualMachine Client", func() {
 
-	var upgrader websocket.Upgrader
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances"
+	basePath := "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachines"
 	vmiPath := basePath + "/testvm"
 
 	BeforeEach(func() {
@@ -54,68 +48,68 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should fetch a VirtualMachineInstance", func() {
-		vmi := v1.NewMinimalVMI("testvm")
+		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vmiPath),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		fetchedVMI, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		fetchedVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(fetchedVMI).To(Equal(vmi))
+		Expect(fetchedVMI).To(Equal(vm))
 	})
 
-	It("should detect non existent VMIs", func() {
+	It("should detect non existent VirtualMachines", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vmiPath),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
+		_, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	It("should fetch a VirtualMachineInstance list", func() {
-		vmi := v1.NewMinimalVMI("testvm")
+	It("should fetch a VirtualMachine list", func() {
+		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", basePath),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMIList(*vmi)),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMList(*vm)),
 		))
-		fetchedVMIList, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedVMIList, err := client.VirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedVMIList.Items).To(HaveLen(1))
-		Expect(fetchedVMIList.Items[0]).To(Equal(*vmi))
+		Expect(fetchedVMIList.Items[0]).To(Equal(*vm))
 	})
 
-	It("should create a VirtualMachineInstance", func() {
-		vmi := v1.NewMinimalVMI("testvm")
+	It("should create a VirtualMachine", func() {
+		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("POST", basePath),
-			ghttp.RespondWithJSONEncoded(http.StatusCreated, vmi),
+			ghttp.RespondWithJSONEncoded(http.StatusCreated, vm),
 		))
-		createdVMI, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(vmi)
+		createdVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(createdVMI).To(Equal(vmi))
+		Expect(createdVMI).To(Equal(vm))
 	})
 
-	It("should update a VirtualMachineInstance", func() {
-		vmi := v1.NewMinimalVMI("testvm")
+	It("should update a VirtualMachine", func() {
+		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("PUT", vmiPath),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		updatedVMI, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Update(vmi)
+		updatedVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(updatedVMI).To(Equal(vmi))
+		Expect(updatedVMI).To(Equal(vm))
 	})
 
 	It("should delete a VirtualMachineInstance", func() {
@@ -123,108 +117,13 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("DELETE", vmiPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
+		err := client.VirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	It("should allow to connect a stream to a VM", func() {
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm/vnc"
-
-		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", vncPath),
-			func(w http.ResponseWriter, r *http.Request) {
-				_, err := upgrader.Upgrade(w, r, nil)
-				if err != nil {
-					return
-				}
-			},
-		))
-		_, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).VNC("testvm")
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	It("should handle a failure connecting to the VM", func() {
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm/vnc"
-
-		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", vncPath),
-			func(w http.ResponseWriter, r *http.Request) {
-				return
-			},
-		))
-		_, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).VNC("testvm")
-		Expect(err).To(HaveOccurred())
-	})
-
-	It("should exchange data with the VM", func() {
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm/vnc"
-
-		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", vncPath),
-			func(w http.ResponseWriter, r *http.Request) {
-				c, err := upgrader.Upgrade(w, r, nil)
-				if err != nil {
-					panic("server upgrader failed")
-				}
-				defer c.Close()
-
-				for {
-					mt, message, err := c.ReadMessage()
-					if err != nil {
-						io.WriteString(GinkgoWriter, fmt.Sprintf("server read failed: %v\n", err))
-						break
-					}
-
-					err = c.WriteMessage(mt, message)
-					if err != nil {
-						io.WriteString(GinkgoWriter, fmt.Sprintf("server write failed: %v\n", err))
-						break
-					}
-				}
-			},
-		))
-
-		By("establishing connection")
-
-		vnc, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).VNC("testvm")
-		Expect(err).ToNot(HaveOccurred())
-
-		By("wiring the pipes")
-
-		pipeInReader, pipeInWriter := io.Pipe()
-		pipeOutReader, pipeOutWriter := io.Pipe()
-
-		go func() {
-			vnc.Stream(StreamOptions{
-				In:  pipeInReader,
-				Out: pipeOutWriter,
-			})
-		}()
-
-		By("sending data around")
-		msg := "hello, vnc!"
-		bufIn := make([]byte, 64)
-		copy(bufIn[:], msg)
-
-		_, err = pipeInWriter.Write(bufIn)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("reading back data")
-		bufOut := make([]byte, 64)
-		_, err = pipeOutReader.Read(bufOut)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("checking the result")
-		Expect(bufOut).To(Equal(bufIn))
 	})
 
 	AfterEach(func() {
 		server.Close()
 	})
 })
-
-func NewVMIList(vms ...v1.VirtualMachineInstance) *v1.VirtualMachineInstanceList {
-	return &v1.VirtualMachineInstanceList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceList"}, Items: vms}
-}

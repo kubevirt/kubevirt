@@ -40,7 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virtctl/offlinevm"
+	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -440,7 +440,7 @@ var _ = Describe("VirtualMachine", func() {
 				newVMI := newVirtualMachine(false)
 
 				By("Invoking virtctl start")
-				virtctl := tests.NewRepeatableVirtctlCommand(offlinevm.COMMAND_START, "--namespace", newVMI.Namespace, newVMI.Name)
+				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", newVMI.Namespace, newVMI.Name)
 
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -470,7 +470,7 @@ var _ = Describe("VirtualMachine", func() {
 				newVMI := newVirtualMachine(true)
 
 				By("Invoking virtctl stop")
-				virtctl := tests.NewRepeatableVirtctlCommand(offlinevm.COMMAND_STOP, "--namespace", newVMI.Namespace, newVMI.Name)
+				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", newVMI.Namespace, newVMI.Name)
 
 				By("Ensuring VMI is running")
 				Eventually(func() bool {

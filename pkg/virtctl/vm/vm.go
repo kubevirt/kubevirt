@@ -17,7 +17,7 @@
  *
  */
 
-package offlinevm
+package vm
 
 import (
 	"fmt"

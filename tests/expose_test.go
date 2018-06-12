@@ -16,7 +16,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
-	"kubevirt.io/kubevirt/pkg/virtctl/offlinevm"
+	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -316,7 +316,7 @@ var _ = Describe("Expose", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Calling the start command")
-			virtctl = tests.NewRepeatableVirtctlCommand(offlinevm.COMMAND_START, "--namespace", ovm.Namespace, ovm.Name)
+			virtctl = tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", ovm.Namespace, ovm.Name)
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
