@@ -512,6 +512,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if net.Pod == nil {
 			return fmt.Errorf("network interface type not supported for %s", iface.Name)
 		}
+		// TODO:(ihar) consider abstracting interface type conversion /
+		// detection into drivers
 		domainIface := Interface{
 			Model: &Model{
 				Type: interfaceType,
@@ -519,6 +521,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			Type: "bridge",
 			Source: InterfaceSource{
 				Bridge: DefaultBridgeName,
+			},
+			Alias: &Alias{
+				Name: iface.Name,
 			},
 		}
 		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)

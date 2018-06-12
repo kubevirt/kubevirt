@@ -45,14 +45,13 @@ type PodInterface struct{}
 
 func (l *PodInterface) Unplug() {}
 
-func findPodInterface(ifaces []api.Interface) (int, error) {
+func findInterfaceByName(ifaces []api.Interface, name string) (int, error) {
 	for i, iface := range ifaces {
-		// TODO:(ihar) find a more robust way to detect pod interface
-		if iface.Type == "bridge" && iface.Source.Bridge == api.DefaultBridgeName {
+		if iface.Alias.Name == name {
 			return i, nil
 		}
 	}
-	return 0, fmt.Errorf("failed to find a default interface configuration")
+	return 0, fmt.Errorf("failed to find interface with alias set to %s", name)
 }
 
 // Plug connect a Pod network device to the virtual machine
@@ -71,7 +70,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	}
 
 	interfaces := domain.Spec.Devices.Interfaces
-	podInterfaceNum, err := findPodInterface(interfaces)
+	podInterfaceNum, err := findInterfaceByName(interfaces, iface.Name)
 	if err != nil {
 		return err
 	}

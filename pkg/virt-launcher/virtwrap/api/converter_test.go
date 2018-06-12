@@ -283,6 +283,10 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
+
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				UUID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
 			}
@@ -310,6 +314,7 @@ var _ = Describe("Converter", func() {
     <interface type="bridge">
       <source bridge="br1"></source>
       <model type="virtio"></model>
+      <alias name="default"></alias>
     </interface>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
@@ -515,6 +520,19 @@ var _ = Describe("Converter", func() {
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
 			Expect(domainSpec.Memory.Unit).To(Equal("B"))
+		})
+
+		It("should fail to convert if non-pod interfaces are present", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			name := "otherName"
+			iface := v1.DefaultNetworkInterface()
+			net := v1.DefaultPodNetwork()
+			iface.Name = name
+			net.Name = name
+			net.Pod = nil
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *iface)
+			vmi.Spec.Networks = append(vmi.Spec.Networks, *net)
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
 		})
 	})
 })

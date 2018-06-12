@@ -85,7 +85,7 @@ var _ = Describe("Pod Network", func() {
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="default"></alias></Interface>`)
 	})
 
 	AfterEach(func() {
@@ -173,34 +173,82 @@ var _ = Describe("Pod Network", func() {
 				Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
 			})
 		})
-		Context("func findPodInterface()", func() {
+		Context("func findInterfaceByName()", func() {
 			It("should fail on empty interface list", func() {
-				_, err := findPodInterface([]api.Interface{})
+				_, err := findInterfaceByName([]api.Interface{}, "default")
 				Expect(err).To(HaveOccurred())
 			})
-			It("should fail when pod interface is missing", func() {
+			It("should fail when interface is missing", func() {
 				interfaces := []api.Interface{
-					api.Interface{Type: "not-bridge", Source: api.InterfaceSource{Bridge: api.DefaultBridgeName}},
-					api.Interface{Type: "bridge", Source: api.InterfaceSource{Bridge: "other_br"}},
+					api.Interface{
+						Type: "not-bridge",
+						Source: api.InterfaceSource{
+							Bridge: api.DefaultBridgeName,
+						},
+						Alias: &api.Alias{
+							Name: "iface1",
+						},
+					},
+					api.Interface{
+						Type: "bridge",
+						Source: api.InterfaceSource{
+							Bridge: "other_br",
+						},
+						Alias: &api.Alias{
+							Name: "iface2",
+						},
+					},
 				}
-				_, err := findPodInterface(interfaces)
+				_, err := findInterfaceByName(interfaces, "iface3")
 				Expect(err).To(HaveOccurred())
 			})
-			It("should pass when pod interface is single", func() {
+			It("should pass when interface alias matches the name", func() {
 				interfaces := []api.Interface{
-					api.Interface{Type: "bridge", Source: api.InterfaceSource{Bridge: api.DefaultBridgeName}},
+					api.Interface{
+						Type: "bridge",
+						Source: api.InterfaceSource{
+							Bridge: api.DefaultBridgeName,
+						},
+						Alias: &api.Alias{
+							Name: "iface1",
+						},
+					},
 				}
-				idx, err := findPodInterface(interfaces)
+				idx, err := findInterfaceByName(interfaces, "iface1")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(idx).To(Equal(0))
 			})
-			It("should pass when pod interface is not the first in the list", func() {
+			It("should pass when matched interface is not the first in the list", func() {
 				interfaces := []api.Interface{
-					api.Interface{Type: "not-bridge", Source: api.InterfaceSource{Bridge: api.DefaultBridgeName}},
-					api.Interface{Type: "bridge", Source: api.InterfaceSource{Bridge: "other_br"}},
-					api.Interface{Type: "bridge", Source: api.InterfaceSource{Bridge: api.DefaultBridgeName}},
+					api.Interface{
+						Type: "not-bridge",
+						Source: api.InterfaceSource{
+							Bridge: api.DefaultBridgeName,
+						},
+						Alias: &api.Alias{
+							Name: "iface1",
+						},
+					},
+					api.Interface{
+						Type: "bridge",
+						Source: api.InterfaceSource{
+							Bridge: "other_br",
+						},
+						Alias: &api.Alias{
+							Name: "iface2",
+						},
+					},
+					api.Interface{
+						Type: "bridge",
+						Source: api.InterfaceSource{
+							Bridge: api.DefaultBridgeName,
+						},
+						Alias: &api.Alias{
+							Name: "iface3",
+						},
+					},
 				}
-				idx, err := findPodInterface(interfaces)
+				idx, err := findInterfaceByName(interfaces, "iface3")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(idx).To(Equal(2))
 			})
@@ -210,9 +258,16 @@ var _ = Describe("Pod Network", func() {
 
 func newVM(namespace string, name string) *v1.VirtualMachineInstance {
 	vmi := &v1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.NewMinimalDomainSpec()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.VirtualMachineInstanceSpec{
+			Domain:   v1.NewMinimalDomainSpec(),
+			Networks: []v1.Network{*v1.DefaultPodNetwork()},
+		},
 	}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }
@@ -227,6 +282,9 @@ func NewDomainWithPodNetwork() *api.Domain {
 		Type: "bridge",
 		Source: api.InterfaceSource{
 			Bridge: api.DefaultBridgeName,
+		},
+		Alias: &api.Alias{
+			Name: "default",
 		}},
 	}
 	return domain
