@@ -1117,7 +1117,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format: "",
 							},
 						},
-						"vmPort": {
+						"port": {
 							SchemaProps: spec.SchemaProps{
 								Type:   []string{"integer"},
 								Format: "int32",
@@ -1130,7 +1130,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"name", "podPort"},
 				},
 			},
 			Dependencies: []string{},

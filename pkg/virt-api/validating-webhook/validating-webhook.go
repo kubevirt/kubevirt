@@ -440,6 +440,44 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			}
+
+			if iface.Slirp != nil && iface.Slirp.Ports != nil {
+				portForwardMap := make(map[int32]string)
+
+				for portIdx, forwardPort := range iface.Slirp.Ports {
+					protocol := "TCP"
+
+					if forwardPort.Port == 0 {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("Port field is mandatory in every Port"),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+						})
+					}
+
+					if forwardPort.Protocol != "" {
+						if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
+							causes = append(causes, metav1.StatusCause{
+								Type:    metav1.CauseTypeFieldValueInvalid,
+								Message: fmt.Sprintf("Unknow protocol only TCP or UDP allowed"),
+								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
+							})
+						} else {
+							protocol = forwardPort.Protocol
+						}
+					}
+
+					if portProtocol, ok := portForwardMap[forwardPort.Port]; ok && portProtocol == protocol {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("Port field must be unique"),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+						})
+					}
+
+					portForwardMap[forwardPort.Port] = protocol
+				}
+			}
 		}
 	}
 

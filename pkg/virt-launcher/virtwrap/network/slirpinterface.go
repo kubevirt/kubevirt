@@ -106,8 +106,8 @@ func (p *SlirpPodInterface) configPortForward() error {
 	for _, forwardPort := range p.iface.Slirp.Ports {
 		protocol := DefaultProtocol
 
-		if forwardPort.PodPort == 0 {
-			return fmt.Errorf("podPort must be configure")
+		if forwardPort.Port == 0 {
+			return fmt.Errorf("Port must be configure")
 		}
 
 		// Check protocol, its case sensitive like kubernetes
@@ -119,17 +119,17 @@ func (p *SlirpPodInterface) configPortForward() error {
 			}
 		}
 		//Check for duplicate pod port allocation
-		if portProtocol, ok := portForwardMap[forwardPort.PodPort]; ok && portProtocol == protocol {
+		if portProtocol, ok := portForwardMap[forwardPort.Port]; ok && portProtocol == protocol {
 			return fmt.Errorf("Duplicated pod port allocation")
 		}
 
 		// Check if PodPort is configure If not Get the same Port as the vm port
-		if forwardPort.VMPort == 0 {
-			forwardPort.VMPort = forwardPort.PodPort
+		if forwardPort.PodPort == 0 {
+			forwardPort.PodPort = forwardPort.Port
 		}
 
-		portForwardMap[forwardPort.PodPort] = protocol
-		p.SlirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.VMPort)
+		portForwardMap[forwardPort.Port] = protocol
+		p.SlirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.Port)
 
 	}
 

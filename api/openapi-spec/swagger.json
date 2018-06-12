@@ -4088,10 +4088,6 @@
    },
    "v1.Port": {
     "description": "Port repesents a port to expose from the virtual machine\nDefault protocol TCP\nDefault vmPort is PodPort",
-    "required": [
-     "name",
-     "podPort"
-    ],
     "properties": {
      "name": {
       "type": "string"
@@ -4100,12 +4096,12 @@
       "type": "integer",
       "format": "int32"
      },
-     "protocol": {
-      "type": "string"
-     },
-     "vmPort": {
+     "port": {
       "type": "integer",
       "format": "int32"
+     },
+     "protocol": {
+      "type": "string"
      }
     }
    },

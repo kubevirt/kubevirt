@@ -648,10 +648,10 @@ type InterfaceSlirp struct {
 // ---
 // +k8s:openapi-gen=true
 type Port struct {
-	Name     string `json:"name"`
+	Name     string `json:"name,omitempty"`
 	Protocol string `json:"protocol,omitempty"`
-	VMPort   int32  `json:"vmPort,omitempty"`
-	PodPort  int32  `json:"podPort"`
+	Port     int32  `json:"port,omitempty"`
+	PodPort  int32  `json:"podPort,omitempty"`
 }
 
 // Network represents a network type and a resource that should be connected to the vm.

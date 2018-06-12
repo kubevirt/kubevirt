@@ -48,7 +48,5 @@ fi
 
 echo "cgroup_controllers = [ ]" >>/etc/libvirt/qemu.conf
 
-# Update sysctl for proxy ping capability
-sysctl -p
 
 /usr/sbin/libvirtd 

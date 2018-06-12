@@ -23,8 +23,8 @@ spec:
           Ports:
           - name: http
             podPort: 80
+            port: 80
             protocol: TCP
-            vmPort: 80
     machine:
       type: ""
     resources:
