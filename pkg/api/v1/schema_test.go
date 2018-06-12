@@ -368,18 +368,18 @@ var _ = Describe("Schema", func() {
 			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})
-	Context("With example schema in json use pod network and proxy interface", func() {
+	Context("With example schema in json use pod network and slirp interface", func() {
 		It("Unmarshal json into struct", func() {
 			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Proxy: &InterfaceProxy{},
+						Slirp: &InterfaceSlirp{},
 					},
 				},
 			}
 
-			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"proxy": {}`}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {}`}
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
 			Expect(err).To(BeNil())
 
@@ -392,7 +392,7 @@ var _ = Describe("Schema", func() {
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Proxy: &InterfaceProxy{},
+						Slirp: &InterfaceSlirp{},
 					},
 				},
 			}
@@ -407,12 +407,12 @@ var _ = Describe("Schema", func() {
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Proxy: &InterfaceProxy{},
+						Slirp: &InterfaceSlirp{},
 					},
 				},
 			}
 
-			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"proxy": {}`}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {}`}
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
 			Expect(err).To(BeNil())
 			var tpl bytes.Buffer

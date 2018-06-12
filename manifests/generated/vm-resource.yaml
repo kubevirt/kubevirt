@@ -147,7 +147,7 @@ spec:
                               a reference to the associated networks Must match the
                               Name of a Network
                             type: string
-                          proxy: {}
+                          slirp: {}
                         required:
                         - name
                       type: array

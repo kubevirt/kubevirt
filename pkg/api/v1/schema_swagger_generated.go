@@ -298,7 +298,7 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (InterfaceProxy) SwaggerDoc() map[string]string {
+func (InterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"Ports": "List of ports to be forwarded to the virtual machine",
 	}

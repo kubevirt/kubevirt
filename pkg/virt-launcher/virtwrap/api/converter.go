@@ -521,7 +521,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vm *v1.VirtualMachine, domain *Doma
 					Source: InterfaceSource{
 						Bridge: DefaultBridgeName,
 					}})
-			} else if iface.Proxy != nil {
+			} else if iface.Slirp != nil {
 				// TODO: maybe add interface model to vm spec
 				// Slirp configuration works only with e1000 or rtl8139
 				if interfaceType == "virtio" {

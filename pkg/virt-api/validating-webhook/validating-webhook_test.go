@@ -574,12 +574,12 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
-		It("should accept networks with a pod network source and proxy interface", func() {
+		It("should accept networks with a pod network source and slirp interface", func() {
 			vm := v1.NewMinimalVM("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Proxy: &v1.InterfaceProxy{},
+					Slirp: &v1.InterfaceSlirp{},
 				}}}
 
 			vm.Spec.Networks = []v1.Network{

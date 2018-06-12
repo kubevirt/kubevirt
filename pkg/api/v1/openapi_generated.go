@@ -720,9 +720,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
 							},
 						},
-						"proxy": {
+						"slirp": {
 							SchemaProps: spec.SchemaProps{
-								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceProxy"),
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"),
 							},
 						},
 					},
@@ -730,7 +730,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceProxy"},
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod": {
 			Schema: spec.Schema{
@@ -742,16 +742,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
 							},
 						},
-						"proxy": {
+						"slirp": {
 							SchemaProps: spec.SchemaProps{
-								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceProxy"),
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"),
 							},
 						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceProxy"},
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge": {
 			Schema: spec.Schema{
@@ -761,7 +761,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceProxy": {
+		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{},

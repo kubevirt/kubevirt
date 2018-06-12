@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var _ = Describe("Proxy Network", func() {
+var _ = Describe("Slirp Network", func() {
 	var mockNetwork *MockNetworkHandler
 	var ctrl *gomock.Controller
 	var vm *v1.VirtualMachine
@@ -38,6 +38,11 @@ var _ = Describe("Proxy Network", func() {
 	var dnsname string
 	var iface *v1.Interface
 	var network *v1.Network
+
+	_, dnsnamelist, _ := getResolvConfDetailsFromPod()
+	for _, dnsSearchName := range dnsnamelist {
+		dnsname += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
+	}
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -47,42 +52,70 @@ var _ = Describe("Proxy Network", func() {
 		network = &v1.Network{Name: "testnet", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}
 
 		vm = newVM("testnamespace", "testvm")
-		domain = DomainWithProxyNetwork()
-		api.SetObjectDefaults_Domain(domain)
 
-		_, dnsnamelist, err := getResolvConfDetailsFromPod()
-		Expect(err).NotTo(HaveOccurred())
-		for _, dnsSearchName := range dnsnamelist {
-			dnsname += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
-		}
+		domain = DomainWithSlirpNetwork()
+		api.SetObjectDefaults_Domain(domain)
 	})
 
 	Context("on successful setup", func() {
-		It("Should create the qemu configuration for interface", func() {
-			iface.InterfaceBindingMethod.Proxy = &v1.InterfaceProxy{Ports: []v1.Port{{PodPort: 80, VMPort: 80, Protocol: "TCP"}}}
-
-			// Change interface
+		It("should fail if podPort not exist", func() {
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{VMPort: 80, Protocol: "TCP"}}}
 			vm.Spec.Domain.Devices.Interfaces[0] = *iface
 
-			proxyBinding, err := getProxyBinding(iface, network, domain)
+			SlirpBinding, err := getSlirpBinding(iface, network, domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = SlirpBinding.configPortForward()
+			Expect(err).To(HaveOccurred())
+		})
+		It("should add tcp if protocol not exist", func() {
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{PodPort: 80}}}
+			vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
+			SlirpBinding, err := getSlirpBinding(iface, network, domain)
+			Expect(err).ToNot(HaveOccurred())
+			err = SlirpBinding.configPortForward()
+			Expect(err).ToNot(HaveOccurred())
+			err = SlirpBinding.CommitConfiguration()
 			Expect(err).NotTo(HaveOccurred())
-			err = proxyBinding.configVMCIDR()
+			Expect(domain.Spec.QEMUCmd.QEMUArg[3].Value).To(Equal("user,id=testnet,hostfwd=tcp::80-:80"))
+
+		})
+		It("Should fail if not validated protocol gived", func() {
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Protocol: "test", PodPort: 80}}}
+			vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
+			SlirpBinding, err := getSlirpBinding(iface, network, domain)
+			Expect(err).ToNot(HaveOccurred())
+			err = SlirpBinding.configPortForward()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("Unknow protocol only TCP or UDP allowed"))
+		})
+		It("Should create the qemu configuration for interface", func() {
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{PodPort: 80, VMPort: 80, Protocol: "TCP"}}}
+			vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
+			SlirpBinding, err := getSlirpBinding(iface, network, domain)
 			Expect(err).NotTo(HaveOccurred())
-			err = proxyBinding.configDNSSearchName()
+			err = SlirpBinding.configVMCIDR()
 			Expect(err).NotTo(HaveOccurred())
-			err = proxyBinding.configPortForward()
+			err = SlirpBinding.configDNSSearchName()
 			Expect(err).NotTo(HaveOccurred())
-			err = proxyBinding.CommitConfiguration()
+			err = SlirpBinding.configPortForward()
+			Expect(err).NotTo(HaveOccurred())
+			err = SlirpBinding.CommitConfiguration()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(4))
 			Expect(domain.Spec.QEMUCmd.QEMUArg[1].Value).To(Equal("virtio,netdev=testnet"))
+			// fmt.Println(domain.Spec.QEMUCmd.QEMUArg[3].Value)
+			// fmt.Println("user,id=testnet,net=10.0.2.0/24" + dnsname + ",hostfwd=tcp::80-:80")
 			Expect(domain.Spec.QEMUCmd.QEMUArg[3].Value).To(Equal("user,id=testnet,net=10.0.2.0/24" + dnsname + ",hostfwd=tcp::80-:80"))
 
 		})
 	})
 })
 
-func DomainWithProxyNetwork() *api.Domain {
+func DomainWithSlirpNetwork() *api.Domain {
 	domain := &api.Domain{}
 
 	if domain.Spec.QEMUCmd == nil {

@@ -628,7 +628,7 @@ type Interface struct {
 // +k8s:openapi-gen=true
 type InterfaceBindingMethod struct {
 	Bridge *InterfaceBridge `json:"bridge,omitempty"`
-	Proxy  *InterfaceProxy  `json:"proxy,omitempty"`
+	Slirp  *InterfaceSlirp  `json:"slirp,omitempty"`
 }
 
 // ---
@@ -637,7 +637,7 @@ type InterfaceBridge struct{}
 
 // ---
 // +k8s:openapi-gen=true
-type InterfaceProxy struct {
+type InterfaceSlirp struct {
 	// List of ports to be forwarded to the virtual machine
 	Ports []Port `json:",omitempty"`
 }

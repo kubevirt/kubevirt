@@ -85,8 +85,8 @@ func getNetworkClass(iface *v1.Interface, network *v1.Network) (NetworkInterface
 		return new(PodInterface), nil
 	}
 
-	if iface.Proxy != nil && network.Pod != nil {
-		return new(ProxyInterface), nil
+	if iface.Slirp != nil && network.Pod != nil {
+		return new(SlirpInterface), nil
 	}
 
 	return nil, fmt.Errorf("Network not implemented")

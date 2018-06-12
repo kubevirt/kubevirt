@@ -37,23 +37,23 @@ const DefaultProtocol string = "TCP"
 // DefaultVMCIDR is the default CIRD for vm network
 const DefaultVMCIDR = "10.0.2.0/24"
 
-type ProxyBindMechanism interface {
+type SlirpBindMechanism interface {
 	configPortForward() error
 	configVMCIDR() error
 	configDNSSearchName() error
 	CommitConfiguration() error
 }
 
-type ProxyInterface struct{}
+type SlirpInterface struct{}
 
-func (l *ProxyInterface) Unplug() {}
+func (l *SlirpInterface) Unplug() {}
 
 // Plug connect a Pod network device to the virtual machine
-func (l *ProxyInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error {
+func (l *SlirpInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
 	initHandler()
 
-	driver, err := getProxyBinding(iface, network, domain)
+	driver, err := getSlirpBinding(iface, network, domain)
 	if err != nil {
 		return err
 	}
@@ -81,30 +81,34 @@ func (l *ProxyInterface) Plug(iface *v1.Interface, network *v1.Network, domain *
 	return nil
 }
 
-func getProxyBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain) (ProxyBindMechanism, error) {
-	if iface.Proxy != nil {
-		proxyConfig := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-		return &ProxyPodInterface{iface: iface, network: network, domain: domain, proxyConfig: proxyConfig}, nil
+func getSlirpBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain) (SlirpBindMechanism, error) {
+	if iface.Slirp != nil {
+		SlirpConfig := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+		return &SlirpPodInterface{iface: iface, network: network, domain: domain, SlirpConfig: SlirpConfig}, nil
 	}
-	return nil, fmt.Errorf("Interface Type not implemented for proxy network")
+	return nil, fmt.Errorf("Interface Type not implemented for pod network")
 }
 
-type ProxyPodInterface struct {
+type SlirpPodInterface struct {
 	iface       *v1.Interface
 	network     *v1.Network
 	domain      *api.Domain
-	proxyConfig api.Arg
+	SlirpConfig api.Arg
 }
 
-func (p *ProxyPodInterface) configPortForward() error {
-	if p.iface.Proxy.Ports == nil {
+func (p *SlirpPodInterface) configPortForward() error {
+	if p.iface.Slirp.Ports == nil {
 		return nil
 	}
 
 	portForwardMap := make(map[int32]string)
 
-	for _, forwardPort := range p.iface.Proxy.Ports {
+	for _, forwardPort := range p.iface.Slirp.Ports {
 		protocol := DefaultProtocol
+
+		if forwardPort.PodPort == 0 {
+			return fmt.Errorf("podPort must be configure")
+		}
 
 		// Check protocol, its case sensitive like kubernetes
 		if forwardPort.Protocol != "" {
@@ -125,16 +129,16 @@ func (p *ProxyPodInterface) configPortForward() error {
 		}
 
 		portForwardMap[forwardPort.PodPort] = protocol
-		p.proxyConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.VMPort)
+		p.SlirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.VMPort)
 
 	}
 
 	return nil
 }
 
-func (p *ProxyPodInterface) configVMCIDR() error {
+func (p *SlirpPodInterface) configVMCIDR() error {
 	if p.network.Pod == nil {
-		return fmt.Errorf("Proxy works only with proxy network")
+		return fmt.Errorf("Slirp works only with pod network")
 	}
 
 	vmNetworkCIDR := ""
@@ -149,12 +153,12 @@ func (p *ProxyPodInterface) configVMCIDR() error {
 	}
 
 	// Insert configuration to qemu commandline
-	p.proxyConfig.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
+	p.SlirpConfig.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
 
 	return nil
 }
 
-func (p *ProxyPodInterface) configDNSSearchName() error {
+func (p *SlirpPodInterface) configDNSSearchName() error {
 	// remove the search string from the output and convert to string
 	_, dnsSearchNames, err := getResolvConfDetailsFromPod()
 	if err != nil {
@@ -163,15 +167,15 @@ func (p *ProxyPodInterface) configDNSSearchName() error {
 
 	// Insert configuration to qemu commandline
 	for _, dnsSearchName := range dnsSearchNames {
-		p.proxyConfig.Value += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
+		p.SlirpConfig.Value += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
 	}
 
 	return nil
 }
 
-func (p *ProxyPodInterface) CommitConfiguration() error {
+func (p *SlirpPodInterface) CommitConfiguration() error {
 	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-netdev"})
-	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, p.proxyConfig)
+	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, p.SlirpConfig)
 
 	return nil
 }

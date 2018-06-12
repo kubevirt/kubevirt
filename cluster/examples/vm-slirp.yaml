@@ -3,8 +3,8 @@ kind: VirtualMachine
 metadata:
   creationTimestamp: null
   labels:
-    special: vm-proxy
-  name: vm-proxy
+    special: vm-slirp
+  name: vm-slirp
 spec:
   domain:
     devices:
@@ -18,8 +18,8 @@ spec:
         name: cloudinitdisk
         volumeName: cloudinitvolume
       interfaces:
-      - name: testProxy
-        proxy:
+      - name: testSlirp
+        slirp:
           Ports:
           - name: http
             podPort: 80
@@ -31,7 +31,7 @@ spec:
       requests:
         memory: 1024M
   networks:
-  - name: testProxy
+  - name: testSlirp
     pod: {}
   terminationGracePeriodSeconds: 0
   volumes:

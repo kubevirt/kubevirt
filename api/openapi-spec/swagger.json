@@ -3620,13 +3620,13 @@
       "description": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
       "type": "string"
      },
-     "proxy": {
-      "$ref": "#/definitions/v1.InterfaceProxy"
+     "slirp": {
+      "$ref": "#/definitions/v1.InterfaceSlirp"
      }
     }
    },
    "v1.InterfaceBridge": {},
-   "v1.InterfaceProxy": {
+   "v1.InterfaceSlirp": {
     "properties": {
      "Ports": {
       "description": "List of ports to be forwarded to the virtual machine",
