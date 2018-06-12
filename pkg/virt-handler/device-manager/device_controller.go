@@ -25,7 +25,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
@@ -37,15 +36,13 @@ const (
 )
 
 type DeviceController struct {
-	clientset     kubecli.KubevirtClient
 	devicePlugins []*GenericDevicePlugin
 	host          string
 	maxDevices    int
 }
 
-func NewDeviceController(clientset kubecli.KubevirtClient, host string, maxDevices int) *DeviceController {
+func NewDeviceController(host string, maxDevices int) *DeviceController {
 	return &DeviceController{
-		clientset: clientset,
 		devicePlugins: []*GenericDevicePlugin{
 			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices),
 			NewGenericDevicePlugin(TunName, TunPath, maxDevices),
@@ -82,7 +79,7 @@ func (c *DeviceController) waitForPath(path string, stop chan struct{}) error {
 	}
 }
 
-func (c *DeviceController) StartDevicePlugin(dev *GenericDevicePlugin, stop chan struct{}) error {
+func (c *DeviceController) startDevicePlugin(dev *GenericDevicePlugin, stop chan struct{}) error {
 	logger := log.DefaultLogger()
 	if !c.nodeHasDevice(dev.devicePath) {
 		logger.Infof("%s device not found. Waiting.", dev.deviceName)
@@ -106,7 +103,7 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	logger.Info("Starting device plugin controller")
 
 	for _, dev := range c.devicePlugins {
-		c.StartDevicePlugin(dev, stop)
+		c.startDevicePlugin(dev, stop)
 	}
 
 	<-stop

@@ -99,7 +99,7 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
-	c.kvmController = device_manager.NewDeviceController(c.clientset, c.host, maxDevices)
+	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
 
 	return c
 }
