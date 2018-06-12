@@ -24,10 +24,10 @@ objects:
       spec:
         domain:
           cpu:
-            cores: ${CPU_CORES}
+            cores: ${{CPU_CORES}}
           resources:
             requests:
-              memory: ${MEMORY}
+              memory: ${{MEMORY}}
           machine:
             type: q35
           devices:
