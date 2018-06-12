@@ -300,6 +300,21 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	return causes
 }
 
+func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
+	nPodInterfaces := 0
+	for _, net := range spec.Networks {
+		if net.Pod != nil {
+			for _, iface := range spec.Domain.Devices.Interfaces {
+				if iface.Name == net.Name {
+					nPodInterfaces++
+					break // we maintain 1-to-1 relationship between networks and interfaces
+				}
+			}
+		}
+	}
+	return nPodInterfaces
+}
+
 func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
@@ -410,7 +425,7 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			Field:   field.Child("networks").String(),
 		})
 		return causes
-	} else if v1.GetNumberOfPodInterfaces(spec) > 1 {
+	} else if getNumberOfPodInterfaces(spec) > 1 {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueDuplicate,
 			Message: fmt.Sprintf("multiple pod interfaces in %s", field.Child("interfaces").String()),

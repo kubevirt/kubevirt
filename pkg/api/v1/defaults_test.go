@@ -246,67 +246,6 @@ var _ = Describe("Defaults", func() {
 	})
 })
 
-var _ = Describe("Function GetNumberOfPodInterfaces()", func() {
-
-	It("should work for empty network list", func() {
-		spec := &VirtualMachineInstanceSpec{}
-		Expect(GetNumberOfPodInterfaces(spec)).To(Equal(0))
-	})
-
-	It("should work for non-empty network list without pod network", func() {
-		spec := &VirtualMachineInstanceSpec{}
-		net := Network{}
-		spec.Networks = []Network{net}
-		Expect(GetNumberOfPodInterfaces(spec)).To(Equal(0))
-	})
-
-	It("should work for pod network with missing pod interface", func() {
-		spec := &VirtualMachineInstanceSpec{}
-		net := Network{
-			NetworkSource: NetworkSource{
-				Pod: &PodNetwork{},
-			},
-		}
-		spec.Networks = []Network{net}
-		Expect(GetNumberOfPodInterfaces(spec)).To(Equal(0))
-	})
-
-	It("should work for valid pod network / interface combination", func() {
-		spec := &VirtualMachineInstanceSpec{}
-		net := Network{
-			NetworkSource: NetworkSource{
-				Pod: &PodNetwork{},
-			},
-			Name: "testnet",
-		}
-		iface := Interface{Name: net.Name}
-		spec.Networks = []Network{net}
-		spec.Domain.Devices.Interfaces = []Interface{iface}
-		Expect(GetNumberOfPodInterfaces(spec)).To(Equal(1))
-	})
-
-	It("should work for multiple pod network / interface combinations", func() {
-		spec := &VirtualMachineInstanceSpec{}
-		net1 := Network{
-			NetworkSource: NetworkSource{
-				Pod: &PodNetwork{},
-			},
-			Name: "testnet1",
-		}
-		iface1 := Interface{Name: net1.Name}
-		net2 := Network{
-			NetworkSource: NetworkSource{
-				Pod: &PodNetwork{},
-			},
-			Name: "testnet2",
-		}
-		iface2 := Interface{Name: net2.Name}
-		spec.Networks = []Network{net1, net2}
-		spec.Domain.Devices.Interfaces = []Interface{iface1, iface2}
-		Expect(GetNumberOfPodInterfaces(spec)).To(Equal(2))
-	})
-})
-
 var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
 
 	It("should append pod interface if interface is not defined", func() {

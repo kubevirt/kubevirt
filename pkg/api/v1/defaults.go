@@ -152,22 +152,6 @@ func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
 	}
 }
 
-// TODO:(ihar) move to validating-webhook.go and privatize it
-func GetNumberOfPodInterfaces(spec *VirtualMachineInstanceSpec) int {
-	nPodInterfaces := 0
-	for _, net := range spec.Networks {
-		if net.Pod != nil {
-			for _, iface := range spec.Domain.Devices.Interfaces {
-				if iface.Name == net.Name {
-					nPodInterfaces++
-					break // we maintain 1-to-1 relationship between networks and interfaces
-				}
-			}
-		}
-	}
-	return nPodInterfaces
-}
-
 func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
 	// Override only when nothing is specified
 	if len(obj.Spec.Networks) == 0 {
