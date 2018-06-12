@@ -22,6 +22,7 @@ package device_manager
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
 
@@ -58,19 +59,44 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 	return (err == nil)
 }
 
-func (c *DeviceController) waitForPath(path string, stop chan struct{}) error {
+func (c *DeviceController) waitForPath(target string, stop chan struct{}) error {
+	logger := log.DefaultLogger()
+
+	_, err := os.Stat(target)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+	} else {
+		// File already exists, so there's nothing to wait for
+		return nil
+	}
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil
 	}
 	defer watcher.Close()
 
-	watcher.Add(path)
+	// Can't watch for a nonexistent file, so watch the parent directory
+	dirName := filepath.Dir(target)
+
+	_, err = os.Stat(dirName)
+	if err != nil {
+		// If the parent directory doesn't exist, there's nothing to watch
+		return err
+	}
+
+	err = watcher.Add(dirName)
+	if err != nil {
+		logger.Errorf("Error adding path to watcher: %v", err)
+		return err
+	}
 
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op == fsnotify.Create {
+			if (event.Op == fsnotify.Create) && (event.Name == target) {
 				return nil
 			}
 		case <-stop:
