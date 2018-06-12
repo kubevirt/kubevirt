@@ -26,6 +26,7 @@ import (
 	"path"
 	"strconv"
 	"time"
+	"path/filepath"
 
 	"golang.org/x/net/context"
 
@@ -214,28 +215,48 @@ func (dpi *GenericDevicePlugin) cleanup() error {
 }
 
 func (dpi *GenericDevicePlugin) healthCheck() error {
+	logger := log.DefaultLogger()
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
+		logger.Errorf("Unable to create fsnotify watcher: %v", err)
 		return nil
 	}
 	defer watcher.Close()
 
-	watcher.Add(dpi.devicePath)
-
 	healthy := pluginapi.Healthy
+	_, err = os.Stat(dpi.devicePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Errorf("Unable to stat device: %v", err)
+			return err
+		}
+		healthy = pluginapi.Unhealthy
+	}
+
+	dirName := filepath.Dir(dpi.devicePath)
+
+	err = watcher.Add(dirName)
+	if err != nil {
+		logger.Errorf("Unable to add path to fsnotify watcher: %v", err)
+		return err
+	}
+
 	for {
 		select {
-
-		case event := <-watcher.Events:
-			// Health in this case is if the device path actually exists
-			if event.Op == fsnotify.Create {
-				healthy = pluginapi.Healthy
-			} else if event.Op == fsnotify.Remove {
-				healthy = pluginapi.Unhealthy
-			}
-			dpi.health <- healthy
 		case <-dpi.stop:
 			return nil
+		case event := <-watcher.Events:
+			logger.Infof("health Event: %v", event)
+			logger.Infof("health Event Name: %s", event.Name)
+			if (event.Name == dpi.devicePath) {
+				// Health in this case is if the device path actually exists
+				if event.Op == fsnotify.Create {
+					healthy = pluginapi.Healthy
+				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
+					healthy = pluginapi.Unhealthy
+				}
+				dpi.health <- healthy
+			}
 		}
 	}
 }
