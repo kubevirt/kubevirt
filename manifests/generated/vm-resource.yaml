@@ -53,6 +53,8 @@ spec:
                         to a VirtualMachineInstance
                       properties:
                         nodeAffinity: {}
+                        podAffinity: {}
+                        podAntiAffinity: {}
                     domain:
                       properties:
                         clock:

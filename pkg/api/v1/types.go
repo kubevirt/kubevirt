@@ -163,6 +163,12 @@ type VirtualMachineInstanceSpec struct {
 type Affinity struct {
 	// Node affinity support
 	NodeAffinity *k8sv1.NodeAffinity `json:"nodeAffinity,omitempty"`
+
+	// Pod affinity support
+	PodAffinity *k8sv1.PodAffinity `json:"podAffinity,omitempty"`
+
+	// Pod anti-affinity support
+	PodAntiAffinity *k8sv1.PodAntiAffinity `json:"podAntiAffinity,omitempty"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual

@@ -39,6 +39,8 @@ spec:
               description: Affinity groups all the affinity rules related to a VirtualMachineInstance
               properties:
                 nodeAffinity: {}
+                podAffinity: {}
+                podAntiAffinity: {}
             domain:
               properties:
                 clock:

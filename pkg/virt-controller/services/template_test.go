@@ -125,9 +125,39 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{NodeAffinity: &nodeAffinity}))
 			})
 
-			It("should use the hostname and subdomain if specified on the vmi", func() {
+			It("should add pod affinity to pod", func() {
+				podAffinity := kubev1.PodAffinity{}
+				vm := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Affinity: &v1.Affinity{PodAffinity: &podAffinity},
+						Domain:   v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{PodAffinity: &podAffinity}))
+			})
+
+			It("should add pod anti-affinity to pod", func() {
+				podAntiAffinity := kubev1.PodAntiAffinity{}
+				vm := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Affinity: &v1.Affinity{PodAntiAffinity: &podAntiAffinity},
+						Domain:   v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{PodAntiAffinity: &podAntiAffinity}))
+			})
+
+			It("should use the hostname and subdomain if specified on the vm", func() {
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvmi",
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
 						Namespace: "default",
 						UID:       "1234",
 					},
@@ -170,9 +200,9 @@ var _ = Describe("Template", func() {
 				))
 			})
 
-			It("should not add empty node affinity to pod", func() {
+			It("should not add empty affinity to pod", func() {
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{},
 					},

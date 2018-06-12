@@ -280,6 +280,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		if vmi.Spec.Affinity.NodeAffinity != nil {
 			pod.Spec.Affinity.NodeAffinity = vmi.Spec.Affinity.NodeAffinity
 		}
+
+		if vmi.Spec.Affinity.PodAffinity != nil {
+			pod.Spec.Affinity.PodAffinity = vmi.Spec.Affinity.PodAffinity
+		}
+
+		if vmi.Spec.Affinity.PodAntiAffinity != nil {
+			pod.Spec.Affinity.PodAntiAffinity = vmi.Spec.Affinity.PodAntiAffinity
+		}
 	}
 
 	return &pod, nil
