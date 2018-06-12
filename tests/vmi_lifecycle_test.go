@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 var _ = Describe("VMIlifecycle", func() {
@@ -501,12 +502,12 @@ var _ = Describe("VMIlifecycle", func() {
 
 		Context("VirtualMachineInstance Emulation Mode", func() {
 			BeforeEach(func() {
-				allowEmuation := false
+				useEmulation := false
 				options := metav1.GetOptions{}
 				cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
 				if err == nil {
 					val, ok := cfgMap.Data["debug.useEmulation"]
-					allowEmuation = ok && (val == "true")
+					useEmulation = ok && (val == "true")
 				} else {
 					// If the cfgMap is missing, default to useEmulation=false
 					// no other error is expected
@@ -514,7 +515,7 @@ var _ = Describe("VMIlifecycle", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 				}
-				if !allowEmuation {
+				if !useEmulation {
 					Skip("Software emulation is not enabled on this cluster")
 				}
 			})
@@ -598,6 +599,158 @@ var _ = Describe("VMIlifecycle", func() {
 				}
 
 				Expect(domain.Spec.Type).To(Equal(expectedType))
+			})
+
+			It("should request a TUN device but not KVM", func() {
+				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+				Expect(err).To(BeNil())
+
+				listOptions := metav1.ListOptions{}
+				var pod k8sv1.Pod
+
+				Eventually(func() error {
+					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, item := range podList.Items {
+						if strings.HasPrefix(item.Name, vm.ObjectMeta.GenerateName) {
+							pod = item
+							return nil
+						}
+					}
+					return fmt.Errorf("Associated pod for VM '%s' not found", vm.Name)
+				}, 75, 0.5).Should(Succeed())
+
+				computeContainerFound := false
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						computeContainerFound = true
+
+						_, ok := container.Resources.Limits[services.KvmDevice]
+						Expect(ok).To(BeFalse(), "Container should not have requested KVM device")
+
+						_, ok = container.Resources.Limits[services.TunDevice]
+						Expect(ok).To(BeTrue(), "Container should have requested TUN device")
+					}
+				}
+
+				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
+			})
+		})
+
+		Context("VM Accelerated Mode", func() {
+			BeforeEach(func() {
+				useEmulation := false
+				options := metav1.GetOptions{}
+				cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
+				if err == nil {
+					val, ok := cfgMap.Data["debug.useEmulation"]
+					useEmulation = ok && (val == "true")
+				} else {
+					// If the cfgMap is missing, default to useEmulation=false
+					// no other error is expected
+					if !errors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+				}
+				if useEmulation {
+					Skip("Software emulation is enabled on this cluster")
+				}
+			})
+
+			It("should request a KVM and TUN device", func() {
+				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+				Expect(err).To(BeNil())
+
+				listOptions := metav1.ListOptions{}
+				var pod k8sv1.Pod
+
+				Eventually(func() error {
+					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, item := range podList.Items {
+						if strings.HasPrefix(item.Name, vm.ObjectMeta.GenerateName) {
+							pod = item
+							return nil
+						}
+					}
+					return fmt.Errorf("Associated pod for VM '%s' not found", vm.Name)
+				}, 75, 0.5).Should(Succeed())
+
+				computeContainerFound := false
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						computeContainerFound = true
+
+						_, ok := container.Resources.Limits[services.KvmDevice]
+						Expect(ok).To(BeTrue(), "Container should have requested KVM device")
+
+						_, ok = container.Resources.Limits[services.TunDevice]
+						Expect(ok).To(BeTrue(), "Container should have requested TUN device")
+					}
+				}
+
+				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
+			})
+
+			It("should not enable emulation in virt-launcher", func() {
+				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+				Expect(err).To(BeNil())
+
+				listOptions := metav1.ListOptions{}
+				var pod k8sv1.Pod
+
+				Eventually(func() error {
+					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, item := range podList.Items {
+						if strings.HasPrefix(item.Name, vm.ObjectMeta.GenerateName) {
+							pod = item
+							return nil
+						}
+					}
+					return fmt.Errorf("Associated pod for VM '%s' not found", vm.Name)
+				}, 75, 0.5).Should(Succeed())
+
+				emulationFlagFound := false
+				computeContainerFound := false
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						computeContainerFound = true
+						for _, cmd := range container.Command {
+							By(cmd)
+							if cmd == "--use-emulation" {
+								emulationFlagFound = true
+							}
+						}
+					}
+				}
+
+				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
+				Expect(emulationFlagFound).To(BeFalse(), "Expected VM pod not to have '--use-emulation' flag")
+			})
+
+			It("Should provide KVM via plugin framework", func() {
+				listOptions := metav1.ListOptions{}
+				nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(nodeList.Items)).ToNot(Equal(0))
+
+				node := nodeList.Items[0]
+
+				allocatableKvm, ok := node.Status.Allocatable[services.KvmDevice]
+
+				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
+				// The number of devices allocated could change in the future, but it's
+				// for sure not 0
+				Expect(int(allocatableKvm.Value())).ToNot(Equal(0))
+
+				capacityKvm, ok := node.Status.Capacity[services.KvmDevice]
+
+				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
+				// The number of devices allocated could change in the future, but it's
+				// for sure not 0
+				Expect(int(capacityKvm.Value())).ToNot(Equal(0))
 			})
 		})
 	})
