@@ -99,8 +99,8 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
 
-	options := &k8smetav1.GetOptions{}
-	vm, err := virtClient.VirtualMachine(namespace).Get(vmiName, options)
+	options := k8smetav1.GetOptions{}
+	vm, err := virtClient.VirtualMachine(namespace).Get(vmiName, &options)
 	if err != nil {
 		return fmt.Errorf("Error fetching VirtualMachine: %v", err)
 	}

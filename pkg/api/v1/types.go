@@ -153,6 +153,8 @@ type VirtualMachineInstanceSpec struct {
 	// no matter if the vmi itself can pick up a hostname.
 	// +optional
 	Subdomain string `json:"subdomain,omitempty"`
+	// List of networks that can be attached to a vm's virtual interface.
+	Networks []Network `json:"networks,omitempty"`
 }
 
 // Affinity groups all the affinity rules related to a VirtualMachineInstance

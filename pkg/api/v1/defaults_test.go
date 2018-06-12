@@ -20,6 +20,13 @@ var _ = Describe("Defaults", func() {
 		Expect(vmi.Spec.Domain.Features.Hyperv).To(BeNil())
 	})
 
+	It("should add interface and pod network by default", func() {
+		vmi := &VirtualMachineInstance{}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).NotTo(BeZero())
+		Expect(len(vmi.Spec.Networks)).NotTo(BeZero())
+	})
+
 	It("should default to true to all defined features", func() {
 		vmi := &VirtualMachineInstance{
 			Spec: VirtualMachineInstanceSpec{

@@ -368,7 +368,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 
 	existingUUID := vmi.Spec.Domain.Firmware.UUID
 	if existingUUID != "" {
-		logger.Debugf("Using existing UUID '%s'", existingUUID)
+		logger.V(4).Infof("Using existing UUID '%s'", existingUUID)
 		return
 	}
 

@@ -132,7 +132,8 @@ func DefaultClientConfig(flags *pflag.FlagSet) clientcmd.ClientConfig {
 	return clientConfig
 }
 
-func GetKubevirtClientFromClientConfig(cmdConfig clientcmd.ClientConfig) (KubevirtClient, error) {
+// this function is defined as a closure so iut could be overwritten by unit tests
+var GetKubevirtClientFromClientConfig = func(cmdConfig clientcmd.ClientConfig) (KubevirtClient, error) {
 	config, err := cmdConfig.ClientConfig()
 	if err != nil {
 		return nil, err

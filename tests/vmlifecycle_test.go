@@ -279,7 +279,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
 				Expect(func() v1.VirtualMachineInstancePhase {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.Phase
 				}()).To(Equal(v1.Failed))
@@ -309,7 +309,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
 				Expect(func() v1.VirtualMachineInstancePhase {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.Phase
 				}()).To(Equal(v1.Failed))
@@ -410,7 +410,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 				By("moving stuck vmis to failed state")
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, metav1.GetOptions{})
+					failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return failedVMI.Status.Phase
 				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
@@ -582,7 +582,7 @@ var _ = Describe("VMIlifecycle", func() {
 				getOptions := metav1.GetOptions{}
 				var newVMI *v1.VirtualMachineInstance
 
-				newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
+				newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
 				Expect(err).ToNot(HaveOccurred())
 
 				domain := &api.Domain{}
@@ -637,7 +637,7 @@ var _ = Describe("VMIlifecycle", func() {
 			// Wait for VirtualMachineInstance to finalize
 			By("Waiting for the VirtualMachineInstance to move to a finalized state")
 			Eventually(func() error {
-				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, metav1.GetOptions{})
+				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				if err != nil {
 					return err
 				} else if !curVMI.IsFinal() {

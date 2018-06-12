@@ -26,6 +26,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vmi.",
 		"hostname":                      "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
 		"subdomain":                     "If specified, the fully qualified vmi hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\".\nIf not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,\nno matter if the vmi itself can pick up a hostname.\n+optional",
+		"networks":                      "List of networks that can be attached to a vm's virtual interface.",
 	}
 }
 

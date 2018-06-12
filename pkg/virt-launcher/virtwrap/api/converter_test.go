@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"fmt"
@@ -294,7 +295,7 @@ var _ = Describe("Converter", func() {
 
 		var convertedDomain = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
-  <memory unit="MB">9</memory>
+  <memory unit="B">8388608</memory>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
   </os>
@@ -458,6 +459,50 @@ var _ = Describe("Converter", func() {
 			vmi.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
+		})
+
+		It("should calculate memory in bytes", func() {
+			By("specifying memory 64M")
+			m64, _ := resource.ParseQuantity("64M")
+			memory, err := QuantityToByte(m64)
+			Expect(memory.Value).To(Equal(uint64(64000000)))
+			Expect(memory.Unit).To(Equal("B"))
+			Expect(err).ToNot(HaveOccurred())
+
+			By("specifying memory 64Mi")
+			mi64, _ := resource.ParseQuantity("64Mi")
+			memory, err = QuantityToByte(mi64)
+			Expect(memory.Value).To(Equal(uint64(67108864)))
+			Expect(err).ToNot(HaveOccurred())
+
+			By("specifying memory 3G")
+			g3, _ := resource.ParseQuantity("3G")
+			memory, err = QuantityToByte(g3)
+			Expect(memory.Value).To(Equal(uint64(3000000000)))
+			Expect(err).ToNot(HaveOccurred())
+
+			By("specifying memory 3Gi")
+			gi3, _ := resource.ParseQuantity("3Gi")
+			memory, err = QuantityToByte(gi3)
+			Expect(memory.Value).To(Equal(uint64(3221225472)))
+			Expect(err).ToNot(HaveOccurred())
+
+			By("specifying memory 45Gi")
+			gi45, _ := resource.ParseQuantity("45Gi")
+			memory, err = QuantityToByte(gi45)
+			Expect(memory.Value).To(Equal(uint64(48318382080)))
+			Expect(err).ToNot(HaveOccurred())
+
+			By("specifying memory 451231 bytes")
+			b451231, _ := resource.ParseQuantity("451231")
+			memory, err = QuantityToByte(b451231)
+			Expect(memory.Value).To(Equal(uint64(451231)))
+			Expect(err).ToNot(HaveOccurred())
+
+			By("specyfing negative memory size -45Gi")
+			m45gi, _ := resource.ParseQuantity("-45Gi")
+			_, err = QuantityToByte(m45gi)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

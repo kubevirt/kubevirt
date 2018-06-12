@@ -145,6 +145,12 @@ var exampleJSON = `{
               "readonly": true
             }
           }
+        ],
+        "interfaces": [
+          {
+            "name": "default",
+            "bridge": {}
+          }
         ]
       }
     },
@@ -168,6 +174,12 @@ var exampleJSON = `{
         "persistentVolumeClaim": {
           "claimName": "testclaim"
         }
+      }
+    ],
+    "networks": [
+      {
+        "name": "default",
+        "pod": {}
       }
     ]
   },
@@ -285,6 +297,23 @@ var _ = Describe("Schema", func() {
 		exampleVMI.Spec.Domain.CPU = &CPU{
 			Cores: 3,
 		}
+		exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+			Interface{
+				Name: "default",
+				InterfaceBindingMethod: InterfaceBindingMethod{
+					Bridge: &InterfaceBridge{},
+				},
+			},
+		}
+		exampleVMI.Spec.Networks = []Network{
+			Network{
+				Name: "default",
+				NetworkSource: NetworkSource{
+					Pod: &PodNetwork{},
+				},
+			},
+		}
+
 		SetObjectDefaults_VirtualMachineInstance(exampleVMI)
 	})
 	Context("With example schema in json", func() {

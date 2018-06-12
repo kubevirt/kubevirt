@@ -30,6 +30,7 @@ import (
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -433,6 +434,55 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].volumeName"))
 			Expect(causes[1].Field).To(Equal("fake.domain.devices.disks[0]"))
 		})
+		It("should reject negative requests.memory size value", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("-64Mi"),
+			}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+		It("should reject negative limits.memory size value", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("-65Mi"),
+			}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
+		})
+		It("should reject greater requests.memory than limits.memory", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+			}
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+		It("should accept correct memory size values", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
+			}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
 		table.DescribeTable("should verify LUN is mapped to PVC volume",
 			func(volume *v1.Volume, expectedErrors int) {
 				vmi := v1.NewMinimalVMI("testvmi")
@@ -463,6 +513,68 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				}, 0),
 		)
+		It("should accept a single interface and network", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject interface lists with more than one element", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface()}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			// if this is processed correctly, it should result in a single error
+			// If multiple causes occurred, then the spec was processed too far.
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces"))
+		})
+		It("should reject network lists with more than one element", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Networks = []v1.Network{
+				*v1.DefaultPodNetwork(),
+				*v1.DefaultPodNetwork()}
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			// if this is processed correctly, it should result in a single error
+			// If multiple causes occurred, then the spec was processed too far.
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.networks"))
+		})
+
+		It("should reject interfaces with missing network", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "redtest",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+			}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
+		})
+		It("should only accept networks with a pod network source ", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{},
+				},
+			}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.networks[0].pod"))
+		})
 
 	})
 	Context("with Volume", func() {

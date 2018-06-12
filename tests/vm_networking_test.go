@@ -30,6 +30,7 @@ import (
 	"github.com/google/goexpect"
 
 	"fmt"
+	"strconv"
 
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,14 +55,7 @@ var _ = Describe("Networking", func() {
 	var inboundVMI *v1.VirtualMachineInstance
 	var outboundVMI *v1.VirtualMachineInstance
 
-	// newHelloWorldJob takes a dns entry or an IP which it will use create a pod
-	// which tries to contact the host on port 1500. It expects to receive "Hello World!" to succeed.
-	newHelloWorldJob := func(host string) *v12.Pod {
-		check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s 1500 -i 1 -w 1))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host)}
-		job := tests.RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
-
-		return job
-	}
+	const testPort = 1500
 
 	logPodLogs := func(pod *v12.Pod) {
 		defer GinkgoRecover()
@@ -90,7 +84,7 @@ var _ = Describe("Networking", func() {
 		tests.WaitForSuccessfulVMIStart(vmi)
 
 		// Fetch the new VirtualMachineInstance with updated status
-		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, v13.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Lets make sure that the OS is up by waiting until we can login
@@ -120,7 +114,7 @@ var _ = Describe("Networking", func() {
 			waitUntilVMIReady(networkVMI, tests.LoggedInCirrosExpecter)
 		}
 
-		inboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(inboundVMI.Name, v13.GetOptions{})
+		inboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(inboundVMI.Name, &v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVMI, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
@@ -136,7 +130,7 @@ var _ = Describe("Networking", func() {
 		log.DefaultLogger().Infof("%v", resp)
 		Expect(err).ToNot(HaveOccurred())
 
-		outboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(outboundVMI.Name, v13.GetOptions{})
+		outboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(outboundVMI.Name, &v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -224,8 +218,8 @@ var _ = Describe("Networking", func() {
 				Skip("Skip network test that requires multiple nodes when only one node is present.")
 			}
 
-			// Run netcat and give it one second to ghet "Hello World!" back from the VirtualMachineInstance
-			job := newHelloWorldJob(ip)
+			// Run netcat and give it one second to ghet "Hello World!" back from the VM
+			job := tests.NewHelloWorldJob(ip, strconv.Itoa(testPort))
 			job.Spec.Affinity = &v12.Affinity{
 				NodeAffinity: &v12.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{
@@ -263,7 +257,7 @@ var _ = Describe("Networking", func() {
 							"expose": "me",
 						},
 						Ports: []v12.ServicePort{
-							{Protocol: v12.ProtocolTCP, Port: 1500, TargetPort: intstr.FromInt(1500)},
+							{Protocol: v12.ProtocolTCP, Port: testPort, TargetPort: intstr.FromInt(testPort)},
 						},
 					},
 				}
@@ -275,7 +269,7 @@ var _ = Describe("Networking", func() {
 			It(" should be able to reach the vmi based on labels specified on the vmi", func() {
 
 				By("starting a pod which tries to reach the vmi via the defined service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace))
+				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace), strconv.Itoa(testPort))
 				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -286,7 +280,7 @@ var _ = Describe("Networking", func() {
 			It("should fail to reach the vmi if an invalid servicename is used", func() {
 
 				By("starting a pod which tries to reach the vmi via a non-existent service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace))
+				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(testPort))
 				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for the pod to report an  unsuccessful connection attempt")
@@ -314,7 +308,7 @@ var _ = Describe("Networking", func() {
 						https://github.com/kubernetes/kubernetes/issues/55158
 						*/
 						Ports: []v12.ServicePort{
-							{Protocol: v12.ProtocolTCP, Port: 1500, TargetPort: intstr.FromInt(1500)},
+							{Protocol: v12.ProtocolTCP, Port: testPort, TargetPort: intstr.FromInt(testPort)},
 						},
 					},
 				}
@@ -323,8 +317,8 @@ var _ = Describe("Networking", func() {
 			})
 
 			It("should be able to reach the vmi via its unique fully qualified domain name", func() {
-				By("starting a pod which tries to reach the vmi via the defined service")
-				job := newHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace))
+				By("starting a pod which tries to reach the vm via the defined service")
+				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace), strconv.Itoa(testPort))
 				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 

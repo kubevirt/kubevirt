@@ -194,7 +194,7 @@ type Resource struct {
 }
 
 type Memory struct {
-	Value uint   `xml:",chardata"`
+	Value uint64 `xml:",chardata"`
 	Unit  string `xml:"unit,attr"`
 }
 

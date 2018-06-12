@@ -195,7 +195,7 @@ func (mon *monitor) refresh() {
 		return
 	}
 
-	log.Log.Debugf("Refreshing. CommandPrefix %s pid %d", mon.commandPrefix, mon.pid)
+	log.Log.V(4).Infof("Refreshing. CommandPrefix %s pid %d", mon.commandPrefix, mon.pid)
 
 	expired := mon.isGracePeriodExpired()
 

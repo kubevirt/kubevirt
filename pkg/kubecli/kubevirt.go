@@ -58,15 +58,24 @@ func (k kubevirt) RestClient() *rest.RESTClient {
 	return k.restClient
 }
 
+type StreamOptions struct {
+	In  io.Reader
+	Out io.Writer
+}
+
+type StreamInterface interface {
+	Stream(options StreamOptions) error
+}
+
 type VirtualMachineInstanceInterface interface {
-	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachineInstance, error)
-	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
-	Create(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
+	Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachineInstance, error)
+	List(opts *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
+	Create(instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
-	SerialConsole(name string, in io.Reader, out io.Writer) error
-	VNC(name string, in io.Reader, out io.Writer) error
+	SerialConsole(name string) (StreamInterface, error)
+	VNC(name string) (StreamInterface, error)
 }
 
 type ReplicaSetInterface interface {

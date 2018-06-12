@@ -63,7 +63,16 @@ var _ = Describe("VNC", func() {
 
 				go func() {
 					GinkgoRecover()
-					k8ResChan <- virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name, pipeInReader, pipeOutWriter)
+					vnc, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
+					if err != nil {
+						k8ResChan <- err
+						return
+					}
+
+					k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+						In:  pipeInReader,
+						Out: pipeOutWriter,
+					})
 				}()
 				// write to FD <- pipeOutReader
 				By("Reading from the VNC socket")

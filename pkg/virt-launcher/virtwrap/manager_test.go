@@ -211,5 +211,5 @@ func newVMI(namespace string, name string) *v1.VirtualMachineInstance {
 }
 
 func StubOutNetworkForTest() {
-	network.SetupPodNetwork = func(domain *api.Domain) error { return nil }
+	network.SetupPodNetwork = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
 }

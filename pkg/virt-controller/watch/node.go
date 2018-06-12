@@ -214,7 +214,7 @@ func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*virtv1.Virtua
 	if err != nil {
 		return nil, err
 	}
-	list, err := c.clientset.VirtualMachineInstance(v1.NamespaceAll).List(metav1.ListOptions{
+	list, err := c.clientset.VirtualMachineInstance(v1.NamespaceAll).List(&metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 

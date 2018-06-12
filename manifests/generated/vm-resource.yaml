@@ -153,6 +153,20 @@ spec:
                                 - name
                                 - volumeName
                               type: array
+                            interfaces:
+                              description: Interfaces describe network interfaces
+                                which are added to the vm
+                              items:
+                                properties:
+                                  bridge: {}
+                                  name:
+                                    description: Logical name of the interface as
+                                      well as a reference to the associated networks
+                                      Must match the Name of a Network
+                                    type: string
+                                required:
+                                - name
+                              type: array
                             watchdog:
                               description: Named watchdog device
                               properties:
@@ -314,6 +328,22 @@ spec:
                         the hostname will be set to the name of the vmi, if dhcp or
                         cloud-init is configured properly.
                       type: string
+                    networks:
+                      description: List of networks that can be attached to a vm's
+                        virtual interface.
+                      items:
+                        description: Network represents a network type and a resource
+                          that should be connected to the vm.
+                        properties:
+                          name:
+                            description: 'Network name Must be a DNS_LABEL and unique
+                              within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                            type: string
+                          pod:
+                            description: Represents the stock pod network interface
+                        required:
+                        - name
+                      type: array
                     nodeSelector:
                       description: 'NodeSelector is a selector which must be true
                         for the vmi to fit on a node. Selector which must match a

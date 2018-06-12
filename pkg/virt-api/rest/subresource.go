@@ -150,7 +150,7 @@ func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, er
 func (app *SubresourceAPIApp) remoteExecInfo(name string, namespace string) (string, int, error) {
 	podName := ""
 
-	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, k8smetav1.GetOptions{})
+	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", http.StatusNotFound, goerror.New(fmt.Sprintf("VirtualMachineInstance %s in namespace %s not found.", name, namespace))

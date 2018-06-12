@@ -58,18 +58,18 @@ func (o *vm) Create(offlinevm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 
 // Get the OfflineVirtual machine from the cluster by its name and namespace
 func (o *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
-	newOvmi := &v1.VirtualMachine{}
+	newOvm := &v1.VirtualMachine{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
 		Name(name).
 		VersionedParams(options, scheme.ParameterCodec).
 		Do().
-		Into(newOvmi)
+		Into(newOvm)
 
-	newOvmi.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	newOvm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
-	return newOvmi, err
+	return newOvm, err
 }
 
 // Update the VirtualMachine instance in the cluster in given namespace
@@ -103,17 +103,17 @@ func (o *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
 
 // List all VirtualMachines in given namespace
 func (o *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
-	newOvmiList := &v1.VirtualMachineList{}
+	newOvmList := &v1.VirtualMachineList{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
 		VersionedParams(options, scheme.ParameterCodec).
 		Do().
-		Into(newOvmiList)
+		Into(newOvmList)
 
-	for _, vm := range newOvmiList.Items {
+	for _, vm := range newOvmList.Items {
 		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	}
 
-	return newOvmiList, err
+	return newOvmList, err
 }

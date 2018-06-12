@@ -210,11 +210,24 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Watchdog"),
 							},
 						},
+						"interfaces": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Interfaces describe network interfaces which are added to the vm",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Interface"),
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Disk", "kubevirt.io/kubevirt/pkg/api/v1.Watchdog"},
+				"kubevirt.io/kubevirt/pkg/api/v1.Disk", "kubevirt.io/kubevirt/pkg/api/v1.Interface", "kubevirt.io/kubevirt/pkg/api/v1.Watchdog"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Disk": {
 			Schema: spec.Schema{
@@ -691,6 +704,53 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.Interface": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"name": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Logical name of the interface as well as a reference to the associated networks Must match the Name of a Network",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"bridge": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
+							},
+						},
+					},
+					Required: []string{"name"},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents the method which will be used to connect the interface to the guest. Only one of its members may be specified.",
+					Properties: map[string]spec.Schema{
+						"bridge": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.KVMTimer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -747,6 +807,46 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.Network": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Network represents a network type and a resource that should be connected to the vm.",
+					Properties: map[string]spec.Schema{
+						"name": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Network name Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"pod": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
+							},
+						},
+					},
+					Required: []string{"name"},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.NetworkSource": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents the source resource that will be connected to the vm. Only one of its members may be specified.",
+					Properties: map[string]spec.Schema{
+						"pod": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -766,6 +866,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
+				},
+			},
+			Dependencies: []string{},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents the stock pod network interface",
+					Properties:  map[string]spec.Schema{},
 				},
 			},
 			Dependencies: []string{},
@@ -1512,12 +1621,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
+						"networks": {
+							SchemaProps: spec.SchemaProps{
+								Description: "List of networks that can be attached to a vm's virtual interface.",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Network"),
+										},
+									},
+								},
+							},
+						},
 					},
 					Required: []string{"domain"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
+				"kubevirt.io/kubevirt/pkg/api/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus": {
 			Schema: spec.Schema{

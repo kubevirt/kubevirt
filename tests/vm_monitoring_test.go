@@ -84,7 +84,7 @@ var _ = Describe("Health Monitoring", func() {
 
 			By("Checking that the VirtualMachineInstance has Failed status")
 			Eventually(func() v1.VirtualMachineInstancePhase {
-				startedVMI, err := virtClient.VirtualMachineInstance(namespace).Get(name, metav1.GetOptions{})
+				startedVMI, err := virtClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
 
 				Expect(err).ToNot(HaveOccurred())
 				return startedVMI.Status.Phase

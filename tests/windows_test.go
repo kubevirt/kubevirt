@@ -175,7 +175,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
 
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 			vmiIp = vmi.Status.Interfaces[0].IP
 			cli = []string{
 				winrmCliCmd,

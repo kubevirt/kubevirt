@@ -118,7 +118,7 @@ var _ = Describe("RegistryDisk", func() {
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
-				startedVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, metav1.GetOptions{})
+				startedVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &metav1.GetOptions{})
 				Expect(err).To(BeNil())
 				By("Checking that the VirtualMachineInstance spec did not change")
 				Expect(startedVMI.Spec).To(Equal(vmi.Spec))
