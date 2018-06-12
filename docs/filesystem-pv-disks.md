@@ -27,7 +27,7 @@ future changes for improving usability, performance, or other characteristics.
 
 ## Use-case
 
-The primary use-case is to allow a VM to use PVs as backend storage for their
+The primary use-case is to allow a VMI to use PVs as backend storage for their
 virtual disks.
 
 
@@ -35,7 +35,7 @@ virtual disks.
 
 The mechanism proposed in this proposal is leveraging Kubernetes to attach
 the remote storage as a file-system to a container, to use this file-system to
-store a disk image to act as a backend storage to the VM's disk.
+store a disk image to act as a backend storage to the VMI's disk.
 
 To keep the story compatability between the block and file-system storage, this
 proposal assumes that the file-system based storage will also just support a 1:1
@@ -57,7 +57,7 @@ required PV, this claim is then used as a disk source for a virtual disk.
 An example:
 
 ```yaml
-kind: VM
+kind: VMI
 spec:
   domain:
     devices:
@@ -70,7 +70,7 @@ spec:
 ```
 
 Here the user attaches the PersistentVolumeClaim `my-fs-claim` as a disk to a
-VM.
+VMI.
 
 
 ### Storage Type Inference

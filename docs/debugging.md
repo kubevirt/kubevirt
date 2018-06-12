@@ -36,7 +36,7 @@ Both, Kubernetes and KubeVirt are creating events, which can be viewed via
 cluster/kubectl.sh get events --all-namespaces --watch
 ```
 
-This way it is pretty easy to detect if a Pod or a VM got started.
+This way it is pretty easy to detect if a Pod or a VMI got started.
 
 ## Entering Containers
 

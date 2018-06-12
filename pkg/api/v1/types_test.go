@@ -31,10 +31,10 @@ var _ = Describe("PodSelectors", func() {
 	Context("Pod affinity rules", func() {
 
 		It("should work", func() {
-			vm := NewMinimalVM("testvm")
-			vm.Status.NodeName = "test-node"
+			vmi := NewMinimalVMI("testvmi")
+			vmi.Status.NodeName = "test-node"
 			pod := &v1.Pod{}
-			affinity := UpdateAntiAffinityFromVMNode(pod, vm)
+			affinity := UpdateAntiAffinityFromVMINode(pod, vmi)
 			newSelector := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
 			Expect(newSelector).ToNot(BeNil())
 			Expect(len(newSelector.MatchExpressions)).To(Equal(1))
@@ -43,8 +43,8 @@ var _ = Describe("PodSelectors", func() {
 		})
 
 		It("should merge", func() {
-			vm := NewMinimalVM("testvm")
-			vm.Status.NodeName = "test-node"
+			vmi := NewMinimalVMI("testvmi")
+			vmi.Status.NodeName = "test-node"
 
 			existingTerm := v1.NodeSelectorTerm{}
 			secondExistingTerm := v1.NodeSelectorTerm{
@@ -69,7 +69,7 @@ var _ = Describe("PodSelectors", func() {
 				},
 			}
 
-			affinity := UpdateAntiAffinityFromVMNode(pod, vm)
+			affinity := UpdateAntiAffinityFromVMINode(pod, vmi)
 
 			Expect(affinity.NodeAffinity).ToNot(BeNil())
 			Expect(affinity.PodAffinity).ToNot(BeNil())

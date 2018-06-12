@@ -126,9 +126,9 @@ func FilesAreEqual(path1 string, path2 string) (bool, error) {
 	return bytes.Equal(sum1, sum2), nil
 }
 
-// Lists all vms ephemeral disk has local data for
-func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachine, error) {
-	var keys []*v1.VirtualMachine
+// Lists all vmis ephemeral disk has local data for
+func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachineInstance, error) {
+	var keys []*v1.VirtualMachineInstance
 
 	exists, err := FileExists(localPath)
 	if err != nil {
@@ -160,7 +160,7 @@ func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachine, error) {
 		if namespace == "" || domain == "" {
 			return nil
 		}
-		keys = append(keys, v1.NewVMReferenceFromNameWithNS(dirs[0], dirs[1]))
+		keys = append(keys, v1.NewVMIReferenceFromNameWithNS(dirs[0], dirs[1]))
 		return nil
 	})
 

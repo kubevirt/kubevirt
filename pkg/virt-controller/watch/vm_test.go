@@ -1,564 +1,314 @@
-/*
- * This file is part of the KubeVirt project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright 2017 Red Hat, Inc.
- *
- */
-
 package watch
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"k8s.io/client-go/tools/cache"
+	"fmt"
 
-	k8sv1 "k8s.io/api/core/v1"
+	"github.com/pborman/uuid"
 
 	"github.com/golang/mock/gomock"
+	. "github.com/onsi/ginkgo"
+	// "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	"fmt"
-
-	"github.com/onsi/ginkgo/extensions/table"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/testing"
-
-	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-var _ = Describe("VM watcher", func() {
-	log.Log.SetIOWriter(GinkgoWriter)
+var _ = Describe("VirtualMachine", func() {
 
-	var ctrl *gomock.Controller
-	var vmInterface *kubecli.MockVMInterface
-	var vmSource *framework.FakeControllerSource
-	var podSource *framework.FakeControllerSource
-	var vmInformer cache.SharedIndexInformer
-	var podInformer cache.SharedIndexInformer
-	var stop chan struct{}
-	var controller *VMController
-	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
-	var podFeeder *testutils.PodFeeder
-	var virtClient *kubecli.MockKubevirtClient
-	var kubeClient *fake.Clientset
-	var configMapInformer cache.SharedIndexInformer
+	Context("One valid VirtualMachine controller given", func() {
 
-	shouldExpectPodCreation := func(uid types.UID) {
-		// Expect pod creation
-		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
-			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(uid)))
-			return true, update.GetObject(), nil
+		var ctrl *gomock.Controller
+		var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
+		var vmInterface *kubecli.MockVirtualMachineInterface
+		var vmiSource *framework.FakeControllerSource
+		var vmSource *framework.FakeControllerSource
+		var vmiInformer cache.SharedIndexInformer
+		var vmInformer cache.SharedIndexInformer
+		var stop chan struct{}
+		var controller *VMController
+		var recorder *record.FakeRecorder
+		var mockQueue *testutils.MockWorkQueue
+		var vmiFeeder *testutils.VirtualMachineFeeder
+
+		syncCaches := func(stop chan struct{}) {
+			go vmiInformer.Run(stop)
+			go vmInformer.Run(stop)
+			Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, vmInformer.HasSynced)).To(BeTrue())
+		}
+
+		BeforeEach(func() {
+			stop = make(chan struct{})
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
+
+			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+			recorder = record.NewFakeRecorder(100)
+
+			controller = NewVMController(vmiInformer, vmInformer, recorder, virtClient)
+			// Wrap our workqueue to have a way to detect when we are done processing updates
+			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+			controller.Queue = mockQueue
+			vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
+
+			// Set up mock client
+			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		})
-	}
 
-	shouldExpectPodDeletion := func(pod *k8sv1.Pod) {
-		// Expect pod creation
-		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, ok := action.(testing.DeleteAction)
-			Expect(ok).To(BeTrue())
-			Expect(pod.Namespace).To(Equal(update.GetNamespace()))
-			Expect(pod.Name).To(Equal(update.GetName()))
-			return true, nil, nil
-		})
-	}
+		addVirtualMachine := func(vm *v1.VirtualMachine) {
+			syncCaches(stop)
+			mockQueue.ExpectAdds(1)
+			vmSource.Add(vm)
+			mockQueue.Wait()
+		}
 
-	shouldExpectVirtualMachineHandover := func(vm *v1.VirtualMachine) {
-		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduled))
-			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
-		}).Return(vm, nil)
-	}
-
-	shouldExpectPodHandover := func() {
-		kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, ok := action.(testing.UpdateAction)
-			Expect(ok).To(BeTrue())
-			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-handler"))
-			return true, update.GetObject(), nil
-		})
-	}
-
-	shouldExpectVirtualMachineSchedulingState := func(vm *v1.VirtualMachine) {
-		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Scheduling))
-			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
-		}).Return(vm, nil)
-	}
-
-	shouldExpectVirtualMachineFailedState := func(vm *v1.VirtualMachine) {
-		vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-			Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(v1.Failed))
-			Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachine).Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
-		}).Return(vm, nil)
-	}
-
-	syncCaches := func(stop chan struct{}) {
-		go vmInformer.Run(stop)
-		go podInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, podInformer.HasSynced)).To(BeTrue())
-	}
-
-	BeforeEach(func() {
-		stop = make(chan struct{})
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVMInterface(ctrl)
-
-		vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
-		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		recorder = record.NewFakeRecorder(100)
-
-		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		controller = NewVMController(services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()), vmInformer, podInformer, recorder, virtClient, configMapInformer)
-		// Wrap our workqueue to have a way to detect when we are done processing updates
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
-		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
-
-		// Set up mock client
-		virtClient.EXPECT().VM(k8sv1.NamespaceDefault).Return(vmInterface).AnyTimes()
-		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		// Make sure that all unexpected calls to kubeClient will fail
-		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			Expect(action).To(BeNil())
-			return true, nil, nil
-		})
-		syncCaches(stop)
-	})
-	AfterEach(func() {
-		close(stop)
-		// Ensure that we add checks for expected events to every test
-		Expect(recorder.Events).To(BeEmpty())
-		ctrl.Finish()
-	})
-
-	addVirtualMachine := func(vm *v1.VirtualMachine) {
-		mockQueue.ExpectAdds(1)
-		vmSource.Add(vm)
-		mockQueue.Wait()
-	}
-
-	Context("On valid VirtualMachine given", func() {
-		It("should create a corresponding Pod on VirtualMachine creation", func() {
-			vm := NewPendingVirtualMachine("testvm")
+		It("should create missing VirtualMachineInstance", func() {
+			vm, vmi := DefaultVirtualMachine(true)
 
 			addVirtualMachine(vm)
 
-			shouldExpectPodCreation(vm.UID)
+			// expect creation called
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+			}).Return(vmi, nil)
+
+			// expect update status is called
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
-		table.DescribeTable("should delete the corresponding Pod on VirtualMachine deletion with vm", func(phase v1.VMPhase) {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = phase
-			vm.DeletionTimestamp = now()
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodRunning)
+
+		It("should update status to created if the vmi exists", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vmi.Status.Phase = v1.Scheduled
 
 			addVirtualMachine(vm)
-			podFeeder.Add(pod)
+			vmiFeeder.Add(vmi)
 
-			shouldExpectPodDeletion(pod)
-
-			if vm.IsUnprocessed() {
-				shouldExpectVirtualMachineSchedulingState(vm)
-			}
-
-			controller.Execute()
-
-			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
-		},
-			table.Entry("in running state", v1.Running),
-			table.Entry("in unset state", v1.VmPhaseUnset),
-			table.Entry("in pending state", v1.Pending),
-			table.Entry("in succeeded state", v1.Succeeded),
-			table.Entry("in failed state", v1.Failed),
-			table.Entry("in scheduled state", v1.Scheduled),
-			table.Entry("in scheduling state", v1.Scheduling),
-		)
-		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in sheduling state", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Scheduling
-			vm.DeletionTimestamp = now()
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodRunning)
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			shouldExpectPodDeletion(pod)
-
-			controller.Execute()
-
-			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
-
-			modifiedPod := pod.DeepCopy()
-			modifiedPod.DeletionTimestamp = now()
-
-			podFeeder.Modify(modifiedPod)
-
-			shouldExpectVirtualMachineFailedState(vm)
+			// expect update status is called
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeTrue())
+				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
 
 			controller.Execute()
 		})
-		table.DescribeTable("should not delete the corresponding Pod if the vm is in", func(phase v1.VMPhase) {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = phase
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodRunning)
+
+		It("should update status to created and ready when vmi is running", func() {
+			vm, vmi := DefaultVirtualMachine(true)
 
 			addVirtualMachine(vm)
-			podFeeder.Add(pod)
+			vmiFeeder.Add(vmi)
 
-			controller.Execute()
-		},
-			table.Entry("succeeded state", v1.Failed),
-			table.Entry("failed state", v1.Succeeded),
-		)
-		It("should do nothing if the vm is in final state", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Failed
-			vm.Finalizers = []string{}
-
-			addVirtualMachine(vm)
+			// expect update status is called
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeTrue())
+				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeTrue())
+			}).Return(nil, nil)
 
 			controller.Execute()
 		})
-		It("should set an error condition if creating the pod fails", func() {
-			vm := NewPendingVirtualMachine("testvm")
+
+		It("should have stable firmware UUIDs", func() {
+			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vmi1 := controller.setupVMIFromVM(vm1)
+
+			// intentionally use the same names
+			vm2, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vmi2 := controller.setupVMIFromVM(vm2)
+			Expect(vmi1.Spec.Domain.Firmware.UUID).To(Equal(vmi2.Spec.Domain.Firmware.UUID))
+
+			// now we want different names
+			vm3, _ := DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
+			vmi3 := controller.setupVMIFromVM(vm3)
+			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
+		})
+
+		It("should honour any firmware UUID present in the template", func() {
+			uid := uuid.NewRandom().String()
+			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vm1.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: types.UID(uid)}
+
+			vmi1 := controller.setupVMIFromVM(vm1)
+			Expect(string(vmi1.Spec.Domain.Firmware.UUID)).To(Equal(uid))
+		})
+
+		It("should delete VirtualMachineInstance when stopped", func() {
+			vm, vmi := DefaultVirtualMachine(false)
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			// vmInterface.EXPECT().Update(gomock.Any()).Return(vm, nil)
+			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+		})
+
+		It("should ignore non-matching VMIs", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+
+			nonMatchingVMI := v1.NewMinimalVMI("testvmi1")
+			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
 			addVirtualMachine(vm)
 
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, nil, fmt.Errorf("random error")
+			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
+			vmiSource.Add(nonMatchingVMI)
+
+			vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, nil)
+			vmInterface.EXPECT().Update(gomock.Any()).Times(2).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should detect that it is orphan deleted and remove the owner reference on the remaining VirtualMachineInstance", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+
+			// Mark it as orphan deleted
+			now := metav1.Now()
+			vm.ObjectMeta.DeletionTimestamp = &now
+			vm.ObjectMeta.Finalizers = []string{metav1.FinalizerOrphanDependents}
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmiInterface.EXPECT().Patch(vmi.ObjectMeta.Name, gomock.Any(), gomock.Any())
+
+			controller.Execute()
+		})
+
+		It("should detect that a VirtualMachineInstance already exists and adopt it", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vmi.OwnerReferences = []metav1.OwnerReference{}
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmInterface.EXPECT().Get(vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
+			vmInterface.EXPECT().Update(gomock.Any()).Return(vm, nil)
+			vmiInterface.EXPECT().Patch(vmi.ObjectMeta.Name, gomock.Any(), gomock.Any())
+
+			controller.Execute()
+		})
+
+		It("should detect that it has nothing to do beside updating the status", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Return(vm, nil)
+
+			controller.Execute()
+		})
+
+		It("should add a fail condition if start up fails", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+
+			addVirtualMachine(vm)
+			// vmiFeeder.Add(vmi)
+
+			vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, fmt.Errorf("failure"))
+
+			// We should see the failed condition, replicas should stay at 0
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objVM := obj.(*v1.VirtualMachine)
+				Expect(objVM.Status.Conditions).To(HaveLen(1))
+				cond := objVM.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+				Expect(cond.Reason).To(Equal("FailedCreate"))
+				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			}).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+		})
+
+		It("should add a fail condition if deletion fails", func() {
+			vm, vmi := DefaultVirtualMachine(false)
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objVM := obj.(*v1.VirtualMachine)
+				Expect(objVM.Status.Conditions).To(HaveLen(1))
+				cond := objVM.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+				Expect(cond.Reason).To(Equal("FailedDelete"))
+				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
-			}).Return(vm, nil)
-
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, FailedCreatePodReason)
+			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
-		It("should remove the error condition if the sync finally succeeds", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Conditions = []v1.VirtualMachineCondition{{Type: v1.VirtualMachineSynchronized}}
-
-			addVirtualMachine(vm)
-
-			// Expect pod creation
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
-				Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(vm.UID)))
-				return true, update.GetObject(), nil
-			})
-
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-			}).Return(vm, nil)
-
-			controller.Execute()
-
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
-		})
-		table.DescribeTable("should move the vm to scheduling state if a pod exists", func(phase k8sv1.PodPhase, isReady bool) {
-			vm := NewPendingVirtualMachine("testvm")
-			pod := NewPodForVirtualMachine(vm, phase)
-			pod.Status.ContainerStatuses[0].Ready = isReady
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			shouldExpectVirtualMachineSchedulingState(vm)
-
-			if phase == k8sv1.PodRunning && isReady {
-				shouldExpectPodHandover()
-			}
-
-			controller.Execute()
-
-			if phase == k8sv1.PodRunning && isReady {
-				testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
-			}
-		},
-			table.Entry(", not ready and in running state", k8sv1.PodRunning, false),
-			table.Entry(", not ready and in unknown state", k8sv1.PodUnknown, false),
-			table.Entry(", not ready and in succeeded state", k8sv1.PodSucceeded, false),
-			table.Entry(", not ready and in failed state", k8sv1.PodFailed, false),
-			table.Entry(", not ready and in pending state", k8sv1.PodPending, false),
-			table.Entry(", ready and in running state", k8sv1.PodRunning, true),
-			table.Entry(", ready and in unknown state", k8sv1.PodUnknown, true),
-			table.Entry(", ready and in succeeded state", k8sv1.PodSucceeded, true),
-			table.Entry(", ready and in failed state", k8sv1.PodFailed, true),
-			table.Entry(", ready and in pending state", k8sv1.PodPending, true),
-		)
-		It("should move the vm to failed state if the pod disappears and the vm is in scheduling state", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Scheduling
-
-			addVirtualMachine(vm)
-
-			shouldExpectVirtualMachineFailedState(vm)
-
-			controller.Execute()
-		})
-		It("should move the vm to failed state if the vm is pending, no pod exists yet and gets deleted", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.DeletionTimestamp = now()
-
-			addVirtualMachine(vm)
-
-			shouldExpectVirtualMachineFailedState(vm)
-
-			controller.Execute()
-		})
-		It("should hand over pod to virt-handler if pod is ready and running", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Scheduling
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodRunning)
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			shouldExpectPodHandover()
-
-			controller.Execute()
-
-			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
-		})
-		It("should set an error condition if deleting the virtual machine pod fails", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.DeletionTimestamp = now()
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodRunning)
-
-			// Expect pod delete
-			kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, nil, fmt.Errorf("random error")
-			})
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedDeletePodReason))
-			}).Return(vm, nil)
-
-			controller.Execute()
-
-			testutils.ExpectEvent(recorder, FailedDeletePodReason)
-		})
-		It("should set an error condition if handing over the pod to virt-handler fails", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodRunning)
-
-			// Expect pod hand over
-			kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, nil, fmt.Errorf("random error")
-			})
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedHandOverPodReason))
-			}).Return(vm, nil)
-
-			controller.Execute()
-
-			testutils.ExpectEvent(recorder, FailedHandOverPodReason)
-		})
-		It("should set an error condition if creating the virtual machine pod fails", func() {
-			vm := NewPendingVirtualMachine("testvm")
-
-			// Expect pod creation
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, nil, fmt.Errorf("random error")
-			})
-
-			addVirtualMachine(vm)
-
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions[0].Reason).To(Equal(FailedCreatePodReason))
-			}).Return(vm, nil)
-
-			controller.Execute()
-
-			testutils.ExpectEvent(recorder, FailedCreatePodReason)
-		})
-		It("should update the virtual machine to scheduled if pod is ready, runnning and handed over to virt-handler", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Scheduling
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodRunning)
-			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			shouldExpectVirtualMachineHandover(vm)
-
-			controller.Execute()
-		})
-		It("should update the virtual machine to scheduled if pod is ready, triggered by pod change", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Scheduling
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodPending)
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			controller.Execute()
-
-			pod = NewPodForVirtualMachine(vm, k8sv1.PodRunning)
-			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
-
-			podFeeder.Modify(pod)
-
-			shouldExpectVirtualMachineHandover(vm)
-
-			controller.Execute()
-		})
-		It("should update the virtual machine to failed if pod was not ready, triggered by pod delete", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			pod := NewPodForVirtualMachine(vm, k8sv1.PodPending)
-			vm.Status.Phase = v1.Scheduling
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			controller.Execute()
-
-			podFeeder.Delete(pod)
-
-			shouldExpectVirtualMachineFailedState(vm)
-
-			controller.Execute()
-		})
-		table.DescribeTable("should remove the finalizer if no pod is present and the vm is in ", func(phase v1.VMPhase) {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = phase
-			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
-
-			addVirtualMachine(vm)
-
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachine).Status.Phase).To(Equal(phase))
-				Expect(arg.(*v1.VirtualMachine).Status.Conditions).To(BeEmpty())
-				Expect(arg.(*v1.VirtualMachine).Finalizers).ToNot(ContainElement(v1.VirtualMachineFinalizer))
-			}).Return(vm, nil)
-
-			controller.Execute()
-		},
-			table.Entry("failed state", v1.Succeeded),
-			table.Entry("succeeded state", v1.Failed),
-		)
-		table.DescribeTable("should do nothing if pod is handed to virt-handler", func(phase k8sv1.PodPhase) {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Scheduled
-			pod := NewPodForVirtualMachine(vm, phase)
-			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			controller.Execute()
-		},
-			table.Entry("and in running state", k8sv1.PodRunning),
-			table.Entry("and in unknown state", k8sv1.PodUnknown),
-			table.Entry("and in succeeded state", k8sv1.PodSucceeded),
-			table.Entry("and in failed state", k8sv1.PodFailed),
-			table.Entry("and in pending state", k8sv1.PodPending),
-		)
-		It("should do nothing if the vm is handed over to virt-handler and the pod disappears", func() {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Scheduled
-
-			addVirtualMachine(vm)
-
-			controller.Execute()
-		})
-		table.DescribeTable("should move the vm to failed if pod is not handed over", func(phase k8sv1.PodPhase) {
-			vm := NewPendingVirtualMachine("testvm")
-			vm.Status.Phase = v1.Scheduling
-			Expect(vm.Finalizers).To(ContainElement(v1.VirtualMachineFinalizer))
-			pod := NewPodForVirtualMachine(vm, phase)
-
-			addVirtualMachine(vm)
-			podFeeder.Add(pod)
-
-			shouldExpectVirtualMachineFailedState(vm)
-
-			controller.Execute()
-		},
-			table.Entry("and in succeeded state", k8sv1.PodSucceeded),
-			table.Entry("and in failed state", k8sv1.PodFailed),
-		)
 	})
 })
 
-func NewPendingVirtualMachine(name string) *v1.VirtualMachine {
-	vm := v1.NewMinimalVM(name)
-	vm.UID = "1234"
-	vm.Status.Phase = v1.Pending
-	addInitializedAnnotation(vm)
-	return vm
-}
-
-func NewPodForVirtualMachine(vm *v1.VirtualMachine, phase k8sv1.PodPhase) *k8sv1.Pod {
-	return &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: vm.Namespace,
-			Labels: map[string]string{
-				v1.AppLabel:    "virt-launcher",
-				v1.DomainLabel: vm.Name,
-			},
-			Annotations: map[string]string{
-				v1.CreatedByAnnotation: string(vm.UID),
-				v1.OwnedByAnnotation:   "virt-controller",
-			},
-		},
-		Status: k8sv1.PodStatus{
-			Phase: phase,
-			ContainerStatuses: []k8sv1.ContainerStatus{
-				{Ready: true},
+func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
+	vm := &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1"},
+		Spec: v1.VirtualMachineSpec{
+			Running: started,
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   vmi.ObjectMeta.Name,
+					Labels: vmi.ObjectMeta.Labels,
+				},
+				Spec: vmi.Spec,
 			},
 		},
 	}
+	return vm
 }
 
-func now() *metav1.Time {
-	now := metav1.Now()
-	return &now
+func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+	vmi := v1.NewMinimalVMI(vmiName)
+	vmi.Status.Phase = v1.Running
+	vm := VirtualMachineFromVMI(vmName, vmi, started)
+	t := true
+	vmi.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.ObjectMeta.Name,
+		UID:                vm.ObjectMeta.UID,
+		Controller:         &t,
+		BlockOwnerDeletion: &t,
+	}}
+	return vm, vmi
+}
+
+func DefaultVirtualMachine(started bool) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+	return DefaultVirtualMachineWithNames(started, "testvmi", "testvmi")
 }

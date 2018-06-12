@@ -66,16 +66,16 @@ func ConvReason(status libvirt.DomainState, reason int) api.StateChangeReason {
 	}
 }
 
-func SetDomainSpec(virConn cli.Connection, vm *v1.VirtualMachine, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
+func SetDomainSpec(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
 	xmlStr, err := xml.Marshal(&wantedSpec)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Generating the domain XML failed.")
+		log.Log.Object(vmi).Reason(err).Error("Generating the domain XML failed.")
 		return nil, err
 	}
-	log.Log.Object(vm).V(3).With("xml", string(xmlStr)).Info("Domain XML generated.")
+	log.Log.Object(vmi).V(3).With("xml", string(xmlStr)).Info("Domain XML generated.")
 	dom, err := virConn.DomainDefineXML(string(xmlStr))
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Defining the VM failed.")
+		log.Log.Object(vmi).Reason(err).Error("Defining the VirtualMachineInstance failed.")
 		return nil, err
 	}
 	return dom, nil
@@ -191,7 +191,7 @@ func StartVirtlog(stopChan chan struct{}) {
 
 // returns the namespace and name that is encoded in the
 // domain name.
-func SplitVMNamespaceKey(domainName string) (namespace, name string) {
+func SplitVMINamespaceKey(domainName string) (namespace, name string) {
 	splitName := strings.SplitN(domainName, "_", 2)
 	if len(splitName) == 1 {
 		return k8sv1.NamespaceDefault, splitName[0]
@@ -199,10 +199,10 @@ func SplitVMNamespaceKey(domainName string) (namespace, name string) {
 	return splitName[0], splitName[1]
 }
 
-// VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
+// VMINamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
-func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
-	domName := fmt.Sprintf("%s_%s", vm.GetObjectMeta().GetNamespace(), vm.GetObjectMeta().GetName())
+func VMINamespaceKeyFunc(vmi *v1.VirtualMachineInstance) string {
+	domName := fmt.Sprintf("%s_%s", vmi.GetObjectMeta().GetNamespace(), vmi.GetObjectMeta().GetName())
 	return domName
 }
 
@@ -212,7 +212,7 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 	if err != nil {
 		return nil, err
 	}
-	namespace, name := SplitVMNamespaceKey(name)
+	namespace, name := SplitVMINamespaceKey(name)
 
 	domain := api.NewDomainReferenceFromName(namespace, name)
 	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)

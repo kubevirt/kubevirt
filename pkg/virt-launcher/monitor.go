@@ -65,9 +65,9 @@ func GracefulShutdownTriggerFromNamespaceName(baseDir string, namespace string, 
 	return filepath.Join(baseDir, "graceful-shutdown-trigger", triggerFile)
 }
 
-func VmGracefulShutdownTriggerClear(baseDir string, vm *v1.VirtualMachine) error {
-	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+func VmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstance) error {
+	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
 	triggerFile := GracefulShutdownTriggerFromNamespaceName(baseDir, namespace, domain)
 
@@ -78,9 +78,9 @@ func GracefulShutdownTriggerClear(triggerFile string) error {
 	return diskutils.RemoveFile(triggerFile)
 }
 
-func VmHasGracefulShutdownTrigger(baseDir string, vm *v1.VirtualMachine) (bool, error) {
-	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+func VmHasGracefulShutdownTrigger(baseDir string, vmi *v1.VirtualMachineInstance) (bool, error) {
+	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
 	return hasGracefulShutdownTrigger(baseDir, namespace, domain)
 }

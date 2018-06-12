@@ -70,7 +70,7 @@ type payload struct {
 }
 
 func newValidPutRequest() *http.Request {
-	request, _ := http.NewRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/test", nil)
+	request, _ := http.NewRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/test", nil)
 	request.Body = marshalToJSON(payload{Name: "test", Email: "test@test.com"})
 	request.Header.Set("Content-Type", rest.MIME_JSON)
 	return request
@@ -94,7 +94,7 @@ var _ = Describe("Put", func() {
 		handler = http.Handler(restful.NewContainer().Add(ws))
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Put((*payload)(nil)).Endpoint(testPutEndpoint).Build(ctx))
-		ws.Route(ws.PUT("/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}").To(target))
+		ws.Route(ws.PUT("/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}").To(target))
 
 		request = newValidPutRequest()
 		recorder = httptest.NewRecorder()

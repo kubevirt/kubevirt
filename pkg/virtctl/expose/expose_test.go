@@ -26,10 +26,10 @@ var _ = Describe("Expose", func() {
 	const vmName = "my-vm"
 	const vmNoLabelName = "vm-no-label"
 	const unknownVM = "unknown-vm"
-	vm := v1.NewMinimalVM(vmName)
-	vmNoLabel := v1.NewMinimalVM(vmNoLabelName)
-	ovm := kubecli.NewMinimalOVM(vmName)
-	vmrs := kubecli.NewMinimalVMReplicaSet(vmName)
+	vm := v1.NewMinimalVMI(vmName)
+	vmNoLabel := v1.NewMinimalVMI(vmNoLabelName)
+	ovm := kubecli.NewMinimalVM(vmName)
+	vmrs := kubecli.NewMinimalVirtualMachineInstanceReplicaSet(vmName)
 
 	tests.BeforeAll(func() {
 		// create the wrapping environment that would retur the mock virt client
@@ -38,20 +38,20 @@ var _ = Describe("Expose", func() {
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		// create mock interfaces
-		vmInterface := kubecli.NewMockVMInterface(ctrl)
-		ovmInterface := kubecli.NewMockOfflineVirtualMachineInterface(ctrl)
+		vmInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		ovmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmrsInterface := kubecli.NewMockReplicaSetInterface(ctrl)
 		kubeclient := fake.NewSimpleClientset()
 		// set up mock client behavior
-		kubecli.MockKubevirtClientInstance.EXPECT().VM(k8smetav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().OfflineVirtualMachine(k8smetav1.NamespaceDefault).Return(ovmInterface).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmInterface).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(ovmInterface).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().ReplicaSet(k8smetav1.NamespaceDefault).Return(vmrsInterface).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeclient.CoreV1()).AnyTimes()
 		// set labels on vm, ovm and vmrs
 		vm.ObjectMeta.Labels = map[string]string{"key": "value"}
 		vmNoLabel.ObjectMeta.Labels = map[string]string{}
-		ovm.Spec = v1.OfflineVirtualMachineSpec{Template: &v1.VMTemplateSpec{ObjectMeta: vm.ObjectMeta}}
-		vmrs.Spec = v1.VMReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: vm.ObjectMeta.Labels}}
+		ovm.Spec = v1.VirtualMachineSpec{Template: &v1.VirtualMachineInstanceTemplateSpec{ObjectMeta: vm.ObjectMeta}}
+		vmrs.Spec = v1.VirtualMachineInstanceReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: vm.ObjectMeta.Labels}}
 		// set up mock interface behavior
 		vmInterface.EXPECT().Get(vm.Name, gomock.Any()).Return(vm, nil).AnyTimes()
 		vmInterface.EXPECT().Get(vmNoLabel.Name, gomock.Any()).Return(vmNoLabel, nil).AnyTimes()
@@ -89,7 +89,7 @@ var _ = Describe("Expose", func() {
 				kubecli.GetKubevirtClientFromClientConfig = kubecli.GetInvalidKubevirtClientFromClientConfig
 			})
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 					"--port", "9999")
 				// not executing the command
 				Expect(cmd).NotTo(BeNil())
@@ -101,33 +101,33 @@ var _ = Describe("Expose", func() {
 		})
 		Context("With missing resource", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", "--name", "my-service",
 					"--port", "9999")
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
 		Context("With missing port", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service")
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service")
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
 		Context("With missing service name", func() {
 			It("should fail", func() {
-				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--port", "9999")
+				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--port", "9999")
 				Expect(err()).NotTo(BeNil())
 			})
 		})
 		Context("With invalid type", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 					"--port", "9999", "--type", "kaboom")
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
 		Context("With a invalid protocol", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 					"--port", "9999", "--protocol", "http")
 				Expect(cmd()).NotTo(BeNil())
 			})
@@ -141,63 +141,63 @@ var _ = Describe("Expose", func() {
 		})
 		Context("With unknown flag", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 					"--port", "9999", "--kaboom")
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
 		Context("With cluster-ip on a vm", func() {
 			It("should succeed", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 					"--port", "9999")
 				Expect(cmd()).To(BeNil())
 			})
 		})
 		Context("With cluster-ip on a vm that has no label", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmNoLabelName, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmNoLabelName, "--name", "my-service",
 					"--port", "9999")
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
 		Context("With cluster-ip on an unknown vm", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", unknownVM, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", unknownVM, "--name", "my-service",
 					"--port", "9999")
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
 		Context("With node-port on a vm", func() {
 			It("should succeed", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 					"--port", "9999", "--type", "NodePort", "--node-port", "3030")
 				Expect(cmd()).To(BeNil())
 			})
 		})
 		Context("With cluster-ip on an ovm", func() {
 			It("should succeed", func() {
-				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "ovm", vmName, "--name", "my-service",
+				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
 					"--port", "9999")
 				Expect(err()).To(BeNil())
 			})
 		})
 		Context("With cluster-ip on an unknown ovm", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "ovm", unknownVM, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", unknownVM, "--name", "my-service",
 					"--port", "9999")
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
 		Context("With cluster-ip on an vm replica set", func() {
 			It("should succeed", func() {
-				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmrs", vmName, "--name", "my-service",
+				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", vmName, "--name", "my-service",
 					"--port", "9999")
 				Expect(err()).To(BeNil())
 			})
 		})
 		Context("With cluster-ip on an unknown vm replica set", func() {
 			It("should fail", func() {
-				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmrs", unknownVM, "--name", "my-service",
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", unknownVM, "--name", "my-service",
 					"--port", "9999")
 				Expect(cmd()).NotTo(BeNil())
 			})

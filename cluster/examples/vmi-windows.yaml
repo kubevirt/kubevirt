@@ -1,0 +1,50 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
+metadata:
+  annotations:
+    alpha.kubevirt.io/interface-model: e1000
+  creationTimestamp: null
+  labels:
+    special: vmi-windows
+  name: vmi-windows
+spec:
+  domain:
+    clock:
+      timer:
+        hpet:
+          present: false
+        hyperv: {}
+        pit:
+          tickPolicy: delay
+        rtc:
+          tickPolicy: catchup
+      utc: {}
+    cpu:
+      cores: 2
+    devices:
+      disks:
+      - disk:
+          bus: sata
+        name: pvcdisk
+        volumeName: pvcvolume
+    features:
+      acpi: {}
+      apic: {}
+      hyperv:
+        relaxed: {}
+        spinlocks:
+          spinlocks: 8191
+        vapic: {}
+    firmware:
+      uuid: 5d307ca9-b3ef-428c-8861-06e72d69f223
+    machine:
+      type: q35
+    resources:
+      requests:
+        memory: 2Gi
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: pvcvolume
+    persistentVolumeClaim:
+      claimName: disk-windows
+status: {}

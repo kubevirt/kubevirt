@@ -92,7 +92,7 @@ var _ = Describe("Pod Network", func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	TestPodInterfaceIPBinding := func(vm *v1.VirtualMachine, domain *api.Domain) {
+	TestPodInterfaceIPBinding := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
 
 		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
@@ -176,13 +176,13 @@ var _ = Describe("Pod Network", func() {
 	})
 })
 
-func newVM(namespace string, name string) *v1.VirtualMachine {
-	vm := &v1.VirtualMachine{
+func newVM(namespace string, name string) *v1.VirtualMachineInstance {
+	vmi := &v1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec:       v1.VirtualMachineSpec{Domain: v1.NewMinimalDomainSpec()},
+		Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.NewMinimalDomainSpec()},
 	}
-	v1.SetObjectDefaults_VirtualMachine(vm)
-	return vm
+	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+	return vmi
 }
 
 func NewDomainWithPodNetwork() *api.Domain {
