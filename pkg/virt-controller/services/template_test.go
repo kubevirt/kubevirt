@@ -274,7 +274,9 @@ var _ = Describe("Template", func() {
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
-				Expect(pod.Spec.Containers[0].Resources.Limits).To(BeNil())
+
+				// Limits for KVM and TUN devices should be requested.
+				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			})
 		})
 
