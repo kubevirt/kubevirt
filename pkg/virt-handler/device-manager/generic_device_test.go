@@ -1,8 +1,8 @@
 package device_manager
 
 import (
-	"os"
 	"io/ioutil"
+	"os"
 	"path"
 	"testing"
 	"time"
@@ -59,7 +59,7 @@ var _ = Describe("Generic Device", func() {
 		By("waiting for healthcheck to send Unhealthy message")
 		Eventually(func() string {
 			return <-dpi.health
-		}, 5 * time.Second).Should(Equal(pluginapi.Unhealthy))
+		}, 5*time.Second).Should(Equal(pluginapi.Unhealthy))
 
 		By("Creating a new (fake) device node")
 		fileObj, err := os.Create(devicePath)
@@ -69,7 +69,7 @@ var _ = Describe("Generic Device", func() {
 		By("waiting for healthcheck to send Healthy message")
 		Eventually(func() string {
 			return <-dpi.health
-		}, 5 * time.Second).Should(Equal(pluginapi.Healthy))
+		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
 	})
 })
 

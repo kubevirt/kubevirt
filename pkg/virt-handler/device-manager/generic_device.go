@@ -24,9 +24,9 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"time"
-	"path/filepath"
 
 	"golang.org/x/net/context"
 
@@ -248,7 +248,7 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 		case event := <-watcher.Events:
 			logger.Infof("health Event: %v", event)
 			logger.Infof("health Event Name: %s", event.Name)
-			if (event.Name == dpi.devicePath) {
+			if event.Name == dpi.devicePath {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
 					healthy = pluginapi.Healthy

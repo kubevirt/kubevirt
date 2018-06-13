@@ -38,9 +38,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 var _ = Describe("VMIlifecycle", func() {
@@ -602,7 +602,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a TUN device but not KVM", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
@@ -612,12 +612,12 @@ var _ = Describe("VMIlifecycle", func() {
 					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
 					Expect(err).ToNot(HaveOccurred())
 					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vm.ObjectMeta.GenerateName) {
+						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
 							pod = item
 							return nil
 						}
 					}
-					return fmt.Errorf("Associated pod for VM '%s' not found", vm.Name)
+					return fmt.Errorf("Associated pod for VM '%s' not found", vmi.Name)
 				}, 75, 0.5).Should(Succeed())
 
 				computeContainerFound := false
@@ -658,7 +658,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a KVM and TUN device", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
@@ -668,12 +668,12 @@ var _ = Describe("VMIlifecycle", func() {
 					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
 					Expect(err).ToNot(HaveOccurred())
 					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vm.ObjectMeta.GenerateName) {
+						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
 							pod = item
 							return nil
 						}
 					}
-					return fmt.Errorf("Associated pod for VM '%s' not found", vm.Name)
+					return fmt.Errorf("Associated pod for VM '%s' not found", vmi.Name)
 				}, 75, 0.5).Should(Succeed())
 
 				computeContainerFound := false
@@ -693,7 +693,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should not enable emulation in virt-launcher", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
@@ -703,12 +703,12 @@ var _ = Describe("VMIlifecycle", func() {
 					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
 					Expect(err).ToNot(HaveOccurred())
 					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vm.ObjectMeta.GenerateName) {
+						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
 							pod = item
 							return nil
 						}
 					}
-					return fmt.Errorf("Associated pod for VM '%s' not found", vm.Name)
+					return fmt.Errorf("Associated pod for VM '%s' not found", vmi.Name)
 				}, 75, 0.5).Should(Succeed())
 
 				emulationFlagFound := false

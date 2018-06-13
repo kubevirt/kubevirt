@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"time"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
