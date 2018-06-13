@@ -490,7 +490,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	// For now if networks not define in vm specs connect the virtual machine to the pod network
-	if vm.Spec.Domain.Devices.Interfaces == nil {
+	if vmi.Spec.Domain.Devices.Interfaces == nil {
 		domain.Spec.Devices.Interfaces = []Interface{{
 			Model: &Model{
 				Type: interfaceType,
@@ -503,12 +503,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	} else {
 		// prepare networks map
 		networks := map[string]*v1.Network{}
-		for _, network := range vm.Spec.Networks {
+		for _, network := range vmi.Spec.Networks {
 			networks[network.Name] = network.DeepCopy()
 		}
 
 		domain.Spec.Devices.Interfaces = make([]Interface, 0)
-		for _, iface := range vm.Spec.Domain.Devices.Interfaces {
+		for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 			if _, ok := networks[iface.Name]; !ok {
 				return fmt.Errorf("Fail to match the Name of a Network")
 			}

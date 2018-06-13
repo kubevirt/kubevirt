@@ -48,10 +48,10 @@ const (
 	vmiNoCloud        = "vmi-nocloud"
 	vmiPVC            = "vmi-pvc"
 	vmiWindows        = "vmi-windows"
+	vmiSlirp          = "vm-slirp"
 	vmTemplateFedora  = "vmi-template-fedora"
 	vmTemplateRHEL7   = "vmi-template-rhel7"
 	vmTemplateWindows = "vmi-template-windows2012r2"
-	vmSlirp       = "vm-slirp"
 )
 
 const (
@@ -231,8 +231,8 @@ func getVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func getVmSlirp() *v1.VirtualMachine {
-	vm := getBaseVm(vmSlirp)
+func getVMISlirp() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(vmiSlirp)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
@@ -244,7 +244,6 @@ func getVmSlirp() *v1.VirtualMachine {
 
 	return vm
 }
-
 
 func getVMINoCloud() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(vmiNoCloud)
@@ -589,10 +588,10 @@ func main() {
 		vmAlpineMultiPvc:    getVMMultiPvc(),
 		vmiReplicaSetCirros: getVMIReplicaSetCirros(),
 		vmiPresetSmall:      getVMIPresetSmall(),
+		vmiSlirp:            getVMISlirp(),
 		vmTemplateFedora:    getTemplateFedora(),
 		vmTemplateRHEL7:     getTemplateRHEL7(),
 		vmTemplateWindows:   getTemplateWindows(),
-		vmSlirp:            getVmSlirp(),
 	}
 	for name, obj := range vms {
 		data, err := yaml.Marshal(obj)

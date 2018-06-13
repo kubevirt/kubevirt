@@ -166,6 +166,7 @@ spec:
                                       well as a reference to the associated networks
                                       Must match the Name of a Network
                                     type: string
+                                  slirp: {}
                                 required:
                                 - name
                               type: array
@@ -343,6 +344,11 @@ spec:
                             type: string
                           pod:
                             description: Represents the stock pod network interface
+                            properties:
+                              vmNetworkCIDR:
+                                description: CIDR for vm network Default 10.0.2.0/24
+                                  if not specified
+                                type: string
                         required:
                         - name
                       type: array

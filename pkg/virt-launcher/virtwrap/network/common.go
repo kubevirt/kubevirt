@@ -198,6 +198,34 @@ func getCachedInterface() (*api.Interface, error) {
 	return &ifconf, nil
 }
 
+func setCachedCommandLine(commandLine *api.Commandline) error {
+	buf, err := json.MarshalIndent(&commandLine, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling command line cache: %v", err)
+	}
+	err = ioutil.WriteFile(commandLineCacheFile, buf, 0644)
+	if err != nil {
+		return fmt.Errorf("error writing command line cache %v", err)
+	}
+	return nil
+}
+
+func getCachedQemuCommandLine() (*api.Commandline, error) {
+	buf, err := ioutil.ReadFile(commandLineCacheFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	commandLine := api.Commandline{}
+	err = json.Unmarshal(buf, &commandLine)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling command line: %v", err)
+	}
+	return &commandLine, nil
+}
+
 // filter out irrelevant routes
 func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
 	for _, route := range routes {

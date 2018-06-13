@@ -331,12 +331,12 @@ var _ = Describe("Schema", func() {
 			err = tmpl.Execute(&tpl, networkTemplateData)
 			Expect(err).To(BeNil())
 			newVMI := &VirtualMachineInstance{}
-			err := json.Unmarshal([]byte(exampleJSON), newVMI)
+			err = json.Unmarshal(tpl.Bytes(), newVMI)
 			Expect(err).To(BeNil())
 			Expect(newVMI).To(Equal(exampleVMI))
 		})
 		It("Marshal struct into json", func() {
-			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
@@ -354,7 +354,7 @@ var _ = Describe("Schema", func() {
 			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
-			Expect(string(buf)).To(Equal(exampleJSON))
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})
 	Context("With example schema in json use pod network and slirp interface", func() {
@@ -363,7 +363,7 @@ var _ = Describe("Schema", func() {
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Bridge: &InterfaceSlirp{},
+						Slirp: &InterfaceSlirp{},
 					},
 				},
 			}
@@ -374,16 +374,16 @@ var _ = Describe("Schema", func() {
 			err = tmpl.Execute(&tpl, networkTemplateData)
 			Expect(err).To(BeNil())
 			newVMI := &VirtualMachineInstance{}
-			err := json.Unmarshal([]byte(exampleJSON), newVMI)
+			err = json.Unmarshal(tpl.Bytes(), newVMI)
 			Expect(err).To(BeNil())
 			Expect(newVMI).To(Equal(exampleVMI))
 		})
 		It("Marshal struct into json", func() {
-			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Bridge: &InterfaceSlirp{},
+						Slirp: &InterfaceSlirp{},
 					},
 				},
 			}
@@ -397,7 +397,7 @@ var _ = Describe("Schema", func() {
 			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
-			Expect(string(buf)).To(Equal(exampleJSON))
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})
 })

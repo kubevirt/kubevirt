@@ -74,8 +74,8 @@ func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain) (B
 		return &BridgePodInterface{iface: iface, vif: vif, domain: domain}, nil
 	}
 	if iface.Slirp != nil {
-		SlirpConfig := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-		return &SlirpPodInterface{iface: iface, network: network, domain: domain, SlirpConfig: SlirpConfig}, nil
+		slirpConfig := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+		return &SlirpPodInterface{iface: iface, network: network, domain: domain, slirpConfig: slirpConfig}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
@@ -267,30 +267,45 @@ type SlirpPodInterface struct {
 	iface       *v1.Interface
 	network     *v1.Network
 	domain      *api.Domain
-	SlirpConfig api.Arg
+	slirpConfig api.Arg
 }
 
-func (s *SlirpPodInterface) setup() error {
-	err := s.configVMCIDR()
+func (p *SlirpPodInterface) setup() error {
+	commandLine, err := getCachedQemuCommandLine()
 	if err != nil {
 		return err
 	}
 
-	err = s.configDNSSearchName()
+	if commandLine != nil {
+		p.domain.Spec.QEMUCmd = commandLine
+
+		return nil
+	}
+
+	err = p.configVMCIDR()
 	if err != nil {
 		return err
 	}
 
-	err = s.configPortForward()
+	err = p.configDNSSearchName()
 	if err != nil {
 		return err
 	}
 
-	err = s.commitConfiguration()
+	err = p.configPortForward()
 	if err != nil {
 		return err
 	}
 
+	err = p.commitConfiguration()
+	if err != nil {
+		return err
+	}
+
+	err = setCachedCommandLine(p.domain.Spec.QEMUCmd)
+	if err != nil {
+		panic(err)
+	}
 	return nil
 }
 
@@ -327,7 +342,7 @@ func (p *SlirpPodInterface) configPortForward() error {
 		}
 
 		portForwardMap[forwardPort.Port] = protocol
-		p.SlirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.Port)
+		p.slirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.Port)
 
 	}
 
@@ -351,7 +366,7 @@ func (p *SlirpPodInterface) configVMCIDR() error {
 	}
 
 	// Insert configuration to qemu commandline
-	p.SlirpConfig.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
+	p.slirpConfig.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
 
 	return nil
 }
@@ -365,7 +380,7 @@ func (p *SlirpPodInterface) configDNSSearchName() error {
 
 	// Insert configuration to qemu commandline
 	for _, dnsSearchName := range dnsSearchNames {
-		p.SlirpConfig.Value += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
+		p.slirpConfig.Value += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
 	}
 
 	return nil
@@ -373,7 +388,7 @@ func (p *SlirpPodInterface) configDNSSearchName() error {
 
 func (p *SlirpPodInterface) commitConfiguration() error {
 	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-netdev"})
-	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, p.SlirpConfig)
+	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, p.slirpConfig)
 
 	return nil
 }

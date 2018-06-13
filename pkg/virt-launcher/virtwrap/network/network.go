@@ -42,6 +42,7 @@ const (
 )
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
+var commandLineCacheFile = "/var/run/kubevirt-private/command-line-cache.json"
 var NetworkInterfaceFactory = getNetworkClass
 
 type NetworkInterface interface {
