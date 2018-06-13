@@ -20,7 +20,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: iscsi-disk-alpine
+  name: host-path-disk-alpine
   labels:
     kubevirt.io: ""
     os: "alpine"
@@ -29,10 +29,8 @@ spec:
     storage: 1Gi
   accessModes:
     - ReadWriteOnce
-  iscsi:
-    iqn: iqn.2017-01.io.kubevirt:sn.42
-    lun: 2
-    targetPortal: "127.0.0.1"
+  hostPath:
+    path: /tmp/hostImages/alpine
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -55,7 +53,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: iscsi-disk-custom
+  name: host-path-disk-custom
   labels:
     kubevirt.io: ""
     os: "custom"
@@ -64,47 +62,35 @@ spec:
     storage: 1Gi
   accessModes:
     - ReadWriteOnce
-  iscsi:
-    iqn: iqn.2017-01.io.kubevirt:sn.42
-    lun: 1
-    targetPortal: "127.0.0.1"
+  hostPath:
+    path: /tmp/hostImages/custom
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
-  name: iscsi-demo-target-tgtd
+  name: disks-images-provider
   namespace: {{.Namespace}}
   labels:
-    kubevirt.io: "iscsi-demo-target"
+    kubevirt.io: "disks-images-provider"
 spec:
   template:
     metadata:
       labels:
-        name: iscsi-demo-target-tgtd
-        kubevirt.io: iscsi-demo-target
-      name: iscsi-demo-target-tgtd
+        name: disks-images-provider
+        kubevirt.io: disks-images-provider
+      name: disks-images-provider
     spec:
-      hostNetwork: true
       serviceAccountName: kubevirt-testing
       containers:
         - name: target
-          image: {{.DockerPrefix}}/iscsi-demo-target-tgtd:{{.DockerTag}}
+          image: {{.DockerPrefix}}/disks-images-provider:{{.DockerTag}}
           volumeMounts:
-          - name: host
-            mountPath: /host
-          env:
-            - name: EXPORT_HOST_PATHS
-              value:
+          - name: images
+            mountPath: /hostImages
           securityContext:
             privileged: true
-          readinessProbe:
-            exec:
-              command:
-              - cat
-              - /tmp/previous_state
-            initialDelaySeconds: 10
-            periodSeconds: 5
       volumes:
-        - name: host
+        - name: images
           hostPath:
-            path: /
+            path: /tmp/hostImages
+            type: DirectoryOrCreate

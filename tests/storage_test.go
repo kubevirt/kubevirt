@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,9 +39,6 @@ import (
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
 
 var _ = Describe("Storage", func() {
-
-	nodeName := ""
-	nodeIp := ""
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -50,54 +46,7 @@ var _ = Describe("Storage", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-
-		nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(nodes.Items).ToNot(BeEmpty())
-		nodeName = nodes.Items[0].Name
-		for _, addr := range nodes.Items[0].Status.Addresses {
-			if addr.Type == k8sv1.NodeInternalIP {
-				nodeIp = addr.Address
-				break
-			}
-		}
-		Expect(nodeIp).ToNot(Equal(""))
 	})
-
-	getTargetLogs := func(tailLines int64) string {
-		pods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: v1.AppLabel + " in (iscsi-demo-target)"})
-		Expect(err).ToNot(HaveOccurred())
-
-		//FIXME Sometimes pods hang in terminating state, select the pod which does not have a deletion timestamp
-		podName := ""
-		for _, pod := range pods.Items {
-			if pod.ObjectMeta.DeletionTimestamp == nil {
-				if pod.Status.HostIP == nodeIp {
-					podName = pod.ObjectMeta.Name
-					break
-				}
-			}
-		}
-		Expect(podName).ToNot(BeEmpty())
-
-		By("Getting the ISCSI pod logs")
-		logsRaw, err := virtClient.CoreV1().
-			Pods(metav1.NamespaceSystem).
-			GetLogs(podName,
-				&k8sv1.PodLogOptions{TailLines: &tailLines}).
-			DoRaw()
-		Expect(err).To(BeNil())
-
-		return string(logsRaw)
-	}
-
-	checkReadiness := func() {
-		logs := getTargetLogs(75)
-		By("Checking that ISCSI is ready")
-		Expect(logs).To(ContainSubstring("Target 1: iqn.2017-01.io.kubevirt:sn.42"))
-		Expect(logs).To(ContainSubstring("Driver: iscsi"))
-		Expect(logs).To(ContainSubstring("State: ready"))
-	}
 
 	RunVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
 		By("Starting a VirtualMachineInstance")
@@ -113,20 +62,11 @@ var _ = Describe("Storage", func() {
 		return obj
 	}
 
-	Context("with fresh iSCSI target", func() {
-		It("should be available and ready", func() {
-			checkReadiness()
-		})
-	})
-
 	Describe("Starting a VirtualMachineInstance", func() {
 		Context("with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc) {
-				checkReadiness()
-
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := newVMI(tests.DiskAlpineISCSI)
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				vmi := newVMI(tests.DiskAlpineHostPath)
 				RunVMIAndExpectLaunch(vmi, false, 90)
 
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
@@ -145,10 +85,7 @@ var _ = Describe("Storage", func() {
 			)
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
-				checkReadiness()
-
-				vmi := newVMI(tests.DiskAlpineISCSI)
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				vmi := newVMI(tests.DiskAlpineHostPath)
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
@@ -232,11 +169,8 @@ var _ = Describe("Storage", func() {
 		Context("With ephemeral alpine PVC", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			It("should be successfully started", func() {
-				checkReadiness()
-
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineISCSI)
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 				RunVMIAndExpectLaunch(vmi, false, 90)
 
 				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
@@ -252,9 +186,7 @@ var _ = Describe("Storage", func() {
 			})
 
 			It("should not persist data", func() {
-				checkReadiness()
-				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineISCSI)
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
 				createdVMI := RunVMIAndExpectLaunch(vmi, false, 90)
@@ -314,21 +246,18 @@ var _ = Describe("Storage", func() {
 		Context("With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
-				tests.CreatePvISCSI(tests.CustomISCSI, 1)
-				tests.CreatePVC(tests.CustomISCSI, "1Gi")
+				tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
+				tests.CreatePVC(tests.CustomHostPath, "1Gi")
 			}, 120)
 
 			AfterEach(func() {
-				tests.DeletePVC(tests.CustomISCSI)
-				tests.DeletePV(tests.CustomISCSI)
+				tests.DeletePVC(tests.CustomHostPath)
+				tests.DeletePV(tests.CustomHostPath)
 			}, 120)
 
 			It("should start vmi multiple times", func() {
-				checkReadiness()
-
-				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineISCSI)
-				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomISCSI)
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
+				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
@@ -348,7 +277,7 @@ var _ = Describe("Storage", func() {
 							&expect.BSnd{S: "root\n"},
 							&expect.BExp{R: "#"},
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
-							&expect.BExp{R: "1000000000"},
+							&expect.BExp{R: "67108864"},
 						}, 200*time.Second)
 						Expect(err).ToNot(HaveOccurred())
 					}

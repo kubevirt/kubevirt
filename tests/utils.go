@@ -116,19 +116,20 @@ const (
 )
 
 const (
-	osAlpineISCSI = "alpine-iscsi"
-	osWindows     = "windows"
-	CustomISCSI   = "custom-iscsi"
+	osAlpineHostPath = "alpine-host-path"
+	osWindows        = "windows"
+	CustomHostPath   = "custom-host-path"
 )
 
 const (
-	DiskAlpineISCSI = "disk-alpine-iscsi"
-	DiskWindows     = "disk-windows"
-	DiskCustomISCSI = "disk-custom-iscsi"
+	HostPathAlpine = "/tmp/hostImages/alpine"
+	HostPathCustom = "/tmp/hostImages/custom"
 )
 
 const (
-	iscsiIqn = "iqn.2017-01.io.kubevirt:sn.42"
+	DiskAlpineHostPath = "disk-alpine-host-path"
+	DiskWindows        = "disk-windows"
+	DiskCustomHostPath = "disk-custom-host-path"
 )
 
 const (
@@ -305,8 +306,8 @@ func AfterTestSuitCleanup() {
 
 	DeletePVC(osWindows)
 
-	DeletePVC(osAlpineISCSI)
-	DeletePV(osAlpineISCSI)
+	DeletePVC(osAlpineHostPath)
+	DeletePV(osAlpineHostPath)
 
 	removeNamespaces()
 }
@@ -323,8 +324,8 @@ func BeforeTestSuitSetup() {
 	createNamespaces()
 	createServiceAccounts()
 
-	CreatePvISCSI(osAlpineISCSI, 2)
-	CreatePVC(osAlpineISCSI, defaultDiskSize)
+	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
+	CreatePVC(osAlpineHostPath, defaultDiskSize)
 
 	CreatePVC(osWindows, defaultWindowsDiskSize)
 }
@@ -362,23 +363,15 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 	}
 }
 
-func CreatePvISCSI(os string, lun int32) {
+func CreateHostPathPv(os string, hostPath string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	targetIp := "127.0.0.1" // getPodIpByLabel(label)
-
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newPvISCSI(os, targetIp, lun))
-	if !errors.IsAlreadyExists(err) {
-		PanicOnError(err)
-	}
-}
-
-func newPvISCSI(os string, targetIp string, lun int32) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
 
 	name := fmt.Sprintf("%s-disk-for-tests", os)
+	hostPathType := k8sv1.HostPathDirectoryOrCreate
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -393,15 +386,18 @@ func newPvISCSI(os string, targetIp string, lun int32) *k8sv1.PersistentVolume {
 			},
 			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimRetain,
 			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				ISCSI: &k8sv1.ISCSIPersistentVolumeSource{
-					IQN:          iscsiIqn,
-					Lun:          lun,
-					TargetPortal: targetIp,
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: hostPath,
+					Type: &hostPathType,
 				},
 			},
 		},
 	}
-	return pv
+
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(pv)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
 }
 
 func cleanupSubresourceServiceAccount() {
