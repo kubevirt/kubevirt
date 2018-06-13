@@ -25,8 +25,11 @@ trap 'exit' TERM
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
 
-# let the monitoring script know we're done'
-echo "done"
+# for some reason without sleep, container sometime fails to create the file
+sleep 10
+
+# let the monitoring script know we're done
+echo "done" >/ready
 
 while true; do
     sleep 60
