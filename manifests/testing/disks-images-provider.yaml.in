@@ -89,6 +89,13 @@ spec:
             mountPath: /hostImages
           securityContext:
             privileged: true
+          readinessProbe:	
+            exec:	
+              command:	
+              - cat	
+              - /ready
+            initialDelaySeconds: 10	
+            periodSeconds: 5
       volumes:
         - name: images
           hostPath:
