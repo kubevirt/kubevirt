@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("Kubevirt VirtualMachine Client", func() {
@@ -110,6 +111,43 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMI).To(Equal(vm))
+	})
+
+	It("should patch a OfflineVirtualMachine", func() {
+		vm := NewMinimalVM("testvm")
+		vm.Spec.Running = true
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("PATCH", vmiPath),
+			ghttp.VerifyBody([]byte("{\"spec\":{\"running\":true}}")),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+		))
+
+		patchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Patch(vm.Name, types.MergePatchType,
+			[]byte("{\"spec\":{\"running\":true}}"))
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vm.Spec.Running).To(Equal(patchedVM.Spec.Running))
+
+	})
+
+	It("should fail on patch a OfflineVirtualMachine", func() {
+		vm := NewMinimalVM("testvm")
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("PATCH", vmiPath),
+			ghttp.VerifyBody([]byte("{\"spec\":{\"running\":true}}")),
+			ghttp.RespondWithJSONEncoded(http.StatusNotFound, vm),
+		))
+
+		patchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Patch(vm.Name, types.MergePatchType,
+			[]byte("{\"spec\":{\"running\":true}}"))
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).To(HaveOccurred())
+		Expect(vm.Spec.Running).To(Equal(patchedVM.Spec.Running))
+
 	})
 
 	It("should delete a VirtualMachineInstance", func() {
