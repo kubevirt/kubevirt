@@ -171,9 +171,6 @@ func (dpi *GenericDevicePlugin) addNewGenericDevice() {
 		Health: pluginapi.Healthy,
 	})
 
-	logger := log.DefaultLogger()
-	logger.Infof("Allocated new device: %s", deviceId)
-
 	dpi.counter += 1
 }
 

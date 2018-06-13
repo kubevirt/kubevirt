@@ -121,6 +121,8 @@ func (c *DeviceController) startDevicePlugin(dev *GenericDevicePlugin, stop chan
 		logger.Errorf("Error starting %s device plugin: %v", dev.deviceName, err)
 		return err
 	}
+
+	logger.Infof("%s device plugin started", dev.deviceName)
 	return nil
 }
 
