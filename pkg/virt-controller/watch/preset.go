@@ -41,27 +41,27 @@ import (
 )
 
 type VirtualMachinePresetController struct {
-	vmPresetInformer cache.SharedIndexInformer
-	vmInitInformer   cache.SharedIndexInformer
-	clientset        kubecli.KubevirtClient
-	queue            workqueue.RateLimitingInterface
-	recorder         record.EventRecorder
-	store            cache.Store
+	vmiPresetInformer cache.SharedIndexInformer
+	vmiInitInformer   cache.SharedIndexInformer
+	clientset         kubecli.KubevirtClient
+	queue             workqueue.RateLimitingInterface
+	recorder          record.EventRecorder
+	store             cache.Store
 }
 
 const initializerMarking = "presets.virtualmachines." + kubev1.GroupName + "/presets-applied"
-const exclusionMarking = "virtualmachinepresets.admission.kubevirt.io/exclude"
+const exclusionMarking = "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
 
-func NewVirtualMachinePresetController(vmPresetInformer cache.SharedIndexInformer, vmInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachinePresetController {
-	vmi := VirtualMachinePresetController{
-		vmPresetInformer: vmPresetInformer,
-		vmInitInformer:   vmInitInformer,
-		clientset:        clientset,
-		queue:            queue,
-		recorder:         recorder,
-		store:            vmInitCache,
+func NewVirtualMachinePresetController(vmiPresetInformer cache.SharedIndexInformer, vmiInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmiInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachinePresetController {
+	vmii := VirtualMachinePresetController{
+		vmiPresetInformer: vmiPresetInformer,
+		vmiInitInformer:   vmiInitInformer,
+		clientset:         clientset,
+		queue:             queue,
+		recorder:          recorder,
+		store:             vmiInitCache,
 	}
-	return &vmi
+	return &vmii
 }
 
 func (c *VirtualMachinePresetController) Run(threadiness int, stopCh chan struct{}) {
@@ -70,7 +70,7 @@ func (c *VirtualMachinePresetController) Run(threadiness int, stopCh chan struct
 	log.Log.Info("Starting Virtual Machine Initializer.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmPresetInformer.HasSynced, c.vmInitInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiPresetInformer.HasSynced, c.vmiInitInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -95,10 +95,10 @@ func (c *VirtualMachinePresetController) Execute() bool {
 	err := c.execute(key.(string))
 
 	if err != nil {
-		log.Log.Reason(err).Infof("reenqueuing VM %v", key)
+		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VM %v", key)
+		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
 		c.queue.Forget(key)
 	}
 	return true
@@ -106,144 +106,144 @@ func (c *VirtualMachinePresetController) Execute() bool {
 
 func (c *VirtualMachinePresetController) execute(key string) error {
 
-	// Fetch the latest VM state from cache
+	// Fetch the latest VirtualMachineInstance state from cache
 	obj, exists, err := c.store.GetByKey(key)
 
 	if err != nil {
 		return err
 	}
 
-	// If the VM isn't in the cache, it was just deleted, so shouldn't
+	// If the VirtualMachineInstance isn't in the cache, it was just deleted, so shouldn't
 	// be initialized
 	if exists {
-		vm := &kubev1.VirtualMachine{}
-		obj.(*kubev1.VirtualMachine).DeepCopyInto(vm)
-		// only process VM's that aren't initialized by this controller yet
-		if !isVirtualMachineInitialized(vm) {
-			return c.initializeVirtualMachine(vm)
+		vmi := &kubev1.VirtualMachineInstance{}
+		obj.(*kubev1.VirtualMachineInstance).DeepCopyInto(vmi)
+		// only process VirtualMachineInstance's that aren't initialized by this controller yet
+		if !isVirtualMachineInitialized(vmi) {
+			return c.initializeVirtualMachine(vmi)
 		}
 	}
 
 	return nil
 }
 
-func (c *VirtualMachinePresetController) initializeVirtualMachine(vm *kubev1.VirtualMachine) error {
-	// All VM's must be marked as initialized or they are held in limbo forever
+func (c *VirtualMachinePresetController) initializeVirtualMachine(vmi *kubev1.VirtualMachineInstance) error {
+	// All VirtualMachineInstance's must be marked as initialized or they are held in limbo forever
 	// Collect all errors and defer returning until after the update
 	logger := log.Log
 	var err error
 	success := true
 
-	if !isVmExcluded(vm) {
-		logger.Object(vm).Info("Initializing VirtualMachine")
+	if !isVmExcluded(vmi) {
+		logger.Object(vmi).Info("Initializing VirtualMachineInstance")
 
-		allPresets, err := listPresets(c.vmPresetInformer, vm.GetNamespace())
+		allPresets, err := listPresets(c.vmiPresetInformer, vmi.GetNamespace())
 		if err != nil {
-			logger.Object(vm).Errorf("Listing VirtualMachinePresets failed: %v", err)
+			logger.Object(vmi).Errorf("Listing VirtualMachinePresets failed: %v", err)
 			return err
 		}
 
-		matchingPresets := filterPresets(allPresets, vm, c.recorder)
+		matchingPresets := filterPresets(allPresets, vmi, c.recorder)
 
 		if len(matchingPresets) != 0 {
-			success = applyPresets(vm, matchingPresets, c.recorder)
+			success = applyPresets(vmi, matchingPresets, c.recorder)
 		}
 
 		if !success {
-			logger.Object(vm).Warning("Marking VM as failed")
-			vm.Status.Phase = kubev1.Failed
+			logger.Object(vmi).Warning("Marking VirtualMachineInstance as failed")
+			vmi.Status.Phase = kubev1.Failed
 		} else {
-			logger.Object(vm).V(4).Info("Setting default values on VirtualMachine")
-			kubev1.SetObjectDefaults_VirtualMachine(vm)
+			logger.Object(vmi).V(4).Info("Setting default values on VirtualMachine")
+			kubev1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		}
 	} else {
-		logger.Object(vm).Infof("VM is excluded from VirtualMachinePresets")
+		logger.Object(vmi).Infof("VirtualMachineInstance is excluded from VirtualMachinePresets")
 	}
-	// Even failed VM's need to be marked as initialized so they're
+	// Even failed VirtualMachineInstance's need to be marked as initialized so they're
 	// not re-processed by this controller
-	logger.Object(vm).Info("Marking VM as initialized")
-	addInitializedAnnotation(vm)
-	_, err = c.clientset.VM(vm.Namespace).Update(vm)
+	logger.Object(vmi).Info("Marking VirtualMachineInstance as initialized")
+	addInitializedAnnotation(vmi)
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmi)
 	if err != nil {
-		logger.Object(vm).Errorf("Could not update VirtualMachine: %v", err)
+		logger.Object(vmi).Errorf("Could not update VirtualMachineInstance: %v", err)
 		return err
 	}
 	return nil
 }
 
 // listPresets returns all VirtualMachinePresets by namespace
-func listPresets(vmPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachinePreset, error) {
-	indexer := vmPresetInformer.GetIndexer()
+func listPresets(vmiPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachineInstancePreset, error) {
+	indexer := vmiPresetInformer.GetIndexer()
 	selector := labels.NewSelector()
-	result := []kubev1.VirtualMachinePreset{}
+	result := []kubev1.VirtualMachineInstancePreset{}
 	err := cache.ListAllByNamespace(indexer, namespace, selector, func(obj interface{}) {
-		vm := obj.(*kubev1.VirtualMachinePreset)
-		result = append(result, *vm)
+		vmi := obj.(*kubev1.VirtualMachineInstancePreset)
+		result = append(result, *vmi)
 	})
 
 	return result, err
 }
 
-// filterPresets returns list of VirtualMachinePresets which match given VirtualMachine.
-func filterPresets(list []kubev1.VirtualMachinePreset, vm *kubev1.VirtualMachine, recorder record.EventRecorder) []kubev1.VirtualMachinePreset {
-	matchingPresets := []kubev1.VirtualMachinePreset{}
+// filterPresets returns list of VirtualMachinePresets which match given VirtualMachineInstance.
+func filterPresets(list []kubev1.VirtualMachineInstancePreset, vmi *kubev1.VirtualMachineInstance, recorder record.EventRecorder) []kubev1.VirtualMachineInstancePreset {
+	matchingPresets := []kubev1.VirtualMachineInstancePreset{}
 	logger := log.Log
 
 	for _, preset := range list {
 		selector, err := k8smetav1.LabelSelectorAsSelector(&preset.Spec.Selector)
 
 		if err != nil {
-			// Do not return an error from this function--or the VM will be
+			// Do not return an error from this function--or the VirtualMachineInstance will be
 			// re-enqueued for processing again.
-			recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Invalid Preset '%s': %v", preset.Name, err))
+			recorder.Event(vmi, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), fmt.Sprintf("Invalid Preset '%s': %v", preset.Name, err))
 			logger.Object(&preset).Reason(err).Errorf("label selector conversion failed: %v", err)
-		} else if selector.Matches(labels.Set(vm.GetLabels())) {
-			logger.Object(vm).Infof("VirtualMachinePreset %s matches VirtualMachine", preset.GetName())
+		} else if selector.Matches(labels.Set(vmi.GetLabels())) {
+			logger.Object(vmi).Infof("VirtualMachineInstancePreset %s matches VirtualMachineInstance", preset.GetName())
 			matchingPresets = append(matchingPresets, preset)
 		}
 	}
 	return matchingPresets
 }
 
-func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) error {
+func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) error {
 	errors := []error{}
 	if len(presetSpec.Resources.Requests) > 0 {
 		for key, presetReq := range presetSpec.Resources.Requests {
-			if vmReq, ok := vmSpec.Resources.Requests[key]; ok {
-				if presetReq != vmReq {
-					errors = append(errors, fmt.Errorf("spec.resources.requests[%s]: %v != %v", key, presetReq, vmReq))
+			if vmiReq, ok := vmiSpec.Resources.Requests[key]; ok {
+				if presetReq != vmiReq {
+					errors = append(errors, fmt.Errorf("spec.resources.requests[%s]: %v != %v", key, presetReq, vmiReq))
 				}
 			}
 		}
 	}
-	if presetSpec.CPU != nil && vmSpec.CPU != nil {
-		if !reflect.DeepEqual(presetSpec.CPU, vmSpec.CPU) {
-			errors = append(errors, fmt.Errorf("spec.cpu: %v != %v", presetSpec.CPU, vmSpec.CPU))
+	if presetSpec.CPU != nil && vmiSpec.CPU != nil {
+		if !reflect.DeepEqual(presetSpec.CPU, vmiSpec.CPU) {
+			errors = append(errors, fmt.Errorf("spec.cpu: %v != %v", presetSpec.CPU, vmiSpec.CPU))
 		}
 	}
-	if presetSpec.Firmware != nil && vmSpec.Firmware != nil {
-		if !reflect.DeepEqual(presetSpec.Firmware, vmSpec.Firmware) {
-			errors = append(errors, fmt.Errorf("spec.firmware: %v != %v", presetSpec.Firmware, vmSpec.Firmware))
+	if presetSpec.Firmware != nil && vmiSpec.Firmware != nil {
+		if !reflect.DeepEqual(presetSpec.Firmware, vmiSpec.Firmware) {
+			errors = append(errors, fmt.Errorf("spec.firmware: %v != %v", presetSpec.Firmware, vmiSpec.Firmware))
 		}
 	}
-	if presetSpec.Clock != nil && vmSpec.Clock != nil {
-		if !reflect.DeepEqual(presetSpec.Clock.ClockOffset, vmSpec.Clock.ClockOffset) {
-			errors = append(errors, fmt.Errorf("spec.clock.clockoffset: %v != %v", presetSpec.Clock.ClockOffset, vmSpec.Clock.ClockOffset))
+	if presetSpec.Clock != nil && vmiSpec.Clock != nil {
+		if !reflect.DeepEqual(presetSpec.Clock.ClockOffset, vmiSpec.Clock.ClockOffset) {
+			errors = append(errors, fmt.Errorf("spec.clock.clockoffset: %v != %v", presetSpec.Clock.ClockOffset, vmiSpec.Clock.ClockOffset))
 		}
-		if presetSpec.Clock.Timer != nil && vmSpec.Clock.Timer != nil {
-			if !reflect.DeepEqual(presetSpec.Clock.Timer, vmSpec.Clock.Timer) {
-				errors = append(errors, fmt.Errorf("spec.clock.timer: %v != %v", presetSpec.Clock.Timer, vmSpec.Clock.Timer))
+		if presetSpec.Clock.Timer != nil && vmiSpec.Clock.Timer != nil {
+			if !reflect.DeepEqual(presetSpec.Clock.Timer, vmiSpec.Clock.Timer) {
+				errors = append(errors, fmt.Errorf("spec.clock.timer: %v != %v", presetSpec.Clock.Timer, vmiSpec.Clock.Timer))
 			}
 		}
 	}
-	if presetSpec.Features != nil && vmSpec.Features != nil {
-		if !reflect.DeepEqual(presetSpec.Features, vmSpec.Features) {
-			errors = append(errors, fmt.Errorf("spec.features: %v != %v", presetSpec.Features, vmSpec.Features))
+	if presetSpec.Features != nil && vmiSpec.Features != nil {
+		if !reflect.DeepEqual(presetSpec.Features, vmiSpec.Features) {
+			errors = append(errors, fmt.Errorf("spec.features: %v != %v", presetSpec.Features, vmiSpec.Features))
 		}
 	}
-	if presetSpec.Devices.Watchdog != nil && vmSpec.Devices.Watchdog != nil {
-		if !reflect.DeepEqual(presetSpec.Devices.Watchdog, vmSpec.Devices.Watchdog) {
-			errors = append(errors, fmt.Errorf("spec.devices.watchdog: %v != %v", presetSpec.Devices.Watchdog, vmSpec.Devices.Watchdog))
+	if presetSpec.Devices.Watchdog != nil && vmiSpec.Devices.Watchdog != nil {
+		if !reflect.DeepEqual(presetSpec.Devices.Watchdog, vmiSpec.Devices.Watchdog) {
+			errors = append(errors, fmt.Errorf("spec.devices.watchdog: %v != %v", presetSpec.Devices.Watchdog, vmiSpec.Devices.Watchdog))
 		}
 	}
 
@@ -253,73 +253,73 @@ func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpe
 	return nil
 }
 
-func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (bool, error) {
-	presetConflicts := checkMergeConflicts(presetSpec, vmSpec)
+func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) (bool, error) {
+	presetConflicts := checkMergeConflicts(presetSpec, vmiSpec)
 	applied := false
 
 	if len(presetSpec.Resources.Requests) > 0 {
-		if vmSpec.Resources.Requests == nil {
-			vmSpec.Resources.Requests = k8sv1.ResourceList{}
+		if vmiSpec.Resources.Requests == nil {
+			vmiSpec.Resources.Requests = k8sv1.ResourceList{}
 			for key, val := range presetSpec.Resources.Requests {
-				vmSpec.Resources.Requests[key] = val
+				vmiSpec.Resources.Requests[key] = val
 			}
 		}
-		if reflect.DeepEqual(vmSpec.Resources.Requests, presetSpec.Resources.Requests) {
+		if reflect.DeepEqual(vmiSpec.Resources.Requests, presetSpec.Resources.Requests) {
 			applied = true
 		}
 	}
 	if presetSpec.CPU != nil {
-		if vmSpec.CPU == nil {
-			vmSpec.CPU = &kubev1.CPU{}
-			presetSpec.CPU.DeepCopyInto(vmSpec.CPU)
+		if vmiSpec.CPU == nil {
+			vmiSpec.CPU = &kubev1.CPU{}
+			presetSpec.CPU.DeepCopyInto(vmiSpec.CPU)
 		}
-		if reflect.DeepEqual(vmSpec.CPU, presetSpec.CPU) {
+		if reflect.DeepEqual(vmiSpec.CPU, presetSpec.CPU) {
 			applied = true
 		}
 	}
 	if presetSpec.Firmware != nil {
-		if vmSpec.Firmware == nil {
-			vmSpec.Firmware = &kubev1.Firmware{}
-			presetSpec.Firmware.DeepCopyInto(vmSpec.Firmware)
+		if vmiSpec.Firmware == nil {
+			vmiSpec.Firmware = &kubev1.Firmware{}
+			presetSpec.Firmware.DeepCopyInto(vmiSpec.Firmware)
 		}
-		if reflect.DeepEqual(vmSpec.Firmware, presetSpec.Firmware) {
+		if reflect.DeepEqual(vmiSpec.Firmware, presetSpec.Firmware) {
 			applied = true
 		}
 	}
 	if presetSpec.Clock != nil {
-		if vmSpec.Clock == nil {
-			vmSpec.Clock = &kubev1.Clock{}
-			vmSpec.Clock.ClockOffset = presetSpec.Clock.ClockOffset
+		if vmiSpec.Clock == nil {
+			vmiSpec.Clock = &kubev1.Clock{}
+			vmiSpec.Clock.ClockOffset = presetSpec.Clock.ClockOffset
 		}
-		if reflect.DeepEqual(vmSpec.Clock, presetSpec.Clock) {
+		if reflect.DeepEqual(vmiSpec.Clock, presetSpec.Clock) {
 			applied = true
 		}
 
 		if presetSpec.Clock.Timer != nil {
-			if vmSpec.Clock.Timer == nil {
-				vmSpec.Clock.Timer = &kubev1.Timer{}
-				presetSpec.Clock.Timer.DeepCopyInto(vmSpec.Clock.Timer)
+			if vmiSpec.Clock.Timer == nil {
+				vmiSpec.Clock.Timer = &kubev1.Timer{}
+				presetSpec.Clock.Timer.DeepCopyInto(vmiSpec.Clock.Timer)
 			}
-			if reflect.DeepEqual(vmSpec.Clock.Timer, presetSpec.Clock.Timer) {
+			if reflect.DeepEqual(vmiSpec.Clock.Timer, presetSpec.Clock.Timer) {
 				applied = true
 			}
 		}
 	}
 	if presetSpec.Features != nil {
-		if vmSpec.Features == nil {
-			vmSpec.Features = &kubev1.Features{}
-			presetSpec.Features.DeepCopyInto(vmSpec.Features)
+		if vmiSpec.Features == nil {
+			vmiSpec.Features = &kubev1.Features{}
+			presetSpec.Features.DeepCopyInto(vmiSpec.Features)
 		}
-		if reflect.DeepEqual(vmSpec.Features, presetSpec.Features) {
+		if reflect.DeepEqual(vmiSpec.Features, presetSpec.Features) {
 			applied = true
 		}
 	}
 	if presetSpec.Devices.Watchdog != nil {
-		if vmSpec.Devices.Watchdog == nil {
-			vmSpec.Devices.Watchdog = &kubev1.Watchdog{}
-			presetSpec.Devices.Watchdog.DeepCopyInto(vmSpec.Devices.Watchdog)
+		if vmiSpec.Devices.Watchdog == nil {
+			vmiSpec.Devices.Watchdog = &kubev1.Watchdog{}
+			presetSpec.Devices.Watchdog.DeepCopyInto(vmiSpec.Devices.Watchdog)
 		}
-		if reflect.DeepEqual(vmSpec.Devices.Watchdog, presetSpec.Devices.Watchdog) {
+		if reflect.DeepEqual(vmiSpec.Devices.Watchdog, presetSpec.Devices.Watchdog) {
 			applied = true
 		}
 	}
@@ -327,9 +327,9 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmSpec *kubev1.DomainSpec) (
 }
 
 // Compare the domain of every preset to ensure they can all be applied cleanly
-func checkPresetConflicts(presets []kubev1.VirtualMachinePreset) error {
+func checkPresetConflicts(presets []kubev1.VirtualMachineInstancePreset) error {
 	errors := []error{}
-	visitedPresets := []kubev1.VirtualMachinePreset{}
+	visitedPresets := []kubev1.VirtualMachineInstancePreset{}
 	for _, preset := range presets {
 		for _, visited := range visitedPresets {
 			err := checkMergeConflicts(preset.Spec.Domain, visited.Spec.Domain)
@@ -345,65 +345,65 @@ func checkPresetConflicts(presets []kubev1.VirtualMachinePreset) error {
 	return nil
 }
 
-func applyPresets(vm *kubev1.VirtualMachine, presets []kubev1.VirtualMachinePreset, recorder record.EventRecorder) bool {
+func applyPresets(vmi *kubev1.VirtualMachineInstance, presets []kubev1.VirtualMachineInstancePreset, recorder record.EventRecorder) bool {
 	logger := log.Log
 	err := checkPresetConflicts(presets)
 	if err != nil {
 		msg := fmt.Sprintf("VirtualMachinePresets cannot be applied due to conflicts: %v", err)
-		recorder.Event(vm, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), msg)
-		logger.Object(vm).Error(msg)
+		recorder.Event(vmi, k8sv1.EventTypeWarning, kubev1.PresetFailed.String(), msg)
+		logger.Object(vmi).Error(msg)
 		return false
 	}
 
 	for _, preset := range presets {
-		applied, err := mergeDomainSpec(preset.Spec.Domain, &vm.Spec.Domain)
+		applied, err := mergeDomainSpec(preset.Spec.Domain, &vmi.Spec.Domain)
 		if err != nil {
-			msg := fmt.Sprintf("Unable to apply VirtualMachinePreset '%s': %v", preset.Name, err)
+			msg := fmt.Sprintf("Unable to apply VirtualMachineInstancePreset '%s': %v", preset.Name, err)
 			if applied {
-				msg = fmt.Sprintf("Some settings were not applied for VirtualMachinePreset '%s': %v", preset.Name, err)
+				msg = fmt.Sprintf("Some settings were not applied for VirtualMachineInstancePreset '%s': %v", preset.Name, err)
 			}
 
-			recorder.Event(vm, k8sv1.EventTypeNormal, kubev1.Override.String(), msg)
-			logger.Object(vm).Info(msg)
+			recorder.Event(vmi, k8sv1.EventTypeNormal, kubev1.Override.String(), msg)
+			logger.Object(vmi).Info(msg)
 		}
 		if applied {
-			annotateVM(vm, preset)
+			annotateVMI(vmi, preset)
 		}
 	}
 	return true
 }
 
 // isVirtualMachineInitialized checks if this module has applied presets
-func isVirtualMachineInitialized(vm *kubev1.VirtualMachine) bool {
-	if vm.Annotations != nil {
-		_, found := vm.Annotations[initializerMarking]
+func isVirtualMachineInitialized(vmi *kubev1.VirtualMachineInstance) bool {
+	if vmi.Annotations != nil {
+		_, found := vmi.Annotations[initializerMarking]
 		return found
 	}
 	return false
 }
 
-func isVmExcluded(vm *kubev1.VirtualMachine) bool {
-	if vm.Annotations != nil {
-		excluded, ok := vm.Annotations[exclusionMarking]
+func isVmExcluded(vmi *kubev1.VirtualMachineInstance) bool {
+	if vmi.Annotations != nil {
+		excluded, ok := vmi.Annotations[exclusionMarking]
 		return ok && (excluded == "true")
 	}
 	return false
 }
 
-func addInitializedAnnotation(vm *kubev1.VirtualMachine) {
-	if vm.Annotations == nil {
-		vm.Annotations = map[string]string{}
+func addInitializedAnnotation(vmi *kubev1.VirtualMachineInstance) {
+	if vmi.Annotations == nil {
+		vmi.Annotations = map[string]string{}
 	}
-	vm.Annotations[initializerMarking] = kubev1.GroupVersion.String()
-	if !controller.HasFinalizer(vm, kubev1.VirtualMachineFinalizer) {
-		vm.Finalizers = append(vm.Finalizers, kubev1.VirtualMachineFinalizer)
+	vmi.Annotations[initializerMarking] = kubev1.GroupVersion.String()
+	if !controller.HasFinalizer(vmi, kubev1.VirtualMachineInstanceFinalizer) {
+		vmi.Finalizers = append(vmi.Finalizers, kubev1.VirtualMachineInstanceFinalizer)
 	}
 }
 
-func annotateVM(vm *kubev1.VirtualMachine, preset kubev1.VirtualMachinePreset) {
-	if vm.Annotations == nil {
-		vm.Annotations = map[string]string{}
+func annotateVMI(vmi *kubev1.VirtualMachineInstance, preset kubev1.VirtualMachineInstancePreset) {
+	if vmi.Annotations == nil {
+		vmi.Annotations = map[string]string{}
 	}
 	annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", kubev1.GroupName, preset.Name)
-	vm.Annotations[annotationKey] = kubev1.GroupVersion.String()
+	vmi.Annotations[annotationKey] = kubev1.GroupVersion.String()
 }

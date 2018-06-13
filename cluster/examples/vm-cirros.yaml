@@ -1,0 +1,43 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  creationTimestamp: null
+  labels:
+    kubevirt.io/vm: vm-cirros
+  name: vm-cirros
+spec:
+  running: false
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubevirt.io/vm: vm-cirros
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: registrydisk
+            volumeName: registryvolume
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+            volumeName: cloudinitvolume
+        machine:
+          type: ""
+        resources:
+          requests:
+            memory: 64M
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - name: registryvolume
+        registryDisk:
+          image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
+      - cloudInitNoCloud:
+          userData: |
+            #!/bin/sh
+
+            echo 'printed from cloud-init userdata'
+        name: cloudinitvolume
+status: {}

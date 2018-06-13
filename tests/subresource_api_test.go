@@ -46,7 +46,7 @@ var _ = Describe("Subresource Api", func() {
 	})
 
 	Describe("Rbac Authorization", func() {
-		resource := "virtualmachines"
+		resource := "virtualmachineinstances"
 
 		Context("with correct permissions", func() {
 			It("should be allowed to access subresource endpoint", func() {

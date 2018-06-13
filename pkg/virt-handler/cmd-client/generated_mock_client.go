@@ -31,8 +31,8 @@ func (_m *MockLauncherClient) EXPECT() *_MockLauncherClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockLauncherClient) SyncVirtualMachine(vm *v1.VirtualMachine) error {
-	ret := _m.ctrl.Call(_m, "SyncVirtualMachine", vm)
+func (_m *MockLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachine", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -41,8 +41,8 @@ func (_mr *_MockLauncherClientRecorder) SyncVirtualMachine(arg0 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachine", arg0)
 }
 
-func (_m *MockLauncherClient) ShutdownVirtualMachine(vm *v1.VirtualMachine) error {
-	ret := _m.ctrl.Call(_m, "ShutdownVirtualMachine", vm)
+func (_m *MockLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "ShutdownVirtualMachine", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -51,8 +51,8 @@ func (_mr *_MockLauncherClientRecorder) ShutdownVirtualMachine(arg0 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ShutdownVirtualMachine", arg0)
 }
 
-func (_m *MockLauncherClient) KillVirtualMachine(vm *v1.VirtualMachine) error {
-	ret := _m.ctrl.Call(_m, "KillVirtualMachine", vm)
+func (_m *MockLauncherClient) KillVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "KillVirtualMachine", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

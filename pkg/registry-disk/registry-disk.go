@@ -37,13 +37,13 @@ var registryDiskOwner = "qemu"
 
 var mountBaseDir = "/var/run/libvirt/kubevirt-disk-dir"
 
-func generateVMBaseDir(vm *v1.VirtualMachine) string {
-	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+func generateVMIBaseDir(vmi *v1.VirtualMachineInstance) string {
+	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
+	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	return fmt.Sprintf("%s/%s/%s", mountBaseDir, namespace, domain)
 }
-func generateVolumeMountDir(vm *v1.VirtualMachine, volumeName string) string {
-	baseDir := generateVMBaseDir(vm)
+func generateVolumeMountDir(vmi *v1.VirtualMachineInstance, volumeName string) string {
+	baseDir := generateVMIBaseDir(vmi)
 	return fmt.Sprintf("%s/disk_%s", baseDir, volumeName)
 }
 
@@ -57,9 +57,9 @@ func SetLocalDataOwner(user string) {
 	registryDiskOwner = user
 }
 
-func GetFilePath(vm *v1.VirtualMachine, volumeName string) (string, string, error) {
+func GetFilePath(vmi *v1.VirtualMachineInstance, volumeName string) (string, string, error) {
 
-	volumeMountDir := generateVolumeMountDir(vm, volumeName)
+	volumeMountDir := generateVolumeMountDir(vmi, volumeName)
 	suffixes := map[string]string{".raw": "raw", ".qcow2": "qcow2", ".raw.virt": "raw", ".qcow2.virt": "qcow2"}
 
 	for k, v := range suffixes {
@@ -75,10 +75,10 @@ func GetFilePath(vm *v1.VirtualMachine, volumeName string) (string, string, erro
 	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", volumeMountDir))
 }
 
-func SetFilePermissions(vm *v1.VirtualMachine) error {
-	for _, volume := range vm.Spec.Volumes {
+func SetFilePermissions(vmi *v1.VirtualMachineInstance) error {
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.RegistryDisk != nil {
-			diskPath, _, err := GetFilePath(vm, volume.Name)
+			diskPath, _, err := GetFilePath(vmi, volume.Name)
 			if err != nil {
 				return err
 			}
@@ -95,7 +95,7 @@ func SetFilePermissions(vm *v1.VirtualMachine) error {
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vm *v1.VirtualMachine, podVolumeName string, podVolumeMountDir string) []kubev1.Container {
+func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, podVolumeMountDir string) []kubev1.Container {
 	var containers []kubev1.Container
 
 	initialDelaySeconds := 2
@@ -104,11 +104,11 @@ func GenerateContainers(vm *v1.VirtualMachine, podVolumeName string, podVolumeMo
 	successThreshold := 2
 	failureThreshold := 5
 
-	// Make VM Image Wrapper Containers
-	for _, volume := range vm.Spec.Volumes {
+	// Make VirtualMachineInstance Image Wrapper Containers
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.RegistryDisk != nil {
 
-			volumeMountDir := generateVolumeMountDir(vm, volume.Name)
+			volumeMountDir := generateVolumeMountDir(vmi, volume.Name)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.RegistryDisk.Image
 

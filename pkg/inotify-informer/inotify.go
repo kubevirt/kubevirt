@@ -45,7 +45,7 @@ import (
 // events will be delivered exactly once.
 
 // While for many tasks this is not good enough, it is a sufficient pattern
-// to use the socket creation as a secondary resource for the VM controller
+// to use the socket creation as a secondary resource for the VirtualMachineInstance controller
 // in virt-handler
 
 // TODO: In case Watch is never called, we could leak inotify go-routines,

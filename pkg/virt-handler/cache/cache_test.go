@@ -93,9 +93,9 @@ var _ = Describe("Domain informer", func() {
 		It("should list current domains.", func() {
 			var list []*api.Domain
 
-			list = append(list, api.NewMinimalDomain("testvm1"))
+			list = append(list, api.NewMinimalDomain("testvmi1"))
 
-			socketPath := filepath.Join(socketsDir, "default_testvm1_sock")
+			socketPath := filepath.Join(socketsDir, "default_testvmi1_sock")
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)

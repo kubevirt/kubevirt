@@ -461,7 +461,7 @@ func (in *ConverterContext) DeepCopyInto(out *ConverterContext) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(api_v1.VirtualMachine)
+			*out = new(api_v1.VirtualMachineInstance)
 			(*in).DeepCopyInto(*out)
 		}
 	}

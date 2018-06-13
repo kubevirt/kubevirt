@@ -129,7 +129,7 @@ var _ = Describe("CloudInit", func() {
 			})
 
 			Context("with multiple data dirs and files", func() {
-				It("should list all VM's", func() {
+				It("should list all VirtualMachineInstance's", func() {
 					var domains []string
 					fmt.Println(tmpDir)
 					domains = append(domains, "fakens1/fakedomain1")
@@ -148,24 +148,24 @@ var _ = Describe("CloudInit", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 
-					vms, err := ListVmWithLocalData()
-					for _, vm := range vms {
-						namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-						domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+					vmis, err := ListVmWithLocalData()
+					for _, vmi := range vmis {
+						namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+						domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
 						Expect(namespace).To(ContainSubstring("fakens"))
 						Expect(domain).To(ContainSubstring("fakedomain"))
 					}
 
-					Expect(len(vms)).To(Equal(len(domains)))
+					Expect(len(vmis)).To(Equal(len(domains)))
 					Expect(err).ToNot(HaveOccurred())
 
-					// verify a vm from each namespace is present
+					// verify a vmi from each namespace is present
 				})
 			})
 		})
 
-		Describe("A new VM definition", func() {
+		Describe("A new VirtualMachineInstance definition", func() {
 			verifyCloudInitIso := func(dataSource *v1.CloudInitNoCloudSource) {
 				namespace := "fake-namespace"
 				domain := "fake-domain"

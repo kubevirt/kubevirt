@@ -45,13 +45,13 @@ var _ = Describe("VNC", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("A new VM", func() {
+	Describe("A new VirtualMachineInstance", func() {
 		Context("with VNC connection", func() {
 			It("should allow accessing the VNC device", func() {
-				By("Starting a VM")
-				vm := tests.NewRandomVM()
-				Expect(virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Error()).To(Succeed())
-				tests.WaitForSuccessfulVMStart(vm)
+				By("Starting a VirtualMachineInstance")
+				vmi := tests.NewRandomVMI()
+				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+				tests.WaitForSuccessfulVMIStart(vmi)
 
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
@@ -63,7 +63,16 @@ var _ = Describe("VNC", func() {
 
 				go func() {
 					GinkgoRecover()
-					k8ResChan <- virtClient.VM(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name, pipeInReader, pipeOutWriter)
+					vnc, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
+					if err != nil {
+						k8ResChan <- err
+						return
+					}
+
+					k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+						In:  pipeInReader,
+						Out: pipeOutWriter,
+					})
 				}()
 				// write to FD <- pipeOutReader
 				By("Reading from the VNC socket")

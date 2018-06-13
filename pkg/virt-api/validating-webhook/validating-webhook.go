@@ -40,6 +40,7 @@ import (
 const (
 	cloudInitMaxLen = 2048
 	arrayLenMax     = 256
+	maxNetworks     = 1
 )
 
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
@@ -62,7 +63,7 @@ func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
 }
 
 func toAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
-	log.Log.Reason(err).Error("admitting vms with generic error")
+	log.Log.Reason(err).Error("admitting vmis with generic error")
 
 	return &v1beta1.AdmissionResponse{
 		Result: &metav1.Status{
@@ -72,7 +73,7 @@ func toAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
 	}
 }
 func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
-	log.Log.Infof("rejected vm admission")
+	log.Log.Infof("rejected vmi admission")
 
 	globalMessage := ""
 	for _, cause := range causes {
@@ -298,10 +299,11 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	return causes
 }
 
-func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
+func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
 	volumeNameMap := make(map[string]*v1.Volume)
+	networkNameMap := make(map[string]*v1.Network)
 
 	if len(spec.Domain.Devices.Disks) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
@@ -318,6 +320,54 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 			Field:   field.Child("volumes").String(),
 		})
 		// We won't process anything over the limit
+		return causes
+	}
+
+	// Validate memory size if values are not negative
+	if spec.Domain.Resources.Requests.Memory().Value() < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "requests", "memory").String(),
+				spec.Domain.Resources.Requests.Memory()),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
+		})
+	}
+
+	if spec.Domain.Resources.Limits.Memory().Value() < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "limits", "memory").String(),
+				spec.Domain.Resources.Limits.Memory()),
+			Field: field.Child("domain", "resources", "limits", "memory").String(),
+		})
+	}
+
+	if spec.Domain.Resources.Limits.Memory().Value() > 0 &&
+		spec.Domain.Resources.Requests.Memory().Value() > spec.Domain.Resources.Limits.Memory().Value() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' is greater than %s '%s'", field.Child("domain", "resources", "requests", "memory").String(),
+				spec.Domain.Resources.Requests.Memory(),
+				field.Child("domain", "resources", "limits", "memory").String(),
+				spec.Domain.Resources.Limits.Memory()),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
+		})
+	}
+
+	// TODO: Currently, we support only a single network interface attached to a single pod network
+	if len(spec.Domain.Devices.Interfaces) > maxNetworks {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("domain", "devices", "interfaces").String(), maxNetworks),
+			Field:   field.Child("domain", "devices", "interfaces").String(),
+		})
+		return causes
+	} else if len(spec.Networks) > maxNetworks {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("networks").String(), maxNetworks),
+			Field:   field.Child("networks").String(),
+		})
 		return causes
 	}
 
@@ -361,12 +411,41 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		}
 	}
 
+	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
+		for _, network := range spec.Networks {
+			networkNameMap[network.Name] = &network
+		}
+
+		// Validate that each interface has a matching network
+		for idx, iface := range spec.Domain.Devices.Interfaces {
+
+			_, networkExists := networkNameMap[iface.Name]
+
+			if !networkExists {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
+			}
+
+			// verify that pod network is selected
+			if spec.Networks[0].Pod == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("only a %s network source can be selected.", field.Child("domain", "devices", "networks").Index(0).Child("pod").String()),
+					Field:   field.Child("domain", "devices", "networks").Index(0).Child("pod").String(),
+				})
+			}
+		}
+	}
+
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes)...)
 	return causes
 }
 
-func validateOfflineVirtualMachineSpec(field *k8sfield.Path, spec *v1.OfflineVirtualMachineSpec) []metav1.StatusCause {
+func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -377,11 +456,11 @@ func validateOfflineVirtualMachineSpec(field *k8sfield.Path, spec *v1.OfflineVir
 		})
 	}
 
-	causes = append(causes, validateVirtualMachineSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+	causes = append(causes, validateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
 	return causes
 }
 
-func validateVMPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachinePresetSpec) []metav1.StatusCause {
+func validateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstancePresetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Domain == nil {
@@ -396,7 +475,7 @@ func validateVMPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachinePresetSpe
 	return causes
 }
 
-func validateVMRSSpec(field *k8sfield.Path, spec *v1.VMReplicaSetSpec) []metav1.StatusCause {
+func validateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -406,7 +485,7 @@ func validateVMRSSpec(field *k8sfield.Path, spec *v1.VMReplicaSetSpec) []metav1.
 			Field:   field.Child("template").String(),
 		})
 	}
-	causes = append(causes, validateVirtualMachineSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+	causes = append(causes, validateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
 	if err != nil {
@@ -426,14 +505,47 @@ func validateVMRSSpec(field *k8sfield.Path, spec *v1.VMReplicaSetSpec) []metav1.
 	return causes
 }
 
+func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	vmiResource := metav1.GroupVersionResource{
+		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
+		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
+		Resource: "virtualmachineinstances",
+	}
+	if ar.Request.Resource != vmiResource {
+		err := fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
+		return toAdmissionResponseError(err)
+	}
+
+	raw := ar.Request.Object.Raw
+	vmi := v1.VirtualMachineInstance{}
+
+	err := json.Unmarshal(raw, &vmi)
+	if err != nil {
+		return toAdmissionResponseError(err)
+	}
+
+	causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
+	if len(causes) > 0 {
+		return toAdmissionResponse(causes)
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMIs)
+}
+
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	vmResource := metav1.GroupVersionResource{
+	resource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineGroupVersionKind.Group,
 		Version:  v1.VirtualMachineGroupVersionKind.Version,
 		Resource: "virtualmachines",
 	}
-	if ar.Request.Resource != vmResource {
-		err := fmt.Errorf("expect resource to be '%s'", vmResource.Resource)
+	if ar.Request.Resource != resource {
+		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
 		return toAdmissionResponseError(err)
 	}
 
@@ -459,11 +571,11 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMs)
 }
 
-func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
-		Group:    v1.OfflineVirtualMachineGroupVersionKind.Group,
-		Version:  v1.OfflineVirtualMachineGroupVersionKind.Version,
-		Resource: "offlinevirtualmachines",
+		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+		Resource: "virtualmachineinstancereplicasets",
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
@@ -471,14 +583,14 @@ func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	ovm := v1.OfflineVirtualMachine{}
+	vmirs := v1.VirtualMachineInstanceReplicaSet{}
 
-	err := json.Unmarshal(raw, &ovm)
+	err := json.Unmarshal(raw, &vmirs)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateOfflineVirtualMachineSpec(k8sfield.NewPath("spec"), &ovm.Spec)
+	causes := validateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -488,15 +600,14 @@ func admitOVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeOVMs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitOVMs)
+func ServeVMIRS(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMIRS)
 }
-
-func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	resource := metav1.GroupVersionResource{
-		Group:    v1.VMReplicaSetGroupVersionKind.Group,
-		Version:  v1.VMReplicaSetGroupVersionKind.Version,
-		Resource: "virtualmachinereplicasets",
+		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+		Resource: "virtualmachineinstancepresets",
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
@@ -504,14 +615,14 @@ func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	raw := ar.Request.Object.Raw
-	vmrs := v1.VirtualMachineReplicaSet{}
+	vmipreset := v1.VirtualMachineInstancePreset{}
 
-	err := json.Unmarshal(raw, &vmrs)
+	err := json.Unmarshal(raw, &vmipreset)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMRSSpec(k8sfield.NewPath("spec"), &vmrs.Spec)
+	causes := validateVMIPresetSpec(k8sfield.NewPath("spec"), &vmipreset.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -521,38 +632,6 @@ func admitVMRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeVMRS(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMRS)
-}
-func admitVMPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	resource := metav1.GroupVersionResource{
-		Group:    v1.VMReplicaSetGroupVersionKind.Group,
-		Version:  v1.VMReplicaSetGroupVersionKind.Version,
-		Resource: "virtualmachinepresets",
-	}
-	if ar.Request.Resource != resource {
-		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
-		return toAdmissionResponseError(err)
-	}
-
-	raw := ar.Request.Object.Raw
-	vmpreset := v1.VirtualMachinePreset{}
-
-	err := json.Unmarshal(raw, &vmpreset)
-	if err != nil {
-		return toAdmissionResponseError(err)
-	}
-
-	causes := validateVMPresetSpec(k8sfield.NewPath("spec"), &vmpreset.Spec)
-	if len(causes) > 0 {
-		return toAdmissionResponse(causes)
-	}
-
-	reviewResponse := v1beta1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	return &reviewResponse
-}
-
-func ServeVMPreset(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMPreset)
+func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMIPreset)
 }

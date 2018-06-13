@@ -39,18 +39,18 @@ var _ = Describe("RegistryDisk", func() {
 	}
 
 	VerifyDiskType := func(diskExtension string) {
-		vm := v1.NewMinimalVM("fake-vm")
-		appendRegistryDisk(vm, "r0")
+		vmi := v1.NewMinimalVMI("fake-vmi")
+		appendRegistryDisk(vmi, "r0")
 
 		// create a fake disk file
-		volumeMountDir := generateVMBaseDir(vm)
+		volumeMountDir := generateVMIBaseDir(vmi)
 		err = os.MkdirAll(volumeMountDir+"/disk_r0", 0750)
 		Expect(err).ToNot(HaveOccurred())
 
 		filePath := volumeMountDir + "/disk_r0/disk-image." + diskExtension
 		_, err := os.Create(filePath)
 
-		err = SetFilePermissions(vm)
+		err = SetFilePermissions(vmi)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -78,17 +78,17 @@ var _ = Describe("RegistryDisk", func() {
 			)
 			It("by verifying error when no disk is present", func() {
 
-				vm := v1.NewMinimalVM("fake-vm")
-				appendRegistryDisk(vm, "r0")
+				vmi := v1.NewMinimalVMI("fake-vmi")
+				appendRegistryDisk(vmi, "r0")
 
-				err := SetFilePermissions(vm)
+				err := SetFilePermissions(vmi)
 				Expect(err).To(HaveOccurred())
 			})
 			It("by verifying container generation", func() {
-				vm := v1.NewMinimalVM("fake-vm")
-				appendRegistryDisk(vm, "r1")
-				appendRegistryDisk(vm, "r0")
-				containers := GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
+				vmi := v1.NewMinimalVMI("fake-vmi")
+				appendRegistryDisk(vmi, "r1")
+				appendRegistryDisk(vmi, "r0")
+				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(containers)).To(Equal(2))
@@ -97,14 +97,14 @@ var _ = Describe("RegistryDisk", func() {
 	})
 })
 
-func appendRegistryDisk(vm *v1.VirtualMachine, diskName string) {
-	vm.Spec.Domain.Devices.Disks = append(vm.Spec.Domain.Devices.Disks, v1.Disk{
+func appendRegistryDisk(vmi *v1.VirtualMachineInstance, diskName string) {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{},
 		},
 	})
-	vm.Spec.Volumes = append(vm.Spec.Volumes, v1.Volume{
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: diskName,
 		VolumeSource: v1.VolumeSource{
 			RegistryDisk: &v1.RegistryDiskSource{

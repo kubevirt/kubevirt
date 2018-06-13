@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
@@ -31,16 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("Kubevirt VM Client", func() {
+var _ = Describe("Kubevirt VirtualMachine Client", func() {
 
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines"
-	vmPath := basePath + "/testvm"
+	basePath := "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachines"
+	vmiPath := basePath + "/testvm"
 
 	BeforeEach(func() {
 		var err error
@@ -49,77 +47,77 @@ var _ = Describe("Kubevirt VM Client", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should fetch a VM", func() {
-		vm := v1.NewMinimalVM("testvm")
+	It("should fetch a VirtualMachineInstance", func() {
+		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", vmPath),
+			ghttp.VerifyRequest("GET", vmiPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		fetchedVM, err := client.VM(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
+		fetchedVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(fetchedVM).To(Equal(vm))
+		Expect(fetchedVMI).To(Equal(vm))
 	})
 
-	It("should detect non existent VMs", func() {
+	It("should detect non existent VirtualMachines", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", vmPath),
+			ghttp.VerifyRequest("GET", vmiPath),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, err := client.VM(k8sv1.NamespaceDefault).Get("testvm", k8smetav1.GetOptions{})
+		_, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get("testvm", &k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	It("should fetch a VM list", func() {
-		vm := v1.NewMinimalVM("testvm")
+	It("should fetch a VirtualMachine list", func() {
+		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMList(*vm)),
 		))
-		fetchedVMList, err := client.VM(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
+		fetchedVMIList, err := client.VirtualMachine(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(fetchedVMList.Items).To(HaveLen(1))
-		Expect(fetchedVMList.Items[0]).To(Equal(*vm))
+		Expect(fetchedVMIList.Items).To(HaveLen(1))
+		Expect(fetchedVMIList.Items[0]).To(Equal(*vm))
 	})
 
-	It("should create a VM", func() {
-		vm := v1.NewMinimalVM("testvm")
+	It("should create a VirtualMachine", func() {
+		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("POST", basePath),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, vm),
 		))
-		createdVM, err := client.VM(k8sv1.NamespaceDefault).Create(vm)
+		createdVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(createdVM).To(Equal(vm))
+		Expect(createdVMI).To(Equal(vm))
 	})
 
-	It("should update a VM", func() {
-		vm := v1.NewMinimalVM("testvm")
+	It("should update a VirtualMachine", func() {
+		vm := NewMinimalVM("testvm")
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", vmPath),
+			ghttp.VerifyRequest("PUT", vmiPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		updatedVM, err := client.VM(k8sv1.NamespaceDefault).Update(vm)
+		updatedVMI, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(updatedVM).To(Equal(vm))
+		Expect(updatedVMI).To(Equal(vm))
 	})
 
-	It("should delete a VM", func() {
+	It("should delete a VirtualMachineInstance", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("DELETE", vmPath),
+			ghttp.VerifyRequest("DELETE", vmiPath),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VM(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
+		err := client.VirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

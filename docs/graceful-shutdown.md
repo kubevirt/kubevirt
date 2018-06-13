@@ -92,7 +92,7 @@ it down) or the kubernetes runtime kills the virt-launcher process with SIGKILL.
 A force kill of virt-launcher will result in the corresponding virtual machine
 exiting.
 
-### Shutdown Notification Race (Virt-Launcher VS. VM Object Informer)
+### Shutdown Notification Race (Virt-Launcher VS. VMI Object Informer)
 
 When a Virtual Machine object is removed from the cluster, that sets off a race
 between two sources used to notify virt-handler it should shutdown the virtual

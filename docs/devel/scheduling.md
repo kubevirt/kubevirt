@@ -1,3 +1,3 @@
-# VM scheduling in KubeVirt
+# VMI scheduling in KubeVirt
 
 TODO

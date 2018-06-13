@@ -9,17 +9,17 @@ rules:
   - apiGroups:
       - subresources.kubevirt.io
     resources:
-      - virtualmachines/console
-      - virtualmachines/vnc
+      - virtualmachineinstances/console
+      - virtualmachineinstances/vnc
     verbs:
       - get
   - apiGroups:
       - kubevirt.io
     resources:
+      - virtualmachineinstances
       - virtualmachines
-      - offlinevirtualmachines
-      - virtualmachinepresets
-      - virtualmachinereplicasets
+      - virtualmachineinstancepresets
+      - virtualmachineinstancereplicasets
     verbs:
       - get
       - delete
@@ -51,17 +51,17 @@ rules:
   - apiGroups:
       - subresources.kubevirt.io
     resources:
-      - virtualmachines/console
-      - virtualmachines/vnc
+      - virtualmachineinstances/console
+      - virtualmachineinstances/vnc
     verbs:
       - get
   - apiGroups:
       - kubevirt.io
     resources:
+      - virtualmachineinstances
       - virtualmachines
-      - offlinevirtualmachines
-      - virtualmachinepresets
-      - virtualmachinereplicasets
+      - virtualmachineinstancepresets
+      - virtualmachineinstancereplicasets
     verbs:
       - get
       - delete
@@ -81,10 +81,10 @@ rules:
   - apiGroups:
       - kubevirt.io
     resources:
+      - virtualmachineinstances
       - virtualmachines
-      - offlinevirtualmachines
-      - virtualmachinepresets
-      - virtualmachinereplicasets
+      - virtualmachineinstancepresets
+      - virtualmachineinstancereplicasets
     verbs:
       - get
       - list
@@ -205,7 +205,7 @@ rules:
   - apiGroups:
       - kubevirt.io
     resources:
-      - virtualmachines
+      - virtualmachineinstances
     verbs:
       - get
       - list
@@ -241,10 +241,10 @@ rules:
   - apiGroups:
       - kubevirt.io
     resources:
+      - virtualmachineinstances
+      - virtualmachineinstancereplicasets
+      - virtualmachineinstancepresets
       - virtualmachines
-      - virtualmachinereplicasets
-      - virtualmachinepresets
-      - offlinevirtualmachines
     verbs:
       - get
       - list
@@ -509,7 +509,7 @@ spec:
         - name: virt-private-dir
           hostPath:
             path: /var/run/kubevirt-private
+{{index .GeneratedManifests "vmi-resource.yaml"}}
+{{index .GeneratedManifests "vmirs-resource.yaml"}}
+{{index .GeneratedManifests "vmipreset-resource.yaml"}}
 {{index .GeneratedManifests "vm-resource.yaml"}}
-{{index .GeneratedManifests "vmrs-resource.yaml"}}
-{{index .GeneratedManifests "vmpreset-resource.yaml"}}
-{{index .GeneratedManifests "ovm-resource.yaml"}}

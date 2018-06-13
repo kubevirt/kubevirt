@@ -55,19 +55,19 @@ func newControllerRef(controller metav1.Object) *metav1.OwnerReference {
 	}
 }
 
-func newVirtualMachine(virtualmachineName string, label map[string]string, owner metav1.Object) *virtv1.VirtualMachine {
-	vm := &virtv1.VirtualMachine{
+func newVirtualMachine(virtualmachineName string, label map[string]string, owner metav1.Object) *virtv1.VirtualMachineInstance {
+	vmi := &virtv1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      virtualmachineName,
 			Labels:    label,
 			Namespace: metav1.NamespaceDefault,
 		},
-		Spec: virtv1.VirtualMachineSpec{},
+		Spec: virtv1.VirtualMachineInstanceSpec{},
 	}
 	if owner != nil {
-		vm.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
+		vmi.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
 	}
-	return vm
+	return vmi
 }
 
 func TestClaimVirtualMachine(t *testing.T) {
@@ -75,10 +75,10 @@ func TestClaimVirtualMachine(t *testing.T) {
 	type test struct {
 		name            string
 		manager         *VirtualMachineControllerRefManager
-		virtualmachines []*virtv1.VirtualMachine
-		filters         []func(*virtv1.VirtualMachine) bool
-		claimed         []*virtv1.VirtualMachine
-		released        []*virtv1.VirtualMachine
+		virtualmachines []*virtv1.VirtualMachineInstance
+		filters         []func(*virtv1.VirtualMachineInstance) bool
+		claimed         []*virtv1.VirtualMachineInstance
+		released        []*virtv1.VirtualMachineInstance
 		expectError     bool
 	}
 	var tests = []test{
@@ -89,8 +89,8 @@ func TestClaimVirtualMachine(t *testing.T) {
 				productionLabelSelector,
 				controllerKind,
 				func() error { return nil }),
-			virtualmachines: []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, nil), newVirtualMachine("virtualmachine2", testLabel, nil)},
-			claimed:         []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, nil)},
+			virtualmachines: []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, nil), newVirtualMachine("virtualmachine2", testLabel, nil)},
+			claimed:         []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, nil)},
 		},
 		func() test {
 			controller := v1.ReplicationController{}
@@ -104,7 +104,7 @@ func TestClaimVirtualMachine(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachines: []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, nil), newVirtualMachine("virtualmachine2", productionLabel, nil)},
+				virtualmachines: []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, nil), newVirtualMachine("virtualmachine2", productionLabel, nil)},
 				claimed:         nil,
 			}
 		}(),
@@ -120,8 +120,8 @@ func TestClaimVirtualMachine(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachines: []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, &controller), newVirtualMachine("virtualmachine2", productionLabel, nil)},
-				claimed:         []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, &controller)},
+				virtualmachines: []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, &controller), newVirtualMachine("virtualmachine2", productionLabel, nil)},
+				claimed:         []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, &controller)},
 			}
 		}(),
 		func() test {
@@ -136,8 +136,8 @@ func TestClaimVirtualMachine(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachines: []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, &controller), newVirtualMachine("virtualmachine2", productionLabel, &controller2)},
-				claimed:         []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, &controller)},
+				virtualmachines: []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, &controller), newVirtualMachine("virtualmachine2", productionLabel, &controller2)},
+				claimed:         []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, &controller)},
 			}
 		}(),
 		func() test {
@@ -150,8 +150,8 @@ func TestClaimVirtualMachine(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachines: []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, &controller), newVirtualMachine("virtualmachine2", testLabel, &controller)},
-				claimed:         []*virtv1.VirtualMachine{newVirtualMachine("virtualmachine1", productionLabel, &controller)},
+				virtualmachines: []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, &controller), newVirtualMachine("virtualmachine2", testLabel, &controller)},
+				claimed:         []*virtv1.VirtualMachineInstance{newVirtualMachine("virtualmachine1", productionLabel, &controller)},
 			}
 		}(),
 		func() test {
@@ -170,8 +170,8 @@ func TestClaimVirtualMachine(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				virtualmachines: []*virtv1.VirtualMachine{virtualmachineToDelete1, virtualmachineToDelete2},
-				claimed:         []*virtv1.VirtualMachine{virtualmachineToDelete1},
+				virtualmachines: []*virtv1.VirtualMachineInstance{virtualmachineToDelete1, virtualmachineToDelete2},
+				claimed:         []*virtv1.VirtualMachineInstance{virtualmachineToDelete1},
 			}
 		}(),
 	}
@@ -186,7 +186,7 @@ func TestClaimVirtualMachine(t *testing.T) {
 	}
 }
 
-func virtualmachineToStringSlice(virtualmachines []*virtv1.VirtualMachine) []string {
+func virtualmachineToStringSlice(virtualmachines []*virtv1.VirtualMachineInstance) []string {
 	var names []string
 	for _, virtualmachine := range virtualmachines {
 		names = append(names, virtualmachine.Name)

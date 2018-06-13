@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -35,11 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
+const LISTEN_TIMEOUT = 60 * time.Second
+
 const FLAG = "vnc"
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "vnc (vm)",
+		Use:     "vnc (vmi)",
 		Short:   "Open a vnc connection to a virtual machine.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
@@ -62,12 +65,31 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	vm := args[0]
+	vmi := args[0]
 
 	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
 	if err != nil {
 		return err
 	}
+
+	// setup connection with VM
+	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)
+	if err != nil {
+		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
+	}
+
+	lnAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	if err != nil {
+		return fmt.Errorf("Can't resolve the address: %s", err.Error())
+	}
+
+	// The local tcp server is used to proxy the podExec websock connection to remote-viewer
+	ln, err := net.ListenTCP("tcp", lnAddr)
+	if err != nil {
+		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
+	}
+	// End of pre-flight checks. Everything looks good, we can start
+	// the goroutines and let the data flow
 
 	//                                       -> pipeInWriter  -> pipeInReader
 	// remote-viewer -> unix sock connection
@@ -76,60 +98,80 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	pipeOutReader, pipeOutWriter := io.Pipe()
 
 	k8ResChan := make(chan error)
+	listenResChan := make(chan error)
 	viewResChan := make(chan error)
 	stopChan := make(chan struct{}, 1)
+	doneChan := make(chan struct{}, 1)
 	writeStop := make(chan error)
 	readStop := make(chan error)
 
-	// The local tcp server is used to proxy the podExec websock connection to remote-viewer
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
-	}
-
-	port := ln.Addr().(*net.TCPAddr).Port
-
-	// setup connection with VM
 	go func() {
-		err := virtCli.VM(namespace).VNC(vm, pipeInReader, pipeOutWriter)
-		k8ResChan <- err
+		// transfer data from/to the VM
+		k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+			In:  pipeInReader,
+			Out: pipeOutWriter,
+		})
+	}()
+
+	// wait for remote-viewer to connect to our local proxy server
+	go func() {
+		start := time.Now()
+		glog.Infof("connection timeout: %v", LISTEN_TIMEOUT)
+		// exit early if spawning remote-viewer fails
+		ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
+
+		fd, err := ln.Accept()
+		if err != nil {
+			glog.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
+			listenResChan <- err
+		}
+		defer fd.Close()
+
+		glog.V(2).Infof("remote-viewer connected in %v", time.Now().Sub(start))
+
+		// write to FD <- pipeOutReader
+		go func() {
+			_, err := io.Copy(fd, pipeOutReader)
+			readStop <- err
+		}()
+
+		// read from FD -> pipeInWriter
+		go func() {
+			_, err := io.Copy(pipeInWriter, fd)
+			writeStop <- err
+		}()
+
+		// don't terminate until remote-viewer is done
+		<-doneChan
+		listenResChan <- err
 	}()
 
 	// execute remote viewer
 	go func() {
-		cmnd := exec.Command("remote-viewer", fmt.Sprintf("vnc://127.0.0.1:%d", port))
-		err := cmnd.Run()
+		port := ln.Addr().(*net.TCPAddr).Port
+		args := []string{fmt.Sprintf("vnc://127.0.0.1:%d", port)}
+		if glog.V(4) {
+			args = append(args, "--debug")
+			glog.Infof("remote-viewer commandline: %v", args)
+		}
+
+		cmnd := exec.Command("remote-viewer", args...)
+
+		output, err := cmnd.CombinedOutput()
 		if err != nil {
-			glog.Errorf("remote-viewer execution encountered an error: %v", err)
+			glog.Errorf("remote-viewer execution failed: %v, output: %v", err, string(output))
+		} else {
+			glog.V(2).Infof("remote-viewer output: %v", string(output))
 		}
 		viewResChan <- err
+		close(doneChan)
 	}()
 
-	// wait for remote-viewer to connect to our local proxy server
-	fd, err := ln.Accept()
-	if err != nil {
-		return fmt.Errorf("Failed to accept unix sock connection. %s", err.Error())
-	}
-	defer fd.Close()
-
-	glog.V(2).Infof("remote-viewer connected")
 	go func() {
 		interrupt := make(chan os.Signal, 1)
 		signal.Notify(interrupt, os.Interrupt)
 		<-interrupt
 		close(stopChan)
-	}()
-
-	// write to FD <- pipeOutReader
-	go func() {
-		_, err := io.Copy(fd, pipeOutReader)
-		readStop <- err
-	}()
-
-	// read from FD -> pipeInWriter
-	go func() {
-		_, err := io.Copy(pipeInWriter, fd)
-		writeStop <- err
 	}()
 
 	select {
@@ -138,6 +180,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	case err = <-writeStop:
 	case err = <-k8ResChan:
 	case err = <-viewResChan:
+	case err = <-listenResChan:
 	}
 
 	if err != nil {
@@ -147,7 +190,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 }
 
 func usage() string {
-	usage := "# Connect to testvm via remote-viewer:\n"
-	usage += "./virtctl vnc testvm"
+	usage := "# Connect to testvmi via remote-viewer:\n"
+	usage += "./virtctl vnc testvmi"
 	return usage
 }

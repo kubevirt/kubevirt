@@ -51,7 +51,7 @@ var _ = Describe("Watchdog", func() {
 
 		It("should detect expired watchdog files", func() {
 
-			fileName := tmpWatchdogDir + "/default_expiredvm"
+			fileName := tmpWatchdogDir + "/default_expiredvmi"
 			Expect(os.Create(fileName)).ToNot(BeNil())
 
 			domains, err := GetExpiredDomains(1, tmpVirtShareDir)
@@ -72,9 +72,9 @@ var _ = Describe("Watchdog", func() {
 
 		It("should successfully remove watchdog file", func() {
 
-			vm := v1.NewMinimalVM("tvm")
-			namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
-			domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
+			vmi := v1.NewMinimalVMI("tvmi")
+			namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+			domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
 			fileName := WatchdogFileFromNamespaceName(tmpVirtShareDir, namespace, domain)
 			Expect(os.Create(fileName)).ToNot(BeNil())
@@ -82,7 +82,7 @@ var _ = Describe("Watchdog", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(domains)).To(Equal(0))
 
-			expired, err := WatchdogFileIsExpired(1, tmpVirtShareDir, vm)
+			expired, err := WatchdogFileIsExpired(1, tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(expired).To(Equal(false))
 
@@ -92,28 +92,28 @@ var _ = Describe("Watchdog", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(domains)).To(Equal(1))
 
-			expired, err = WatchdogFileIsExpired(1, tmpVirtShareDir, vm)
+			expired, err = WatchdogFileIsExpired(1, tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(expired).To(Equal(true))
 
-			exists, err := WatchdogFileExists(tmpVirtShareDir, vm)
+			exists, err := WatchdogFileExists(tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(Equal(true))
 
-			err = WatchdogFileRemove(tmpVirtShareDir, vm)
+			err = WatchdogFileRemove(tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			domains, err = GetExpiredDomains(1, tmpVirtShareDir)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(domains)).To(Equal(0))
 
-			exists, err = WatchdogFileExists(tmpVirtShareDir, vm)
+			exists, err = WatchdogFileExists(tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(Equal(false))
 		})
 
 		It("should not expire updated files", func() {
-			fileName := tmpVirtShareDir + "/default_expiredvm"
+			fileName := tmpVirtShareDir + "/default_expiredvmi"
 			Expect(os.Create(fileName)).ToNot(BeNil())
 
 			for i := 0; i < 4; i++ {
@@ -129,8 +129,8 @@ var _ = Describe("Watchdog", func() {
 			dir := WatchdogFileDirectory(tmpVirtShareDir)
 			Expect(dir).To(Equal(tmpVirtShareDir + "/watchdog-files"))
 
-			dir = WatchdogFileFromNamespaceName(tmpVirtShareDir, "tnamespace", "tvm")
-			Expect(dir).To(Equal(tmpVirtShareDir + "/watchdog-files/tnamespace_tvm"))
+			dir = WatchdogFileFromNamespaceName(tmpVirtShareDir, "tnamespace", "tvmi")
+			Expect(dir).To(Equal(tmpVirtShareDir + "/watchdog-files/tnamespace_tvmi"))
 		})
 
 		AfterEach(func() {

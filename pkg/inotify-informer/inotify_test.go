@@ -72,8 +72,8 @@ var _ = Describe("Inotify", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// create two files
-			Expect(os.Create(tmpDir + "/" + "default_testvm")).ToNot(BeNil())
-			Expect(os.Create(tmpDir + "/" + "default1_testvm1")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default_testvmi")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default1_testvmi1")).ToNot(BeNil())
 
 			queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			informer = cache.NewSharedIndexInformer(
@@ -90,16 +90,16 @@ var _ = Describe("Inotify", func() {
 
 		It("should update the cache with all files in the directory", func() {
 			Expect(informer.GetStore().ListKeys()).To(HaveLen(2))
-			_, exists, _ := informer.GetStore().GetByKey("default/testvm")
+			_, exists, _ := informer.GetStore().GetByKey("default/testvmi")
 			Expect(exists).To(BeTrue())
-			_, exists, _ = informer.GetStore().GetByKey("default1/testvm1")
+			_, exists, _ = informer.GetStore().GetByKey("default1/testvmi1")
 			Expect(exists).To(BeTrue())
 		})
 
 		It("should detect multiple creations and deletions", func() {
 			num := 5
-			key := "default2/test.vm2"
-			fileName := tmpDir + "/" + "default2_test.vm2"
+			key := "default2/test.vmi2"
+			fileName := tmpDir + "/" + "default2_test.vmi2"
 
 			for i := 0; i < num; i++ {
 				Expect(os.Create(fileName)).ToNot(BeNil())

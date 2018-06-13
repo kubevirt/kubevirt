@@ -70,10 +70,10 @@ const (
 
 	virtApiServiceName = "virt-api"
 
-	vmValidatePath       = "/virtualmachines-validate"
-	ovmValidatePath      = "/offlinevirtualmachines-validate"
-	vmrsValidatePath     = "/virtualmachinereplicaset-validate"
-	vmpresetValidatePath = "/vmpreset-validate"
+	vmiiValidatePath      = "/virtualmachineinstances-validate"
+	vmiValidatePath       = "/virtualmachines-validate"
+	vmirsValidatePath     = "/virtualmachinereplicaset-validate"
+	vmipresetValidatePath = "/vmipreset-validate"
 
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
@@ -141,32 +141,32 @@ func (app *virtAPIApp) Execute() {
 
 func (app *virtAPIApp) composeResources(ctx context.Context) {
 
+	vmiGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstances"}
+	vmirsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancereplicasets"}
+	vmipGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancepresets"}
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
-	vmrsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinereplicasets"}
-	vmpGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachinepresets"}
-	ovmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "offlinevirtualmachines"}
 
 	ws, err := rest.GroupVersionProxyBase(ctx, v1.GroupVersion)
 	if err != nil {
 		panic(err)
 	}
 
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmiGVR, &v1.VirtualMachineInstance{}, v1.VirtualMachineInstanceGroupVersionKind.Kind, &v1.VirtualMachineInstanceList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmirsGVR, &v1.VirtualMachineInstanceReplicaSet{}, v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineInstanceReplicaSetList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = rest.GenericResourceProxy(ws, ctx, vmipGVR, &v1.VirtualMachineInstancePreset{}, v1.VirtualMachineInstancePresetGroupVersionKind.Kind, &v1.VirtualMachineInstancePresetList{})
+	if err != nil {
+		panic(err)
+	}
+
 	ws, err = rest.GenericResourceProxy(ws, ctx, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
-	if err != nil {
-		panic(err)
-	}
-
-	ws, err = rest.GenericResourceProxy(ws, ctx, vmrsGVR, &v1.VirtualMachineReplicaSet{}, v1.VMReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineReplicaSetList{})
-	if err != nil {
-		panic(err)
-	}
-
-	ws, err = rest.GenericResourceProxy(ws, ctx, vmpGVR, &v1.VirtualMachinePreset{}, v1.VirtualMachinePresetGroupVersionKind.Kind, &v1.VirtualMachinePresetList{})
-	if err != nil {
-		panic(err)
-	}
-
-	ws, err = rest.GenericResourceProxy(ws, ctx, ovmGVR, &v1.OfflineVirtualMachine{}, v1.OfflineVirtualMachineGroupVersionKind.Kind, &v1.OfflineVirtualMachineList{})
 	if err != nil {
 		panic(err)
 	}
@@ -181,7 +181,7 @@ func (app *virtAPIApp) composeResources(ctx context.Context) {
 		Doc("Health endpoint").
 		Returns(http.StatusOK, "OK", nil).
 		Returns(http.StatusInternalServerError, "Unhealthy", nil))
-	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmGVR)
+	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmiGVR)
 	if err != nil {
 		panic(err)
 	}
@@ -211,7 +211,7 @@ func subresourceAPIGroup() metav1.APIGroup {
 
 func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 
-	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
+	subresourcesvmiGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachineinstances"}
 
 	subws := new(restful.WebService)
 	subws.Doc("The KubeVirt Subresource API.")
@@ -221,19 +221,19 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		VirtCli: app.virtCli,
 	}
 
-	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("console")).
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 		To(subresourceApp.ConsoleRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("console").
-		Doc("Open a websocket connection to a serial console on the specified VM."))
+		Doc("Open a websocket connection to a serial console on the specified VirtualMachineInstance."))
 
-	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("vnc")).
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("vnc")).
 		To(subresourceApp.VNCRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("vnc").
-		Doc("Open a websocket connection to connect to VNC on the specified VM."))
+		Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
 
-	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("test")).
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("test")).
 		To(func(request *restful.Request, response *restful.Response) {
 			response.WriteHeader(http.StatusOK)
 		}).
@@ -511,10 +511,10 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 func (app *virtAPIApp) createWebhook() error {
 	namespace := getNamespace()
 	registerWebhook := false
-	vmPath := vmValidatePath
-	ovmPath := ovmValidatePath
-	vmrsPath := vmrsValidatePath
-	vmpresetPath := vmpresetValidatePath
+	vmiPath := vmiiValidatePath
+	vmPath := vmiValidatePath
+	vmirsPath := vmirsValidatePath
+	vmipresetPath := vmipresetValidatePath
 
 	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
 	if err != nil {
@@ -526,6 +526,25 @@ func (app *virtAPIApp) createWebhook() error {
 	}
 
 	webHooks := []admissionregistrationv1beta1.Webhook{
+		{
+			Name: "virtualmachineinstances-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstances"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmiPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
 		{
 			Name: "virtualmachine-validator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
@@ -546,39 +565,20 @@ func (app *virtAPIApp) createWebhook() error {
 			},
 		},
 		{
-			Name: "offlinevirtualmachine-validator.kubevirt.io",
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.OfflineVirtualMachineGroupVersionKind.Version},
-					Resources:   []string{"offlinevirtualmachines"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
-					Name:      virtApiServiceName,
-					Path:      &ovmPath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
 			Name: "virtualmachinereplicaset-validator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VMReplicaSetGroupVersionKind.Version},
-					Resources:   []string{"virtualmachinereplicasets"},
+					APIVersions: []string{v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstancereplicasets"},
 				},
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Namespace: namespace,
 					Name:      virtApiServiceName,
-					Path:      &vmrsPath,
+					Path:      &vmirsPath,
 				},
 				CABundle: app.signingCertBytes,
 			},
@@ -589,15 +589,15 @@ func (app *virtAPIApp) createWebhook() error {
 				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachinePresetGroupVersionKind.Version},
-					Resources:   []string{"virtualmachinepresets"},
+					APIVersions: []string{v1.VirtualMachineInstancePresetGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstancepresets"},
 				},
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Namespace: namespace,
 					Name:      virtApiServiceName,
-					Path:      &vmpresetPath,
+					Path:      &vmipresetPath,
 				},
 				CABundle: app.signingCertBytes,
 			},
@@ -634,17 +634,17 @@ func (app *virtAPIApp) createWebhook() error {
 		}
 	}
 
-	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(vmiiValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMIs(w, r)
+	})
+	http.HandleFunc(vmiValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r)
 	})
-	http.HandleFunc(ovmValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeOVMs(w, r)
+	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMIRS(w, r)
 	})
-	http.HandleFunc(vmrsValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMRS(w, r)
-	})
-	http.HandleFunc(vmpresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMPreset(w, r)
+	http.HandleFunc(vmipresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMIPreset(w, r)
 	})
 
 	return nil
