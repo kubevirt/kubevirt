@@ -22,6 +22,7 @@ package network
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -52,7 +53,16 @@ var _ = Describe("Pod Network", func() {
 	var testNic *VIF
 	var interfaceXml []byte
 	var tmpDir string
+	var dnsname string
+	var iface *v1.Interface
+	var network *v1.Network
+	var SlirpConfig api.Arg
 	log.Log.SetIOWriter(GinkgoWriter)
+
+	_, dnsnamelist, _ := getResolvConfDetailsFromPod()
+	for _, dnsSearchName := range dnsnamelist {
+		dnsname += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
+	}
 
 	BeforeEach(func() {
 		tmpDir, _ := ioutil.TempDir("", "networktest")
@@ -72,6 +82,9 @@ var _ = Describe("Pod Network", func() {
 		addrList = []netlink.Addr{fakeAddr}
 		routeAddr = netlink.Route{Gw: gw}
 		routeList = []netlink.Route{routeAddr}
+		iface = &v1.Interface{Name: "testnet"}
+		network = &v1.Network{Name: "testnet", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}
+		SlirpConfig = api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 		// Create a bridge
 		bridgeTest = &netlink.Bridge{
@@ -173,6 +186,87 @@ var _ = Describe("Pod Network", func() {
 				Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
 			})
 		})
+		Context("Slirp interface", func() {
+			It("should fail if Port not exist", func() {
+				domain := NewDomainWithSlirpNetwork()
+				vm := newVM("testnamespace", "testVmName")
+				api.SetObjectDefaults_Domain(domain)
+
+				iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Protocol: "TCP", PodPort: 80}}}
+				vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
+				SlirpBinding := &SlirpPodInterface{iface: iface, network: network, domain: domain, SlirpConfig: SlirpConfig}
+				err := SlirpBinding.configPortForward()
+				Expect(err).To(HaveOccurred())
+			})
+			It("should add tcp if protocol not exist", func() {
+				domain := NewDomainWithSlirpNetwork()
+				vm := newVM("testnamespace", "testVmName")
+				api.SetObjectDefaults_Domain(domain)
+
+				iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Port: 80}}}
+				vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
+				SlirpBinding := &SlirpPodInterface{iface: iface, network: network, domain: domain, SlirpConfig: SlirpConfig}
+				err := SlirpBinding.configPortForward()
+				Expect(err).ToNot(HaveOccurred())
+				err = SlirpBinding.commitConfiguration()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(domain.Spec.QEMUCmd.QEMUArg[3].Value).To(Equal("user,id=testnet,hostfwd=tcp::80-:80"))
+
+			})
+			It("should use podPort", func() {
+				domain := NewDomainWithSlirpNetwork()
+				vm := newVM("testnamespace", "testVmName")
+				api.SetObjectDefaults_Domain(domain)
+
+				iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{PodPort: 9080, Port: 80}}}
+				vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
+				SlirpBinding := &SlirpPodInterface{iface: iface, network: network, domain: domain, SlirpConfig: SlirpConfig}
+				err := SlirpBinding.configPortForward()
+				Expect(err).ToNot(HaveOccurred())
+				err = SlirpBinding.commitConfiguration()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(domain.Spec.QEMUCmd.QEMUArg[3].Value).To(Equal("user,id=testnet,hostfwd=tcp::9080-:80"))
+
+			})
+			It("Should fail if not validated protocol gived", func() {
+				domain := NewDomainWithSlirpNetwork()
+				vm := newVM("testnamespace", "testVmName")
+				api.SetObjectDefaults_Domain(domain)
+
+				iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Protocol: "test", Port: 80}}}
+				vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
+				SlirpBinding := &SlirpPodInterface{iface: iface, network: network, domain: domain, SlirpConfig: SlirpConfig}
+				err := SlirpBinding.configPortForward()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Unknow protocol only TCP or UDP allowed"))
+			})
+			It("Should create the qemu configuration for interface", func() {
+				domain := NewDomainWithSlirpNetwork()
+				vm := newVM("testnamespace", "testVmName")
+				api.SetObjectDefaults_Domain(domain)
+
+				iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{PodPort: 80, Port: 80, Protocol: "TCP"}}}
+				vm.Spec.Domain.Devices.Interfaces[0] = *iface
+
+				SlirpBinding := &SlirpPodInterface{iface: iface, network: network, domain: domain, SlirpConfig: SlirpConfig}
+				err := SlirpBinding.configVMCIDR()
+				Expect(err).NotTo(HaveOccurred())
+				err = SlirpBinding.configDNSSearchName()
+				Expect(err).NotTo(HaveOccurred())
+				err = SlirpBinding.configPortForward()
+				Expect(err).NotTo(HaveOccurred())
+				err = SlirpBinding.commitConfiguration()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(4))
+				Expect(domain.Spec.QEMUCmd.QEMUArg[1].Value).To(Equal("virtio,netdev=testnet"))
+				Expect(domain.Spec.QEMUCmd.QEMUArg[3].Value).To(Equal("user,id=testnet,net=10.0.2.0/24" + dnsname + ",hostfwd=tcp::80-:80"))
+
+			})
+		})
 	})
 })
 
@@ -197,5 +291,22 @@ func NewDomainWithPodNetwork() *api.Domain {
 			Bridge: api.DefaultBridgeName,
 		}},
 	}
+	return domain
+}
+
+func NewDomainWithSlirpNetwork() *api.Domain {
+	domain := &api.Domain{}
+
+	if domain.Spec.QEMUCmd == nil {
+		domain.Spec.QEMUCmd = &api.Commandline{}
+	}
+
+	if domain.Spec.QEMUCmd.QEMUArg == nil {
+		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
+	}
+
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: fmt.Sprintf("%s,netdev=%s", "virtio", "testnet")})
+
 	return domain
 }

@@ -23,6 +23,8 @@ package network
 
 import (
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 
@@ -34,11 +36,14 @@ import (
 
 var bridgeFakeIP = "169.254.75.86/32"
 
+// DefaultProtocol is the default port protocol
+const DefaultProtocol string = "TCP"
+
+// DefaultVMCIDR is the default CIRD for vm network
+const DefaultVMCIDR = "10.0.2.0/24"
+
 type BindMechanism interface {
-	discoverPodNetworkInterface() error
-	preparePodNetworkInterfaces() error
-	startDHCPServer()
-	decorateInterfaceConfig(ifconf *api.Interface)
+	setup() error
 }
 
 type PodInterface struct{}
@@ -50,12 +55,41 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	precond.MustNotBeNil(domain)
 	initHandler()
 
-	driver, err := getBinding(iface)
+	driver, err := getBinding(iface, network, domain)
 	if err != nil {
 		return err
 	}
 
-	interfaces := domain.Spec.Devices.Interfaces
+	err = driver.setup()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain) (BindMechanism, error) {
+	if iface.Bridge != nil {
+		vif := &VIF{Name: podInterface}
+		return &BridgePodInterface{iface: iface, vif: vif, domain: domain}, nil
+	}
+	if iface.Slirp != nil {
+		SlirpConfig := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+		return &SlirpPodInterface{iface: iface, network: network, domain: domain, SlirpConfig: SlirpConfig}, nil
+	}
+	return nil, fmt.Errorf("Not implemented")
+}
+
+type BridgePodInterface struct {
+	vif        *VIF
+	iface      *v1.Interface
+	podNicLink netlink.Link
+	domain     *api.Domain
+}
+
+func (b *BridgePodInterface) setup() error {
+
+	interfaces := b.domain.Spec.Devices.Interfaces
 
 	// There should always be a pre-configured interface for the default pod interface.
 	if len(interfaces) == 0 {
@@ -69,20 +103,20 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	}
 
 	if ifconf == nil {
-		err := driver.discoverPodNetworkInterface()
+		err := b.discoverPodNetworkInterface()
 		if err != nil {
 			return err
 		}
-		if err := driver.preparePodNetworkInterfaces(); err != nil {
+		if err := b.preparePodNetworkInterfaces(); err != nil {
 			log.Log.Reason(err).Critical("failed to prepared pod networking")
 			panic(err)
 		}
 
-		driver.startDHCPServer()
+		b.startDHCPServer()
 
 		// After the network is configured, cache the result
 		// in case this function is called again.
-		driver.decorateInterfaceConfig(&defaultIconf)
+		b.decorateInterfaceConfig(&defaultIconf)
 		err = setCachedInterface(&defaultIconf)
 		if err != nil {
 			panic(err)
@@ -94,20 +128,6 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	interfaces[0] = *ifconf
 
 	return nil
-}
-
-func getBinding(iface *v1.Interface) (BindMechanism, error) {
-	vif := &VIF{Name: podInterface}
-	if iface.Bridge != nil {
-		return &BridgePodInterface{iface: iface, vif: vif}, nil
-	}
-	return nil, fmt.Errorf("Not implemented")
-}
-
-type BridgePodInterface struct {
-	vif        *VIF
-	iface      *v1.Interface
-	podNicLink netlink.Link
 }
 
 func (b *BridgePodInterface) discoverPodNetworkInterface() error {
@@ -239,6 +259,121 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 		log.Log.Reason(err).Errorf("failed to set bridge IP")
 		return err
 	}
+
+	return nil
+}
+
+type SlirpPodInterface struct {
+	iface       *v1.Interface
+	network     *v1.Network
+	domain      *api.Domain
+	SlirpConfig api.Arg
+}
+
+func (s *SlirpPodInterface) setup() error {
+	err := s.configVMCIDR()
+	if err != nil {
+		return err
+	}
+
+	err = s.configDNSSearchName()
+	if err != nil {
+		return err
+	}
+
+	err = s.configPortForward()
+	if err != nil {
+		return err
+	}
+
+	err = s.commitConfiguration()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *SlirpPodInterface) configPortForward() error {
+	if p.iface.Slirp.Ports == nil {
+		return nil
+	}
+
+	portForwardMap := make(map[int32]string)
+
+	for _, forwardPort := range p.iface.Slirp.Ports {
+		protocol := DefaultProtocol
+
+		if forwardPort.Port == 0 {
+			return fmt.Errorf("Port must be configure")
+		}
+
+		// Check protocol, its case sensitive like kubernetes
+		if forwardPort.Protocol != "" {
+			if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
+				return fmt.Errorf("Unknow protocol only TCP or UDP allowed")
+			} else {
+				protocol = forwardPort.Protocol
+			}
+		}
+		//Check for duplicate pod port allocation
+		if portProtocol, ok := portForwardMap[forwardPort.Port]; ok && portProtocol == protocol {
+			return fmt.Errorf("Duplicated pod port allocation")
+		}
+
+		// Check if PodPort is configure If not Get the same Port as the vm port
+		if forwardPort.PodPort == 0 {
+			forwardPort.PodPort = forwardPort.Port
+		}
+
+		portForwardMap[forwardPort.Port] = protocol
+		p.SlirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.Port)
+
+	}
+
+	return nil
+}
+
+func (p *SlirpPodInterface) configVMCIDR() error {
+	if p.network.Pod == nil {
+		return fmt.Errorf("Slirp works only with pod network")
+	}
+
+	vmNetworkCIDR := ""
+	if p.network.Pod.VMNetworkCIDR != "" {
+		_, _, err := net.ParseCIDR(p.network.Pod.VMNetworkCIDR)
+		if err != nil {
+			return fmt.Errorf("Failed parsing CIDR")
+		}
+		vmNetworkCIDR = p.network.Pod.VMNetworkCIDR
+	} else {
+		vmNetworkCIDR = DefaultVMCIDR
+	}
+
+	// Insert configuration to qemu commandline
+	p.SlirpConfig.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
+
+	return nil
+}
+
+func (p *SlirpPodInterface) configDNSSearchName() error {
+	// remove the search string from the output and convert to string
+	_, dnsSearchNames, err := getResolvConfDetailsFromPod()
+	if err != nil {
+		return err
+	}
+
+	// Insert configuration to qemu commandline
+	for _, dnsSearchName := range dnsSearchNames {
+		p.SlirpConfig.Value += fmt.Sprintf(",dnssearch=%s", dnsSearchName)
+	}
+
+	return nil
+}
+
+func (p *SlirpPodInterface) commitConfiguration() error {
+	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-netdev"})
+	p.domain.Spec.QEMUCmd.QEMUArg = append(p.domain.Spec.QEMUCmd.QEMUArg, p.SlirpConfig)
 
 	return nil
 }
