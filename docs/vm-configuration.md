@@ -42,7 +42,7 @@ disks to use, or it may require license key reactivation. Changing the backend
 configuration is totally transparent to the guest (aside from performance
 differences inherent in different backend choices).
 
-![VM configuration diagram](vm-configuration.png "VM Configuration")
+![VMI configuration diagram](vm-configuration.png "VMI Configuration")
 
 
 Portability issues
@@ -157,10 +157,10 @@ Bearing all this in mind there can be multiple configurations associated with
 a single instance of a virtual machine.
 
  1. Initial minimal tenant provided configuration
- 2. Expanded configuration for inactive VM
- 3. Expanded configuration for running VM reflecting desired state
- 4. Expanded configuration for running VM reflecting current state
- 5. Zero or many snapshots of the config for either inactive or running VM
+ 2. Expanded configuration for inactive VMI
+ 3. Expanded configuration for running VMI reflecting desired state
+ 4. Expanded configuration for running VMI reflecting current state
+ 5. Zero or many snapshots of the config for either inactive or running VMI
 
 An application may choose not to track all of these configurations explicitly.
 For example, by converting the minimal configuration, to the expanded inactive
@@ -172,7 +172,7 @@ adapt to changes dynamically. Similarly an application tracking the inactive
 configuration of the guest, has a choice about how to handle updates to reflect
 hotplug/unplug operations. An unplug operation could be applied to the inactive
 configuration unconditionally, without waiting for completion on the running
-VM. This would ensure that the device goes away on the next cold boot, even if
+VMI. This would ensure that the device goes away on the next cold boot, even if
 the guest OS ignores the hotunplug.
 
 
@@ -364,7 +364,7 @@ disk:
 
 Every device has a mandatory name field. Amongst other benefits, this allows
 easy tracking of the devices for management applications and users, simplifies
-declarative hotplug and allows VirtualMachinePresets to detect conflicts based
+declarative hotplug and allows VirtualMachineInstancePresets to detect conflicts based
 on device names.
 
 ### Specification changes
@@ -375,7 +375,7 @@ libvirt on the node. A specification reflects the requirement from the user and
 will only be changed by the system by the apiserver on creation time or by
 initializers. After the VirtualMachine is accepted by the system and was
 processed by all initializers, controllers will ever only change `status` and
-`metadata` fields. VirtualMachinePresets are an example of an initializer which
+`metadata` fields. VirtualMachineInstancePresets are an example of an initializer which
 can manipulate the spec, before the VirtualMachine is fully accepted by the
 system.
 

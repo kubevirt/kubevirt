@@ -37,7 +37,7 @@ import (
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "console (vm)",
+		Use:     "console (vmi)",
 		Short:   "Connect to a console of a virtual machine.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
@@ -55,8 +55,8 @@ type Console struct {
 }
 
 func usage() string {
-	usage := "# Connect to the console on VM 'myvm':\n"
-	usage += "virtctl console myvm"
+	usage := "# Connect to the console on VirtualMachineInstance 'myvmi':\n"
+	usage += "virtctl console myvmi"
 	return usage
 }
 
@@ -66,7 +66,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	vm := args[0]
+	vmi := args[0]
 
 	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
 	if err != nil {
@@ -94,7 +94,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	readStop := make(chan error)
 
 	go func() {
-		con, err := virtCli.VM(namespace).SerialConsole(vm)
+		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi)
 		if err != nil {
 			resChan <- err
 			return

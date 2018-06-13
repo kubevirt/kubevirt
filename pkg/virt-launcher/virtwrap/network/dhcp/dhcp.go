@@ -120,26 +120,26 @@ type DHCPHandler struct {
 }
 
 func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, options dhcp.Options) (d dhcp.Packet) {
-	log.Log.Debug("Serving a new request")
+	log.Log.V(4).Info("Serving a new request")
 	if mac := p.CHAddr(); !bytes.Equal(mac, h.clientMAC) {
-		log.Log.Debug("The request is not from our client")
+		log.Log.V(4).Info("The request is not from our client")
 		return nil // Is not our client
 	}
 
 	switch msgType {
 
 	case dhcp.Discover:
-		log.Log.Debug("The request has message type DISCOVER")
+		log.Log.V(4).Info("The request has message type DISCOVER")
 		return dhcp.ReplyPacket(p, dhcp.Offer, h.serverIP, h.clientIP, h.leaseDuration,
 			h.options.SelectOrderOrAll(options[dhcp.OptionParameterRequestList]))
 
 	case dhcp.Request:
-		log.Log.Debug("The request has message type REQUEST")
+		log.Log.V(4).Info("The request has message type REQUEST")
 		return dhcp.ReplyPacket(p, dhcp.ACK, h.serverIP, h.clientIP, h.leaseDuration,
 			h.options.SelectOrderOrAll(options[dhcp.OptionParameterRequestList]))
 
 	default:
-		log.Log.Debug("The request has unhandled message type")
+		log.Log.V(4).Info("The request has unhandled message type")
 		return nil // Ignored message type
 
 	}

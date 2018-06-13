@@ -20,12 +20,12 @@ any RateLimitingInterface implementing queue. This allows synchronous
 testing of the controller. The typical pattern is:
 
     MockQueue.ExpectAdd(3)
-    vmSource.Add(vm)
-    vmSource.Add(vm1)
-    vmSource.Add(vm2)
+    vmiSource.Add(vmi)
+    vmiSource.Add(vmi1)
+    vmiSource.Add(vmi2)
     MockQueue.Wait()
 
-This ensures that Source callbacks which are listening on vmSource
+This ensures that Source callbacks which are listening on vmiSource
 enqueued three times an object. Since enqueing is typically the last
 action in listener callbacks, we can assume that the wanted scenario for
 a controller is set up, and an execution will process this scenario.
@@ -72,21 +72,21 @@ type VirtualMachineFeeder struct {
 	Source    *framework.FakeControllerSource
 }
 
-func (v *VirtualMachineFeeder) Add(vm *v1.VirtualMachine) {
+func (v *VirtualMachineFeeder) Add(vmi *v1.VirtualMachineInstance) {
 	v.MockQueue.ExpectAdds(1)
-	v.Source.Add(vm)
+	v.Source.Add(vmi)
 	v.MockQueue.Wait()
 }
 
-func (v *VirtualMachineFeeder) Modify(vm *v1.VirtualMachine) {
+func (v *VirtualMachineFeeder) Modify(vmi *v1.VirtualMachineInstance) {
 	v.MockQueue.ExpectAdds(1)
-	v.Source.Modify(vm)
+	v.Source.Modify(vmi)
 	v.MockQueue.Wait()
 }
 
-func (v *VirtualMachineFeeder) Delete(vm *v1.VirtualMachine) {
+func (v *VirtualMachineFeeder) Delete(vmi *v1.VirtualMachineInstance) {
 	v.MockQueue.ExpectAdds(1)
-	v.Source.Delete(vm)
+	v.Source.Delete(vmi)
 	v.MockQueue.Wait()
 }
 
@@ -132,21 +132,21 @@ type DomainFeeder struct {
 	Source    *framework.FakeControllerSource
 }
 
-func (v *DomainFeeder) Add(vm *api.Domain) {
+func (v *DomainFeeder) Add(vmi *api.Domain) {
 	v.MockQueue.ExpectAdds(1)
-	v.Source.Add(vm)
+	v.Source.Add(vmi)
 	v.MockQueue.Wait()
 }
 
-func (v *DomainFeeder) Modify(vm *api.Domain) {
+func (v *DomainFeeder) Modify(vmi *api.Domain) {
 	v.MockQueue.ExpectAdds(1)
-	v.Source.Modify(vm)
+	v.Source.Modify(vmi)
 	v.MockQueue.Wait()
 }
 
-func (v *DomainFeeder) Delete(vm *api.Domain) {
+func (v *DomainFeeder) Delete(vmi *api.Domain) {
 	v.MockQueue.ExpectAdds(1)
-	v.Source.Delete(vm)
+	v.Source.Delete(vmi)
 	v.MockQueue.Wait()
 }
 

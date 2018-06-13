@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-var _ = Describe("VM Subresources", func() {
+var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var server *ghttp.Server
 
 	log.Log.SetIOWriter(GinkgoWriter)
@@ -49,13 +49,13 @@ var _ = Describe("VM Subresources", func() {
 	})
 
 	Context("Subresource api", func() {
-		It("should find matching pod for running VM", func(done Done) {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Status.Phase = v1.Running
-			vm.ObjectMeta.SetUID(uuid.NewUUID())
+		It("should find matching pod for running VirtualMachineInstance", func(done Done) {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Status.Phase = v1.Running
+			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 			templateService := services.NewTemplateService("whatever", "whatever", "whatever", configCache)
 
-			pod, err := templateService.RenderLaunchManifest(vm)
+			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			pod.ObjectMeta.Name = "madeup-name"
 
@@ -68,8 +68,8 @@ var _ = Describe("VM Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
@@ -77,7 +77,7 @@ var _ = Describe("VM Subresources", func() {
 				),
 			)
 
-			podName, httpStatusCode, err := app.remoteExecInfo("testvm", "default")
+			podName, httpStatusCode, err := app.remoteExecInfo("testvmi", "default")
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(podName).To(Equal("madeup-name"))
@@ -85,19 +85,19 @@ var _ = Describe("VM Subresources", func() {
 			close(done)
 		}, 5)
 
-		It("should fail if VM is not in running state", func(done Done) {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Status.Phase = v1.Succeeded
-			vm.ObjectMeta.SetUID(uuid.NewUUID())
+		It("should fail if VirtualMachineInstance is not in running state", func(done Done) {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Status.Phase = v1.Succeeded
+			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
-			_, httpStatusCode, err := app.remoteExecInfo("testvm", "default")
+			_, httpStatusCode, err := app.remoteExecInfo("testvmi", "default")
 
 			Expect(err).To(HaveOccurred())
 			Expect(httpStatusCode).To(Equal(http.StatusBadRequest))
@@ -105,17 +105,17 @@ var _ = Describe("VM Subresources", func() {
 		}, 5)
 
 		It("should fail no matching pod is found", func(done Done) {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Status.Phase = v1.Running
-			vm.ObjectMeta.SetUID(uuid.NewUUID())
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Status.Phase = v1.Running
+			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
 			podList := k8sv1.PodList{}
 			podList.Items = []k8sv1.Pod{}
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
@@ -123,7 +123,7 @@ var _ = Describe("VM Subresources", func() {
 				),
 			)
 
-			_, httpStatusCode, err := app.remoteExecInfo("testvm", "default")
+			_, httpStatusCode, err := app.remoteExecInfo("testvmi", "default")
 
 			Expect(err).To(HaveOccurred())
 			Expect(httpStatusCode).To(Equal(http.StatusBadRequest))

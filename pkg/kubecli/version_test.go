@@ -36,7 +36,7 @@ import (
 var _ = Describe("Kubevirt Version Client", func() {
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/subresources.kubevirt.io/v1alpha1/version"
+	basePath := "/apis/subresources.kubevirt.io/v1alpha2/version"
 
 	BeforeEach(func() {
 		var err error

@@ -196,14 +196,14 @@ func initializeDirs(virtShareDir string,
 
 func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	domainManager virtwrap.DomainManager,
-	vm *v1.VirtualMachine) {
+	vm *v1.VirtualMachineInstance) {
 	// There are many conditions that can cause the qemu pid to exit that
-	// don't involve the VM's domain from being deleted from libvirt.
+	// don't involve the VirtualMachineInstance's domain from being deleted from libvirt.
 	//
-	// KillVM is idempotent. Making a call to KillVM here ensures that the deletion
-	// occurs regardless if the VM crashed unexpectedly or if virt-handler requested
+	// KillVMI is idempotent. Making a call to KillVMI here ensures that the deletion
+	// occurs regardless if the VirtualMachineInstance crashed unexpectedly or if virt-handler requested
 	// a graceful shutdown.
-	domainManager.KillVM(vm)
+	domainManager.KillVMI(vm)
 
 	log.Log.Info("Waiting on final notifications to be sent to virt-handler.")
 
@@ -223,8 +223,8 @@ func main() {
 	qemuTimeout := flag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
-	name := flag.String("name", "", "Name of the VM")
-	namespace := flag.String("namespace", "", "Namespace of the VM")
+	name := flag.String("name", "", "Name of the VirtualMachineInstance")
+	namespace := flag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
@@ -238,7 +238,7 @@ func main() {
 
 	log.InitializeLogging("virt-launcher")
 
-	vm := v1.NewVMReferenceFromNameWithNS(*namespace, *name)
+	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 
 	// Initialize local and shared directories
 	initializeDirs(*virtShareDir, *ephemeralDiskDir, *namespace, *name)
@@ -280,7 +280,7 @@ func main() {
 	}
 
 	shutdownCallback := func(pid int) {
-		err := domainManager.KillVM(vm)
+		err := domainManager.KillVMI(vm)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
 			syscall.Kill(pid, syscall.SIGTERM)

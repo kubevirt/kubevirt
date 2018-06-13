@@ -30,7 +30,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Affinity": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Affinity groups all the affinity rules related to a VM",
+					Description: "Affinity groups all the affinity rules related to a VirtualMachineInstance",
 					Properties: map[string]spec.Schema{
 						"nodeAffinity": {
 							SchemaProps: spec.SchemaProps{
@@ -38,11 +38,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("k8s.io/api/core/v1.NodeAffinity"),
 							},
 						},
+						"podAffinity": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Pod affinity support",
+								Ref:         ref("k8s.io/api/core/v1.PodAffinity"),
+							},
+						},
+						"podAntiAffinity": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Pod anti-affinity support",
+								Ref:         ref("k8s.io/api/core/v1.PodAntiAffinity"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/api/core/v1.NodeAffinity"},
+				"k8s.io/api/core/v1.NodeAffinity", "k8s.io/api/core/v1.PodAffinity", "k8s.io/api/core/v1.PodAntiAffinity"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget": {
 			Schema: spec.Schema{
@@ -81,7 +93,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"cores": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Cores specifies the number of cores inside the vm. Must be a value greater or equal 1.",
+								Description: "Cores specifies the number of cores inside the vmi. Must be a value greater or equal 1.",
 								Type:        []string{"integer"},
 								Format:      "int64",
 							},
@@ -94,7 +106,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Clock": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents the clock and timers of a vm",
+					Description: "Represents the clock and timers of a vmi",
 					Properties: map[string]spec.Schema{
 						"utc": {
 							SchemaProps: spec.SchemaProps{
@@ -193,7 +205,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"disks": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
+								Description: "Disks describes disks, cdroms, floppy and luns which are connected to the vmi",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -206,7 +218,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"watchdog": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Watchdog describes a watchdog device which can be added to the vm",
+								Description: "Watchdog describes a watchdog device which can be added to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Watchdog"),
 							},
 						},
@@ -249,25 +261,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"disk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a disk to the vm",
+								Description: "Attach a volume as a disk to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DiskTarget"),
 							},
 						},
 						"lun": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a LUN to the vm",
+								Description: "Attach a volume as a LUN to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.LunTarget"),
 							},
 						},
 						"floppy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a floppy to the vm",
+								Description: "Attach a volume as a floppy to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FloppyTarget"),
 							},
 						},
 						"cdrom": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a cdrom to the vm",
+								Description: "Attach a volume as a cdrom to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget"),
 							},
 						},
@@ -292,25 +304,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"disk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a disk to the vm",
+								Description: "Attach a volume as a disk to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DiskTarget"),
 							},
 						},
 						"lun": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a LUN to the vm",
+								Description: "Attach a volume as a LUN to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.LunTarget"),
 							},
 						},
 						"floppy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a floppy to the vm",
+								Description: "Attach a volume as a floppy to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FloppyTarget"),
 							},
 						},
 						"cdrom": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a cdrom to the vm",
+								Description: "Attach a volume as a cdrom to the vmi",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget"),
 							},
 						},
@@ -349,13 +361,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"resources": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Resources describes the Compute Resources required by this vm.",
+								Description: "Resources describes the Compute Resources required by this vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"),
 							},
 						},
 						"cpu": {
 							SchemaProps: spec.SchemaProps{
-								Description: "CPU allow specified the detailed CPU topology inside the vm.",
+								Description: "CPU allow specified the detailed CPU topology inside the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CPU"),
 							},
 						},
@@ -373,7 +385,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"clock": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Clock sets the clock and timers of the vm.",
+								Description: "Clock sets the clock and timers of the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Clock"),
 							},
 						},
@@ -399,7 +411,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "EmptyDisk represents a temporary disk which shares the vms lifecycle",
+					Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle",
 					Properties: map[string]spec.Schema{
 						"capacity": {
 							SchemaProps: spec.SchemaProps{
@@ -420,7 +432,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
-								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vm via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
 								Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
 							},
 						},
@@ -502,7 +514,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"reset": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Reset enables Hyperv reboot/reset for the vm Defaults to the machine type setting",
+								Description: "Reset enables Hyperv reboot/reset for the vmi Defaults to the machine type setting",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
@@ -571,7 +583,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"vendorid": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VendorID sets the hypervisor vendor id, visible to the vm String up to twelve characters",
+								Description: "VendorID sets the hypervisor vendor id, visible to the vmi String up to twelve characters",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -615,7 +627,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"uuid": {
 							SchemaProps: spec.SchemaProps{
-								Description: "UUID reported by the vm bios Defaults to a random generated uid",
+								Description: "UUID reported by the vmi bios Defaults to a random generated uid",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -814,7 +826,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"type": {
 							SchemaProps: spec.SchemaProps{
-								Description: "QEMU machine type is the actual chipset of the VM.",
+								Description: "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -864,201 +876,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachine handles the VirtualMachines that are not running or are in a stopped state The OfflineVirtualMachine contains the template to create the VirtualMachine. It also mirrors the running state of the created VirtualMachine in its status.",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-							},
-						},
-						"spec": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Spec contains the specification of VirtualMachine created",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineSpec"),
-							},
-						},
-						"status": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Status holds the current state of the controller and brief information about its associated VirtualMachine",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineStatus"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineSpec", "kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineStatus"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineCondition": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine",
-					Properties: map[string]spec.Schema{
-						"type": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"status": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"lastProbeTime": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-							},
-						},
-						"lastTransitionTime": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-							},
-						},
-						"reason": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"message": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-					},
-					Required: []string{"type", "status"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineList": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachineList is a list of offlinevirtualmachines",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-							},
-						},
-						"items": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Items is a list of OfflineVirtualMachines",
-								Type:        []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine"),
-										},
-									},
-								},
-							},
-						},
-					},
-					Required: []string{"metadata", "items"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine should look like",
-					Properties: map[string]spec.Schema{
-						"running": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Running controls whether the associatied VirtualMachine is created or not",
-								Type:        []string{"boolean"},
-								Format:      "",
-							},
-						},
-						"template": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Template is the direct specification of VirtualMachine",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"),
-							},
-						},
-					},
-					Required: []string{"running", "template"},
-				},
-			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineStatus": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "OfflineVirtualMachineStatus represents the status returned by the controller to describe how the OfflineVirtualMachine is doing",
-					Properties: map[string]spec.Schema{
-						"created": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Created indicates if the virtual machine is created in the cluster",
-								Type:        []string{"boolean"},
-								Format:      "",
-							},
-						},
-						"ready": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Ready indicates if the virtual machine is running and ready",
-								Type:        []string{"boolean"},
-								Format:      "",
-							},
-						},
-						"conditions": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
-								Type:        []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineCondition"),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachineCondition"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer": {
 			Schema: spec.Schema{
@@ -1195,7 +1012,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"requests": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Requests is a description of the initial vm resources. Valid resource keys are \"memory\" and \"cpu\".",
+								Description: "Requests is a description of the initial vmi resources. Valid resource keys are \"memory\" and \"cpu\".",
 								Type:        []string{"object"},
 								AdditionalProperties: &spec.SchemaOrBool{
 									Schema: &spec.Schema{
@@ -1228,7 +1045,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents all available timers in a vm",
+					Description: "Represents all available timers in a vmi",
 					Properties: map[string]spec.Schema{
 						"hpet": {
 							SchemaProps: spec.SchemaProps{
@@ -1266,7 +1083,137 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.HPETTimer", "kubevirt.io/kubevirt/pkg/api/v1.HypervTimer", "kubevirt.io/kubevirt/pkg/api/v1.KVMTimer", "kubevirt.io/kubevirt/pkg/api/v1.PITTimer", "kubevirt.io/kubevirt/pkg/api/v1.RTCTimer"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetCondition": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachine handles the VirtualMachines that are not running or are in a stopped state The VirtualMachine contains the template to create the VirtualMachineInstance. It also mirrors the running state of the created VirtualMachineInstance in its status.",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+							},
+						},
+						"spec": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Spec contains the specification of VirtualMachineInstance created",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec"),
+							},
+						},
+						"status": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineCondition represents the state of VirtualMachine",
+					Properties: map[string]spec.Schema{
+						"type": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"status": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"lastProbeTime": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							},
+						},
+						"lastTransitionTime": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							},
+						},
+						"reason": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"message": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+					},
+					Required: []string{"type", "status"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+							},
+						},
+						"spec": {
+							SchemaProps: spec.SchemaProps{
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"),
+							},
+						},
+						"status": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
@@ -1311,7 +1258,304 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceList": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineInstanceList is a list of VirtualMachines",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+							},
+						},
+						"items": {
+							SchemaProps: spec.SchemaProps{
+								Type: []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance"),
+										},
+									},
+								},
+							},
+						},
+					},
+					Required: []string{"items"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceNetworkInterface": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"ipAddress": {
+							SchemaProps: spec.SchemaProps{
+								Description: "IP address of a Virtual Machine interface",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"mac": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Hardware address of a Virtual Machine interface",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePreset": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+							},
+						},
+						"spec": {
+							SchemaProps: spec.SchemaProps{
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePresetSpec"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePresetSpec"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePresetList": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineInstancePresetList is a list of VirtualMachinePresets",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+							},
+						},
+						"items": {
+							SchemaProps: spec.SchemaProps{
+								Type: []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePreset"),
+										},
+									},
+								},
+							},
+						},
+					},
+					Required: []string{"items"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePreset"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePresetSpec": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"selector": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Selector is a label query over a set of VMIs. Required.",
+								Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+							},
+						},
+						"domain": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Domain is the same object type as contained in VirtualMachineInstanceSpec",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
+							},
+						},
+					},
+					Required: []string{"selector"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+							},
+						},
+						"spec": {
+							SchemaProps: spec.SchemaProps{
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetSpec"),
+							},
+						},
+						"status": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetStatus"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetStatus"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"type": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"status": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"lastProbeTime": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							},
+						},
+						"lastTransitionTime": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							},
+						},
+						"reason": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"message": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+					},
+					Required: []string{"type", "status"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetList": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VMIList is a list of VMIs",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+							},
+						},
+						"items": {
+							SchemaProps: spec.SchemaProps{
+								Type: []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet"),
+										},
+									},
+								},
+							},
+						},
+					},
+					Required: []string{"items"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
@@ -1331,7 +1575,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"template": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Template describes the pods that will be created.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"),
 							},
 						},
 						"paused": {
@@ -1346,9 +1590,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetStatus": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetStatus": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
@@ -1372,7 +1616,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetCondition"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"),
 										},
 									},
 								},
@@ -1382,382 +1626,22 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetCondition"},
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VMTemplateSpec": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-							},
-						},
-						"spec": {
-							SchemaProps: spec.SchemaProps{
-								Description: "VM Spec contains the VM specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-							},
-						},
-						"spec": {
-							SchemaProps: spec.SchemaProps{
-								Description: "VM Spec contains the VM specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec"),
-							},
-						},
-						"status": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"type": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"status": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"lastProbeTime": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-							},
-						},
-						"lastTransitionTime": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-							},
-						},
-						"reason": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-						"message": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
-							},
-						},
-					},
-					Required: []string{"type", "status"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineList": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachineList is a list of VirtualMachines",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-							},
-						},
-						"items": {
-							SchemaProps: spec.SchemaProps{
-								Type: []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"),
-										},
-									},
-								},
-							},
-						},
-					},
-					Required: []string{"items"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineNetworkInterface": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"ipAddress": {
-							SchemaProps: spec.SchemaProps{
-								Description: "IP address of a Virtual Machine interface",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"mac": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Hardware address of a Virtual Machine interface",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePreset": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-							},
-						},
-						"spec": {
-							SchemaProps: spec.SchemaProps{
-								Description: "VM Spec contains the VM specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePresetSpec"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePresetSpec"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePresetList": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachinePresetList is a list of VirtualMachinePresets",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-							},
-						},
-						"items": {
-							SchemaProps: spec.SchemaProps{
-								Type: []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePreset"),
-										},
-									},
-								},
-							},
-						},
-					},
-					Required: []string{"items"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePreset"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePresetSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"selector": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Selector is a label query over a set of VMs. Required.",
-								Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-							},
-						},
-						"domain": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Domain is the same object type as contained in VirtualMachineSpec",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
-							},
-						},
-					},
-					Required: []string{"selector"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSet": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-							},
-						},
-						"spec": {
-							SchemaProps: spec.SchemaProps{
-								Description: "VM Spec contains the VM specification.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec"),
-							},
-						},
-						"status": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetStatus"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetSpec", "kubevirt.io/kubevirt/pkg/api/v1.VMReplicaSetStatus"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSetList": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "VMList is a list of VMs",
-					Properties: map[string]spec.Schema{
-						"kind": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"apiVersion": {
-							SchemaProps: spec.SchemaProps{
-								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-						"metadata": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-							},
-						},
-						"items": {
-							SchemaProps: spec.SchemaProps{
-								Type: []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSet"),
-										},
-									},
-								},
-							},
-						},
-					},
-					Required: []string{"items"},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSet"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachineSpec is a description of a VirtualMachine.",
+					Description: "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
 					Properties: map[string]spec.Schema{
 						"domain": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Specification of the desired behavior of the VirtualMachine on the host.",
+								Description: "Specification of the desired behavior of the VirtualMachineInstance on the host.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
 							},
 						},
 						"nodeSelector": {
 							SchemaProps: spec.SchemaProps{
-								Description: "NodeSelector is a selector which must be true for the vm to fit on a node. Selector which must match a node's labels for the vm to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+								Description: "NodeSelector is a selector which must be true for the vmi to fit on a node. Selector which must match a node's labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
 								Type:        []string{"object"},
 								AdditionalProperties: &spec.SchemaOrBool{
 									Schema: &spec.Schema{
@@ -1777,14 +1661,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"terminationGracePeriodSeconds": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
+								Description: "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
 								Type:        []string{"integer"},
 								Format:      "int64",
 							},
 						},
 						"volumes": {
 							SchemaProps: spec.SchemaProps{
-								Description: "List of volumes that can be mounted by disks belonging to the vm.",
+								Description: "List of volumes that can be mounted by disks belonging to the vmi.",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -1797,14 +1681,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"hostname": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Specifies the hostname of the vm If not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.",
+								Description: "Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"subdomain": {
 							SchemaProps: spec.SchemaProps{
-								Description: "If specified, the fully qualified vm hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm, no matter if the vm itself can pick up a hostname.",
+								Description: "If specified, the fully qualified vmi hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -1829,26 +1713,26 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus": {
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual state of a system.",
+					Description: "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual state of a system.",
 					Properties: map[string]spec.Schema{
 						"nodeName": {
 							SchemaProps: spec.SchemaProps{
-								Description: "NodeName is the name where the VM is currently running.",
+								Description: "NodeName is the name where the VirtualMachineInstance is currently running.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"conditions": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Conditions are specific points in VM's pod runtime.",
+								Description: "Conditions are specific points in VirtualMachineInstance's pod runtime.",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition"),
 										},
 									},
 								},
@@ -1856,7 +1740,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"phase": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
+								Description: "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -1868,7 +1752,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineNetworkInterface"),
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceNetworkInterface"),
 										},
 									},
 								},
@@ -1878,29 +1762,157 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineNetworkInterface"},
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceNetworkInterface"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+							},
+						},
+						"spec": {
+							SchemaProps: spec.SchemaProps{
+								Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineList": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineList is a list of virtualmachines",
+					Properties: map[string]spec.Schema{
+						"kind": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"apiVersion": {
+							SchemaProps: spec.SchemaProps{
+								Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"metadata": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+							},
+						},
+						"items": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Items is a list of VirtualMachines",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"),
+										},
+									},
+								},
+							},
+						},
+					},
+					Required: []string{"metadata", "items"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSpec": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineSpec describes how the proper VirtualMachine should look like",
+					Properties: map[string]spec.Schema{
+						"running": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Running controls whether the associatied VirtualMachineInstance is created or not",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"template": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Template is the direct specification of VirtualMachineInstance",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"),
+							},
+						},
+					},
+					Required: []string{"running", "template"},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "VirtualMachineStatus represents the status returned by the controller to describe how the VirtualMachine is doing",
+					Properties: map[string]spec.Schema{
+						"created": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Created indicates if the virtual machine is created in the cluster",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"ready": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Ready indicates if the virtual machine is running and ready",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"conditions": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Volume": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Volume represents a named volume in a vm.",
+					Description: "Volume represents a named volume in a vmi.",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Volume's name. Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+								Description: "Volume's name. Must be a DNS_LABEL and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
-								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vm via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
 								Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
 							},
 						},
 						"cloudInitNoCloud": {
 							SchemaProps: spec.SchemaProps{
-								Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+								Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource"),
 							},
 						},
@@ -1918,7 +1930,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"emptyDisk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "EmptyDisk represents a temporary disk which shares the vms lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+								Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},
@@ -1936,13 +1948,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
-								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vm via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
 								Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
 							},
 						},
 						"cloudInitNoCloud": {
 							SchemaProps: spec.SchemaProps{
-								Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+								Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource"),
 							},
 						},
@@ -1960,7 +1972,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"emptyDisk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "EmptyDisk represents a temporary disk which shares the vms lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+								Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},

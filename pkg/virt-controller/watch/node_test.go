@@ -31,44 +31,44 @@ var _ = Describe("Node controller with", func() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	var ctrl *gomock.Controller
-	var vmInterface *kubecli.MockVMInterface
+	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var nodeSource *framework.FakeControllerSource
 	var nodeInformer cache.SharedIndexInformer
-	var vmSource *framework.FakeControllerSource
-	var vmInformer cache.SharedIndexInformer
+	var vmiSource *framework.FakeControllerSource
+	var vmiInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *NodeController
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
-	var vmFeeder *testutils.VirtualMachineFeeder
+	var vmiFeeder *testutils.VirtualMachineFeeder
 
 	syncCaches := func(stop chan struct{}) {
 		go nodeInformer.Run(stop)
-		go vmInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, nodeInformer.HasSynced, vmInformer.HasSynced)).To(BeTrue())
+		go vmiInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop, nodeInformer.HasSynced, vmiInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVMInterface(ctrl)
+		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8sv1.Node{})
-		vmInformer, vmSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 		recorder = record.NewFakeRecorder(100)
 
-		controller = NewNodeController(virtClient, nodeInformer, vmInformer, recorder)
+		controller = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
-		vmFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmSource)
+		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
 		// Set up mock client
-		virtClient.EXPECT().VM(v1.NamespaceAll).Return(vmInterface).AnyTimes()
-		virtClient.EXPECT().VM(v1.NamespaceDefault).Return(vmInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(v1.NamespaceAll).Return(vmiInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(v1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
@@ -98,37 +98,37 @@ var _ = Describe("Node controller with", func() {
 		mockQueue.Wait()
 	}
 
-	Context("pods and vms given", func() {
-		It("should only select stuck vms", func() {
+	Context("pods and vmis given", func() {
+		It("should only select stuck vmis", func() {
 			node := NewHealthyNode("test")
-			finalVM := NewRunningVirtualMachine("finalVM", node)
-			finalVM.Status.Phase = virtv1.Succeeded
-			vmWithPod := NewRunningVirtualMachine("vmWithPod", node)
-			podForVM := NewHealthyPodForVirtualMachine("podForVM", vmWithPod)
-			vmWithPodInDifferentNamespace := NewRunningVirtualMachine("vmWithPodInDifferentNamespace", node)
-			podInDifferentNamespace := NewHealthyPodForVirtualMachine("podInDifferentnamespace", vmWithPodInDifferentNamespace)
+			finalVMI := NewRunningVirtualMachine("finalVMI", node)
+			finalVMI.Status.Phase = virtv1.Succeeded
+			vmiWithPod := NewRunningVirtualMachine("vmiWithPod", node)
+			podForVMI := NewHealthyPodForVirtualMachine("podForVMI", vmiWithPod)
+			vmiWithPodInDifferentNamespace := NewRunningVirtualMachine("vmiWithPodInDifferentNamespace", node)
+			podInDifferentNamespace := NewHealthyPodForVirtualMachine("podInDifferentnamespace", vmiWithPodInDifferentNamespace)
 			podInDifferentNamespace.Namespace = "wrong"
-			vmWithoutPod := NewRunningVirtualMachine("vmWithoutPod", node)
+			vmiWithoutPod := NewRunningVirtualMachine("vmiWithoutPod", node)
 
-			vms := filterStuckVirtualMachinesWithoutPods([]*virtv1.VirtualMachine{
-				finalVM,
-				vmWithPod,
-				vmWithPodInDifferentNamespace,
-				vmWithoutPod,
+			vmis := filterStuckVirtualMachinesWithoutPods([]*virtv1.VirtualMachineInstance{
+				finalVMI,
+				vmiWithPod,
+				vmiWithPodInDifferentNamespace,
+				vmiWithoutPod,
 			}, []*k8sv1.Pod{
-				podForVM,
+				podForVMI,
 				podInDifferentNamespace,
 			})
 
-			By("filtering out vms in final state")
-			Expect(vms).ToNot(ContainElement(finalVM))
+			By("filtering out vmis in final state")
+			Expect(vmis).ToNot(ContainElement(finalVMI))
 
-			By("filtering out vms which have a pod")
-			Expect(vms).ToNot(ContainElement(vmWithPod))
+			By("filtering out vmis which have a pod")
+			Expect(vmis).ToNot(ContainElement(vmiWithPod))
 
-			By("keeping vms which are running und have no pod in their namespace")
-			Expect(vms).To(ContainElement(vmWithoutPod))
-			Expect(vms).To(ContainElement(vmWithPodInDifferentNamespace))
+			By("keeping vmis which are running und have no pod in their namespace")
+			Expect(vmis).To(ContainElement(vmiWithoutPod))
+			Expect(vmis).To(ContainElement(vmiWithPodInDifferentNamespace))
 		})
 	})
 
@@ -156,63 +156,63 @@ var _ = Describe("Node controller with", func() {
 				return true, nil, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{}, nil)
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{}, nil)
 
 			controller.Execute()
 		})
-		table.DescribeTable("should set a vm without a pod to failed state if the vm is in ", func(phase virtv1.VMPhase) {
+		table.DescribeTable("should set a vmi without a pod to failed state if the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
 			node := NewUnhealthyNode("testnode")
-			vm := NewRunningVirtualMachine("vm1", node)
-			vm.Status.Phase = phase
+			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi.Status.Phase = phase
 
 			addNode(node)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
-			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		},
 			table.Entry("running state", virtv1.Running),
 			table.Entry("scheduled state", virtv1.Scheduled),
 		)
-		It("should set multiple vms to failed in one go, even if some updates fail", func() {
+		It("should set multiple vmis to failed in one go, even if some updates fail", func() {
 			node := NewUnhealthyNode("testnode")
-			vm := NewRunningVirtualMachine("vm", node)
-			vm1 := NewRunningVirtualMachine("vm1", node)
-			vm2 := NewRunningVirtualMachine("vm2", node)
+			vmi := NewRunningVirtualMachine("vmi", node)
+			vmi1 := NewRunningVirtualMachine("vmi1", node)
+			vmi2 := NewRunningVirtualMachine("vmi2", node)
 
 			addNode(node)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm, *vm1, *vm2}}, nil)
-			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any()).Times(1)
-			vmInterface.EXPECT().Patch(vm1.Name, types.JSONPatchType, gomock.Any()).Return(nil, fmt.Errorf("some error")).Times(1)
-			vmInterface.EXPECT().Patch(vm2.Name, types.JSONPatchType, gomock.Any()).Times(1)
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi, *vmi1, *vmi2}}, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Times(1)
+			vmiInterface.EXPECT().Patch(vmi1.Name, types.JSONPatchType, gomock.Any()).Return(nil, fmt.Errorf("some error")).Times(1)
+			vmiInterface.EXPECT().Patch(vmi2.Name, types.JSONPatchType, gomock.Any()).Times(1)
 
 			controller.Execute()
 		})
-		It("should set a vm without a pod to failed state, triggered by vm add event", func() {
+		It("should set a vmi without a pod to failed state, triggered by vmi add event", func() {
 			node := NewUnhealthyNode("testnode")
-			vm := NewRunningVirtualMachine("vm1", node)
+			vmi := NewRunningVirtualMachine("vmi1", node)
 
-			vmFeeder.Add(vm)
+			vmiFeeder.Add(vmi)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
-			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		})
-		It("should set a vm without a pod to failed state, triggered by node update", func() {
+		It("should set a vmi without a pod to failed state, triggered by node update", func() {
 			node := NewUnhealthyNode("testnode")
-			vm := NewRunningVirtualMachine("vm1", node)
+			vmi := NewRunningVirtualMachine("vmi1", node)
 
 			nodeInformer.GetStore().Add(node)
 			modifyNode(node.DeepCopy())
@@ -220,14 +220,14 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
-			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		})
-		It("should set a vm without a pod to failed state, triggered by node delete", func() {
+		It("should set a vmi without a pod to failed state, triggered by node delete", func() {
 			node := NewUnhealthyNode("testnode")
-			vm := NewRunningVirtualMachine("vm1", node)
+			vmi := NewRunningVirtualMachine("vmi1", node)
 
 			nodeInformer.GetStore().Add(node)
 			deleteNode(node.DeepCopy())
@@ -235,37 +235,37 @@ var _ = Describe("Node controller with", func() {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
-			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		})
-		It("should set a vm without a pod to failed state, triggered by vm modify event", func() {
+		It("should set a vmi without a pod to failed state, triggered by vmi modify event", func() {
 			node := NewUnhealthyNode("testnode")
-			vm := NewRunningVirtualMachine("vm1", node)
+			vmi := NewRunningVirtualMachine("vmi1", node)
 
-			vmInformer.GetStore().Add(vm)
-			vmFeeder.Modify(vm)
+			vmiInformer.GetStore().Add(vmi)
+			vmiFeeder.Modify(vmi)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
-			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		})
-		table.DescribeTable("should ignore a vm without a pod if the vm is in ", func(phase virtv1.VMPhase) {
+		table.DescribeTable("should ignore a vmi without a pod if the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
 			node := NewUnhealthyNode("testnode")
-			vm := NewRunningVirtualMachine("vm1", node)
-			vm.Status.Phase = phase
+			vmi := NewRunningVirtualMachine("vmi1", node)
+			vmi.Status.Phase = phase
 
 			addNode(node)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, &k8sv1.PodList{}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
 
 			controller.Execute()
 		},
@@ -275,21 +275,21 @@ var _ = Describe("Node controller with", func() {
 			table.Entry("failed state", virtv1.Failed),
 			table.Entry("failed state", virtv1.Succeeded),
 		)
-		table.DescribeTable("should ignore a vm which still has a pod in", func(phase virtv1.VMPhase) {
+		table.DescribeTable("should ignore a vmi which still has a pod in", func(phase virtv1.VirtualMachineInstancePhase) {
 			node := NewUnhealthyNode("testnode")
-			vm := NewRunningVirtualMachine("vm", node)
-			vm.Status.Phase = phase
-			vm1 := NewRunningVirtualMachine("vm1", node)
-			vm1.Status.Phase = phase
+			vmi := NewRunningVirtualMachine("vmi", node)
+			vmi.Status.Phase = phase
+			vmi1 := NewRunningVirtualMachine("vmi1", node)
+			vmi1.Status.Phase = phase
 
 			addNode(node)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, &k8sv1.PodList{Items: []k8sv1.Pod{*NewHealthyPodForVirtualMachine("whatever", vm1)}}, nil
+				return true, &k8sv1.PodList{Items: []k8sv1.Pod{*NewHealthyPodForVirtualMachine("whatever", vmi1)}}, nil
 			})
 
-			vmInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineList{Items: []virtv1.VirtualMachine{*vm}}, nil)
-			By("checking that only a vm with a pod gets removed")
-			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			By("checking that only a vmi with a pod gets removed")
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
 
 			controller.Execute()
 		},
@@ -337,26 +337,26 @@ func nowAsJSONWithOffset(offset time.Duration) string {
 	return strings.Trim(string(data), `"`)
 }
 
-func NewRunningVirtualMachine(vmName string, node *k8sv1.Node) *virtv1.VirtualMachine {
-	vm := virtv1.NewMinimalVM(vmName)
-	vm.UID = "1234"
-	vm.Status.Phase = virtv1.Running
-	vm.Status.NodeName = node.Name
-	addInitializedAnnotation(vm)
-	vm.Labels = map[string]string{
+func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *virtv1.VirtualMachineInstance {
+	vmi := virtv1.NewMinimalVMI(vmiName)
+	vmi.UID = "1234"
+	vmi.Status.Phase = virtv1.Running
+	vmi.Status.NodeName = node.Name
+	addInitializedAnnotation(vmi)
+	vmi.Labels = map[string]string{
 		virtv1.NodeNameLabel: node.Name,
 	}
-	return vm
+	return vmi
 }
 
-func NewHealthyPodForVirtualMachine(podName string, vm *virtv1.VirtualMachine) *k8sv1.Pod {
+func NewHealthyPodForVirtualMachine(podName string, vmi *virtv1.VirtualMachineInstance) *k8sv1.Pod {
 	return &k8sv1.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      podName,
 			Namespace: k8sv1.NamespaceDefault,
 			Labels: map[string]string{
-				virtv1.DomainLabel: vm.Name,
+				virtv1.DomainLabel: vmi.Name,
 			},
 		},
-		Spec: k8sv1.PodSpec{NodeName: vm.Status.NodeName}}
+		Spec: k8sv1.PodSpec{NodeName: vmi.Status.NodeName}}
 }

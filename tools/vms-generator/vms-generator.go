@@ -32,28 +32,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"encoding/json"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 const (
-	vmEphemeral   = "vm-ephemeral"
-	vmFlavorSmall = "vm-flavor-small"
-	vmSata        = "vm-sata"
-	vmFedora      = "vm-fedora"
-	vmNoCloud     = "vm-nocloud"
-	vmPvc         = "vm-pvc"
-	vmWindows     = "vm-windows"
+	vmiEphemeral      = "vmi-ephemeral"
+	vmiFlavorSmall    = "vmi-flavor-small"
+	vmiSata           = "vmi-sata"
+	vmiFedora         = "vmi-fedora"
+	vmiNoCloud        = "vmi-nocloud"
+	vmiPVC            = "vmi-pvc"
+	vmiWindows        = "vmi-windows"
+	vmTemplateFedora  = "vmi-template-fedora"
+	vmTemplateRHEL7   = "vmi-template-rhel7"
+	vmTemplateWindows = "vmi-template-windows2012r2"
 	vmSlirp       = "vm-slirp"
 )
 
 const (
-	ovmCirros         = "ovm-cirros"
-	ovmAlpineMultiPvc = "ovm-alpine-multipvc"
+	vmCirros         = "vm-cirros"
+	vmAlpineMultiPvc = "vm-alpine-multipvc"
 )
 
-const vmReplicaSetCirros = "vm-replicaset-cirros"
+const vmiReplicaSetCirros = "vm-replicaset-cirros"
 
-const vmPresetSmall = "vm-preset-small"
+const vmiPresetSmall = "vm-preset-small"
 
 const (
 	busVirtio = "virtio"
@@ -67,15 +75,15 @@ const (
 
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 
-const apiVersion = "kubevirt.io/v1alpha1"
+const apiVersion = "kubevirt.io/v1alpha2"
 
 var dockerPrefix = "registry:5000/kubevirt"
 var dockerTag = "devel"
 
 var gracePeriod = int64(0)
 
-func getBaseVmSpec() *v1.VirtualMachineSpec {
-	return &v1.VirtualMachineSpec{
+func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
+	return &v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
 			Resources: v1.ResourceRequirements{
@@ -87,23 +95,23 @@ func getBaseVmSpec() *v1.VirtualMachineSpec {
 	}
 }
 
-func getBaseVm(name string) *v1.VirtualMachine {
-	baseVmSpec := getBaseVmSpec()
+func getBaseVMI(name string) *v1.VirtualMachineInstance {
+	baseVMISpec := getBaseVMISpec()
 
-	return &v1.VirtualMachine{
+	return &v1.VirtualMachineInstance{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: apiVersion,
-			Kind:       "VirtualMachine",
+			Kind:       "VirtualMachineInstance",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: map[string]string{"special": name},
 		},
-		Spec: *baseVmSpec,
+		Spec: *baseVMISpec,
 	}
 }
 
-func addRegistryDisk(spec *v1.VirtualMachineSpec, image string, bus string) *v1.VirtualMachineSpec {
+func addRegistryDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices = v1.Devices{
 		Disks: []v1.Disk{
 			{
@@ -130,11 +138,11 @@ func addRegistryDisk(spec *v1.VirtualMachineSpec, image string, bus string) *v1.
 	return spec
 }
 
-func addNoCloudDisk(spec *v1.VirtualMachineSpec) *v1.VirtualMachineSpec {
+func addNoCloudDisk(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
 	return addNoCloudDiskWitUserData(spec, "#!/bin/sh\n\necho 'printed from cloud-init userdata'\n")
 }
 
-func addNoCloudDiskWitUserData(spec *v1.VirtualMachineSpec, data string) *v1.VirtualMachineSpec {
+func addNoCloudDiskWitUserData(spec *v1.VirtualMachineInstanceSpec, data string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "cloudinitdisk",
 		VolumeName: "cloudinitvolume",
@@ -156,7 +164,7 @@ func addNoCloudDiskWitUserData(spec *v1.VirtualMachineSpec, data string) *v1.Vir
 	return spec
 }
 
-func addEmptyDisk(spec *v1.VirtualMachineSpec, size string) *v1.VirtualMachineSpec {
+func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "emptydisk",
 		VolumeName: "emptydiskvolume",
@@ -178,7 +186,7 @@ func addEmptyDisk(spec *v1.VirtualMachineSpec, size string) *v1.VirtualMachineSp
 	return spec
 }
 
-func addPvcDisk(spec *v1.VirtualMachineSpec, claimName string, bus string, diskName string, volumeName string) *v1.VirtualMachineSpec {
+func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
 		Name:       diskName,
 		VolumeName: volumeName,
@@ -200,27 +208,27 @@ func addPvcDisk(spec *v1.VirtualMachineSpec, claimName string, bus string, diskN
 	return spec
 }
 
-func getVmEphemeral() *v1.VirtualMachine {
-	vm := getBaseVm(vmEphemeral)
+func getVMIEphemeral() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiEphemeral)
 
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
-	return vm
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
+	return vmi
 }
 
-func getVmSata() *v1.VirtualMachine {
-	vm := getBaseVm(vmSata)
+func getVMISata() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiSata)
 
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busSata)
-	return vm
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busSata)
+	return vmi
 }
 
-func getVmEphemeralFedora() *v1.VirtualMachine {
-	vm := getBaseVm(vmFedora)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+func getVMIEphemeralFedora() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiFedora)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
-	addNoCloudDiskWitUserData(&vm.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
-	return vm
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	return vmi
 }
 
 func getVmSlirp() *v1.VirtualMachine {
@@ -237,40 +245,41 @@ func getVmSlirp() *v1.VirtualMachine {
 	return vm
 }
 
-func getVmNoCloud() *v1.VirtualMachine {
-	vm := getBaseVm(vmNoCloud)
 
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
-	addNoCloudDisk(&vm.Spec)
-	addEmptyDisk(&vm.Spec, "2Gi")
-	return vm
+func getVMINoCloud() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiNoCloud)
+
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
+	addNoCloudDisk(&vmi.Spec)
+	addEmptyDisk(&vmi.Spec, "2Gi")
+	return vmi
 }
 
-func getVmFlavorSmall() *v1.VirtualMachine {
-	vm := getBaseVm(vmFlavorSmall)
-	vm.ObjectMeta.Labels = map[string]string{
+func getVMIFlavorSmall() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiFlavorSmall)
+	vmi.ObjectMeta.Labels = map[string]string{
 		"kubevirt.io/flavor": "small",
 	}
 
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
-	return vm
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
+	return vmi
 }
 
-func getVmPvc() *v1.VirtualMachine {
-	vm := getBaseVm(vmPvc)
+func getVMIPvc() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiPVC)
 
-	addPvcDisk(&vm.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
-	return vm
+	addPVCDisk(&vmi.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
+	return vmi
 }
 
-func getVmWindows() *v1.VirtualMachine {
-	vm := getBaseVm(vmWindows)
+func getVMIWindows() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiWindows)
 
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(windowsFirmware)
 	_false := false
-	vm.Spec = v1.VirtualMachineSpec{
+	vmi.Spec = v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
 			CPU: &v1.CPU{Cores: 2},
@@ -283,6 +292,7 @@ func getVmWindows() *v1.VirtualMachine {
 					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
 				},
 			},
+			Machine: v1.Machine{Type: "q35"},
 			Clock: &v1.Clock{
 				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				Timer: &v1.Timer{
@@ -302,103 +312,243 @@ func getVmWindows() *v1.VirtualMachine {
 	}
 
 	// pick e1000 network model type for windows machines
-	vm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
+	vmi.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
 
-	addPvcDisk(&vm.Spec, "disk-windows", busSata, "pvcdisk", "pvcvolume")
-	return vm
+	addPVCDisk(&vmi.Spec, "disk-windows", busSata, "pvcdisk", "pvcvolume")
+	return vmi
 }
 
-func getBaseOvm(name string, labels map[string]string) *v1.OfflineVirtualMachine {
-	baseVmSpec := getBaseVmSpec()
+func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
+	baseVMISpec := getBaseVMISpec()
 
-	return &v1.OfflineVirtualMachine{
+	return &v1.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: apiVersion,
-			Kind:       "OfflineVirtualMachine",
+			Kind:       "VirtualMachine",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: labels,
 		},
-		Spec: v1.OfflineVirtualMachineSpec{
+		Spec: v1.VirtualMachineSpec{
 			Running: false,
-			Template: &v1.VMTemplateSpec{
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
-				Spec: *baseVmSpec,
+				Spec: *baseVMISpec,
 			},
 		},
 	}
 }
 
-func getOvmCirros() *v1.OfflineVirtualMachine {
-	ovm := getBaseOvm(ovmCirros, map[string]string{
-		"kubevirt.io/ovm": ovmCirros,
+func getVMCirros() *v1.VirtualMachine {
+	vm := getBaseVM(vmCirros, map[string]string{
+		"kubevirt.io/vm": vmCirros,
 	})
 
-	addRegistryDisk(&ovm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
-	addNoCloudDisk(&ovm.Spec.Template.Spec)
-	return ovm
+	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
+	addNoCloudDisk(&vm.Spec.Template.Spec)
+	return vm
 }
 
-func getOvmMultiPvc() *v1.OfflineVirtualMachine {
-	ovm := getBaseOvm(ovmAlpineMultiPvc, map[string]string{
-		"kubevirt.io/ovm": ovmAlpineMultiPvc,
-	})
+func getTemplateFedora() *Template {
+	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}"})
+	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec.Template.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
-	addPvcDisk(&ovm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
-	addPvcDisk(&ovm.Spec.Template.Spec, "disk-custom", busVirtio, "pvcdisk2", "pvcvolume2")
-
-	return ovm
+	template := getBaseTemplate(vm, "4096Mi", "4")
+	template.ObjectMeta = metav1.ObjectMeta{
+		Name: vmTemplateFedora,
+		Annotations: map[string]string{
+			"description": "OCP KubeVirt Fedora 27 VM template",
+			"tags":        "kubevirt,ocp,template,linux",
+			"iconClass":   "icon-fedora",
+		},
+		Labels: map[string]string{
+			"kubevirt.io/os":                        "fedora27",
+			"miq.github.io/kubevirt-is-vm-template": "true",
+		},
+	}
+	return template
 }
 
-func getBaseVmReplicaSet(name string, replicas int, selectorLabels map[string]string) *v1.VirtualMachineReplicaSet {
-	baseVmSpec := getBaseVmSpec()
-	replicasInt32 := int32(replicas)
+func getTemplateRHEL7() *Template {
+	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}"})
+	addPVCDisk(&vm.Spec.Template.Spec, "linux-vm-pvc-${NAME}", busVirtio, "disk0", "disk0-pvc")
 
-	return &v1.VirtualMachineReplicaSet{
+	pvc := getPVCForTemplate("linux-vm-pvc-${NAME}")
+
+	template := getBaseTemplate(vm, "4096Mi", "4")
+	template.ObjectMeta = metav1.ObjectMeta{
+		Name: vmTemplateRHEL7,
+		Annotations: map[string]string{
+			"iconClass":   "icon-rhel",
+			"description": "OCP KubeVirt Red Hat Enterprise Linux 7.4 VM template",
+			"tags":        "kubevirt,ocp,template,linux,virtualmachine",
+		},
+		Labels: map[string]string{
+			"kubevirt.io/os":                        "rhel-7.4",
+			"miq.github.io/kubevirt-is-vm-template": "true",
+		},
+	}
+	template.Objects = append(template.Objects, pvc)
+	return template
+}
+
+func getTemplateWindows() *Template {
+	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}"})
+	windows := getVMIWindows()
+	vm.Spec.Template.Spec = windows.Spec
+	vm.Spec.Template.ObjectMeta.Annotations = windows.ObjectMeta.Annotations
+	addPVCDisk(&vm.Spec.Template.Spec, "windows-vm-pvc-${NAME}", busVirtio, "disk0", "disk0-pvc")
+
+	pvc := getPVCForTemplate("windows-vm-pvc-${NAME}")
+
+	template := getBaseTemplate(vm, "4096Mi", "4")
+	template.ObjectMeta = metav1.ObjectMeta{
+		Name: vmTemplateWindows,
+		Annotations: map[string]string{
+			"iconClass":   "icon-windows",
+			"description": "OCP KubeVirt Microsoft Windows Server 2012 R2 VM template",
+			"tags":        "kubevirt,ocp,template,windows,virtualmachine",
+		},
+		Labels: map[string]string{
+			"kubevirt.io/os":                        "win2k12r2",
+			"miq.github.io/kubevirt-is-vm-template": "true",
+		},
+	}
+	template.Objects = append(template.Objects, pvc)
+	return template
+}
+
+func getPVCForTemplate(name string) *k8sv1.PersistentVolumeClaim {
+
+	return &k8sv1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: apiVersion,
-			Kind:       "VirtualMachineReplicaSet",
+			Kind:       "PersistentVolumeClaim",
+			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1.VMReplicaSetSpec{
-			Replicas: &replicasInt32,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: selectorLabels,
-			},
-			Template: &v1.VMTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: selectorLabels,
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("10Gi"),
 				},
-				Spec: *baseVmSpec,
 			},
 		},
 	}
 }
 
-func getVmReplicaSetCirros() *v1.VirtualMachineReplicaSet {
-	vmReplicaSet := getBaseVmReplicaSet(vmReplicaSetCirros, 3, map[string]string{
-		"kubevirt.io/vmReplicaSet": vmReplicaSetCirros,
+func getBaseTemplate(vm *v1.VirtualMachine, memory string, cores string) *Template {
+
+	obj := toUnstructured(vm)
+	unstructured.SetNestedField(obj.Object, "${CPU_CORES}", "spec", "template", "spec", "domain", "cpu")
+	unstructured.SetNestedField(obj.Object, "${MEMORY}", "spec", "template", "spec", "domain", "resources", "requests", "memory")
+	obj.SetName("${NAME}")
+
+	return &Template{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Template",
+			APIVersion: "v1",
+		},
+		Objects: []runtime.Object{
+			obj,
+		},
+		Parameters: templateParameters(memory, cores),
+	}
+}
+
+func toUnstructured(object runtime.Object) *unstructured.Unstructured {
+	raw, err := json.Marshal(object)
+	if err != nil {
+		panic(err)
+	}
+	var objmap map[string]interface{}
+	err = json.Unmarshal(raw, &objmap)
+
+	return &unstructured.Unstructured{Object: objmap}
+}
+
+func templateParameters(memory string, cores string) []Parameter {
+	return []Parameter{
+		{
+			Name:        "NAME",
+			Description: "Name for the new VM",
+		},
+		{
+			Name:        "MEMORY",
+			Description: "Amount of memory",
+			Value:       memory,
+		},
+		{
+			Name:        "CPU_CORES",
+			Description: "Amount of cores",
+			Value:       cores,
+		},
+	}
+}
+
+func getVMMultiPvc() *v1.VirtualMachine {
+	vm := getBaseVM(vmAlpineMultiPvc, map[string]string{
+		"kubevirt.io/vm": vmAlpineMultiPvc,
+	})
+
+	addPVCDisk(&vm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
+	addPVCDisk(&vm.Spec.Template.Spec, "disk-custom", busVirtio, "pvcdisk2", "pvcvolume2")
+
+	return vm
+}
+
+func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]string) *v1.VirtualMachineInstanceReplicaSet {
+	baseVMISpec := getBaseVMISpec()
+	replicasInt32 := int32(replicas)
+
+	return &v1.VirtualMachineInstanceReplicaSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: apiVersion,
+			Kind:       "VirtualMachineInstanceReplicaSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
+			Replicas: &replicasInt32,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: selectorLabels,
+			},
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: selectorLabels,
+				},
+				Spec: *baseVMISpec,
+			},
+		},
+	}
+}
+
+func getVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
+	vmReplicaSet := getBaseVMIReplicaSet(vmiReplicaSetCirros, 3, map[string]string{
+		"kubevirt.io/vmReplicaSet": vmiReplicaSetCirros,
 	})
 
 	addRegistryDisk(&vmReplicaSet.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
 	return vmReplicaSet
 }
 
-func getBaseVmPreset(name string, selectorLabels map[string]string) *v1.VirtualMachinePreset {
-	return &v1.VirtualMachinePreset{
+func getBaseVMIPreset(name string, selectorLabels map[string]string) *v1.VirtualMachineInstancePreset {
+	return &v1.VirtualMachineInstancePreset{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: apiVersion,
-			Kind:       "VirtualMachinePreset",
+			Kind:       "VirtualMachineInstancePreset",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1.VirtualMachinePresetSpec{
+		Spec: v1.VirtualMachineInstancePresetSpec{
 			Selector: metav1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
@@ -406,9 +556,9 @@ func getBaseVmPreset(name string, selectorLabels map[string]string) *v1.VirtualM
 	}
 }
 
-func getVmPresetSmall() *v1.VirtualMachinePreset {
-	vmPreset := getBaseVmPreset(vmPresetSmall, map[string]string{
-		"kubevirt.io/vmPreset": vmPresetSmall,
+func getVMIPresetSmall() *v1.VirtualMachineInstancePreset {
+	vmPreset := getBaseVMIPreset(vmiPresetSmall, map[string]string{
+		"kubevirt.io/vmPreset": vmiPresetSmall,
 	})
 
 	vmPreset.Spec.Domain = &v1.DomainSpec{
@@ -428,17 +578,20 @@ func main() {
 	flag.Parse()
 
 	var vms = map[string]interface{}{
-		vmEphemeral:        getVmEphemeral(),
-		vmFlavorSmall:      getVmFlavorSmall(),
-		vmSata:             getVmSata(),
-		vmFedora:           getVmEphemeralFedora(),
-		vmNoCloud:          getVmNoCloud(),
-		vmPvc:              getVmPvc(),
-		vmWindows:          getVmWindows(),
-		ovmCirros:          getOvmCirros(),
-		ovmAlpineMultiPvc:  getOvmMultiPvc(),
-		vmReplicaSetCirros: getVmReplicaSetCirros(),
-		vmPresetSmall:      getVmPresetSmall(),
+		vmiEphemeral:        getVMIEphemeral(),
+		vmiFlavorSmall:      getVMIFlavorSmall(),
+		vmiSata:             getVMISata(),
+		vmiFedora:           getVMIEphemeralFedora(),
+		vmiNoCloud:          getVMINoCloud(),
+		vmiPVC:              getVMIPvc(),
+		vmiWindows:          getVMIWindows(),
+		vmCirros:            getVMCirros(),
+		vmAlpineMultiPvc:    getVMMultiPvc(),
+		vmiReplicaSetCirros: getVMIReplicaSetCirros(),
+		vmiPresetSmall:      getVMIPresetSmall(),
+		vmTemplateFedora:    getTemplateFedora(),
+		vmTemplateRHEL7:     getTemplateRHEL7(),
+		vmTemplateWindows:   getTemplateWindows(),
 		vmSlirp:            getVmSlirp(),
 	}
 	for name, obj := range vms {

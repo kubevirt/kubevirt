@@ -85,9 +85,9 @@ var _ = Describe("Converter", func() {
 
 	})
 
-	Context("with v1.VirtualMachine", func() {
+	Context("with v1.VirtualMachineInstance", func() {
 
-		var vm *v1.VirtualMachine
+		var vmi *v1.VirtualMachineInstance
 		_false := false
 		_true := true
 		domainType := "kvm"
@@ -97,14 +97,14 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 
-			vm = &v1.VirtualMachine{
+			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvm",
+					Name:      "testvmi",
 					Namespace: "mynamespace",
 				},
 			}
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 				Name: "mywatchdog",
 				WatchdogDevice: v1.WatchdogDevice{
 					I6300ESB: &v1.I6300ESBWatchdog{
@@ -112,7 +112,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			vm.Spec.Domain.Clock = &v1.Clock{
+			vmi.Spec.Domain.Clock = &v1.Clock{
 				ClockOffset: v1.ClockOffset{
 					UTC: &v1.ClockOffsetUTC{},
 				},
@@ -138,7 +138,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			vm.Spec.Domain.Features = &v1.Features{
+			vmi.Spec.Domain.Features = &v1.Features{
 				APIC: &v1.FeatureAPIC{},
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:    &v1.FeatureState{Enabled: &_false},
@@ -152,7 +152,7 @@ var _ = Describe("Converter", func() {
 					VendorID:   &v1.FeatureVendorID{Enabled: &_false, VendorID: "myvendor"},
 				},
 			}
-			vm.Spec.Domain.Devices.Disks = []v1.Disk{
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name:       "mydisk",
 					VolumeName: "myvolume",
@@ -215,7 +215,7 @@ var _ = Describe("Converter", func() {
 					VolumeName: "volume5",
 				},
 			}
-			vm.Spec.Volumes = []v1.Volume{
+			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
 					VolumeSource: v1.VolumeSource{
@@ -283,18 +283,18 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			vm.Spec.Domain.Firmware = &v1.Firmware{
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				UUID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
 			}
 
 			gracePerod := int64(5)
-			vm.Spec.TerminationGracePeriodSeconds = &gracePerod
+			vmi.Spec.TerminationGracePeriodSeconds = &gracePerod
 
-			vm.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
+			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
 
 		var convertedDomain = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <name>mynamespace_testvm</name>
+  <name>mynamespace_testvmi</name>
   <memory unit="B">8388608</memory>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
@@ -315,48 +315,48 @@ var _ = Describe("Converter", func() {
       <model type="vga" heads="1" vram="16384"></model>
     </video>
     <graphics type="vnc">
-      <listen type="socket" socket="/var/run/kubevirt-private/mynamespace/testvm/virt-vnc"></listen>
+      <listen type="socket" socket="/var/run/kubevirt-private/mynamespace/testvmi/virt-vnc"></listen>
     </graphics>
     <disk device="disk" type="file">
-      <source file="/var/run/kubevirt-private/vm-disks/myvolume/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso"></source>
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="mydisk1"></alias>
     </disk>
     <disk device="cdrom" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvm/noCloud.iso"></source>
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="sata" dev="sda" tray="closed"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">
-      <source file="/var/run/kubevirt-private/vm-disks/volume1/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/volume1/disk.img"></source>
       <target bus="sata" dev="sdb" tray="open"></target>
       <driver name="qemu" type="raw"></driver>
       <readonly></readonly>
       <alias name="cdrom_tray_open"></alias>
     </disk>
     <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vm-disks/volume2/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/volume2/disk.img"></source>
       <target bus="fdc" dev="fda" tray="closed"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="floppy_tray_unspecified"></alias>
     </disk>
     <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vm-disks/volume3/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/volume3/disk.img"></source>
       <target bus="fdc" dev="fdb" tray="open"></target>
       <driver name="qemu" type="raw"></driver>
       <readonly></readonly>
       <alias name="floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/kubevirt-private/vm-disks/volume4/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/volume4/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="should_default_to_disk"></alias>
@@ -368,12 +368,12 @@ var _ = Describe("Converter", func() {
       <alias name="ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
-        <source file="/var/run/kubevirt-private/vm-disks/volume5/disk.img"></source>
+        <source file="/var/run/kubevirt-private/vmi-disks/volume5/disk.img"></source>
       </backingStore>
     </disk>
     <serial type="unix">
       <target port="0"></target>
-      <source mode="bind" path="/var/run/kubevirt-private/mynamespace/testvm/virt-serial0"></source>
+      <source mode="bind" path="/var/run/kubevirt-private/mynamespace/testvmi/virt-serial0"></source>
     </serial>
     <console type="pty">
       <target type="serial" port="0"></target>
@@ -419,7 +419,7 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 			c = &ConverterContext{
-				VirtualMachine: vm,
+				VirtualMachine: vmi,
 				Secrets: map[string]*k8sv1.Secret{
 					"mysecret": {
 						Data: map[string][]byte{
@@ -431,33 +431,33 @@ var _ = Describe("Converter", func() {
 			}
 		})
 
-		It("should be converted to a libvirt Domain with vm defaults set", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			Expect(vmToDomainXML(vm, c)).To(Equal(convertedDomain))
+		It("should be converted to a libvirt Domain with vmi defaults set", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			Expect(vmiToDomainXML(vmi, c)).To(Equal(convertedDomain))
 		})
 
 		It("should use kvm if present", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			Expect(vmToDomainXMLToDomainSpec(vm, c).Type).To(Equal(domainType))
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal(domainType))
 		})
 
 		It("should convert CPU cores", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm.Spec.Domain.CPU = &v1.CPU{
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores: 3,
 			}
-			Expect(vmToDomainXMLToDomainSpec(vm, c).CPU.Topology.Cores).To(Equal(uint32(3)))
-			Expect(vmToDomainXMLToDomainSpec(vm, c).CPU.Topology.Sockets).To(Equal(uint32(1)))
-			Expect(vmToDomainXMLToDomainSpec(vm, c).CPU.Topology.Threads).To(Equal(uint32(1)))
-			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.Placement).To(Equal("static"))
-			Expect(vmToDomainXMLToDomainSpec(vm, c).VCPU.CPUs).To(Equal(uint32(3)))
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Cores).To(Equal(uint32(3)))
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Sockets).To(Equal(uint32(1)))
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Threads).To(Equal(uint32(1)))
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).VCPU.Placement).To(Equal("static"))
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).VCPU.CPUs).To(Equal(uint32(3)))
 
 		})
 
 		It("should select explicitly chosen network model", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
-			domain := vmToDomain(vm, c)
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
+			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
 
@@ -516,16 +516,16 @@ func diskToDiskXML(disk *v1.Disk) string {
 	return string(data)
 }
 
-func vmToDomainXML(vm *v1.VirtualMachine, c *ConverterContext) string {
-	domain := vmToDomain(vm, c)
+func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *ConverterContext) string {
+	domain := vmiToDomain(vmi, c)
 	data, err := xml.MarshalIndent(domain.Spec, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 	return string(data)
 }
 
-func vmToDomain(vm *v1.VirtualMachine, c *ConverterContext) *Domain {
+func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *Domain {
 	domain := &Domain{}
-	Expect(Convert_v1_VirtualMachine_To_api_Domain(vm, domain, c)).To(Succeed())
+	Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 	SetObjectDefaults_Domain(domain)
 	return domain
 }
@@ -539,6 +539,6 @@ func xmlToDomainSpec(data string) *DomainSpec {
 	return newDomain
 }
 
-func vmToDomainXMLToDomainSpec(vm *v1.VirtualMachine, c *ConverterContext) *DomainSpec {
-	return xmlToDomainSpec(vmToDomainXML(vm, c))
+func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterContext) *DomainSpec {
+	return xmlToDomainSpec(vmiToDomainXML(vmi, c))
 }

@@ -1,0 +1,26 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
+metadata:
+  creationTimestamp: null
+  labels:
+    special: vmi-sata
+  name: vmi-sata
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: sata
+        name: registrydisk
+        volumeName: registryvolume
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 64M
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: registryvolume
+    registryDisk:
+      image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
+status: {}

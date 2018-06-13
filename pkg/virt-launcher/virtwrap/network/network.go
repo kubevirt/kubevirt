@@ -49,10 +49,10 @@ type NetworkInterface interface {
 	Unplug()
 }
 
-func SetupNetworkInterfaces(vm *v1.VirtualMachine, domain *api.Domain) error {
+func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	// prepare networks map
 	networks := map[string]*v1.Network{}
-	for _, network := range vm.Spec.Networks {
+	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
 	}
 
@@ -60,7 +60,7 @@ func SetupNetworkInterfaces(vm *v1.VirtualMachine, domain *api.Domain) error {
 		return fmt.Errorf("no networks were specified on a vm spec")
 	}
 
-	for _, iface := range vm.Spec.Domain.Devices.Interfaces {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 
 		network, ok := networks[iface.Name]
 		if !ok {

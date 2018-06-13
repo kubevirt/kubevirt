@@ -48,7 +48,7 @@ Also if no labels are specified, the new service will re-use the labels from the
         
 Possible types are (case insensitive, both single and plurant forms):
         
-virtualmachine (vm), offlinevirtualmachine (ovm), virtualmachinereplicaset (vmrs)`,
+virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplicaset (vmirs)`,
 		Example: usage(),
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -137,30 +137,30 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	var serviceSelector map[string]string
 
 	switch vmType {
-	case "vm", "vms", "virtualmachine", "virtualmachines":
+	case "vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances":
 		// get the VM
-		vm, err := virtClient.VM(namespace).Get(vmName, options)
+		vm, err := virtClient.VirtualMachineInstance(namespace).Get(vmName, &options)
 		if err != nil {
-			return fmt.Errorf("error fetching VirtualMachine: %v", err)
+			return fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
 		serviceSelector = vm.ObjectMeta.Labels
 		// remove unwanted labels
 		delete(serviceSelector, "kubevirt.io/nodeName")
-	case "ovm", "ovms", "offlinevirtualmachine", "offlinevirtualmachines":
+	case "vm", "vms", "virtualmachine", "virtualmachines":
 		// get the offline VM
-		ovm, err := virtClient.OfflineVirtualMachine(namespace).Get(vmName, options)
+		ovm, err := virtClient.VirtualMachine(namespace).Get(vmName, &options)
 		if err != nil {
-			return fmt.Errorf("error fetching OfflineVirtualMachine: %v", err)
+			return fmt.Errorf("error fetching OfflineVirtual: %v", err)
 		}
 		serviceSelector = ovm.Spec.Template.ObjectMeta.Labels
-	case "vmrs", "vmrss", "virtualmachinereplicaset", "virtualmachinereplicasets":
+	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		// get the VM replica set
 		vmrs, err := virtClient.ReplicaSet(namespace).Get(vmName, options)
 		if err != nil {
-			return fmt.Errorf("error fetching VirtualMachine ReplicaSet: %v", err)
+			return fmt.Errorf("error fetching VirtualMachineInstance ReplicaSet: %v", err)
 		}
 		if len(vmrs.Spec.Selector.MatchExpressions) > 0 {
-			return fmt.Errorf("cannot expose VirtualMachine ReplicaSet with match expressions")
+			return fmt.Errorf("cannot expose VirtualMachineInstance ReplicaSet with match expressions")
 		}
 		serviceSelector = vmrs.Spec.Selector.MatchLabels
 	default:

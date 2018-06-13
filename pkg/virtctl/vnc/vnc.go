@@ -42,7 +42,7 @@ const FLAG = "vnc"
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "vnc (vm)",
+		Use:     "vnc (vmi)",
 		Short:   "Open a vnc connection to a virtual machine.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
@@ -65,7 +65,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	vm := args[0]
+	vmi := args[0]
 
 	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
 	if err != nil {
@@ -73,9 +73,9 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// setup connection with VM
-	vnc, err := virtCli.VM(namespace).VNC(vm)
+	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)
 	if err != nil {
-		return fmt.Errorf("Can't access VM %s: %s", vm, err.Error())
+		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
 	}
 
 	lnAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
@@ -190,7 +190,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 }
 
 func usage() string {
-	usage := "# Connect to testvm via remote-viewer:\n"
-	usage += "./virtctl vnc testvm"
+	usage := "# Connect to testvmi via remote-viewer:\n"
+	usage += "./virtctl vnc testvmi"
 	return usage
 }

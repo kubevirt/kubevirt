@@ -16,26 +16,26 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
-	"kubevirt.io/kubevirt/pkg/virtctl/offlinevm"
+	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 )
 
-func newLabeledVM(label string, virtClient kubecli.KubevirtClient) (vm *v1.VirtualMachine) {
-	vm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	vm.Labels = map[string]string{"expose": label}
-	vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+func newLabeledVM(label string, virtClient kubecli.KubevirtClient) (vmi *v1.VirtualMachineInstance) {
+	vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vmi.Labels = map[string]string{"expose": label}
+	vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
-	tests.WaitForSuccessfulVMStartIgnoreWarnings(vm)
-	vm, err = virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, k8smetav1.GetOptions{})
+	tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return
 }
 
-func generateHelloWorldServer(vm *v1.VirtualMachine, virtClient kubecli.KubevirtClient, testPort int, protocol string) {
-	_, err := tests.LoggedInCirrosExpecter(vm)
+func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient, testPort int, protocol string) {
+	_, err := tests.LoggedInCirrosExpecter(vmi)
 	Expect(err).ToNot(HaveOccurred())
 
-	expecter, _, err := tests.NewConsoleExpecter(virtClient, vm, 10*time.Second)
+	expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	defer expecter.Close()
 	Expect(err).ToNot(HaveOccurred())
 
@@ -64,7 +64,7 @@ var _ = Describe("Expose", func() {
 	const testPort = 1500
 
 	Context("Expose service on a VM", func() {
-		var tcpVM *v1.VirtualMachine
+		var tcpVM *v1.VirtualMachineInstance
 		tests.BeforeAll(func() {
 			tcpVM = newLabeledVM("vm", virtClient)
 			generateHelloWorldServer(tcpVM, virtClient, testPort, "tcp")
@@ -75,7 +75,7 @@ var _ = Describe("Expose", func() {
 			const serviceName = "cluster-ip-vm"
 			It("Should expose a Cluster IP service on a VM and connect to it", func() {
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
+				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -107,7 +107,7 @@ var _ = Describe("Expose", func() {
 
 			It("Should expose a NodePort service on a VM and connect to it", func() {
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
+				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--type", "NodePort", "--node-port", nodePort)
 				err := virtctl()
@@ -143,7 +143,7 @@ var _ = Describe("Expose", func() {
 	})
 
 	Context("Expose UDP service on a VM", func() {
-		var udpVM *v1.VirtualMachine
+		var udpVM *v1.VirtualMachineInstance
 		tests.BeforeAll(func() {
 			udpVM = newLabeledVM("udp-vm", virtClient)
 			generateHelloWorldServer(udpVM, virtClient, testPort, "udp")
@@ -155,7 +155,7 @@ var _ = Describe("Expose", func() {
 
 			It("Should expose a ClusterIP service on a VM and connect to it", func() {
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
+				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--protocol", "UDP")
 				err := virtctl()
@@ -188,7 +188,7 @@ var _ = Describe("Expose", func() {
 
 			It("Should expose a NodePort service on a VM and connect to it", func() {
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
+				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--type", "NodePort", "--node-port", nodePort, "--protocol", "UDP")
 				err := virtctl()
@@ -230,13 +230,13 @@ var _ = Describe("Expose", func() {
 	})
 
 	Context("Expose service on a VM replica set", func() {
-		var vmrs *v1.VirtualMachineReplicaSet
+		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		tests.BeforeAll(func() {
 			By("Creating a VMRS object with 2 replicas")
 			const numberOfVMs = 2
-			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			vmrs = tests.NewRandomReplicaSetFromVM(template, int32(numberOfVMs))
-			vmrs.Labels = map[string]string{"expose": "vmrs"}
+			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmrs = tests.NewRandomReplicaSetFromVMI(template, int32(numberOfVMs))
+			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
 			vmrs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(vmrs)
@@ -253,7 +253,7 @@ var _ = Describe("Expose", func() {
 			// TODO: add label to list options
 			// check size of list
 			// remove check for owner
-			vms, err := virtClient.VM(vmrs.ObjectMeta.Namespace).List(k8smetav1.ListOptions{})
+			vms, err := virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(&k8smetav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
@@ -268,7 +268,7 @@ var _ = Describe("Expose", func() {
 
 			It("Should create a ClusterIP service on VMRS and connect to it", func() {
 				By("Expose a service on the VMRS using virtctl")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmrs", "--namespace",
+				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", "--namespace",
 					vmrs.Namespace, vmrs.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -297,40 +297,40 @@ var _ = Describe("Expose", func() {
 	Context("Expose service on an Offline VM", func() {
 		const servicePort = "27017"
 		const serviceName = "cluster-ip-ovm"
-		var ovm *v1.OfflineVirtualMachine
+		var ovm *v1.VirtualMachine
 
 		tests.BeforeAll(func() {
 			By("Creating an OVM object")
-			template := tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			template.Labels = map[string]string{"expose": "vmrs"}
-			ovm = NewRandomOfflineVirtualMachine(template, false)
+			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			template.Labels = map[string]string{"expose": "vmirs"}
+			ovm = NewRandomVirtualMachine(template, false)
 
 			By("Creating the OVM")
-			_, err := virtClient.OfflineVirtualMachine(tests.NamespaceTestDefault).Create(ovm)
+			_, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(ovm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Exposing a service on the OVM using virtctl")
-			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "offlinevirtualmachine", "--namespace",
+			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
 				ovm.Namespace, ovm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Calling the start command")
-			virtctl = tests.NewRepeatableVirtctlCommand(offlinevm.COMMAND_START, "--namespace", ovm.Namespace, ovm.Name)
+			virtctl = tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", ovm.Namespace, ovm.Name)
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Getting the status of the OVM")
 			Eventually(func() bool {
-				ovm, err = virtClient.OfflineVirtualMachine(ovm.Namespace).Get(ovm.Name, k8smetav1.GetOptions{})
+				ovm, err = virtClient.VirtualMachine(ovm.Namespace).Get(ovm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return ovm.Status.Ready
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
 			By("Getting the running VM")
-			var vm *v1.VirtualMachine
+			var vm *v1.VirtualMachineInstance
 			Eventually(func() bool {
-				vm, err = virtClient.VM(ovm.Namespace).Get(ovm.Name, k8smetav1.GetOptions{})
+				vm, err = virtClient.VirtualMachineInstance(ovm.Namespace).Get(ovm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Phase == v1.Running
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())

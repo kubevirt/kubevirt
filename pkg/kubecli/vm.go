@@ -13,372 +13,107 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
 package kubecli
 
 import (
-	"bytes"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-
-	"github.com/gorilla/websocket"
-
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-
-	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-const (
-	WebsocketMessageBufferSize = 10240
-)
-
-func (k *kubevirt) VM(namespace string) VMInterface {
-	return &vms{
+func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
+	return &vm{
 		restClient: k.restClient,
-		config:     k.config,
-		clientSet:  k.Clientset,
 		namespace:  namespace,
 		resource:   "virtualmachines",
 	}
 }
 
-type vms struct {
+type vm struct {
 	restClient *rest.RESTClient
-	config     *rest.Config
-	clientSet  *kubernetes.Clientset
 	namespace  string
 	resource   string
-	master     string
-	kubeconfig string
 }
 
-type BinaryReadWriter struct {
-	Conn *websocket.Conn
+// Create new VirtualMachine in the cluster to specified namespace
+func (o *vm) Create(offlinevm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+	newOvmi := &v1.VirtualMachine{}
+	err := o.restClient.Post().
+		Resource(o.resource).
+		Namespace(o.namespace).
+		Body(offlinevm).
+		Do().
+		Into(newOvmi)
+
+	newOvmi.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+
+	return newOvmi, err
 }
 
-func (s *BinaryReadWriter) Write(p []byte) (int, error) {
-	wsFrameHeaderSize := 2 + 8 + 4 // Fixed header + length + mask (RFC 6455)
-	// our websocket package has an issue where it truncates messages
-	// when the message+header is greater than the buffer size we allocate.
-	// because of this, we have to chunk messages
-	chunkSize := WebsocketMessageBufferSize - wsFrameHeaderSize
-	bytesWritten := 0
-
-	for i := 0; i < len(p); i += chunkSize {
-		w, err := s.Conn.NextWriter(websocket.BinaryMessage)
-		if err != nil {
-			return bytesWritten, s.err(err)
-		}
-		defer w.Close()
-
-		end := i + chunkSize
-		if end > len(p) {
-			end = len(p)
-		}
-		n, err := w.Write(p[i:end])
-		if err != nil {
-			return bytesWritten, err
-		}
-
-		bytesWritten = n + bytesWritten
-	}
-	return bytesWritten, nil
-
-}
-
-func (s *BinaryReadWriter) Read(p []byte) (int, error) {
-	for {
-		msgType, r, err := s.Conn.NextReader()
-		if err != nil {
-			return 0, s.err(err)
-		}
-
-		switch msgType {
-		case websocket.BinaryMessage:
-			n, err := r.Read(p)
-			return n, s.err(err)
-
-		case websocket.CloseMessage:
-			return 0, io.EOF
-		}
-	}
-}
-
-func (s *BinaryReadWriter) err(err error) error {
-	if err == nil {
-		return nil
-	}
-	if e, ok := err.(*websocket.CloseError); ok {
-		if e.Code == websocket.CloseNormalClosure {
-			return io.EOF
-		}
-	}
-	return err
-}
-
-type RoundTripCallback func(conn *websocket.Conn, resp *http.Response, err error) error
-
-type WebsocketRoundTripper struct {
-	Dialer *websocket.Dialer
-	Do     RoundTripCallback
-}
-
-func (d *WebsocketRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	conn, resp, err := d.Dialer.Dial(r.URL.String(), r.Header)
-	if err == nil {
-		defer conn.Close()
-	}
-	return resp, d.Do(conn, resp, err)
-}
-
-type asyncWSRoundTripper struct {
-	Done       chan struct{}
-	Connection chan *websocket.Conn
-}
-
-func (aws *asyncWSRoundTripper) WebsocketCallback(ws *websocket.Conn, resp *http.Response, err error) error {
-
-	if err != nil {
-		if resp != nil && resp.StatusCode != http.StatusOK {
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(resp.Body)
-			return fmt.Errorf("Can't connect to websocket (%d): %s\n", resp.StatusCode, buf.String())
-		}
-		return fmt.Errorf("Can't connect to websocket: %s\n", err.Error())
-	}
-	aws.Connection <- ws
-
-	// Keep the roundtripper open until we are done with the stream
-	<-aws.Done
-	return nil
-}
-
-func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (http.RoundTripper, error) {
-
-	// Configure TLS
-	tlsConfig, err := rest.TLSConfigFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	// Configure the websocket dialer
-	dialer := &websocket.Dialer{
-		Proxy:           http.ProxyFromEnvironment,
-		TLSClientConfig: tlsConfig,
-		WriteBufferSize: WebsocketMessageBufferSize,
-		ReadBufferSize:  WebsocketMessageBufferSize,
-	}
-
-	// Create a roundtripper which will pass in the final underlying websocket connection to a callback
-	rt := &WebsocketRoundTripper{
-		Do:     callback,
-		Dialer: dialer,
-	}
-
-	// Make sure we inherit all relevant security headers
-	return rest.HTTPWrappersForConfig(config, rt)
-}
-
-func RequestFromConfig(config *rest.Config, vm string, namespace string, resource string) (*http.Request, error) {
-
-	u, err := url.Parse(config.Host)
-	if err != nil {
-		return nil, err
-	}
-
-	switch u.Scheme {
-	case "https":
-		u.Scheme = "wss"
-	case "http":
-		u.Scheme = "ws"
-	default:
-		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
-	}
-
-	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/v1alpha1/namespaces/%s/virtualmachines/%s/%s", namespace, vm, resource)
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL:    u,
-	}
-
-	return req, nil
-}
-
-type wsStreamer struct {
-	conn *websocket.Conn
-	done chan struct{}
-}
-
-func (ws *wsStreamer) streamDone() {
-	close(ws.done)
-}
-
-func (ws *wsStreamer) Stream(options StreamOptions) error {
-	wsReadWriter := &BinaryReadWriter{Conn: ws.conn}
-
-	copyErr := make(chan error)
-
-	go func() {
-		_, err := io.Copy(wsReadWriter, options.In)
-		copyErr <- err
-	}()
-
-	go func() {
-		_, err := io.Copy(options.Out, wsReadWriter)
-		copyErr <- err
-	}()
-
-	defer ws.streamDone()
-	return <-copyErr
-}
-
-func (v *vms) VNC(name string) (StreamInterface, error) {
-	return v.asyncSubresourceHelper(name, "vnc")
-}
-func (v *vms) SerialConsole(name string) (StreamInterface, error) {
-	return v.asyncSubresourceHelper(name, "console")
-}
-
-func (v *vms) asyncSubresourceHelper(name string, resource string) (StreamInterface, error) {
-
-	done := make(chan struct{})
-
-	aws := &asyncWSRoundTripper{
-		Connection: make(chan *websocket.Conn),
-		Done:       done,
-	}
-	// Create a round tripper with all necessary kubernetes security details
-	wrappedRoundTripper, err := roundTripperFromConfig(v.config, aws.WebsocketCallback)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create round tripper for remote execution: %v", err)
-	}
-
-	// Create a request out of config and the query parameters
-	req, err := RequestFromConfig(v.config, name, v.namespace, resource)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create request for remote execution: %v", err)
-	}
-
-	errChan := make(chan error)
-
-	go func() {
-		// Send the request and let the callback do its work
-		response, err := wrappedRoundTripper.RoundTrip(req)
-
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		if response != nil {
-			switch response.StatusCode {
-			case http.StatusOK:
-			case http.StatusNotFound:
-				err = fmt.Errorf("Virtual Machine not found.")
-			case http.StatusInternalServerError:
-				err = fmt.Errorf("Websocket failed due to internal server error.")
-			default:
-				err = fmt.Errorf("Websocket failed with http status: %s", response.Status)
-			}
-		} else {
-			err = fmt.Errorf("no response received")
-		}
-		errChan <- err
-	}()
-
-	select {
-	case err = <-errChan:
-		return nil, err
-	case ws := <-aws.Connection:
-		return &wsStreamer{
-			conn: ws,
-			done: done,
-		}, nil
-	}
-}
-
-func (v *vms) Get(name string, options k8smetav1.GetOptions) (vm *v1.VirtualMachine, err error) {
-	vm = &v1.VirtualMachine{}
-	err = v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
+// Get the OfflineVirtual machine from the cluster by its name and namespace
+func (o *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
+	newOvm := &v1.VirtualMachine{}
+	err := o.restClient.Get().
+		Resource(o.resource).
+		Namespace(o.namespace).
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(options, scheme.ParameterCodec).
 		Do().
-		Into(vm)
-	vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
-	return
+		Into(newOvm)
+
+	newOvm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+
+	return newOvm, err
 }
 
-func (v *vms) List(options k8smetav1.ListOptions) (vmList *v1.VirtualMachineList, err error) {
-	vmList = &v1.VirtualMachineList{}
-	err = v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		VersionedParams(&options, scheme.ParameterCodec).
+// Update the VirtualMachine instance in the cluster in given namespace
+func (o *vm) Update(offlinevm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+	updatedOvmi := &v1.VirtualMachine{}
+	err := o.restClient.Put().
+		Resource(o.resource).
+		Namespace(o.namespace).
+		Name(offlinevm.Name).
+		Body(offlinevm).
 		Do().
-		Into(vmList)
-	for _, vm := range vmList.Items {
-		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
-	}
+		Into(updatedOvmi)
 
-	return
+	updatedOvmi.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+
+	return updatedOvmi, err
 }
 
-func (v *vms) Create(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
-	err = v.restClient.Post().
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Body(vm).
-		Do().
-		Into(result)
-	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
-	return
-}
-
-func (v *vms) Update(vm *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
-	err = v.restClient.Put().
-		Name(vm.ObjectMeta.Name).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Body(vm).
-		Do().
-		Into(result)
-	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
-	return
-}
-
-func (v *vms) Delete(name string, options *k8smetav1.DeleteOptions) error {
-	return v.restClient.Delete().
-		Namespace(v.namespace).
-		Resource(v.resource).
+// Delete the defined VirtualMachine in the cluster in defined namespace
+func (o *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
+	err := o.restClient.Delete().
+		Resource(o.resource).
+		Namespace(o.namespace).
 		Name(name).
 		Body(options).
 		Do().
 		Error()
+
+	return err
 }
 
-func (v *vms) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
-	err = v.restClient.Patch(pt).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		SubResource(subresources...).
-		Name(name).
-		Body(data).
+// List all VirtualMachines in given namespace
+func (o *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
+	newOvmList := &v1.VirtualMachineList{}
+	err := o.restClient.Get().
+		Resource(o.resource).
+		Namespace(o.namespace).
+		VersionedParams(options, scheme.ParameterCodec).
 		Do().
-		Into(result)
-	return
+		Into(newOvmList)
+
+	for _, vm := range newOvmList.Items {
+		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	}
+
+	return newOvmList, err
 }

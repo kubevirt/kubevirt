@@ -49,27 +49,27 @@ var _ = Describe("RegistryDisk", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	LaunchVM := func(vm *v1.VirtualMachine) runtime.Object {
-		By("Starting a VM")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+	LaunchVMI := func(vmi *v1.VirtualMachineInstance) runtime.Object {
+		By("Starting a VirtualMachineInstance")
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
 		Expect(err).To(BeNil())
 		return obj
 	}
 
-	VerifyRegistryDiskVM := func(vm *v1.VirtualMachine, obj runtime.Object, ignoreWarnings bool) {
-		_, ok := obj.(*v1.VirtualMachine)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VM")
+	VerifyRegistryDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object, ignoreWarnings bool) {
+		_, ok := obj.(*v1.VirtualMachineInstance)
+		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 		if ignoreWarnings == true {
-			tests.WaitForSuccessfulVMStartIgnoreWarnings(obj)
+			tests.WaitForSuccessfulVMIStartIgnoreWarnings(obj)
 		} else {
-			tests.WaitForSuccessfulVMStart(obj)
+			tests.WaitForSuccessfulVMIStart(obj)
 		}
 
 		// Verify Registry Disks are Online
-		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(vm))
+		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vmi))
 		Expect(err).To(BeNil())
 
-		By("Checking the number of VM disks")
+		By("Checking the number of VirtualMachineInstance disks")
 		disksFound := 0
 		for _, pod := range pods.Items {
 			if pod.ObjectMeta.DeletionTimestamp != nil {
@@ -87,71 +87,71 @@ var _ = Describe("RegistryDisk", func() {
 		Expect(disksFound).To(Equal(1))
 	}
 
-	Describe("Starting and stopping the same VM", func() {
+	Describe("Starting and stopping the same VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
 			It("should success multiple times", func() {
-				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
 				num := 2
 				for i := 0; i < num; i++ {
-					By("Starting the VM")
-					obj, err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vm).Do().Get()
+					By("Starting the VirtualMachineInstance")
+					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
 					Expect(err).To(BeNil())
-					tests.WaitForSuccessfulVMStartWithTimeout(obj, 180)
+					tests.WaitForSuccessfulVMIStartWithTimeout(obj, 180)
 
-					By("Stopping the VM")
-					_, err = virtClient.RestClient().Delete().Resource("virtualmachines").Namespace(vm.GetObjectMeta().GetNamespace()).Name(vm.GetObjectMeta().GetName()).Do().Get()
+					By("Stopping the VirtualMachineInstance")
+					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do().Get()
 					Expect(err).To(BeNil())
-					By("Waiting until the VM is gone")
-					tests.WaitForVirtualMachineToDisappearWithTimeout(vm, 120)
+					By("Waiting until the VirtualMachineInstance is gone")
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			})
 		})
 	})
 
-	Describe("Starting a VM", func() {
+	Describe("Starting a VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
 			It("should not modify the spec on status update", func() {
-				vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
-				v1.SetObjectDefaults_VirtualMachine(vm)
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
-				By("Starting the VM")
-				vm, err := virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+				By("Starting the VirtualMachineInstance")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil())
-				tests.WaitForSuccessfulVMStartWithTimeout(vm, 60)
-				startedVM, err := virtClient.VM(tests.NamespaceTestDefault).Get(vm.ObjectMeta.Name, metav1.GetOptions{})
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+				startedVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &metav1.GetOptions{})
 				Expect(err).To(BeNil())
-				By("Checking that the VM spec did not change")
-				Expect(startedVM.Spec).To(Equal(vm.Spec))
+				By("Checking that the VirtualMachineInstance spec did not change")
+				Expect(startedVMI.Spec).To(Equal(vmi.Spec))
 			})
 		})
 	})
 
-	Describe("Starting multiple VMs", func() {
+	Describe("Starting multiple VMIs", func() {
 		Context("with ephemeral registry disk", func() {
 			It("should success", func() {
 				num := 5
-				vms := make([]*v1.VirtualMachine, 0, num)
+				vmis := make([]*v1.VirtualMachineInstance, 0, num)
 				objs := make([]runtime.Object, 0, num)
 				for i := 0; i < num; i++ {
-					vm := tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
-					// FIXME if we give too much ram, the vms really boot and eat all our memory (cache?)
-					vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-					obj := LaunchVM(vm)
-					vms = append(vms, vm)
+					vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+					// FIXME if we give too much ram, the vmis really boot and eat all our memory (cache?)
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
+					obj := LaunchVMI(vmi)
+					vmis = append(vmis, vmi)
 					objs = append(objs, obj)
 				}
 
-				for idx, vm := range vms {
+				for idx, vmi := range vmis {
 					// TODO once networking is implemented properly set ignoreWarnings == false here.
-					// We have to ignore warnings because VMs started in parallel
+					// We have to ignore warnings because VMIs started in parallel
 					// may cause libvirt to fail to create the macvtap device in
 					// the host network.
 					// The new network implementation we're working on should resolve this.
-					// NOTE the VM still starts successfully regardless of this warning.
+					// NOTE the VirtualMachineInstance still starts successfully regardless of this warning.
 					// It just requires virt-handler to retry the Start command at the moment.
-					VerifyRegistryDiskVM(vm, objs[idx], true)
+					VerifyRegistryDiskVMI(vmi, objs[idx], true)
 				}
-			}) // Timeout is long because this test involves multiple parallel VM launches.
+			}) // Timeout is long because this test involves multiple parallel VirtualMachineInstance launches.
 		})
 	})
 })

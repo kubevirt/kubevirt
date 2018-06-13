@@ -72,6 +72,8 @@ docker run --rm -v "${BUILDER}:/root:rw,z" ${USE_TTY} -w "/root/go/src/kubevirt.
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync --exclude '.glide*' --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exclude 'cluster/**/.kubeconfig' --exclude "_out" --exclude "vendor" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/manifests/generated/" "${KUBEVIRT_DIR}/manifests/generated"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/cluster/examples/" "${KUBEVIRT_DIR}/cluster/examples"
 if [ "$SYNC_VENDOR" = "true" ]; then
     _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/vendor" "${VENDOR_DIR}/"
 fi

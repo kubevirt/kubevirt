@@ -34,12 +34,12 @@ type NetworkTemplateConfig struct {
 }
 
 var exampleJSON = `{
-  "kind": "VirtualMachine",
-  "apiVersion": "kubevirt.io/v1alpha1",
+  "kind": "VirtualMachineInstance",
+  "apiVersion": "kubevirt.io/v1alpha2",
   "metadata": {
-    "name": "testvm",
+    "name": "testvmi",
     "namespace": "default",
-    "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
+    "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi",
     "creationTimestamp": null
   },
   "spec": {
@@ -194,11 +194,11 @@ var exampleJSON = `{
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
-	var exampleVM *VirtualMachine
+	var exampleVMI *VirtualMachineInstance
 
 	BeforeEach(func() {
-		exampleVM = NewMinimalVM("testvm")
-		exampleVM.Spec.Domain.Devices.Disks = []Disk{
+		exampleVMI = NewMinimalVMI("testvmi")
+		exampleVMI.Spec.Domain.Devices.Disks = []Disk{
 			{
 				Name:       "disk0",
 				VolumeName: "volume0",
@@ -242,7 +242,7 @@ var _ = Describe("Schema", func() {
 			},
 		}
 
-		exampleVM.Spec.Volumes = []Volume{
+		exampleVMI.Spec.Volumes = []Volume{
 			{
 				Name: "volume0",
 				VolumeSource: VolumeSource{
@@ -270,7 +270,7 @@ var _ = Describe("Schema", func() {
 				},
 			},
 		}
-		exampleVM.Spec.Domain.Features = &Features{
+		exampleVMI.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _false},
 			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
@@ -285,7 +285,7 @@ var _ = Describe("Schema", func() {
 				VendorID:   &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
 			},
 		}
-		exampleVM.Spec.Domain.Clock = &Clock{
+		exampleVMI.Spec.Domain.Clock = &Clock{
 			ClockOffset: ClockOffset{
 				UTC: &ClockOffsetUTC{},
 			},
@@ -297,14 +297,13 @@ var _ = Describe("Schema", func() {
 				Hyperv: &HypervTimer{},
 			},
 		}
-		exampleVM.Spec.Domain.Firmware = &Firmware{
+		exampleVMI.Spec.Domain.Firmware = &Firmware{
 			UUID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
 		}
-		exampleVM.Spec.Domain.CPU = &CPU{
+		exampleVMI.Spec.Domain.CPU = &CPU{
 			Cores: 3,
 		}
-
-		exampleVM.Spec.Networks = []Network{
+		exampleVMI.Spec.Networks = []Network{
 			Network{
 				Name: "default",
 				NetworkSource: NetworkSource{
@@ -313,11 +312,11 @@ var _ = Describe("Schema", func() {
 			},
 		}
 
-		SetObjectDefaults_VirtualMachine(exampleVM)
+		SetObjectDefaults_VirtualMachineInstance(exampleVMI)
 	})
 	Context("With example schema in json use pod network and bridge interface", func() {
 		It("Unmarshal json into struct ", func() {
-			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
@@ -325,26 +324,16 @@ var _ = Describe("Schema", func() {
 					},
 				},
 			}
-			exampleVM.Spec.Networks = []Network{
-				Network{
-					Name: "default",
-					NetworkSource: NetworkSource{
-						Pod: &PodNetwork{},
-					},
-				},
-			}
-
 			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"bridge": {}`}
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
 			Expect(err).To(BeNil())
 			var tpl bytes.Buffer
 			err = tmpl.Execute(&tpl, networkTemplateData)
 			Expect(err).To(BeNil())
-			newVM := &VirtualMachine{}
-			exampleJSONParsed := tpl.String()
-			err = json.Unmarshal([]byte(exampleJSONParsed), newVM)
+			newVMI := &VirtualMachineInstance{}
+			err := json.Unmarshal([]byte(exampleJSON), newVMI)
 			Expect(err).To(BeNil())
-			Expect(newVM).To(Equal(exampleVM))
+			Expect(newVMI).To(Equal(exampleVMI))
 		})
 		It("Marshal struct into json", func() {
 			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
@@ -363,51 +352,38 @@ var _ = Describe("Schema", func() {
 			err = tmpl.Execute(&tpl, networkTemplateData)
 			Expect(err).To(BeNil())
 			exampleJSONParsed := tpl.String()
-			buf, err := json.MarshalIndent(*exampleVM, "", "  ")
+			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
-			Expect(string(buf)).To(Equal(exampleJSONParsed))
+			Expect(string(buf)).To(Equal(exampleJSON))
 		})
 	})
 	Context("With example schema in json use pod network and slirp interface", func() {
-		It("Unmarshal json into struct", func() {
-			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
+		It("Unmarshal json into struct ", func() {
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Slirp: &InterfaceSlirp{},
+						Bridge: &InterfaceSlirp{},
 					},
 				},
 			}
-
 			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {}`}
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
 			Expect(err).To(BeNil())
-
 			var tpl bytes.Buffer
 			err = tmpl.Execute(&tpl, networkTemplateData)
 			Expect(err).To(BeNil())
-
-			newVM := &VirtualMachine{}
-			newVM.Spec.Domain.Devices.Interfaces = []Interface{
-				Interface{
-					Name: "default",
-					InterfaceBindingMethod: InterfaceBindingMethod{
-						Slirp: &InterfaceSlirp{},
-					},
-				},
-			}
-
-			exampleJSONParsed := tpl.String()
-			err = json.Unmarshal([]byte(exampleJSONParsed), newVM)
+			newVMI := &VirtualMachineInstance{}
+			err := json.Unmarshal([]byte(exampleJSON), newVMI)
 			Expect(err).To(BeNil())
-			Expect(newVM).To(Equal(exampleVM))
+			Expect(newVMI).To(Equal(exampleVMI))
 		})
 		It("Marshal struct into json", func() {
 			exampleVM.Spec.Domain.Devices.Interfaces = []Interface{
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Slirp: &InterfaceSlirp{},
+						Bridge: &InterfaceSlirp{},
 					},
 				},
 			}
@@ -419,9 +395,9 @@ var _ = Describe("Schema", func() {
 			err = tmpl.Execute(&tpl, networkTemplateData)
 			Expect(err).To(BeNil())
 			exampleJSONParsed := tpl.String()
-			buf, err := json.MarshalIndent(*exampleVM, "", "  ")
+			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
-			Expect(string(buf)).To(Equal(exampleJSONParsed))
+			Expect(string(buf)).To(Equal(exampleJSON))
 		})
 	})
 })

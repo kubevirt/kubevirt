@@ -28,20 +28,26 @@ import (
 // Public to allow building arbitrary schemes.
 // All generated defaulters are covering - they call all nested defaulters.
 func RegisterDefaults(scheme *runtime.Scheme) error {
-	scheme.AddTypeDefaultingFunc(&OfflineVirtualMachine{}, func(obj interface{}) { SetObjectDefaults_OfflineVirtualMachine(obj.(*OfflineVirtualMachine)) })
-	scheme.AddTypeDefaultingFunc(&OfflineVirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_OfflineVirtualMachineList(obj.(*OfflineVirtualMachineList)) })
 	scheme.AddTypeDefaultingFunc(&VirtualMachine{}, func(obj interface{}) { SetObjectDefaults_VirtualMachine(obj.(*VirtualMachine)) })
-	scheme.AddTypeDefaultingFunc(&VirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineList(obj.(*VirtualMachineList)) })
-	scheme.AddTypeDefaultingFunc(&VirtualMachinePreset{}, func(obj interface{}) { SetObjectDefaults_VirtualMachinePreset(obj.(*VirtualMachinePreset)) })
-	scheme.AddTypeDefaultingFunc(&VirtualMachinePresetList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachinePresetList(obj.(*VirtualMachinePresetList)) })
-	scheme.AddTypeDefaultingFunc(&VirtualMachineReplicaSet{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineReplicaSet(obj.(*VirtualMachineReplicaSet)) })
-	scheme.AddTypeDefaultingFunc(&VirtualMachineReplicaSetList{}, func(obj interface{}) {
-		SetObjectDefaults_VirtualMachineReplicaSetList(obj.(*VirtualMachineReplicaSetList))
+	scheme.AddTypeDefaultingFunc(&VirtualMachineInstance{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineInstance(obj.(*VirtualMachineInstance)) })
+	scheme.AddTypeDefaultingFunc(&VirtualMachineInstanceList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineInstanceList(obj.(*VirtualMachineInstanceList)) })
+	scheme.AddTypeDefaultingFunc(&VirtualMachineInstancePreset{}, func(obj interface{}) {
+		SetObjectDefaults_VirtualMachineInstancePreset(obj.(*VirtualMachineInstancePreset))
 	})
+	scheme.AddTypeDefaultingFunc(&VirtualMachineInstancePresetList{}, func(obj interface{}) {
+		SetObjectDefaults_VirtualMachineInstancePresetList(obj.(*VirtualMachineInstancePresetList))
+	})
+	scheme.AddTypeDefaultingFunc(&VirtualMachineInstanceReplicaSet{}, func(obj interface{}) {
+		SetObjectDefaults_VirtualMachineInstanceReplicaSet(obj.(*VirtualMachineInstanceReplicaSet))
+	})
+	scheme.AddTypeDefaultingFunc(&VirtualMachineInstanceReplicaSetList{}, func(obj interface{}) {
+		SetObjectDefaults_VirtualMachineInstanceReplicaSetList(obj.(*VirtualMachineInstanceReplicaSetList))
+	})
+	scheme.AddTypeDefaultingFunc(&VirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineList(obj.(*VirtualMachineList)) })
 	return nil
 }
 
-func SetObjectDefaults_OfflineVirtualMachine(in *OfflineVirtualMachine) {
+func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 	if in.Spec.Template != nil {
 		if in.Spec.Template.Spec.Domain.Firmware != nil {
 			SetDefaults_Firmware(in.Spec.Template.Spec.Domain.Firmware)
@@ -119,15 +125,8 @@ func SetObjectDefaults_OfflineVirtualMachine(in *OfflineVirtualMachine) {
 	}
 }
 
-func SetObjectDefaults_OfflineVirtualMachineList(in *OfflineVirtualMachineList) {
-	for i := range in.Items {
-		a := &in.Items[i]
-		SetObjectDefaults_OfflineVirtualMachine(a)
-	}
-}
-
-func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
-	SetDefaults_VirtualMachine(in)
+func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
+	SetDefaults_VirtualMachineInstance(in)
 	if in.Spec.Domain.Firmware != nil {
 		SetDefaults_Firmware(in.Spec.Domain.Firmware)
 	}
@@ -203,14 +202,14 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 	}
 }
 
-func SetObjectDefaults_VirtualMachineList(in *VirtualMachineList) {
+func SetObjectDefaults_VirtualMachineInstanceList(in *VirtualMachineInstanceList) {
 	for i := range in.Items {
 		a := &in.Items[i]
-		SetObjectDefaults_VirtualMachine(a)
+		SetObjectDefaults_VirtualMachineInstance(a)
 	}
 }
 
-func SetObjectDefaults_VirtualMachinePreset(in *VirtualMachinePreset) {
+func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePreset) {
 	if in.Spec.Domain != nil {
 		if in.Spec.Domain.Firmware != nil {
 			SetDefaults_Firmware(in.Spec.Domain.Firmware)
@@ -288,14 +287,14 @@ func SetObjectDefaults_VirtualMachinePreset(in *VirtualMachinePreset) {
 	}
 }
 
-func SetObjectDefaults_VirtualMachinePresetList(in *VirtualMachinePresetList) {
+func SetObjectDefaults_VirtualMachineInstancePresetList(in *VirtualMachineInstancePresetList) {
 	for i := range in.Items {
 		a := &in.Items[i]
-		SetObjectDefaults_VirtualMachinePreset(a)
+		SetObjectDefaults_VirtualMachineInstancePreset(a)
 	}
 }
 
-func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
+func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstanceReplicaSet) {
 	if in.Spec.Template != nil {
 		if in.Spec.Template.Spec.Domain.Firmware != nil {
 			SetDefaults_Firmware(in.Spec.Template.Spec.Domain.Firmware)
@@ -373,9 +372,16 @@ func SetObjectDefaults_VirtualMachineReplicaSet(in *VirtualMachineReplicaSet) {
 	}
 }
 
-func SetObjectDefaults_VirtualMachineReplicaSetList(in *VirtualMachineReplicaSetList) {
+func SetObjectDefaults_VirtualMachineInstanceReplicaSetList(in *VirtualMachineInstanceReplicaSetList) {
 	for i := range in.Items {
 		a := &in.Items[i]
-		SetObjectDefaults_VirtualMachineReplicaSet(a)
+		SetObjectDefaults_VirtualMachineInstanceReplicaSet(a)
+	}
+}
+
+func SetObjectDefaults_VirtualMachineList(in *VirtualMachineList) {
+	for i := range in.Items {
+		a := &in.Items[i]
+		SetObjectDefaults_VirtualMachine(a)
 	}
 }
