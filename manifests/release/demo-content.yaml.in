@@ -3,10 +3,10 @@ apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachinePreset
 metadata:
   name: windows-server-2012r2
+spec:
   selector:
     matchLabels:
       kubevirt.io/os: win2k12r2
-spec:
   domain:
     cpu:
       cores: 2
@@ -31,3 +31,4 @@ spec:
         rtc:
           tickPolicy: catchup
         hyperv: {}
+    devices: {}
