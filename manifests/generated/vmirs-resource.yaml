@@ -95,8 +95,6 @@ spec:
                                   name:
                                     type: string
                                   serial:
-                                    description: Serial provides the ability to specifiy
-                                      a serial number for the disk device.
                                     type: string
                                   volumeName:
                                     type: string

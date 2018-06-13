@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -880,6 +881,65 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].bootorder"))
 		})
+
+		It("should reject invalid SN characters", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			order := uint(1)
+			sn := "$$$$"
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume2",
+				BootOrder:  &order,
+				Serial:     sn,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].serial"))
+		})
+
+		It("should reject SN > maxStrLen characters", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			order := uint(1)
+			sn := strings.Repeat("1", maxStrLen+1)
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume2",
+				BootOrder:  &order,
+				Serial:     sn,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].serial"))
+		})
+
+		It("should accept valid SN", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			order := uint(1)
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume2",
+				BootOrder:  &order,
+				Serial:     "SN-1_a",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(0))
+		})
+
 	})
 })
 

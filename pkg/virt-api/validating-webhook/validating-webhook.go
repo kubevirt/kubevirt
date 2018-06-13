@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -42,6 +43,7 @@ import (
 const (
 	cloudInitMaxLen = 2048
 	arrayLenMax     = 256
+	maxStrLen       = 256
 )
 
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
@@ -183,6 +185,25 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
 				Field:   field.Index(idx).Child("bootorder").String(),
+			})
+		}
+
+		// Verify serial number is made up of valid characters for libvirt, if provided
+		isValid := regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
+		if disk.Serial != "" && !isValid(disk.Serial) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Index(idx).String()),
+				Field:   field.Index(idx).Child("serial").String(),
+			})
+		}
+
+		// Verify serial number is within valid length, if provided
+		if disk.Serial != "" && len([]rune(disk.Serial)) > maxStrLen {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified", field.Index(idx).String(), maxStrLen),
+				Field:   field.Index(idx).Child("serial").String(),
 			})
 		}
 	}
