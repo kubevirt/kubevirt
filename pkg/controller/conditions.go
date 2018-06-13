@@ -47,6 +47,6 @@ func (d *VirtualMachineConditionManager) RemoveCondition(vmi *v1.VirtualMachineI
 	vmi.Status.Conditions = conds
 }
 
-func NewVirtualMachineConditionManager() *VirtualMachineConditionManager {
+func NewVirtualMachineInstanceConditionManager() *VirtualMachineConditionManager {
 	return &VirtualMachineConditionManager{}
 }

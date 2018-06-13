@@ -280,13 +280,13 @@ var _ = Describe("Template", func() {
 
 		Context("with hugepages constraints", func() {
 			table.DescribeTable("should add to the template constraints ", func(value string) {
-				vm := v1.VirtualMachine{
+				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvm",
+						Name:      "testvmi",
 						Namespace: "default",
 						UID:       "1234",
 					},
-					Spec: v1.VirtualMachineSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Memory: &v1.Memory{
 								Hugepages: &v1.Hugepages{
@@ -305,7 +305,7 @@ var _ = Describe("Template", func() {
 					},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vm)
+				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))

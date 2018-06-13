@@ -506,11 +506,11 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should convert hugepages", func() {
-			v1.SetObjectDefaults_VirtualMachine(vm)
-			vm.Spec.Domain.Memory = &v1.Memory{
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Memory = &v1.Memory{
 				Hugepages: &v1.Hugepages{},
 			}
-			domainSpec := vmToDomainXMLToDomainSpec(vm, c)
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))

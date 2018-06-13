@@ -484,54 +484,54 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject incorrect hugepages size format", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vmi := v1.NewMinimalVMI("testvmi")
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
-			vm.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vm.Spec.Domain.Memory.Hugepages.PageSize = "2ab"
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2ab"
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.hugepages.size"))
 		})
 		It("should reject greater hugepages.size than requests.memory", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vmi := v1.NewMinimalVMI("testvmi")
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
-			vm.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vm.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 		It("should reject not divisable by hugepages.size requests.memory", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vmi := v1.NewMinimalVMI("testvmi")
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
 			}
-			vm.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vm.Spec.Domain.Memory.Hugepages.PageSize = "2Gi"
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Gi"
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 		It("should accept correct memory and hugepages size values", func() {
-			vm := v1.NewMinimalVM("testvm")
+			vmi := v1.NewMinimalVMI("testvmi")
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
-			vm.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vm.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
 
-			causes := validateVirtualMachineSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
 		table.DescribeTable("should verify LUN is mapped to PVC volume",

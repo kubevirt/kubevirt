@@ -141,7 +141,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vm.Spec.Domain)
+	memoryOverhead := getMemoryOverhead(vmi.Spec.Domain)
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -164,12 +164,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// Consider hugepages resource for pod scheduling
-	if vmi.Spec.Domain.Hugepages != nil {
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		if resources.Limits == nil {
 			resources.Limits = make(k8sv1.ResourceList)
 		}
 
-		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vm.Spec.Domain.Hugepages.Size)
+		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
 		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
 		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
 

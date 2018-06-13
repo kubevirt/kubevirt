@@ -110,16 +110,16 @@ var _ = Describe("Configurations", func() {
 		})
 
 		Context("with hugepages", func() {
-			var hugepagesVm *v1.VirtualMachine
+			var hugepagesVmi *v1.VirtualMachineInstance
 
 			verifyHugepagesConsumption := func() {
 				// TODO: we need to check hugepages state via node allocated resources, but currently it has the issue
 				// https://github.com/kubernetes/kubernetes/issues/64691
-				pods, err := virtClient.Core().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMPodSelector(hugepagesVm))
+				pods, err := virtClient.Core().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(hugepagesVmi))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
-				hugepagesSize := resource.MustParse(hugepagesVm.Spec.Domain.Memory.Hugepages.PageSize)
+				hugepagesSize := resource.MustParse(hugepagesVmi.Spec.Domain.Memory.Hugepages.PageSize)
 				hugepagesDir := fmt.Sprintf("/sys/kernel/mm/hugepages/hugepages-%dkB", hugepagesSize.Value()/int64(1024))
 
 				// Get a hugepages statistics from virt-launcher pod
@@ -147,13 +147,13 @@ var _ = Describe("Configurations", func() {
 
 				// Verify that the VM memory equals to a number of consumed hugepages
 				vmHugepagesConsumption := int64(totalHugepages-freeHugepages) * hugepagesSize.Value()
-				vmMemory := hugepagesVm.Spec.Domain.Resources.Requests[kubev1.ResourceMemory]
+				vmMemory := hugepagesVmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory]
 
 				Expect(vmHugepagesConsumption).To(Equal(vmMemory.Value()))
 			}
 
 			BeforeEach(func() {
-				hugepagesVm = tests.NewRandomVMWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
 			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
@@ -164,7 +164,7 @@ var _ = Describe("Configurations", func() {
 					Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
 				}
 				// initialHugepages := nodeWithHugepages.Status.Capacity[resourceName]
-				hugepagesVm.Spec.Affinity = &v1.Affinity{
+				hugepagesVmi.Spec.Affinity = &v1.Affinity{
 					NodeAffinity: &kubev1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &kubev1.NodeSelector{
 							NodeSelectorTerms: []kubev1.NodeSelectorTerm{
@@ -177,16 +177,16 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
-				hugepagesVm.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse(memory)
+				hugepagesVmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse(memory)
 
-				hugepagesVm.Spec.Domain.Memory = &v1.Memory{
+				hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
 					Hugepages: &v1.Hugepages{PageSize: hugepageSize},
 				}
 
 				By("Starting a VM")
-				_, err = virtClient.VM(tests.NamespaceTestDefault).Create(hugepagesVm)
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(hugepagesVmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMStart(hugepagesVm)
+				tests.WaitForSuccessfulVMIStart(hugepagesVmi)
 
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				verifyHugepagesConsumption()

@@ -38,11 +38,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
-var hugepagesTypes = map[string]HugePage{
-	"2Mi": HugePage{Size: "2", Unit: "M"},
-	"1Gi": HugePage{Size: "1", Unit: "G"},
-}
-
 type ConverterContext struct {
 	AllowEmulation bool
 	Secrets        map[string]*k8sv1.Secret

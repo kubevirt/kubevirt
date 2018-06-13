@@ -226,6 +226,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 		pod = pods[0]
 	}
 
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	vmiCopy := vmi.DeepCopy()
 
 	switch {
@@ -241,6 +242,21 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 	case vmi.IsScheduling():
 		switch {
 		case podExists:
+			// Add PodScheduled False condition to the VM
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == k8sv1.PodScheduled && cond.Status == k8sv1.ConditionFalse {
+					if !conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(cond.Type)) {
+						vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+							LastProbeTime:      cond.LastProbeTime,
+							LastTransitionTime: cond.LastTransitionTime,
+							Message:            cond.Message,
+							Reason:             cond.Reason,
+							Status:             cond.Status,
+							Type:               virtv1.VirtualMachineInstanceConditionType(cond.Type),
+						})
+					}
+				}
+			}
 			if isPodOwnedByHandler(pod) {
 				// vmi is still owned by the controller but pod is already handed over,
 				// so let's hand over the vmi too
@@ -255,6 +271,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 				}
 				vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
 				vmiCopy.Status.NodeName = pod.Spec.NodeName
+				// Remove PodScheduling condition from the VM
+				if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
+					conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+				}
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
@@ -278,7 +298,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 		reason = syncErr.Reason()
 	}
 
-	controller.NewVirtualMachineConditionManager().CheckFailure(vmiCopy, syncErr, reason)
+	conditionManager.CheckFailure(vmiCopy, syncErr, reason)
 
 	// If we detect a change on the vmi we update the vmi
 	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||

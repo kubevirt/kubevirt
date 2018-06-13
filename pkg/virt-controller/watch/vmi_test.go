@@ -324,6 +324,38 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry(", ready and in failed state", k8sv1.PodFailed, true),
 			table.Entry(", ready and in pending state", k8sv1.PodPending, true),
 		)
+
+		Context("when pod failed to schedule", func() {
+			It("should set scheduling pod condition on the VirtualMachineInstance", func() {
+				vmi := NewPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = v1.Scheduling
+
+				pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
+
+				pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{
+					Message: "Insufficient memory",
+					Reason:  "Unschedulable",
+					Status:  k8sv1.ConditionFalse,
+					Type:    k8sv1.PodScheduled,
+				})
+
+				addVirtualMachine(vmi)
+				podFeeder.Add(pod)
+
+				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduling))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).NotTo(BeEmpty())
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Message).To(Equal("Insufficient memory"))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal("Unschedulable"))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)))
+					Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
+				}).Return(vmi, nil)
+
+				controller.Execute()
+			})
+		})
+
 		It("should move the vmi to failed state if the pod disappears and the vmi is in scheduling state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduling
