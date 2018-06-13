@@ -8,6 +8,11 @@ development cluster.
 The KubeVirt build system runs completely inside docker. In order to build
 KubeVirt you need to have `docker` and `rsync` installed.
 
+**Note:** For running KubeVirt in the dockerized cluster, **nested
+virtualization** must be enabled. As an alternative [software
+emulation](software-emulation.md) can be allowed. Enabling nested
+virtualization should be preferred.
+
 ### Dockerized environment
 
 Runs master and nodes containers, when each one of them run virtual machine via QEMU.
@@ -19,13 +24,13 @@ Build all required artifacts and launch the
 dockerizied environment:
 
 ```bash
-# Build and deploy KubeVirt on Kubernetes 1.9.3 in our vms inside containers
-export KUBEVIRT_PROVIDER=k8s-1.9.3 # this is also the default if no KUBEVIRT_PROVIDER is set
+# Build and deploy KubeVirt on Kubernetes 1.10.3 in our vms inside containers
+export KUBEVIRT_PROVIDER=k8s-1.10.3 # this is also the default if no KUBEVIRT_PROVIDER is set
 make cluster-up
 make cluster-sync
 ```
 
-This will create a VM called `node01` which acts as node and master. To create
+This will create a VMI called `node01` which acts as node and master. To create
 more nodes which will register themselves on master, you can use the
 `KUBEVIRT_NUM_NODES` environment variable. This would create a master and one
 node:
@@ -105,7 +110,7 @@ up dockerizied environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
-    make functest # run the functional tests against the VMs
+    make functest # run the functional tests against the VMIs
 ```
 
 If you'd like to run specific functional tests only, you can leverage `ginkgo`
@@ -123,15 +128,15 @@ Now it's time to get hands on and give it a try.
 
 ### Create a first Virtual Machine
 
-Finally start a VM called `vm-ephemeral`:
+Finally start a VMI called `vm-ephemeral`:
 
 ```bash
-    # This can be done from your GIT repo, no need to log into a VM
+    # This can be done from your GIT repo, no need to log into a VMI
 
-    # Create a VM
+    # Create a VMI
     ./cluster/kubectl.sh create -f cluster/examples/vm-ephemeral.yaml
 
-    # Sure? Let's list all created VMs
+    # Sure? Let's list all created VMIs
     ./cluster/kubectl.sh get vms
 
     # Enough, let's get rid of it
@@ -142,7 +147,7 @@ Finally start a VM called `vm-ephemeral`:
     ./cluster/kubectl.sh get pods
 ```
 
-This will start a VM on master or one of the running nodes with a macvtap and a
+This will start a VMI on master or one of the running nodes with a macvtap and a
 tap networking device attached.
 
 #### Example
@@ -160,7 +165,7 @@ virt-launcher-vm-ephemeral9q7es   1/1       Running   0          10s
 
 $ ./cluster/kubectl.sh get vms
 NAME           LABELS                        DATA
-vm-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha1","kind":"VM","...
+vm-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
 
 $ ./cluster/kubectl.sh get vms -o json
 {
@@ -169,7 +174,7 @@ $ ./cluster/kubectl.sh get vms -o json
     "metadata": {},
     "items": [
         {
-            "apiVersion": "kubevirt.io/v1alpha1",
+            "apiVersion": "kubevirt.io/v1alpha2",
             "kind": "VirtualMachine",
             "metadata": {
                 "creationTimestamp": "2016-12-09T17:54:52Z",
@@ -179,7 +184,7 @@ $ ./cluster/kubectl.sh get vms -o json
                 "name": "vm-ephemeral",
                 "namespace": "default",
                 "resourceVersion": "102534",
-                "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
+                "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm",
                 "uid": "7e89280a-be62-11e6-a69f-525400efd09f"
             },
             "spec": {
@@ -194,7 +199,7 @@ First make sure you have `remote-viewer` installed. On Fedora run
 dnf install virt-viewer
 ```
 
-Then, after you made sure that the VM `vm-ephemeral` is running, type
+Then, after you made sure that the VMI `vm-ephemeral` is running, type
 
 ```
 cluster/virtctl.sh vnc vm-ephemeral

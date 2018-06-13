@@ -51,9 +51,9 @@ type CloudInitNoCloudSource struct {
 // ---
 // +k8s:openapi-gen=true
 type DomainSpec struct {
-	// Resources describes the Compute Resources required by this vm.
+	// Resources describes the Compute Resources required by this vmi.
 	Resources ResourceRequirements `json:"resources,omitempty"`
-	// CPU allow specified the detailed CPU topology inside the vm.
+	// CPU allow specified the detailed CPU topology inside the vmi.
 	// +optional
 	CPU *CPU `json:"cpu,omitempty"`
 	// Machine type
@@ -62,7 +62,7 @@ type DomainSpec struct {
 	// Firmware
 	// +optional
 	Firmware *Firmware `json:"firmware,omitempty"`
-	// Clock sets the clock and timers of the vm.
+	// Clock sets the clock and timers of the vmi.
 	// +optional
 	Clock *Clock `json:"clock,omitempty"`
 	// Features like acpi, apic, hyperv
@@ -75,7 +75,7 @@ type DomainSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type ResourceRequirements struct {
-	// Requests is a description of the initial vm resources.
+	// Requests is a description of the initial vmi resources.
 	// Valid resource keys are "memory" and "cpu".
 	// +optional
 	Requests v1.ResourceList `json:"requests,omitempty"`
@@ -89,7 +89,7 @@ type ResourceRequirements struct {
 // ---
 // +k8s:openapi-gen=true
 type CPU struct {
-	// Cores specifies the number of cores inside the vm.
+	// Cores specifies the number of cores inside the vmi.
 	// Must be a value greater or equal 1.
 	Cores uint32 `json:"cores,omitempty"`
 }
@@ -97,14 +97,14 @@ type CPU struct {
 // ---
 // +k8s:openapi-gen=true
 type Machine struct {
-	// QEMU machine type is the actual chipset of the VM.
+	// QEMU machine type is the actual chipset of the VirtualMachineInstance.
 	Type string `json:"type"`
 }
 
 // ---
 // +k8s:openapi-gen=true
 type Firmware struct {
-	// UUID reported by the vm bios
+	// UUID reported by the vmi bios
 	// Defaults to a random generated uid
 	UUID types.UID `json:"uuid,omitempty"`
 }
@@ -112,10 +112,12 @@ type Firmware struct {
 // ---
 // +k8s:openapi-gen=true
 type Devices struct {
-	// Disks describes disks, cdroms, floppy and luns which are connected to the vm
+	// Disks describes disks, cdroms, floppy and luns which are connected to the vmi
 	Disks []Disk `json:"disks,omitempty"`
-	// Watchdog describes a watchdog device which can be added to the vm
+	// Watchdog describes a watchdog device which can be added to the vmi
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
+	// Interfaces describe network interfaces which are added to the vm
+	Interfaces []Interface `json:"interfaces,omitempty"`
 }
 
 // ---
@@ -129,6 +131,11 @@ type Disk struct {
 	// DiskDevice specifies as which device the disk should be added to the guest
 	// Defaults to Disk
 	DiskDevice `json:",inline"`
+	// BootOrder is an integer value > 0, used to determine ordering of boot devices.
+	// Lower values take precedence.
+	// Disks without a boot order are not tried if a disk with a boot order exists.
+	// +optional
+	BootOrder *uint `json:"bootOrder,omitempty"`
 }
 
 // Represents the target of a volume to mount.
@@ -136,13 +143,13 @@ type Disk struct {
 // ---
 // +k8s:openapi-gen=true
 type DiskDevice struct {
-	// Attach a volume as a disk to the vm
+	// Attach a volume as a disk to the vmi
 	Disk *DiskTarget `json:"disk,omitempty"`
-	// Attach a volume as a LUN to the vm
+	// Attach a volume as a LUN to the vmi
 	LUN *LunTarget `json:"lun,omitempty"`
-	// Attach a volume as a floppy to the vm
+	// Attach a volume as a floppy to the vmi
 	Floppy *FloppyTarget `json:"floppy,omitempty"`
-	// Attach a volume as a cdrom to the vm
+	// Attach a volume as a cdrom to the vmi
 	CDRom *CDRomTarget `json:"cdrom,omitempty"`
 }
 
@@ -209,12 +216,12 @@ type CDRomTarget struct {
 	Tray TrayState `json:"tray,omitempty"`
 }
 
-// Volume represents a named volume in a vm.
+// Volume represents a named volume in a vmi.
 // ---
 // +k8s:openapi-gen=true
 type Volume struct {
 	// Volume's name.
-	// Must be a DNS_LABEL and unique within the vm.
+	// Must be a DNS_LABEL and unique within the vmi.
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
 	Name string `json:"name"`
 	// VolumeSource represents the location and type of the mounted volume.
@@ -228,12 +235,12 @@ type Volume struct {
 // +k8s:openapi-gen=true
 type VolumeSource struct {
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
-	// Directly attached to the vm via qemu.
+	// Directly attached to the vmi via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
 	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 	// CloudInitNoCloud represents a cloud-init NoCloud user-data source.
-	// The NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.
+	// The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
 	// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 	// +optional
 	CloudInitNoCloud *CloudInitNoCloudSource `json:"cloudInitNoCloud,omitempty"`
@@ -244,7 +251,7 @@ type VolumeSource struct {
 	// Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
 	// +optional
 	Ephemeral *EphemeralVolumeSource `json:"ephemeral,omitempty"`
-	// EmptyDisk represents a temporary disk which shares the vms lifecycle
+	// EmptyDisk represents a temporary disk which shares the vmis lifecycle
 	// More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
 	// +optional
 	EmptyDisk *EmptyDiskSource `json:"emptyDisk,omitempty"`
@@ -254,13 +261,13 @@ type VolumeSource struct {
 // +k8s:openapi-gen=true
 type EphemeralVolumeSource struct {
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
-	// Directly attached to the vm via qemu.
+	// Directly attached to the vmi via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
 	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 }
 
-// EmptyDisk represents a temporary disk which shares the vms lifecycle
+// EmptyDisk represents a temporary disk which shares the vmis lifecycle
 // ---
 // +k8s:openapi-gen=true
 type EmptyDiskSource struct {
@@ -305,17 +312,17 @@ type ClockOffsetUTC struct {
 // +k8s:openapi-gen=true
 type ClockOffsetTimezone string
 
-// Represents the clock and timers of a vm
+// Represents the clock and timers of a vmi
 // ---
 // +k8s:openapi-gen=true
 type Clock struct {
 	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock
 	ClockOffset `json:",inline"`
-	// Timer specifies whih timers are attached to the vm
+	// Timer specifies whih timers are attached to the vmi
 	Timer *Timer `json:"timer,inline"`
 }
 
-// Represents all available timers in a vm
+// Represents all available timers in a vmi
 // ---
 // +k8s:openapi-gen=true
 type Timer struct {
@@ -504,7 +511,7 @@ type FeatureVendorID struct {
 	// Defaults to true
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
-	// VendorID sets the hypervisor vendor id, visible to the vm
+	// VendorID sets the hypervisor vendor id, visible to the vmi
 	// String up to twelve characters
 	VendorID string `json:"vendorid,omitempty"`
 }
@@ -540,7 +547,7 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting
 	// +optional
 	SyNICTimer *FeatureState `json:"synictimer,omitempty"`
-	// Reset enables Hyperv reboot/reset for the vm
+	// Reset enables Hyperv reboot/reset for the vmi
 	// Defaults to the machine type setting
 	// +optional
 	Reset *FeatureState `json:"reset,omitempty"`
@@ -556,11 +563,11 @@ type FeatureHyperv struct {
 type WatchdogAction string
 
 const (
-	// WatchdogActionPoweroff will poweroff the vm if the watchdog gets triggered
+	// WatchdogActionPoweroff will poweroff the vmi if the watchdog gets triggered
 	WatchdogActionPoweroff WatchdogAction = "poweroff"
-	// WatchdogActionReset will reset the vm if the watchdog gets triggered
+	// WatchdogActionReset will reset the vmi if the watchdog gets triggered
 	WatchdogActionReset WatchdogAction = "reset"
-	// WatchdogActionShutdown will shutdown the vm if the watchdog gets triggered
+	// WatchdogActionShutdown will shutdown the vmi if the watchdog gets triggered
 	WatchdogActionShutdown WatchdogAction = "shutdown"
 )
 
@@ -603,3 +610,52 @@ func NewMinimalDomainSpec() DomainSpec {
 	}
 	return domain
 }
+
+// ---
+// +k8s:openapi-gen=true
+type Interface struct {
+	// Logical name of the interface as well as a reference to the associated networks
+	// Must match the Name of a Network
+	Name string `json:"name"`
+	// BindingMethod specifies the method which will be used to connect the interface to the guest
+	// Defaults to Bridge
+	InterfaceBindingMethod `json:",inline"`
+}
+
+// Represents the method which will be used to connect the interface to the guest.
+// Only one of its members may be specified.
+// ---
+// +k8s:openapi-gen=true
+type InterfaceBindingMethod struct {
+	Bridge *InterfaceBridge `json:"bridge,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type InterfaceBridge struct{}
+
+// Network represents a network type and a resource that should be connected to the vm.
+// ---
+// +k8s:openapi-gen=true
+type Network struct {
+	// Network name
+	// Must be a DNS_LABEL and unique within the vm.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+	Name string `json:"name"`
+	// NetworkSource represents the network type and the source interface that should be connected to the virtual machine.
+	// Defaults to Pod, if no type is specified
+	NetworkSource `json:",inline"`
+}
+
+// Represents the source resource that will be connected to the vm.
+// Only one of its members may be specified.
+// ---
+// +k8s:openapi-gen=true
+type NetworkSource struct {
+	Pod *PodNetwork `json:"pod,omitempty"`
+}
+
+// Represents the stock pod network interface
+// ---
+// +k8s:openapi-gen=true
+type PodNetwork struct{}

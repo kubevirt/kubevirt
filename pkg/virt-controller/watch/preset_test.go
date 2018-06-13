@@ -83,92 +83,92 @@ func (recorder FakeRecorder) PastEventf(object runtime.Object, timestamp k8smeta
 	recorder.Eventf(object, eventtype, reason, messageFmt, args...)
 }
 
-var _ = Describe("VM Initializer", func() {
+var _ = Describe("VirtualMachineInstance Initializer", func() {
 	Context("Annotate Presets", func() {
-		It("should properly annotate a VM", func() {
-			vm := v1.VirtualMachine{}
-			preset := v1.VirtualMachinePreset{}
+		It("should properly annotate a VirtualMachineInstance", func() {
+			vmi := v1.VirtualMachineInstance{}
+			preset := v1.VirtualMachineInstancePreset{}
 			preset.ObjectMeta.Name = "test-preset"
 
-			annotateVM(&vm, preset)
-			Expect(len(vm.Annotations)).To(Equal(1))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal(v1.GroupVersion.String()))
+			annotateVMI(&vmi, preset)
+			Expect(len(vmi.Annotations)).To(Equal(1))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal(v1.GroupVersion.String()))
 		})
 
 		It("should allow multiple annotations", func() {
-			vm := v1.VirtualMachine{}
-			preset := v1.VirtualMachinePreset{}
+			vmi := v1.VirtualMachineInstance{}
+			preset := v1.VirtualMachineInstancePreset{}
 			preset.ObjectMeta.Name = "preset-foo"
-			annotateVM(&vm, preset)
-			preset = v1.VirtualMachinePreset{}
+			annotateVMI(&vmi, preset)
+			preset = v1.VirtualMachineInstancePreset{}
 			preset.ObjectMeta.Name = "preset-bar"
-			annotateVM(&vm, preset)
+			annotateVMI(&vmi, preset)
 
-			Expect(len(vm.Annotations)).To(Equal(2))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/preset-foo"]).To(Equal(v1.GroupVersion.String()))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/preset-bar"]).To(Equal(v1.GroupVersion.String()))
+			Expect(len(vmi.Annotations)).To(Equal(2))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/preset-foo"]).To(Equal(v1.GroupVersion.String()))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/preset-bar"]).To(Equal(v1.GroupVersion.String()))
 		})
 	})
 
 	Context("Initializer Marking", func() {
 		It("Should handle nil Annotations", func() {
-			vm := &v1.VirtualMachine{}
-			vm.Annotations = nil
-			Expect(isVirtualMachineInitialized(vm)).To(BeFalse())
-			addInitializedAnnotation(vm)
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Annotations = nil
+			Expect(isVirtualMachineInitialized(vmi)).To(BeFalse())
+			addInitializedAnnotation(vmi)
+			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 		})
 
 		It("Should handle empty Annotations", func() {
-			vm := &v1.VirtualMachine{}
-			vm.Annotations = map[string]string{}
-			Expect(isVirtualMachineInitialized(vm)).To(BeFalse())
-			addInitializedAnnotation(vm)
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Annotations = map[string]string{}
+			Expect(isVirtualMachineInitialized(vmi)).To(BeFalse())
+			addInitializedAnnotation(vmi)
+			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 		})
 
-		It("Should not modify already initialized VM's", func() {
-			vm := &v1.VirtualMachine{}
-			vm.Annotations = map[string]string{}
-			vm.Annotations[initializerMarking] = v1.GroupVersion.String()
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+		It("Should not modify already initialized VirtualMachineInstance's", func() {
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Annotations = map[string]string{}
+			vmi.Annotations[initializerMarking] = v1.GroupVersion.String()
+			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 			// call addInitializedAnnotation
-			addInitializedAnnotation(vm)
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+			addInitializedAnnotation(vmi)
+			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 		})
 	})
 
 	Context("Preset Exclusions", func() {
 		It("Should not fail if Annotations are nil", func() {
-			vm := &v1.VirtualMachine{}
-			vm.Annotations = nil
-			Expect(isVmExcluded(vm)).To(BeFalse())
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Annotations = nil
+			Expect(isVmExcluded(vmi)).To(BeFalse())
 		})
 
 		It("Should should not fail if Annotations are empty", func() {
-			vm := &v1.VirtualMachine{}
-			vm.Annotations = map[string]string{}
-			Expect(isVmExcluded(vm)).To(BeFalse())
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Annotations = map[string]string{}
+			Expect(isVmExcluded(vmi)).To(BeFalse())
 		})
 
 		It("Should identify incorrect exclusion marking", func() {
-			vm := &v1.VirtualMachine{}
-			vm.Annotations = map[string]string{}
-			vm.Annotations[exclusionMarking] = "something random"
-			Expect(isVmExcluded(vm)).To(BeFalse())
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Annotations = map[string]string{}
+			vmi.Annotations[exclusionMarking] = "something random"
+			Expect(isVmExcluded(vmi)).To(BeFalse())
 		})
 
 		It("Should identify exclusion marking", func() {
-			vm := &v1.VirtualMachine{}
-			vm.Annotations = map[string]string{}
-			vm.Annotations[exclusionMarking] = "true"
-			Expect(isVmExcluded(vm)).To(BeTrue())
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Annotations = map[string]string{}
+			vmi.Annotations[exclusionMarking] = "true"
+			Expect(isVmExcluded(vmi)).To(BeTrue())
 		})
 	})
 
 	Context("Override detection", func() {
-		var vm v1.VirtualMachine
-		var preset v1.VirtualMachinePreset
+		var vmi v1.VirtualMachineInstance
+		var preset v1.VirtualMachineInstancePreset
 		truthy := true
 		falsy := false
 		var recorder FakeRecorder
@@ -176,7 +176,7 @@ var _ = Describe("VM Initializer", func() {
 		memory, _ := resource.ParseQuantity("64M")
 
 		BeforeEach(func() {
-			vm = v1.VirtualMachine{Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{
+			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
 				Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 					"memory": memory,
 				}},
@@ -196,41 +196,41 @@ var _ = Describe("VM Initializer", func() {
 						VolumeName: "testvolume",
 						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}}},
 			}}}
-			preset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
+			preset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			recorder = NewFakeRecorder()
 		})
 
 		It("Should detect CPU overrides", func() {
 			// Check without and then with a CPU conflict
-			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing no merge conflict occurs for matching preset")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
-			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("applying matching preset")
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
 			By("checking annotations were applied and CPU count remains the same")
-			Expect(len(vm.Annotations)).To(Equal(1))
-			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
+			Expect(len(vmi.Annotations)).To(Equal(1))
+			Expect(int(vmi.Spec.Domain.CPU.Cores)).To(Equal(4))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 
 			By("showing an override occurred")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
-			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("applying overridden preset")
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
 			By("checking annotations were not applied and CPU count remains the same")
-			Expect(len(vm.Annotations)).To(Equal(0))
-			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
+			Expect(len(vmi.Annotations)).To(Equal(0))
+			Expect(int(vmi.Spec.Domain.CPU.Cores)).To(Equal(4))
 
 			Expect(len(recorder.events.eventList)).To(Equal(1))
 			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
@@ -243,18 +243,18 @@ var _ = Describe("VM Initializer", func() {
 			}}
 
 			By("demonstrating that override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("applying mismatch preset")
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
 			By("checking preset was not applied")
-			memory, ok := vm.Spec.Domain.Resources.Requests["memory"]
+			memory, ok := vmi.Spec.Domain.Resources.Requests["memory"]
 			Expect(ok).To(BeTrue())
 			Expect(int(memory.Value())).To(Equal(64000000))
-			Expect(len(vm.Annotations)).To(Equal(0))
+			Expect(len(vmi.Annotations)).To(Equal(0))
 			Expect(len(recorder.events.eventList)).To(Equal(1))
 			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
@@ -263,19 +263,19 @@ var _ = Describe("VM Initializer", func() {
 			}}
 
 			By("demonstrating that no override occurs")
-			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("applying matching preset")
 			recorder = NewFakeRecorder()
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			By("checking vm settings remain the same")
-			memory, ok = vm.Spec.Domain.Resources.Requests["memory"]
+			By("checking vmi settings remain the same")
+			memory, ok = vmi.Spec.Domain.Resources.Requests["memory"]
 			Expect(ok).To(BeTrue())
 			Expect(int(memory.Value())).To(Equal(64000000))
-			Expect(len(vm.Annotations)).To(Equal(1))
+			Expect(len(vmi.Annotations)).To(Equal(1))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
@@ -286,31 +286,31 @@ var _ = Describe("VM Initializer", func() {
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: mismatchUuid}
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing that presets are not applied")
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			Expect(len(vm.Annotations)).To(Equal(0))
-			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(matchUuid))
+			Expect(len(vmi.Annotations)).To(Equal(0))
+			Expect(vmi.Spec.Domain.Firmware.UUID).To(Equal(matchUuid))
 			Expect(len(recorder.events.eventList)).To(Equal(1))
 			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: matchUuid}
 
 			By("showing that an override does not occur")
-			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings did not change when preset is applied")
 			recorder = NewFakeRecorder()
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			Expect(len(vm.Annotations)).To(Equal(1))
-			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(matchUuid))
+			Expect(len(vmi.Annotations)).To(Equal(1))
+			Expect(vmi.Spec.Domain.Firmware.UUID).To(Equal(matchUuid))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
@@ -320,15 +320,15 @@ var _ = Describe("VM Initializer", func() {
 			}
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing presets are not applied")
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			Expect(len(vm.Annotations)).To(Equal(0))
-			Expect(vm.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
+			Expect(len(vmi.Annotations)).To(Equal(0))
+			Expect(vmi.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
 			Expect(len(recorder.events.eventList)).To(Equal(1))
 			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
@@ -337,16 +337,16 @@ var _ = Describe("VM Initializer", func() {
 			}
 
 			By("showing that an ovveride does not occur")
-			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
 			recorder = NewFakeRecorder()
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			Expect(len(vm.Annotations)).To(Equal(1))
-			Expect(vm.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
+			Expect(len(vmi.Annotations)).To(Equal(1))
+			Expect(vmi.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
@@ -354,15 +354,15 @@ var _ = Describe("VM Initializer", func() {
 			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &falsy}}
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing presets are not applied")
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			Expect(len(vm.Annotations)).To(Equal(0))
-			Expect(*vm.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
+			Expect(len(vmi.Annotations)).To(Equal(0))
+			Expect(*vmi.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
 			Expect(len(recorder.events.eventList)).To(Equal(1))
 			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
@@ -372,16 +372,16 @@ var _ = Describe("VM Initializer", func() {
 			}
 
 			By("showing that an ovveride does not occur")
-			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
 			recorder = NewFakeRecorder()
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			Expect(len(vm.Annotations)).To(Equal(1))
-			Expect(*vm.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
+			Expect(len(vmi.Annotations)).To(Equal(1))
+			Expect(*vmi.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
@@ -389,41 +389,41 @@ var _ = Describe("VM Initializer", func() {
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "foo", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
 
 			By("showing that an override occurs")
-			err := checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).To(HaveOccurred())
 
 			By("showing presets are not applied")
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			Expect(len(vm.Annotations)).To(Equal(0))
-			Expect(vm.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
+			Expect(len(vmi.Annotations)).To(Equal(0))
+			Expect(vmi.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
 			Expect(len(recorder.events.eventList)).To(Equal(1))
 			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
 
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "testcase", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}}
 
 			By("showing that an ovveride does not occur")
-			err = checkMergeConflicts(preset.Spec.Domain, &vm.Spec.Domain)
+			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("showing settings were not changed")
 			recorder = NewFakeRecorder()
-			vm.Annotations = map[string]string{}
-			applyPresets(&vm, []v1.VirtualMachinePreset{preset}, recorder)
+			vmi.Annotations = map[string]string{}
+			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			Expect(len(vm.Annotations)).To(Equal(1))
-			Expect(vm.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
+			Expect(len(vmi.Annotations)).To(Equal(1))
+			Expect(vmi.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 	})
 
 	Context("Conflict detection", func() {
-		var vm v1.VirtualMachine
-		var preset1 v1.VirtualMachinePreset
-		var preset2 v1.VirtualMachinePreset
-		var preset3 v1.VirtualMachinePreset
-		var preset4 v1.VirtualMachinePreset
+		var vmi v1.VirtualMachineInstance
+		var preset1 v1.VirtualMachineInstancePreset
+		var preset2 v1.VirtualMachineInstancePreset
+		var preset3 v1.VirtualMachineInstancePreset
+		var preset4 v1.VirtualMachineInstancePreset
 
 		m64, _ := resource.ParseQuantity("64M")
 		m128, _ := resource.ParseQuantity("128M")
@@ -431,11 +431,11 @@ var _ = Describe("VM Initializer", func() {
 		var recorder FakeRecorder
 
 		BeforeEach(func() {
-			vm = v1.VirtualMachine{ObjectMeta: k8smetav1.ObjectMeta{Name: "test-vm"}}
+			vmi = v1.VirtualMachineInstance{ObjectMeta: k8smetav1.ObjectMeta{Name: "test-vmi"}}
 
-			preset1 = v1.VirtualMachinePreset{
+			preset1 = v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "memory-64"},
-				Spec: v1.VirtualMachinePresetSpec{
+				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m64": "memory-64"}},
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{
@@ -444,9 +444,9 @@ var _ = Describe("VM Initializer", func() {
 					},
 				},
 			}
-			preset2 = v1.VirtualMachinePreset{
+			preset2 = v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "memory-128"},
-				Spec: v1.VirtualMachinePresetSpec{
+				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m128": "memory-128"}},
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{
@@ -455,18 +455,18 @@ var _ = Describe("VM Initializer", func() {
 					},
 				},
 			}
-			preset3 = v1.VirtualMachinePreset{
+			preset3 = v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "cpu-4"},
-				Spec: v1.VirtualMachinePresetSpec{
+				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/cpu": "cpu-4"}},
 					Domain: &v1.DomainSpec{
 						CPU: &v1.CPU{Cores: 4},
 					},
 				},
 			}
-			preset4 = v1.VirtualMachinePreset{
+			preset4 = v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "duplicate-mem"},
-				Spec: v1.VirtualMachinePresetSpec{
+				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m64": "memory-64"}},
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{
@@ -479,100 +479,100 @@ var _ = Describe("VM Initializer", func() {
 		})
 
 		It("should detect conflicts between presets", func() {
-			presets := []v1.VirtualMachinePreset{preset1, preset2}
+			presets := []v1.VirtualMachineInstancePreset{preset1, preset2}
 			err := checkPresetConflicts(presets)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("should not return an error for no conflict", func() {
-			presets := []v1.VirtualMachinePreset{preset1, preset3}
+			presets := []v1.VirtualMachineInstancePreset{preset1, preset3}
 			err := checkPresetConflicts(presets)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should not consider presets with same settings to conflict", func() {
-			presets := []v1.VirtualMachinePreset{preset1, preset4}
+			presets := []v1.VirtualMachineInstancePreset{preset1, preset4}
 			err := checkPresetConflicts(presets)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should not apply presets that conflict", func() {
-			presets := []v1.VirtualMachinePreset{preset1, preset2, preset3, preset4}
-			vm.Labels = map[string]string{
+			presets := []v1.VirtualMachineInstancePreset{preset1, preset2, preset3, preset4}
+			vmi.Labels = map[string]string{
 				"kubevirt.io/m64":  "memory-64",
 				"kubevirt.io/m128": "memory-128",
 			}
 
 			By("applying presets")
-			res := applyPresets(&vm, presets, recorder)
+			res := applyPresets(&vmi, presets, recorder)
 			Expect(res).To(BeFalse())
 
 			By("checking annotations were not applied")
-			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
+			annotation, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
 			Expect(annotation).To(Equal(""))
 			Expect(ok).To(BeFalse())
 			Expect(len(recorder.events.eventList)).To(Equal(1))
 			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeWarning))
 
-			By("checking settings were not applied to VM")
-			Expect(vm.Spec.Domain.Resources.Requests).To(BeNil())
+			By("checking settings were not applied to VirtualMachineInstance")
+			Expect(vmi.Spec.Domain.Resources.Requests).To(BeNil())
 		})
 
 		It("should not apply any presets if any conflict", func() {
-			presets := []v1.VirtualMachinePreset{preset1, preset2, preset3, preset4}
-			vm.Labels = map[string]string{
+			presets := []v1.VirtualMachineInstancePreset{preset1, preset2, preset3, preset4}
+			vmi.Labels = map[string]string{
 				"kubevirt.io/m64":  "memory-64",
 				"kubevirt.io/m128": "memory-128",
 				"kubevirt.io/cpu":  "cpu-4",
 			}
 
 			By("applying presets")
-			res := applyPresets(&vm, presets, recorder)
+			res := applyPresets(&vmi, presets, recorder)
 			Expect(res).To(BeFalse())
 
 			By("checking annotations were not applied")
-			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
+			annotation, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
 			Expect(annotation).To(Equal(""))
 			Expect(ok).To(BeFalse())
 
 			Expect(len(recorder.events.eventList)).To(Equal(1))
 			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeWarning))
 
-			By("checking settings were not applied to VM")
-			Expect(vm.Spec.Domain.Resources.Requests).To(BeNil())
-			Expect(vm.Spec.Domain.CPU).To(BeNil())
+			By("checking settings were not applied to VirtualMachineInstance")
+			Expect(vmi.Spec.Domain.Resources.Requests).To(BeNil())
+			Expect(vmi.Spec.Domain.CPU).To(BeNil())
 		})
 
 		It("should apply presets that don't conflict", func() {
-			presets := []v1.VirtualMachinePreset{preset1, preset3, preset4}
-			vm.Labels = map[string]string{
+			presets := []v1.VirtualMachineInstancePreset{preset1, preset3, preset4}
+			vmi.Labels = map[string]string{
 				"kubevirt.io/m64": "memory-64",
 				"kubevirt.io/cpu": "cpu-4",
 			}
 			By("applying presets")
-			res := applyPresets(&vm, presets, recorder)
+			res := applyPresets(&vmi, presets, recorder)
 			Expect(res).To(BeTrue())
 
 			By("checking annotations were applied")
-			annotation, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			annotation, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
 			Expect(ok).To(BeTrue())
 
-			annotation, ok = vm.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			annotation, ok = vmi.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
 			Expect(ok).To(BeTrue())
 
-			annotation, ok = vm.Annotations["virtualmachinepreset.kubevirt.io/duplicate-mem"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha1"))
+			annotation, ok = vmi.Annotations["virtualmachinepreset.kubevirt.io/duplicate-mem"]
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
 			Expect(ok).To(BeTrue())
 
 			By("checking settings were applied")
-			Expect(len(vm.Spec.Domain.Resources.Requests)).To(Equal(1))
-			memory := vm.Spec.Domain.Resources.Requests["memory"]
+			Expect(len(vmi.Spec.Domain.Resources.Requests)).To(Equal(1))
+			memory := vmi.Spec.Domain.Resources.Requests["memory"]
 			Expect(int(memory.Value())).To(Equal(64000000))
 
-			Expect(vm.Spec.Domain.CPU).ToNot(BeNil())
-			Expect(int(vm.Spec.Domain.CPU.Cores)).To(Equal(4))
+			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil())
+			Expect(int(vmi.Spec.Domain.CPU.Cores)).To(Equal(4))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -580,27 +580,27 @@ var _ = Describe("VM Initializer", func() {
 	})
 
 	Context("Apply Presets", func() {
-		var vm v1.VirtualMachine
-		var preset v1.VirtualMachinePreset
+		var vmi v1.VirtualMachineInstance
+		var preset v1.VirtualMachineInstancePreset
 		truthy := true
 		falsy := false
 		var recorder FakeRecorder
 
 		BeforeEach(func() {
-			vm = v1.VirtualMachine{Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}}
-			vm.ObjectMeta.Name = "testvm"
-			preset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
+			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}}
+			vmi.ObjectMeta.Name = "testvmi"
+			preset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			preset.ObjectMeta.Name = "test-preset"
 			recorder = NewFakeRecorder()
 		})
 
 		It("Should apply CPU settings", func() {
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
-			presets := []v1.VirtualMachinePreset{preset}
-			applyPresets(&vm, presets, recorder)
+			presets := []v1.VirtualMachineInstancePreset{preset}
+			applyPresets(&vmi, presets, recorder)
 
-			Expect(vm.Spec.Domain.CPU.Cores).To(Equal(uint32(4)))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(4)))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -611,11 +611,11 @@ var _ = Describe("VM Initializer", func() {
 			preset.Spec.Domain.Resources = v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 				"memory": memory,
 			}}
-			presets := []v1.VirtualMachinePreset{preset}
-			applyPresets(&vm, presets, recorder)
+			presets := []v1.VirtualMachineInstancePreset{preset}
+			applyPresets(&vmi, presets, recorder)
 
-			Expect(vm.Spec.Domain.Resources.Requests["memory"]).To(Equal(memory))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(memory))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -625,11 +625,11 @@ var _ = Describe("VM Initializer", func() {
 			uuid := types.UID("11112222-3333-4444-5555-666677778888")
 			preset.Spec.Domain.Firmware = &v1.Firmware{UUID: uuid}
 
-			presets := []v1.VirtualMachinePreset{preset}
-			applyPresets(&vm, presets, recorder)
+			presets := []v1.VirtualMachineInstancePreset{preset}
+			applyPresets(&vmi, presets, recorder)
 
-			Expect(vm.Spec.Domain.Firmware.UUID).To(Equal(uuid))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vmi.Spec.Domain.Firmware.UUID).To(Equal(uuid))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -641,11 +641,11 @@ var _ = Describe("VM Initializer", func() {
 			}
 			preset.Spec.Domain.Clock = clock
 
-			presets := []v1.VirtualMachinePreset{preset}
-			applyPresets(&vm, presets, recorder)
+			presets := []v1.VirtualMachineInstancePreset{preset}
+			applyPresets(&vmi, presets, recorder)
 
-			Expect(vm.Spec.Domain.Clock).To(Equal(clock))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vmi.Spec.Domain.Clock).To(Equal(clock))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -659,11 +659,11 @@ var _ = Describe("VM Initializer", func() {
 
 			preset.Spec.Domain.Features = features
 
-			presets := []v1.VirtualMachinePreset{preset}
-			applyPresets(&vm, presets, recorder)
+			presets := []v1.VirtualMachineInstancePreset{preset}
+			applyPresets(&vmi, presets, recorder)
 
-			Expect(vm.Spec.Domain.Features).To(Equal(features))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vmi.Spec.Domain.Features).To(Equal(features))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -674,11 +674,11 @@ var _ = Describe("VM Initializer", func() {
 
 			preset.Spec.Domain.Devices.Watchdog = watchdog
 
-			presets := []v1.VirtualMachinePreset{preset}
-			applyPresets(&vm, presets, recorder)
+			presets := []v1.VirtualMachineInstancePreset{preset}
+			applyPresets(&vmi, presets, recorder)
 
-			Expect(vm.Spec.Domain.Devices.Watchdog).To(Equal(watchdog))
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			Expect(vmi.Spec.Domain.Devices.Watchdog).To(Equal(watchdog))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
@@ -686,10 +686,10 @@ var _ = Describe("VM Initializer", func() {
 	})
 
 	Context("Filter Matching", func() {
-		var vm v1.VirtualMachine
-		var matchingPreset v1.VirtualMachinePreset
-		var nonmatchingPreset v1.VirtualMachinePreset
-		var errorPreset v1.VirtualMachinePreset
+		var vmi v1.VirtualMachineInstance
+		var matchingPreset v1.VirtualMachineInstancePreset
+		var nonmatchingPreset v1.VirtualMachineInstancePreset
+		var errorPreset v1.VirtualMachineInstancePreset
 		matchingPresetName := "test-preset"
 		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 		matchingLabel := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: "matching"}}
@@ -699,27 +699,27 @@ var _ = Describe("VM Initializer", func() {
 		var recorder FakeRecorder
 
 		BeforeEach(func() {
-			vm = v1.VirtualMachine{Spec: v1.VirtualMachineSpec{Domain: v1.DomainSpec{}}}
-			vm.ObjectMeta.Name = "testvm"
-			vm.ObjectMeta.Labels = map[string]string{flavorKey: "matching"}
+			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}}
+			vmi.ObjectMeta.Name = "testvmi"
+			vmi.ObjectMeta.Labels = map[string]string{flavorKey: "matching"}
 
-			matchingPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
+			matchingPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			matchingPreset.ObjectMeta.Name = matchingPresetName
 			matchingPreset.Spec.Selector = matchingLabel
 
-			nonmatchingPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
+			nonmatchingPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			nonmatchingPreset.ObjectMeta.Name = "unrelated-preset"
 			nonmatchingPreset.Spec.Selector = mismatchLabel
 
-			errorPreset = v1.VirtualMachinePreset{Spec: v1.VirtualMachinePresetSpec{Domain: &v1.DomainSpec{}}}
+			errorPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			errorPreset.ObjectMeta.Name = "broken-preset"
 			errorPreset.Spec.Selector = errorLabel
 			recorder = NewFakeRecorder()
 		})
 
 		It("Should match preset with the correct selector", func() {
-			allPresets := []v1.VirtualMachinePreset{matchingPreset, nonmatchingPreset}
-			matchingPresets := filterPresets(allPresets, &vm, recorder)
+			allPresets := []v1.VirtualMachineInstancePreset{matchingPreset, nonmatchingPreset}
+			matchingPresets := filterPresets(allPresets, &vmi, recorder)
 			Expect(len(matchingPresets)).To(Equal(1))
 			Expect(matchingPresets[0].Name).To(Equal(matchingPresetName))
 
@@ -728,8 +728,8 @@ var _ = Describe("VM Initializer", func() {
 		})
 
 		It("Should not match preset with the incorrect selector", func() {
-			allPresets := []v1.VirtualMachinePreset{nonmatchingPreset}
-			matchingPresets := filterPresets(allPresets, &vm, recorder)
+			allPresets := []v1.VirtualMachineInstancePreset{nonmatchingPreset}
+			matchingPresets := filterPresets(allPresets, &vmi, recorder)
 			Expect(len(matchingPresets)).To(Equal(0))
 
 			By("checking that no events were recorded")
@@ -737,8 +737,8 @@ var _ = Describe("VM Initializer", func() {
 		})
 
 		It("Should ignore bogus selectors", func() {
-			allPresets := []v1.VirtualMachinePreset{matchingPreset, nonmatchingPreset, errorPreset}
-			matchingPresets := filterPresets(allPresets, &vm, recorder)
+			allPresets := []v1.VirtualMachineInstancePreset{matchingPreset, nonmatchingPreset, errorPreset}
+			matchingPresets := filterPresets(allPresets, &vmi, recorder)
 			Expect(len(matchingPresets)).To(Equal(1))
 			Expect(matchingPresets[0].Name).To(Equal(matchingPresetName))
 
@@ -749,14 +749,14 @@ var _ = Describe("VM Initializer", func() {
 
 	})
 
-	Context("VM Init Watcher", func() {
+	Context("VirtualMachineInstance Init Watcher", func() {
 		var server *ghttp.Server
 
 		log.Log.SetIOWriter(GinkgoWriter)
 		var app = VirtControllerApp{}
 		app.launcherImage = "kubevirt/virt-launcher"
 
-		var vmPreset *v1.VirtualMachinePreset
+		var vmiPreset *v1.VirtualMachineInstancePreset
 		var stopChan chan struct{}
 
 		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
@@ -771,49 +771,49 @@ var _ = Describe("VM Initializer", func() {
 
 			// create a reference preset
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: presetFlavor}}
-			vmPreset = v1.NewVirtualMachinePreset("test-preset", selector)
-			vmPreset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
-			vmPreset.Spec.Domain.Firmware = &v1.Firmware{UUID: "12345678-1234-1234-1234-123456781234"}
+			vmiPreset = v1.NewVirtualMachinePreset("test-preset", selector)
+			vmiPreset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
+			vmiPreset.Spec.Domain.Firmware = &v1.Firmware{UUID: "12345678-1234-1234-1234-123456781234"}
 
-			// create a stock VM
+			// create a stock VirtualMachineInstance
 
-			// Synthesize a fake, but fully functional, vmPresetInformer
+			// Synthesize a fake, but fully functional, vmiPresetInformer
 			presetListWatch := &cache.ListWatch{
 				ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
-					return &v1.VirtualMachinePresetList{Items: []v1.VirtualMachinePreset{*vmPreset}}, nil
+					return &v1.VirtualMachineInstancePresetList{Items: []v1.VirtualMachineInstancePreset{*vmiPreset}}, nil
 				},
 				WatchFunc: func(options k8smetav1.ListOptions) (watch.Interface, error) {
 					fakeWatch := watch.NewFake()
-					fakeWatch.Add(vmPreset)
+					fakeWatch.Add(vmiPreset)
 					return fakeWatch, nil
 				},
 			}
-			app.vmPresetInformer = cache.NewSharedIndexInformer(presetListWatch, &v1.VirtualMachinePreset{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			go app.vmPresetInformer.Run(stopChan)
+			app.vmiPresetInformer = cache.NewSharedIndexInformer(presetListWatch, &v1.VirtualMachineInstancePreset{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			go app.vmiPresetInformer.Run(stopChan)
 
-			// Synthesize a fake vmInformer
-			vmListWatch := &cache.ListWatch{
+			// Synthesize a fake vmiInformer
+			vmiListWatch := &cache.ListWatch{
 				ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
-					return &v1.VirtualMachineList{}, nil
+					return &v1.VirtualMachineInstanceList{}, nil
 				},
 				WatchFunc: func(options k8smetav1.ListOptions) (watch.Interface, error) {
 					return watch.NewFake(), nil
 				},
 			}
-			app.vmInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			app.podInformer = cache.NewSharedIndexInformer(vmListWatch, &v1.VirtualMachine{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			app.nodeInformer = cache.NewSharedIndexInformer(vmListWatch, &k8sv1.Node{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			app.vmPresetCache = app.vmInformer.GetStore()
-			app.vmPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-			app.vmInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmPresetQueue))
-			go app.vmInformer.Run(stopChan)
+			app.vmiInformer = cache.NewSharedIndexInformer(vmiListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			app.podInformer = cache.NewSharedIndexInformer(vmiListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			app.nodeInformer = cache.NewSharedIndexInformer(vmiListWatch, &k8sv1.Node{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			app.vmiPresetCache = app.vmiInformer.GetStore()
+			app.vmiPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+			app.vmiInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmiPresetQueue))
+			go app.vmiInformer.Run(stopChan)
 
 			recorder := NewFakeRecorder()
-			app.vmPresetRecorder = &recorder
+			app.vmiPresetRecorder = &recorder
 
 			app.initCommon()
 			// Make sure the informers are synced before continuing -- avoid race conditions
-			cache.WaitForCacheSync(stopChan, app.vmPresetInformer.HasSynced, app.vmPresetInformer.HasSynced)
+			cache.WaitForCacheSync(stopChan, app.vmiPresetInformer.HasSynced, app.vmiPresetInformer.HasSynced)
 		})
 
 		AfterEach(func() {
@@ -821,210 +821,239 @@ var _ = Describe("VM Initializer", func() {
 		})
 
 		// This is a meta-test to ensure the preset cache in this test suite works
-		It("should have a result in the fake VM Preset cache", func() {
-			presets := app.vmPresetInformer.GetStore().List()
+		It("should have a result in the fake VirtualMachineInstance Preset cache", func() {
+			presets := app.vmiPresetInformer.GetStore().List()
 			Expect(len(presets)).To(Equal(1))
 			for _, obj := range presets {
-				var preset *v1.VirtualMachinePreset
-				preset = obj.(*v1.VirtualMachinePreset)
+				var preset *v1.VirtualMachineInstancePreset
+				preset = obj.(*v1.VirtualMachineInstancePreset)
 				Expect(preset.Name).To(Equal("test-preset"))
 			}
 
 		})
 
-		It("should not process an initialized VM", func() {
-			vm := v1.NewMinimalVM("testvm")
-			addInitializedAnnotation(vm)
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+		It("should not process an initialized VirtualMachineInstance", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			addInitializedAnnotation(vmi)
+			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 
-			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmPresetCache.Add(vm)
-			app.vmPresetQueue.Add(key)
+			key, _ := cache.MetaNamespaceKeyFunc(vmi)
+			app.vmiPresetCache.Add(vmi)
+			app.vmiPresetQueue.Add(key)
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
-			app.vmPresetController.Execute()
-			// the initializer should inspect the VM and decide nothing needs to be done
+			app.vmiPresetController.Execute()
+			// the initializer should inspect the VirtualMachineInstance and decide nothing needs to be done
 			// (and skip the update entirely). So zero requests are expected.
 			Expect(len(server.ReceivedRequests())).To(Equal(0))
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
-			Expect(controller.HasFinalizer(vm, v1.VirtualMachineFinalizer)).To(BeTrue())
+			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
+			Expect(controller.HasFinalizer(vmi, v1.VirtualMachineInstanceFinalizer)).To(BeTrue())
 		})
 
-		It("should initialize a VM if needed", func() {
-			vm := v1.NewMinimalVM("testvm")
+		It("should initialize a VirtualMachineInstance if needed", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
 
-			key, _ := cache.MetaNamespaceKeyFunc(vm)
-			app.vmPresetCache.Add(vm)
-			app.vmPresetQueue.Add(key)
+			key, _ := cache.MetaNamespaceKeyFunc(vmi)
+			app.vmiPresetCache.Add(vmi)
+			app.vmiPresetQueue.Add(key)
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
-			app.vmPresetController.Execute()
+			app.vmiPresetController.Execute()
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 
-			// We should expect no changes to this VM object--because that would mean
+			// We should expect no changes to this VirtualMachineInstance object--because that would mean
 			// there were side effects in the cache.
-			Expect(isVirtualMachineInitialized(vm)).To(BeFalse())
+			Expect(isVirtualMachineInitialized(vmi)).To(BeFalse())
 		})
 
 		It("should apply presets", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Labels = map[string]string{flavorKey: presetFlavor}
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Labels = map[string]string{flavorKey: presetFlavor}
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
-			err := app.vmPresetController.initializeVirtualMachine(vm)
+			err := app.vmiPresetController.initializeVirtualMachine(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			// Prove that the VM was annotated (indicates successful application of preset)
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			// Prove that the VirtualMachineInstance was annotated (indicates successful application of preset)
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 		})
 
 		It("should annotate partially applied presets", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Labels = map[string]string{flavorKey: presetFlavor}
-			vm.Spec.Domain = v1.DomainSpec{CPU: &v1.CPU{Cores: 6}}
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Labels = map[string]string{flavorKey: presetFlavor}
+			vmi.Spec.Domain = v1.DomainSpec{CPU: &v1.CPU{Cores: 6}}
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
-			err := app.vmPresetController.initializeVirtualMachine(vm)
+			err := app.vmiPresetController.initializeVirtualMachine(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			// Prove that the VM was annotated (indicates successful application of preset)
-			Expect(vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha1"))
+			// Prove that the VirtualMachineInstance was annotated (indicates successful application of preset)
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 		})
 
 		It("should should not annotate presets with no settings successfully applied", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Labels = map[string]string{flavorKey: presetFlavor}
-			vm.Spec.Domain = v1.DomainSpec{
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Labels = map[string]string{flavorKey: presetFlavor}
+			vmi.Spec.Domain = v1.DomainSpec{
 				CPU:      &v1.CPU{Cores: 6},
 				Firmware: &v1.Firmware{UUID: "11111111-2222-3333-4444-123456781234"}}
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
-			err := app.vmPresetController.initializeVirtualMachine(vm)
+			err := app.vmiPresetController.initializeVirtualMachine(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 
-			_, found := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+			_, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
 			Expect(found).To(BeFalse())
 
-			Expect(vm.Status.Phase).ToNot(Equal(v1.Failed))
+			Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
-		It("should not mark a VM without presets as failed", func() {
-			vm := v1.NewMinimalVM("testvm")
+		It("should not mark a VirtualMachineInstance without presets as failed", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
-			err := app.vmPresetController.initializeVirtualMachine(vm)
+			err := app.vmiPresetController.initializeVirtualMachine(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
 
-			_, found := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+			_, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
 			Expect(found).To(BeFalse())
 
-			Expect(vm.Status.Phase).ToNot(Equal(v1.Failed))
+			Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
 		It("should check if exclusion annotation is \"true\"", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Labels = map[string]string{flavorKey: presetFlavor}
-			vm.Annotations = map[string]string{}
-			vm.Annotations[exclusionMarking] = "anything"
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Labels = map[string]string{flavorKey: presetFlavor}
+			vmi.Annotations = map[string]string{}
+			vmi.Annotations[exclusionMarking] = "anything"
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
-			err := app.vmPresetController.initializeVirtualMachine(vm)
+			err := app.vmiPresetController.initializeVirtualMachine(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			_, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+			_, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
 			Expect(ok).To(BeTrue(), "Preset should applied")
 
-			// Prove that the VM was initialized
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+			// Prove that the VirtualMachineInstance was initialized
+			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 		})
 
-		It("should not add annotations to VM's with exclusion marking", func() {
-			vm := v1.NewMinimalVM("testvm")
-			vm.Labels = map[string]string{flavorKey: presetFlavor}
-			vm.Annotations = map[string]string{}
-			vm.Annotations[exclusionMarking] = "true"
+		It("should not add annotations to VirtualMachineInstance's with exclusion marking", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Labels = map[string]string{flavorKey: presetFlavor}
+			vmi.Annotations = map[string]string{}
+			vmi.Annotations[exclusionMarking] = "true"
 
 			// Register the expected REST call
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 				),
 			)
 
-			err := app.vmPresetController.initializeVirtualMachine(vm)
+			err := app.vmiPresetController.initializeVirtualMachine(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			_, ok := vm.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+			_, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
 			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
 
-			// Prove that the VM was initialized
-			Expect(isVirtualMachineInitialized(vm)).To(BeTrue())
+			// Prove that the VirtualMachineInstance was initialized
+			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
+		})
+
+		It("should set default values to VMI", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec = v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						Disks: []v1.Disk{
+							{Name: "testdisk"},
+						},
+					},
+				},
+			}
+
+			// Register the expected REST call
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+				),
+			)
+
+			err := app.vmiPresetController.initializeVirtualMachine(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			disk := vmi.Spec.Domain.Devices.Disks[0]
+			Expect(disk.Disk).ToNot(BeNil(), "DiskTarget should not be nil")
+			Expect(disk.Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
 		})
 	})
 })
 
 func TestLogging(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "VM Initializer")
+	RunSpecs(t, "VirtualMachineInstance Initializer")
 }

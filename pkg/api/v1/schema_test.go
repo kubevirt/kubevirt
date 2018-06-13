@@ -28,12 +28,12 @@ import (
 )
 
 var exampleJSON = `{
-  "kind": "VirtualMachine",
-  "apiVersion": "kubevirt.io/v1alpha1",
+  "kind": "VirtualMachineInstance",
+  "apiVersion": "kubevirt.io/v1alpha2",
   "metadata": {
-    "name": "testvm",
+    "name": "testvmi",
     "namespace": "default",
-    "selfLink": "/apis/kubevirt.io/v1alpha1/namespaces/default/virtualmachines/testvm",
+    "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi",
     "creationTimestamp": null
   },
   "spec": {
@@ -145,6 +145,12 @@ var exampleJSON = `{
               "readonly": true
             }
           }
+        ],
+        "interfaces": [
+          {
+            "name": "default",
+            "bridge": {}
+          }
         ]
       }
     },
@@ -169,6 +175,12 @@ var exampleJSON = `{
           "claimName": "testclaim"
         }
       }
+    ],
+    "networks": [
+      {
+        "name": "default",
+        "pod": {}
+      }
     ]
   },
   "status": {}
@@ -176,11 +188,11 @@ var exampleJSON = `{
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the json above
-	var exampleVM *VirtualMachine
+	var exampleVMI *VirtualMachineInstance
 
 	BeforeEach(func() {
-		exampleVM = NewMinimalVM("testvm")
-		exampleVM.Spec.Domain.Devices.Disks = []Disk{
+		exampleVMI = NewMinimalVMI("testvmi")
+		exampleVMI.Spec.Domain.Devices.Disks = []Disk{
 			{
 				Name:       "disk0",
 				VolumeName: "volume0",
@@ -224,7 +236,7 @@ var _ = Describe("Schema", func() {
 			},
 		}
 
-		exampleVM.Spec.Volumes = []Volume{
+		exampleVMI.Spec.Volumes = []Volume{
 			{
 				Name: "volume0",
 				VolumeSource: VolumeSource{
@@ -252,7 +264,7 @@ var _ = Describe("Schema", func() {
 				},
 			},
 		}
-		exampleVM.Spec.Domain.Features = &Features{
+		exampleVMI.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _false},
 			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
@@ -267,7 +279,7 @@ var _ = Describe("Schema", func() {
 				VendorID:   &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
 			},
 		}
-		exampleVM.Spec.Domain.Clock = &Clock{
+		exampleVMI.Spec.Domain.Clock = &Clock{
 			ClockOffset: ClockOffset{
 				UTC: &ClockOffsetUTC{},
 			},
@@ -279,23 +291,40 @@ var _ = Describe("Schema", func() {
 				Hyperv: &HypervTimer{},
 			},
 		}
-		exampleVM.Spec.Domain.Firmware = &Firmware{
+		exampleVMI.Spec.Domain.Firmware = &Firmware{
 			UUID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
 		}
-		exampleVM.Spec.Domain.CPU = &CPU{
+		exampleVMI.Spec.Domain.CPU = &CPU{
 			Cores: 3,
 		}
-		SetObjectDefaults_VirtualMachine(exampleVM)
+		exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+			Interface{
+				Name: "default",
+				InterfaceBindingMethod: InterfaceBindingMethod{
+					Bridge: &InterfaceBridge{},
+				},
+			},
+		}
+		exampleVMI.Spec.Networks = []Network{
+			Network{
+				Name: "default",
+				NetworkSource: NetworkSource{
+					Pod: &PodNetwork{},
+				},
+			},
+		}
+
+		SetObjectDefaults_VirtualMachineInstance(exampleVMI)
 	})
 	Context("With example schema in json", func() {
 		It("Unmarshal json into struct", func() {
-			newVM := &VirtualMachine{}
-			err := json.Unmarshal([]byte(exampleJSON), newVM)
+			newVMI := &VirtualMachineInstance{}
+			err := json.Unmarshal([]byte(exampleJSON), newVMI)
 			Expect(err).To(BeNil())
-			Expect(newVM).To(Equal(exampleVM))
+			Expect(newVMI).To(Equal(exampleVMI))
 		})
 		It("Marshal struct into json", func() {
-			buf, err := json.MarshalIndent(*exampleVM, "", "  ")
+			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
 			Expect(string(buf)).To(Equal(exampleJSON))
 		})

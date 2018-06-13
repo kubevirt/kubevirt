@@ -38,7 +38,7 @@ const configMapName = "kube-system/kubevirt-config"
 const allowEmulationKey = "debug.allowEmulation"
 
 type TemplateService interface {
-	RenderLaunchManifest(*v1.VirtualMachine) (*k8sv1.Pod, error)
+	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
 
 type templateService struct {
@@ -67,10 +67,10 @@ func IsEmulationAllowed(store cache.Store) (bool, error) {
 	return allowEmulation, nil
 }
 
-func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Pod, error) {
-	precond.MustNotBeNil(vm)
-	domain := precond.MustNotBeEmpty(vm.GetObjectMeta().GetName())
-	namespace := precond.MustNotBeEmpty(vm.GetObjectMeta().GetNamespace())
+func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
+	precond.MustNotBeNil(vmi)
+	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
+	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 
 	initialDelaySeconds := 2
 	timeoutSeconds := 5
@@ -85,8 +85,8 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
-	if vm.Spec.TerminationGracePeriodSeconds != nil {
-		gracePeriodSeconds = *vm.Spec.TerminationGracePeriodSeconds
+	if vmi.Spec.TerminationGracePeriodSeconds != nil {
+		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 
 	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
@@ -97,10 +97,10 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
-	for _, volume := range vm.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: filepath.Join("/var/run/kubevirt-private", "vm-disks", volume.Name),
+			MountPath: filepath.Join("/var/run/kubevirt-private", "vmi-disks", volume.Name),
 		}
 		if volume.PersistentVolumeClaim != nil {
 			volumesMounts = append(volumesMounts, volumeMount)
@@ -135,32 +135,32 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 
 	// Pad the virt-launcher grace period.
 	// Ideally we want virt-handler to handle tearing down
-	// the vm without virt-launcher's termination forcing
-	// the vm down.
+	// the vmi without virt-launcher's termination forcing
+	// the vmi down.
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
-	vmResources := vm.Spec.Domain.Resources
+	vmiResources := vmi.Spec.Domain.Resources
 
 	resources.Requests = make(k8sv1.ResourceList)
 
-	// Copy vm resources requests to a container
-	for key, value := range vmResources.Requests {
+	// Copy vmi resources requests to a container
+	for key, value := range vmiResources.Requests {
 		resources.Requests[key] = value
 	}
 
-	// Copy vm resources limits to a container
-	if vmResources.Limits != nil {
+	// Copy vmi resources limits to a container
+	if vmiResources.Limits != nil {
 		resources.Limits = make(k8sv1.ResourceList)
 	}
-	for key, value := range vmResources.Limits {
+	for key, value := range vmiResources.Limits {
 		resources.Limits[key] = value
 	}
 
 	// Add memory overhead
-	setMemoryOverhead(vm.Spec.Domain, &resources)
+	setMemoryOverhead(vmi.Spec.Domain, &resources)
 
 	command := []string{"/entrypoint.sh",
 		"--qemu-timeout", "5m",
@@ -179,7 +179,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		command = append(command, "--allow-emulation")
 	}
 
-	// VM target container
+	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
@@ -210,7 +210,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		Resources: resources,
 	}
 
-	containers := registrydisk.GenerateContainers(vm, "libvirt-runtime", "/var/run/libvirt")
+	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
@@ -228,7 +228,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 	})
 
 	nodeSelector := map[string]string{}
-	for k, v := range vm.Spec.NodeSelector {
+	for k, v := range vmi.Spec.NodeSelector {
 		nodeSelector[k] = v
 
 	}
@@ -236,7 +236,7 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 
 	podLabels := map[string]string{}
 
-	for k, v := range vm.Labels {
+	for k, v := range vmi.Labels {
 		podLabels[k] = v
 	}
 	podLabels[v1.AppLabel] = "virt-launcher"
@@ -244,9 +244,9 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 
 	containers = append(containers, container)
 
-	hostName := vm.Name
-	if vm.Spec.Hostname != "" {
-		hostName = vm.Spec.Hostname
+	hostName := vmi.Name
+	if vmi.Spec.Hostname != "" {
+		hostName = vmi.Spec.Hostname
 	}
 
 	// TODO use constants for podLabels
@@ -255,13 +255,13 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
 			Annotations: map[string]string{
-				v1.CreatedByAnnotation: string(vm.UID),
+				v1.CreatedByAnnotation: string(vmi.UID),
 				v1.OwnedByAnnotation:   "virt-controller",
 			},
 		},
 		Spec: k8sv1.PodSpec{
 			Hostname:  hostName,
-			Subdomain: vm.Spec.Subdomain,
+			Subdomain: vmi.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
 			},
@@ -274,11 +274,19 @@ func (t *templateService) RenderLaunchManifest(vm *v1.VirtualMachine) (*k8sv1.Po
 		},
 	}
 
-	if vm.Spec.Affinity != nil {
+	if vmi.Spec.Affinity != nil {
 		pod.Spec.Affinity = &k8sv1.Affinity{}
 
-		if vm.Spec.Affinity.NodeAffinity != nil {
-			pod.Spec.Affinity.NodeAffinity = vm.Spec.Affinity.NodeAffinity
+		if vmi.Spec.Affinity.NodeAffinity != nil {
+			pod.Spec.Affinity.NodeAffinity = vmi.Spec.Affinity.NodeAffinity
+		}
+
+		if vmi.Spec.Affinity.PodAffinity != nil {
+			pod.Spec.Affinity.PodAffinity = vmi.Spec.Affinity.PodAffinity
+		}
+
+		if vmi.Spec.Affinity.PodAntiAffinity != nil {
+			pod.Spec.Affinity.PodAntiAffinity = vmi.Spec.Affinity.PodAntiAffinity
 		}
 	}
 
@@ -304,12 +312,12 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
 func setMemoryOverhead(domain v1.DomainSpec, resources *k8sv1.ResourceRequirements) error {
-	vmMemoryReq := domain.Resources.Requests.Memory()
+	vmiMemoryReq := domain.Resources.Requests.Memory()
 
 	overhead := resource.NewScaledQuantity(0, resource.Kilo)
 
 	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
-	pagetableMemory := resource.NewScaledQuantity(vmMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
+	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
 	pagetableMemory.Set(pagetableMemory.Value() / 512)
 	overhead.Add(*pagetableMemory)
 

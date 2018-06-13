@@ -45,69 +45,6 @@ func generateBlankCrd() *extensionsv1.CustomResourceDefinition {
 	}
 }
 
-func generateOfflineVirtualMachineCrd() {
-	crd := generateBlankCrd()
-
-	crd.ObjectMeta.Name = "offlinevirtualmachines." + v1.OfflineVirtualMachineGroupVersionKind.Group
-	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
-		Group:   v1.OfflineVirtualMachineGroupVersionKind.Group,
-		Version: v1.OfflineVirtualMachineGroupVersionKind.Version,
-		Scope:   "Namespaced",
-
-		Names: extensionsv1.CustomResourceDefinitionNames{
-			Plural:     "offlinevirtualmachines",
-			Singular:   "offlinevirtualmachine",
-			Kind:       v1.OfflineVirtualMachineGroupVersionKind.Kind,
-			ShortNames: []string{"ovm", "ovms"},
-		},
-		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.OfflineVirtualMachine", v1.GetOpenAPIDefinitions),
-	}
-
-	crdutils.MarshallCrd(crd, "yaml")
-}
-
-func generatePresetCrd() {
-	crd := generateBlankCrd()
-
-	crd.ObjectMeta.Name = "virtualmachinepresets." + v1.VirtualMachinePresetGroupVersionKind.Group
-	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
-		Group:   v1.VirtualMachinePresetGroupVersionKind.Group,
-		Version: v1.VirtualMachinePresetGroupVersionKind.Version,
-		Scope:   "Namespaced",
-
-		Names: extensionsv1.CustomResourceDefinitionNames{
-			Plural:     "virtualmachinepresets",
-			Singular:   "virtualmachinepreset",
-			Kind:       v1.VirtualMachinePresetGroupVersionKind.Kind,
-			ShortNames: []string{"vmpreset", "vmpresets"},
-		},
-		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachinePreset", v1.GetOpenAPIDefinitions),
-	}
-
-	crdutils.MarshallCrd(crd, "yaml")
-}
-
-func generateReplicaSetCrd() {
-	crd := generateBlankCrd()
-
-	crd.ObjectMeta.Name = "virtualmachinereplicasets." + v1.VMReplicaSetGroupVersionKind.Group
-	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
-		Group:   v1.VMReplicaSetGroupVersionKind.Group,
-		Version: v1.VMReplicaSetGroupVersionKind.Version,
-		Scope:   "Namespaced",
-
-		Names: extensionsv1.CustomResourceDefinitionNames{
-			Plural:     "virtualmachinereplicasets",
-			Singular:   "virtualmachinereplicaset",
-			Kind:       v1.VMReplicaSetGroupVersionKind.Kind,
-			ShortNames: []string{"vmrs", "vmrss"},
-		},
-		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineReplicaSet", v1.GetOpenAPIDefinitions),
-	}
-
-	crdutils.MarshallCrd(crd, "yaml")
-}
-
 func generateVirtualMachineCrd() {
 	crd := generateBlankCrd()
 
@@ -129,19 +66,82 @@ func generateVirtualMachineCrd() {
 	crdutils.MarshallCrd(crd, "yaml")
 }
 
+func generatePresetCrd() {
+	crd := generateBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachineinstancepresets." + v1.VirtualMachineInstancePresetGroupVersionKind.Group
+	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
+		Group:   v1.VirtualMachineInstancePresetGroupVersionKind.Group,
+		Version: v1.VirtualMachineInstancePresetGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extensionsv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachineinstancepresets",
+			Singular:   "virtualmachineinstancepreset",
+			Kind:       v1.VirtualMachineInstancePresetGroupVersionKind.Kind,
+			ShortNames: []string{"vmipreset", "vmipresets"},
+		},
+		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstancePreset", v1.GetOpenAPIDefinitions),
+	}
+
+	crdutils.MarshallCrd(crd, "yaml")
+}
+
+func generateReplicaSetCrd() {
+	crd := generateBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachineinstancereplicasets." + v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
+	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
+		Group:   v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+		Version: v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extensionsv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachineinstancereplicasets",
+			Singular:   "virtualmachineinstancereplicaset",
+			Kind:       v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+			ShortNames: []string{"vmirs", "vmirss"},
+		},
+		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet", v1.GetOpenAPIDefinitions),
+	}
+
+	crdutils.MarshallCrd(crd, "yaml")
+}
+
+func generateVirtualMachineInstanceCrd() {
+	crd := generateBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachineinstances." + v1.VirtualMachineInstanceGroupVersionKind.Group
+	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
+		Group:   v1.VirtualMachineInstanceGroupVersionKind.Group,
+		Version: v1.VirtualMachineInstanceGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extensionsv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachineinstances",
+			Singular:   "virtualmachineinstance",
+			Kind:       v1.VirtualMachineInstanceGroupVersionKind.Kind,
+			ShortNames: []string{"vmi", "vmis"},
+		},
+		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance", v1.GetOpenAPIDefinitions),
+	}
+
+	crdutils.MarshallCrd(crd, "yaml")
+}
+
 func main() {
-	crdType := flag.String("crd-type", "", "Type of crd to generate. vm | vmpreset | vmrs | ovm")
+	crdType := flag.String("crd-type", "", "Type of crd to generate. vmi | vmipreset | vmirs | vm")
 	flag.Parse()
 
 	switch *crdType {
+	case "vmi":
+		generateVirtualMachineInstanceCrd()
+	case "vmipreset":
+		generatePresetCrd()
+	case "vmirs":
+		generateReplicaSetCrd()
 	case "vm":
 		generateVirtualMachineCrd()
-	case "vmpreset":
-		generatePresetCrd()
-	case "vmrs":
-		generateReplicaSetCrd()
-	case "ovm":
-		generateOfflineVirtualMachineCrd()
 	default:
 		panic(fmt.Errorf("unknown crd type %s", *crdType))
 	}

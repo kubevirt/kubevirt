@@ -31,13 +31,15 @@ set -ex
 export WORKSPACE="${WORKSPACE:-$PWD}"
 
 if [[ $TARGET =~ openshift-.* ]]; then
-  if [[ $TARGET =~ .*-crio ]]; then
+  if [[ $TARGET =~ .*-crio-.* ]]; then
     export KUBEVIRT_PROVIDER="os-3.9.0-crio"
   else
     export KUBEVIRT_PROVIDER="os-3.9.0"
   fi
-else
+elif [[ $TARGET =~ .*-1.9.3-.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.9.3"
+else
+  export KUBEVIRT_PROVIDER="k8s-1.10.3"
 fi
 
 export KUBEVIRT_NUM_NODES=2
@@ -91,7 +93,7 @@ kubectl version
 ginko_params="--ginkgo.noColor --junit-output=$WORKSPACE/junit.xml"
 
 # Prepare PV for windows testing
-if [[ -d $NFS_WINDOWS_DIR ]] && [[ $TARGET == windows ]]; then
+if [[ -d $NFS_WINDOWS_DIR ]] && [[ $TARGET =~ windows.* ]]; then
     kubectl create -f - <<EOF
 ---
 apiVersion: v1

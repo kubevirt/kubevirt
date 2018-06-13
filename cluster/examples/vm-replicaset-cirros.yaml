@@ -1,5 +1,5 @@
-apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachineReplicaSet
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstanceReplicaSet
 metadata:
   creationTimestamp: null
   name: vm-replicaset-cirros
@@ -30,5 +30,5 @@ spec:
       volumes:
       - name: registryvolume
         registryDisk:
-          image: kubevirt/cirros-registry-disk-demo:devel
+          image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
 status: {}

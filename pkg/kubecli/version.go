@@ -41,7 +41,7 @@ type ServerVersion struct {
 }
 
 func (v *ServerVersion) Get() (*version.Info, error) {
-	result := v.restClient.Get().RequestURI("/apis/subresources.kubevirt.io/v1alpha1/version").Do()
+	result := v.restClient.Get().RequestURI("/apis/subresources.kubevirt.io/v1alpha2/version").Do()
 	data, err := result.Raw()
 	if err != nil {
 		connErr, isConnectionErr := err.(*url.Error)

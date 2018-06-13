@@ -3,7 +3,7 @@
 ## Motivation
 
 KubeVirt in combination with use-cases like the cluster-autoscaler can be used
-to scale and provision vm pools. With the VirtualMachineReplicaSet and
+to scale and provision vm pools. With the VirtualMachineInstanceReplicaSet and
 cloud-init stateless pools can be instantiated and provisioned.
 Many of the used cloud images for these use-cases are bootet with small disks
 with no additional free space, and/or run in read-only mode. A common pattern
@@ -11,7 +11,7 @@ to store temporary data which should survive restarts or temporary data which
 is too big to fit in memory on temporary disks. The `emptyDir` in k8s provides
 a similar functionality.
 
-To provide a similar functionality for our `VirtualMachines` an `emptyDisk`
+To provide a similar functionality for our `VirtualMachineInstances` an `emptyDisk`
 volume type will be introduced.
 
 ## Implementation
@@ -35,8 +35,8 @@ type EmptyDiskSource struct {
 A usage example:
 
 ```yaml
-apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachine
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
 metadata:
   name: testvm
 spec:

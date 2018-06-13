@@ -43,27 +43,25 @@ Example:
 [![asciicast](https://asciinema.org/a/96275.png)](https://asciinema.org/a/96275)
 
 
-# Getting Started
+# To start using KubeVirt
 
-**Demo** To try out our demo run
-```bash
-$ curl run.kubevirt.io/demo.sh | bash
-```
-on a recent Fedora or Ubuntu and follow [these steps](https://github.com/kubevirt/demo).
+Try our quickstart at [kubevirt.io](http://kubevirt.io/get_kubevirt/).
 
-**Developer** To set up a development environment please read our
+See our user documentation at [docs.kubevirt.io](http://docs.kubevirt.io/).
+
+# To start developing KubeVirt
+
+To set up a development environment please read our
 [Getting Started Guide](docs/getting-started.md). To learn how to contribute, please read our [contribution guide](https://github.com/kubevirt/kubevirt/blob/master/CONTRIBUTING.md).
-
-
-## Documentation
 
 You can learn more about how KubeVirt is designed (and why it is that way),
 and learn more about the major components by taking a look at
-[our documentation](docs/):
+[our developer documentation](docs/):
 
  * [Glossary](docs/glossary.md) - Explaining the most important terms
  * [Architecture](docs/architecture.md) - High-level view on the architecture
  * [Components](docs/components.md) - Detailed look at all components
+ * [API Reference](https://www.kubevirt.io/api-reference/)
 
 
 # Community

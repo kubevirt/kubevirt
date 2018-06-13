@@ -194,7 +194,7 @@ type Resource struct {
 }
 
 type Memory struct {
-	Value uint   `xml:",chardata"`
+	Value uint64 `xml:",chardata"`
 	Unit  string `xml:"unit,attr"`
 }
 
@@ -225,6 +225,7 @@ type Disk struct {
 	Auth         *DiskAuth     `xml:"auth,omitempty"`
 	Alias        *Alias        `xml:"alias,omitempty"`
 	BackingStore *BackingStore `xml:"backingStore,omitempty"`
+	BootOrder    *BootOrder    `xml:"boot,omitempty"`
 }
 
 type DiskAuth struct {
@@ -545,10 +546,10 @@ type SecretSpec struct {
 	Usage       SecretUsage `xml:"usage,omitempty"`
 }
 
-func NewMinimalDomainSpec(vmName string) *DomainSpec {
-	precond.MustNotBeEmpty(vmName)
+func NewMinimalDomainSpec(vmiName string) *DomainSpec {
+	precond.MustNotBeEmpty(vmiName)
 	domain := &DomainSpec{}
-	domain.Name = vmName
+	domain.Name = vmiName
 	domain.Memory = Memory{Unit: "MB", Value: 9}
 	domain.Devices = Devices{}
 	return domain
@@ -604,9 +605,9 @@ func (dl *DomainList) GetListMeta() meta.List {
 	return &dl.ListMeta
 }
 
-// VMNamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
+// VMINamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
-func VMNamespaceKeyFunc(vm *v1.VirtualMachine) string {
-	domName := fmt.Sprintf("%s_%s", vm.Namespace, vm.Name)
+func VMINamespaceKeyFunc(vmi *v1.VirtualMachineInstance) string {
+	domName := fmt.Sprintf("%s_%s", vmi.Namespace, vmi.Name)
 	return domName
 }

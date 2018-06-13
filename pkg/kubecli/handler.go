@@ -22,7 +22,7 @@ type VirtHandlerClient interface {
 
 type VirtHandlerConn interface {
 	ConnectionDetails() (ip string, port string, err error)
-	ConsoleURI(vm *virtv1.VirtualMachine) (*url.URL, error)
+	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (*url.URL, error)
 	Pod() (pod *v1.Pod, err error)
 }
 
@@ -87,13 +87,13 @@ func (v *virtHandlerConn) ConnectionDetails() (ip string, port string, err error
 }
 
 //TODO move the actual ws handling in here, and work with channels
-func (v *virtHandlerConn) ConsoleURI(vm *virtv1.VirtualMachine) (*url.URL, error) {
+func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (*url.URL, error) {
 	ip, port, err := v.ConnectionDetails()
 	if err != nil {
 		return nil, err
 	}
 	return &url.URL{
-		Path: fmt.Sprintf("/api/v1/namespaces/%s/virtualmachines/%s/console", vm.ObjectMeta.Namespace, vm.ObjectMeta.Name),
+		Path: fmt.Sprintf("/api/v1/namespaces/%s/virtualmachineinstances/%s/console", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
 		Host: ip + ":" + port,
 	}, nil
 }

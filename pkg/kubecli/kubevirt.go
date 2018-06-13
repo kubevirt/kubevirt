@@ -38,9 +38,9 @@ import (
 )
 
 type KubevirtClient interface {
-	VM(namespace string) VMInterface
+	VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface
 	ReplicaSet(namespace string) ReplicaSetInterface
-	OfflineVirtualMachine(namespace string) OfflineVirtualMachineInterface
+	VirtualMachine(namespace string) VirtualMachineInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
 	kubernetes.Interface
@@ -58,41 +58,50 @@ func (k kubevirt) RestClient() *rest.RESTClient {
 	return k.restClient
 }
 
-type VMInterface interface {
-	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachine, error)
-	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineList, error)
-	Create(*v1.VirtualMachine) (*v1.VirtualMachine, error)
-	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
+type StreamOptions struct {
+	In  io.Reader
+	Out io.Writer
+}
+
+type StreamInterface interface {
+	Stream(options StreamOptions) error
+}
+
+type VirtualMachineInstanceInterface interface {
+	Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachineInstance, error)
+	List(opts *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
+	Create(instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
+	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
-	SerialConsole(name string, in io.Reader, out io.Writer) error
-	VNC(name string, in io.Reader, out io.Writer) error
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
+	SerialConsole(name string) (StreamInterface, error)
+	VNC(name string) (StreamInterface, error)
 }
 
 type ReplicaSetInterface interface {
-	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachineReplicaSet, error)
-	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineReplicaSetList, error)
-	Create(*v1.VirtualMachineReplicaSet) (*v1.VirtualMachineReplicaSet, error)
-	Update(*v1.VirtualMachineReplicaSet) (*v1.VirtualMachineReplicaSet, error)
+	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
+	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineInstanceReplicaSetList, error)
+	Create(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
+	Update(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 }
 
-type VMPresetInterface interface {
-	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachinePreset, error)
-	List(opts k8smetav1.ListOptions) (*v1.VirtualMachinePresetList, error)
-	Create(*v1.VirtualMachinePreset) (*v1.VirtualMachinePreset, error)
-	Update(*v1.VirtualMachinePreset) (*v1.VirtualMachinePreset, error)
+type VMIPresetInterface interface {
+	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachineInstancePreset, error)
+	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineInstancePresetList, error)
+	Create(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
+	Update(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachinePreset, err error)
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error)
 }
 
-// OfflineVirtualMachineInterface provides convenience methods to work with
+// VirtualMachineInterface provides convenience methods to work with
 // offline virtual machines inside the cluster
-type OfflineVirtualMachineInterface interface {
-	Get(name string, options *k8smetav1.GetOptions) (*v1.OfflineVirtualMachine, error)
-	List(opts *k8smetav1.ListOptions) (*v1.OfflineVirtualMachineList, error)
-	Create(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
-	Update(*v1.OfflineVirtualMachine) (*v1.OfflineVirtualMachine, error)
+type VirtualMachineInterface interface {
+	Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error)
+	List(opts *k8smetav1.ListOptions) (*v1.VirtualMachineList, error)
+	Create(*v1.VirtualMachine) (*v1.VirtualMachine, error)
+	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.OfflineVirtualMachine, err error)
 }

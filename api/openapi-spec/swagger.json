@@ -66,7 +66,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1": {
+   "/apis/kubevirt.io/v1alpha2": {
     "get": {
      "produces": [
       "application/json"
@@ -92,7 +92,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/healthz": {
+   "/apis/kubevirt.io/v1alpha2/healthz": {
     "get": {
      "consumes": [
       "application/json"
@@ -115,15 +115,15 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachines": {
+   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancepresets": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of OfflineVirtualMachine objects.",
-     "operationId": "listNamespacedOfflineVirtualMachine",
+     "summary": "Get a list of VirtualMachineInstancePreset objects.",
+     "operationId": "listNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -186,7 +186,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachineList"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePresetList"
        }
       },
       "401": {
@@ -195,7 +195,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachineList"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePresetList"
        }
       }
      }
@@ -209,15 +209,15 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Create a OfflineVirtualMachine object.",
-     "operationId": "createNamespacedOfflineVirtualMachine",
+     "summary": "Create a VirtualMachineInstancePreset object.",
+     "operationId": "createNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       {
@@ -233,19 +233,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       "401": {
@@ -254,7 +254,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       }
      }
@@ -264,8 +264,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a collection of OfflineVirtualMachine objects.",
-     "operationId": "deleteCollectionNamespacedOfflineVirtualMachine",
+     "summary": "Delete a collection of VirtualMachineInstancePreset objects.",
+     "operationId": "deleteCollectionNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
        "type": "string",
@@ -335,15 +335,15 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/offlinevirtualmachines/{name}": {
+   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancepresets/{name}": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a OfflineVirtualMachine object.",
-     "operationId": "readNamespacedOfflineVirtualMachine",
+     "summary": "Get a VirtualMachineInstancePreset object.",
+     "operationId": "readNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -378,7 +378,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       "401": {
@@ -387,7 +387,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       }
      }
@@ -401,15 +401,15 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Update a OfflineVirtualMachine object.",
-     "operationId": "replaceNamespacedOfflineVirtualMachine",
+     "summary": "Update a VirtualMachineInstancePreset object.",
+     "operationId": "replaceNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       {
@@ -433,13 +433,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       "401": {
@@ -448,7 +448,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       }
      }
@@ -462,8 +462,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a OfflineVirtualMachine object.",
-     "operationId": "deleteNamespacedOfflineVirtualMachine",
+     "summary": "Delete a VirtualMachineInstancePreset object.",
+     "operationId": "deleteNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
        "name": "body",
@@ -534,8 +534,8 @@
      "produces": [
       "application/json"
      ],
-     "summary": "Patch a OfflineVirtualMachine object.",
-     "operationId": "patchNamespacedOfflineVirtualMachine",
+     "summary": "Patch a VirtualMachineInstancePreset object.",
+     "operationId": "patchNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
        "name": "body",
@@ -550,7 +550,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       },
       "401": {
@@ -559,21 +559,21 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachine"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
        }
       }
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinepresets": {
+   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancereplicasets": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of VirtualMachinePreset objects.",
-     "operationId": "listNamespacedVirtualMachinePreset",
+     "summary": "Get a list of VirtualMachineInstanceReplicaSet objects.",
+     "operationId": "listNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -636,7 +636,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePresetList"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetList"
        }
       },
       "401": {
@@ -645,7 +645,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePresetList"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetList"
        }
       }
      }
@@ -659,15 +659,15 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Create a VirtualMachinePreset object.",
-     "operationId": "createNamespacedVirtualMachinePreset",
+     "summary": "Create a VirtualMachineInstanceReplicaSet object.",
+     "operationId": "createNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       {
@@ -683,19 +683,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       "401": {
@@ -704,7 +704,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       }
      }
@@ -714,8 +714,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a collection of VirtualMachinePreset objects.",
-     "operationId": "deleteCollectionNamespacedVirtualMachinePreset",
+     "summary": "Delete a collection of VirtualMachineInstanceReplicaSet objects.",
+     "operationId": "deleteCollectionNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
        "type": "string",
@@ -785,15 +785,15 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinepresets/{name}": {
+   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancereplicasets/{name}": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a VirtualMachinePreset object.",
-     "operationId": "readNamespacedVirtualMachinePreset",
+     "summary": "Get a VirtualMachineInstanceReplicaSet object.",
+     "operationId": "readNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -828,7 +828,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       "401": {
@@ -837,7 +837,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       }
      }
@@ -851,15 +851,15 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Update a VirtualMachinePreset object.",
-     "operationId": "replaceNamespacedVirtualMachinePreset",
+     "summary": "Update a VirtualMachineInstanceReplicaSet object.",
+     "operationId": "replaceNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       {
@@ -883,13 +883,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       "401": {
@@ -898,7 +898,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       }
      }
@@ -912,8 +912,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a VirtualMachinePreset object.",
-     "operationId": "deleteNamespacedVirtualMachinePreset",
+     "summary": "Delete a VirtualMachineInstanceReplicaSet object.",
+     "operationId": "deleteNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
        "name": "body",
@@ -984,8 +984,8 @@
      "produces": [
       "application/json"
      ],
-     "summary": "Patch a VirtualMachinePreset object.",
-     "operationId": "patchNamespacedVirtualMachinePreset",
+     "summary": "Patch a VirtualMachineInstanceReplicaSet object.",
+     "operationId": "patchNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
        "name": "body",
@@ -1000,7 +1000,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       },
       "401": {
@@ -1009,21 +1009,21 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePreset"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
        }
       }
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinereplicasets": {
+   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of VirtualMachineReplicaSet objects.",
-     "operationId": "listNamespacedVirtualMachineReplicaSet",
+     "summary": "Get a list of VirtualMachineInstance objects.",
+     "operationId": "listNamespacedVirtualMachineInstance",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -1086,7 +1086,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceList"
        }
       },
       "401": {
@@ -1095,7 +1095,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceList"
        }
       }
      }
@@ -1109,15 +1109,15 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Create a VirtualMachineReplicaSet object.",
-     "operationId": "createNamespacedVirtualMachineReplicaSet",
+     "summary": "Create a VirtualMachineInstance object.",
+     "operationId": "createNamespacedVirtualMachineInstance",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       {
@@ -1133,19 +1133,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       "401": {
@@ -1154,7 +1154,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       }
      }
@@ -1164,8 +1164,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a collection of VirtualMachineReplicaSet objects.",
-     "operationId": "deleteCollectionNamespacedVirtualMachineReplicaSet",
+     "summary": "Delete a collection of VirtualMachineInstance objects.",
+     "operationId": "deleteCollectionNamespacedVirtualMachineInstance",
      "parameters": [
       {
        "type": "string",
@@ -1235,15 +1235,15 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinereplicasets/{name}": {
+   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a VirtualMachineReplicaSet object.",
-     "operationId": "readNamespacedVirtualMachineReplicaSet",
+     "summary": "Get a VirtualMachineInstance object.",
+     "operationId": "readNamespacedVirtualMachineInstance",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -1278,7 +1278,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       "401": {
@@ -1287,7 +1287,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       }
      }
@@ -1301,15 +1301,15 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Update a VirtualMachineReplicaSet object.",
-     "operationId": "replaceNamespacedVirtualMachineReplicaSet",
+     "summary": "Update a VirtualMachineInstance object.",
+     "operationId": "replaceNamespacedVirtualMachineInstance",
      "parameters": [
       {
        "name": "body",
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       {
@@ -1333,13 +1333,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       "401": {
@@ -1348,7 +1348,7 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       }
      }
@@ -1362,8 +1362,8 @@
       "application/json",
       "application/yaml"
      ],
-     "summary": "Delete a VirtualMachineReplicaSet object.",
-     "operationId": "deleteNamespacedVirtualMachineReplicaSet",
+     "summary": "Delete a VirtualMachineInstance object.",
+     "operationId": "deleteNamespacedVirtualMachineInstance",
      "parameters": [
       {
        "name": "body",
@@ -1434,8 +1434,8 @@
      "produces": [
       "application/json"
      ],
-     "summary": "Patch a VirtualMachineReplicaSet object.",
-     "operationId": "patchNamespacedVirtualMachineReplicaSet",
+     "summary": "Patch a VirtualMachineInstance object.",
+     "operationId": "patchNamespacedVirtualMachineInstance",
      "parameters": [
       {
        "name": "body",
@@ -1450,7 +1450,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       },
       "401": {
@@ -1459,13 +1459,13 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
+        "$ref": "#/definitions/v1.VirtualMachineInstance"
        }
       }
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines": {
+   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachines": {
     "get": {
      "produces": [
       "application/json",
@@ -1685,7 +1685,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}": {
+   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachines/{name}": {
     "get": {
      "produces": [
       "application/json",
@@ -1915,15 +1915,15 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/offlinevirtualmachines": {
+   "/apis/kubevirt.io/v1alpha2/virtualmachineinstancepresets": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of all OfflineVirtualMachine objects.",
-     "operationId": "listOfflineVirtualMachineForAllNamespaces",
+     "summary": "Get a list of all VirtualMachineInstancePreset objects.",
+     "operationId": "listVirtualMachineInstancePresetForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -1978,7 +1978,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachineList"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePresetList"
        }
       },
       "401": {
@@ -1987,21 +1987,21 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.OfflineVirtualMachineList"
+        "$ref": "#/definitions/v1.VirtualMachineInstancePresetList"
        }
       }
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/virtualmachinepresets": {
+   "/apis/kubevirt.io/v1alpha2/virtualmachineinstancereplicasets": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of all VirtualMachinePreset objects.",
-     "operationId": "listVirtualMachinePresetForAllNamespaces",
+     "summary": "Get a list of all VirtualMachineInstanceReplicaSet objects.",
+     "operationId": "listVirtualMachineInstanceReplicaSetForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -2056,7 +2056,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePresetList"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetList"
        }
       },
       "401": {
@@ -2065,21 +2065,21 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachinePresetList"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetList"
        }
       }
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/virtualmachinereplicasets": {
+   "/apis/kubevirt.io/v1alpha2/virtualmachineinstances": {
     "get": {
      "produces": [
       "application/json",
       "application/yaml",
       "application/json;stream=watch"
      ],
-     "summary": "Get a list of all VirtualMachineReplicaSet objects.",
-     "operationId": "listVirtualMachineReplicaSetForAllNamespaces",
+     "summary": "Get a list of all VirtualMachineInstance objects.",
+     "operationId": "listVirtualMachineInstanceForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -2134,7 +2134,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceList"
        }
       },
       "401": {
@@ -2143,13 +2143,13 @@
       "default": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineReplicaSetList"
+        "$ref": "#/definitions/v1.VirtualMachineInstanceList"
        }
       }
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/virtualmachines": {
+   "/apis/kubevirt.io/v1alpha2/virtualmachines": {
     "get": {
      "produces": [
       "application/json",
@@ -2227,13 +2227,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/offlinevirtualmachines": {
+   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachineinstancepresets": {
     "get": {
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a OfflineVirtualMachine object.",
-     "operationId": "watchNamespacedOfflineVirtualMachine",
+     "summary": "Watch a VirtualMachineInstancePreset object.",
+     "operationId": "watchNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -2311,13 +2311,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinepresets": {
+   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachineinstancereplicasets": {
     "get": {
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a VirtualMachinePreset object.",
-     "operationId": "watchNamespacedVirtualMachinePreset",
+     "summary": "Watch a VirtualMachineInstanceReplicaSet object.",
+     "operationId": "watchNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -2395,13 +2395,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinereplicasets": {
+   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachineinstances": {
     "get": {
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a VirtualMachineReplicaSet object.",
-     "operationId": "watchNamespacedVirtualMachineReplicaSet",
+     "summary": "Watch a VirtualMachineInstance object.",
+     "operationId": "watchNamespacedVirtualMachineInstance",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -2479,7 +2479,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachines": {
+   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachines": {
     "get": {
      "produces": [
       "application/json"
@@ -2563,13 +2563,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/offlinevirtualmachines": {
+   "/apis/kubevirt.io/v1alpha2/watch/virtualmachineinstancepresets": {
     "get": {
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a OfflineVirtualMachineList object.",
-     "operationId": "watchOfflineVirtualMachineListForAllNamespaces",
+     "summary": "Watch a VirtualMachineInstancePresetList object.",
+     "operationId": "watchVirtualMachineInstancePresetListForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -2639,13 +2639,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/virtualmachinepresets": {
+   "/apis/kubevirt.io/v1alpha2/watch/virtualmachineinstancereplicasets": {
     "get": {
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a VirtualMachinePresetList object.",
-     "operationId": "watchVirtualMachinePresetListForAllNamespaces",
+     "summary": "Watch a VirtualMachineInstanceReplicaSetList object.",
+     "operationId": "watchVirtualMachineInstanceReplicaSetListForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -2715,13 +2715,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/virtualmachinereplicasets": {
+   "/apis/kubevirt.io/v1alpha2/watch/virtualmachineinstances": {
     "get": {
      "produces": [
       "application/json"
      ],
-     "summary": "Watch a VirtualMachineReplicaSetList object.",
-     "operationId": "watchVirtualMachineReplicaSetListForAllNamespaces",
+     "summary": "Watch a VirtualMachineInstanceList object.",
+     "operationId": "watchVirtualMachineInstanceListForAllNamespaces",
      "parameters": [
       {
        "type": "string",
@@ -2791,7 +2791,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha1/watch/virtualmachines": {
+   "/apis/kubevirt.io/v1alpha2/watch/virtualmachines": {
     "get": {
      "produces": [
       "application/json"
@@ -2893,7 +2893,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha1": {
+   "/apis/subresources.kubevirt.io/v1alpha2": {
     "get": {
      "produces": [
       "application/json"
@@ -2919,9 +2919,9 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}/console": {
+   "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
-     "summary": "Open a websocket connection to a serial console on the specified VM.",
+     "summary": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
      "operationId": "console",
      "parameters": [
       {
@@ -2948,7 +2948,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}/test": {
+   "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}/test": {
     "get": {
      "summary": "Test endpoint verifying apiserver connectivity.",
      "operationId": "test",
@@ -2977,9 +2977,9 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachines/{name}/vnc": {
+   "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}/vnc": {
     "get": {
-     "summary": "Open a websocket connection to connect to VNC on the specified VM.",
+     "summary": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
      "operationId": "vnc",
      "parameters": [
       {
@@ -3006,7 +3006,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha1/version": {
+   "/apis/subresources.kubevirt.io/v1alpha2/version": {
     "get": {
      "produces": [
       "application/json"
@@ -3171,11 +3171,19 @@
     }
    },
    "v1.Affinity": {
-    "description": "Affinity groups all the affinity rules related to a VM",
+    "description": "Affinity groups all the affinity rules related to a VirtualMachineInstance",
     "properties": {
      "nodeAffinity": {
       "description": "Node affinity support",
       "$ref": "#/definitions/v1.NodeAffinity"
+     },
+     "podAffinity": {
+      "description": "Pod affinity support",
+      "$ref": "#/definitions/v1.PodAffinity"
+     },
+     "podAntiAffinity": {
+      "description": "Pod anti-affinity support",
+      "$ref": "#/definitions/v1.PodAntiAffinity"
      }
     }
    },
@@ -3199,19 +3207,19 @@
     "description": "CPU allow specifying the CPU topology",
     "properties": {
      "cores": {
-      "description": "Cores specifies the number of cores inside the vm.\nMust be a value greater or equal 1.",
+      "description": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
       "type": "integer"
      }
     }
    },
    "v1.Clock": {
-    "description": "Represents the clock and timers of a vm",
+    "description": "Represents the clock and timers of a vmi",
     "required": [
      "timer"
     ],
     "properties": {
      "timer": {
-      "description": "Timer specifies whih timers are attached to the vm",
+      "description": "Timer specifies whih timers are attached to the vmi",
       "$ref": "#/definitions/v1.Timer"
      },
      "timezone": {
@@ -3286,14 +3294,21 @@
    "v1.Devices": {
     "properties": {
      "disks": {
-      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vm",
+      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "interfaces": {
+      "description": "Interfaces describe network interfaces which are added to the vm",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Interface"
+      }
+     },
      "watchdog": {
-      "description": "Watchdog describes a watchdog device which can be added to the vm",
+      "description": "Watchdog describes a watchdog device which can be added to the vmi",
       "$ref": "#/definitions/v1.Watchdog"
      }
     }
@@ -3304,20 +3319,25 @@
      "volumeName"
     ],
     "properties": {
+     "bootOrder": {
+      "description": "BootOrder is an integer value \u003e 0, used to determine ordering of boot devices.\nLower values take precedence.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
+      "type": "integer",
+      "format": "integer"
+     },
      "cdrom": {
-      "description": "Attach a volume as a cdrom to the vm",
+      "description": "Attach a volume as a cdrom to the vmi",
       "$ref": "#/definitions/v1.CDRomTarget"
      },
      "disk": {
-      "description": "Attach a volume as a disk to the vm",
+      "description": "Attach a volume as a disk to the vmi",
       "$ref": "#/definitions/v1.DiskTarget"
      },
      "floppy": {
-      "description": "Attach a volume as a floppy to the vm",
+      "description": "Attach a volume as a floppy to the vmi",
       "$ref": "#/definitions/v1.FloppyTarget"
      },
      "lun": {
-      "description": "Attach a volume as a LUN to the vm",
+      "description": "Attach a volume as a LUN to the vmi",
       "$ref": "#/definitions/v1.LunTarget"
      },
      "name": {
@@ -3348,11 +3368,11 @@
     ],
     "properties": {
      "clock": {
-      "description": "Clock sets the clock and timers of the vm.\n+optional",
+      "description": "Clock sets the clock and timers of the vmi.\n+optional",
       "$ref": "#/definitions/v1.Clock"
      },
      "cpu": {
-      "description": "CPU allow specified the detailed CPU topology inside the vm.\n+optional",
+      "description": "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
       "$ref": "#/definitions/v1.CPU"
      },
      "devices": {
@@ -3372,13 +3392,13 @@
       "$ref": "#/definitions/v1.Machine"
      },
      "resources": {
-      "description": "Resources describes the Compute Resources required by this vm.",
+      "description": "Resources describes the Compute Resources required by this vmi.",
       "$ref": "#/definitions/v1.ResourceRequirements"
      }
     }
    },
    "v1.EmptyDiskSource": {
-    "description": "EmptyDisk represents a temporary disk which shares the vms lifecycle",
+    "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle",
     "required": [
      "capacity"
     ],
@@ -3392,7 +3412,7 @@
    "v1.EphemeralVolumeSource": {
     "properties": {
      "persistentVolumeClaim": {
-      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      }
     }
@@ -3417,7 +3437,7 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "reset": {
-      "description": "Reset enables Hyperv reboot/reset for the vm\nDefaults to the machine type setting\n+optional",
+      "description": "Reset enables Hyperv reboot/reset for the vmi\nDefaults to the machine type setting\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "runtime": {
@@ -3478,7 +3498,7 @@
       "type": "boolean"
      },
      "vendorid": {
-      "description": "VendorID sets the hypervisor vendor id, visible to the vm\nString up to twelve characters",
+      "description": "VendorID sets the hypervisor vendor id, visible to the vmi\nString up to twelve characters",
       "type": "string"
      }
     }
@@ -3502,7 +3522,7 @@
    "v1.Firmware": {
     "properties": {
      "uuid": {
-      "description": "UUID reported by the vm bios\nDefaults to a random generated uid",
+      "description": "UUID reported by the vmi bios\nDefaults to a random generated uid",
       "type": "string"
      }
     }
@@ -3596,6 +3616,21 @@
      }
     }
    },
+   "v1.Interface": {
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "bridge": {
+      "$ref": "#/definitions/v1.InterfaceBridge"
+     },
+     "name": {
+      "description": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+      "type": "string"
+     }
+    }
+   },
+   "v1.InterfaceBridge": {},
    "v1.KVMTimer": {
     "properties": {
      "present": {
@@ -3688,8 +3723,23 @@
     ],
     "properties": {
      "type": {
-      "description": "QEMU machine type is the actual chipset of the VM.",
+      "description": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
       "type": "string"
+     }
+    }
+   },
+   "v1.Network": {
+    "description": "Network represents a network type and a resource that should be connected to the vm.",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "type": "string"
+     },
+     "pod": {
+      "$ref": "#/definitions/v1.PodNetwork"
      }
     }
    },
@@ -3840,121 +3890,6 @@
      }
     }
    },
-   "v1.OfflineVirtualMachine": {
-    "description": "OfflineVirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe OfflineVirtualMachine contains the template to create the\nVirtualMachine. It also mirrors the running state of the created\nVirtualMachine in its status.",
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "Spec contains the specification of VirtualMachine created",
-      "$ref": "#/definitions/v1.OfflineVirtualMachineSpec"
-     },
-     "status": {
-      "description": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachine",
-      "$ref": "#/definitions/v1.OfflineVirtualMachineStatus"
-     }
-    }
-   },
-   "v1.OfflineVirtualMachineCondition": {
-    "description": "OfflineVirtualMachineCondition represents the state of OfflineVirtualMachine",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "type": "string"
-     },
-     "lastTransitionTime": {
-      "type": "string"
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.OfflineVirtualMachineList": {
-    "description": "OfflineVirtualMachineList is a list of offlinevirtualmachines",
-    "required": [
-     "metadata",
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "description": "Items is a list of OfflineVirtualMachines",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.OfflineVirtualMachine"
-      }
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ListMeta"
-     }
-    }
-   },
-   "v1.OfflineVirtualMachineSpec": {
-    "description": "OfflineVirtualMachineSpec describes how the proper OfflineVirtualMachine\nshould look like",
-    "required": [
-     "running",
-     "template"
-    ],
-    "properties": {
-     "running": {
-      "description": "Running controls whether the associatied VirtualMachine is created or not",
-      "type": "boolean"
-     },
-     "template": {
-      "description": "Template is the direct specification of VirtualMachine",
-      "$ref": "#/definitions/v1.VMTemplateSpec"
-     }
-    }
-   },
-   "v1.OfflineVirtualMachineStatus": {
-    "description": "OfflineVirtualMachineStatus represents the status returned by the\ncontroller to describe how the OfflineVirtualMachine is doing",
-    "properties": {
-     "conditions": {
-      "description": "Hold the state information of the OfflineVirtualMachine and its VirtualMachine",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.OfflineVirtualMachineCondition"
-      }
-     },
-     "created": {
-      "description": "Created indicates if the virtual machine is created in the cluster",
-      "type": "boolean"
-     },
-     "ready": {
-      "description": "Ready indicates if the virtual machine is running and ready",
-      "type": "boolean"
-     }
-    }
-   },
    "v1.OwnerReference": {
     "description": "OwnerReference contains enough information to let you identify an owning object. Currently, an owning object must be in the same namespace, so there is no namespace field.",
     "required": [
@@ -4020,6 +3955,70 @@
       "type": "boolean"
      }
     }
+   },
+   "v1.PodAffinity": {
+    "description": "Pod affinity is a group of inter pod affinity scheduling rules.",
+    "properties": {
+     "preferredDuringSchedulingIgnoredDuringExecution": {
+      "description": "The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding \"weight\" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.WeightedPodAffinityTerm"
+      }
+     },
+     "requiredDuringSchedulingIgnoredDuringExecution": {
+      "description": "If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.PodAffinityTerm"
+      }
+     }
+    }
+   },
+   "v1.PodAffinityTerm": {
+    "description": "Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key \u003ctopologyKey\u003e matches that of any node on which a pod of the set of pods is running",
+    "required": [
+     "topologyKey"
+    ],
+    "properties": {
+     "labelSelector": {
+      "description": "A label query over a set of resources, in this case pods.",
+      "$ref": "#/definitions/v1.LabelSelector"
+     },
+     "namespaces": {
+      "description": "namespaces specifies which namespaces the labelSelector applies to (matches against); null or empty list means \"this pod's namespace\"",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "topologyKey": {
+      "description": "This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching the labelSelector in the specified namespaces, where co-located is defined as running on a node whose value of the label with key topologyKey matches that of any node on which any of the selected pods is running. Empty topologyKey is not allowed.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.PodAntiAffinity": {
+    "description": "Pod anti affinity is a group of inter pod anti affinity scheduling rules.",
+    "properties": {
+     "preferredDuringSchedulingIgnoredDuringExecution": {
+      "description": "The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding \"weight\" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.WeightedPodAffinityTerm"
+      }
+     },
+     "requiredDuringSchedulingIgnoredDuringExecution": {
+      "description": "If the anti-affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the anti-affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.PodAffinityTerm"
+      }
+     }
+    }
+   },
+   "v1.PodNetwork": {
+    "description": "Represents the stock pod network interface"
    },
    "v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",
@@ -4087,7 +4086,7 @@
       "type": "object"
      },
      "requests": {
-      "description": "Requests is a description of the initial vm resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+      "description": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
       "type": "object"
      }
     }
@@ -4198,7 +4197,7 @@
     }
    },
    "v1.Timer": {
-    "description": "Represents all available timers in a vm",
+    "description": "Represents all available timers in a vmi",
     "properties": {
      "hpet": {
       "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
@@ -4222,7 +4221,32 @@
      }
     }
    },
-   "v1.VMReplicaSetCondition": {
+   "v1.VirtualMachine": {
+    "description": "VirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe VirtualMachine contains the template to create the\nVirtualMachineInstance. It also mirrors the running state of the created\nVirtualMachineInstance in its status.",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "Spec contains the specification of VirtualMachineInstance created",
+      "$ref": "#/definitions/v1.VirtualMachineSpec"
+     },
+     "status": {
+      "description": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachineInstance",
+      "$ref": "#/definitions/v1.VirtualMachineStatus"
+     }
+    }
+   },
+   "v1.VirtualMachineCondition": {
+    "description": "VirtualMachineCondition represents the state of VirtualMachine",
     "required": [
      "type",
      "status"
@@ -4248,7 +4272,228 @@
      }
     }
    },
-   "v1.VMReplicaSetSpec": {
+   "v1.VirtualMachineInstance": {
+    "description": "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceSpec"
+     },
+     "status": {
+      "description": "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceStatus"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceCondition": {
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": "string"
+     },
+     "lastTransitionTime": {
+      "type": "string"
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceList": {
+    "description": "VirtualMachineInstanceList is a list of VirtualMachines",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstance"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceNetworkInterface": {
+    "properties": {
+     "ipAddress": {
+      "description": "IP address of a Virtual Machine interface",
+      "type": "string"
+     },
+     "mac": {
+      "description": "Hardware address of a Virtual Machine interface",
+      "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineInstancePreset": {
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+      "$ref": "#/definitions/v1.VirtualMachineInstancePresetSpec"
+     }
+    }
+   },
+   "v1.VirtualMachineInstancePresetList": {
+    "description": "VirtualMachineInstancePresetList is a list of VirtualMachinePresets",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstancePreset"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1.VirtualMachineInstancePresetSpec": {
+    "required": [
+     "selector"
+    ],
+    "properties": {
+     "domain": {
+      "description": "Domain is the same object type as contained in VirtualMachineInstanceSpec",
+      "$ref": "#/definitions/v1.DomainSpec"
+     },
+     "selector": {
+      "description": "Selector is a label query over a set of VMIs.\nRequired.",
+      "$ref": "#/definitions/v1.LabelSelector"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceReplicaSet": {
+    "description": "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetSpec"
+     },
+     "status": {
+      "description": "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetStatus"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceReplicaSetCondition": {
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": "string"
+     },
+     "lastTransitionTime": {
+      "type": "string"
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceReplicaSetList": {
+    "description": "VMIList is a list of VMIs",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSet"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceReplicaSetSpec": {
     "required": [
      "selector",
      "template"
@@ -4269,16 +4514,16 @@
      },
      "template": {
       "description": "Template describes the pods that will be created.",
-      "$ref": "#/definitions/v1.VMTemplateSpec"
+      "$ref": "#/definitions/v1.VirtualMachineInstanceTemplateSpec"
      }
     }
    },
-   "v1.VMReplicaSetStatus": {
+   "v1.VirtualMachineInstanceReplicaSetStatus": {
     "properties": {
      "conditions": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1.VMReplicaSetCondition"
+       "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetCondition"
       }
      },
      "readyReplicas": {
@@ -4293,70 +4538,95 @@
      }
     }
    },
-   "v1.VMTemplateSpec": {
-    "properties": {
-     "metadata": {
-      "$ref": "#/definitions/v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "VM Spec contains the VM specification.",
-      "$ref": "#/definitions/v1.VirtualMachineSpec"
-     }
-    }
-   },
-   "v1.VirtualMachine": {
-    "description": "VirtualMachine is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "VM Spec contains the VM specification.",
-      "$ref": "#/definitions/v1.VirtualMachineSpec"
-     },
-     "status": {
-      "description": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
-      "$ref": "#/definitions/v1.VirtualMachineStatus"
-     }
-    }
-   },
-   "v1.VirtualMachineCondition": {
+   "v1.VirtualMachineInstanceSpec": {
+    "description": "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
     "required": [
-     "type",
-     "status"
+     "domain"
     ],
     "properties": {
-     "lastProbeTime": {
+     "affinity": {
+      "description": "If affinity is specifies, obey all the affinity rules",
+      "$ref": "#/definitions/v1.Affinity"
+     },
+     "domain": {
+      "description": "Specification of the desired behavior of the VirtualMachineInstance on the host.",
+      "$ref": "#/definitions/v1.DomainSpec"
+     },
+     "hostname": {
+      "description": "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
       "type": "string"
      },
-     "lastTransitionTime": {
+     "networks": {
+      "description": "List of networks that can be attached to a vm's virtual interface.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Network"
+      }
+     },
+     "nodeSelector": {
+      "description": "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
+      "type": "object"
+     },
+     "subdomain": {
+      "description": "If specified, the fully qualified vmi hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\".\nIf not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,\nno matter if the vmi itself can pick up a hostname.\n+optional",
       "type": "string"
      },
-     "message": {
+     "terminationGracePeriodSeconds": {
+      "description": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "volumes": {
+      "description": "List of volumes that can be mounted by disks belonging to the vmi.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Volume"
+      }
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceStatus": {
+    "description": "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",
+    "properties": {
+     "conditions": {
+      "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceCondition"
+      }
+     },
+     "interfaces": {
+      "description": "Interfaces represent the details of available network interfaces.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceNetworkInterface"
+      }
+     },
+     "nodeName": {
+      "description": "NodeName is the name where the VirtualMachineInstance is currently running.",
       "type": "string"
      },
-     "reason": {
+     "phase": {
+      "description": "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
       "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceTemplateSpec": {
+    "properties": {
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
      },
-     "status": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
+     "spec": {
+      "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceSpec"
      }
     }
    },
    "v1.VirtualMachineList": {
-    "description": "VirtualMachineList is a list of VirtualMachines",
+    "description": "VirtualMachineList is a list of virtualmachines",
     "required": [
+     "metadata",
      "items"
     ],
     "properties": {
@@ -4365,6 +4635,7 @@
       "type": "string"
      },
      "items": {
+      "description": "Items is a list of VirtualMachines",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VirtualMachine"
@@ -4379,205 +4650,55 @@
      }
     }
    },
-   "v1.VirtualMachineNetworkInterface": {
-    "properties": {
-     "ipAddress": {
-      "description": "IP address of a Virtual Machine interface",
-      "type": "string"
-     },
-     "mac": {
-      "description": "Hardware address of a Virtual Machine interface",
-      "type": "string"
-     }
-    }
-   },
-   "v1.VirtualMachinePreset": {
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "VM Spec contains the VM specification.",
-      "$ref": "#/definitions/v1.VirtualMachinePresetSpec"
-     }
-    }
-   },
-   "v1.VirtualMachinePresetList": {
-    "description": "VirtualMachinePresetList is a list of VirtualMachinePresets",
-    "required": [
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.VirtualMachinePreset"
-      }
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ListMeta"
-     }
-    }
-   },
-   "v1.VirtualMachinePresetSpec": {
-    "required": [
-     "selector"
-    ],
-    "properties": {
-     "domain": {
-      "description": "Domain is the same object type as contained in VirtualMachineSpec",
-      "$ref": "#/definitions/v1.DomainSpec"
-     },
-     "selector": {
-      "description": "Selector is a label query over a set of VMs.\nRequired.",
-      "$ref": "#/definitions/v1.LabelSelector"
-     }
-    }
-   },
-   "v1.VirtualMachineReplicaSet": {
-    "description": "VM is *the* VM Definition. It represents a virtual machine in the runtime environment of kubernetes.",
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "VM Spec contains the VM specification.",
-      "$ref": "#/definitions/v1.VMReplicaSetSpec"
-     },
-     "status": {
-      "description": "Status is the high level overview of how the VM is doing. It contains information available to controllers and users.",
-      "$ref": "#/definitions/v1.VMReplicaSetStatus"
-     }
-    }
-   },
-   "v1.VirtualMachineReplicaSetList": {
-    "description": "VMList is a list of VMs",
-    "required": [
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.VirtualMachineReplicaSet"
-      }
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/v1.ListMeta"
-     }
-    }
-   },
    "v1.VirtualMachineSpec": {
-    "description": "VirtualMachineSpec is a description of a VirtualMachine.",
+    "description": "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
     "required": [
-     "domain"
+     "running",
+     "template"
     ],
     "properties": {
-     "affinity": {
-      "description": "If affinity is specifies, obey all the affinity rules",
-      "$ref": "#/definitions/v1.Affinity"
+     "running": {
+      "description": "Running controls whether the associatied VirtualMachineInstance is created or not",
+      "type": "boolean"
      },
-     "domain": {
-      "description": "Specification of the desired behavior of the VirtualMachine on the host.",
-      "$ref": "#/definitions/v1.DomainSpec"
-     },
-     "hostname": {
-      "description": "Specifies the hostname of the vm\nIf not specified, the hostname will be set to the name of the vm, if dhcp or cloud-init is configured properly.\n+optional",
-      "type": "string"
-     },
-     "nodeSelector": {
-      "description": "NodeSelector is a selector which must be true for the vm to fit on a node.\nSelector which must match a node's labels for the vm to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
-      "type": "object"
-     },
-     "subdomain": {
-      "description": "If specified, the fully qualified vm hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\".\nIf not specified, the vm will not have a domainname at all. The DNS entry will resolve to the vm,\nno matter if the vm itself can pick up a hostname.\n+optional",
-      "type": "string"
-     },
-     "terminationGracePeriodSeconds": {
-      "description": "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
-      "type": "integer",
-      "format": "int64"
-     },
-     "volumes": {
-      "description": "List of volumes that can be mounted by disks belonging to the vm.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Volume"
-      }
+     "template": {
+      "description": "Template is the direct specification of VirtualMachineInstance",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceTemplateSpec"
      }
     }
    },
    "v1.VirtualMachineStatus": {
-    "description": "VirtualMachineStatus represents information about the status of a VM. Status may trail the actual\nstate of a system.",
+    "description": "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
     "properties": {
      "conditions": {
-      "description": "Conditions are specific points in VM's pod runtime.",
+      "description": "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineCondition"
       }
      },
-     "interfaces": {
-      "description": "Interfaces represent the details of available network interfaces.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.VirtualMachineNetworkInterface"
-      }
+     "created": {
+      "description": "Created indicates if the virtual machine is created in the cluster",
+      "type": "boolean"
      },
-     "nodeName": {
-      "description": "NodeName is the name where the VM is currently running.",
-      "type": "string"
-     },
-     "phase": {
-      "description": "Phase is the status of the VM in kubernetes world. It is not the VM status, but partially correlates to it.",
-      "type": "string"
+     "ready": {
+      "description": "Ready indicates if the virtual machine is running and ready",
+      "type": "boolean"
      }
     }
    },
    "v1.Volume": {
-    "description": "Volume represents a named volume in a vm.",
+    "description": "Volume represents a named volume in a vmi.",
     "required": [
      "name"
     ],
     "properties": {
      "cloudInitNoCloud": {
-      "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vm. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
+      "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
      },
      "emptyDisk": {
-      "description": "EmptyDisk represents a temporary disk which shares the vms lifecycle\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
+      "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
       "$ref": "#/definitions/v1.EmptyDiskSource"
      },
      "ephemeral": {
@@ -4585,11 +4706,11 @@
       "$ref": "#/definitions/v1.EphemeralVolumeSource"
      },
      "name": {
-      "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vmi.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
      },
      "persistentVolumeClaim": {
-      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vm via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      },
      "registryDisk": {
@@ -4625,6 +4746,24 @@
      "name": {
       "description": "Name of the watchdog",
       "type": "string"
+     }
+    }
+   },
+   "v1.WeightedPodAffinityTerm": {
+    "description": "The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)",
+    "required": [
+     "weight",
+     "podAffinityTerm"
+    ],
+    "properties": {
+     "podAffinityTerm": {
+      "description": "Required. A pod affinity term, associated with the corresponding weight.",
+      "$ref": "#/definitions/v1.PodAffinityTerm"
+     },
+     "weight": {
+      "description": "weight associated with matching the corresponding podAffinityTerm, in the range 1-100.",
+      "type": "integer",
+      "format": "int32"
      }
     }
    }
