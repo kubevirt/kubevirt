@@ -3576,7 +3576,7 @@
     "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
     "properties": {
      "pageSize": {
-      "description": "PageSize specifies the hugepage size.",
+      "description": "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
       "type": "string"
      }
     }

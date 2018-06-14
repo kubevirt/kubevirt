@@ -696,7 +696,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"pageSize": {
 							SchemaProps: spec.SchemaProps{
-								Description: "PageSize specifies the hugepage size.",
+								Description: "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
 								Type:        []string{"string"},
 								Format:      "",
 							},

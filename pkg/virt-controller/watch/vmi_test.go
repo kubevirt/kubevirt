@@ -356,6 +356,34 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 		})
 
+		Context("when pod owned by virt-handler", func() {
+			It("should remove scheduling pod condition from the VirtualMachineInstance", func() {
+				vmi := NewPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = v1.Scheduling
+
+				pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
+
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Message: "Insufficient memory",
+					Reason:  "Unschedulable",
+					Status:  k8sv1.ConditionFalse,
+					Type:    v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
+				})
+
+				addVirtualMachine(vmi)
+				podFeeder.Add(pod)
+
+				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduled))
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
+					Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
+				}).Return(vmi, nil)
+
+				controller.Execute()
+			})
+		})
+
 		It("should move the vmi to failed state if the pod disappears and the vmi is in scheduling state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduling

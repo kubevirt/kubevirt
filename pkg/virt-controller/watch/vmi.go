@@ -245,16 +245,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 			// Add PodScheduled False condition to the VM
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == k8sv1.PodScheduled && cond.Status == k8sv1.ConditionFalse {
-					if !conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(cond.Type)) {
-						vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
-							LastProbeTime:      cond.LastProbeTime,
-							LastTransitionTime: cond.LastTransitionTime,
-							Message:            cond.Message,
-							Reason:             cond.Reason,
-							Status:             cond.Status,
-							Type:               virtv1.VirtualMachineInstanceConditionType(cond.Type),
-						})
-					}
+					conditionManager.AddPodCondition(vmiCopy, cond)
 				}
 			}
 			if isPodOwnedByHandler(pod) {

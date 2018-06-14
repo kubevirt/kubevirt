@@ -48,7 +48,7 @@ func (Memory) SwaggerDoc() map[string]string {
 func (Hugepages) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
-		"pageSize": "PageSize specifies the hugepage size.",
+		"pageSize": "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
 	}
 }
 

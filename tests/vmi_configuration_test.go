@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -194,6 +195,48 @@ var _ = Describe("Configurations", func() {
 				table.Entry("hugepages-2Mi", "2Mi", "64Mi"),
 				table.Entry("hugepages-1Gi", "1Gi", "1Gi"),
 			)
+
+			Context("with usupported page size", func() {
+				It("should failed to schedule the pod", func() {
+					nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					hugepageType2Mi := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + "2Mi")
+					for _, node := range nodes.Items {
+						if _, ok := node.Status.Capacity[hugepageType2Mi]; !ok {
+							Skip("No nodes with hugepages support")
+						}
+					}
+
+					hugepagesVmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("66Mi")
+
+					hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
+						Hugepages: &v1.Hugepages{PageSize: "3Mi"},
+					}
+
+					By("Starting a VM")
+					_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(hugepagesVmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					var vmiCondition v1.VirtualMachineInstanceCondition
+					Eventually(func() bool {
+						vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(hugepagesVmi.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						if len(vmi.Status.Conditions) > 0 {
+							for _, cond := range vmi.Status.Conditions {
+								if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
+									vmiCondition = vmi.Status.Conditions[0]
+									return true
+								}
+							}
+						}
+						return false
+					}, 30*time.Second, time.Second).Should(BeTrue())
+					Expect(vmiCondition.Message).To(ContainSubstring("Insufficient hugepages-3Mi"))
+					Expect(vmiCondition.Reason).To(Equal("Unschedulable"))
+				})
+			})
 		})
 	})
 
