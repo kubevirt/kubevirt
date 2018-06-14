@@ -596,19 +596,19 @@ func main() {
 	dumpObject := func(name string, obj interface{}) {
 		data, err := yaml.Marshal(obj)
 		if err != nil {
-			fmt.Printf("Cannot marshal json: %s", fmt.Errorf("failed to generate yaml for vm %s", name))
+			fmt.Printf("Cannot marshal json: %s\n", fmt.Errorf("failed to generate yaml for vm %s", name))
 		}
 
 		err = ioutil.WriteFile(filepath.Join(*genDir, fmt.Sprintf("%s.yaml", name)), data, 0644)
 		if err != nil {
-			fmt.Printf("Cannot write file: %s", fmt.Errorf("failed to write yaml file"))
+			fmt.Printf("Cannot write file: %s\n", fmt.Errorf("failed to write yaml file"))
 		}
 	}
 
 	for name, obj := range vms {
 		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		if len(causes) > 0 {
-			fmt.Printf("Failed to validate vm spec: %s", fmt.Errorf("failed to admit yaml for vm %s", name))
+			fmt.Printf("Failed to validate vm spec: %s\n", fmt.Errorf("failed to admit yaml for vm %s", name))
 		}
 		dumpObject(name, *obj)
 	}
@@ -616,7 +616,7 @@ func main() {
 	for name, obj := range vmis {
 		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		if len(causes) > 0 {
-			fmt.Printf("Failed to validate vmi spec: %s", fmt.Errorf("failed to admit yaml for vmi %s", name))
+			fmt.Printf("Failed to validate vmi spec: %s\n", fmt.Errorf("failed to admit yaml for vmi %s", name))
 		}
 		dumpObject(name, *obj)
 	}
@@ -624,7 +624,7 @@ func main() {
 	for name, obj := range vmireplicasets {
 		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		if len(causes) > 0 {
-			fmt.Printf("Failed to validate vmi replica set spec: %s", fmt.Errorf("failed to admit yaml for vmi replica set %s", name))
+			fmt.Printf("Failed to validate vmi replica set spec: %s\n", fmt.Errorf("failed to admit yaml for vmi replica set %s", name))
 		}
 		dumpObject(name, *obj)
 	}
@@ -632,7 +632,7 @@ func main() {
 	for name, obj := range vmipresets {
 		causes := validating_webhook.ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		if len(causes) > 0 {
-			fmt.Printf("Failed to validate vmi preset spec: %s", fmt.Errorf("failed to admit yaml for vmi preset %s", name))
+			fmt.Printf("Failed to validate vmi preset spec: %s\n", fmt.Errorf("failed to admit yaml for vmi preset %s", name))
 		}
 		dumpObject(name, *obj)
 	}
