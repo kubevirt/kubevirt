@@ -9,5 +9,5 @@ import (
 
 func TestOfflinevm(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Offlinevm Suite")
+	RunSpecs(t, "vm Suite")
 }
