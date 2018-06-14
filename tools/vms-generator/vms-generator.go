@@ -58,9 +58,9 @@ const (
 	vmAlpineMultiPvc = "vm-alpine-multipvc"
 )
 
-const vmiReplicaSetCirros = "vm-replicaset-cirros"
+const vmiReplicaSetCirros = "vmi-replicaset-cirros"
 
-const vmiPresetSmall = "vm-preset-small"
+const vmiPresetSmall = "vmi-preset-small"
 
 const (
 	busVirtio = "virtio"
