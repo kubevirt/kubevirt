@@ -39,7 +39,7 @@ objects:
               rtc:
                 tickPolicy: catchup
             utc: {}
-          cpu: ${CPU_CORES}
+          cpu: ${{CPU_CORES}}
           devices:
             disks:
             - disk:
