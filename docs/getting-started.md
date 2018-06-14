@@ -114,11 +114,23 @@ up dockerizied environment. Then run
 ```
 
 If you'd like to run specific functional tests only, you can leverage `ginkgo`
-command line options as follows:
+command line options as follows (run a specified suite):
 
 ```
     FUNC_TEST_ARGS='-ginkgo.focus=vm_networking_test -ginkgo.regexScansFilePath' make functest
 ```
+
+In addition, if you want to run a specific test or tests you can prepend any Describe,
+Context and It statements of your test with an `F` and again use `gingko` command line
+options to run only tests marked with `F` (DON'T FORGET TO REMOVE BEFORE PUSHING):
+
+For example, to run the
+
+```
+    FUNC_TEST_ARGS='-ginkgo.regexScansFilePath' make functest
+```
+
+For additional information check out the [Ginkgo focused specs documentation](http://onsi.github.io/ginkgo/#focused-specs)
 
 ## Use
 
