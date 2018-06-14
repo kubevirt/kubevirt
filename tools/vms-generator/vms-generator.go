@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
@@ -592,53 +593,61 @@ func main() {
 		vmTemplateWindows: getTemplateWindows(),
 	}
 
-	// Having no generics is lots of fun
-	dumpObject := func(name string, obj interface{}) {
+	handleError := func(err error) {
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			os.Exit(1)
+		}
+	}
+
+	handleCauses := func(causes []metav1.StatusCause, name string, objType string) {
+		if len(causes) > 0 {
+			fmt.Printf("Failed to validate %s spec: failed to admit yaml for %s\n", objType, name)
+			os.Exit(1)
+		}
+	}
+
+	dumpObject := func(name string, obj interface{}) error {
 		data, err := yaml.Marshal(obj)
 		if err != nil {
-			fmt.Printf("Cannot marshal json: %s\n", fmt.Errorf("failed to generate yaml for vm %s", name))
+			return fmt.Errorf("Failed to generate yaml for %s: %s", name, err)
 		}
 
 		err = ioutil.WriteFile(filepath.Join(*genDir, fmt.Sprintf("%s.yaml", name)), data, 0644)
 		if err != nil {
-			fmt.Printf("Cannot write file: %s\n", fmt.Errorf("failed to write yaml file"))
+			return fmt.Errorf("Failed to write yaml file: %s", err)
 		}
+
+		return nil
 	}
 
+	// Having no generics is lots of fun
 	for name, obj := range vms {
 		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec)
-		if len(causes) > 0 {
-			fmt.Printf("Failed to validate vm spec: %s\n", fmt.Errorf("failed to admit yaml for vm %s", name))
-		}
-		dumpObject(name, *obj)
+		handleCauses(causes, name, "vm")
+		handleError(dumpObject(name, *obj))
 	}
 
 	for name, obj := range vmis {
 		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec)
-		if len(causes) > 0 {
-			fmt.Printf("Failed to validate vmi spec: %s\n", fmt.Errorf("failed to admit yaml for vmi %s", name))
-		}
-		dumpObject(name, *obj)
+		handleCauses(causes, name, "vmi")
+		handleError(dumpObject(name, *obj))
 	}
 
 	for name, obj := range vmireplicasets {
 		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec)
-		if len(causes) > 0 {
-			fmt.Printf("Failed to validate vmi replica set spec: %s\n", fmt.Errorf("failed to admit yaml for vmi replica set %s", name))
-		}
-		dumpObject(name, *obj)
+		handleCauses(causes, name, "vmi replica set")
+		handleError(dumpObject(name, *obj))
 	}
 
 	for name, obj := range vmipresets {
 		causes := validating_webhook.ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &obj.Spec)
-		if len(causes) > 0 {
-			fmt.Printf("Failed to validate vmi preset spec: %s\n", fmt.Errorf("failed to admit yaml for vmi preset %s", name))
-		}
-		dumpObject(name, *obj)
+		handleCauses(causes, name, "vmi preset")
+		handleError(dumpObject(name, *obj))
 	}
 
 	// TODO:(ihar) how to validate templates?
 	for name, obj := range templates {
-		dumpObject(name, *obj)
+		handleError(dumpObject(name, *obj))
 	}
 }
