@@ -31,7 +31,7 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
-	pluginapi "k8s.io/kubernetes/pkg/kubelet/apis/deviceplugin/v1alpha"
+	pluginapi "k8s.io/kubernetes/pkg/kubelet/apis/deviceplugin/v1beta1"
 
 	"github.com/fsnotify/fsnotify"
 
@@ -193,12 +193,16 @@ func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.Dev
 }
 
 func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	var response pluginapi.AllocateResponse
+	response := pluginapi.AllocateResponse{}
+	containerResponse := new(pluginapi.ContainerAllocateResponse)
+
 	dev := new(pluginapi.DeviceSpec)
 	dev.HostPath = dpi.devicePath
 	dev.ContainerPath = dpi.devicePath
 	dev.Permissions = "rw"
-	response.Devices = append(response.Devices, dev)
+	containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
+
+	response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
 
 	return &response, nil
 }
@@ -209,6 +213,18 @@ func (dpi *GenericDevicePlugin) cleanup() error {
 	}
 
 	return nil
+}
+
+func (dpi *GenericDevicePlugin) GetDevicePluginOptions(ctx context.Context, e *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+	options := &pluginapi.DevicePluginOptions{
+		PreStartRequired: false,
+	}
+	return options, nil
+}
+
+func (dpi *GenericDevicePlugin) PreStartContainer(ctx context.Context, in *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+	res := &pluginapi.PreStartContainerResponse{}
+	return res, nil
 }
 
 func (dpi *GenericDevicePlugin) healthCheck() error {
