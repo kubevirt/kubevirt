@@ -129,7 +129,7 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 		obj.Spec.Domain.Machine.Type = "q35"
 	}
 	setDefaults_DiskFromMachineType(obj)
-	setDefaults_NetworkInterface(obj)
+	SetDefaults_NetworkInterface(obj)
 }
 
 func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
@@ -152,7 +152,7 @@ func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
 	}
 }
 
-func setDefaults_NetworkInterface(obj *VirtualMachineInstance) {
+func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
 	networks := obj.Spec.Networks
 
 	//TODO: Currently, we support only one interface associated to a network
