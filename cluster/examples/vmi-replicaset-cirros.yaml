@@ -2,17 +2,17 @@ apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstanceReplicaSet
 metadata:
   creationTimestamp: null
-  name: vm-replicaset-cirros
+  name: vmi-replicaset-cirros
 spec:
   replicas: 3
   selector:
     matchLabels:
-      kubevirt.io/vmReplicaSet: vm-replicaset-cirros
+      kubevirt.io/vmReplicaSet: vmi-replicaset-cirros
   template:
     metadata:
       creationTimestamp: null
       labels:
-        kubevirt.io/vmReplicaSet: vm-replicaset-cirros
+        kubevirt.io/vmReplicaSet: vmi-replicaset-cirros
     spec:
       domain:
         devices:
