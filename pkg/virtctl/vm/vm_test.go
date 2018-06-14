@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("OfflineVirtualMachine", func() {
+var _ = Describe("VirtualMachine", func() {
 
 	const unknownVM = "unknown-vm"
 	const vmName = "testvm"

@@ -113,7 +113,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 		Expect(updatedVMI).To(Equal(vm))
 	})
 
-	It("should patch a OfflineVirtualMachine", func() {
+	It("should patch a VirtualMachine", func() {
 		vm := NewMinimalVM("testvm")
 		vm.Spec.Running = true
 
@@ -132,7 +132,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 
 	})
 
-	It("should fail on patch a OfflineVirtualMachine", func() {
+	It("should fail on patch a VirtualMachine", func() {
 		vm := NewMinimalVM("testvm")
 
 		server.AppendHandlers(ghttp.CombineHandlers(
