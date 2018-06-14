@@ -26,6 +26,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -352,6 +354,47 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				spec.Domain.Resources.Limits.Memory()),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
 		})
+	}
+
+	// Validate hugepages
+	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
+		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
+		if err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s '%s': %s",
+					field.Child("domain", "hugepages", "size").String(),
+					spec.Domain.Memory.Hugepages.PageSize,
+					resource.ErrFormatWrong,
+				),
+				Field: field.Child("domain", "hugepages", "size").String(),
+			})
+		} else {
+			vmMemory := spec.Domain.Resources.Requests.Memory().Value()
+			if vmMemory < hugepagesSize.Value() {
+				causes = append(causes, metav1.StatusCause{
+					Type: metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
+						field.Child("domain", "resources", "requests", "memory").String(),
+						spec.Domain.Resources.Requests.Memory(),
+						field.Child("domain", "hugepages", "size").String(),
+						spec.Domain.Memory.Hugepages.PageSize,
+					),
+					Field: field.Child("domain", "resources", "requests", "memory").String(),
+				})
+			} else if vmMemory%hugepagesSize.Value() != 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type: metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s '%s' is not a multiple of the page size %s '%s'",
+						field.Child("domain", "resources", "requests", "memory").String(),
+						spec.Domain.Resources.Requests.Memory(),
+						field.Child("domain", "hugepages", "size").String(),
+						spec.Domain.Memory.Hugepages.PageSize,
+					),
+					Field: field.Child("domain", "resources", "requests", "memory").String(),
+				})
+			}
+		}
 	}
 
 	// TODO: Currently, we support only a single network interface attached to a single pod network

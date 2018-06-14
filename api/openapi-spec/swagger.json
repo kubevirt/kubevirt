@@ -3455,6 +3455,10 @@
       "description": "Machine type\n+optional",
       "$ref": "#/definitions/v1.Machine"
      },
+     "memory": {
+      "description": "Memory allow specifying the VMI memory features.\n+optional",
+      "$ref": "#/definitions/v1.Memory"
+     },
      "resources": {
       "description": "Resources describes the Compute Resources required by this vmi.",
       "$ref": "#/definitions/v1.ResourceRequirements"
@@ -3632,6 +3636,15 @@
      }
     }
    },
+   "v1.Hugepages": {
+    "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+    "properties": {
+     "pageSize": {
+      "description": "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
+      "type": "string"
+     }
+    }
+   },
    "v1.HypervTimer": {
     "properties": {
      "present": {
@@ -3789,6 +3802,15 @@
      "type": {
       "description": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
       "type": "string"
+     }
+    }
+   },
+   "v1.Memory": {
+    "description": "Memory allow specifying the VirtualMachineInstance memory features",
+    "properties": {
+     "hugepages": {
+      "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+      "$ref": "#/definitions/v1.Hugepages"
      }
     }
    },

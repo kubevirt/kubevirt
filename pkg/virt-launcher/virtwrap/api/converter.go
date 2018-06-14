@@ -376,6 +376,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+		domain.Spec.MemoryBacking = &MemoryBacking{
+			HugePages: &HugePages{},
+		}
+	}
+
 	volumes := map[string]*v1.Volume{}
 	for _, volume := range vmi.Spec.Volumes {
 		volumes[volume.Name] = volume.DeepCopy()
