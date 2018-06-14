@@ -209,3 +209,5 @@ to start a remote session with `remote-viewer`.
 
 `cluster/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
 virtual machine specific commands with it. It is supplement to `kubectl`.
+
+**Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.
