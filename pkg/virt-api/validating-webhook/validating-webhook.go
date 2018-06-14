@@ -315,7 +315,7 @@ func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
 	return nPodInterfaces
 }
 
-func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
 	volumeNameMap := make(map[string]*v1.Volume)
@@ -508,7 +508,7 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
-func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
+func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -519,11 +519,11 @@ func validateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		})
 	}
 
-	causes = append(causes, validateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
 	return causes
 }
 
-func validateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstancePresetSpec) []metav1.StatusCause {
+func ValidateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstancePresetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Domain == nil {
@@ -538,7 +538,7 @@ func validateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	return causes
 }
 
-func validateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec) []metav1.StatusCause {
+func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -548,7 +548,7 @@ func validateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 			Field:   field.Child("template").String(),
 		})
 	}
-	causes = append(causes, validateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
 	if err != nil {
@@ -587,7 +587,7 @@ func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
+	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -620,7 +620,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec)
+	causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -653,7 +653,7 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec)
+	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
@@ -685,7 +685,7 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	causes := validateVMIPresetSpec(k8sfield.NewPath("spec"), &vmipreset.Spec)
+	causes := ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &vmipreset.Spec)
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
