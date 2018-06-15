@@ -1,6 +1,6 @@
 # Virtual Machine Presets
 apiVersion: kubevirt.io/v1alpha2
-kind: VirtualMachinePreset
+kind: VirtualMachineInstancePreset
 metadata:
   name: windows-server-2012r2
 spec:
@@ -31,4 +31,3 @@ spec:
         rtc:
           tickPolicy: catchup
         hyperv: {}
-    devices: {}
