@@ -21,7 +21,7 @@ goveralls:
 test:
 	SYNC_OUT=false hack/dockerized "./hack/check.sh && ./hack/build-go.sh test ${WHAT}"
 
-functest:
+functest: cluster-sync
 	hack/dockerized "hack/build-func-tests.sh"
 	hack/functests.sh
 
