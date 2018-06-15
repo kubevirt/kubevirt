@@ -31,9 +31,12 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 const systemNamespace = "kube-system"
@@ -68,6 +71,12 @@ type KubeInformerFactory interface {
 
 	// Watches for LimitRange objects
 	LimitRanges() cache.SharedIndexInformer
+
+	// Watches for CDI DataVolume objects
+	DataVolume() cache.SharedIndexInformer
+
+	// Fake CDI DataVolume informer used when feature gate is disabled
+	DummyDataVolume() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -172,6 +181,20 @@ func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DataVolume() cache.SharedIndexInformer {
+	return f.getInformer("dataVolumeInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "datavolumes", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &cdiv1.DataVolume{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyDataVolume() cache.SharedIndexInformer {
+	return f.getInformer("fakeDataVolumeInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		return informer
 	})
 }
 

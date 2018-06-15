@@ -101,6 +101,8 @@ type VirtControllerApp struct {
 
 	limitrangeInformer cache.SharedIndexInformer
 
+	dataVolumeInformer cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
@@ -161,6 +163,8 @@ func Execute() {
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 	app.limitrangeInformer = app.informerFactory.LimitRanges()
+
+	app.dataVolumeInformer = app.informerFactory.DataVolume()
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -254,7 +258,7 @@ func (vca *VirtControllerApp) initCommon() {
 		golog.Fatal(err)
 	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
-	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer)
+	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	vca.vmiPresetController = NewVirtualMachinePresetController(vca.vmiPresetInformer, vca.vmiInformer, vca.vmiPresetQueue, vca.vmiPresetCache, vca.clientSet, vca.vmiPresetRecorder, vca.limitrangeInformer)
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)
 }
@@ -266,7 +270,13 @@ func (vca *VirtControllerApp) initReplicaSet() {
 
 func (vca *VirtControllerApp) initVirtualMachines() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
-	vca.vmController = NewVMController(vca.vmiInformer, vca.vmInformer, recorder, vca.clientSet)
+
+	vca.vmController = NewVMController(
+		vca.vmiInformer,
+		vca.vmInformer,
+		vca.dataVolumeInformer,
+		recorder,
+		vca.clientSet)
 }
 
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {

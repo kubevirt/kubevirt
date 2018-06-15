@@ -56,6 +56,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var podSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
+	var dataVolumeInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *VMIController
 	var recorder *record.FakeRecorder
@@ -141,10 +142,18 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		dataVolumeInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		recorder = record.NewFakeRecorder(100)
 
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		controller = NewVMIController(services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()), vmiInformer, podInformer, recorder, virtClient, configMapInformer)
+		controller = NewVMIController(
+			services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()),
+			vmiInformer,
+			podInformer,
+			recorder,
+			virtClient,
+			configMapInformer,
+			dataVolumeInformer)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
