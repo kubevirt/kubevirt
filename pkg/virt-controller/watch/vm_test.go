@@ -17,6 +17,8 @@ import (
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -33,6 +35,7 @@ var _ = Describe("VirtualMachine", func() {
 		var vmSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
 		var vmInformer cache.SharedIndexInformer
+		var dataVolumeInformer cache.SharedIndexInformer
 		var stop chan struct{}
 		var controller *VMController
 		var recorder *record.FakeRecorder
@@ -52,11 +55,12 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 
+			dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			recorder = record.NewFakeRecorder(100)
 
-			controller = NewVMController(vmiInformer, vmInformer, recorder, virtClient)
+			controller = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, recorder, virtClient)
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue

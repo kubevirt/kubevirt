@@ -65,7 +65,14 @@ const (
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
 )
 
-func NewVMIController(templateService services.TemplateService, vmiInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, configMapInformer cache.SharedIndexInformer) *VMIController {
+func NewVMIController(templateService services.TemplateService,
+	vmiInformer cache.SharedIndexInformer,
+	podInformer cache.SharedIndexInformer,
+	recorder record.EventRecorder,
+	clientset kubecli.KubevirtClient,
+	configMapInformer cache.SharedIndexInformer,
+	dataVolumeInformer cache.SharedIndexInformer) *VMIController {
+
 	c := &VMIController{
 		templateService:      templateService,
 		Queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -76,6 +83,7 @@ func NewVMIController(templateService services.TemplateService, vmiInformer cach
 		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		handoverExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		configMapInformer:    configMapInformer,
+		dataVolumeInformer:   dataVolumeInformer,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -121,6 +129,7 @@ type VMIController struct {
 	podExpectations      *controller.UIDTrackingControllerExpectations
 	handoverExpectations *controller.UIDTrackingControllerExpectations
 	configMapInformer    cache.SharedIndexInformer
+	dataVolumeInformer   cache.SharedIndexInformer
 }
 
 func (c *VMIController) Run(threadiness int, stopCh chan struct{}) {

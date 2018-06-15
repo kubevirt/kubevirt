@@ -99,6 +99,8 @@ type VirtControllerApp struct {
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 
+	dataVolumeInformer cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
@@ -158,6 +160,8 @@ func Execute() {
 	app.configMapCache = app.configMapInformer.GetStore()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
+
+	app.dataVolumeInformer = app.informerFactory.DataVolume()
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -250,10 +254,35 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
-	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer)
-	vca.vmiPresetController = NewVirtualMachinePresetController(vca.vmiPresetInformer, vca.vmiInformer, vca.vmiPresetQueue, vca.vmiPresetCache, vca.clientSet, vca.vmiPresetRecorder)
-	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)
+
+	vca.templateService = services.NewTemplateService(
+		vca.launcherImage,
+		vca.virtShareDir,
+		vca.imagePullSecret,
+		vca.configMapCache)
+
+	vca.vmiController = NewVMIController(
+		vca.templateService,
+		vca.vmiInformer,
+		vca.podInformer,
+		vca.vmiRecorder,
+		vca.clientSet,
+		vca.configMapInformer,
+		vca.dataVolumeInformer)
+
+	vca.vmiPresetController = NewVirtualMachinePresetController(
+		vca.vmiPresetInformer,
+		vca.vmiInformer,
+		vca.vmiPresetQueue,
+		vca.vmiPresetCache,
+		vca.clientSet,
+		vca.vmiPresetRecorder)
+
+	vca.nodeController = NewNodeController(
+		vca.clientSet,
+		vca.nodeInformer,
+		vca.vmiInformer,
+		nil)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -263,7 +292,13 @@ func (vca *VirtControllerApp) initReplicaSet() {
 
 func (vca *VirtControllerApp) initVirtualMachines() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
-	vca.vmController = NewVMController(vca.vmiInformer, vca.vmInformer, recorder, vca.clientSet)
+
+	vca.vmController = NewVMController(
+		vca.vmiInformer,
+		vca.vmInformer,
+		vca.dataVolumeInformer,
+		recorder,
+		vca.clientSet)
 }
 
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {

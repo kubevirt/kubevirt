@@ -44,15 +44,20 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-func NewVMController(vmiInformer cache.SharedIndexInformer, vmiVMInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
+func NewVMController(vmiInformer cache.SharedIndexInformer,
+	vmiVMInformer cache.SharedIndexInformer,
+	dataVolumeInformer cache.SharedIndexInformer,
+	recorder record.EventRecorder,
+	clientset kubecli.KubevirtClient) *VMController {
 
 	c := &VMController{
-		Queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmiInformer:   vmiInformer,
-		vmiVMInformer: vmiVMInformer,
-		recorder:      recorder,
-		clientset:     clientset,
-		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		Queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmiInformer:        vmiInformer,
+		vmiVMInformer:      vmiVMInformer,
+		dataVolumeInformer: dataVolumeInformer,
+		recorder:           recorder,
+		clientset:          clientset,
+		expectations:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
 	c.vmiVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -71,12 +76,13 @@ func NewVMController(vmiInformer cache.SharedIndexInformer, vmiVMInformer cache.
 }
 
 type VMController struct {
-	clientset     kubecli.KubevirtClient
-	Queue         workqueue.RateLimitingInterface
-	vmiInformer   cache.SharedIndexInformer
-	vmiVMInformer cache.SharedIndexInformer
-	recorder      record.EventRecorder
-	expectations  *controller.UIDTrackingControllerExpectations
+	clientset          kubecli.KubevirtClient
+	Queue              workqueue.RateLimitingInterface
+	vmiInformer        cache.SharedIndexInformer
+	vmiVMInformer      cache.SharedIndexInformer
+	dataVolumeInformer cache.SharedIndexInformer
+	recorder           record.EventRecorder
+	expectations       *controller.UIDTrackingControllerExpectations
 }
 
 func (c *VMController) Run(threadiness int, stopCh chan struct{}) {

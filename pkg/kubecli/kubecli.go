@@ -22,6 +22,7 @@ package kubecli
 
 import (
 	"flag"
+	"os"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -31,7 +32,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"os"
+	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 
 	"github.com/spf13/pflag"
 
@@ -69,7 +70,19 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
-	return &kubevirt{master, kubeconfig, restClient, config, coreClient}, nil
+	cdiClient, err := cdiclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kubevirt{
+		master,
+		kubeconfig,
+		restClient,
+		config,
+		cdiClient,
+		coreClient,
+	}, nil
 }
 
 // DefaultClientConfig creates a clientcmd.ClientConfig with the following hierarchy:
@@ -158,7 +171,19 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
-	return &kubevirt{master, kubeconfig, restClient, config, coreClient}, nil
+	cdiClient, err := cdiclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kubevirt{
+		master,
+		kubeconfig,
+		restClient,
+		config,
+		cdiClient,
+		coreClient,
+	}, nil
 }
 
 func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
