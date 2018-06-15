@@ -461,7 +461,7 @@ var _ = Describe("Converter", func() {
 
 		It("should select explicitly chosen network model", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
+			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
