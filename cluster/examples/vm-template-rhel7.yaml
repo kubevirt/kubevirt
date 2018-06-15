@@ -9,7 +9,7 @@ metadata:
   labels:
     kubevirt.io/os: rhel-7.4
     miq.github.io/kubevirt-is-vm-template: "true"
-  name: vmi-template-rhel7
+  name: vm-template-rhel7
 objects:
 - apiVersion: kubevirt.io/v1alpha2
   kind: VirtualMachine

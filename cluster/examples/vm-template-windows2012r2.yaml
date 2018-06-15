@@ -9,7 +9,7 @@ metadata:
   labels:
     kubevirt.io/os: win2k12r2
     miq.github.io/kubevirt-is-vm-template: "true"
-  name: vmi-template-windows2012r2
+  name: vm-template-windows2012r2
 objects:
 - apiVersion: kubevirt.io/v1alpha2
   kind: VirtualMachine

@@ -48,9 +48,9 @@ const (
 	vmiNoCloud        = "vmi-nocloud"
 	vmiPVC            = "vmi-pvc"
 	vmiWindows        = "vmi-windows"
-	vmTemplateFedora  = "vmi-template-fedora"
-	vmTemplateRHEL7   = "vmi-template-rhel7"
-	vmTemplateWindows = "vmi-template-windows2012r2"
+	vmTemplateFedora  = "vm-template-fedora"
+	vmTemplateRHEL7   = "vm-template-rhel7"
+	vmTemplateWindows = "vm-template-windows2012r2"
 )
 
 const (
@@ -346,7 +346,7 @@ func getTemplateFedora() *Template {
 		Name: vmTemplateFedora,
 		Annotations: map[string]string{
 			"description": "OCP KubeVirt Fedora 27 VM template",
-			"tags":        "kubevirt,ocp,template,linux",
+			"tags":        "kubevirt,ocp,template,linux,virtualmachine",
 			"iconClass":   "icon-fedora",
 		},
 		Labels: map[string]string{
