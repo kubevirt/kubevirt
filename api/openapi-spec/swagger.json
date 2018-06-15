@@ -3701,6 +3701,10 @@
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
+     "model": {
+      "description": "Interface model supported by libvirt\nDefaults to virtio",
+      "type": "string"
+     },
      "name": {
       "description": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
       "type": "string"

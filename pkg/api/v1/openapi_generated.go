@@ -750,6 +750,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
+						"model": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Interface model supported by libvirt Defaults to virtio",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 						"bridge": {
 							SchemaProps: spec.SchemaProps{
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),

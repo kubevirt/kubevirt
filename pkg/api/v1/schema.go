@@ -637,6 +637,10 @@ type Interface struct {
 	// Logical name of the interface as well as a reference to the associated networks
 	// Must match the Name of a Network
 	Name string `json:"name"`
+	// Interface model supported by libvirt
+	// Defaults to virtio
+	// TODO:(ihar) should we enumerate and enforce allowed values
+	Model string `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest
 	// Defaults to Bridge
 	InterfaceBindingMethod `json:",inline"`
