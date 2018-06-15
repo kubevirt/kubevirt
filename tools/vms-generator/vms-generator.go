@@ -602,7 +602,11 @@ func main() {
 
 	handleCauses := func(causes []metav1.StatusCause, name string, objType string) {
 		if len(causes) > 0 {
-			fmt.Printf("Failed to validate %s spec: failed to admit yaml for %s\n", objType, name)
+			for _, cause := range causes {
+				fmt.Printf(
+					"Failed to validate %s spec: failed to admit yaml for %s: %s at %s: %s\n",
+					objType, name, cause.Type, cause.Field, cause.Message)
+			}
 			os.Exit(1)
 		}
 	}
