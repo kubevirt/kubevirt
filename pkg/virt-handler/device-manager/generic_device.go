@@ -28,14 +28,12 @@ import (
 	"strconv"
 	"time"
 
-	"golang.org/x/net/context"
-
-	"google.golang.org/grpc"
-	pluginapi "k8s.io/kubernetes/pkg/kubelet/apis/deviceplugin/v1beta1"
-
 	"github.com/fsnotify/fsnotify"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 
 	"kubevirt.io/kubevirt/pkg/log"
+	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
 const (
