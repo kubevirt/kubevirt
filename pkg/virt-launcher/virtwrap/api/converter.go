@@ -487,11 +487,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		},
 	}
 
-	interfaceType := "virtio"
-
-	_, ok := vmi.ObjectMeta.Annotations[v1.InterfaceModel]
-	if ok {
-		interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
+	getInterfaceType := func() string {
+		interfaceType := "virtio"
+		_, ok := vmi.ObjectMeta.Annotations[v1.InterfaceModel]
+		if ok {
+			interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
+		}
+		return interfaceType
 	}
 
 	findNetwork := func(nets []v1.Network, name string) (*v1.Network, error) {
@@ -515,7 +517,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		// detection into drivers
 		domainIface := Interface{
 			Model: &Model{
-				Type: interfaceType,
+				Type: getInterfaceType(),
 			},
 			Type: "bridge",
 			Source: InterfaceSource{
