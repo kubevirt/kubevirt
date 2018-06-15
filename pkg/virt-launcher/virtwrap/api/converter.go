@@ -487,7 +487,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		},
 	}
 
-	// Add mandatory interface
 	interfaceType := "virtio"
 
 	_, ok := vmi.ObjectMeta.Annotations[v1.InterfaceModel]
