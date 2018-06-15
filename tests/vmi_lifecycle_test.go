@@ -658,7 +658,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a KVM and TUN device", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
@@ -693,7 +693,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should not enable emulation in virt-launcher", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
