@@ -48,6 +48,7 @@ deploy:
   - _out/manifests/release/demo-content.yaml
   prerelease: true
   overwrite: true
+  name: $TRAVIS_TAG
   on:
     tags: true
     repo: kubevirt/kubevirt
