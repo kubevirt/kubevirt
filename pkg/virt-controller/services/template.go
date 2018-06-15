@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -205,6 +206,17 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	// Read requested hookSidecars from VM annotation
+	// TODO: Add requested sidecars as Containers to Pod
+	numberOfRequestedHookSidecars := 0
+	if rawRequestedHookSidecarList, requestedHookSidecarListDefined := vm.GetObjectMeta().GetAnnotations()[hooks.HookSidecarListAnnotationName]; requestedHookSidecarListDefined {
+		requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(rawRequestedHookSidecarList)
+		if err != nil {
+			return nil, err
+		}
+		numberOfRequestedHookSidecars = len(requestedHookSidecarList)
+	}
+
 	command := []string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 		"--qemu-timeout", "5m",
 		"--name", domain,
@@ -212,6 +224,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--kubevirt-share-dir", t.virtShareDir,
 		"--readiness-file", "/tmp/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
+		"--requested-hooks", strconv.Itoa(numberOfRequestedHookSidecars),
 	}
 
 	useEmulation, err := IsEmulationAllowed(t.store)

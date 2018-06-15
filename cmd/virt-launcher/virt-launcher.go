@@ -254,6 +254,7 @@ func main() {
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	useEmulation := flag.Bool("use-emulation", false, "Use software emulation")
+	requestedHooks := flag.Uint("requested-hooks", 0, "Number of requested hooks, virt-launcher will wait for all of them to become available")
 
 	// set new default verbosity, was set to 0 by glog
 	flag.Set("v", "2")
@@ -262,6 +263,12 @@ func main() {
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
+
+	// Block until all requested hookSidecars are ready
+	// TODO: Implement waiting/registration
+	if *requestedHooks != 0 {
+		panic("Waiting mechanism for hookSidecars is not implemented")
+	}
 
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 
