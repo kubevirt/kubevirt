@@ -21,10 +21,13 @@ package network
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Common Network Methods", func() {
@@ -87,6 +90,22 @@ var _ = Describe("Common Network Methods", func() {
 			searchDomains, err := ParseSearchDomains(resolvConf)
 			Expect(searchDomains).To(Equal([]string{"local"}))
 			Expect(err).To(BeNil())
+		})
+	})
+	Context("Function setCachedInterface()", func() {
+		It("should persist interface payload", func() {
+			tmpDir, _ := ioutil.TempDir("", "commontest")
+			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
+
+			ifaceName := "iface_name"
+			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
+			err := setCachedInterface(ifaceName, &iface)
+			Expect(err).ToNot(HaveOccurred())
+
+			cached_iface, err := getCachedInterface(ifaceName)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(iface).To(Equal(*cached_iface))
 		})
 	})
 })

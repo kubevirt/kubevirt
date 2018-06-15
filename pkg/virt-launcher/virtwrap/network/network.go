@@ -41,7 +41,7 @@ const (
 	nameserverPrefix    = "nameserver"
 )
 
-var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
+var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
 type NetworkInterface interface {

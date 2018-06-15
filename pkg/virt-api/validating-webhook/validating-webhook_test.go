@@ -572,28 +572,25 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
-		It("should reject interface lists with more than one element", func() {
+		It("should accept interface lists with more than one element", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				*v1.DefaultNetworkInterface(),
 				*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			// if this is processed correctly, it should result in a single error
-			// If multiple causes occurred, then the spec was processed too far.
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces"))
+			// if this is processed correctly, it should not result in any error
+			Expect(len(causes)).To(Equal(0))
 		})
-		It("should reject network lists with more than one element", func() {
+		It("should accept network lists with more than one element", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Networks = []v1.Network{
 				*v1.DefaultPodNetwork(),
 				*v1.DefaultPodNetwork()}
 			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			// if this is processed correctly, it should result in a single error
-			// If multiple causes occurred, then the spec was processed too far.
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.networks"))
+			// if this is processed correctly, it should not result in any error
+			Expect(len(causes)).To(Equal(0))
 		})
 
 		It("should reject interfaces with missing network", func() {
@@ -625,6 +622,25 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.networks[0].pod"))
+		})
+		It("should reject specs with multiple pod interfaces", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			for i := 1; i < 3; i++ {
+				iface := v1.DefaultNetworkInterface()
+				net := v1.DefaultPodNetwork()
+
+				// make sure whatever the error we receive is not related to duplicate names
+				name := fmt.Sprintf("podnet%d", i)
+				iface.Name = name
+				net.Name = name
+
+				vm.Spec.Domain.Devices.Interfaces = append(vm.Spec.Domain.Devices.Interfaces, *iface)
+				vm.Spec.Networks = append(vm.Spec.Networks, *net)
+			}
+
+			causes := validateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.interfaces"))
 		})
 
 	})
@@ -860,6 +876,67 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].bootorder"))
 		})
+	})
+})
+
+var _ = Describe("Function getNumberOfPodInterfaces()", func() {
+
+	It("should work for empty network list", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(0))
+	})
+
+	It("should work for non-empty network list without pod network", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net := v1.Network{}
+		spec.Networks = []v1.Network{net}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(0))
+	})
+
+	It("should work for pod network with missing pod interface", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net := v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Pod: &v1.PodNetwork{},
+			},
+		}
+		spec.Networks = []v1.Network{net}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(0))
+	})
+
+	It("should work for valid pod network / interface combination", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net := v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Pod: &v1.PodNetwork{},
+			},
+			Name: "testnet",
+		}
+		iface := v1.Interface{Name: net.Name}
+		spec.Networks = []v1.Network{net}
+		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(1))
+	})
+
+	It("should work for multiple pod network / interface combinations", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net1 := v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Pod: &v1.PodNetwork{},
+			},
+			Name: "testnet1",
+		}
+		iface1 := v1.Interface{Name: net1.Name}
+		net2 := v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Pod: &v1.PodNetwork{},
+			},
+			Name: "testnet2",
+		}
+		iface2 := v1.Interface{Name: net2.Name}
+		spec.Networks = []v1.Network{net1, net2}
+		spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
+		Expect(getNumberOfPodInterfaces(spec)).To(Equal(2))
 	})
 })
 

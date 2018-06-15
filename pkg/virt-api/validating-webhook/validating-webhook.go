@@ -42,7 +42,6 @@ import (
 const (
 	cloudInitMaxLen = 2048
 	arrayLenMax     = 256
-	maxNetworks     = 1
 )
 
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
@@ -301,6 +300,21 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	return causes
 }
 
+func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
+	nPodInterfaces := 0
+	for _, net := range spec.Networks {
+		if net.Pod != nil {
+			for _, iface := range spec.Domain.Devices.Interfaces {
+				if iface.Name == net.Name {
+					nPodInterfaces++
+					break // we maintain 1-to-1 relationship between networks and interfaces
+				}
+			}
+		}
+	}
+	return nPodInterfaces
+}
+
 func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
@@ -397,19 +411,25 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
-	// TODO: Currently, we support only a single network interface attached to a single pod network
-	if len(spec.Domain.Devices.Interfaces) > maxNetworks {
+	if len(spec.Domain.Devices.Interfaces) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("domain", "devices", "interfaces").String(), maxNetworks),
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("domain", "devices", "interfaces").String(), arrayLenMax),
 			Field:   field.Child("domain", "devices", "interfaces").String(),
 		})
 		return causes
-	} else if len(spec.Networks) > maxNetworks {
+	} else if len(spec.Networks) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("networks").String(), maxNetworks),
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("networks").String(), arrayLenMax),
 			Field:   field.Child("networks").String(),
+		})
+		return causes
+	} else if getNumberOfPodInterfaces(spec) > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: fmt.Sprintf("multiple pod interfaces in %s", field.Child("interfaces").String()),
+			Field:   field.Child("interfaces").String(),
 		})
 		return causes
 	}

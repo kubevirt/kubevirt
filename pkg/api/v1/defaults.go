@@ -153,11 +153,8 @@ func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
 }
 
 func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
-	networks := obj.Spec.Networks
-
-	//TODO: Currently, we support only one interface associated to a network
-	//      This should be improved when we will start supporting multimple interfaces and networks
-	if len(networks) == 0 || networks[0].Pod == nil {
+	// Override only when nothing is specified
+	if len(obj.Spec.Networks) == 0 {
 		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultNetworkInterface()}
 		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
 	}

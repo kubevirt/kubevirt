@@ -45,6 +45,15 @@ type PodInterface struct{}
 
 func (l *PodInterface) Unplug() {}
 
+func findInterfaceByName(ifaces []api.Interface, name string) (int, error) {
+	for i, iface := range ifaces {
+		if iface.Alias.Name == name {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("failed to find interface with alias set to %s", name)
+}
+
 // Plug connect a Pod network device to the virtual machine
 func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
@@ -55,15 +64,13 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		return err
 	}
 
-	interfaces := domain.Spec.Devices.Interfaces
-
-	// There should always be a pre-configured interface for the default pod interface.
-	if len(interfaces) == 0 {
-		return fmt.Errorf("failed to find a default interface configuration")
+	ifconf, err := getCachedInterface(iface.Name)
+	if err != nil {
+		return err
 	}
-	defaultIconf := interfaces[0]
 
-	ifconf, err := getCachedInterface()
+	interfaces := domain.Spec.Devices.Interfaces
+	podInterfaceNum, err := findInterfaceByName(interfaces, iface.Name)
 	if err != nil {
 		return err
 	}
@@ -78,20 +85,20 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 			panic(err)
 		}
 
+		defaultIconf := interfaces[podInterfaceNum]
 		driver.startDHCPServer()
 
 		// After the network is configured, cache the result
 		// in case this function is called again.
 		driver.decorateInterfaceConfig(&defaultIconf)
-		err = setCachedInterface(&defaultIconf)
+		err = setCachedInterface(iface.Name, &defaultIconf)
 		if err != nil {
 			panic(err)
 		}
 		ifconf = &defaultIconf
 	}
 
-	// TODO:(vladikr) Currently we support only one interface per vm.
-	interfaces[0] = *ifconf
+	interfaces[podInterfaceNum] = *ifconf
 
 	return nil
 }

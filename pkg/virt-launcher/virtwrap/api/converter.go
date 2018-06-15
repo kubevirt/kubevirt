@@ -495,15 +495,38 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
 	}
 
-	// For now connect every virtual machine to the pod network
-	domain.Spec.Devices.Interfaces = []Interface{{
-		Model: &Model{
-			Type: interfaceType,
-		},
-		Type: "bridge",
-		Source: InterfaceSource{
-			Bridge: DefaultBridgeName,
-		}},
+	findNetwork := func(nets []v1.Network, name string) (*v1.Network, error) {
+		for _, net := range nets {
+			if net.Name == name {
+				return &net, nil
+			}
+		}
+		return nil, fmt.Errorf("failed to find network %s", name)
+	}
+
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		net, err := findNetwork(vmi.Spec.Networks, iface.Name)
+		if err != nil {
+			return err
+		}
+		if net.Pod == nil {
+			return fmt.Errorf("network interface type not supported for %s", iface.Name)
+		}
+		// TODO:(ihar) consider abstracting interface type conversion /
+		// detection into drivers
+		domainIface := Interface{
+			Model: &Model{
+				Type: interfaceType,
+			},
+			Type: "bridge",
+			Source: InterfaceSource{
+				Bridge: DefaultBridgeName,
+			},
+			Alias: &Alias{
+				Name: iface.Name,
+			},
+		}
+		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
 	return nil

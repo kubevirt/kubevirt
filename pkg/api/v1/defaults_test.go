@@ -245,3 +245,31 @@ var _ = Describe("Defaults", func() {
 		Expect(*timer.Hyperv.Enabled).To(BeTrue())
 	})
 })
+
+var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
+
+	It("should append pod interface if interface is not defined", func() {
+		vmi := &VirtualMachineInstance{}
+		SetDefaults_NetworkInterface(vmi)
+		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))
+		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("default"))
+		Expect(vmi.Spec.Networks[0].Name).To(Equal("default"))
+		Expect(vmi.Spec.Networks[0].Pod).ToNot(BeNil())
+	})
+
+	It("should not append pod interface if interface is defined", func() {
+		vmi := &VirtualMachineInstance{}
+		net := Network{
+			Name: "testnet",
+		}
+		iface := Interface{Name: net.Name}
+		vmi.Spec.Networks = []Network{net}
+		vmi.Spec.Domain.Devices.Interfaces = []Interface{iface}
+
+		SetDefaults_NetworkInterface(vmi)
+		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))
+		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("testnet"))
+		Expect(vmi.Spec.Networks[0].Name).To(Equal("testnet"))
+		Expect(vmi.Spec.Networks[0].Pod).To(BeNil())
+	})
+})
