@@ -489,7 +489,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
 	}
 
-	// For now if networks not define in vm specs connect the virtual machine to the pod network
+	// For now if networks are not define in vm specs connect the virtual machine to the pod network
 	if vmi.Spec.Domain.Devices.Interfaces == nil {
 		domain.Spec.Devices.Interfaces = []Interface{{
 			Model: &Model{
@@ -525,7 +525,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				// TODO: maybe add interface model to vm spec
 				// Slirp configuration works only with e1000 or rtl8139
 				if interfaceType == "virtio" {
+					log.Log.Infof("The network interface type was changed from virtio to e1000 due to unsupported interface type by qemu slirp network")
 					interfaceType = "e1000"
+
 				}
 
 				// Proxy is not added as interface, Need to be added as qemu commandlist

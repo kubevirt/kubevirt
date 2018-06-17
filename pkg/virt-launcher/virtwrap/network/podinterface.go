@@ -39,11 +39,15 @@ var bridgeFakeIP = "169.254.75.86/32"
 // DefaultProtocol is the default port protocol
 const DefaultProtocol string = "TCP"
 
-// DefaultVMCIDR is the default CIRD for vm network
+// DefaultVMCIDR is the default CIDR for vm network
 const DefaultVMCIDR = "10.0.2.0/24"
 
 type BindMechanism interface {
-	setup() error
+	discoverPodNetworkInterface() error
+	preparePodNetworkInterfaces() error
+	libvirtConfig() error
+	loadCachedInterface() (bool, error)
+	setCachedInterface() error
 }
 
 type PodInterface struct{}
@@ -60,9 +64,32 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		return err
 	}
 
-	err = driver.setup()
+	isExist, err := driver.loadCachedInterface()
 	if err != nil {
 		return err
+	}
+
+	if !isExist {
+		err := driver.discoverPodNetworkInterface()
+		if err != nil {
+			return err
+		}
+		if err := driver.preparePodNetworkInterfaces(); err != nil {
+			log.Log.Reason(err).Critical("failed to prepared pod networking")
+			panic(err)
+		}
+
+		err = driver.libvirtConfig()
+		if err != nil {
+			log.Log.Reason(err).Critical("failed to create libvirt configuration")
+			panic(err)
+		}
+
+		err = driver.setCachedInterface()
+		if err != nil {
+			log.Log.Reason(err).Critical("failed to save interface configuration")
+			panic(err)
+		}
 	}
 
 	return nil
@@ -85,49 +112,6 @@ type BridgePodInterface struct {
 	iface      *v1.Interface
 	podNicLink netlink.Link
 	domain     *api.Domain
-}
-
-func (b *BridgePodInterface) setup() error {
-
-	interfaces := b.domain.Spec.Devices.Interfaces
-
-	// There should always be a pre-configured interface for the default pod interface.
-	if len(interfaces) == 0 {
-		return fmt.Errorf("failed to find a default interface configuration")
-	}
-	defaultIconf := interfaces[0]
-
-	ifconf, err := getCachedInterface()
-	if err != nil {
-		return err
-	}
-
-	if ifconf == nil {
-		err := b.discoverPodNetworkInterface()
-		if err != nil {
-			return err
-		}
-		if err := b.preparePodNetworkInterfaces(); err != nil {
-			log.Log.Reason(err).Critical("failed to prepared pod networking")
-			panic(err)
-		}
-
-		b.startDHCPServer()
-
-		// After the network is configured, cache the result
-		// in case this function is called again.
-		b.decorateInterfaceConfig(&defaultIconf)
-		err = setCachedInterface(&defaultIconf)
-		if err != nil {
-			panic(err)
-		}
-		ifconf = &defaultIconf
-	}
-
-	// TODO:(vladikr) Currently we support only one interface per vm.
-	interfaces[0] = *ifconf
-
-	return nil
 }
 
 func (b *BridgePodInterface) discoverPodNetworkInterface() error {
@@ -198,6 +182,8 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
+	b.startDHCPServer()
+
 	return nil
 }
 
@@ -207,8 +193,32 @@ func (b *BridgePodInterface) startDHCPServer() {
 	Handler.StartDHCP(b.vif, fakeServerAddr)
 }
 
-func (b *BridgePodInterface) decorateInterfaceConfig(ifconf *api.Interface) {
-	ifconf.MAC = &api.MAC{MAC: b.vif.MAC.String()}
+func (b *BridgePodInterface) libvirtConfig() error {
+	// TODO: Change this function when multiple network interface is merge
+	b.domain.Spec.Devices.Interfaces[0].MAC = &api.MAC{MAC: b.vif.MAC.String()}
+
+	return nil
+}
+
+func (b *BridgePodInterface) loadCachedInterface() (bool, error) {
+	var ifaceConfig v1.Interface
+
+	isExist, err := ReadFromCachedFile(interfaceCacheFile, &ifaceConfig)
+	if err != nil {
+		return false, err
+	}
+
+	if isExist {
+		b.iface = &ifaceConfig
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (b *BridgePodInterface) setCachedInterface() error {
+	err := WriteToCachedFile(&b.iface, interfaceCacheFile)
+	return err
 }
 
 func (b *BridgePodInterface) setInterfaceRoutes() error {
@@ -270,19 +280,39 @@ type SlirpPodInterface struct {
 	slirpConfig api.Arg
 }
 
+func (s *SlirpPodInterface) discoverPodNetworkInterface() error {
+	return nil
+}
+
+func (s *SlirpPodInterface) preparePodNetworkInterfaces() error {
+	return nil
+}
+
+func (s *SlirpPodInterface) libvirtConfig() error {
+	return nil
+}
+
+func (s *SlirpPodInterface) loadCachedInterface() (bool, error) {
+	return false, nil
+}
+
+func (s *SlirpPodInterface) setCachedInterface() error {
+	return nil
+}
+
 func (p *SlirpPodInterface) setup() error {
-	commandLine, err := getCachedQemuCommandLine()
-	if err != nil {
-		return err
-	}
+	fmt.Println("Setup slirp device")
+	// commandLine, err := getCachedQemuCommandLine()
+	// if err != nil {
+	// 	return err
+	// }
 
-	if commandLine != nil {
-		p.domain.Spec.QEMUCmd = commandLine
+	// if commandLine != nil {
+	// 	p.domain.Spec.QEMUCmd = commandLine
+	// 	return nil
+	// }
 
-		return nil
-	}
-
-	err = p.configVMCIDR()
+	err := p.configVMCIDR()
 	if err != nil {
 		return err
 	}
@@ -302,10 +332,11 @@ func (p *SlirpPodInterface) setup() error {
 		return err
 	}
 
-	err = setCachedCommandLine(p.domain.Spec.QEMUCmd)
-	if err != nil {
-		panic(err)
-	}
+	// err = setCachedCommandLine(p.domain.Spec.QEMUCmd)
+	// if err != nil {
+	// 	return err
+	// }
+
 	return nil
 }
 
@@ -314,26 +345,15 @@ func (p *SlirpPodInterface) configPortForward() error {
 		return nil
 	}
 
-	portForwardMap := make(map[int32]string)
-
 	for _, forwardPort := range p.iface.Slirp.Ports {
-		protocol := DefaultProtocol
 
 		if forwardPort.Port == 0 {
-			return fmt.Errorf("Port must be configure")
+			return fmt.Errorf("Port must be configured")
 		}
 
 		// Check protocol, its case sensitive like kubernetes
-		if forwardPort.Protocol != "" {
-			if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
-				return fmt.Errorf("Unknow protocol only TCP or UDP allowed")
-			} else {
-				protocol = forwardPort.Protocol
-			}
-		}
-		//Check for duplicate pod port allocation
-		if portProtocol, ok := portForwardMap[forwardPort.Port]; ok && portProtocol == protocol {
-			return fmt.Errorf("Duplicated pod port allocation")
+		if forwardPort.Protocol == "" {
+			forwardPort.Protocol = DefaultProtocol
 		}
 
 		// Check if PodPort is configure If not Get the same Port as the vm port
@@ -341,8 +361,7 @@ func (p *SlirpPodInterface) configPortForward() error {
 			forwardPort.PodPort = forwardPort.Port
 		}
 
-		portForwardMap[forwardPort.Port] = protocol
-		p.slirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(string(protocol)), forwardPort.PodPort, forwardPort.Port)
+		p.slirpConfig.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(forwardPort.Protocol), forwardPort.PodPort, forwardPort.Port)
 
 	}
 
@@ -358,7 +377,7 @@ func (p *SlirpPodInterface) configVMCIDR() error {
 	if p.network.Pod.VMNetworkCIDR != "" {
 		_, _, err := net.ParseCIDR(p.network.Pod.VMNetworkCIDR)
 		if err != nil {
-			return fmt.Errorf("Failed parsing CIDR")
+			return fmt.Errorf("Failed parsing CIDR %s", p.network.Pod.VMNetworkCIDR)
 		}
 		vmNetworkCIDR = p.network.Pod.VMNetworkCIDR
 	} else {

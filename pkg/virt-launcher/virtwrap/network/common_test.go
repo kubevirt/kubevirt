@@ -21,13 +21,19 @@ package network
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var _ = Describe("Common Network Methods", func() {
+var _ = Describe("Common Methods", func() {
+	tempFile := "/tmp/data"
+
 	Context("Function ParseNameservers()", func() {
 		It("should return a byte array of nameservers", func() {
 			ns1, ns2 := []uint8{8, 8, 8, 8}, []uint8{8, 8, 4, 4}
@@ -87,6 +93,46 @@ var _ = Describe("Common Network Methods", func() {
 			searchDomains, err := ParseSearchDomains(resolvConf)
 			Expect(searchDomains).To(Equal([]string{"local"}))
 			Expect(err).To(BeNil())
+		})
+	})
+	Context("Function Check bridge interface", func() {
+
+	})
+	Context("Function Check slirp interface", func() {
+
+	})
+	Context("Functions read and write", func() {
+		data := `{
+"QEMUEnv": null,
+"QEMUArg": [
+	{
+	"Value": "-device"
+	},
+	{
+	"Value": "virtio,netdev=testnet"
+	}
+]
+}`
+
+		AfterEach(func() {
+			os.Remove(tempFile)
+		})
+
+		It("Should create a file with command line configuration", func() {
+			commandLine := new(api.Commandline)
+			commandLine.QEMUArg = []api.Arg{{Value: "-device"}, {Value: fmt.Sprintf("%s,netdev=%s", "virtio", "testnet")}}
+
+			err := WriteToCachedFile(*commandLine, tempFile)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("Should read from a file and convert the data", func() {
+			err := ioutil.WriteFile(tempFile, []byte(data), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			var commandLine = api.Commandline{}
+			err = ReadFromCachedFile(tempFile, &commandLine)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(commandLine.QEMUArg[0].Value).To(Equal("-device"))
 		})
 	})
 })

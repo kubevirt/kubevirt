@@ -48,5 +48,4 @@ fi
 
 echo "cgroup_controllers = [ ]" >>/etc/libvirt/qemu.conf
 
-
 /usr/sbin/libvirtd 

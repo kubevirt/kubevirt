@@ -48,7 +48,7 @@ const (
 	vmiNoCloud        = "vmi-nocloud"
 	vmiPVC            = "vmi-pvc"
 	vmiWindows        = "vmi-windows"
-	vmiSlirp          = "vm-slirp"
+	vmiSlirp          = "vmi-slirp"
 	vmTemplateFedora  = "vmi-template-fedora"
 	vmTemplateRHEL7   = "vmi-template-rhel7"
 	vmTemplateWindows = "vmi-template-windows2012r2"

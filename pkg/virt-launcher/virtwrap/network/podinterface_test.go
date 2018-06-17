@@ -187,18 +187,6 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 		Context("Slirp interface", func() {
-			It("should fail if Port not exist", func() {
-				domain := NewDomainWithSlirpNetwork()
-				vm := newVM("testnamespace", "testVmName")
-				api.SetObjectDefaults_Domain(domain)
-
-				iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Protocol: "TCP", PodPort: 80}}}
-				vm.Spec.Domain.Devices.Interfaces[0] = *iface
-
-				SlirpBinding := &SlirpPodInterface{iface: iface, network: network, domain: domain, slirpConfig: slirpConfig}
-				err := SlirpBinding.configPortForward()
-				Expect(err).To(HaveOccurred())
-			})
 			It("should add tcp if protocol not exist", func() {
 				domain := NewDomainWithSlirpNetwork()
 				vm := newVM("testnamespace", "testVmName")
@@ -230,19 +218,6 @@ var _ = Describe("Pod Network", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domain.Spec.QEMUCmd.QEMUArg[3].Value).To(Equal("user,id=testnet,hostfwd=tcp::9080-:80"))
 
-			})
-			It("Should fail if not validated protocol gived", func() {
-				domain := NewDomainWithSlirpNetwork()
-				vm := newVM("testnamespace", "testVmName")
-				api.SetObjectDefaults_Domain(domain)
-
-				iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Protocol: "test", Port: 80}}}
-				vm.Spec.Domain.Devices.Interfaces[0] = *iface
-
-				SlirpBinding := &SlirpPodInterface{iface: iface, network: network, domain: domain, slirpConfig: slirpConfig}
-				err := SlirpBinding.configPortForward()
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Unknow protocol only TCP or UDP allowed"))
 			})
 			It("Should create the qemu configuration for interface", func() {
 				domain := NewDomainWithSlirpNetwork()

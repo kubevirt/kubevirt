@@ -3636,7 +3636,7 @@
    "v1.InterfaceBridge": {},
    "v1.InterfaceSlirp": {
     "properties": {
-     "Ports": {
+     "ports": {
       "description": "List of ports to be forwarded to the virtual machine",
       "type": "array",
       "items": {
@@ -4041,7 +4041,10 @@
     }
    },
    "v1.Port": {
-    "description": "Port repesents a port to expose from the virtual machine\nDefault protocol TCP\nDefault vmPort is PodPort",
+    "description": "Port repesents a port to expose from the virtual machine\nDefault protocol TCP\nDefault Port is PodPort",
+    "required": [
+     "port"
+    ],
     "properties": {
      "name": {
       "type": "string"

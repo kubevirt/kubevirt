@@ -170,6 +170,34 @@ func initHandler() {
 	}
 }
 
+func WriteToCachedFile(inter interface{}, fileName string) error {
+	buf, err := json.MarshalIndent(&inter, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling interface cache: %v", err)
+	}
+	err = ioutil.WriteFile(fileName, buf, 0644)
+	if err != nil {
+		return fmt.Errorf("error writing interface cache %v", err)
+	}
+	return nil
+}
+
+func ReadFromCachedFile(fileName string, inter interface{}) (bool, error) {
+	buf, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	err = json.Unmarshal(buf, &inter)
+	if err != nil {
+		return false, fmt.Errorf("error unmarshaling command line: %v", err)
+	}
+	return true, nil
+}
+
 func setCachedInterface(ifconf *api.Interface) error {
 	buf, err := json.MarshalIndent(&ifconf, "", "  ")
 	if err != nil {
@@ -199,30 +227,43 @@ func getCachedInterface() (*api.Interface, error) {
 }
 
 func setCachedCommandLine(commandLine *api.Commandline) error {
-	buf, err := json.MarshalIndent(&commandLine, "", "  ")
+	// buf, err := json.MarshalIndent(&commandLine, "", "  ")
+	// if err != nil {
+	// 	return fmt.Errorf("error marshaling command line cache: %v", err)
+	// }
+	// err = ioutil.WriteFile(commandLineCacheFile, buf, 0644)
+	// if err != nil {
+	// 	return fmt.Errorf("error writing command line cache %v", err)
+	// }
+	// return nil
+	err := WriteToCachedFile(*commandLine, commandLineCacheFile)
 	if err != nil {
-		return fmt.Errorf("error marshaling command line cache: %v", err)
+		return err
 	}
-	err = ioutil.WriteFile(commandLineCacheFile, buf, 0644)
-	if err != nil {
-		return fmt.Errorf("error writing command line cache %v", err)
-	}
+
 	return nil
 }
 
 func getCachedQemuCommandLine() (*api.Commandline, error) {
-	buf, err := ioutil.ReadFile(commandLineCacheFile)
+	// buf, err := ioutil.ReadFile(commandLineCacheFile)
+	// if err != nil {
+	// 	if os.IsNotExist(err) {
+	// 		return nil, nil
+	// 	}
+	// 	return nil, err
+	// }
+	// commandLine := api.Commandline{}
+	// err = json.Unmarshal(buf, &commandLine)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("error unmarshaling command line: %v", err)
+	// }
+	// return &commandLine, nil
+	var commandLine = api.Commandline{}
+	err := ReadFromCachedFile(commandLineCacheFile, &commandLine)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	commandLine := api.Commandline{}
-	err = json.Unmarshal(buf, &commandLine)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling command line: %v", err)
-	}
+
 	return &commandLine, nil
 }
 

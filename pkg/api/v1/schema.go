@@ -639,18 +639,18 @@ type InterfaceBridge struct{}
 // +k8s:openapi-gen=true
 type InterfaceSlirp struct {
 	// List of ports to be forwarded to the virtual machine
-	Ports []Port `json:",omitempty"`
+	Ports []Port `json:"ports,omitempty"`
 }
 
 // Port repesents a port to expose from the virtual machine
 // Default protocol TCP
-// Default vmPort is PodPort
+// Default Port is PodPort
 // ---
 // +k8s:openapi-gen=true
 type Port struct {
 	Name     string `json:"name,omitempty"`
 	Protocol string `json:"protocol,omitempty"`
-	Port     int32  `json:"port,omitempty"`
+	Port     int32  `json:"port"`
 	PodPort  int32  `json:"podPort,omitempty"`
 }
 

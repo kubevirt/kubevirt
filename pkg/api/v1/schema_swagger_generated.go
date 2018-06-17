@@ -300,13 +300,13 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 
 func (InterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"Ports": "List of ports to be forwarded to the virtual machine",
+		"ports": "List of ports to be forwarded to the virtual machine",
 	}
 }
 
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Port repesents a port to expose from the virtual machine\nDefault protocol TCP\nDefault vmPort is PodPort",
+		"": "Port repesents a port to expose from the virtual machine\nDefault protocol TCP\nDefault Port is PodPort",
 	}
 }
 

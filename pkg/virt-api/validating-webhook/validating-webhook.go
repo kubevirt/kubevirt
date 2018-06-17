@@ -412,7 +412,14 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
-		for _, network := range spec.Networks {
+		for idx, network := range spec.Networks {
+			if network.Pod == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("should only accept networks with a pod network source"),
+					Field:   field.Child("networks").Index(idx).Child("pod").String(),
+				})
+			}
 			networkNameMap[network.Name] = &network
 		}
 
@@ -442,14 +449,13 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 
 			if iface.Slirp != nil && iface.Slirp.Ports != nil {
-				portForwardMap := make(map[int32]string)
+				portForwardMap := make(map[string]struct{})
 
 				for portIdx, forwardPort := range iface.Slirp.Ports {
-					protocol := "TCP"
 
 					if forwardPort.Port == 0 {
 						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
+							Type:    metav1.CauseTypeFieldValueRequired,
 							Message: fmt.Sprintf("Port field is mandatory in every Port"),
 							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
 						})
@@ -459,23 +465,23 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
 							causes = append(causes, metav1.StatusCause{
 								Type:    metav1.CauseTypeFieldValueInvalid,
-								Message: fmt.Sprintf("Unknow protocol only TCP or UDP allowed"),
+								Message: fmt.Sprintf("Unknown protocol, only TCP or UDP allowed"),
 								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
 							})
-						} else {
-							protocol = forwardPort.Protocol
 						}
+					} else {
+						forwardPort.Protocol = "TCP"
 					}
 
-					if portProtocol, ok := portForwardMap[forwardPort.Port]; ok && portProtocol == protocol {
+					if _, ok := portForwardMap[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)]; ok {
 						causes = append(causes, metav1.StatusCause{
 							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("Port field must be unique"),
+							Message: fmt.Sprintf("Port and protocol combination must be unique"),
 							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
 						})
 					}
 
-					portForwardMap[forwardPort.Port] = protocol
+					portForwardMap[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)] = struct{}{}
 				}
 			}
 		}

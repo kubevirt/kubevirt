@@ -167,7 +167,29 @@ spec:
                                       well as a reference to the associated networks
                                       Must match the Name of a Network
                                     type: string
-                                  slirp: {}
+                                  slirp:
+                                    properties:
+                                      ports:
+                                        description: List of ports to be forwarded
+                                          to the virtual machine
+                                        items:
+                                          description: Port repesents a port to expose
+                                            from the virtual machine Default protocol
+                                            TCP Default Port is PodPort
+                                          properties:
+                                            name:
+                                              type: string
+                                            podPort:
+                                              format: int32
+                                              type: integer
+                                            port:
+                                              format: int32
+                                              type: integer
+                                            protocol:
+                                              type: string
+                                          required:
+                                          - port
+                                        type: array
                                 required:
                                 - name
                               type: array

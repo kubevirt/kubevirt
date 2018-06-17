@@ -776,10 +776,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{},
+					Properties: map[string]spec.Schema{
+						"ports": {
+							SchemaProps: spec.SchemaProps{
+								Description: "List of ports to be forwarded to the virtual machine",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Port"),
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
-			Dependencies: []string{},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.Port"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.KVMTimer": {
 			Schema: spec.Schema{
@@ -920,7 +935,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Port": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Port repesents a port to expose from the virtual machine Default protocol TCP Default vmPort is PodPort",
+					Description: "Port repesents a port to expose from the virtual machine Default protocol TCP Default Port is PodPort",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
@@ -947,6 +962,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
+					Required: []string{"port"},
 				},
 			},
 			Dependencies: []string{},

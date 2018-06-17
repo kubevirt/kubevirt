@@ -315,7 +315,7 @@ var _ = Describe("Schema", func() {
 		SetObjectDefaults_VirtualMachineInstance(exampleVMI)
 	})
 	Context("With example schema in json use pod network and bridge interface", func() {
-		It("Unmarshal json into struct ", func() {
+		It("Unmarshal json into struct", func() {
 			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
 				Interface{
 					Name: "default",
@@ -358,7 +358,7 @@ var _ = Describe("Schema", func() {
 		})
 	})
 	Context("With example schema in json use pod network and slirp interface", func() {
-		It("Unmarshal json into struct ", func() {
+		It("Unmarshal json into struct", func() {
 			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
 				Interface{
 					Name: "default",
@@ -389,6 +389,33 @@ var _ = Describe("Schema", func() {
 			}
 
 			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+			exampleJSONParsed := tpl.String()
+			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
+			Expect(err).To(BeNil())
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
+		})
+		It("Marshal struct into json with port configure", func() {
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Slirp: &InterfaceSlirp{Ports: []Port{{Port: 80}}},
+					},
+				},
+			}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {
+              "ports": [
+                {
+                  "port": 80
+                }
+              ]
+            }`}
+
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
 			Expect(err).To(BeNil())
 			var tpl bytes.Buffer
