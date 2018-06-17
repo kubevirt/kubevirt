@@ -54,9 +54,6 @@ var _ = Describe("Pod Network", func() {
 	var interfaceXml []byte
 	var tmpDir string
 	var dnsname string
-	// var iface *v1.Interface
-	// var network *v1.Network
-	// var slirpConfig api.Arg
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	_, dnsnamelist, _ := getResolvConfDetailsFromPod()
@@ -82,9 +79,6 @@ var _ = Describe("Pod Network", func() {
 		addrList = []netlink.Addr{fakeAddr}
 		routeAddr = netlink.Route{Gw: gw}
 		routeList = []netlink.Route{routeAddr}
-		// iface = &v1.Interface{Name: "testnet"}
-		// network = &v1.Network{Name: "testnet", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}
-		// slirpConfig = api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 		// Create a bridge
 		bridgeTest = &netlink.Bridge{
