@@ -2,6 +2,10 @@ package api
 
 const DefaultBridgeName = "br1"
 
+const DefaultVMCIDR = "10.0.2.0/24"
+
+const DefaultProtocol = "TCP"
+
 func SetDefaults_Devices(devices *Devices) {
 	// Use vga as video device, since it is better than cirrus
 	// and does not require guest drivers

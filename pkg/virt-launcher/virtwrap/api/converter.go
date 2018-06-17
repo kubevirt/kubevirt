@@ -20,7 +20,10 @@
 package api
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -28,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"strconv"
+	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
@@ -495,20 +499,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
 	}
 
-	findNetwork := func(nets []v1.Network, name string) (*v1.Network, error) {
-		for _, net := range nets {
-			if net.Name == name {
-				return &net, nil
-			}
-		}
-		return nil, fmt.Errorf("failed to find network %s", name)
+	networks := map[string]*v1.Network{}
+	for _, network := range vmi.Spec.Networks {
+		networks[network.Name] = network.DeepCopy()
 	}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		net, err := findNetwork(vmi.Spec.Networks, iface.Name)
-		if err != nil {
-			return err
+		net, isExist := networks[iface.Name]
+		if !isExist {
+			return fmt.Errorf("failed to find network %s", iface.Name)
 		}
+
 		if net.Pod == nil {
 			return fmt.Errorf("network interface type not supported for %s", iface.Name)
 		}
@@ -528,16 +529,28 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				},
 			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+
 		} else if iface.Slirp != nil {
 			// TODO: maybe add interface model to vm spec
 			// Slirp configuration works only with e1000 or rtl8139
-			if interfaceType == "virtio" {
+			slirpInterfaceType := "e1000"
+			if interfaceType != "virtio" {
+				slirpInterfaceType = interfaceType
+			} else {
 				log.Log.Infof("The network interface type was changed from virtio to e1000 due to unsupported interface type by qemu slirp network")
-				interfaceType = "e1000"
-
 			}
 
-			// Proxy is not added as interface, Need to be added as qemu commandlist
+			domainIface := Interface{
+				Model: &Model{
+					Type: slirpInterfaceType,
+				},
+				Type: "user",
+				Alias: &Alias{
+					Name: iface.Name,
+				},
+			}
+			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+
 			// Create network interface
 			if domain.Spec.QEMUCmd == nil {
 				domain.Spec.QEMUCmd = &Commandline{}
@@ -546,14 +559,108 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			if domain.Spec.QEMUCmd.QEMUArg == nil {
 				domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
 			}
-			domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-device"})
-			domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("%s,netdev=%s", interfaceType, iface.Name)})
-			// The network itself will be created on preStartHook
+
+			err := createSlirpNetwork(iface, *net, domain)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *Domain) error {
+	qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+
+	err := configVMCIDR(&qemuArg, iface, network)
+	if err != nil {
+		return err
+	}
+
+	err = configDNSSearchName(&qemuArg)
+	if err != nil {
+		return err
+	}
+
+	err = configPortForward(&qemuArg, iface)
+	if err != nil {
+		return err
+	}
+
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-netdev"})
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, qemuArg)
+
+	return nil
+}
+
+func configPortForward(qemuArg *Arg, iface v1.Interface) error {
+	if iface.Slirp.Ports == nil {
+		return nil
+	}
+
+	for _, forwardPort := range iface.Slirp.Ports {
+
+		if forwardPort.Port == 0 {
+			return fmt.Errorf("Port must be configured")
 		}
 
-
+		// Check protocol, its case sensitive like kubernetes
+		if forwardPort.Protocol == "" {
+			forwardPort.Protocol = DefaultProtocol
 		}
 
+		// Check if PodPort is configure If not Get the same Port as the vm port
+		if forwardPort.PodPort == 0 {
+			forwardPort.PodPort = forwardPort.Port
+		}
+
+		qemuArg.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(forwardPort.Protocol), forwardPort.PodPort, forwardPort.Port)
+
+	}
+
+	return nil
+}
+
+func configVMCIDR(qemuArg *Arg, iface v1.Interface, network v1.Network) error {
+	vmNetworkCIDR := ""
+	if network.Pod.VMNetworkCIDR != "" {
+		_, _, err := net.ParseCIDR(network.Pod.VMNetworkCIDR)
+		if err != nil {
+			return fmt.Errorf("Failed parsing CIDR %s", network.Pod.VMNetworkCIDR)
+		}
+		vmNetworkCIDR = network.Pod.VMNetworkCIDR
+	} else {
+		vmNetworkCIDR = DefaultVMCIDR
+	}
+
+	// Insert configuration to qemu commandline
+	qemuArg.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
+
+	return nil
+}
+
+func configDNSSearchName(qemuArg *Arg) error {
+	// remove the search string from the output and convert to string
+	b, err := ioutil.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		return err
+	}
+	scanner := bufio.NewScanner(strings.NewReader(string(b)))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "search") {
+			doms := strings.Fields(strings.TrimPrefix(line, "search"))
+			for _, dom := range doms {
+				qemuArg.Value += fmt.Sprintf(",dnssearch=%s", dom)
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -28,12 +28,53 @@ func (_m *MockBindMechanism) EXPECT() *_MockBindMechanismRecorder {
 	return _m.recorder
 }
 
-func (_m *MockBindMechanism) setup() error {
-	ret := _m.ctrl.Call(_m, "setup")
+func (_m *MockBindMechanism) discoverPodNetworkInterface() error {
+	ret := _m.ctrl.Call(_m, "discoverPodNetworkInterface")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) setup() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "setup")
+func (_mr *_MockBindMechanismRecorder) discoverPodNetworkInterface() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "discoverPodNetworkInterface")
+}
+
+func (_m *MockBindMechanism) preparePodNetworkInterfaces() error {
+	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces")
+}
+
+func (_m *MockBindMechanism) libvirtConfig() error {
+	ret := _m.ctrl.Call(_m, "libvirtConfig")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) libvirtConfig() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "libvirtConfig")
+}
+
+func (_m *MockBindMechanism) loadCachedInterface(name string) (bool, error) {
+	ret := _m.ctrl.Call(_m, "loadCachedInterface", name)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockBindMechanismRecorder) loadCachedInterface(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedInterface", arg0)
+}
+
+func (_m *MockBindMechanism) setCachedInterface(name string) error {
+	ret := _m.ctrl.Call(_m, "setCachedInterface", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) setCachedInterface(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedInterface", arg0)
 }

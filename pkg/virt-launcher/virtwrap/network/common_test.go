@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -32,7 +31,6 @@ import (
 )
 
 var _ = Describe("Common Methods", func() {
-	tempFile := "/tmp/data"
 
 	Context("Function ParseNameservers()", func() {
 		It("should return a byte array of nameservers", func() {
@@ -95,61 +93,38 @@ var _ = Describe("Common Methods", func() {
 			Expect(err).To(BeNil())
 		})
 	})
-	Context("Function setCachedInterface()", func() {
+	Context("Functions Read and Write from cache", func() {
 		It("should persist interface payload", func() {
 			tmpDir, _ := ioutil.TempDir("", "commontest")
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			ifaceName := "iface_name"
 			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
-			err := setCachedInterface(ifaceName, &iface)
+			err := writeToCachedFile(&iface, interfaceCacheFile, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
 
-			cached_iface, err := getCachedInterface(ifaceName)
+			var cached_iface api.Interface
+			isExist, err := readFromCachedFile(ifaceName, interfaceCacheFile, &cached_iface)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(isExist).To(Equal(true))
 
-			Expect(iface).To(Equal(*cached_iface))
+			Expect(iface).To(Equal(cached_iface))
 		})
-	})
+		It("should persis qemu arg payload", func() {
+			tmpDir, _ := ioutil.TempDir("", "commontest")
+			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
-	Context("Function Check bridge interface", func() {
-
-	})
-	Context("Function Check slirp interface", func() {
-
-	})
-	Context("Functions read and write", func() {
-		data := `{
-"QEMUEnv": null,
-"QEMUArg": [
-	{
-	"Value": "-device"
-	},
-	{
-	"Value": "virtio,netdev=testnet"
-	}
-]
-}`
-
-		AfterEach(func() {
-			os.Remove(tempFile)
-		})
-
-		It("Should create a file with command line configuration", func() {
-			commandLine := new(api.Commandline)
-			commandLine.QEMUArg = []api.Arg{{Value: "-device"}, {Value: fmt.Sprintf("%s,netdev=%s", "virtio", "testnet")}}
-
-			err := WriteToCachedFile(*commandLine, tempFile)
-			Expect(err).ToNot(HaveOccurred())
-		})
-		It("Should read from a file and convert the data", func() {
-			err := ioutil.WriteFile(tempFile, []byte(data), 0644)
+			qemuArgName := "iface_name"
+			qemuArg := api.Arg{Value: "test_value"}
+			err := writeToCachedFile(&qemuArg, interfaceCacheFile, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
 
-			var commandLine = api.Commandline{}
-			err = ReadFromCachedFile(tempFile, &commandLine)
+			var cached_qemuArg api.Arg
+			isExist, err := readFromCachedFile(qemuArgName, interfaceCacheFile, &cached_qemuArg)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(commandLine.QEMUArg[0].Value).To(Equal("-device"))
+			Expect(isExist).To(Equal(true))
+
+			Expect(qemuArg).To(Equal(cached_qemuArg))
 		})
 	})
 })
