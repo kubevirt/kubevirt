@@ -51,8 +51,8 @@ var _ = Describe("Console", func() {
 
 		By("Expecting the VirtualMachineInstance console")
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
+		defer expecter.Close()
 
 		By("Checking that the console output equals to expected one")
 		_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -93,8 +93,8 @@ var _ = Describe("Console", func() {
 				for i := 0; i < 5; i++ {
 					By("Expecting a VirtualMachineInstance console")
 					expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-					defer expecter.Close()
 					Expect(err).ToNot(HaveOccurred())
+					defer expecter.Close()
 
 					By("Checking that the console output equals to expected one")
 					_, err = expecter.ExpectBatch([]expect.Batcher{

@@ -1120,6 +1120,8 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, text string, wait int)
 	if err != nil {
 		return err
 	}
+	defer expecter.Close()
+
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},

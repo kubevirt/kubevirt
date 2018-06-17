@@ -173,8 +173,8 @@ var _ = Describe("Networking", func() {
 
 			// Wait until the VirtualMachineInstance is booted, ping google and check if we can reach the internet
 			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVMI, 10*time.Second)
-			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
 
 			switch destination {
 			case "Internet":
@@ -369,8 +369,8 @@ var _ = Describe("Networking", func() {
 
 	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
+		defer expecter.Close()
 
 		out, err := expecter.ExpectBatch([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
