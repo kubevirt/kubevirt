@@ -202,34 +202,6 @@ func getInterfaceCacheFile(filePath, name string) string {
 	return fmt.Sprintf(filePath, name)
 }
 
-// func setCachedInterface(name string, ifconf *api.Interface) error {
-// 	buf, err := json.MarshalIndent(&ifconf, "", "  ")
-// 	if err != nil {
-// 		return fmt.Errorf("error marshaling interface cache: %v", err)
-// 	}
-// 	err = ioutil.WriteFile(getInterfaceCacheFile(interfaceCacheFile, name), buf, 0644)
-// 	if err != nil {
-// 		return fmt.Errorf("error writing interface cache %v", err)
-// 	}
-// 	return nil
-// }
-
-// func getCachedInterface(name string) (*api.Interface, error) {
-// 	buf, err := ioutil.ReadFile(getInterfaceCacheFile(interfaceCacheFile, name))
-// 	if err != nil {
-// 		if os.IsNotExist(err) {
-// 			return nil, nil
-// 		}
-// 		return nil, err
-// 	}
-// 	ifconf := api.Interface{}
-// 	err = json.Unmarshal(buf, &ifconf)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error unmarshaling interface: %v", err)
-// 	}
-// 	return &ifconf, nil
-// }
-
 // filter out irrelevant routes
 func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
 	for _, route := range routes {
