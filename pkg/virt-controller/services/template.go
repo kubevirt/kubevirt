@@ -140,6 +140,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
+	// Get memory overhead
+	memoryOverhead := getMemoryOverhead(vmi.Spec.Domain)
+
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
 	vmiResources := vmi.Spec.Domain.Resources
@@ -155,12 +158,51 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	if vmiResources.Limits != nil {
 		resources.Limits = make(k8sv1.ResourceList)
 	}
+
 	for key, value := range vmiResources.Limits {
 		resources.Limits[key] = value
 	}
 
-	// Add memory overhead
-	setMemoryOverhead(vmi.Spec.Domain, &resources)
+	// Consider hugepages resource for pod scheduling
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+		if resources.Limits == nil {
+			resources.Limits = make(k8sv1.ResourceList)
+		}
+
+		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
+		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
+		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
+
+		// Configure hugepages mount on a pod
+		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+			Name:      "hugepages",
+			MountPath: filepath.Join("/dev/hugepages"),
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "hugepages",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{
+					Medium: k8sv1.StorageMediumHugePages,
+				},
+			},
+		})
+
+		// Set requested memory equals to overhead memory
+		resources.Requests[k8sv1.ResourceMemory] = *memoryOverhead
+		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
+			resources.Limits[k8sv1.ResourceMemory] = *memoryOverhead
+		}
+	} else {
+		// Add overhead memory
+		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
+		memoryRequest.Add(*memoryOverhead)
+		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
+
+		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
+			memoryLimit.Add(*memoryOverhead)
+			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
+		}
+	}
 
 	command := []string{"/entrypoint.sh",
 		"--qemu-timeout", "5m",
@@ -302,16 +344,16 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 	return append(secrets, newsecret)
 }
 
-// setMemoryOverhead computes the estimation of total
+// getMemoryOverhead computes the estimation of total
 // memory needed for the domain to operate properly.
 // This includes the memory needed for the guest and memory
 // for Qemu and OS overhead.
 //
-// The return values are requested memory and limit memory quantities
+// The return value is overhead memory quantity
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func setMemoryOverhead(domain v1.DomainSpec, resources *k8sv1.ResourceRequirements) error {
+func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
 	overhead := resource.NewScaledQuantity(0, resource.Kilo)
@@ -339,18 +381,7 @@ func setMemoryOverhead(domain v1.DomainSpec, resources *k8sv1.ResourceRequiremen
 	// Add video RAM overhead
 	overhead.Add(resource.MustParse("16Mi"))
 
-	// Add overhead to memory request
-	memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-	memoryRequest.Add(*overhead)
-	resources.Requests[k8sv1.ResourceMemory] = memoryRequest
-
-	// Add overhead to memory limits, if exists
-	if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-		memoryLimit.Add(*overhead)
-		resources.Limits[k8sv1.ResourceMemory] = memoryLimit
-	}
-
-	return nil
+	return overhead
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {

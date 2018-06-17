@@ -95,6 +95,23 @@ var _ = Describe("Common Methods", func() {
 			Expect(err).To(BeNil())
 		})
 	})
+	Context("Function setCachedInterface()", func() {
+		It("should persist interface payload", func() {
+			tmpDir, _ := ioutil.TempDir("", "commontest")
+			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
+
+			ifaceName := "iface_name"
+			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
+			err := setCachedInterface(ifaceName, &iface)
+			Expect(err).ToNot(HaveOccurred())
+
+			cached_iface, err := getCachedInterface(ifaceName)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(iface).To(Equal(*cached_iface))
+		})
+	})
+
 	Context("Function Check bridge interface", func() {
 
 	})

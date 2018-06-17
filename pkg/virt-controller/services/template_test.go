@@ -25,6 +25,7 @@ import (
 	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -275,6 +276,57 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 				Expect(pod.Spec.Containers[0].Resources.Limits).To(BeNil())
 			})
+		})
+
+		Context("with hugepages constraints", func() {
+			table.DescribeTable("should add to the template constraints ", func(value string) {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Memory: &v1.Memory{
+								Hugepages: &v1.Hugepages{
+									PageSize: value,
+								},
+							},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
+
+				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + value)
+				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[hugepageType]
+				hugepagesLimit := pod.Spec.Containers[0].Resources.Limits[hugepageType]
+				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+
+				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3))
+				Expect(pod.Spec.Containers[0].VolumeMounts[2].MountPath).To(Equal("/dev/hugepages"))
+			},
+				table.Entry("hugepages-2Mi", "2Mi"),
+				table.Entry("hugepages-1Gi", "1Gi"),
+			)
 		})
 
 		Context("with pvc source", func() {

@@ -26,6 +26,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,7 +42,6 @@ import (
 const (
 	cloudInitMaxLen = 2048
 	arrayLenMax     = 256
-	maxNetworks     = 1
 )
 
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
@@ -299,6 +300,21 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	return causes
 }
 
+func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
+	nPodInterfaces := 0
+	for _, net := range spec.Networks {
+		if net.Pod != nil {
+			for _, iface := range spec.Domain.Devices.Interfaces {
+				if iface.Name == net.Name {
+					nPodInterfaces++
+					break // we maintain 1-to-1 relationship between networks and interfaces
+				}
+			}
+		}
+	}
+	return nPodInterfaces
+}
+
 func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
@@ -354,19 +370,66 @@ func validateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		})
 	}
 
-	// TODO: Currently, we support only a single network interface attached to a single pod network
-	if len(spec.Domain.Devices.Interfaces) > maxNetworks {
+	// Validate hugepages
+	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
+		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
+		if err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s '%s': %s",
+					field.Child("domain", "hugepages", "size").String(),
+					spec.Domain.Memory.Hugepages.PageSize,
+					resource.ErrFormatWrong,
+				),
+				Field: field.Child("domain", "hugepages", "size").String(),
+			})
+		} else {
+			vmMemory := spec.Domain.Resources.Requests.Memory().Value()
+			if vmMemory < hugepagesSize.Value() {
+				causes = append(causes, metav1.StatusCause{
+					Type: metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
+						field.Child("domain", "resources", "requests", "memory").String(),
+						spec.Domain.Resources.Requests.Memory(),
+						field.Child("domain", "hugepages", "size").String(),
+						spec.Domain.Memory.Hugepages.PageSize,
+					),
+					Field: field.Child("domain", "resources", "requests", "memory").String(),
+				})
+			} else if vmMemory%hugepagesSize.Value() != 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type: metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s '%s' is not a multiple of the page size %s '%s'",
+						field.Child("domain", "resources", "requests", "memory").String(),
+						spec.Domain.Resources.Requests.Memory(),
+						field.Child("domain", "hugepages", "size").String(),
+						spec.Domain.Memory.Hugepages.PageSize,
+					),
+					Field: field.Child("domain", "resources", "requests", "memory").String(),
+				})
+			}
+		}
+	}
+
+	if len(spec.Domain.Devices.Interfaces) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("domain", "devices", "interfaces").String(), maxNetworks),
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("domain", "devices", "interfaces").String(), arrayLenMax),
 			Field:   field.Child("domain", "devices", "interfaces").String(),
 		})
 		return causes
-	} else if len(spec.Networks) > maxNetworks {
+	} else if len(spec.Networks) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("networks").String(), maxNetworks),
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("networks").String(), arrayLenMax),
 			Field:   field.Child("networks").String(),
+		})
+		return causes
+	} else if getNumberOfPodInterfaces(spec) > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: fmt.Sprintf("multiple pod interfaces in %s", field.Child("interfaces").String()),
+			Field:   field.Child("interfaces").String(),
 		})
 		return causes
 	}

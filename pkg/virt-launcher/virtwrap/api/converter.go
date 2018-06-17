@@ -376,6 +376,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+		domain.Spec.MemoryBacking = &MemoryBacking{
+			HugePages: &HugePages{},
+		}
+	}
+
 	volumes := map[string]*v1.Volume{}
 	for _, volume := range vmi.Spec.Volumes {
 		volumes[volume.Name] = volume.DeepCopy()
@@ -489,63 +495,65 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
 	}
 
-	// For now if networks are not define in vm specs connect the virtual machine to the pod network
-	if vmi.Spec.Domain.Devices.Interfaces == nil {
-		domain.Spec.Devices.Interfaces = []Interface{{
-			Model: &Model{
-				Type: interfaceType,
-			},
-			Type: "bridge",
-			Source: InterfaceSource{
-				Bridge: DefaultBridgeName,
-			}},
-		}
-	} else {
-		// prepare networks map
-		networks := map[string]*v1.Network{}
-		for _, network := range vmi.Spec.Networks {
-			networks[network.Name] = network.DeepCopy()
-		}
-
-		domain.Spec.Devices.Interfaces = make([]Interface, 0)
-		for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-			if _, ok := networks[iface.Name]; !ok {
-				return fmt.Errorf("Fail to match the Name of a Network")
+	findNetwork := func(nets []v1.Network, name string) (*v1.Network, error) {
+		for _, net := range nets {
+			if net.Name == name {
+				return &net, nil
 			}
-			if iface.Bridge != nil {
-				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, Interface{
-					Model: &Model{
-						Type: interfaceType,
-					},
-					Type: "bridge",
-					Source: InterfaceSource{
-						Bridge: DefaultBridgeName,
-					}})
-			} else if iface.Slirp != nil {
-				// TODO: maybe add interface model to vm spec
-				// Slirp configuration works only with e1000 or rtl8139
-				if interfaceType == "virtio" {
-					log.Log.Infof("The network interface type was changed from virtio to e1000 due to unsupported interface type by qemu slirp network")
-					interfaceType = "e1000"
-
-				}
-
-				// Proxy is not added as interface, Need to be added as qemu commandlist
-				// Create network interface
-				if domain.Spec.QEMUCmd == nil {
-					domain.Spec.QEMUCmd = &Commandline{}
-				}
-
-				if domain.Spec.QEMUCmd.QEMUArg == nil {
-					domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
-				}
-				domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-device"})
-				domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("%s,netdev=%s", interfaceType, iface.Name)})
-				// The network itself will be created on preStartHook
-			}
-
 		}
+		return nil, fmt.Errorf("failed to find network %s", name)
 	}
+
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		net, err := findNetwork(vmi.Spec.Networks, iface.Name)
+		if err != nil {
+			return err
+		}
+		if net.Pod == nil {
+			return fmt.Errorf("network interface type not supported for %s", iface.Name)
+		}
+		// TODO:(ihar) consider abstracting interface type conversion /
+		// detection into drivers
+		if iface.Bridge != nil {
+			domainIface := Interface{
+				Model: &Model{
+					Type: interfaceType,
+				},
+				Type: "bridge",
+				Source: InterfaceSource{
+					Bridge: DefaultBridgeName,
+				},
+				Alias: &Alias{
+					Name: iface.Name,
+				},
+			}
+			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+		} else if iface.Slirp != nil {
+			// TODO: maybe add interface model to vm spec
+			// Slirp configuration works only with e1000 or rtl8139
+			if interfaceType == "virtio" {
+				log.Log.Infof("The network interface type was changed from virtio to e1000 due to unsupported interface type by qemu slirp network")
+				interfaceType = "e1000"
+
+			}
+
+			// Proxy is not added as interface, Need to be added as qemu commandlist
+			// Create network interface
+			if domain.Spec.QEMUCmd == nil {
+				domain.Spec.QEMUCmd = &Commandline{}
+			}
+
+			if domain.Spec.QEMUCmd.QEMUArg == nil {
+				domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
+			}
+			domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-device"})
+			domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("%s,netdev=%s", interfaceType, iface.Name)})
+			// The network itself will be created on preStartHook
+		}
+
+
+		}
+
 
 	return nil
 }

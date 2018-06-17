@@ -41,8 +41,8 @@ const (
 	nameserverPrefix    = "nameserver"
 )
 
-var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache.json"
-var commandLineCacheFile = "/var/run/kubevirt-private/command-line-cache.json"
+var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache-%s.json"
+var commandLineCacheFile = "/var/run/kubevirt-private/command-line-cache.js
 var NetworkInterfaceFactory = getNetworkClass
 
 type NetworkInterface interface {
@@ -85,6 +85,5 @@ func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
 	if network.Pod != nil {
 		return new(PodInterface), nil
 	}
-
-	return nil, fmt.Errorf("Network not implemented")
+	return nil, fmt.Errorf("Not implemented")
 }

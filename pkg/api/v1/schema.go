@@ -56,6 +56,9 @@ type DomainSpec struct {
 	// CPU allow specified the detailed CPU topology inside the vmi.
 	// +optional
 	CPU *CPU `json:"cpu,omitempty"`
+	// Memory allow specifying the VMI memory features.
+	// +optional
+	Memory *Memory `json:"memory,omitempty"`
 	// Machine type
 	// +optional
 	Machine Machine `json:"machine,omitempty"`
@@ -92,6 +95,23 @@ type CPU struct {
 	// Cores specifies the number of cores inside the vmi.
 	// Must be a value greater or equal 1.
 	Cores uint32 `json:"cores,omitempty"`
+}
+
+// Memory allow specifying the VirtualMachineInstance memory features
+// ---
+// +k8s:openapi-gen=true
+type Memory struct {
+	// Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
+	// +optional
+	Hugepages *Hugepages `json:"hugepages,omitempty"`
+}
+
+// Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
+// ---
+// +k8s:openapi-gen=true
+type Hugepages struct {
+	// PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.
+	PageSize string `json:"pageSize,omitempty"`
 }
 
 // ---

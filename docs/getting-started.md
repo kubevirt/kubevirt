@@ -114,11 +114,18 @@ up dockerizied environment. Then run
 ```
 
 If you'd like to run specific functional tests only, you can leverage `ginkgo`
-command line options as follows:
+command line options as follows (run a specified suite):
 
 ```
     FUNC_TEST_ARGS='-ginkgo.focus=vm_networking_test -ginkgo.regexScansFilePath' make functest
 ```
+
+In addition, if you want to run a specific test or tests you can prepend any `Describe`,
+`Context` and `It` statements of your test with an `F` and Ginkgo will only run items
+that are marked with the prefix. Also, don't forget to remove the prefix before issuing
+your pull request.
+
+For additional information check out the [Ginkgo focused specs documentation](http://onsi.github.io/ginkgo/#focused-specs)
 
 ## Use
 
@@ -128,19 +135,19 @@ Now it's time to get hands on and give it a try.
 
 ### Create a first Virtual Machine
 
-Finally start a VMI called `vm-ephemeral`:
+Finally start a VMI called `vmi-ephemeral`:
 
 ```bash
     # This can be done from your GIT repo, no need to log into a VMI
 
     # Create a VMI
-    ./cluster/kubectl.sh create -f cluster/examples/vm-ephemeral.yaml
+    ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
 
     # Sure? Let's list all created VMIs
     ./cluster/kubectl.sh get vms
 
     # Enough, let's get rid of it
-    ./cluster/kubectl.sh delete -f cluster/examples/vm-ephemeral.yaml
+    ./cluster/kubectl.sh delete -f cluster/examples/vmi-ephemeral.yaml
 
 
     # You can actually use kubelet.sh to introspect the cluster in general
@@ -153,19 +160,19 @@ tap networking device attached.
 #### Example
 
 ```bash
-$ ./cluster/kubectl.sh create -f cluster/examples/vm-ephemeral.yaml
-vm "vm-ephemeral" created
+$ ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
+vm "vmi-ephemeral" created
 
 $ ./cluster/kubectl.sh get pods
 NAME                              READY     STATUS    RESTARTS   AGE
 virt-api                          1/1       Running   1          10h
 virt-controller                   1/1       Running   1          10h
 virt-handler-z90mp                1/1       Running   1          10h
-virt-launcher-vm-ephemeral9q7es   1/1       Running   0          10s
+virt-launcher-vmi-ephemeral9q7es   1/1       Running   0          10s
 
 $ ./cluster/kubectl.sh get vms
 NAME           LABELS                        DATA
-vm-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
+vmi-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
 
 $ ./cluster/kubectl.sh get vms -o json
 {
@@ -181,7 +188,7 @@ $ ./cluster/kubectl.sh get vms -o json
                 "labels": {
                     "kubevirt.io/nodeName": "master"
                 },
-                "name": "vm-ephemeral",
+                "name": "vmi-ephemeral",
                 "namespace": "default",
                 "resourceVersion": "102534",
                 "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm",
@@ -199,13 +206,15 @@ First make sure you have `remote-viewer` installed. On Fedora run
 dnf install virt-viewer
 ```
 
-Then, after you made sure that the VMI `vm-ephemeral` is running, type
+Then, after you made sure that the VMI `vmi-ephemeral` is running, type
 
 ```
-cluster/virtctl.sh vnc vm-ephemeral
+cluster/virtctl.sh vnc vmi-ephemeral
 ```
 
 to start a remote session with `remote-viewer`.
 
 `cluster/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
 virtual machine specific commands with it. It is supplement to `kubectl`.
+
+**Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.

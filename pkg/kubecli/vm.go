@@ -24,6 +24,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -116,4 +118,17 @@ func (o *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error
 	}
 
 	return newOvmList, err
+}
+
+func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error) {
+	result = &v1.VirtualMachine{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource(subresources...).
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return result, err
 }

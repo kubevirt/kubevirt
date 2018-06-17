@@ -49,9 +49,9 @@ const (
 	vmiPVC            = "vmi-pvc"
 	vmiWindows        = "vmi-windows"
 	vmiSlirp          = "vmi-slirp"
-	vmTemplateFedora  = "vmi-template-fedora"
-	vmTemplateRHEL7   = "vmi-template-rhel7"
-	vmTemplateWindows = "vmi-template-windows2012r2"
+	vmTemplateFedora  = "vm-template-fedora"
+	vmTemplateRHEL7   = "vm-template-rhel7"
+	vmTemplateWindows = "vm-template-windows2012r2"
 )
 
 const (
@@ -59,9 +59,9 @@ const (
 	vmAlpineMultiPvc = "vm-alpine-multipvc"
 )
 
-const vmiReplicaSetCirros = "vm-replicaset-cirros"
+const vmiReplicaSetCirros = "vmi-replicaset-cirros"
 
-const vmiPresetSmall = "vm-preset-small"
+const vmiPresetSmall = "vmi-preset-small"
 
 const (
 	busVirtio = "virtio"
@@ -361,7 +361,7 @@ func getTemplateFedora() *Template {
 		Name: vmTemplateFedora,
 		Annotations: map[string]string{
 			"description": "OCP KubeVirt Fedora 27 VM template",
-			"tags":        "kubevirt,ocp,template,linux",
+			"tags":        "kubevirt,ocp,template,linux,virtualmachine",
 			"iconClass":   "icon-fedora",
 		},
 		Labels: map[string]string{
@@ -445,7 +445,7 @@ func getPVCForTemplate(name string) *k8sv1.PersistentVolumeClaim {
 func getBaseTemplate(vm *v1.VirtualMachine, memory string, cores string) *Template {
 
 	obj := toUnstructured(vm)
-	unstructured.SetNestedField(obj.Object, "${CPU_CORES}", "spec", "template", "spec", "domain", "cpu")
+	unstructured.SetNestedField(obj.Object, "${{CPU_CORES}}", "spec", "template", "spec", "domain", "cpu")
 	unstructured.SetNestedField(obj.Object, "${MEMORY}", "spec", "template", "spec", "domain", "resources", "requests", "memory")
 	obj.SetName("${NAME}")
 

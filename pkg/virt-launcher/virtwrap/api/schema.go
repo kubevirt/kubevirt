@@ -95,22 +95,23 @@ type DomainList struct {
 // tagged, and they must correspond to the libvirt domain as described in
 // https://libvirt.org/formatdomain.html.
 type DomainSpec struct {
-	XMLName  xml.Name     `xml:"domain"`
-	Type     string       `xml:"type,attr"`
-	XmlNS    string       `xml:"xmlns:qemu,attr,omitempty"`
-	Name     string       `xml:"name"`
-	UUID     string       `xml:"uuid,omitempty"`
-	Memory   Memory       `xml:"memory"`
-	OS       OS           `xml:"os"`
-	SysInfo  *SysInfo     `xml:"sysinfo,omitempty"`
-	Devices  Devices      `xml:"devices"`
-	Clock    *Clock       `xml:"clock,omitempty"`
-	Resource *Resource    `xml:"resource,omitempty"`
-	QEMUCmd  *Commandline `xml:"qemu:commandline,omitempty"`
-	Metadata Metadata     `xml:"metadata,omitempty"`
-	Features *Features    `xml:"features,omitempty"`
-	CPU      CPU          `xml:"cpu"`
-	VCPU     *VCPU        `xml:"vcpu"`
+	XMLName       xml.Name       `xml:"domain"`
+	Type          string         `xml:"type,attr"`
+	XmlNS         string         `xml:"xmlns:qemu,attr,omitempty"`
+	Name          string         `xml:"name"`
+	UUID          string         `xml:"uuid,omitempty"`
+	Memory        Memory         `xml:"memory"`
+	MemoryBacking *MemoryBacking `xml:"memoryBacking,omitempty"`
+	OS            OS             `xml:"os"`
+	SysInfo       *SysInfo       `xml:"sysinfo,omitempty"`
+	Devices       Devices        `xml:"devices"`
+	Clock         *Clock         `xml:"clock,omitempty"`
+	Resource      *Resource      `xml:"resource,omitempty"`
+	QEMUCmd       *Commandline   `xml:"qemu:commandline,omitempty"`
+	Metadata      Metadata       `xml:"metadata,omitempty"`
+	Features      *Features      `xml:"features,omitempty"`
+	CPU           CPU            `xml:"cpu"`
+	VCPU          *VCPU          `xml:"vcpu"`
 }
 
 type VCPU struct {
@@ -201,6 +202,22 @@ type Resource struct {
 type Memory struct {
 	Value uint64 `xml:",chardata"`
 	Unit  string `xml:"unit,attr"`
+}
+
+// MemoryBacking mirroring libvirt XML under https://libvirt.org/formatdomain.html#elementsMemoryBacking
+type MemoryBacking struct {
+	HugePages *HugePages `xml:"hugepages,omitempty"`
+}
+
+// HugePages mirroring libvirt XML under memoryBacking
+type HugePages struct {
+	HugePage []HugePage `xml:"page,omitempty"`
+}
+
+// HugePage mirroring libvirt XML under hugepages
+type HugePage struct {
+	Size string `xml:"size,attr"`
+	Unit string `xml:"unit,attr"`
 }
 
 type Devices struct {

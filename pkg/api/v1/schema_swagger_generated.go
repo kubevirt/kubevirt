@@ -15,6 +15,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"resources": "Resources describes the Compute Resources required by this vmi.",
 		"cpu":       "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
+		"memory":    "Memory allow specifying the VMI memory features.\n+optional",
 		"machine":   "Machine type\n+optional",
 		"firmware":  "Firmware\n+optional",
 		"clock":     "Clock sets the clock and timers of the vmi.\n+optional",
@@ -34,6 +35,20 @@ func (CPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "CPU allow specifying the CPU topology",
 		"cores": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
+	}
+}
+
+func (Memory) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "Memory allow specifying the VirtualMachineInstance memory features",
+		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+	}
+}
+
+func (Hugepages) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+		"pageSize": "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
 	}
 }
 

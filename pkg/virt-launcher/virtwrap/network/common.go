@@ -198,20 +198,25 @@ func ReadFromCachedFile(fileName string, inter interface{}) (bool, error) {
 	return true, nil
 }
 
-func setCachedInterface(ifconf *api.Interface) error {
+
+func getInterfaceCacheFile(name string) string {
+	return fmt.Sprintf(interfaceCacheFile, name)
+}
+
+func setCachedInterface(name string, ifconf *api.Interface) error {
 	buf, err := json.MarshalIndent(&ifconf, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling interface cache: %v", err)
 	}
-	err = ioutil.WriteFile(interfaceCacheFile, buf, 0644)
+	err = ioutil.WriteFile(getInterfaceCacheFile(name), buf, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing interface cache %v", err)
 	}
 	return nil
 }
 
-func getCachedInterface() (*api.Interface, error) {
-	buf, err := ioutil.ReadFile(interfaceCacheFile)
+func getCachedInterface(name string) (*api.Interface, error) {
+	buf, err := ioutil.ReadFile(getInterfaceCacheFile(name))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

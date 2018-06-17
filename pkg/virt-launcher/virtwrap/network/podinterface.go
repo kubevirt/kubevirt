@@ -54,6 +54,15 @@ type PodInterface struct{}
 
 func (l *PodInterface) Unplug() {}
 
+func findInterfaceByName(ifaces []api.Interface, name string) (int, error) {
+	for i, iface := range ifaces {
+		if iface.Alias.Name == name {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("failed to find interface with alias set to %s", name)
+}
+
 // Plug connect a Pod network device to the virtual machine
 func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
@@ -64,7 +73,13 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		return err
 	}
 
-	isExist, err := driver.loadCachedInterface()
+	ifconf, err := getCachedInterface(iface.Name)
+	if err != nil {
+		return err
+	}
+
+	interfaces := domain.Spec.Devices.Interfaces
+	podInterfaceNum, err := findInterfaceByName(interfaces, iface.Name)
 	if err != nil {
 		return err
 	}
@@ -79,6 +94,21 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 			panic(err)
 		}
 
+
+		// Change this section
+		defaultIconf := interfaces[podInterfaceNum]
+		driver.startDHCPServer()
+
+		// After the network is configured, cache the result
+		// in case this function is called again.
+		driver.decorateInterfaceConfig(&defaultIconf)
+		err = setCachedInterface(iface.Name, &defaultIconf)
+		if err != nil {
+			log.Log.Reason(err).Critical("failed to save interface configuration")
+			panic(err)
+		}
+
+		// Use this section
 		err = driver.libvirtConfig()
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to create libvirt configuration")
@@ -91,6 +121,8 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 			panic(err)
 		}
 	}
+
+	interfaces[podInterfaceNum] = *ifconf
 
 	return nil
 }

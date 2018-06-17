@@ -371,6 +371,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CPU"),
 							},
 						},
+						"memory": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Memory allow specifying the VMI memory features.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Memory"),
+							},
+						},
 						"machine": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Machine type",
@@ -406,7 +412,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.CPU", "kubevirt.io/kubevirt/pkg/api/v1.Clock", "kubevirt.io/kubevirt/pkg/api/v1.Devices", "kubevirt.io/kubevirt/pkg/api/v1.Features", "kubevirt.io/kubevirt/pkg/api/v1.Firmware", "kubevirt.io/kubevirt/pkg/api/v1.Machine", "kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"},
+				"kubevirt.io/kubevirt/pkg/api/v1.CPU", "kubevirt.io/kubevirt/pkg/api/v1.Clock", "kubevirt.io/kubevirt/pkg/api/v1.Devices", "kubevirt.io/kubevirt/pkg/api/v1.Features", "kubevirt.io/kubevirt/pkg/api/v1.Firmware", "kubevirt.io/kubevirt/pkg/api/v1.Machine", "kubevirt.io/kubevirt/pkg/api/v1.Memory", "kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource": {
 			Schema: spec.Schema{
@@ -683,6 +689,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.Hugepages": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+					Properties: map[string]spec.Schema{
+						"pageSize": {
+							SchemaProps: spec.SchemaProps{
+								Description: "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.HypervTimer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -851,6 +874,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.Memory": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Memory allow specifying the VirtualMachineInstance memory features",
+					Properties: map[string]spec.Schema{
+						"hugepages": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Hugepages"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.Hugepages"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Network": {
 			Schema: spec.Schema{

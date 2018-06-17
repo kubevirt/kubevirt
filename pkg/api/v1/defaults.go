@@ -129,7 +129,7 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 		obj.Spec.Domain.Machine.Type = "q35"
 	}
 	setDefaults_DiskFromMachineType(obj)
-	setDefaults_NetworkInterface(obj)
+	SetDefaults_NetworkInterface(obj)
 }
 
 func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
@@ -152,13 +152,9 @@ func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
 	}
 }
 
-func setDefaults_NetworkInterface(obj *VirtualMachineInstance) {
-	networks := obj.Spec.Networks
-
-	//TODO: Currently, we support only one interface associated to a network
-	//      This should be improved when we will start supporting multimple interfaces and networks
-	// 		Add Bridge interface as default network
-	if len(networks) == 0 {
+func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
+	// Override only when nothing is specified
+	if len(obj.Spec.Networks) == 0 {
 		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultNetworkInterface()}
 		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
 	}

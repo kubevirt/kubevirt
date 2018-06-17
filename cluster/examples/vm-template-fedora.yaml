@@ -4,12 +4,12 @@ metadata:
   annotations:
     description: OCP KubeVirt Fedora 27 VM template
     iconClass: icon-fedora
-    tags: kubevirt,ocp,template,linux
+    tags: kubevirt,ocp,template,linux,virtualmachine
   creationTimestamp: null
   labels:
     kubevirt.io/os: fedora27
     miq.github.io/kubevirt-is-vm-template: "true"
-  name: vmi-template-fedora
+  name: vm-template-fedora
 objects:
 - apiVersion: kubevirt.io/v1alpha2
   kind: VirtualMachine
@@ -27,7 +27,7 @@ objects:
           kubevirt-vm: vm-${NAME}
       spec:
         domain:
-          cpu: ${CPU_CORES}
+          cpu: ${{CPU_CORES}}
           devices:
             disks:
             - disk:
