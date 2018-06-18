@@ -23,7 +23,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
@@ -596,7 +595,7 @@ func main() {
 	handleError := func(err error) {
 		if err != nil {
 			fmt.Printf("%s\n", err)
-			os.Exit(1)
+			panic(err)
 		}
 	}
 
@@ -607,7 +606,7 @@ func main() {
 					"Failed to validate %s spec: failed to admit yaml for %s: %s at %s: %s\n",
 					objType, name, cause.Type, cause.Field, cause.Message)
 			}
-			os.Exit(1)
+			panic(fmt.Errorf("Failed to admit %s of type %s", name, objType))
 		}
 	}
 
