@@ -637,9 +637,10 @@ type Interface struct {
 	// Logical name of the interface as well as a reference to the associated networks
 	// Must match the Name of a Network
 	Name string `json:"name"`
-	// Interface model supported by libvirt
+	// Interface model
+	// One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio
 	// Defaults to virtio
-	// TODO:(ihar) should we enumerate and enforce allowed values
+	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
 	Model string `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest
 	// Defaults to Bridge

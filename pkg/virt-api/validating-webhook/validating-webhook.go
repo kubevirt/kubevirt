@@ -44,6 +44,8 @@ const (
 	arrayLenMax     = 256
 )
 
+var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
+
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
 	var body []byte
 	if r.Body != nil {
@@ -499,6 +501,25 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("only a %s network source can be selected.", field.Child("domain", "devices", "networks").Index(0).Child("pod").String()),
 					Field:   field.Child("domain", "devices", "networks").Index(0).Child("pod").String(),
 				})
+			}
+
+			// verify that selected model is supported
+			if iface.Model != "" {
+				isModelSupported := func(model string) bool {
+					for _, m := range validInterfaceModels {
+						if m == model {
+							return true
+						}
+					}
+					return false
+				}
+				if !isModelSupported(iface.Model) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
+					})
+				}
 			}
 		}
 	}
