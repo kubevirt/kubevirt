@@ -61,8 +61,9 @@ var _ = Describe("Health Monitoring", func() {
 
 			By("Expecting the VirtualMachineInstance console")
 			expecter, err := tests.LoggedInAlpineExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(expecter).ToNot(BeNil())
 			defer expecter.Close()
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Killing the watchdog device")
 			_, err = expecter.ExpectBatch([]expect.Batcher{

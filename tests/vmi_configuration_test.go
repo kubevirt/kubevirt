@@ -75,8 +75,9 @@ var _ = Describe("Configurations", func() {
 
 				By("Expecting the VirtualMachineInstance console")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(expecter).ToNot(BeNil())
 				defer expecter.Close()
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking the number of CPU cores under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -263,8 +264,9 @@ var _ = Describe("Configurations", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(expecter).ToNot(BeNil())
 			defer expecter.Close()
+			Expect(err).ToNot(HaveOccurred())
 			res, err := expecter.ExpectBatch([]expect.Batcher{
 				// keep the ordering!
 				&expect.BSnd{S: "ls /dev/sda  /dev/vda  /dev/vdb\n"},

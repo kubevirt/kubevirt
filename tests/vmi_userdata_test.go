@@ -147,6 +147,7 @@ var _ = Describe("CloudInit UserData", func() {
 
 				By("applying the hostname from meta-data")
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(expecter).ToNot(BeNil())
 				defer expecter.Close()
 				Expect(err).ToNot(HaveOccurred())
 
