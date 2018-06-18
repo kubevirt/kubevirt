@@ -20,6 +20,7 @@
 package services
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -33,6 +34,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -42,6 +45,7 @@ const TunDevice = "devices.kubevirt.io/tun"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
+	RenderDataVolumeManifest(*v1.VirtualMachineInstance, string) (*cdiv1.DataVolume, error)
 }
 
 type templateService struct {
@@ -124,6 +128,17 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		if volume.RegistryDisk != nil && volume.RegistryDisk.ImagePullSecret != "" {
 			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 				Name: volume.RegistryDisk.ImagePullSecret,
+			})
+		}
+		if volume.DataVolume != nil {
+			volumesMounts = append(volumesMounts, volumeMount)
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: dataVolumeToPVC(vmi, volume.Name),
+					},
+				},
 			})
 		}
 	}
@@ -351,6 +366,51 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	return &pod, nil
+}
+
+func (t *templateService) RenderDataVolumeManifest(vmi *v1.VirtualMachineInstance, volumeName string) (*cdiv1.DataVolume, error) {
+
+	var volume *v1.Volume
+	for _, curVolume := range vmi.Spec.Volumes {
+		if curVolume.Name == volumeName {
+			volume = curVolume.DeepCopy()
+			break
+		}
+	}
+
+	if volume == nil {
+		return nil, fmt.Errorf("Unable to generate DataVolume spec, volume %s does not exist on vmi %s", volumeName, vmi.Name)
+	}
+
+	labels := map[string]string{}
+	annotations := map[string]string{}
+
+	labels[v1.DomainLabel] = vmi.Name
+	labels[v1.AppLabel] = "virt-launcher"
+
+	annotations[v1.DataVolumeSourceName] = volume.Name
+	annotations[v1.CreatedByAnnotation] = string(vmi.UID)
+	annotations[v1.OwnedByAnnotation] = "virt-controller"
+
+	newDataVolume := &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        generateDataVolumeName(vmi, volume.Name),
+			Labels:      labels,
+			Annotations: annotations,
+		},
+		Spec: *volume.VolumeSource.DataVolume,
+	}
+
+	return newDataVolume, nil
+}
+
+func dataVolumeToPVC(vmi *v1.VirtualMachineInstance, volumeName string) string {
+	// dataVolume generates a PVC of the same name in the same namespace
+	return generateDataVolumeName(vmi, volumeName)
+}
+
+func generateDataVolumeName(vmi *v1.VirtualMachineInstance, volumeName string) string {
+	return fmt.Sprintf("%s-%s---autogen", vmi.Name, volumeName)
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {

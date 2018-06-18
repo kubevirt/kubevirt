@@ -259,6 +259,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		if volume.EmptyDisk != nil {
 			volumeSourceSetCount++
 		}
+		if volume.DataVolume != nil {
+			volumeSourceSetCount++
+		}
 
 		if volumeSourceSetCount != 1 {
 			causes = append(causes, metav1.StatusCause{

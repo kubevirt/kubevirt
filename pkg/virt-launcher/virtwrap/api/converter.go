@@ -150,8 +150,22 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	if source.EmptyDisk != nil {
 		return Convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk, c)
 	}
+	if source.DataVolume != nil {
+		return Convert_v1_DataVolumeSource_To_api_Disk(source.Name, disk, c)
+	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
+}
+
+func Convert_v1_DataVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
+	disk.Source.File = filepath.Join(
+		"/var/run/kubevirt-private",
+		"vmi-disks",
+		volumeName,
+		"disk.img")
+	return nil
 }
 
 func Covert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {

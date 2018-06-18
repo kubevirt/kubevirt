@@ -1824,15 +1824,6 @@ func (in *VirtualMachineSpec) DeepCopyInto(out *VirtualMachineSpec) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
-	if in.DataVolume != nil {
-		in, out := &in.DataVolume, &out.DataVolume
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(v1alpha1.DataVolumeSpec)
-			(*in).DeepCopyInto(*out)
-		}
-	}
 	return
 }
 
@@ -1931,6 +1922,15 @@ func (in *VolumeSource) DeepCopyInto(out *VolumeSource) {
 			*out = nil
 		} else {
 			*out = new(EmptyDiskSource)
+			(*in).DeepCopyInto(*out)
+		}
+	}
+	if in.DataVolume != nil {
+		in, out := &in.DataVolume, &out.DataVolume
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(v1alpha1.DataVolumeSpec)
 			(*in).DeepCopyInto(*out)
 		}
 	}

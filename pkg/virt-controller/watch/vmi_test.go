@@ -45,6 +45,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 var _ = Describe("VirtualMachineInstance watcher", func() {
@@ -131,7 +133,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, podInformer.HasSynced)).To(BeTrue())
+		go dataVolumeInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop,
+			vmiInformer.HasSynced,
+			podInformer.HasSynced,
+			dataVolumeInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -142,7 +148,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		dataVolumeInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		recorder = record.NewFakeRecorder(100)
 
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})

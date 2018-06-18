@@ -338,6 +338,7 @@ const (
 	NodeNameLabel        string = "kubevirt.io/nodeName"
 	NodeSchedulable      string = "kubevirt.io/schedulable"
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
+	DataVolumeSourceName string = "kubevirt.io/datavolume-source-name"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 )

@@ -38,6 +38,7 @@ import (
 	v1beta19 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
 	rest "k8s.io/client-go/rest"
 
+	versioned "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	v19 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -110,6 +111,16 @@ func (_m *MockKubevirtClient) RestClient() *rest.RESTClient {
 
 func (_mr *_MockKubevirtClientRecorder) RestClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RestClient")
+}
+
+func (_m *MockKubevirtClient) CdiClient() *versioned.Clientset {
+	ret := _m.ctrl.Call(_m, "CdiClient")
+	ret0, _ := ret[0].(*versioned.Clientset)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) CdiClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CdiClient")
 }
 
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {
