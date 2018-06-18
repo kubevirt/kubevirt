@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
@@ -594,7 +595,7 @@ func main() {
 
 	handleError := func(err error) {
 		if err != nil {
-			fmt.Printf("%s\n", err)
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 			panic(err)
 		}
 	}
@@ -602,7 +603,8 @@ func main() {
 	handleCauses := func(causes []metav1.StatusCause, name string, objType string) {
 		if len(causes) > 0 {
 			for _, cause := range causes {
-				fmt.Printf(
+				fmt.Fprintf(
+					os.Stderr,
 					"Failed to validate %s spec: failed to admit yaml for %s: %s at %s: %s\n",
 					objType, name, cause.Type, cause.Field, cause.Message)
 			}
