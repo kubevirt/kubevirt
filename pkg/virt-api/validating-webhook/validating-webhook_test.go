@@ -256,7 +256,11 @@ var _ = Describe("Validating Webhook", func() {
 	Context("with VMIPreset admission review", func() {
 		It("reject invalid VirtualMachineInstance spec", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			vmiPDomain := &v1.DomainPresetSpec{}
+			vmiDomainByte, _ := json.Marshal(vmi.Spec.Domain)
+			Expect(json.Unmarshal(vmiDomainByte, &vmiPDomain)).To(BeNil())
+
+			vmiPDomain.Devices.Disks = append(vmiPDomain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
 				DiskDevice: v1.DiskDevice{
@@ -266,10 +270,10 @@ var _ = Describe("Validating Webhook", func() {
 			})
 			vmiPreset := &v1.VirtualMachineInstancePreset{
 				Spec: v1.VirtualMachineInstancePresetSpec{
-					Domain: &vmi.Spec.Domain,
+					Domain: vmiPDomain,
 				},
 			}
-			vmiPresetBytes, _ := json.Marshal(&vmiPreset)
+			vmiPresetBytes, _ := json.Marshal(vmiPreset)
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -298,7 +302,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			vmiPreset := &v1.VirtualMachineInstancePreset{
 				Spec: v1.VirtualMachineInstancePresetSpec{
-					Domain: &v1.DomainSpec{},
+					Domain: &v1.DomainPresetSpec{},
 				},
 			}
 			vmiPresetBytes, _ := json.Marshal(&vmiPreset)

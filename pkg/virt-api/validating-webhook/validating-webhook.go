@@ -294,6 +294,12 @@ func validateDevices(field *k8sfield.Path, devices *v1.Devices) []metav1.StatusC
 	return causes
 }
 
+func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainPresetSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
+	return causes
+}
+
 func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
@@ -534,7 +540,7 @@ func ValidateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 		})
 	}
 
-	causes = append(causes, validateDomainSpec(field.Child("domain"), spec.Domain)...)
+	causes = append(causes, validateDomainPresetSpec(field.Child("domain"), spec.Domain)...)
 	return causes
 }
 

@@ -168,20 +168,12 @@ spec:
                       type: string
                   required:
                   - type
-                memory:
-                  properties:
-                    hugepages:
-                      properties:
-                        pageSize:
-                          type: string
                 resources:
                   properties:
                     limits:
                       type: object
                     requests:
                       type: object
-              required:
-              - devices
             selector: {}
           required:
           - selector

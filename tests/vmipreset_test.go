@@ -68,7 +68,7 @@ var _ = Describe("VMIPreset", func() {
 			ObjectMeta: k8smetav1.ObjectMeta{GenerateName: memoryPrefix},
 			Spec: v1.VirtualMachineInstancePresetSpec{
 				Selector: selector,
-				Domain: &v1.DomainSpec{
+				Domain: &v1.DomainPresetSpec{
 					Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 						"memory": memory}},
 				},
@@ -80,7 +80,7 @@ var _ = Describe("VMIPreset", func() {
 			ObjectMeta: k8smetav1.ObjectMeta{GenerateName: cpuPrefix},
 			Spec: v1.VirtualMachineInstancePresetSpec{
 				Selector: selector,
-				Domain: &v1.DomainSpec{
+				Domain: &v1.DomainPresetSpec{
 					CPU: &v1.CPU{Cores: uint32(cores)},
 				},
 			},
@@ -105,7 +105,7 @@ var _ = Describe("VMIPreset", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: "fake"},
 				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"fake": "fake"}},
-					Domain:   &v1.DomainSpec{},
+					Domain:   &v1.DomainPresetSpec{},
 				},
 			}
 			// disk with two targets is invalid
@@ -296,7 +296,7 @@ var _ = Describe("VMIPreset", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: conflictPrefix},
 				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: selector,
-					Domain: &v1.DomainSpec{
+					Domain: &v1.DomainPresetSpec{
 						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 							"memory": conflictMemory}},
 					},
