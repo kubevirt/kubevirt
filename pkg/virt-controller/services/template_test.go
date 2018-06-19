@@ -76,6 +76,9 @@ var _ = Describe("Template", func() {
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
 					"--requested-hooks", "1"}))
+				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-some-image:v1"))
+				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
+				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 				By("setting the right hostname")
 				Expect(pod.Spec.Hostname).To(Equal("testvmi"))
@@ -115,6 +118,9 @@ var _ = Describe("Template", func() {
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
 					"--requested-hooks", "1"}))
+				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-some-image:v1"))
+				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
+				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/kubevirt"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/kubevirt"))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))

@@ -207,14 +207,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// Read requested hookSidecars from VM annotation
-	// TODO: Add requested sidecars as Containers to Pod
-	numberOfRequestedHookSidecars := 0
+	var err error
+	requestedHookSidecarList := make(hooks.HookSidecarList, 0)
 	if rawRequestedHookSidecarList, requestedHookSidecarListDefined := vm.GetObjectMeta().GetAnnotations()[hooks.HookSidecarListAnnotationName]; requestedHookSidecarListDefined {
-		requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(rawRequestedHookSidecarList)
+		requestedHookSidecarList, err = hooks.UnmarshalHookSidecarList(rawRequestedHookSidecarList)
 		if err != nil {
 			return nil, err
 		}
-		numberOfRequestedHookSidecars = len(requestedHookSidecarList)
 	}
 
 	command := []string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
@@ -224,7 +223,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--kubevirt-share-dir", t.virtShareDir,
 		"--readiness-file", "/tmp/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
-		"--requested-hooks", strconv.Itoa(numberOfRequestedHookSidecars),
+		"--requested-hooks", strconv.Itoa(len(requestedHookSidecarList)),
 	}
 
 	useEmulation, err := IsEmulationAllowed(t.store)
@@ -316,6 +315,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	podLabels[v1.DomainLabel] = domain
 
 	containers = append(containers, container)
+
+	for _, requestedHookSidecar := range requestedHookSidecarList {
+		containers = append(containers, k8sv1.Container{
+			Name:            "hook-sidecar-" + requestedHookSidecar.Image,
+			Image:           requestedHookSidecar.Image,
+			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
+		})
+	}
 
 	hostName := dns.SanitizeHostname(vmi)
 
