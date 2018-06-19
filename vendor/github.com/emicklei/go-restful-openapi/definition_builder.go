@@ -196,9 +196,7 @@ func (b definitionBuilder) buildProperty(field reflect.StructField, model *spec.
 		prop.Type = []string{stringt}
 		return jsonName, modelDescription, prop
 	case fieldKind == reflect.Map:
-		// if it's a map, it's unstructured, and swagger can't handle it
-		objectType := "object"
-		prop.Type = []string{objectType}
+		jsonName, prop := b.buildMapTypeProperty(field, jsonName, modelName)
 		return jsonName, modelDescription, prop
 	}
 
@@ -315,6 +313,38 @@ func (b definitionBuilder) buildArrayTypeProperty(field reflect.StructField, jso
 	return jsonName, prop
 }
 
+func (b definitionBuilder) buildMapTypeProperty(field reflect.StructField, jsonName, modelName string) (nameJson string, prop spec.Schema) {
+	setPropertyMetadata(&prop, field)
+	fieldType := field.Type
+	var pType = "object"
+	prop.Type = []string{pType}
+
+	// As long as the element isn't an interface, we should be able to figure out what the
+	// intended type is and represent it in `AdditionalProperties`.
+	// See: https://swagger.io/docs/specification/data-models/dictionaries/
+	if fieldType.Elem().Kind().String() != "interface" {
+		isPrimitive := b.isPrimitiveType(fieldType.Elem().Name())
+		elemTypeName := b.getElementTypeName(modelName, jsonName, fieldType.Elem())
+		prop.AdditionalProperties = &spec.SchemaOrBool{
+			Schema: &spec.Schema{},
+		}
+		if isPrimitive {
+			mapped := b.jsonSchemaType(elemTypeName)
+			prop.AdditionalProperties.Schema.Type = []string{mapped}
+		} else {
+			prop.AdditionalProperties.Schema.Ref = spec.MustCreateRef("#/definitions/" + elemTypeName)
+		}
+		// add|overwrite model for element type
+		if fieldType.Elem().Kind() == reflect.Ptr {
+			fieldType = fieldType.Elem()
+		}
+		if !isPrimitive {
+			b.addModel(fieldType.Elem(), elemTypeName)
+		}
+	}
+	return jsonName, prop
+}
+
 func (b definitionBuilder) buildPointerTypeProperty(field reflect.StructField, jsonName, modelName string) (nameJson string, prop spec.Schema) {
 	setPropertyMetadata(&prop, field)
 	fieldType := field.Type
@@ -330,7 +360,7 @@ func (b definitionBuilder) buildPointerTypeProperty(field reflect.StructField, j
 		}
 		if isPrimitive {
 			primName := b.jsonSchemaType(elemName)
-			prop.Items.Schema.Ref = spec.MustCreateRef("#/definitions/" + primName)
+			prop.Items.Schema.Type = []string{primName}
 		} else {
 			prop.Items.Schema.Ref = spec.MustCreateRef("#/definitions/" + elemName)
 		}

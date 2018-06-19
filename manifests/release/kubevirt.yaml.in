@@ -483,6 +483,8 @@ spec:
               mountPath: /var/run/kubevirt
             - name: virt-private-dir
               mountPath: /var/run/kubevirt-private
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
           env:
             - name: NODE_NAME
               valueFrom:
@@ -498,6 +500,9 @@ spec:
         - name: virt-private-dir
           hostPath:
             path: /var/run/kubevirt-private
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
 {{index .GeneratedManifests "vmi-resource.yaml"}}
 {{index .GeneratedManifests "vmirs-resource.yaml"}}
 {{index .GeneratedManifests "vmipreset-resource.yaml"}}

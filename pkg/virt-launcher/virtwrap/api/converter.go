@@ -39,7 +39,7 @@ import (
 )
 
 type ConverterContext struct {
-	AllowEmulation bool
+	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 }
@@ -343,7 +343,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
-		if c.AllowEmulation {
+		if c.UseEmulation {
 			logger := log.DefaultLogger()
 			logger.Infof("Hardware emulation device '/dev/kvm' not present. Using software emulation.")
 			domain.Spec.Type = "qemu"
