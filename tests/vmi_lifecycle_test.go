@@ -608,7 +608,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a TUN device but not KVM", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
