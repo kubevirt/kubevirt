@@ -24,6 +24,7 @@ trap 'exit' TERM
 
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
+chown 107:107 /hostImages/* -R
 
 # for some reason without sleep, container sometime fails to create the file
 sleep 10

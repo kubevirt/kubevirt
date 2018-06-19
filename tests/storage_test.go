@@ -243,7 +243,7 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
-		Context("With VirtualMachineInstance with two PVCs", func() {
+		FContext("With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
 				tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
@@ -259,7 +259,7 @@ var _ = Describe("Storage", func() {
 				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
-				num := 3
+				num := 1
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
 					obj := RunVMIAndExpectLaunch(vmi, false, 120)
@@ -271,7 +271,7 @@ var _ = Describe("Storage", func() {
 						expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 						Expect(err).To(BeNil())
 						defer expecter.Close()
-						_, err = expecter.ExpectBatch([]expect.Batcher{
+						res, err := expecter.ExpectBatch([]expect.Batcher{
 							&expect.BSnd{S: "\n"},
 							&expect.BExp{R: "Welcome to Alpine"},
 							&expect.BSnd{S: "root\n"},
@@ -279,6 +279,16 @@ var _ = Describe("Storage", func() {
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
 							&expect.BExp{R: "67108864"},
 						}, 200*time.Second)
+						log.DefaultLogger().Object(vmi).Infof("%v", res)
+						By("Checking that the second disk is writable")
+						Expect(err).ToNot(HaveOccurred())
+						res, err = expecter.ExpectBatch([]expect.Batcher{
+							&expect.BSnd{S: "mkfs.vfat /dev/vdb\n"},
+							&expect.BExp{R: "#"},
+							&expect.BSnd{S: "echo $?\n"},
+							&expect.BExp{R: "0"},
+						}, 10*time.Second)
+						log.DefaultLogger().Object(vmi).Infof("%v", res)
 						Expect(err).ToNot(HaveOccurred())
 					}
 
