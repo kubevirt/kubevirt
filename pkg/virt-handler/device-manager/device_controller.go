@@ -74,7 +74,7 @@ func (c *DeviceController) waitForPath(target string, stop chan struct{}) error 
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer watcher.Close()
 
