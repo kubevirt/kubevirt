@@ -602,7 +602,9 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a TUN device but not KVM", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
+				skipTests1_9(virtClient)
+
+				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
@@ -655,6 +657,8 @@ var _ = Describe("VMIlifecycle", func() {
 				if useEmulation {
 					Skip("Software emulation is enabled on this cluster")
 				}
+
+				skipTests1_9(virtClient)
 			})
 
 			It("should request a KVM and TUN device", func() {
@@ -930,6 +934,14 @@ var _ = Describe("VMIlifecycle", func() {
 		})
 	})
 })
+
+func skipTests1_9(virtClient kubecli.KubevirtClient) {
+	serVer, err := virtClient.Discovery().ServerVersion()
+	Expect(err).ToNot(HaveOccurred())
+	if (serVer.Major == "1") && (serVer.Minor == "9") {
+		Skip("Device Plugin dependent tests not valid in 1.9")
+	}
+}
 
 func renderPkillAllJob(processName string) *k8sv1.Pod {
 	return tests.RenderJob("vmi-killer", []string{"pkill"}, []string{"-9", processName})
