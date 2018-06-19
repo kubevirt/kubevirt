@@ -740,8 +740,9 @@ var _ = Describe("VMIlifecycle", func() {
 				nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(nodeList.Items)).ToNot(Equal(0))
-
+				if len(nodeList.Items) == 0 {
+					Skip("Unable to inspect nodes in cluster")
+				}
 				node := nodeList.Items[0]
 
 				allocatableKvm, ok := node.Status.Allocatable[services.KvmDevice]
@@ -749,14 +750,14 @@ var _ = Describe("VMIlifecycle", func() {
 				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
 				// The number of devices allocated could change in the future, but it's
 				// for sure not 0
-				Expect(int(allocatableKvm.Value())).ToNot(Equal(0))
+				Expect(int(allocatableKvm.Value())).ToNot(Equal(0), "expected KVM device allocation to be non-zero")
 
 				capacityKvm, ok := node.Status.Capacity[services.KvmDevice]
 
 				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
 				// The number of devices allocated could change in the future, but it's
 				// for sure not 0
-				Expect(int(capacityKvm.Value())).ToNot(Equal(0))
+				Expect(int(capacityKvm.Value())).ToNot(Equal(0), "expected KVM device capacity to be non-zero")
 			})
 		})
 	})
