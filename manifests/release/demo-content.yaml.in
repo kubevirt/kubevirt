@@ -2,7 +2,7 @@
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstancePreset
 metadata:
-  name: windows-server-2012r2
+  name: microsoft-windows-server-2012r2
 spec:
   selector:
     matchLabels:
@@ -31,3 +31,18 @@ spec:
         rtc:
           tickPolicy: catchup
         hyperv: {}
+---
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstancePreset
+metadata:
+  name: redhat-enterprise-linux-7.4
+spec:
+  selector:
+    matchLabels:
+      kubevirt.io/os: rhel7.4
+  domain:
+    cpu:
+      cores: 4
+    resources:
+      requests:
+        memory: 4G

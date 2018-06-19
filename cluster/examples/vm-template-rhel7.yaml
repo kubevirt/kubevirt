@@ -7,7 +7,7 @@ metadata:
     tags: kubevirt,ocp,template,linux,virtualmachine
   creationTimestamp: null
   labels:
-    kubevirt.io/os: rhel-7.4
+    kubevirt.io/os: rhel7.4
     miq.github.io/kubevirt-is-vm-template: "true"
   name: vm-template-rhel7
 objects:
@@ -25,21 +25,20 @@ objects:
         creationTimestamp: null
         labels:
           kubevirt-vm: vm-${NAME}
+          kubevirt.io/os: rhel7.4
       spec:
+        terminationGracePeriodSeconds: 0
         domain:
           cpu: ${{CPU_CORES}}
+          resources:
+            requests:
+              memory: ${MEMORY}
           devices:
             disks:
             - disk:
                 bus: virtio
               name: disk0
               volumeName: disk0-pvc
-          machine:
-            type: ""
-          resources:
-            requests:
-              memory: ${MEMORY}
-        terminationGracePeriodSeconds: 0
         volumes:
         - name: disk0-pvc
           persistentVolumeClaim:
