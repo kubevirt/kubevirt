@@ -324,6 +324,35 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		})
 	}
 
+	// Handle CPU pinning
+	cpus := vmi.Spec.Domain.CPU
+	if cpus != nil && cpus.DedicatedCPUPlacement {
+		/*
+			if vmi.Spec.NodeSelector == nil {
+				vmi.Spec.NodeSelector = make(map[string]string)
+			}
+			vmi.Spec.NodeSelector[v1.CPUManager] = "true"
+		*/
+		if resources.Limits == nil {
+			resources.Limits = make(k8sv1.ResourceList)
+		}
+		if cpus.Cores != 0 {
+			fmt.Println("Cores: ", cpus.Cores)
+			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cpus.Cores), resource.BinarySI)
+			resources.Requests[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cpus.Cores), resource.BinarySI)
+		} else {
+			fmt.Println("Cores: ", cpus.Cores)
+			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+				resources.Requests[k8sv1.ResourceCPU] = cpuLimit
+			} else if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
+			} else {
+				resources.Requests[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(1), resource.BinarySI)
+			}
+		}
+		resources.Requests[k8sv1.ResourceMemory] = *resources.Limits.Memory()
+	}
+
 	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",
 		"--name", domain,
