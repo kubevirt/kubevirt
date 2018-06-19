@@ -229,9 +229,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		// once dynamic network device allocation is added
 		resources.Limits[TunDevice] = resource.MustParse("1")
 
-		// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
-		// but if the KVM resource is not requested then it's guaranteed to be not present
-		// This code works for now, but the semantics are wrong. revisit this.
 		if useEmulation {
 			command = append(command, "--use-emulation")
 		} else {
