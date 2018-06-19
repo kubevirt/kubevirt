@@ -3531,6 +3531,10 @@
       "description": "Machine type\n+optional",
       "$ref": "#/definitions/v1.Machine"
      },
+     "memory": {
+      "description": "Memory allow specifying the VMI memory features.\n+optional",
+      "$ref": "#/definitions/v1.Memory"
+     },
      "resources": {
       "description": "Resources describes the Compute Resources required by this vmi.",
       "$ref": "#/definitions/v1.ResourceRequirements"

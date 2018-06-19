@@ -83,6 +83,9 @@ type DomainPresetSpec struct {
 	// CPU allow specified the detailed CPU topology inside the vmi.
 	// +optional
 	CPU *CPU `json:"cpu,omitempty"`
+	// Memory allow specifying the VMI memory features.
+	// +optional
+	Memory *Memory `json:"memory,omitempty"`
 	// Machine type
 	// +optional
 	Machine Machine `json:"machine,omitempty"`
