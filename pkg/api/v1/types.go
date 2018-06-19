@@ -347,6 +347,7 @@ const (
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
+	CPUManager                      string = "cpumanager"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

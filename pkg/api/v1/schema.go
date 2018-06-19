@@ -145,6 +145,10 @@ type CPU struct {
 	// Defaults to host-model.
 	// +optional
 	Model string `json:"model,omitempty"`
+	// DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node
+	// with enough dedicated pCPUs and pin the vCPUs to it.
+	// +optional
+	DedicatedCPUPlacement bool `json:"dedicatedCpuPlacement,omitempty"`
 }
 
 // Memory allows specifying the VirtualMachineInstance memory features.
