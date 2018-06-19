@@ -42,7 +42,8 @@ var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache)
+	//FIXME: add more tests with useDevicePlugins set to false
+	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache, true)
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
