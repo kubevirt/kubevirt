@@ -28,6 +28,7 @@ func (DomainPresetSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"resources": "Resources describes the Compute Resources required by this vmi.",
 		"cpu":       "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
+		"memory":    "Memory allow specifying the VMI memory features.\n+optional",
 		"machine":   "Machine type\n+optional",
 		"firmware":  "Firmware\n+optional",
 		"clock":     "Clock sets the clock and timers of the vmi.\n+optional",

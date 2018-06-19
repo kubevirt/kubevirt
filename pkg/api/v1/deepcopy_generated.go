@@ -366,6 +366,15 @@ func (in *DomainPresetSpec) DeepCopyInto(out *DomainPresetSpec) {
 			**out = **in
 		}
 	}
+	if in.Memory != nil {
+		in, out := &in.Memory, &out.Memory
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Memory)
+			(*in).DeepCopyInto(*out)
+		}
+	}
 	out.Machine = in.Machine
 	if in.Firmware != nil {
 		in, out := &in.Firmware, &out.Firmware

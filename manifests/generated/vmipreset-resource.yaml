@@ -168,6 +168,12 @@ spec:
                       type: string
                   required:
                   - type
+                memory:
+                  properties:
+                    hugepages:
+                      properties:
+                        pageSize:
+                          type: string
                 resources:
                   properties:
                     limits:
