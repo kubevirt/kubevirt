@@ -8,10 +8,26 @@ _term() {
 
 trap _term SIGTERM SIGINT SIGQUIT
 
+# HACK
+# Try to create /dev/kvm if not present
+# /dev/kvm will be present if DevicePlugins were used.
+# otherwise assume the proper privileges are in place to allow this
+if [ ! -e /dev/kvm ]; then
+   mknod /dev/kvm c 10 $(grep '\<kvm\>' /proc/misc | cut -f 1 -d' ')
+fi
+
 # FIXME: The plugin framework doesn't appear to (currently) have a means
 # to specify device ownership. This needs to be re-visited if that changes
 chown :qemu /dev/kvm
 chmod 660 /dev/kvm
+
+# HACK
+# Try to create /dev/tun if not present
+# /dev/tun will be present if DevicePlugins were used.
+# otherwise assume the proper privileges are in place to allow this
+if [ ! -e /dev/tun ]; then
+   mknod /dev/tun c 10 $(grep '\<tun\>' /proc/misc | cut -f 1 -d' ')
+fi
 
 # Cockpit/OCP hack to all shoing the vm terminal
 mv /usr/bin/sh /usr/bin/sh.orig
