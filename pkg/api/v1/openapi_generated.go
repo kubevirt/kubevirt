@@ -62,21 +62,21 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"bus": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide",
+								Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"readonly": {
 							SchemaProps: spec.SchemaProps{
-								Description: "ReadOnly Defaults to true",
+								Description: "ReadOnly. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
 						},
 						"tray": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\" Defaults to closed",
+								Description: "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\". Defaults to closed.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -89,7 +89,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.CPU": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "CPU allow specifying the CPU topology",
+					Description: "CPU allows specifying the CPU topology.",
 					Properties: map[string]spec.Schema{
 						"cores": {
 							SchemaProps: spec.SchemaProps{
@@ -106,7 +106,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Clock": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents the clock and timers of a vmi",
+					Description: "Represents the clock and timers of a vmi.",
 					Properties: map[string]spec.Schema{
 						"utc": {
 							SchemaProps: spec.SchemaProps{
@@ -116,7 +116,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"timezone": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Timezone sets the guest clock to the specified timezone. Zone name follows the TZ environment variable format (e.g. 'America/New_York')",
+								Description: "Timezone sets the guest clock to the specified timezone. Zone name follows the TZ environment variable format (e.g. 'America/New_York').",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -140,7 +140,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"timezone": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Timezone sets the guest clock to the specified timezone. Zone name follows the TZ environment variable format (e.g. 'America/New_York')",
+								Description: "Timezone sets the guest clock to the specified timezone. Zone name follows the TZ environment variable format (e.g. 'America/New_York').",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -171,24 +171,24 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents a cloud-init nocloud user data source More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+					Description: "Represents a cloud-init nocloud user data source. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 					Properties: map[string]spec.Schema{
 						"secretRef": {
 							SchemaProps: spec.SchemaProps{
-								Description: "UserDataSecretRef references a k8s secret that contains NoCloud userdata",
+								Description: "UserDataSecretRef references a k8s secret that contains NoCloud userdata.",
 								Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
 							},
 						},
 						"userDataBase64": {
 							SchemaProps: spec.SchemaProps{
-								Description: "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string",
+								Description: "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"userData": {
 							SchemaProps: spec.SchemaProps{
-								Description: "UserData contains NoCloud inline cloud-init userdata",
+								Description: "UserData contains NoCloud inline cloud-init userdata.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -205,7 +205,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"disks": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Disks describes disks, cdroms, floppy and luns which are connected to the vmi",
+								Description: "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -218,13 +218,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"watchdog": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Watchdog describes a watchdog device which can be added to the vmi",
+								Description: "Watchdog describes a watchdog device which can be added to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Watchdog"),
 							},
 						},
 						"interfaces": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Interfaces describe network interfaces which are added to the vm",
+								Description: "Interfaces describe network interfaces which are added to the vm.",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -254,32 +254,32 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"volumeName": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Name of the volume which is referenced Must match the Name of a Volume.",
+								Description: "Name of the volume which is referenced. Must match the Name of a Volume.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"disk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a disk to the vmi",
+								Description: "Attach a volume as a disk to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DiskTarget"),
 							},
 						},
 						"lun": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a LUN to the vmi",
+								Description: "Attach a volume as a LUN to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.LunTarget"),
 							},
 						},
 						"floppy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a floppy to the vmi",
+								Description: "Attach a volume as a floppy to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FloppyTarget"),
 							},
 						},
 						"cdrom": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a cdrom to the vmi",
+								Description: "Attach a volume as a cdrom to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget"),
 							},
 						},
@@ -304,25 +304,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"disk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a disk to the vmi",
+								Description: "Attach a volume as a disk to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DiskTarget"),
 							},
 						},
 						"lun": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a LUN to the vmi",
+								Description: "Attach a volume as a LUN to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.LunTarget"),
 							},
 						},
 						"floppy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a floppy to the vmi",
+								Description: "Attach a volume as a floppy to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FloppyTarget"),
 							},
 						},
 						"cdrom": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Attach a volume as a cdrom to the vmi",
+								Description: "Attach a volume as a cdrom to the vmi.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget"),
 							},
 						},
@@ -338,14 +338,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"bus": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide",
+								Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"readonly": {
 							SchemaProps: spec.SchemaProps{
-								Description: "ReadOnly Defaults to false",
+								Description: "ReadOnly. Defaults to false.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -379,13 +379,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"machine": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Machine type",
+								Description: "Machine type.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Machine"),
 							},
 						},
 						"firmware": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Firmware",
+								Description: "Firmware.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Firmware"),
 							},
 						},
@@ -397,7 +397,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"features": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Features like acpi, apic, hyperv",
+								Description: "Features like acpi, apic, hyperv.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Features"),
 							},
 						},
@@ -437,13 +437,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"machine": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Machine type",
+								Description: "Machine type.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Machine"),
 							},
 						},
 						"firmware": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Firmware",
+								Description: "Firmware.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Firmware"),
 							},
 						},
@@ -455,7 +455,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"features": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Features like acpi, apic, hyperv",
+								Description: "Features like acpi, apic, hyperv.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Features"),
 							},
 						},
@@ -475,7 +475,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle",
+					Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle.",
 					Properties: map[string]spec.Schema{
 						"capacity": {
 							SchemaProps: spec.SchemaProps{
@@ -512,14 +512,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"enabled": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled determines if the feature should be enabled or disabled on the guest Defaults to true",
+								Description: "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
 						},
 						"endOfInterrupt": {
 							SchemaProps: spec.SchemaProps{
-								Description: "EndOfInterrupt enables the end of interrupt notification in the guest Defaults to false",
+								Description: "EndOfInterrupt enables the end of interrupt notification in the guest. Defaults to false.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -532,59 +532,59 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.FeatureHyperv": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Hyperv specific features",
+					Description: "Hyperv specific features.",
 					Properties: map[string]spec.Schema{
 						"relaxed": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Relaxed relaxes constraints on timer Defaults to the machine type setting",
+								Description: "Relaxed relaxes constraints on timer. Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
 						"vapic": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VAPIC indicates whether virtual APIC is enabled Defaults to the machine type setting",
+								Description: "VAPIC indicates whether virtual APIC is enabled. Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
 						"spinlocks": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Spinlocks indicates if spinlocks should be made available to the guest",
+								Description: "Spinlocks indicates if spinlocks should be made available to the guest.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureSpinlocks"),
 							},
 						},
 						"vpindex": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors Defaults to the machine type setting",
+								Description: "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors. Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
 						"runtime": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Runtime Defaults to the machine type setting",
+								Description: "Runtime. Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
 						"synic": {
 							SchemaProps: spec.SchemaProps{
-								Description: "SyNIC enable Synthetic Interrupt Controller Defaults to the machine type setting",
+								Description: "SyNIC enable Synthetic Interrupt Controller. Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
 						"synictimer": {
 							SchemaProps: spec.SchemaProps{
-								Description: "SyNICTimer enable Synthetic Interrupt Controller timer Defaults to the machine type setting",
+								Description: "SyNICTimer enable Synthetic Interrupt Controller timer. Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
 						"reset": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Reset enables Hyperv reboot/reset for the vmi Defaults to the machine type setting",
+								Description: "Reset enables Hyperv reboot/reset for the vmi. Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
 						"vendorid": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VendorID allows setting the hypervisor vendor id Defaults to the machine type setting",
+								Description: "VendorID allows setting the hypervisor vendor id. Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureVendorID"),
 							},
 						},
@@ -600,14 +600,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"enabled": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled determines if the feature should be enabled or disabled on the guest Defaults to true",
+								Description: "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
 						},
 						"spinlocks": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Retries indicates the number of retries Must be a value greater or equal 4096 Defaults to 4096",
+								Description: "Retries indicates the number of retries. Must be a value greater or equal 4096. Defaults to 4096.",
 								Type:        []string{"integer"},
 								Format:      "int64",
 							},
@@ -620,11 +620,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.FeatureState": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents if a feature is enabled or disabled",
+					Description: "Represents if a feature is enabled or disabled.",
 					Properties: map[string]spec.Schema{
 						"enabled": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled determines if the feature should be enabled or disabled on the guest Defaults to true",
+								Description: "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -640,14 +640,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"enabled": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled determines if the feature should be enabled or disabled on the guest Defaults to true",
+								Description: "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
 						},
 						"vendorid": {
 							SchemaProps: spec.SchemaProps{
-								Description: "VendorID sets the hypervisor vendor id, visible to the vmi String up to twelve characters",
+								Description: "VendorID sets the hypervisor vendor id, visible to the vmi. String up to twelve characters.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -663,19 +663,19 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"acpi": {
 							SchemaProps: spec.SchemaProps{
-								Description: "ACPI enables/disables ACPI insidejsondata guest Defaults to enabled",
+								Description: "ACPI enables/disables ACPI insidejsondata guest. Defaults to enabled.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 							},
 						},
 						"apic": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Defaults to the machine type setting",
+								Description: "Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureAPIC"),
 							},
 						},
 						"hyperv": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Defaults to the machine type setting",
+								Description: "Defaults to the machine type setting.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureHyperv"),
 							},
 						},
@@ -691,7 +691,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"uuid": {
 							SchemaProps: spec.SchemaProps{
-								Description: "UUID reported by the vmi bios Defaults to a random generated uid",
+								Description: "UUID reported by the vmi bios. Defaults to a random generated uid.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -707,14 +707,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"readonly": {
 							SchemaProps: spec.SchemaProps{
-								Description: "ReadOnly Defaults to false",
+								Description: "ReadOnly. Defaults to false.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
 						},
 						"tray": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\" Defaults to closed",
+								Description: "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\". Defaults to closed.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -730,14 +730,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"tickPolicy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest One of \"delay\", \"catchup\", \"merge\", \"discard\"",
+								Description: "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"merge\", \"discard\".",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"present": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true",
+								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -770,7 +770,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"present": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true",
+								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -783,11 +783,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.I6300ESBWatchdog": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "i6300esb watchdog device",
+					Description: "i6300esb watchdog device.",
 					Properties: map[string]spec.Schema{
 						"action": {
 							SchemaProps: spec.SchemaProps{
-								Description: "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset",
+								Description: "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -890,7 +890,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"present": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true",
+								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -906,14 +906,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"bus": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide",
+								Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"readonly": {
 							SchemaProps: spec.SchemaProps{
-								Description: "ReadOnly Defaults to false",
+								Description: "ReadOnly. Defaults to false.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -943,7 +943,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Memory": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Memory allow specifying the VirtualMachineInstance memory features",
+					Description: "Memory allows specifying the VirtualMachineInstance memory features.",
 					Properties: map[string]spec.Schema{
 						"hugepages": {
 							SchemaProps: spec.SchemaProps{
@@ -1003,14 +1003,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"tickPolicy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest One of \"delay\", \"catchup\", \"discard\"",
+								Description: "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"discard\".",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"present": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true",
+								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -1078,21 +1078,21 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"tickPolicy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest One of \"delay\", \"catchup\"",
+								Description: "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\".",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"present": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true",
+								Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
 						},
 						"track": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Track the guest or the wall clock",
+								Description: "Track the guest or the wall clock.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -1105,11 +1105,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents a docker image with an embedded disk",
+					Description: "Represents a docker image with an embedded disk.",
 					Properties: map[string]spec.Schema{
 						"image": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Image is the name of the image with the embedded disk",
+								Description: "Image is the name of the image with the embedded disk.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -1166,7 +1166,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents all available timers in a vmi",
+					Description: "Represents all available timers in a vmi.",
 					Properties: map[string]spec.Schema{
 						"hpet": {
 							SchemaProps: spec.SchemaProps{
@@ -2039,7 +2039,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"registryDisk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "RegistryDisk references a docker image, embedding a qcow or raw disk More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+								Description: "RegistryDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"),
 							},
 						},
@@ -2051,7 +2051,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"emptyDisk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+								Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},
@@ -2081,7 +2081,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"registryDisk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "RegistryDisk references a docker image, embedding a qcow or raw disk More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+								Description: "RegistryDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"),
 							},
 						},
@@ -2093,7 +2093,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"emptyDisk": {
 							SchemaProps: spec.SchemaProps{
-								Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+								Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},
@@ -2106,18 +2106,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Watchdog": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Named watchdog device",
+					Description: "Named watchdog device.",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Name of the watchdog",
+								Description: "Name of the watchdog.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
 						"i6300esb": {
 							SchemaProps: spec.SchemaProps{
-								Description: "i6300esb watchdog device",
+								Description: "i6300esb watchdog device.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.I6300ESBWatchdog"),
 							},
 						},
@@ -2131,11 +2131,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.WatchdogDevice": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Hardware watchdog device Exactly one of its members must be set.",
+					Description: "Hardware watchdog device. Exactly one of its members must be set.",
 					Properties: map[string]spec.Schema{
 						"i6300esb": {
 							SchemaProps: spec.SchemaProps{
-								Description: "i6300esb watchdog device",
+								Description: "i6300esb watchdog device.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.I6300ESBWatchdog"),
 							},
 						},

@@ -3333,21 +3333,21 @@
    "v1.CDRomTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
       "type": "string"
      },
      "readonly": {
-      "description": "ReadOnly\nDefaults to true",
+      "description": "ReadOnly.\nDefaults to true.",
       "type": "boolean"
      },
      "tray": {
-      "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
+      "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
       "type": "string"
      }
     }
    },
    "v1.CPU": {
-    "description": "CPU allow specifying the CPU topology",
+    "description": "CPU allows specifying the CPU topology.",
     "properties": {
      "cores": {
       "description": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
@@ -3356,17 +3356,17 @@
     }
    },
    "v1.Clock": {
-    "description": "Represents the clock and timers of a vmi",
+    "description": "Represents the clock and timers of a vmi.",
     "required": [
      "timer"
     ],
     "properties": {
      "timer": {
-      "description": "Timer specifies whih timers are attached to the vmi",
+      "description": "Timer specifies whih timers are attached to the vmi.",
       "$ref": "#/definitions/v1.Timer"
      },
      "timezone": {
-      "description": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York')",
+      "description": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York').",
       "$ref": "#/definitions/v1.ClockOffsetTimezone"
      },
      "utc": {
@@ -3387,18 +3387,18 @@
     }
    },
    "v1.CloudInitNoCloudSource": {
-    "description": "Represents a cloud-init nocloud user data source\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+    "description": "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "properties": {
      "secretRef": {
-      "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata\n+ optional",
+      "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata.\n+ optional",
       "$ref": "#/definitions/v1.LocalObjectReference"
      },
      "userData": {
-      "description": "UserData contains NoCloud inline cloud-init userdata\n+ optional",
+      "description": "UserData contains NoCloud inline cloud-init userdata.\n+ optional",
       "type": "string"
      },
      "userDataBase64": {
-      "description": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string\n+ optional",
+      "description": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string.\n+ optional",
       "type": "string"
      }
     }
@@ -3437,21 +3437,21 @@
    "v1.Devices": {
     "properties": {
      "disks": {
-      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi",
+      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Disk"
       }
      },
      "interfaces": {
-      "description": "Interfaces describe network interfaces which are added to the vm",
+      "description": "Interfaces describe network interfaces which are added to the vm.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Interface"
       }
      },
      "watchdog": {
-      "description": "Watchdog describes a watchdog device which can be added to the vmi",
+      "description": "Watchdog describes a watchdog device which can be added to the vmi.",
       "$ref": "#/definitions/v1.Watchdog"
      }
     }
@@ -3468,19 +3468,19 @@
       "format": "integer"
      },
      "cdrom": {
-      "description": "Attach a volume as a cdrom to the vmi",
+      "description": "Attach a volume as a cdrom to the vmi.",
       "$ref": "#/definitions/v1.CDRomTarget"
      },
      "disk": {
-      "description": "Attach a volume as a disk to the vmi",
+      "description": "Attach a volume as a disk to the vmi.",
       "$ref": "#/definitions/v1.DiskTarget"
      },
      "floppy": {
-      "description": "Attach a volume as a floppy to the vmi",
+      "description": "Attach a volume as a floppy to the vmi.",
       "$ref": "#/definitions/v1.FloppyTarget"
      },
      "lun": {
-      "description": "Attach a volume as a LUN to the vmi",
+      "description": "Attach a volume as a LUN to the vmi.",
       "$ref": "#/definitions/v1.LunTarget"
      },
      "name": {
@@ -3488,7 +3488,7 @@
       "type": "string"
      },
      "volumeName": {
-      "description": "Name of the volume which is referenced\nMust match the Name of a Volume.",
+      "description": "Name of the volume which is referenced.\nMust match the Name of a Volume.",
       "type": "string"
      }
     }
@@ -3496,11 +3496,11 @@
    "v1.DiskTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
       "type": "string"
      },
      "readonly": {
-      "description": "ReadOnly\nDefaults to false",
+      "description": "ReadOnly.\nDefaults to false.",
       "type": "boolean"
      }
     }
@@ -3520,15 +3520,15 @@
       "$ref": "#/definitions/v1.Devices"
      },
      "features": {
-      "description": "Features like acpi, apic, hyperv\n+optional",
+      "description": "Features like acpi, apic, hyperv.\n+optional",
       "$ref": "#/definitions/v1.Features"
      },
      "firmware": {
-      "description": "Firmware\n+optional",
+      "description": "Firmware.\n+optional",
       "$ref": "#/definitions/v1.Firmware"
      },
      "machine": {
-      "description": "Machine type\n+optional",
+      "description": "Machine type.\n+optional",
       "$ref": "#/definitions/v1.Machine"
      },
      "memory": {
@@ -3559,15 +3559,15 @@
       "$ref": "#/definitions/v1.Devices"
      },
      "features": {
-      "description": "Features like acpi, apic, hyperv\n+optional",
+      "description": "Features like acpi, apic, hyperv.\n+optional",
       "$ref": "#/definitions/v1.Features"
      },
      "firmware": {
-      "description": "Firmware\n+optional",
+      "description": "Firmware.\n+optional",
       "$ref": "#/definitions/v1.Firmware"
      },
      "machine": {
-      "description": "Machine type\n+optional",
+      "description": "Machine type.\n+optional",
       "$ref": "#/definitions/v1.Machine"
      },
      "memory": {
@@ -3581,7 +3581,7 @@
     }
    },
    "v1.EmptyDiskSource": {
-    "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle",
+    "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle.",
     "required": [
      "capacity"
     ],
@@ -3603,52 +3603,52 @@
    "v1.FeatureAPIC": {
     "properties": {
      "enabled": {
-      "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
       "type": "boolean"
      },
      "endOfInterrupt": {
-      "description": "EndOfInterrupt enables the end of interrupt notification in the guest\nDefaults to false\n+optional",
+      "description": "EndOfInterrupt enables the end of interrupt notification in the guest.\nDefaults to false.\n+optional",
       "type": "boolean"
      }
     }
    },
    "v1.FeatureHyperv": {
-    "description": "Hyperv specific features",
+    "description": "Hyperv specific features.",
     "properties": {
      "relaxed": {
-      "description": "Relaxed relaxes constraints on timer\nDefaults to the machine type setting\n+optional",
+      "description": "Relaxed relaxes constraints on timer.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "reset": {
-      "description": "Reset enables Hyperv reboot/reset for the vmi\nDefaults to the machine type setting\n+optional",
+      "description": "Reset enables Hyperv reboot/reset for the vmi.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "runtime": {
-      "description": "Runtime\nDefaults to the machine type setting\n+optional",
+      "description": "Runtime.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "spinlocks": {
-      "description": "Spinlocks indicates if spinlocks should be made available to the guest\n+optional",
+      "description": "Spinlocks indicates if spinlocks should be made available to the guest.\n+optional",
       "$ref": "#/definitions/v1.FeatureSpinlocks"
      },
      "synic": {
-      "description": "SyNIC enable Synthetic Interrupt Controller\nDefaults to the machine type setting\n+optional",
+      "description": "SyNIC enable Synthetic Interrupt Controller.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "synictimer": {
-      "description": "SyNICTimer enable Synthetic Interrupt Controller timer\nDefaults to the machine type setting\n+optional",
+      "description": "SyNICTimer enable Synthetic Interrupt Controller timer.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "vapic": {
-      "description": "VAPIC indicates whether virtual APIC is enabled\nDefaults to the machine type setting\n+optional",
+      "description": "VAPIC indicates whether virtual APIC is enabled.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "vendorid": {
-      "description": "VendorID allows setting the hypervisor vendor id\nDefaults to the machine type setting\n+optional",
+      "description": "VendorID allows setting the hypervisor vendor id.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureVendorID"
      },
      "vpindex": {
-      "description": "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors\nDefaults to the machine type setting\n+optional",
+      "description": "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      }
     }
@@ -3656,20 +3656,20 @@
    "v1.FeatureSpinlocks": {
     "properties": {
      "enabled": {
-      "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
       "type": "boolean"
      },
      "spinlocks": {
-      "description": "Retries indicates the number of retries\nMust be a value greater or equal 4096\nDefaults to 4096\n+optional",
+      "description": "Retries indicates the number of retries.\nMust be a value greater or equal 4096.\nDefaults to 4096.\n+optional",
       "type": "integer"
      }
     }
    },
    "v1.FeatureState": {
-    "description": "Represents if a feature is enabled or disabled",
+    "description": "Represents if a feature is enabled or disabled.",
     "properties": {
      "enabled": {
-      "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
       "type": "boolean"
      }
     }
@@ -3677,11 +3677,11 @@
    "v1.FeatureVendorID": {
     "properties": {
      "enabled": {
-      "description": "Enabled determines if the feature should be enabled or disabled on the guest\nDefaults to true\n+optional",
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
       "type": "boolean"
      },
      "vendorid": {
-      "description": "VendorID sets the hypervisor vendor id, visible to the vmi\nString up to twelve characters",
+      "description": "VendorID sets the hypervisor vendor id, visible to the vmi.\nString up to twelve characters.",
       "type": "string"
      }
     }
@@ -3689,15 +3689,15 @@
    "v1.Features": {
     "properties": {
      "acpi": {
-      "description": "ACPI enables/disables ACPI insidejsondata guest\nDefaults to enabled\n+optional",
+      "description": "ACPI enables/disables ACPI insidejsondata guest.\nDefaults to enabled.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "apic": {
-      "description": "Defaults to the machine type setting\n+optional",
+      "description": "Defaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureAPIC"
      },
      "hyperv": {
-      "description": "Defaults to the machine type setting\n+optional",
+      "description": "Defaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureHyperv"
      }
     }
@@ -3705,7 +3705,7 @@
    "v1.Firmware": {
     "properties": {
      "uuid": {
-      "description": "UUID reported by the vmi bios\nDefaults to a random generated uid",
+      "description": "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
       "type": "string"
      }
     }
@@ -3713,11 +3713,11 @@
    "v1.FloppyTarget": {
     "properties": {
      "readonly": {
-      "description": "ReadOnly\nDefaults to false",
+      "description": "ReadOnly.\nDefaults to false.",
       "type": "boolean"
      },
      "tray": {
-      "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\"\nDefaults to closed\n+optional",
+      "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
       "type": "string"
      }
     }
@@ -3742,11 +3742,11 @@
    "v1.HPETTimer": {
     "properties": {
      "present": {
-      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
       "type": "boolean"
      },
      "tickPolicy": {
-      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"merge\", \"discard\"",
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.\nOne of \"delay\", \"catchup\", \"merge\", \"discard\".",
       "type": "string"
      }
     }
@@ -3763,16 +3763,16 @@
    "v1.HypervTimer": {
     "properties": {
      "present": {
-      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
       "type": "boolean"
      }
     }
    },
    "v1.I6300ESBWatchdog": {
-    "description": "i6300esb watchdog device",
+    "description": "i6300esb watchdog device.",
     "properties": {
      "action": {
-      "description": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset",
+      "description": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset.",
       "type": "string"
      }
     }
@@ -3844,7 +3844,7 @@
    "v1.KVMTimer": {
     "properties": {
      "present": {
-      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
       "type": "boolean"
      }
     }
@@ -3921,11 +3921,11 @@
    "v1.LunTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
       "type": "string"
      },
      "readonly": {
-      "description": "ReadOnly\nDefaults to false",
+      "description": "ReadOnly.\nDefaults to false.",
       "type": "boolean"
      }
     }
@@ -3942,7 +3942,7 @@
     }
    },
    "v1.Memory": {
-    "description": "Memory allow specifying the VirtualMachineInstance memory features",
+    "description": "Memory allows specifying the VirtualMachineInstance memory features.",
     "properties": {
      "hugepages": {
       "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
@@ -4156,11 +4156,11 @@
    "v1.PITTimer": {
     "properties": {
      "present": {
-      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
       "type": "boolean"
      },
      "tickPolicy": {
-      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\", \"discard\"",
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.\nOne of \"delay\", \"catchup\", \"discard\".",
       "type": "string"
      }
     }
@@ -4306,27 +4306,27 @@
    "v1.RTCTimer": {
     "properties": {
      "present": {
-      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true\n+optional",
+      "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
       "type": "boolean"
      },
      "tickPolicy": {
-      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest\nOne of \"delay\", \"catchup\"",
+      "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.\nOne of \"delay\", \"catchup\".",
       "type": "string"
      },
      "track": {
-      "description": "Track the guest or the wall clock",
+      "description": "Track the guest or the wall clock.",
       "type": "string"
      }
     }
    },
    "v1.RegistryDiskSource": {
-    "description": "Represents a docker image with an embedded disk",
+    "description": "Represents a docker image with an embedded disk.",
     "required": [
      "image"
     ],
     "properties": {
      "image": {
-      "description": "Image is the name of the image with the embedded disk",
+      "description": "Image is the name of the image with the embedded disk.",
       "type": "string"
      },
      "imagePullSecret": {
@@ -4459,7 +4459,7 @@
     }
    },
    "v1.Timer": {
-    "description": "Represents all available timers in a vmi",
+    "description": "Represents all available timers in a vmi.",
     "properties": {
      "hpet": {
       "description": "HPET (High Precision Event Timer) - multiple timers with periodic interrupts.",
@@ -4963,7 +4963,7 @@
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
      },
      "emptyDisk": {
-      "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
+      "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle.\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
       "$ref": "#/definitions/v1.EmptyDiskSource"
      },
      "ephemeral": {
@@ -4979,7 +4979,7 @@
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
      },
      "registryDisk": {
-      "description": "RegistryDisk references a docker image, embedding a qcow or raw disk\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
+      "description": "RegistryDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
       "$ref": "#/definitions/v1.RegistryDiskSource"
      }
     }
@@ -4999,17 +4999,17 @@
     }
    },
    "v1.Watchdog": {
-    "description": "Named watchdog device",
+    "description": "Named watchdog device.",
     "required": [
      "name"
     ],
     "properties": {
      "i6300esb": {
-      "description": "i6300esb watchdog device\n+optional",
+      "description": "i6300esb watchdog device.\n+optional",
       "$ref": "#/definitions/v1.I6300ESBWatchdog"
      },
      "name": {
-      "description": "Name of the watchdog",
+      "description": "Name of the watchdog.",
       "type": "string"
      }
     }
