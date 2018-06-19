@@ -216,6 +216,19 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	if len(requestedHookSidecarList) != 0 {
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "hooks",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+			Name:      "hooks",
+			MountPath: hooks.HookSocketsSharedDirectory,
+		})
+	}
+
 	command := []string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 		"--qemu-timeout", "5m",
 		"--name", domain,
@@ -321,6 +334,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Name:            "hook-sidecar-" + requestedHookSidecar.Image,
 			Image:           requestedHookSidecar.Image,
 			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
+			VolumeMounts: []k8sv1.VolumeMount{
+				k8sv1.VolumeMount{
+					Name:      "hooks",
+					MountPath: hooks.HookSocketsSharedDirectory,
+				},
+			},
 		})
 	}
 

@@ -7,6 +7,7 @@ import (
 )
 
 const HookSidecarListAnnotationName = "hookSidecars"
+const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
 
 type HookSidecarList []HookSidecar
 
