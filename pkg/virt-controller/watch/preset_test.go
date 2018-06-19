@@ -21,27 +21,26 @@ package watch
 
 import (
 	"fmt"
-	"net/http"
 	"testing"
-	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 type Event struct {
@@ -750,86 +749,56 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 	})
 
 	Context("VirtualMachineInstance Init Watcher", func() {
-		var server *ghttp.Server
+		var vmiPresetController *VirtualMachinePresetController
 
-		log.Log.SetIOWriter(GinkgoWriter)
-		var app = VirtControllerApp{}
-		app.launcherImage = "kubevirt/virt-launcher"
+		var ctrl *gomock.Controller
+		var virtClient *kubecli.MockKubevirtClient
+		var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 
 		var vmiPreset *v1.VirtualMachineInstancePreset
 		var stopChan chan struct{}
+
+		var vmiPresetInformer cache.SharedIndexInformer
+		var vmiPresetCache *framework.FakeControllerSource
+		var vmiInformer cache.SharedIndexInformer
+		var vmiInitCache cache.Store
+		var recorder *record.FakeRecorder
+
+		var vmiPresetQueue *testutils.MockWorkQueue
 
 		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 		presetFlavor := "test-case"
 
 		BeforeEach(func() {
 			stopChan = make(chan struct{})
+			ctrl = gomock.NewController(GinkgoT())
 
-			server = ghttp.NewServer()
-			app.clientSet, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-			app.restClient = app.clientSet.RestClient()
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+
+			vmiPresetInformer, vmiPresetCache = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
+			vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiInitCache = vmiInformer.GetStore()
+
+			vmiPresetQueue = testutils.NewMockWorkQueue(workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()))
+
+			recorder = record.NewFakeRecorder(100)
+
+			vmiPresetController = NewVirtualMachinePresetController(vmiPresetInformer, vmiInformer, vmiPresetQueue, vmiInitCache, virtClient, recorder)
 
 			// create a reference preset
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: presetFlavor}}
+
 			vmiPreset = v1.NewVirtualMachinePreset("test-preset", selector)
 			vmiPreset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
 			vmiPreset.Spec.Domain.Firmware = &v1.Firmware{UUID: "12345678-1234-1234-1234-123456781234"}
 
-			// create a stock VirtualMachineInstance
-
-			// Synthesize a fake, but fully functional, vmiPresetInformer
-			presetListWatch := &cache.ListWatch{
-				ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
-					return &v1.VirtualMachineInstancePresetList{Items: []v1.VirtualMachineInstancePreset{*vmiPreset}}, nil
-				},
-				WatchFunc: func(options k8smetav1.ListOptions) (watch.Interface, error) {
-					fakeWatch := watch.NewFake()
-					fakeWatch.Add(vmiPreset)
-					return fakeWatch, nil
-				},
-			}
-			app.vmiPresetInformer = cache.NewSharedIndexInformer(presetListWatch, &v1.VirtualMachineInstancePreset{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			go app.vmiPresetInformer.Run(stopChan)
-
-			// Synthesize a fake vmiInformer
-			vmiListWatch := &cache.ListWatch{
-				ListFunc: func(options k8smetav1.ListOptions) (runtime.Object, error) {
-					return &v1.VirtualMachineInstanceList{}, nil
-				},
-				WatchFunc: func(options k8smetav1.ListOptions) (watch.Interface, error) {
-					return watch.NewFake(), nil
-				},
-			}
-			app.vmiInformer = cache.NewSharedIndexInformer(vmiListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			app.podInformer = cache.NewSharedIndexInformer(vmiListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			app.nodeInformer = cache.NewSharedIndexInformer(vmiListWatch, &k8sv1.Node{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			app.vmiPresetCache = app.vmiInformer.GetStore()
-			app.vmiPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-			app.vmiInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmiPresetQueue))
-			go app.vmiInformer.Run(stopChan)
-
-			recorder := NewFakeRecorder()
-			app.vmiPresetRecorder = &recorder
-
-			app.initCommon()
-			// Make sure the informers are synced before continuing -- avoid race conditions
-			cache.WaitForCacheSync(stopChan, app.vmiPresetInformer.HasSynced, app.vmiPresetInformer.HasSynced)
+			idx := vmiPresetInformer.GetIndexer()
+			idx.Add(vmiPreset)
 		})
 
 		AfterEach(func() {
 			close(stopChan)
-		})
-
-		// This is a meta-test to ensure the preset cache in this test suite works
-		It("should have a result in the fake VirtualMachineInstance Preset cache", func() {
-			presets := app.vmiPresetInformer.GetStore().List()
-			Expect(len(presets)).To(Equal(1))
-			for _, obj := range presets {
-				var preset *v1.VirtualMachineInstancePreset
-				preset = obj.(*v1.VirtualMachineInstancePreset)
-				Expect(preset.Name).To(Equal("test-preset"))
-			}
-
 		})
 
 		It("should not process an initialized VirtualMachineInstance", func() {
@@ -838,21 +807,15 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 
 			key, _ := cache.MetaNamespaceKeyFunc(vmi)
-			app.vmiPresetCache.Add(vmi)
-			app.vmiPresetQueue.Add(key)
+			vmiPresetCache.Add(vmi)
+			vmiPresetQueue.Add(key)
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
-
-			app.vmiPresetController.Execute()
 			// the initializer should inspect the VirtualMachineInstance and decide nothing needs to be done
 			// (and skip the update entirely). So zero requests are expected.
-			Expect(len(server.ReceivedRequests())).To(Equal(0))
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).MaxTimes(0)
+
+			vmiPresetController.Execute()
+
 			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 			Expect(controller.HasFinalizer(vmi, v1.VirtualMachineInstanceFinalizer)).To(BeTrue())
 		})
@@ -861,19 +824,18 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
 			key, _ := cache.MetaNamespaceKeyFunc(vmi)
-			app.vmiPresetCache.Add(vmi)
-			app.vmiPresetQueue.Add(key)
+			vmiPresetCache.Add(vmi)
+			vmiPresetQueue.Add(key)
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
 
-			app.vmiPresetController.Execute()
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				// The copy of the VMI sent to the server should be initialized
+				_, found := (arg.(*v1.VirtualMachineInstance)).Annotations[initializerMarking]
+				Expect(found).To(BeTrue())
+			}).Return(nil, nil)
+
+			vmiPresetController.Execute()
 
 			// We should expect no changes to this VirtualMachineInstance object--because that would mean
 			// there were side effects in the cache.
@@ -884,19 +846,22 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Labels = map[string]string{flavorKey: presetFlavor}
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
 
-			err := app.vmiPresetController.initializeVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmi := arg.(*v1.VirtualMachineInstance)
+				val, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+				Expect(found).To(BeTrue(), "preset should have been applied")
+				Expect(val).To(Equal("kubevirt.io/v1alpha2"))
 
+				// The copy of the VMI sent to the server should be initialized
+				_, found = vmi.Annotations[initializerMarking]
+				Expect(found).To(BeTrue(), "vmi should have been initialized")
+			}).Return(nil, nil)
+
+			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
 			// Prove that the VirtualMachineInstance was annotated (indicates successful application of preset)
 			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 		})
@@ -906,21 +871,21 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			vmi.Labels = map[string]string{flavorKey: presetFlavor}
 			vmi.Spec.Domain = v1.DomainSpec{CPU: &v1.CPU{Cores: 6}}
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
 
-			err := app.vmiPresetController.initializeVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmi := arg.(*v1.VirtualMachineInstance)
+				val, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+				Expect(found).To(BeTrue(), "preset should have been applied")
+				Expect(val).To(Equal("kubevirt.io/v1alpha2"))
 
+				// The copy of the VMI sent to the server should be initialized
+				_, found = vmi.Annotations[initializerMarking]
+				Expect(found).To(BeTrue(), "vmi should have been initialized")
+			}).Return(nil, nil)
+
+			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			// Prove that the VirtualMachineInstance was annotated (indicates successful application of preset)
-			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
 		})
 
 		It("should should not annotate presets with no settings successfully applied", func() {
@@ -930,70 +895,66 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 				CPU:      &v1.CPU{Cores: 6},
 				Firmware: &v1.Firmware{UUID: "11111111-2222-3333-4444-123456781234"}}
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
 
-			err := app.vmiPresetController.initializeVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmi := arg.(*v1.VirtualMachineInstance)
+				_, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+				Expect(found).To(BeFalse(), "preset should not have been applied")
 
+				// The copy of the VMI sent to the server should be initialized
+				_, found = vmi.Annotations[initializerMarking]
+				Expect(found).To(BeTrue(), "vmi should have been initialized")
+				Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
+			}).Return(nil, nil)
+
+			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
-
-			_, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
-			Expect(found).To(BeFalse())
-
-			Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
 		It("should not mark a VirtualMachineInstance without presets as failed", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
-			err := app.vmiPresetController.initializeVirtualMachine(vmi)
 
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmi := arg.(*v1.VirtualMachineInstance)
+				_, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+				Expect(found).To(BeFalse(), "preset should not have been applied")
+
+				// The copy of the VMI sent to the server should be initialized
+				_, found = vmi.Annotations[initializerMarking]
+				Expect(found).To(BeTrue(), "vmi should have been initialized")
+
+				Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
+			}).Return(nil, nil)
+
+			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
-
-			_, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
-			Expect(found).To(BeFalse())
-
-			Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
 		It("should check if exclusion annotation is \"true\"", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Labels = map[string]string{flavorKey: presetFlavor}
 			vmi.Annotations = map[string]string{}
+			// Since the exclusion marking is invalid, it won't take effect
 			vmi.Annotations[exclusionMarking] = "anything"
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
 
-			err := app.vmiPresetController.initializeVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmi := arg.(*v1.VirtualMachineInstance)
+				val, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+				Expect(found).To(BeTrue(), "preset should have been applied")
+				Expect(val).To(Equal("kubevirt.io/v1alpha2"))
 
+				// The copy of the VMI sent to the server should be initialized
+				_, found = vmi.Annotations[initializerMarking]
+				Expect(found).To(BeTrue(), "vmi should have been initialized")
+			}).Return(nil, nil)
+
+			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			_, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
-			Expect(ok).To(BeTrue(), "Preset should applied")
-
-			// Prove that the VirtualMachineInstance was initialized
-			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 		})
 
 		It("should not add annotations to VirtualMachineInstance's with exclusion marking", func() {
@@ -1002,24 +963,22 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			vmi.Annotations = map[string]string{}
 			vmi.Annotations[exclusionMarking] = "true"
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
 
-			err := app.vmiPresetController.initializeVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmi := arg.(*v1.VirtualMachineInstance)
+				_, found := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
+				Expect(found).To(BeFalse(), "preset should not have been applied")
 
+				// The copy of the VMI sent to the server should be initialized
+				_, found = vmi.Annotations[initializerMarking]
+				Expect(found).To(BeTrue(), "vmi should have been initialized")
+
+				Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
+			}).Return(nil, nil)
+
+			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(len(server.ReceivedRequests())).To(Equal(1))
-			_, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]
-			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
-
-			// Prove that the VirtualMachineInstance was initialized
-			Expect(isVirtualMachineInitialized(vmi)).To(BeTrue())
 		})
 
 		It("should set default values to VMI", func() {
@@ -1034,21 +993,23 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 				},
 			}
 
-			// Register the expected REST call
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
+			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
 
-			err := app.vmiPresetController.initializeVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmi := arg.(*v1.VirtualMachineInstance)
+				disk := vmi.Spec.Domain.Devices.Disks[0]
+				Expect(disk.Disk).ToNot(BeNil(), "DiskTarget should not be nil")
+				Expect(disk.Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
 
+				// The copy of the VMI sent to the server should be initialized
+				_, found := vmi.Annotations[initializerMarking]
+				Expect(found).To(BeTrue(), "vmi should have been initialized")
+
+				Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
+			}).Return(nil, nil)
+
+			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
-
-			disk := vmi.Spec.Domain.Devices.Disks[0]
-			Expect(disk.Disk).ToNot(BeNil(), "DiskTarget should not be nil")
-			Expect(disk.Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
 		})
 	})
 })
