@@ -25,6 +25,7 @@ import (
 	"os"
 
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -111,7 +112,10 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 			volumeMountDir := generateVolumeMountDir(vmi, volume.Name)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.RegistryDisk.Image
-
+			resources := kubev1.ResourceRequirements{}
+			resources.Limits = make(kubev1.ResourceList)
+			resources.Limits[kubev1.ResourceCPU] = *resource.NewQuantity(int64(1), resource.BinarySI)
+			resources.Limits[kubev1.ResourceMemory] = resource.MustParse("8Mi")
 			containers = append(containers, kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
@@ -129,6 +133,8 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 						MountPath: podVolumeMountDir,
 					},
 				},
+				Resources: resources,
+
 				// The readiness probes ensure the volume coversion and copy finished
 				// before the container is marked as "Ready: True"
 				ReadinessProbe: &kubev1.Probe{
