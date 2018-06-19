@@ -243,10 +243,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 		switch {
 		case podExists:
 			// Add PodScheduled False condition to the VM
-			for _, cond := range pod.Status.Conditions {
-				if cond.Type == k8sv1.PodScheduled && cond.Status == k8sv1.ConditionFalse {
-					conditionManager.AddPodCondition(vmiCopy, cond)
-				}
+			if cond := conditionManager.GetPodCondition(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
+				conditionManager.AddPodCondition(vmiCopy, cond)
+			} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
+				// Remove PodScheduling condition from the VM
+				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 			}
 			if isPodOwnedByHandler(pod) {
 				// vmi is still owned by the controller but pod is already handed over,
@@ -262,10 +263,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 				}
 				vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
 				vmiCopy.Status.NodeName = pod.Spec.NodeName
-				// Remove PodScheduling condition from the VM
-				if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
-					conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
-				}
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}

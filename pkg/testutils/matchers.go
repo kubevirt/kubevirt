@@ -183,6 +183,18 @@ func (matcher *haveStatusCodeMatcher) NegatedFailureMessage(actual interface{}) 
 	return fmt.Sprintf("Expected status code \n\t%#v\nnot to be\n\t%#v", matcher.statusCode, matcher.expected)
 }
 
+// In case we don't care about emitted events, we simply consume all of them and return.
+func IgnoreEvents(recorder *record.FakeRecorder) {
+loop:
+	for {
+		select {
+		case <-recorder.Events:
+		default:
+			break loop
+		}
+	}
+}
+
 func ExpectEvent(recorder *record.FakeRecorder, reason string) {
 	gomega.Expect(recorder.Events).To(gomega.Receive(gomega.ContainSubstring(reason)))
 }
