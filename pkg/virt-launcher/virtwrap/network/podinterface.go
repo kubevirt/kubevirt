@@ -43,7 +43,7 @@ const DefaultVMCIDR = "10.0.2.0/24"
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
 	preparePodNetworkInterfaces() error
-	libvirtConfig() error
+	decorateConfig() error
 	loadCachedInterface(name string) (bool, error)
 	setCachedInterface(name string) error
 }
@@ -90,7 +90,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		// After the network is configured, cache the result
 		// in case this function is called again.
 		// Use this section
-		err = driver.libvirtConfig()
+		err = driver.decorateConfig()
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to create libvirt configuration")
 			panic(err)
@@ -117,7 +117,7 @@ func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain) (B
 		return &BridgePodInterface{iface: iface, vif: vif, domain: domain, podInterfaceNum: podInterfaceNum}, nil
 	}
 	if iface.Slirp != nil {
-		return &SlirpPodInterface{iface: iface, network: network, domain: domain, podInterfaceNum: podInterfaceNum}, nil
+		return &SlirpPodInterface{iface: iface, domain: domain, podInterfaceNum: podInterfaceNum}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
@@ -209,7 +209,7 @@ func (b *BridgePodInterface) startDHCPServer() {
 	Handler.StartDHCP(b.vif, fakeServerAddr)
 }
 
-func (b *BridgePodInterface) libvirtConfig() error {
+func (b *BridgePodInterface) decorateConfig() error {
 	b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MAC = &api.MAC{MAC: b.vif.MAC.String()}
 
 	return nil
@@ -290,7 +290,6 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 
 type SlirpPodInterface struct {
 	iface           *v1.Interface
-	network         *v1.Network
 	domain          *api.Domain
 	podInterfaceNum int
 }
@@ -311,7 +310,7 @@ func (s *SlirpPodInterface) preparePodNetworkInterfaces() error {
 	return nil
 }
 
-func (s *SlirpPodInterface) libvirtConfig() error {
+func (s *SlirpPodInterface) decorateConfig() error {
 	s.domain.Spec.QEMUCmd.QEMUArg[s.podInterfaceNum].Value += fmt.Sprintf(",id=%s", s.iface.Name)
 	return nil
 }

@@ -48,14 +48,14 @@ func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces")
 }
 
-func (_m *MockBindMechanism) libvirtConfig() error {
-	ret := _m.ctrl.Call(_m, "libvirtConfig")
+func (_m *MockBindMechanism) decorateConfig() error {
+	ret := _m.ctrl.Call(_m, "decorateConfig")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) libvirtConfig() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "libvirtConfig")
+func (_mr *_MockBindMechanismRecorder) decorateConfig() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "decorateConfig")
 }
 
 func (_m *MockBindMechanism) loadCachedInterface(name string) (bool, error) {
