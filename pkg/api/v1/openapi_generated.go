@@ -752,7 +752,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"model": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Interface model One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio Defaults to virtio",
+								Description: "Interface model. One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
