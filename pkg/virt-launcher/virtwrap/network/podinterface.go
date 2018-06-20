@@ -66,7 +66,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	precond.MustNotBeNil(domain)
 	initHandler()
 
-	driver, err := getBinding(iface, network, domain)
+	driver, err := getBinding(iface, domain)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,6 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 
 		// After the network is configured, cache the result
 		// in case this function is called again.
-		// Use this section
 		err = driver.decorateConfig()
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to create libvirt configuration")
@@ -106,7 +105,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	return nil
 }
 
-func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain) (BindMechanism, error) {
+func getBinding(iface *v1.Interface, domain *api.Domain) (BindMechanism, error) {
 	podInterfaceNum, err := findInterfaceByName(domain.Spec.Devices.Interfaces, iface.Name)
 	if err != nil {
 		return nil, err
@@ -304,7 +303,7 @@ func (s *SlirpPodInterface) preparePodNetworkInterfaces() error {
 	domainInterface := interfaces[s.podInterfaceNum]
 	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: fmt.Sprintf("%s,netdev=%s", domainInterface.Model.Type, s.iface.Name)})
 
-	interfaces = append(interfaces[:s.podInterfaceNum], interfaces[s.podInterfaceNum+1:]...)
+	s.domain.Spec.Devices.Interfaces = append(interfaces[:s.podInterfaceNum], interfaces[s.podInterfaceNum+1:]...)
 	s.podInterfaceNum = len(s.domain.Spec.QEMUCmd.QEMUArg) - 1
 
 	return nil

@@ -932,6 +932,14 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{Ports: Ports}}}}
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+	return vmi
+}
+
 func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurily before link is ready
 	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))

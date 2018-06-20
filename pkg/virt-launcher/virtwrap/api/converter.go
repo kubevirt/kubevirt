@@ -21,11 +21,13 @@ package api
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -531,13 +533,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 
 		} else if iface.Slirp != nil {
-			// TODO: maybe add interface model to vm spec
 			// Slirp configuration works only with e1000 or rtl8139
 			slirpInterfaceType := "e1000"
-			if interfaceType != "virtio" {
-				slirpInterfaceType = interfaceType
+			if interfaceType != "e1000" && interfaceType != "rtl8139" {
+				log.Log.Infof("The network interface type of %s was changed from virtio to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
 			} else {
-				log.Log.Infof("The network interface type was changed from virtio to e1000 due to unsupported interface type by qemu slirp network")
+				slirpInterfaceType = interfaceType
 			}
 
 			domainIface := Interface{
@@ -605,7 +606,6 @@ func configPortForward(qemuArg *Arg, iface v1.Interface) error {
 			return fmt.Errorf("Port must be configured")
 		}
 
-		// Check protocol, its case sensitive like kubernetes
 		if forwardPort.Protocol == "" {
 			forwardPort.Protocol = DefaultProtocol
 		}
@@ -641,27 +641,14 @@ func configVMCIDR(qemuArg *Arg, iface v1.Interface, network v1.Network) error {
 }
 
 func configDNSSearchName(qemuArg *Arg) error {
-	// remove the search string from the output and convert to string
-	b, err := ioutil.ReadFile("/etc/resolv.conf")
+	_, dnsDoms, err := GetResolvConfDetailsFromPod()
 	if err != nil {
 		return err
 	}
-	scanner := bufio.NewScanner(strings.NewReader(string(b)))
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "search") {
-			doms := strings.Fields(strings.TrimPrefix(line, "search"))
-			for _, dom := range doms {
-				qemuArg.Value += fmt.Sprintf(",dnssearch=%s", dom)
-			}
-		}
+	for _, dom := range dnsDoms {
+		qemuArg.Value += fmt.Sprintf(",dnssearch=%s", dom)
 	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -706,4 +693,85 @@ func boolToYesNo(value *bool, defaultYes bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+// returns nameservers [][]byte, searchdomains []string, error
+func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
+	b, err := ioutil.ReadFile(resolvConf)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nameservers, err := ParseNameservers(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	searchDomains, err := ParseSearchDomains(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
+	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
+
+	return nameservers, searchDomains, err
+}
+
+func ParseNameservers(content string) ([][]byte, error) {
+	var nameservers [][]byte
+
+	re, err := regexp.Compile("([0-9]{1,3}.?){4}")
+	if err != nil {
+		return nameservers, err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, nameserverPrefix) {
+			nameserver := re.FindString(line)
+			if nameserver != "" {
+				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
+			}
+		}
+	}
+
+	if err = scanner.Err(); err != nil {
+		return nameservers, err
+	}
+
+	// apply a default DNS if none found from pod
+	if len(nameservers) == 0 {
+		nameservers = append(nameservers, net.ParseIP(defaultDNS).To4())
+	}
+
+	return nameservers, nil
+}
+
+func ParseSearchDomains(content string) ([]string, error) {
+	var searchDomains []string
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, domainSearchPrefix) {
+			doms := strings.Fields(strings.TrimPrefix(line, domainSearchPrefix))
+			for _, dom := range doms {
+				searchDomains = append(searchDomains, dom)
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(searchDomains) == 0 {
+		searchDomains = append(searchDomains, defaultSearchDomain)
+	}
+
+	return searchDomains, nil
 }

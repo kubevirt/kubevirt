@@ -745,7 +745,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Logical name of the interface as well as a reference to the associated networks Must match the Name of a Network",
+								Description: "Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -802,7 +802,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"ports": {
 							SchemaProps: spec.SchemaProps{
-								Description: "List of ports to be forwarded to the virtual machine",
+								Description: "List of ports to be forwarded to the virtual machine.",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
@@ -899,7 +899,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Network name Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+								Description: "Network name. Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -958,11 +958,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents the stock pod network interface",
+					Description: "Represents the stock pod network interface.",
 					Properties: map[string]spec.Schema{
 						"vmNetworkCIDR": {
 							SchemaProps: spec.SchemaProps{
-								Description: "CIDR for vm network Default 10.0.2.0/24 if not specified",
+								Description: "CIDR for vm network. Default 10.0.2.0/24 if not specified.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -975,7 +975,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Port": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Port repesents a port to expose from the virtual machine Default protocol TCP Default Port is PodPort",
+					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. Default port is PodPort.",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{

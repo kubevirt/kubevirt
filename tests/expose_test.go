@@ -39,7 +39,7 @@ func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, virtClient kubecli
 	defer expecter.Close()
 	Expect(err).ToNot(HaveOccurred())
 
-	serverCommand := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e 'Hello World!'\n", testPort)
+	serverCommand := fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {
 		// nc has to be in a while loop in case of UDP, since it exists after one message
 		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true\n do nc -uklp %d -e echo -e 'Hello UDP World!'\ndone\n\"\n", testPort)

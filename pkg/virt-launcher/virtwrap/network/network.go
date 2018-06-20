@@ -32,14 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const (
-	podInterface        = "eth0"
-	defaultDNS          = "8.8.8.8"
-	resolvConf          = "/etc/resolv.conf"
-	defaultSearchDomain = "cluster.local"
-	domainSearchPrefix  = "search"
-	nameserverPrefix    = "nameserver"
-)
+const podInterface = "eth0"
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache-%s.json"
 var qemuArgCacheFile = "/var/run/kubevirt-private/qemu-arg-%s.json"

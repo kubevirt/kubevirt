@@ -46,7 +46,7 @@ var _ = Describe("Network", func() {
 				return mockNetworkInterface, nil
 			}
 			domain := &api.Domain{}
-			vm := newVM("testnamespace", "testVmName")
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
 			iface := v1.DefaultNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()

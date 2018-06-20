@@ -299,7 +299,7 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+		"name": "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
 	}
 }
 
@@ -315,20 +315,20 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 
 func (InterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"ports": "List of ports to be forwarded to the virtual machine",
+		"ports": "List of ports to be forwarded to the virtual machine.",
 	}
 }
 
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Port repesents a port to expose from the virtual machine\nDefault protocol TCP\nDefault Port is PodPort",
+		"": "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nDefault port is PodPort.",
 	}
 }
 
 func (Network) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "Network represents a network type and a resource that should be connected to the vm.",
-		"name": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+		"name": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 	}
 }
 
@@ -340,7 +340,7 @@ func (NetworkSource) SwaggerDoc() map[string]string {
 
 func (PodNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "Represents the stock pod network interface",
-		"vmNetworkCIDR": "CIDR for vm network\nDefault 10.0.2.0/24 if not specified",
+		"":              "Represents the stock pod network interface.",
+		"vmNetworkCIDR": "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
 	}
 }

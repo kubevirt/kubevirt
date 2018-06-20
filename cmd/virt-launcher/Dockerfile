@@ -26,6 +26,7 @@ RUN dnf -y install \
   util-linux \
   libcgroup-tools \
   ethtool \
+  net-tools \
   sudo && dnf -y clean all && \
   test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
