@@ -200,9 +200,10 @@ func (c *VMController) execute(key string) error {
 	err = c.updateStatus(VM.DeepCopy(), vmi, createErr)
 	if err != nil {
 		logger.Reason(err).Error("Updating the VirtualMachine status failed.")
+		return err
 	}
 
-	return err
+	return createErr
 }
 
 // orphan removes the owner reference of all VMIs which are owned by the controller instance.
