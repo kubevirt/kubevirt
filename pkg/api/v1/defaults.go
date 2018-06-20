@@ -170,6 +170,16 @@ func DefaultNetworkInterface() *Interface {
 	return iface
 }
 
+func DefaultSlirpNetworkInterface() *Interface {
+	iface := &Interface{
+		Name: "default",
+		InterfaceBindingMethod: InterfaceBindingMethod{
+			Slirp: &InterfaceSlirp{},
+		},
+	}
+	return iface
+}
+
 func DefaultPodNetwork() *Network {
 	defaultNet := &Network{
 		Name: "default",

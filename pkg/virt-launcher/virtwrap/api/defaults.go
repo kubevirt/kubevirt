@@ -1,6 +1,15 @@
 package api
 
-const DefaultBridgeName = "br1"
+const (
+	defaultDNS          = "8.8.8.8"
+	resolvConf          = "/etc/resolv.conf"
+	defaultSearchDomain = "cluster.local"
+	domainSearchPrefix  = "search"
+	nameserverPrefix    = "nameserver"
+	DefaultProtocol     = "TCP"
+	DefaultVMCIDR       = "10.0.2.0/24"
+	DefaultBridgeName   = "br1"
+)
 
 func SetDefaults_Devices(devices *Devices) {
 	// Use vga as video device, since it is better than cirrus

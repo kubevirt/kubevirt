@@ -34,11 +34,18 @@ import (
 
 var bridgeFakeIP = "169.254.75.86/32"
 
+// DefaultProtocol is the default port protocol
+const DefaultProtocol string = "TCP"
+
+// DefaultVMCIDR is the default CIDR for vm network
+const DefaultVMCIDR = "10.0.2.0/24"
+
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
 	preparePodNetworkInterfaces() error
-	startDHCPServer()
-	decorateInterfaceConfig(ifconf *api.Interface)
+	decorateConfig() error
+	loadCachedInterface(name string) (bool, error)
+	setCachedInterface(name string) error
 }
 
 type PodInterface struct{}
@@ -59,62 +66,67 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	precond.MustNotBeNil(domain)
 	initHandler()
 
-	driver, err := getBinding(iface)
+	driver, err := getBinding(iface, domain)
 	if err != nil {
 		return err
 	}
 
-	ifconf, err := getCachedInterface(iface.Name)
+	isExist, err := driver.loadCachedInterface(iface.Name)
 	if err != nil {
 		return err
 	}
 
-	interfaces := domain.Spec.Devices.Interfaces
-	podInterfaceNum, err := findInterfaceByName(interfaces, iface.Name)
-	if err != nil {
-		return err
-	}
-
-	if ifconf == nil {
+	if !isExist {
 		err := driver.discoverPodNetworkInterface()
 		if err != nil {
 			return err
 		}
+
 		if err := driver.preparePodNetworkInterfaces(); err != nil {
 			log.Log.Reason(err).Critical("failed to prepared pod networking")
 			panic(err)
 		}
 
-		defaultIconf := interfaces[podInterfaceNum]
-		driver.startDHCPServer()
-
 		// After the network is configured, cache the result
 		// in case this function is called again.
-		driver.decorateInterfaceConfig(&defaultIconf)
-		err = setCachedInterface(iface.Name, &defaultIconf)
+		err = driver.decorateConfig()
 		if err != nil {
+			log.Log.Reason(err).Critical("failed to create libvirt configuration")
 			panic(err)
 		}
-		ifconf = &defaultIconf
-	}
 
-	interfaces[podInterfaceNum] = *ifconf
+		err = driver.setCachedInterface(iface.Name)
+		if err != nil {
+			log.Log.Reason(err).Critical("failed to save interface configuration")
+			panic(err)
+		}
+	}
 
 	return nil
 }
 
-func getBinding(iface *v1.Interface) (BindMechanism, error) {
-	vif := &VIF{Name: podInterface}
+func getBinding(iface *v1.Interface, domain *api.Domain) (BindMechanism, error) {
+	podInterfaceNum, err := findInterfaceByName(domain.Spec.Devices.Interfaces, iface.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	if iface.Bridge != nil {
-		return &BridgePodInterface{iface: iface, vif: vif}, nil
+		vif := &VIF{Name: podInterface}
+		return &BridgePodInterface{iface: iface, vif: vif, domain: domain, podInterfaceNum: podInterfaceNum}, nil
+	}
+	if iface.Slirp != nil {
+		return &SlirpPodInterface{iface: iface, domain: domain, podInterfaceNum: podInterfaceNum}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
 
 type BridgePodInterface struct {
-	vif        *VIF
-	iface      *v1.Interface
-	podNicLink netlink.Link
+	vif             *VIF
+	iface           *v1.Interface
+	podNicLink      netlink.Link
+	domain          *api.Domain
+	podInterfaceNum int
 }
 
 func (b *BridgePodInterface) discoverPodNetworkInterface() error {
@@ -185,6 +197,8 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
+	b.startDHCPServer()
+
 	return nil
 }
 
@@ -194,8 +208,31 @@ func (b *BridgePodInterface) startDHCPServer() {
 	Handler.StartDHCP(b.vif, fakeServerAddr)
 }
 
-func (b *BridgePodInterface) decorateInterfaceConfig(ifconf *api.Interface) {
-	ifconf.MAC = &api.MAC{MAC: b.vif.MAC.String()}
+func (b *BridgePodInterface) decorateConfig() error {
+	b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MAC = &api.MAC{MAC: b.vif.MAC.String()}
+
+	return nil
+}
+
+func (b *BridgePodInterface) loadCachedInterface(name string) (bool, error) {
+	var ifaceConfig api.Interface
+
+	isExist, err := readFromCachedFile(name, interfaceCacheFile, &ifaceConfig)
+	if err != nil {
+		return false, err
+	}
+
+	if isExist {
+		b.domain.Spec.Devices.Interfaces[b.podInterfaceNum] = ifaceConfig
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (b *BridgePodInterface) setCachedInterface(name string) error {
+	err := writeToCachedFile(&b.domain.Spec.Devices.Interfaces[b.podInterfaceNum], interfaceCacheFile, name)
+	return err
 }
 
 func (b *BridgePodInterface) setInterfaceRoutes() error {
@@ -248,4 +285,57 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 	}
 
 	return nil
+}
+
+type SlirpPodInterface struct {
+	iface           *v1.Interface
+	domain          *api.Domain
+	podInterfaceNum int
+}
+
+func (s *SlirpPodInterface) discoverPodNetworkInterface() error {
+	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
+	return nil
+}
+
+func (s *SlirpPodInterface) preparePodNetworkInterfaces() error {
+	interfaces := s.domain.Spec.Devices.Interfaces
+	domainInterface := interfaces[s.podInterfaceNum]
+	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: fmt.Sprintf("%s,netdev=%s", domainInterface.Model.Type, s.iface.Name)})
+
+	s.domain.Spec.Devices.Interfaces = append(interfaces[:s.podInterfaceNum], interfaces[s.podInterfaceNum+1:]...)
+	s.podInterfaceNum = len(s.domain.Spec.QEMUCmd.QEMUArg) - 1
+
+	return nil
+}
+
+func (s *SlirpPodInterface) decorateConfig() error {
+	s.domain.Spec.QEMUCmd.QEMUArg[s.podInterfaceNum].Value += fmt.Sprintf(",id=%s", s.iface.Name)
+	return nil
+}
+
+func (s *SlirpPodInterface) loadCachedInterface(name string) (bool, error) {
+	var qemuArg api.Arg
+	interfaces := s.domain.Spec.Devices.Interfaces
+
+	isExist, err := readFromCachedFile(name, qemuArgCacheFile, &qemuArg)
+	if err != nil {
+		return false, err
+	}
+
+	if isExist {
+		// remove slirp interface from domain spec devices interfaces
+		interfaces = append(interfaces[:s.podInterfaceNum], interfaces[s.podInterfaceNum+1:]...)
+
+		// Add interface configuration to qemuArgs
+		s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, qemuArg)
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (s *SlirpPodInterface) setCachedInterface(name string) error {
+	err := writeToCachedFile(&s.domain.Spec.QEMUCmd.QEMUArg[s.podInterfaceNum], qemuArgCacheFile, name)
+	return err
 }
