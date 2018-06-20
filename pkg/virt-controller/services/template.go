@@ -44,10 +44,11 @@ type TemplateService interface {
 }
 
 type templateService struct {
-	launcherImage   string
-	virtShareDir    string
-	imagePullSecret string
-	store           cache.Store
+	launcherImage    string
+	virtShareDir     string
+	imagePullSecret  string
+	store            cache.Store
+	useDevicePlugins bool
 }
 
 func IsEmulationAllowed(store cache.Store) (bool, error) {
@@ -218,21 +219,28 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		return nil, err
 	}
 
-	if resources.Limits == nil {
-		resources.Limits = make(k8sv1.ResourceList)
-	}
+	if t.useDevicePlugins {
+		// This path will be taken on Kubernetes 1.10.X and newer
+		if resources.Limits == nil {
+			resources.Limits = make(k8sv1.ResourceList)
+		}
 
-	// TODO: This can be hardcoded in the current model, but will need to be revisted
-	// once dynamic network device allocation is added
-	resources.Limits[TunDevice] = resource.MustParse("1")
+		// TODO: This can be hardcoded in the current model, but will need to be revisted
+		// once dynamic network device allocation is added
+		resources.Limits[TunDevice] = resource.MustParse("1")
 
-	// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
-	// but if the KVM resource is not requested then it's guaranteed to be not present
-	// This code works for now, but the semantics are wrong. revisit this.
-	if useEmulation {
-		command = append(command, "--use-emulation")
+		if useEmulation {
+			command = append(command, "--use-emulation")
+		} else {
+			resources.Limits[KvmDevice] = resource.MustParse("1")
+		}
 	} else {
-		resources.Limits[KvmDevice] = resource.MustParse("1")
+		// This code is for Kubernetes 1.9.X and earlier
+		// TODO: remove after the KubeVirt project no longer supports 1.9.X
+		if useEmulation {
+			command = append(command, "--use-emulation")
+		}
+		privileged = true
 	}
 
 	// VirtualMachineInstance target container
@@ -401,13 +409,14 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	return overhead
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store, useDevicePlugins bool) TemplateService {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
-		launcherImage:   launcherImage,
-		virtShareDir:    virtShareDir,
-		imagePullSecret: imagePullSecret,
-		store:           configMapCache,
+		launcherImage:    launcherImage,
+		virtShareDir:     virtShareDir,
+		imagePullSecret:  imagePullSecret,
+		store:            configMapCache,
+		useDevicePlugins: useDevicePlugins,
 	}
 	return &svc
 }

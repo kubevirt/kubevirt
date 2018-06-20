@@ -42,9 +42,10 @@ var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache)
 
-	Describe("Rendering", func() {
+	Describe("Rendering With Device Plugins", func() {
+		svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache, true)
+
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
 
@@ -428,7 +429,42 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.ImagePullSecrets[1].Name).To(Equal("pull-secret-1"))
 			})
 		})
+
+		It("Should not use privileged mode", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
+				Spec:       v1.VirtualMachineInstanceSpec{},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, container := range pod.Spec.Containers {
+				Expect(*(container.SecurityContext.Privileged)).To(BeFalse())
+			}
+		})
 	})
+
+	// TODO: This can be removed once KubeVirt is no longer targeting compatibility with Kubernetes 1.9.X
+	Describe("Rendering Without Device Plugins", func() {
+		svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache, false)
+		It("Should use privileged mode", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
+				Spec:       v1.VirtualMachineInstanceSpec{},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					Expect(*(container.SecurityContext.Privileged)).To(BeTrue())
+				} else {
+					Expect(*(container.SecurityContext.Privileged)).To(BeFalse())
+				}
+			}
+		})
+	})
+
 	Describe("ConfigMap", func() {
 		var cmListWatch *cache.ListWatch
 		var cmInformer cache.SharedIndexInformer

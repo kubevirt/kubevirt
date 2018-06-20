@@ -24,6 +24,7 @@ import (
 	golog "log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -106,6 +107,7 @@ type VirtControllerApp struct {
 	virtShareDir     string
 	ephemeralDiskDir string
 	readyChan        chan bool
+	useDevicePlugins bool
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -123,6 +125,9 @@ func Execute() {
 	log.InitializeLogging("virt-controller")
 
 	app.clientSet, err = kubecli.GetKubevirtClient()
+
+	app.checkServerVersion()
+	log.DefaultLogger().Infof("Use device plugins: %v", app.useDevicePlugins)
 
 	if err != nil {
 		golog.Fatal(err)
@@ -163,6 +168,24 @@ func Execute() {
 	app.initReplicaSet()
 	app.initVirtualMachines()
 	app.Run()
+}
+
+// checkServerVersion quries the API server to determine version
+// then sets internal flags based on compatibility
+func (vca *VirtControllerApp) checkServerVersion() {
+	srvVer, err := vca.clientSet.Discovery().ServerVersion()
+	if err != nil {
+		golog.Fatal(err)
+	}
+	minor, err := strconv.Atoi(srvVer.Minor)
+	if err != nil {
+		golog.Fatal(err)
+	}
+	if (srvVer.Major == "1") && (minor < 10) {
+		vca.useDevicePlugins = false
+	} else {
+		vca.useDevicePlugins = true
+	}
 }
 
 func (vca *VirtControllerApp) Run() {
@@ -250,7 +273,7 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
+	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache, vca.useDevicePlugins)
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer)
 	vca.vmiPresetController = NewVirtualMachinePresetController(vca.vmiPresetInformer, vca.vmiInformer, vca.vmiPresetQueue, vca.vmiPresetCache, vca.clientSet, vca.vmiPresetRecorder)
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)

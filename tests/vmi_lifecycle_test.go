@@ -608,7 +608,9 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a TUN device but not KVM", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
+				skipTests1_9(virtClient)
+
+				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
@@ -661,6 +663,8 @@ var _ = Describe("VMIlifecycle", func() {
 				if useEmulation {
 					Skip("Software emulation is enabled on this cluster")
 				}
+
+				skipTests1_9(virtClient)
 			})
 
 			It("should request a KVM and TUN device", func() {
@@ -740,8 +744,9 @@ var _ = Describe("VMIlifecycle", func() {
 				nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(nodeList.Items)).ToNot(Equal(0))
-
+				if len(nodeList.Items) == 0 {
+					Skip("Unable to inspect nodes in cluster")
+				}
 				node := nodeList.Items[0]
 
 				allocatableKvm, ok := node.Status.Allocatable[services.KvmDevice]
@@ -749,14 +754,14 @@ var _ = Describe("VMIlifecycle", func() {
 				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
 				// The number of devices allocated could change in the future, but it's
 				// for sure not 0
-				Expect(int(allocatableKvm.Value())).ToNot(Equal(0))
+				Expect(int(allocatableKvm.Value())).ToNot(Equal(0), "expected KVM device allocation to be non-zero")
 
 				capacityKvm, ok := node.Status.Capacity[services.KvmDevice]
 
 				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
 				// The number of devices allocated could change in the future, but it's
 				// for sure not 0
-				Expect(int(capacityKvm.Value())).ToNot(Equal(0))
+				Expect(int(capacityKvm.Value())).ToNot(Equal(0), "expected KVM device capacity to be non-zero")
 			})
 		})
 	})
@@ -936,6 +941,14 @@ var _ = Describe("VMIlifecycle", func() {
 		})
 	})
 })
+
+func skipTests1_9(virtClient kubecli.KubevirtClient) {
+	serVer, err := virtClient.Discovery().ServerVersion()
+	Expect(err).ToNot(HaveOccurred())
+	if (serVer.Major == "1") && (serVer.Minor == "9") {
+		Skip("Device Plugin dependent tests not valid in 1.9")
+	}
+}
 
 func renderPkillAllJob(processName string) *k8sv1.Pod {
 	return tests.RenderJob("vmi-killer", []string{"pkill"}, []string{"-9", processName})
