@@ -74,18 +74,12 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
 				By("Checking the number of CPU cores under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "Welcome to Alpine"},
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "login"},
-					&expect.BSnd{S: "root\n"},
-					&expect.BExp{R: "#"},
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "3"},
 				}, 250*time.Second)
@@ -271,6 +265,7 @@ var _ = Describe("Configurations", func() {
 			expecter, err := tests.LoggedInCirrosExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
+
 			res, err := expecter.ExpectBatch([]expect.Batcher{
 				// keep the ordering!
 				&expect.BSnd{S: "ls /dev/sda  /dev/vda  /dev/vdb\n"},

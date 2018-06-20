@@ -32,12 +32,9 @@ func newLabeledVM(label string, virtClient kubecli.KubevirtClient) (vmi *v1.Virt
 }
 
 func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient, testPort int, protocol string) {
-	_, err := tests.LoggedInCirrosExpecter(vmi)
+	expecter, err := tests.LoggedInCirrosExpecter(vmi)
 	Expect(err).ToNot(HaveOccurred())
-
-	expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	defer expecter.Close()
-	Expect(err).ToNot(HaveOccurred())
 
 	serverCommand := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {
@@ -45,8 +42,6 @@ func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, virtClient kubecli
 		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true\n do nc -uklp %d -e echo -e 'Hello UDP World!'\ndone\n\"\n", testPort)
 	}
 	_, err = expecter.ExpectBatch([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
