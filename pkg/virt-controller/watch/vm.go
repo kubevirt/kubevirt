@@ -56,9 +56,9 @@ func NewVMController(vmiInformer cache.SharedIndexInformer, vmiVMInformer cache.
 	}
 
 	c.vmiVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addOvmi,
-		DeleteFunc: c.deleteOvmi,
-		UpdateFunc: c.updateOvmi,
+		AddFunc:    c.addVm,
+		DeleteFunc: c.deleteVm,
+		UpdateFunc: c.updateVm,
 	})
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -468,7 +468,7 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 		}
 		log.Log.Object(vmi).Infof("VirtualMachineInstance created bacause %s was added.", vmi.Name)
 		c.expectations.CreationObserved(vmKey)
-		c.enqueueOvmi(vm)
+		c.enqueueVm(vm)
 		return
 	}
 
@@ -482,7 +482,7 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 	}
 	log.Log.V(4).Object(vmi).Infof("Orphan VirtualMachineInstance created")
 	for _, vm := range vms {
-		c.enqueueOvmi(vm)
+		c.enqueueVm(vm)
 	}
 }
 
@@ -519,7 +519,7 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if rs := c.resolveControllerRef(oldVMI.Namespace, oldControllerRef); rs != nil {
-			c.enqueueOvmi(rs)
+			c.enqueueVm(rs)
 		}
 	}
 
@@ -530,7 +530,7 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 			return
 		}
 		log.Log.V(4).Object(curVMI).Infof("VirtualMachineInstance updated")
-		c.enqueueOvmi(rs)
+		c.enqueueVm(rs)
 		// TODO: MinReadySeconds in the VirtualMachineInstance will generate an Available condition to be added in
 		// Update once we support the available conect on the rs
 		return
@@ -545,7 +545,7 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 		}
 		log.Log.V(4).Object(curVMI).Infof("Orphan VirtualMachineInstance updated")
 		for _, rs := range rss {
-			c.enqueueOvmi(rs)
+			c.enqueueVm(rs)
 		}
 	}
 }
@@ -586,22 +586,22 @@ func (c *VMController) deleteVirtualMachine(obj interface{}) {
 		return
 	}
 	c.expectations.DeletionObserved(vmKey, controller.VirtualMachineKey(vmi))
-	c.enqueueOvmi(vm)
+	c.enqueueVm(vm)
 }
 
-func (c *VMController) addOvmi(obj interface{}) {
-	c.enqueueOvmi(obj)
+func (c *VMController) addVm(obj interface{}) {
+	c.enqueueVm(obj)
 }
 
-func (c *VMController) deleteOvmi(obj interface{}) {
-	c.enqueueOvmi(obj)
+func (c *VMController) deleteVm(obj interface{}) {
+	c.enqueueVm(obj)
 }
 
-func (c *VMController) updateOvmi(old, curr interface{}) {
-	c.enqueueOvmi(curr)
+func (c *VMController) updateVm(old, curr interface{}) {
+	c.enqueueVm(curr)
 }
 
-func (c *VMController) enqueueOvmi(obj interface{}) {
+func (c *VMController) enqueueVm(obj interface{}) {
 	logger := log.Log
 	vm := obj.(*virtv1.VirtualMachine)
 	key, err := controller.KeyFunc(vm)
