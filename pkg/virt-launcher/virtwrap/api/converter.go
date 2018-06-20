@@ -494,6 +494,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	getInterfaceType := func(iface *v1.Interface) string {
+		if iface.Slirp != nil {
+			// Slirp configuration works only with e1000 or rtl8139
+			if iface.Model != "e1000" && iface.Model != "rtl8139" {
+				log.Log.Infof("The network interface type of %s was changed from virtio to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
+				return "e1000"
+			}
+			return iface.Model
+		}
 		if iface.Model != "" {
 			return iface.Model
 		}
@@ -532,17 +540,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		} else if iface.Slirp != nil {
-			// Slirp configuration works only with e1000 or rtl8139
-			slirpInterfaceType := "e1000"
-			if interfaceType != "e1000" && interfaceType != "rtl8139" {
-				log.Log.Infof("The network interface type of %s was changed from virtio to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
-			} else {
-				slirpInterfaceType = interfaceType
-			}
-
 			domainIface := Interface{
 				Model: &Model{
-					Type: slirpInterfaceType,
+					Type: getInterfaceType(&iface),
 				},
 				Type: "user",
 				Alias: &Alias{
