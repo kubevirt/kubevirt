@@ -312,7 +312,8 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+		"name":  "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+		"model": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
 	}
 }
 

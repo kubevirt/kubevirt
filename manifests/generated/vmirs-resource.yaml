@@ -104,6 +104,8 @@ spec:
                               items:
                                 properties:
                                   bridge: {}
+                                  model:
+                                    type: string
                                   name:
                                     type: string
                                 required:

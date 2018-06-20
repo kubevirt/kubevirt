@@ -597,6 +597,28 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 
+		It("should accept valid interface models", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			for _, model := range validInterfaceModels {
+				vmi.Spec.Domain.Devices.Interfaces[0].Model = model
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				// if this is processed correctly, it should not result in any error
+				Expect(len(causes)).To(Equal(0))
+			}
+		})
+
+		It("should reject invalid interface model", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces[0].Model = "invalid_model"
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+
 		It("should reject interfaces with missing network", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}

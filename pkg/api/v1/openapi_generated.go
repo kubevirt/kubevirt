@@ -808,6 +808,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
+						"model": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Interface model. One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 						"bridge": {
 							SchemaProps: spec.SchemaProps{
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
