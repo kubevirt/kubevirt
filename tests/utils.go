@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
@@ -329,6 +330,42 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osAlpineHostPath, defaultDiskSize)
 
 	CreatePVC(osWindows, defaultWindowsDiskSize)
+
+	EnsureKVMPresent()
+}
+
+func EnsureKVMPresent() {
+	useEmulation := false
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	options := metav1.GetOptions{}
+	cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
+	if err == nil {
+		val, ok := cfgMap.Data["debug.useEmulation"]
+		useEmulation = ok && (val == "true")
+	} else {
+		// If the cfgMap is missing, default to useEmulation=false
+		// no other error is expected
+		if !errors.IsNotFound(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+	if !useEmulation {
+		listOptions := metav1.ListOptions{}
+		Eventually(func() bool {
+			nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
+			Expect(err).ToNot(HaveOccurred())
+			ready := true
+			// cluster is not ready until all nodes are ready.
+			for _, node := range nodeList.Items {
+				_, ok := node.Status.Allocatable[services.KvmDevice]
+				ready = ready && ok
+			}
+			return ready
+		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
+			"KVM devices are required for testing, but are not present on cluster nodes")
+	}
 }
 
 func CreatePVC(os string, size string) {
