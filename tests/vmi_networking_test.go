@@ -66,7 +66,7 @@ var _ = Describe("Networking", func() {
 		logs := virtClient.CoreV1().Pods(inboundVMI.Namespace).GetLogs(pod.Name, &v12.PodLogOptions{SinceSeconds: &s})
 		rawLogs, err := logs.DoRaw()
 		Expect(err).ToNot(HaveOccurred())
-		log.Log.Infof("%v", rawLogs)
+		log.Log.Infof("%s", string(rawLogs))
 	}
 
 	waitForPodToFinish := func(pod *v12.Pod) v12.PodPhase {
