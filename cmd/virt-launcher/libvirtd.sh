@@ -53,4 +53,4 @@ if [ -d "/dev/hugepages" ]; then
     echo 'hugetlbfs_mount = "/dev/hugepages"' >>/etc/libvirt/qemu.conf
 fi
 
-/usr/sbin/libvirtd 
+/usr/sbin/libvirtd
