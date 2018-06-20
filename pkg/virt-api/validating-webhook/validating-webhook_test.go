@@ -816,10 +816,24 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-			// if this is processed correctly, it should not result in any error
-			Expect(len(causes)).To(Equal(0))
+			for _, macAddress := range []string{"de:ad:00:00:be:af", "de-ad-00-00-be-af"} {
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = macAddress // missing octet
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				// if this is processed correctly, it should not result in any error
+				Expect(len(causes)).To(Equal(0))
+			}
+		})
+
+		It("should reject invalid MAC addresses", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			for _, macAddress := range []string{"de:ad:00:00:be", "de-ad-00-00-be"} {
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = macAddress // missing octet
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(1))
+				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].macAddress"))
+			}
 		})
 	})
 	Context("with Volume", func() {
