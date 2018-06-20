@@ -134,7 +134,7 @@ func (c *VMController) execute(key string) error {
 
 	logger.Info("Started processing VM")
 
-	//TODO default rs if necessary, the aggregated apiserver will do that in the future
+	//TODO default vm if necessary, the aggregated apiserver will do that in the future
 	if VM.Spec.Template == nil {
 		logger.Error("Invalid controller spec, will not re-enqueue.")
 		return nil
@@ -194,7 +194,7 @@ func (c *VMController) execute(key string) error {
 	}
 
 	if createErr != nil {
-		logger.Reason(err).Error("Scaling the VirtualMachine failed.")
+		logger.Reason(err).Error("Creating the VirtualMachine failed.")
 	}
 
 	err = c.updateStatus(VM.DeepCopy(), vmi, createErr)
@@ -519,19 +519,19 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
-		if rs := c.resolveControllerRef(oldVMI.Namespace, oldControllerRef); rs != nil {
-			c.enqueueVm(rs)
+		if vm := c.resolveControllerRef(oldVMI.Namespace, oldControllerRef); vm != nil {
+			c.enqueueVm(vm)
 		}
 	}
 
 	// If it has a ControllerRef, that's all that matters.
 	if curControllerRef != nil {
-		rs := c.resolveControllerRef(curVMI.Namespace, curControllerRef)
-		if rs == nil {
+		vm := c.resolveControllerRef(curVMI.Namespace, curControllerRef)
+		if vm == nil {
 			return
 		}
 		log.Log.V(4).Object(curVMI).Infof("VirtualMachineInstance updated")
-		c.enqueueVm(rs)
+		c.enqueueVm(vm)
 		// TODO: MinReadySeconds in the VirtualMachineInstance will generate an Available condition to be added in
 		// Update once we support the available conect on the rs
 		return
@@ -540,13 +540,13 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 	// Otherwise, it's an orphan. If anything changed, sync matching controllers
 	// to see if anyone wants to adopt it now.
 	if labelChanged || controllerRefChanged {
-		rss := c.getMatchingControllers(curVMI)
-		if len(rss) == 0 {
+		vms := c.getMatchingControllers(curVMI)
+		if len(vms) == 0 {
 			return
 		}
 		log.Log.V(4).Object(curVMI).Infof("Orphan VirtualMachineInstance updated")
-		for _, rs := range rss {
-			c.enqueueVm(rs)
+		for _, vm := range vms {
+			c.enqueueVm(vm)
 		}
 	}
 }
