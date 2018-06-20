@@ -20,12 +20,18 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
+	"text/template"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/core/v1"
 )
+
+type NetworkTemplateConfig struct {
+	InterfaceConfig string
+}
 
 var exampleJSON = `{
   "kind": "VirtualMachineInstance",
@@ -157,7 +163,7 @@ var exampleJSON = `{
         "interfaces": [
           {
             "name": "default",
-            "bridge": {}
+            {{.InterfaceConfig}}
           }
         ]
       }
@@ -316,14 +322,6 @@ var _ = Describe("Schema", func() {
 		exampleVMI.Spec.Domain.CPU = &CPU{
 			Cores: 3,
 		}
-		exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
-			Interface{
-				Name: "default",
-				InterfaceBindingMethod: InterfaceBindingMethod{
-					Bridge: &InterfaceBridge{},
-				},
-			},
-		}
 		exampleVMI.Spec.Networks = []Network{
 			Network{
 				Name: "default",
@@ -335,17 +333,117 @@ var _ = Describe("Schema", func() {
 
 		SetObjectDefaults_VirtualMachineInstance(exampleVMI)
 	})
-	Context("With example schema in json", func() {
+	Context("With example schema in json use pod network and bridge interface", func() {
 		It("Unmarshal json into struct", func() {
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Bridge: &InterfaceBridge{},
+					},
+				},
+			}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"bridge": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
 			newVMI := &VirtualMachineInstance{}
-			err := json.Unmarshal([]byte(exampleJSON), newVMI)
+			err = json.Unmarshal(tpl.Bytes(), newVMI)
 			Expect(err).To(BeNil())
 			Expect(newVMI).To(Equal(exampleVMI))
 		})
 		It("Marshal struct into json", func() {
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Bridge: &InterfaceBridge{},
+					},
+				},
+			}
+
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"bridge": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
-			Expect(string(buf)).To(Equal(exampleJSON))
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
+		})
+	})
+	Context("With example schema in json use pod network and slirp interface", func() {
+		It("Unmarshal json into struct", func() {
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Slirp: &InterfaceSlirp{},
+					},
+				},
+			}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+			newVMI := &VirtualMachineInstance{}
+			err = json.Unmarshal(tpl.Bytes(), newVMI)
+			Expect(err).To(BeNil())
+			Expect(newVMI).To(Equal(exampleVMI))
+		})
+		It("Marshal struct into json", func() {
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Slirp: &InterfaceSlirp{},
+					},
+				},
+			}
+
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {}`}
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+			exampleJSONParsed := tpl.String()
+			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
+			Expect(err).To(BeNil())
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
+		})
+		It("Marshal struct into json with port configure", func() {
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Slirp: &InterfaceSlirp{Ports: []Port{{Port: 80}}},
+					},
+				},
+			}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {
+              "ports": [
+                {
+                  "port": 80
+                }
+              ]
+            }`}
+
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+			exampleJSONParsed := tpl.String()
+			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
+			Expect(err).To(BeNil())
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})
 })

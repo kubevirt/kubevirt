@@ -66,7 +66,7 @@ var _ = Describe("Networking", func() {
 		logs := virtClient.CoreV1().Pods(inboundVMI.Namespace).GetLogs(pod.Name, &v12.PodLogOptions{SinceSeconds: &s})
 		rawLogs, err := logs.DoRaw()
 		Expect(err).ToNot(HaveOccurred())
-		log.Log.Infof("%v", rawLogs)
+		log.Log.Infof("%s", string(rawLogs))
 	}
 
 	waitForPodToFinish := func(pod *v12.Pod) v12.PodPhase {
@@ -134,9 +134,11 @@ var _ = Describe("Networking", func() {
 
 			inboundVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(inboundVMI.Name, &v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVMI, 10*time.Second)
+
+			expecter, err := tests.LoggedInCirrosExpecter(inboundVMI)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
+
 			resp, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
@@ -172,13 +174,9 @@ var _ = Describe("Networking", func() {
 			payloadSize := expectedMtu - ipHeaderSize
 
 			// Wait until the VirtualMachineInstance is booted, ping google and check if we can reach the internet
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, outboundVMI, 10*time.Second)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
-
 			switch destination {
 			case "Internet":
-				addr = "www.google.com"
+				addr = "kubevirt.io"
 			case "InboundVMI":
 				addr = inboundVMI.Status.Interfaces[0].IP
 			}
@@ -198,8 +196,12 @@ var _ = Describe("Networking", func() {
 			Expect(strings.Contains(output, expectedMtuString)).To(BeTrue())
 
 			By("checking eth0 MTU inside the VirtualMachineInstance")
+			expecter, err := tests.LoggedInCirrosExpecter(outboundVMI)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
 			addrShow = "ip address show eth0\n"
-			out, err := expecter.ExpectBatch([]expect.Batcher{
+			resp, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: addrShow},
@@ -207,7 +209,7 @@ var _ = Describe("Networking", func() {
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: "0"},
 			}, 180*time.Second)
-			log.Log.Infof("%v", out)
+			log.Log.Infof("%v", resp)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
@@ -218,15 +220,14 @@ var _ = Describe("Networking", func() {
 			// NOTE: cirros ping doesn't support -M do that could be used to
 			// validate end-to-end connectivity with Don't Fragment flag set
 			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
-			out, err = expecter.ExpectBatch([]expect.Batcher{
+			err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: cmdCheck},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: "0"},
-			}, 180*time.Second)
-			log.Log.Infof("%v", out)
+			}, 180)
 			Expect(err).ToNot(HaveOccurred())
 		},
 			table.Entry("the Inbound VirtualMachineInstance", "InboundVMI"),
@@ -368,17 +369,12 @@ var _ = Describe("Networking", func() {
 	})
 
 	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-		defer expecter.Close()
-		Expect(err).ToNot(HaveOccurred())
-
-		out, err := expecter.ExpectBatch([]expect.Batcher{
+		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
 			&expect.BExp{R: expectedVendor},
-		}, 15*time.Second)
-		log.Log.Infof("%v", out)
+		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 	}
 

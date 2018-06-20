@@ -102,8 +102,28 @@ spec:
                               items:
                                 properties:
                                   bridge: {}
+                                  model:
+                                    type: string
                                   name:
                                     type: string
+                                  slirp:
+                                    properties:
+                                      ports:
+                                        items:
+                                          properties:
+                                            name:
+                                              type: string
+                                            podPort:
+                                              format: int32
+                                              type: integer
+                                            port:
+                                              format: int32
+                                              type: integer
+                                            protocol:
+                                              type: string
+                                          required:
+                                          - port
+                                        type: array
                                 required:
                                 - name
                               type: array
@@ -203,7 +223,10 @@ spec:
                         properties:
                           name:
                             type: string
-                          pod: {}
+                          pod:
+                            properties:
+                              vmNetworkCIDR:
+                                type: string
                         required:
                         - name
                       type: array

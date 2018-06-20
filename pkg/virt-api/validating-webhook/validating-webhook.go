@@ -46,6 +46,8 @@ const (
 	maxStrLen       = 256
 )
 
+var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
+
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
 	var body []byte
 	if r.Body != nil {
@@ -502,14 +504,21 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
-		for _, network := range spec.Networks {
+		for idx, network := range spec.Networks {
+			if network.Pod == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("should only accept networks with a pod network source"),
+					Field:   field.Child("networks").Index(idx).Child("pod").String(),
+				})
+			}
 			networkNameMap[network.Name] = &network
 		}
 
 		// Validate that each interface has a matching network
 		for idx, iface := range spec.Domain.Devices.Interfaces {
 
-			_, networkExists := networkNameMap[iface.Name]
+			networkData, networkExists := networkNameMap[iface.Name]
 
 			if !networkExists {
 				causes = append(causes, metav1.StatusCause{
@@ -517,15 +526,74 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
-			}
-
-			// verify that pod network is selected
-			if spec.Networks[0].Pod == nil {
+			} else if iface.Bridge != nil && networkData.Pod == nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("only a %s network source can be selected.", field.Child("domain", "devices", "networks").Index(0).Child("pod").String()),
-					Field:   field.Child("domain", "devices", "networks").Index(0).Child("pod").String(),
+					Message: fmt.Sprintf("Bridge interface only implemented with pod network"),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
+			} else if iface.Slirp != nil && networkData.Pod == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Slirp interface only implemented with pod network"),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
+			}
+
+			if iface.Slirp != nil && iface.Slirp.Ports != nil {
+				portForwardMap := make(map[string]struct{})
+
+				for portIdx, forwardPort := range iface.Slirp.Ports {
+
+					if forwardPort.Port == 0 {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueRequired,
+							Message: fmt.Sprintf("Port field is mandatory in every Port"),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+						})
+					}
+
+					if forwardPort.Protocol != "" {
+						if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
+							causes = append(causes, metav1.StatusCause{
+								Type:    metav1.CauseTypeFieldValueInvalid,
+								Message: fmt.Sprintf("Unknown protocol, only TCP or UDP allowed"),
+								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
+							})
+						}
+					} else {
+						forwardPort.Protocol = "TCP"
+					}
+
+					if _, ok := portForwardMap[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)]; ok {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("Port and protocol combination must be unique"),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+						})
+					}
+
+					portForwardMap[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)] = struct{}{}
+				}
+			}
+
+			// verify that selected model is supported
+			if iface.Model != "" {
+				isModelSupported := func(model string) bool {
+					for _, m := range validInterfaceModels {
+						if m == model {
+							return true
+						}
+					}
+					return false
+				}
+				if !isModelSupported(iface.Model) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
+					})
+				}
 			}
 		}
 	}

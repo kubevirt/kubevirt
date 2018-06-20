@@ -3820,13 +3820,31 @@
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
-     "name": {
-      "description": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+     "model": {
+      "description": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
       "type": "string"
+     },
+     "name": {
+      "description": "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
+      "type": "string"
+     },
+     "slirp": {
+      "$ref": "#/definitions/v1.InterfaceSlirp"
      }
     }
    },
    "v1.InterfaceBridge": {},
+   "v1.InterfaceSlirp": {
+    "properties": {
+     "ports": {
+      "description": "List of ports to be forwarded to the virtual machine.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Port"
+      }
+     }
+    }
+   },
    "v1.KVMTimer": {
     "properties": {
      "present": {
@@ -3943,7 +3961,7 @@
     ],
     "properties": {
      "name": {
-      "description": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "description": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
      },
      "pod": {
@@ -4232,7 +4250,35 @@
     }
    },
    "v1.PodNetwork": {
-    "description": "Represents the stock pod network interface"
+    "description": "Represents the stock pod network interface.",
+    "properties": {
+     "vmNetworkCIDR": {
+      "description": "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.Port": {
+    "description": "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nDefault port is PodPort.",
+    "required": [
+     "port"
+    ],
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "podPort": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "port": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "protocol": {
+      "type": "string"
+     }
+    }
    },
    "v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",

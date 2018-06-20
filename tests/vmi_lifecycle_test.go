@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/goexpect"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -176,7 +178,11 @@ var _ = Describe("VMIlifecycle", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Checking console text")
-				err = tests.CheckForTextExpecter(vmi, consoleText, wait)
+				err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: consoleText},
+				}, wait)
 				Expect(err).ToNot(HaveOccurred())
 			},
 				table.Entry("Alpine as first boot", uint(1), uint(2), "Welcome to Alpine", 90),
