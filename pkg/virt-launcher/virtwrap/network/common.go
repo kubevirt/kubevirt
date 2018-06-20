@@ -169,11 +169,11 @@ func initHandler() {
 func writeToCachedFile(inter interface{}, fileName, name string) error {
 	buf, err := json.MarshalIndent(&inter, "", "  ")
 	if err != nil {
-		return fmt.Errorf("error marshaling cache object: %v", err)
+		return fmt.Errorf("error marshaling cached object: %v", err)
 	}
 	err = ioutil.WriteFile(getInterfaceCacheFile(fileName, name), buf, 0644)
 	if err != nil {
-		return fmt.Errorf("error writing cache object: %v", err)
+		return fmt.Errorf("error writing cached object: %v", err)
 	}
 	return nil
 }
@@ -189,7 +189,7 @@ func readFromCachedFile(name, fileName string, inter interface{}) (bool, error) 
 
 	err = json.Unmarshal(buf, &inter)
 	if err != nil {
-		return false, fmt.Errorf("error unmarshaling cache object: %v", err)
+		return false, fmt.Errorf("error unmarshaling cached object: %v", err)
 	}
 	return true, nil
 }
