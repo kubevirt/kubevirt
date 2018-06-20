@@ -812,6 +812,15 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.interfaces"))
 		})
 
+		It("should accept valid MAC address", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			// if this is processed correctly, it should not result in any error
+			Expect(len(causes)).To(Equal(0))
+		})
 	})
 	Context("with Volume", func() {
 		table.DescribeTable("should accept valid volumes",
