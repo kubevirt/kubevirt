@@ -38,10 +38,12 @@ import (
 
 	"reflect"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 func NewVMController(vmiInformer cache.SharedIndexInformer,
@@ -51,13 +53,14 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	clientset kubecli.KubevirtClient) *VMController {
 
 	c := &VMController{
-		Queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmiInformer:        vmiInformer,
-		vmiVMInformer:      vmiVMInformer,
-		dataVolumeInformer: dataVolumeInformer,
-		recorder:           recorder,
-		clientset:          clientset,
-		expectations:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		Queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmiInformer:            vmiInformer,
+		vmiVMInformer:          vmiVMInformer,
+		dataVolumeInformer:     dataVolumeInformer,
+		recorder:               recorder,
+		clientset:              clientset,
+		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
 	c.vmiVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -72,17 +75,24 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		UpdateFunc: c.updateVirtualMachine,
 	})
 
+	c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addDataVolume,
+		DeleteFunc: c.deleteDataVolume,
+		UpdateFunc: c.updateDataVolume,
+	})
+
 	return c
 }
 
 type VMController struct {
-	clientset          kubecli.KubevirtClient
-	Queue              workqueue.RateLimitingInterface
-	vmiInformer        cache.SharedIndexInformer
-	vmiVMInformer      cache.SharedIndexInformer
-	dataVolumeInformer cache.SharedIndexInformer
-	recorder           record.EventRecorder
-	expectations       *controller.UIDTrackingControllerExpectations
+	clientset              kubecli.KubevirtClient
+	Queue                  workqueue.RateLimitingInterface
+	vmiInformer            cache.SharedIndexInformer
+	vmiVMInformer          cache.SharedIndexInformer
+	dataVolumeInformer     cache.SharedIndexInformer
+	recorder               record.EventRecorder
+	expectations           *controller.UIDTrackingControllerExpectations
+	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
 }
 
 func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
@@ -91,7 +101,7 @@ func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Starting VirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmiVMInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmiVMInformer.HasSynced, c.dataVolumeInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -146,7 +156,7 @@ func (c *VMController) execute(key string) error {
 		return nil
 	}
 
-	needsSync := c.expectations.SatisfiedExpectations(key)
+	needsSync := c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 
 	vmKey, err := controller.KeyFunc(VM)
 	if err != nil {
@@ -185,12 +195,33 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
+	// Get all dataVolumes from the namespace
+	dataVolumes, err := c.listDataVolumesFromNamespace(VM.Namespace)
+
+	if err != nil {
+		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
+		return err
+	}
+
+	// Only consider dataVolumes which belong to this vm
+	dataVolumes, err = c.filterMatchingDataVolumes(VM, dataVolumes)
+	if err != nil {
+		return err
+	}
+
 	var createErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if needsSync && VM.ObjectMeta.DeletionTimestamp == nil {
-		logger.Infof("Creating or the VirtualMachineInstance: %t", VM.Spec.Running)
-		createErr = c.startStop(VM, vmi)
+
+		dataVolumesReady, err := c.handleDataVolumes(VM, dataVolumes)
+		if err != nil {
+			createErr = err
+		} else if dataVolumesReady == true {
+			logger.Infof("Creating or the VirtualMachineInstance: %t", VM.Spec.Running)
+			createErr = c.startStop(VM.DeepCopy(), vmi)
+		}
+
 	}
 
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
@@ -210,6 +241,40 @@ func (c *VMController) execute(key string) error {
 	}
 
 	return createErr
+}
+
+func (c *VMController) listDataVolumesFromNamespace(namespace string) ([]*cdiv1.DataVolume, error) {
+	objs, err := c.dataVolumeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil, err
+	}
+	dataVolumes := []*cdiv1.DataVolume{}
+	for _, obj := range objs {
+		dataVolume := obj.(*cdiv1.DataVolume)
+		dataVolumes = append(dataVolumes, dataVolume)
+	}
+	return dataVolumes, nil
+}
+
+func (c *VMController) filterMatchingDataVolumes(vm *virtv1.VirtualMachine, dataVolumes []*cdiv1.DataVolume) ([]*cdiv1.DataVolume, error) {
+	matchingDataVolumes := []*cdiv1.DataVolume{}
+	for _, dataVolume := range dataVolumes {
+
+		controllerRef := controller.GetControllerOf(dataVolume)
+		if controllerRef == nil {
+			continue
+		}
+		ownerVM := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+		if ownerVM == nil {
+			continue
+		} else if ownerVM.UID != vm.UID {
+			continue
+		}
+
+		// TODO start here verify we match a dataVolume
+		matchingDataVolumes = append(matchingDataVolumes, dataVolume)
+	}
+	return matchingDataVolumes, nil
 }
 
 // orphan removes the owner reference of all VMIs which are owned by the controller instance.
@@ -276,6 +341,62 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	return nil
 }
 
+func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes []*cdiv1.DataVolume) (bool, error) {
+	ready := true
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return ready, err
+	}
+
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.VolumeSource.DataVolume == nil {
+			continue
+		}
+
+		var curDataVolume *cdiv1.DataVolume
+		exists := false
+
+		for _, curDataVolume = range dataVolumes {
+			dataVolumeSourceName, ok := curDataVolume.Annotations[virtv1.DataVolumeSourceName]
+			if ok && dataVolumeSourceName == volume.Name {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			// ready = false because encountered DataVolume that is not created yet
+			ready = false
+
+			newDataVolume, err := setupDataVolumeFromVM(vm, volume.Name)
+			if err != nil {
+				return ready, fmt.Errorf("Failed to generate new DataVolume: %v", err)
+			}
+
+			c.dataVolumeExpectations.ExpectCreations(vmKey, 1)
+			curDataVolume, err = c.clientset.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Create(newDataVolume)
+			if err != nil {
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeCreateReason, "Error creating DataVolume %s: %v", newDataVolume.Name, err)
+				c.dataVolumeExpectations.CreationObserved(vmKey)
+				return ready, fmt.Errorf("Failed to create DataVolume: %v", err)
+			}
+			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s for Volume %s", curDataVolume.Name, volume.Name)
+		}
+
+		if curDataVolume != nil && curDataVolume.Status.Phase != cdiv1.Succeeded {
+			// ready = false because encountered DataVolume that is not populated yet
+			ready = false
+
+			if curDataVolume.Status.Phase == cdiv1.Failed {
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed to import disk image", curDataVolume.Name)
+				return ready, fmt.Errorf("DataVolume %s for volume %s failed to import", curDataVolume.Name, volume.Name)
+			}
+		}
+	}
+
+	return ready, nil
+}
+
 func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// TODO add check for existence
 	vmKey, err := controller.KeyFunc(vm)
@@ -330,6 +451,45 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	return nil
 }
 
+func setupDataVolumeFromVM(vm *virtv1.VirtualMachine, volumeName string) (*cdiv1.DataVolume, error) {
+	var volume *virtv1.Volume
+	for _, curVolume := range vm.Spec.Template.Spec.Volumes {
+		if curVolume.Name == volumeName {
+			volume = curVolume.DeepCopy()
+			break
+		}
+	}
+
+	if volume == nil {
+		return nil, fmt.Errorf("Unable to generate DataVolume spec, volume %s does not exist on vm %s", volumeName, vm.Name)
+	}
+
+	annotations := map[string]string{}
+
+	annotations[virtv1.DataVolumeSourceName] = volume.Name
+	annotations[virtv1.CreatedByAnnotation] = string(vm.UID)
+	annotations[virtv1.OwnedByAnnotation] = "virt-controller"
+
+	newDataVolume := &cdiv1.DataVolume{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        services.GetDataVolumeName(vm.Name, volume.Name),
+			Annotations: annotations,
+		},
+		Spec: *volume.VolumeSource.DataVolume,
+	}
+	t := true
+	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
+		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.ObjectMeta.Name,
+		UID:                vm.ObjectMeta.UID,
+		Controller:         &t,
+		BlockOwnerDeletion: &t,
+	}}
+
+	return newDataVolume, nil
+}
+
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	basename := c.getVirtualMachineBaseName(vm)
@@ -353,6 +513,23 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		Controller:         &t,
 		BlockOwnerDeletion: &t,
 	}}
+
+	// The DataVolume is associated with the VM not the VMI
+	// Replace DataVolume references with PVCs
+	for idx, volume := range vmi.Spec.Volumes {
+		if volume.DataVolume == nil {
+			continue
+		}
+
+		vmi.Spec.Volumes[idx] = virtv1.Volume{
+			Name: volume.Name,
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &k8score.PersistentVolumeClaimVolumeSource{
+					ClaimName: services.GetDataVolumeToPVC(vm.Name, volume.Name),
+				},
+			},
+		}
+	}
 
 	return vmi
 }
@@ -593,6 +770,118 @@ func (c *VMController) deleteVirtualMachine(obj interface{}) {
 		return
 	}
 	c.expectations.DeletionObserved(vmKey, controller.VirtualMachineKey(vmi))
+	c.enqueueVm(vm)
+}
+
+func (c *VMController) addDataVolume(obj interface{}) {
+
+	dataVolume := obj.(*cdiv1.DataVolume)
+
+	if dataVolume.DeletionTimestamp != nil {
+		c.deleteDataVolume(dataVolume)
+		return
+	}
+
+	controllerRef := controller.GetControllerOf(dataVolume)
+	if controllerRef == nil {
+		return
+	}
+
+	log.Log.Object(dataVolume).Info("Looking for DataVolume Ref")
+	vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+	if vm == nil {
+		log.Log.Object(dataVolume).Errorf("Cant find the matching VM for DataVolume: %s", dataVolume.Name)
+		return
+	}
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		log.Log.Object(dataVolume).Errorf("Cannot parse key of VM: %s for DataVolume: %s", vm.Name, dataVolume.Name)
+		return
+	}
+	log.Log.Object(dataVolume).Infof("DataVolume created because %s was added.", dataVolume.Name)
+	c.dataVolumeExpectations.CreationObserved(vmKey)
+	c.enqueueVm(vm)
+}
+
+func (c *VMController) updateDataVolume(old, cur interface{}) {
+	curDataVolume := cur.(*cdiv1.DataVolume)
+	oldDataVolume := old.(*cdiv1.DataVolume)
+
+	if curDataVolume.ResourceVersion == oldDataVolume.ResourceVersion {
+		// Periodic resync will send update events for all known DataVolumes.
+		// Two different versions of the same dataVolume will always
+		// have different RVs.
+		return
+	}
+
+	labelChanged := !reflect.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
+	if curDataVolume.DeletionTimestamp != nil {
+		// having a DataVOlume marked for deletion is enough
+		// to count as a deletion expectation
+		c.deleteDataVolume(curDataVolume)
+		if labelChanged {
+			// we don't need to check the oldDataVolume.DeletionTimestamp
+			// because DeletionTimestamp cannot be unset.
+			c.deleteDataVolume(oldDataVolume)
+		}
+		return
+	}
+
+	curControllerRef := controller.GetControllerOf(curDataVolume)
+	oldControllerRef := controller.GetControllerOf(oldDataVolume)
+	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	if controllerRefChanged && oldControllerRef != nil {
+		// The ControllerRef was changed. Sync the old controller, if any.
+		if vm := c.resolveControllerRef(oldDataVolume.Namespace, oldControllerRef); vm != nil {
+			c.enqueueVm(vm)
+		}
+	}
+
+	if curControllerRef == nil {
+		return
+	}
+	vm := c.resolveControllerRef(curDataVolume.Namespace, curControllerRef)
+	if vm == nil {
+		return
+	}
+	log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated")
+	c.enqueueVm(vm)
+}
+
+func (c *VMController) deleteDataVolume(obj interface{}) {
+	dataVolume, ok := obj.(*cdiv1.DataVolume)
+
+	// When a delete is dropped, the relist will notice a dataVolume in the store not
+	// in the list, leading to the insertion of a tombstone object which contains
+	// the deleted key/value. Note that this value might be stale. If the dataVolume
+	// changed labels the new vmi will not be woken up till the periodic resync.
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			return
+		}
+		dataVolume, ok = tombstone.Obj.(*cdiv1.DataVolume)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+	}
+
+	controllerRef := controller.GetControllerOf(dataVolume)
+	if controllerRef == nil {
+		// No controller should care about orphans being deleted.
+		return
+	}
+	vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+	if vm == nil {
+		return
+	}
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return
+	}
+	c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(dataVolume))
 	c.enqueueVm(vm)
 }
 

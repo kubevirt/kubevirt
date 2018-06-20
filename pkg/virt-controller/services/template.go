@@ -136,7 +136,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: dataVolumeToPVC(vmi, volume.Name),
+						ClaimName: GetDataVolumeToPVC(vmi.Name, volume.Name),
 					},
 				},
 			})
@@ -394,7 +394,7 @@ func (t *templateService) RenderDataVolumeManifest(vmi *v1.VirtualMachineInstanc
 
 	newDataVolume := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        generateDataVolumeName(vmi, volume.Name),
+			Name:        GetDataVolumeName(vmi.Name, volume.Name),
 			Labels:      labels,
 			Annotations: annotations,
 		},
@@ -404,13 +404,13 @@ func (t *templateService) RenderDataVolumeManifest(vmi *v1.VirtualMachineInstanc
 	return newDataVolume, nil
 }
 
-func dataVolumeToPVC(vmi *v1.VirtualMachineInstance, volumeName string) string {
+func GetDataVolumeToPVC(vmName string, volumeName string) string {
 	// dataVolume generates a PVC of the same name in the same namespace
-	return generateDataVolumeName(vmi, volumeName)
+	return GetDataVolumeName(vmName, volumeName)
 }
 
-func generateDataVolumeName(vmi *v1.VirtualMachineInstance, volumeName string) string {
-	return fmt.Sprintf("%s-%s---autogen", vmi.Name, volumeName)
+func GetDataVolumeName(vmName string, volumeName string) string {
+	return fmt.Sprintf("%s-%s---autogen", vmName, volumeName)
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
