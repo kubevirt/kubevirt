@@ -102,6 +102,8 @@ spec:
                               items:
                                 properties:
                                   bridge: {}
+                                  macAddress:
+                                    type: string
                                   model:
                                     type: string
                                   name:

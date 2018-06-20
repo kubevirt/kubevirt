@@ -676,6 +676,8 @@ type Interface struct {
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
 	// Defaults to Bridge.
 	InterfaceBindingMethod `json:",inline"`
+	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
+	MacAddress string `json:"macAddress,omitempty"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

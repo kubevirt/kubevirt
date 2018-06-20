@@ -3820,6 +3820,10 @@
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
+     "macAddress": {
+      "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
+      "type": "string"
+     },
      "model": {
       "description": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
       "type": "string"
