@@ -497,7 +497,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if iface.Slirp != nil {
 			// Slirp configuration works only with e1000 or rtl8139
 			if iface.Model != "e1000" && iface.Model != "rtl8139" {
-				log.Log.Infof("The network interface type of %s was changed from virtio to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
+				log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
 				return "e1000"
 			}
 			return iface.Model

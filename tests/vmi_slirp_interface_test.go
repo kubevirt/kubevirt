@@ -66,7 +66,7 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Contains(output, "0.0.0.0:80")).To(BeTrue())
 		})
-		It("should return \"Hello Word\" when connecting to localhost on port 80", func() {
+		It("should return \"Hello World\" when connecting to localhost on port 80", func() {
 			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
