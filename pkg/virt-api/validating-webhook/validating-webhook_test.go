@@ -256,7 +256,11 @@ var _ = Describe("Validating Webhook", func() {
 	Context("with VMIPreset admission review", func() {
 		It("reject invalid VirtualMachineInstance spec", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			vmiPDomain := &v1.DomainPresetSpec{}
+			vmiDomainByte, _ := json.Marshal(vmi.Spec.Domain)
+			Expect(json.Unmarshal(vmiDomainByte, &vmiPDomain)).To(BeNil())
+
+			vmiPDomain.Devices.Disks = append(vmiPDomain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
 				VolumeName: "testvolume",
 				DiskDevice: v1.DiskDevice{
@@ -266,10 +270,10 @@ var _ = Describe("Validating Webhook", func() {
 			})
 			vmiPreset := &v1.VirtualMachineInstancePreset{
 				Spec: v1.VirtualMachineInstancePresetSpec{
-					Domain: &vmi.Spec.Domain,
+					Domain: vmiPDomain,
 				},
 			}
-			vmiPresetBytes, _ := json.Marshal(&vmiPreset)
+			vmiPresetBytes, _ := json.Marshal(vmiPreset)
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -298,7 +302,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			vmiPreset := &v1.VirtualMachineInstancePreset{
 				Spec: v1.VirtualMachineInstancePresetSpec{
-					Domain: &v1.DomainSpec{},
+					Domain: &v1.DomainPresetSpec{},
 				},
 			}
 			vmiPresetBytes, _ := json.Marshal(&vmiPreset)
@@ -591,6 +595,28 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			// if this is processed correctly, it should not result in any error
 			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should accept valid interface models", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			for _, model := range validInterfaceModels {
+				vmi.Spec.Domain.Devices.Interfaces[0].Model = model
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				// if this is processed correctly, it should not result in any error
+				Expect(len(causes)).To(Equal(0))
+			}
+		})
+
+		It("should reject invalid interface model", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces[0].Model = "invalid_model"
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
 		})
 
 		It("should reject interfaces with missing network", func() {

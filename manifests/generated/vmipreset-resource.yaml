@@ -88,6 +88,8 @@ spec:
                       items:
                         properties:
                           bridge: {}
+                          model:
+                            type: string
                           name:
                             type: string
                           slirp:
@@ -198,8 +200,6 @@ spec:
                       type: object
                     requests:
                       type: object
-              required:
-              - devices
             selector: {}
           required:
           - selector

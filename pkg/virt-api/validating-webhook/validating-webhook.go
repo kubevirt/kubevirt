@@ -44,6 +44,8 @@ const (
 	arrayLenMax     = 256
 )
 
+var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
+
 func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
 	var body []byte
 	if r.Body != nil {
@@ -291,6 +293,12 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 func validateDevices(field *k8sfield.Path, devices *v1.Devices) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDisks(field.Child("disks"), devices.Disks)...)
+	return causes
+}
+
+func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainPresetSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
 	return causes
 }
 
@@ -547,6 +555,25 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					portForwardMap[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)] = struct{}{}
 				}
 			}
+
+			// verify that selected model is supported
+			if iface.Model != "" {
+				isModelSupported := func(model string) bool {
+					for _, m := range validInterfaceModels {
+						if m == model {
+							return true
+						}
+					}
+					return false
+				}
+				if !isModelSupported(iface.Model) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
+					})
+				}
+			}
 		}
 	}
 
@@ -581,7 +608,7 @@ func ValidateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 		})
 	}
 
-	causes = append(causes, validateDomainSpec(field.Child("domain"), spec.Domain)...)
+	causes = append(causes, validateDomainPresetSpec(field.Child("domain"), spec.Domain)...)
 	return causes
 }
 

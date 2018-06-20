@@ -1,5 +1,5 @@
-hash: b0f00760777f6e6400e35e1b99f7cbc0e06762709cbb0f3f3f2c19a8f7b0f528
-updated: 2018-04-30T14:14:24.062881352Z
+hash: 72f3abe955ef368d170b0201cdb32729b15c0c5bc3e8523dbd6d7dc7d235fbcb
+updated: 2018-05-30T17:36:13.225619211-04:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -34,7 +34,7 @@ imports:
   subpackages:
   - log
 - name: github.com/emicklei/go-restful-openapi
-  version: 7712e8a6e8096e7103b96a400519d38fb1e348f8
+  version: 51bf251d405ad1e23511fef0a2dbe40bc70ce2c6
 - name: github.com/emicklei/go-restful-swagger12
   version: 7524189396c68dc4b04d53852f9edc00f816b123
 - name: github.com/evanphx/json-patch
@@ -62,9 +62,11 @@ imports:
 - name: github.com/go-stack/stack
   version: 259ab82a6cad3992b4e21ff5cac294ccb06474bc
 - name: github.com/gogo/protobuf
-  version: 1ef32a8b9fc3f8ec940126907cedb5998f6318e4
+  version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
+  - gogoproto
   - proto
+  - protoc-gen-gogo/descriptor
   - sortkeys
 - name: github.com/golang/glog
   version: 44145f04b68cf362d9c4df2182967c2275eaefed
@@ -73,7 +75,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 87f106fccd7e3ced294a19e86bebd7846911690a
+  version: 22bbf0ddf08105dfa364d0a2fa619dfa71014af5
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -91,7 +93,7 @@ imports:
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/google/goterm
-  version: a4092ec6825782fa1703cbaaeaf24ef377d5c9c4
+  version: 70e1c263818522aa1ecbdd34d7e143639d447ced
   subpackages:
   - term
 - name: github.com/googleapis/gnostic
@@ -188,7 +190,7 @@ imports:
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/spf13/cobra
-  version: a1f051bc3eba734da4772d60e2d677f47cf93ef4
+  version: ef82de70bb3f60c65fb8eebacbb2d122ef517385
   subpackages:
   - cobra
 - name: github.com/spf13/pflag
@@ -223,9 +225,10 @@ imports:
   - idna
   - internal/iana
   - internal/socket
+  - internal/timeseries
   - ipv4
   - lex/httplex
-  - websocket
+  - trace
 - name: golang.org/x/oauth2
   version: a6bd8cefa1811bd24b86f8902872e4e8225f74c4
   subpackages:
@@ -264,7 +267,7 @@ imports:
   - unicode/norm
   - width
 - name: google.golang.org/appengine
-  version: 962cbd1200af94a5a35ba8d512e9f91271b4d01a
+  version: b1f26356af11148e710935ed1ac8a7f5702c7612
   subpackages:
   - internal
   - internal/app_identity
@@ -275,14 +278,30 @@ imports:
   - internal/remote_api
   - internal/urlfetch
   - urlfetch
+- name: google.golang.org/genproto
+  version: 09f6ed296fc66555a25fe4ce95173148778dfa85
+  subpackages:
+  - googleapis/rpc/status
 - name: google.golang.org/grpc
   version: d2e1b51f33ff8c5e4a15560ff049d200e83726c5
   subpackages:
   - codes
+  - credentials
+  - grpclb/grpc_lb_v1
+  - grpclog
+  - internal
+  - keepalive
+  - metadata
+  - naming
+  - peer
+  - stats
+  - status
+  - tap
+  - transport
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 6529cf7c58879c08d927016dde4477f18a0634cb
+  version: 06f5f3d67269ccec1fe5fe4134ba6e982984f7f5
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/api
@@ -307,6 +326,7 @@ imports:
   - core/v1
   - events/v1beta1
   - extensions/v1beta1
+  - imagepolicy/v1alpha1
   - networking/v1
   - policy/v1beta1
   - rbac/v1
@@ -488,7 +508,7 @@ imports:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/qe-tools
-  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  version: 80f4b017d28e9c45955ac462dfcdef4520e6ec1a
   repo: https://github.com/kubevirt/qe-tools.git
   subpackages:
   - pkg/ginkgo-reporters

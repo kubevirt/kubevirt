@@ -3085,6 +3085,85 @@
    }
   },
   "definitions": {
+   "big.Int": {
+    "required": [
+     "neg",
+     "abs"
+    ],
+    "properties": {
+     "abs": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/big.Word"
+      }
+     },
+     "neg": {
+      "type": "boolean"
+     }
+    }
+   },
+   "big.Word": {},
+   "inf.Dec": {
+    "required": [
+     "unscaled",
+     "scale"
+    ],
+    "properties": {
+     "scale": {
+      "$ref": "#/definitions/inf.Scale"
+     },
+     "unscaled": {
+      "$ref": "#/definitions/big.Int"
+     }
+    }
+   },
+   "resource.Quantity": {
+    "required": [
+     "i",
+     "d",
+     "s",
+     "Format"
+    ],
+    "properties": {
+     "Format": {
+      "type": "string"
+     },
+     "d": {
+      "$ref": "#/definitions/resource.infDecAmount"
+     },
+     "i": {
+      "$ref": "#/definitions/resource.int64Amount"
+     },
+     "s": {
+      "type": "string"
+     }
+    }
+   },
+   "resource.infDecAmount": {
+    "required": [
+     "Dec"
+    ],
+    "properties": {
+     "Dec": {
+      "$ref": "#/definitions/inf.Dec"
+     }
+    }
+   },
+   "resource.int64Amount": {
+    "required": [
+     "value",
+     "scale"
+    ],
+    "properties": {
+     "scale": {
+      "$ref": "#/definitions/resource.Scale"
+     },
+     "value": {
+      "type": "integer",
+      "format": "int64"
+     }
+    }
+   },
    "types.UID": {},
    "v1.APIGroup": {
     "description": "APIGroup contains the name, the supported versions, and the preferred version of a group.",
@@ -3426,6 +3505,42 @@
      }
     }
    },
+   "v1.DomainPresetSpec": {
+    "properties": {
+     "clock": {
+      "description": "Clock sets the clock and timers of the vmi.\n+optional",
+      "$ref": "#/definitions/v1.Clock"
+     },
+     "cpu": {
+      "description": "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
+      "$ref": "#/definitions/v1.CPU"
+     },
+     "devices": {
+      "description": "Devices allows adding disks, network interfaces, ...\n+optional",
+      "$ref": "#/definitions/v1.Devices"
+     },
+     "features": {
+      "description": "Features like acpi, apic, hyperv\n+optional",
+      "$ref": "#/definitions/v1.Features"
+     },
+     "firmware": {
+      "description": "Firmware\n+optional",
+      "$ref": "#/definitions/v1.Firmware"
+     },
+     "machine": {
+      "description": "Machine type\n+optional",
+      "$ref": "#/definitions/v1.Machine"
+     },
+     "memory": {
+      "description": "Memory allow specifying the VMI memory features.\n+optional",
+      "$ref": "#/definitions/v1.Memory"
+     },
+     "resources": {
+      "description": "Resources describes the Compute Resources required by this vmi.",
+      "$ref": "#/definitions/v1.ResourceRequirements"
+     }
+    }
+   },
    "v1.DomainSpec": {
     "required": [
      "devices"
@@ -3701,6 +3816,10 @@
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
+     "model": {
+      "description": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+      "type": "string"
+     },
      "name": {
       "description": "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
       "type": "string"
@@ -3742,7 +3861,10 @@
      },
      "matchLabels": {
       "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
      }
     }
    },
@@ -3918,7 +4040,10 @@
     "properties": {
      "annotations": {
       "description": "Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. More info: http://kubernetes.io/docs/user-guide/annotations",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
      },
      "clusterName": {
       "description": "The name of the cluster which the object belongs to. This is used to distinguish resources with same name and namespace in different clusters. This field is not set anywhere right now and apiserver is going to ignore it if set in create or update request.",
@@ -3959,7 +4084,10 @@
      },
      "labels": {
       "description": "Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. More info: http://kubernetes.io/docs/user-guide/labels",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
      },
      "name": {
       "description": "Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names",
@@ -4211,11 +4339,17 @@
     "properties": {
      "limits": {
       "description": "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "$ref": "#/definitions/resource.Quantity"
+      }
      },
      "requests": {
       "description": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "$ref": "#/definitions/resource.Quantity"
+      }
      }
     }
    },
@@ -4538,7 +4672,7 @@
     "properties": {
      "domain": {
       "description": "Domain is the same object type as contained in VirtualMachineInstanceSpec",
-      "$ref": "#/definitions/v1.DomainSpec"
+      "$ref": "#/definitions/v1.DomainPresetSpec"
      },
      "selector": {
       "description": "Selector is a label query over a set of VMIs.\nRequired.",
@@ -4693,7 +4827,10 @@
      },
      "nodeSelector": {
       "description": "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
      },
      "subdomain": {
       "description": "If specified, the fully qualified vmi hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\".\nIf not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,\nno matter if the vmi itself can pick up a hostname.\n+optional",

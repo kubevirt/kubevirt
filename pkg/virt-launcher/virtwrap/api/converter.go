@@ -45,7 +45,7 @@ import (
 )
 
 type ConverterContext struct {
-	AllowEmulation bool
+	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 }
@@ -349,7 +349,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
-		if c.AllowEmulation {
+		if c.UseEmulation {
 			logger := log.DefaultLogger()
 			logger.Infof("Hardware emulation device '/dev/kvm' not present. Using software emulation.")
 			domain.Spec.Type = "qemu"
@@ -493,12 +493,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		},
 	}
 
-	// Add mandatory interface
-	interfaceType := "virtio"
-
-	_, ok := vmi.ObjectMeta.Annotations[v1.InterfaceModel]
-	if ok {
-		interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
+	getInterfaceType := func(iface *v1.Interface) string {
+		if iface.Model != "" {
+			return iface.Model
+		}
+		return "virtio"
 	}
 
 	networks := map[string]*v1.Network{}
@@ -515,12 +514,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if net.Pod == nil {
 			return fmt.Errorf("network interface type not supported for %s", iface.Name)
 		}
-		// TODO:(ihar) consider abstracting interface type conversion /
-		// detection into drivers
+
 		if iface.Bridge != nil {
+			// TODO:(ihar) consider abstracting interface type conversion /
+			// detection into drivers
 			domainIface := Interface{
 				Model: &Model{
-					Type: interfaceType,
+					Type: getInterfaceType(&iface),
 				},
 				Type: "bridge",
 				Source: InterfaceSource{
@@ -531,7 +531,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				},
 			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
-
 		} else if iface.Slirp != nil {
 			// Slirp configuration works only with e1000 or rtl8139
 			slirpInterfaceType := "e1000"

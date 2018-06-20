@@ -40,7 +40,7 @@ deploy:
 - provider: releases
   skip_cleanup: true
   api_key:
-    secure: dy3AlSki7p9sRjItOiWoPv4s28+hZ9wMcuvtZv0bWHbEZ7y/EvzXcwWmn+/Tjjk4Np59LImUjJw1E5Yv2Q16ViuNwKbX7TA7fu+wAcTz4DF4wFLIrJBcCRetiud4175aJ1ylOvmtHOuWHfo6Wx5HRxRT0fLcMFdSoagpe4Dh7BJYfI4Sgu/jghMMJ4wcDsMLZqi6RRM6jywFXQXMmBY87E57/ZLlXZ5Nud5RoWXJxfFfc/vTn/frCBu7r+JW8ayGeGVPEkEMtWX1huWnIvVjNu1twuZnL3zWmLNmpFXfk3j/gLbdIwLn3jgtariNz/Rvigqaj18F0Fa/QNL6VcruqgXd6ryWxmGm9sD6MYC3kk0HoqwSI7WBf88tlfz27FR+cHFZtjTBXnZHBtM5skuzUpT4kUKhLkwcfgA5PmoW/7NcmnN0eKvOQuQYq/8pREwdmYAvYsGPWJZjNYHBCv9KRT1lDRN5jRLMi5wn7NWFMR1p+mbdHyd7i43zM8gnumqvGF/chZ9PEH38hnm835RZAwnzdJ3EQ4YFAaOE2AaUBe9Yw1FP6f22MOC8+N9CY+a1AlGQBmovPjaf+x4f+Jx6y9jjxahJpoXxEKgeFvfSVUoKbkMPMOHxMAb0UL9Rqq3BhlLnPQIjcwdCZU/+wTcV/sFHdcnIqdl9/wb/L+mMjOs=
+    secure: KD1d1EkvX5iY5pvKQbi6Aj6y49XXnQBxBMok9x2d9LVMbmzBQIHoTqUQz2Dv2TSpANshkIrLmR1eT/brCK382cIUVvA6kG8JB2yqAAE2hzJ8u49+CI4iyqpBWw1HCuH/4xPWZUPVBW0Yl9WsW0vencAeKK6cTDm4Z9K3esJf+iZMpJh7ZpK2ESn9d2RZsrpOKJpxYrvt14Wox+8YfqPRCTJoO/Q8vdXbyOrRVpK6daSe11HsmTZZpFzgLWGojpjH05wcENUaokpCIp8Hgx3rJmO9z5iReNG+2QuPCw0QyEIKGAvzlA5KbYFWBUurxz0XsnaovbJ7BKI070arxQKjKRnjSNE3kEValOwMIE8dA835A1nChm85NILQdWvlbexSxPpz0z62SGPjFthUj9VBx/RnUrd1itxWOi6ZW5k6PnWDUoKPr63+fYSAkp6bXO9ELexA19wUfQCicGRBEO3mJ6QvKKbiDAFKWcABlavxlNtFgw1mMPxxWEhKkW0PrCqOVu9fDDzJ48DCD5XHRT8HUVHDeKcscMTW675rlzo3SxTJdqnZSybpbMSmKbxNs0rM8kPXf1RQLsGDg4CC6Daxz255PV5Y/+p0AhZ2hWtfC3c/Ff8wOdDSdCaEcg5tGa/e1kJWAKuIATUGdZsFZUri8ePQcgcXzM4ihANn7gP8Cl4=
   file_glob: true
   file:
   - _out/cmd/virtctl/virtctl-*
@@ -48,6 +48,7 @@ deploy:
   - _out/manifests/release/demo-content.yaml
   prerelease: true
   overwrite: true
+  name: $TRAVIS_TAG
   on:
     tags: true
     repo: kubevirt/kubevirt

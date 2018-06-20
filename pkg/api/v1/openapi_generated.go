@@ -355,6 +355,64 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.DomainPresetSpec": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"resources": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Resources describes the Compute Resources required by this vmi.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"),
+							},
+						},
+						"cpu": {
+							SchemaProps: spec.SchemaProps{
+								Description: "CPU allow specified the detailed CPU topology inside the vmi.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CPU"),
+							},
+						},
+						"memory": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Memory allow specifying the VMI memory features.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Memory"),
+							},
+						},
+						"machine": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Machine type",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Machine"),
+							},
+						},
+						"firmware": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Firmware",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Firmware"),
+							},
+						},
+						"clock": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Clock sets the clock and timers of the vmi.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Clock"),
+							},
+						},
+						"features": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Features like acpi, apic, hyperv",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Features"),
+							},
+						},
+						"devices": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Devices allows adding disks, network interfaces, ...",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Devices"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.CPU", "kubevirt.io/kubevirt/pkg/api/v1.Clock", "kubevirt.io/kubevirt/pkg/api/v1.Devices", "kubevirt.io/kubevirt/pkg/api/v1.Features", "kubevirt.io/kubevirt/pkg/api/v1.Firmware", "kubevirt.io/kubevirt/pkg/api/v1.Machine", "kubevirt.io/kubevirt/pkg/api/v1.Memory", "kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.DomainSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -746,6 +804,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"name": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"model": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Interface model. One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -1471,7 +1536,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"domain": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Domain is the same object type as contained in VirtualMachineInstanceSpec",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainPresetSpec"),
 							},
 						},
 					},
@@ -1479,7 +1544,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.DomainPresetSpec"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet": {
 			Schema: spec.Schema{

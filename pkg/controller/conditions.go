@@ -48,7 +48,7 @@ func (d *VirtualMachineConditionManager) RemoveCondition(vmi *v1.VirtualMachineI
 }
 
 // AddPodCondition add pod condition to the VM.
-func (d *VirtualMachineConditionManager) AddPodCondition(vmi *v1.VirtualMachineInstance, cond k8sv1.PodCondition) {
+func (d *VirtualMachineConditionManager) AddPodCondition(vmi *v1.VirtualMachineInstance, cond *k8sv1.PodCondition) {
 	if !d.HasCondition(vmi, v1.VirtualMachineInstanceConditionType(cond.Type)) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			LastProbeTime:      cond.LastProbeTime,
@@ -59,6 +59,32 @@ func (d *VirtualMachineConditionManager) AddPodCondition(vmi *v1.VirtualMachineI
 			Type:               v1.VirtualMachineInstanceConditionType(cond.Type),
 		})
 	}
+}
+
+func (d *VirtualMachineConditionManager) PodHasCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) bool {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == conditionType {
+			if cond.Status == status {
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+	return false
+}
+
+func (d *VirtualMachineConditionManager) GetPodCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) *k8sv1.PodCondition {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == conditionType {
+			if cond.Status == status {
+				return &cond
+			} else {
+				return nil
+			}
+		}
+	}
+	return nil
 }
 
 func NewVirtualMachineInstanceConditionManager() *VirtualMachineConditionManager {

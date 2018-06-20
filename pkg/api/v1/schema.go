@@ -77,6 +77,34 @@ type DomainSpec struct {
 
 // ---
 // +k8s:openapi-gen=true
+type DomainPresetSpec struct {
+	// Resources describes the Compute Resources required by this vmi.
+	Resources ResourceRequirements `json:"resources,omitempty"`
+	// CPU allow specified the detailed CPU topology inside the vmi.
+	// +optional
+	CPU *CPU `json:"cpu,omitempty"`
+	// Memory allow specifying the VMI memory features.
+	// +optional
+	Memory *Memory `json:"memory,omitempty"`
+	// Machine type
+	// +optional
+	Machine Machine `json:"machine,omitempty"`
+	// Firmware
+	// +optional
+	Firmware *Firmware `json:"firmware,omitempty"`
+	// Clock sets the clock and timers of the vmi.
+	// +optional
+	Clock *Clock `json:"clock,omitempty"`
+	// Features like acpi, apic, hyperv
+	// +optional
+	Features *Features `json:"features,omitempty"`
+	// Devices allows adding disks, network interfaces, ...
+	// +optional
+	Devices Devices `json:"devices,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
 type ResourceRequirements struct {
 	// Requests is a description of the initial vmi resources.
 	// Valid resource keys are "memory" and "cpu".
@@ -637,8 +665,13 @@ type Interface struct {
 	// Logical name of the interface as well as a reference to the associated networks.
 	// Must match the Name of a Network.
 	Name string `json:"name"`
-	// BindingMethod specifies the method which will be used to connect the interface to the guest.
-	// Defaults to Bridge.
+	// Interface model.
+	// One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+	// Defaults to virtio.
+	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
+	Model string `json:"model,omitempty"`
+	// BindingMethod specifies the method which will be used to connect the interface to the guest
+	// Defaults to Bridge
 	InterfaceBindingMethod `json:",inline"`
 }
 

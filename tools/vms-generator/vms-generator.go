@@ -310,11 +310,15 @@ func getVMIWindows() *v1.VirtualMachineInstance {
 					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
 				},
 			},
+			Devices: v1.Devices{
+				Interfaces: []v1.Interface{*v1.DefaultNetworkInterface()},
+			},
 		},
+		Networks: []v1.Network{*v1.DefaultPodNetwork()},
 	}
 
 	// pick e1000 network model type for windows machines
-	vmi.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
+	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 
 	addPVCDisk(&vmi.Spec, "disk-windows", busSata, "pvcdisk", "pvcvolume")
 	return vmi
@@ -563,7 +567,7 @@ func getVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 		"kubevirt.io/vmPreset": vmiPresetSmall,
 	})
 
-	vmPreset.Spec.Domain = &v1.DomainSpec{
+	vmPreset.Spec.Domain = &v1.DomainPresetSpec{
 		Resources: v1.ResourceRequirements{
 			Requests: k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64M"),
