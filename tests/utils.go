@@ -1145,6 +1145,7 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	// Do not login, if we already logged in
 	err = expecter.Send("\n")
 	if err != nil {
+		expecter.Close()
 		return nil, err
 	}
 	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
@@ -1165,8 +1166,10 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	resp, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
+		expecter.Close()
+		return nil, err
 	}
-	return expecter, err
+	return expecter, nil
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -1185,6 +1188,8 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		expecter.Close()
+		return nil, err
 	}
 	return expecter, err
 }

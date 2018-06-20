@@ -71,9 +71,8 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(expecter).NotTo(BeNil())
-				expecter.Close()
 				Expect(err).To(BeNil())
+				expecter.Close()
 			},
 				table.Entry("with Disk PVC", tests.NewRandomVMIWithPVC),
 				table.Entry("with CDRom PVC", tests.NewRandomVMIWithCDRom),
@@ -92,9 +91,8 @@ var _ = Describe("Storage", func() {
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
 						expecter, err := tests.LoggedInAlpineExpecter(vmi)
-						Expect(expecter).NotTo(BeNil())
-						expecter.Close()
 						Expect(err).To(BeNil())
+						expecter.Close()
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -133,9 +131,8 @@ var _ = Describe("Storage", func() {
 				RunVMIAndExpectLaunch(vmi, false, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(expecter).NotTo(BeNil())
-				defer expecter.Close()
 				Expect(err).To(BeNil())
+				defer expecter.Close()
 
 				By("Checking that /dev/vdc has a capacity of 2Gi")
 				res, err := expecter.ExpectBatch([]expect.Batcher{
@@ -167,9 +164,8 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(expecter).NotTo(BeNil())
-				expecter.Close()
 				Expect(err).To(BeNil())
+				expecter.Close()
 			})
 
 			It("should not persist data", func() {
@@ -180,9 +176,9 @@ var _ = Describe("Storage", func() {
 
 				By("Writing an arbitrary file to it's EFI partition")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(expecter).ToNot(BeNil())
-				defer expecter.Close()
 				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
@@ -204,9 +200,9 @@ var _ = Describe("Storage", func() {
 
 				By("Making sure that the previously written file is not present")
 				expecter, err = tests.LoggedInAlpineExpecter(vmi)
-				Expect(expecter).ToNot(BeNil())
-				defer expecter.Close()
 				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
@@ -246,9 +242,8 @@ var _ = Describe("Storage", func() {
 					if i == num {
 						By("Checking that the second disk is present")
 						expecter, err := tests.LoggedInAlpineExpecter(vmi)
-						Expect(expecter).ToNot(BeNil())
-						defer expecter.Close()
 						Expect(err).ToNot(HaveOccurred())
+						defer expecter.Close()
 
 						_, err = expecter.ExpectBatch([]expect.Batcher{
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},

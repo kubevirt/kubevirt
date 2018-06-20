@@ -403,9 +403,8 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Obtaining the serial console")
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(expecter).ToNot(BeNil())
-				defer expecter.Close()
 				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
 
 				By("Guest shutdown")
 				_, err = expecter.ExpectBatch([]expect.Batcher{

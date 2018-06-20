@@ -91,9 +91,8 @@ var _ = Describe("Networking", func() {
 
 		// Lets make sure that the OS is up by waiting until we can login
 		expecter, err := expecterFactory(vmi)
-		Expect(expecter).NotTo(BeNil())
-		expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
+		expecter.Close()
 	}
 
 	// TODO this is not optimal, since the one test which will initiate this, will look slow
@@ -137,9 +136,8 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			expecter, err := tests.LoggedInCirrosExpecter(inboundVMI)
-			Expect(expecter).NotTo(BeNil())
-			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
 
 			resp, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -199,9 +197,8 @@ var _ = Describe("Networking", func() {
 
 			By("checking eth0 MTU inside the VirtualMachineInstance")
 			expecter, err := tests.LoggedInCirrosExpecter(outboundVMI)
-			Expect(expecter).NotTo(BeNil())
-			defer expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
 
 			addrShow = "ip address show eth0\n"
 			resp, err := expecter.ExpectBatch([]expect.Batcher{

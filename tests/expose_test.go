@@ -33,9 +33,8 @@ func newLabeledVM(label string, virtClient kubecli.KubevirtClient) (vmi *v1.Virt
 
 func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient, testPort int, protocol string) {
 	expecter, err := tests.LoggedInCirrosExpecter(vmi)
-	Expect(expecter).ToNot(BeNil())
-	defer expecter.Close()
 	Expect(err).ToNot(HaveOccurred())
+	defer expecter.Close()
 
 	serverCommand := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {
