@@ -179,7 +179,7 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	var createErr, vmiError error
+	var createErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if needsSync && VM.ObjectMeta.DeletionTimestamp == nil {
@@ -197,7 +197,7 @@ func (c *VMController) execute(key string) error {
 		logger.Reason(err).Error("Scaling the VirtualMachine failed.")
 	}
 
-	err = c.updateStatus(VM.DeepCopy(), vmi, createErr, vmiError)
+	err = c.updateStatus(VM.DeepCopy(), vmi, createErr)
 	if err != nil {
 		logger.Reason(err).Error("Updating the VirtualMachine status failed.")
 	}
@@ -631,7 +631,7 @@ func (c *VMController) removeCondition(vm *virtv1.VirtualMachine, cond virtv1.Vi
 	vm.Status.Conditions = conds
 }
 
-func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr, vmiError error) error {
+func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
 
 	// Check if it is worth updating
 	errMatch := (createErr != nil) == c.hasCondition(vm, virtv1.VirtualMachineFailure)
