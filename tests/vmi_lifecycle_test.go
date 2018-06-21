@@ -54,6 +54,8 @@ var _ = Describe("VMIlifecycle", func() {
 
 	var vmi *v1.VirtualMachineInstance
 
+	var useEmulation *bool
+
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
@@ -508,20 +510,12 @@ var _ = Describe("VMIlifecycle", func() {
 
 		Context("VirtualMachineInstance Emulation Mode", func() {
 			BeforeEach(func() {
-				useEmulation := false
-				options := metav1.GetOptions{}
-				cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
-				if err == nil {
-					val, ok := cfgMap.Data["debug.useEmulation"]
-					useEmulation = ok && (val == "true")
-				} else {
-					// If the cfgMap is missing, default to useEmulation=false
-					// no other error is expected
-					if !errors.IsNotFound(err) {
-						Expect(err).ToNot(HaveOccurred())
-					}
+				// useEmulation won't change in a test suite run, so cache it
+				if useEmulation == nil {
+					emulation := shouldUseEmulation(virtClient)
+					useEmulation = &emulation
 				}
-				if !useEmulation {
+				if !(*useEmulation) {
 					Skip("Software emulation is not enabled on this cluster")
 				}
 			})
@@ -608,7 +602,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a TUN device but not KVM", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
+				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
 				Expect(err).To(BeNil())
 
 				listOptions := metav1.ListOptions{}
@@ -645,20 +639,12 @@ var _ = Describe("VMIlifecycle", func() {
 
 		Context("VM Accelerated Mode", func() {
 			BeforeEach(func() {
-				useEmulation := false
-				options := metav1.GetOptions{}
-				cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
-				if err == nil {
-					val, ok := cfgMap.Data["debug.useEmulation"]
-					useEmulation = ok && (val == "true")
-				} else {
-					// If the cfgMap is missing, default to useEmulation=false
-					// no other error is expected
-					if !errors.IsNotFound(err) {
-						Expect(err).ToNot(HaveOccurred())
-					}
+				// useEmulation won't change in a test suite run, so cache it
+				if useEmulation == nil {
+					emulation := shouldUseEmulation(virtClient)
+					useEmulation = &emulation
 				}
-				if useEmulation {
+				if *useEmulation {
 					Skip("Software emulation is enabled on this cluster")
 				}
 			})
@@ -740,23 +726,16 @@ var _ = Describe("VMIlifecycle", func() {
 				nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(nodeList.Items)).ToNot(Equal(0))
-
+				if len(nodeList.Items) == 0 {
+					Skip("Unable to inspect nodes in cluster")
+				}
 				node := nodeList.Items[0]
 
-				allocatableKvm, ok := node.Status.Allocatable[services.KvmDevice]
-
+				_, ok := node.Status.Allocatable[services.KvmDevice]
 				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
-				// The number of devices allocated could change in the future, but it's
-				// for sure not 0
-				Expect(int(allocatableKvm.Value())).ToNot(Equal(0))
 
-				capacityKvm, ok := node.Status.Capacity[services.KvmDevice]
-
+				_, ok = node.Status.Capacity[services.KvmDevice]
 				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
-				// The number of devices allocated could change in the future, but it's
-				// for sure not 0
-				Expect(int(capacityKvm.Value())).ToNot(Equal(0))
 			})
 		})
 	})
@@ -936,6 +915,23 @@ var _ = Describe("VMIlifecycle", func() {
 		})
 	})
 })
+
+func shouldUseEmulation(virtClient kubecli.KubevirtClient) bool {
+	useEmulation := false
+	options := metav1.GetOptions{}
+	cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
+	if err == nil {
+		val, ok := cfgMap.Data["debug.useEmulation"]
+		useEmulation = ok && (val == "true")
+	} else {
+		// If the cfgMap is missing, default to useEmulation=false
+		// no other error is expected
+		if !errors.IsNotFound(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+	return useEmulation
+}
 
 func renderPkillAllJob(processName string) *k8sv1.Pod {
 	return tests.RenderJob("vmi-killer", []string{"pkill"}, []string{"-9", processName})
