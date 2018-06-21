@@ -57,6 +57,13 @@ if [ $# -eq 0 ]; then
     fi
 fi
 
+# Return a pkgdir parameter based on os and arch
+function pkg_dir() {
+    if [ -n "${KUBEVIRT_GO_BASE_PKGDIR}" ]; then
+        echo "-pkgdir ${KUBEVIRT_GO_BASE_PKGDIR}/$1-$2"
+    fi
+}
+
 # handle binaries
 
 if [ "${target}" = "install" ]; then
@@ -82,13 +89,13 @@ for arg in $args; do
 
             # always build and link the linux/amd64 binary
             LINUX_NAME=${ARCH_BASENAME}-linux-amd64
-            GOOS=linux GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)"
+            GOOS=linux GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${LINUX_NAME} ${BIN_NAME})
 
             # build virtctl also for darwin and windows
             if [ "${BIN_NAME}" = "virtctl" ]; then
-                GOOS=darwin GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)"
-                GOOS=windows GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)"
+                GOOS=darwin GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin amd64)
+                GOOS=windows GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows amd64)
             fi
         )
     else
