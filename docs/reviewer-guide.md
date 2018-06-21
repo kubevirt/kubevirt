@@ -17,10 +17,5 @@ Make a few passes over the code you want to review.
 * User input validation
 * Reasonable error messages
 * Reasonable info messages
-
-### Other things:
-
-* Insist on unit and functional tests to avoid regressions (the core case must be tested)
-* Prefer readability over code-reuse
-* Prefer domain-expression over code-reuse (if something looks 80% the same but is for something completely different, give it its own room; composition is thereore better than inheritence or if/else)
-* Prefer to only implement what is needed, Don't plan for the possible future.
+* Unit and functional tests to avoid regressions (the core case must be tested)
+* The PR implement what is needed (changes out of the PR scope should belong to a separate one)
