@@ -24,6 +24,15 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-api
     spec:

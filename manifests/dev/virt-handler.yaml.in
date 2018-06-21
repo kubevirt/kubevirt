@@ -10,6 +10,15 @@ spec:
     type: RollingUpdate
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       name: virt-handler
       labels:
         kubevirt.io: virt-handler

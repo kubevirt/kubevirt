@@ -371,6 +371,15 @@ spec:
   replicas: 2
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-api
     spec:
@@ -408,6 +417,15 @@ spec:
   replicas: 2
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-controller
     spec:
@@ -456,6 +474,15 @@ spec:
   template:
     metadata:
       name: virt-handler
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-handler
     spec:
