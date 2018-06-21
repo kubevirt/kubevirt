@@ -64,7 +64,10 @@ import:
   version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
 - package: kubevirt.io/qe-tools
   version: v0.1.1
-  repo:    https://github.com/kubevirt/qe-tools.git
+  repo: https://github.com/kubevirt/qe-tools.git
+- package: github.com/golang/protobuf
+  subpackages:
+  - proto
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
