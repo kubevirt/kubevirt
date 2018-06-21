@@ -84,6 +84,29 @@ var _ = Describe("Converter", func() {
 			Expect(xml).To(Equal(convertedDisk))
 		})
 
+		It("Should include serial number when provided", func() {
+			kubevirtDisk := &v1.Disk{
+				Name:       "mydisk",
+				VolumeName: "myvolume",
+				Serial:     "sn-11223344",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+			}
+			var convertedDisk = `<Disk device="disk" type="">
+  <source></source>
+  <target bus="virtio" dev="vda"></target>
+  <serial>sn-11223344</serial>
+  <driver name="qemu" type=""></driver>
+  <alias name="mydisk"></alias>
+</Disk>`
+			xml := diskToDiskXML(kubevirtDisk)
+			fmt.Println(xml)
+			Expect(xml).To(Equal(convertedDisk))
+		})
+
 	})
 
 	Context("with v1.VirtualMachineInstance", func() {

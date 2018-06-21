@@ -86,6 +86,9 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &BootOrder{Order: *diskDevice.BootOrder}
 	}
+	if diskDevice.Serial != "" {
+		disk.Serial = diskDevice.Serial
+	}
 
 	return nil
 }

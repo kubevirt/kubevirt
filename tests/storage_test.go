@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"time"
 
 	"github.com/google/goexpect"
@@ -34,6 +35,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
+)
+
+const (
+	diskSerial = "FB-fb_18030C10002032"
 )
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
@@ -60,6 +65,29 @@ var _ = Describe("Storage", func() {
 		By("Waiting until the VirtualMachineInstance will start")
 		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 		return obj
+	}
+
+	LaunchVMI := func(vmi *v1.VirtualMachineInstance) {
+		By("Starting a VirtualMachineInstance")
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+		Expect(err).To(BeNil())
+
+		By("Waiting the VirtualMachineInstance start")
+		_, ok := obj.(*v1.VirtualMachineInstance)
+		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+		Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+	}
+
+	VerifyUserDataVMI := func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+		By("Expecting the VirtualMachineInstance console")
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+		defer expecter.Close()
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Checking that the VirtualMachineInstance serial console output equals to expected one")
+		resp, err := expecter.ExpectBatch(commands, timeout)
+		log.DefaultLogger().Object(vmi).Infof("%v", resp)
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	Describe("Starting a VirtualMachineInstance", func() {
@@ -151,6 +179,53 @@ var _ = Describe("Storage", func() {
 				}, 20*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).To(BeNil())
+			})
+
+			It("should create a writeable emptyDisk with specified serial number", func() {
+				// Start a Fedora VirtualMachineInstance with the empty disk with SN attached
+				userData := fmt.Sprintf(
+					"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
+					fedoraPassword,
+					sshAuthorizedKey,
+				)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name:       "emptydisk1",
+					VolumeName: "emptydiskvolume1",
+					Serial:     diskSerial,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "emptydiskvolume1",
+					VolumeSource: v1.VolumeSource{
+						EmptyDisk: &v1.EmptyDiskSource{
+							Capacity: resource.MustParse("1Gi"),
+						},
+					},
+				})
+				LaunchVMI(vmi)
+
+				// NOTE(jdg): In this case we're only assigning an SN to one of the drives,
+				// so if we even have a by-id dir that's a win.  Also since there's only one
+				// attached drive with an SN we don't need to parse out the ls response.
+				By("Checking that ls /dev/disk/by-id returns our serial number")
+				VerifyUserDataVMI(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login:"},
+					&expect.BSnd{S: "fedora\n"},
+					&expect.BExp{R: "Password:"},
+					&expect.BSnd{S: fedoraPassword + "\n"},
+					&expect.BExp{R: "$"},
+					&expect.BSnd{S: "ls /dev/disk/by-id \n"},
+					&expect.BExp{R: "virtio-" + diskSerial},
+				}, time.Second*300)
+
 			})
 
 		})

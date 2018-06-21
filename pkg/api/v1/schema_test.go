@@ -150,6 +150,14 @@ var exampleJSON = `{
               "bus": "virtio",
               "readonly": true
             }
+          },
+          {
+            "name": "disk1",
+            "volumeName": "volume4",
+            "disk": {
+              "bus": "virtio"
+            },
+            "serial": "sn-11223344"
           }
         ],
         "interfaces": [
@@ -237,6 +245,17 @@ var _ = Describe("Schema", func() {
 					LUN: &LunTarget{
 						Bus:      "virtio",
 						ReadOnly: true,
+					},
+				},
+			},
+			{
+				Name:       "disk1",
+				VolumeName: "volume4",
+				Serial:     "sn-11223344",
+				DiskDevice: DiskDevice{
+					Disk: &DiskTarget{
+						Bus:      "virtio",
+						ReadOnly: false,
 					},
 				},
 			},
