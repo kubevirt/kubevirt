@@ -44,7 +44,7 @@ type KubevirtClient interface {
 	VirtualMachine(namespace string) VirtualMachineInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
-	CdiClient() *cdiclient.Clientset
+	CdiClient() cdiclient.Interface
 	kubernetes.Interface
 }
 
@@ -57,7 +57,7 @@ type kubevirt struct {
 	*kubernetes.Clientset
 }
 
-func (k kubevirt) CdiClient() *cdiclient.Clientset {
+func (k kubevirt) CdiClient() cdiclient.Interface {
 	return k.cdiClient
 }
 
