@@ -184,6 +184,9 @@ type Disk struct {
 	// Disks without a boot order are not tried if a disk with a boot order exists.
 	// +optional
 	BootOrder *uint `json:"bootOrder,omitempty"`
+	// Serial provides the ability to specify a serial number for the disk device.
+	// +optional
+	Serial string `json:"serial,omitempty"`
 }
 
 // Represents the target of a volume to mount.
