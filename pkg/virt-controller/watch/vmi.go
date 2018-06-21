@@ -65,6 +65,10 @@ const (
 	// SuccessfulHandOverPodReason is added in an event
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
+)
+
+// Reasons for DataVolume events
+const (
 	// FailedDataVolumeImportReason is added in an event when a dynamically generated
 	// dataVolume reaches the failed status phase.
 	FailedDataVolumeImportReason = "FailedDataVolumeImport"
