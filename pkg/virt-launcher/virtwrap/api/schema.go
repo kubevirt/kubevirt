@@ -183,10 +183,15 @@ type GracePeriodMetadata struct {
 
 type Commandline struct {
 	QEMUEnv []Env `xml:"qemu:env,omitempty"`
+	QEMUArg []Arg `xml:"qemu:arg,omitempty"`
 }
 
 type Env struct {
 	Name  string `xml:"name,attr"`
+	Value string `xml:"value,attr"`
+}
+
+type Arg struct {
 	Value string `xml:"value,attr"`
 }
 

@@ -69,16 +69,10 @@ var _ = Describe("Storage", func() {
 				vmi := newVMI(tests.DiskAlpineHostPath)
 				RunVMIAndExpectLaunch(vmi, false, 90)
 
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-				Expect(err).To(BeNil())
-				defer expecter.Close()
-
 				By("Checking that the VirtualMachineInstance console has expected output")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "Welcome to Alpine"},
-				}, 200*time.Second)
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).To(BeNil())
+				expecter.Close()
 			},
 				table.Entry("with Disk PVC", tests.NewRandomVMIWithPVC),
 				table.Entry("with CDRom PVC", tests.NewRandomVMIWithCDRom),
@@ -96,14 +90,9 @@ var _ = Describe("Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
-						expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+						expecter, err := tests.LoggedInAlpineExpecter(vmi)
 						Expect(err).To(BeNil())
-						defer expecter.Close()
-						_, err = expecter.ExpectBatch([]expect.Batcher{
-							&expect.BSnd{S: "\n"},
-							&expect.BExp{R: "Welcome to Alpine"},
-						}, 200*time.Second)
-						Expect(err).To(BeNil())
+						expecter.Close()
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -173,16 +162,10 @@ var _ = Describe("Storage", func() {
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 				RunVMIAndExpectLaunch(vmi, false, 90)
 
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-				Expect(err).To(BeNil())
-				defer expecter.Close()
-
 				By("Checking that the VirtualMachineInstance console has expected output")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "Welcome to Alpine"},
-				}, 200*time.Second)
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).To(BeNil())
+				expecter.Close()
 			})
 
 			It("should not persist data", func() {
@@ -192,16 +175,11 @@ var _ = Describe("Storage", func() {
 				createdVMI := RunVMIAndExpectLaunch(vmi, false, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
-				expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
+
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "Welcome to Alpine"},
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "login"},
-					&expect.BSnd{S: "root\n"},
-					&expect.BExp{R: "#"},
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
@@ -221,16 +199,11 @@ var _ = Describe("Storage", func() {
 				RunVMIAndExpectLaunch(vmi, false, 90)
 
 				By("Making sure that the previously written file is not present")
-				expecter, _, err = tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+				expecter, err = tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
+
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "Welcome to Alpine"},
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "login"},
-					&expect.BSnd{S: "root\n"},
-					&expect.BExp{R: "#"},
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
@@ -268,14 +241,11 @@ var _ = Describe("Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the second disk is present")
-						expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-						Expect(err).To(BeNil())
+						expecter, err := tests.LoggedInAlpineExpecter(vmi)
+						Expect(err).ToNot(HaveOccurred())
 						defer expecter.Close()
+
 						_, err = expecter.ExpectBatch([]expect.Batcher{
-							&expect.BSnd{S: "\n"},
-							&expect.BExp{R: "Welcome to Alpine"},
-							&expect.BSnd{S: "root\n"},
-							&expect.BExp{R: "#"},
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
 							&expect.BExp{R: "67108864"},
 						}, 200*time.Second)

@@ -32,16 +32,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const (
-	podInterface        = "eth0"
-	defaultDNS          = "8.8.8.8"
-	resolvConf          = "/etc/resolv.conf"
-	defaultSearchDomain = "cluster.local"
-	domainSearchPrefix  = "search"
-	nameserverPrefix    = "nameserver"
-)
+const podInterface = "eth0"
 
 var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache-%s.json"
+var qemuArgCacheFile = "/var/run/kubevirt-private/qemu-arg-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
 type NetworkInterface interface {
@@ -84,5 +78,5 @@ func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
 	if network.Pod != nil {
 		return new(PodInterface), nil
 	}
-	return nil, fmt.Errorf("Not implemented")
+	return nil, fmt.Errorf("Network not implemented")
 }
