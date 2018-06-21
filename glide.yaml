@@ -15,6 +15,10 @@ ignore:
 - github.com/gogo/protobuf/test/typedeclimport/subpkg
 - github.com/gogo/protobuf/test/issue312
 - github.com/spf13/cobra/doc
+- google.golang.org/grpc/internal/channelz
+- google.golang.org/grpc/internal/backoff
+- google.golang.org/grpc/encoding/proto
+- google.golang.org/grpc/encoding
 import:
 - package: github.com/go-kit/kit
   version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
@@ -29,11 +33,13 @@ import:
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: kubernetes-1.9.7
+  version: kubernetes-1.10.3
 - package: k8s.io/apimachinery
-  version: kubernetes-1.9.7
+  version: kubernetes-1.10.3
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.9.7
+  version: kubernetes-1.10.3
+- package: k8s.io/apiextensions-apiserver
+  version: kubernetes-1.10.3
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
 - package: github.com/mailru/easyjson
@@ -58,8 +64,6 @@ import:
   - cobra
 - package: github.com/spf13/pflag
   version: 1.0.1
-- package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.9.7
 - package: github.com/ant31/crd-validation
   version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
 - package: kubevirt.io/qe-tools
