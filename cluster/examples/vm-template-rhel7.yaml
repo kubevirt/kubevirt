@@ -27,7 +27,8 @@ objects:
           kubevirt-vm: vm-${NAME}
       spec:
         domain:
-          cpu: ${{CPU_CORES}}
+          cpu:
+            cores: ${{CPU_CORES}}
           devices:
             disks:
             - disk:
