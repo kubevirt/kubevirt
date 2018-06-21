@@ -1,21 +1,30 @@
-<!--
-Note that this is the issue tracker for Kubevirt.
+<!-- This form is for bug reports and feature requests ONLY!
+Also make sure that you visit our User Guide at https://kubevirt.io/user-guide/
 -->
 
-[provide a description of the issue]
+**Is this a BUG REPORT or FEATURE REQUEST?**:
 
-##### Version
-[provide output of oc get deployment -o yaml -n kube-system | grep kubevirt]
+> Uncomment only one, leave it on its own line:
+>
+> /kind bug
+> /kind enhancement
 
-##### Steps To Reproduce
-1. [step 1]
-2. [step 2]
-3. [step 3]
 
-##### Actual Result
+**What happened**:
 
-##### Expected Result
+**What you expected to happen**:
 
-##### Additional Information
-[consider attaching the output of `$ oc get pod/vm/vmi -o json -n <namespace>` command to the issue]
-[visit https://kubevirt.io/user-guide/]
+**How to reproduce it (as minimally and precisely as possible)**:
+
+
+**Anything else we need to know?**:
+
+**Environment**:
+- KubeVirt version (use `virtctl version`):
+- Kubernetes version (use `kubectl version`):
+- VM or VMI specifications:
+- Cloud provider or hardware configuration:
+- OS (e.g. from /etc/os-release):
+- Kernel (e.g. `uname -a`):
+- Install tools:
+- Others:
