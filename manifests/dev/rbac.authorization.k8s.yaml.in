@@ -238,6 +238,7 @@ metadata:
   name: kubevirt.io:admin
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
   - apiGroups:
       - subresources.kubevirt.io
@@ -269,6 +270,7 @@ metadata:
   name: kubevirt.io:edit
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
 rules:
   - apiGroups:
       - subresources.kubevirt.io
@@ -299,6 +301,7 @@ metadata:
   name: kubevirt.io:view
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
 rules:
   - apiGroups:
       - kubevirt.io
