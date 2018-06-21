@@ -77,6 +77,34 @@ type DomainSpec struct {
 
 // ---
 // +k8s:openapi-gen=true
+type DomainPresetSpec struct {
+	// Resources describes the Compute Resources required by this vmi.
+	Resources ResourceRequirements `json:"resources,omitempty"`
+	// CPU allow specified the detailed CPU topology inside the vmi.
+	// +optional
+	CPU *CPU `json:"cpu,omitempty"`
+	// Memory allow specifying the VMI memory features.
+	// +optional
+	Memory *Memory `json:"memory,omitempty"`
+	// Machine type
+	// +optional
+	Machine Machine `json:"machine,omitempty"`
+	// Firmware
+	// +optional
+	Firmware *Firmware `json:"firmware,omitempty"`
+	// Clock sets the clock and timers of the vmi.
+	// +optional
+	Clock *Clock `json:"clock,omitempty"`
+	// Features like acpi, apic, hyperv
+	// +optional
+	Features *Features `json:"features,omitempty"`
+	// Devices allows adding disks, network interfaces, ...
+	// +optional
+	Devices Devices `json:"devices,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
 type ResourceRequirements struct {
 	// Requests is a description of the initial vmi resources.
 	// Valid resource keys are "memory" and "cpu".
@@ -634,9 +662,14 @@ func NewMinimalDomainSpec() DomainSpec {
 // ---
 // +k8s:openapi-gen=true
 type Interface struct {
-	// Logical name of the interface as well as a reference to the associated networks
-	// Must match the Name of a Network
+	// Logical name of the interface as well as a reference to the associated networks.
+	// Must match the Name of a Network.
 	Name string `json:"name"`
+	// Interface model.
+	// One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+	// Defaults to virtio.
+	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
+	Model string `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest
 	// Defaults to Bridge
 	InterfaceBindingMethod `json:",inline"`
@@ -648,22 +681,42 @@ type Interface struct {
 // +k8s:openapi-gen=true
 type InterfaceBindingMethod struct {
 	Bridge *InterfaceBridge `json:"bridge,omitempty"`
+	Slirp  *InterfaceSlirp  `json:"slirp,omitempty"`
 }
 
 // ---
 // +k8s:openapi-gen=true
 type InterfaceBridge struct{}
 
+// ---
+// +k8s:openapi-gen=true
+type InterfaceSlirp struct {
+	// List of ports to be forwarded to the virtual machine.
+	Ports []Port `json:"ports,omitempty"`
+}
+
+// Port repesents a port to expose from the virtual machine.
+// Default protocol TCP.
+// Default port is PodPort.
+// ---
+// +k8s:openapi-gen=true
+type Port struct {
+	Name     string `json:"name,omitempty"`
+	Protocol string `json:"protocol,omitempty"`
+	Port     int32  `json:"port"`
+	PodPort  int32  `json:"podPort,omitempty"`
+}
+
 // Network represents a network type and a resource that should be connected to the vm.
 // ---
 // +k8s:openapi-gen=true
 type Network struct {
-	// Network name
+	// Network name.
 	// Must be a DNS_LABEL and unique within the vm.
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
 	Name string `json:"name"`
 	// NetworkSource represents the network type and the source interface that should be connected to the virtual machine.
-	// Defaults to Pod, if no type is specified
+	// Defaults to Pod, if no type is specified.
 	NetworkSource `json:",inline"`
 }
 
@@ -675,7 +728,11 @@ type NetworkSource struct {
 	Pod *PodNetwork `json:"pod,omitempty"`
 }
 
-// Represents the stock pod network interface
+// Represents the stock pod network interface.
 // ---
 // +k8s:openapi-gen=true
-type PodNetwork struct{}
+type PodNetwork struct {
+	// CIDR for vm network.
+	// Default 10.0.2.0/24 if not specified.
+	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
+}

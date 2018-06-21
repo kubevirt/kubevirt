@@ -103,7 +103,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInformer,
 			domainInformer,
 			gracefulShutdownInformer,
-			1)
+			1,
+			10,
+		)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		sockFile := cmdclient.SocketFromNamespaceName(shareDir, "default", "testvmi")

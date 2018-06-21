@@ -274,7 +274,9 @@ var _ = Describe("Template", func() {
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
-				Expect(pod.Spec.Containers[0].Resources.Limits).To(BeNil())
+
+				// Limits for KVM and TUN devices should be requested.
+				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			})
 		})
 
@@ -453,7 +455,7 @@ var _ = Describe("Template", func() {
 			Expect(result).To(BeFalse())
 		})
 
-		It("Should return false if configmap doesn't have allowEmulation set", func() {
+		It("Should return false if configmap doesn't have useEmulation set", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "kube-system",
@@ -472,13 +474,13 @@ var _ = Describe("Template", func() {
 			Expect(result).To(BeFalse())
 		})
 
-		It("Should return true if allowEmulation = true", func() {
+		It("Should return true if useEmulation = true", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "kube-system",
 					Name:      "kubevirt-config",
 				},
-				Data: map[string]string{"debug.allowEmulation": "true"},
+				Data: map[string]string{"debug.useEmulation": "true"},
 			}
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})

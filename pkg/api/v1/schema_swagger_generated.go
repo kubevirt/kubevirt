@@ -24,6 +24,19 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (DomainPresetSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"resources": "Resources describes the Compute Resources required by this vmi.",
+		"cpu":       "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
+		"memory":    "Memory allow specifying the VMI memory features.\n+optional",
+		"machine":   "Machine type\n+optional",
+		"firmware":  "Firmware\n+optional",
+		"clock":     "Clock sets the clock and timers of the vmi.\n+optional",
+		"features":  "Features like acpi, apic, hyperv\n+optional",
+		"devices":   "Devices allows adding disks, network interfaces, ...\n+optional",
+	}
+}
+
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"requests": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
@@ -299,7 +312,8 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+		"name":  "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
+		"model": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
 	}
 }
 
@@ -313,10 +327,22 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (InterfaceSlirp) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"ports": "List of ports to be forwarded to the virtual machine.",
+	}
+}
+
+func (Port) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nDefault port is PodPort.",
+	}
+}
+
 func (Network) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "Network represents a network type and a resource that should be connected to the vm.",
-		"name": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+		"name": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 	}
 }
 
@@ -328,6 +354,7 @@ func (NetworkSource) SwaggerDoc() map[string]string {
 
 func (PodNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the stock pod network interface",
+		"":              "Represents the stock pod network interface.",
+		"vmNetworkCIDR": "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
 	}
 }

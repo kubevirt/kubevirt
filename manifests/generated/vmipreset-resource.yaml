@@ -88,8 +88,28 @@ spec:
                       items:
                         properties:
                           bridge: {}
+                          model:
+                            type: string
                           name:
                             type: string
+                          slirp:
+                            properties:
+                              ports:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    podPort:
+                                      format: int32
+                                      type: integer
+                                    port:
+                                      format: int32
+                                      type: integer
+                                    protocol:
+                                      type: string
+                                  required:
+                                  - port
+                                type: array
                         required:
                         - name
                       type: array
@@ -180,8 +200,6 @@ spec:
                       type: object
                     requests:
                       type: object
-              required:
-              - devices
             selector: {}
           required:
           - selector

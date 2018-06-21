@@ -8,12 +8,8 @@ _term() {
 
 trap _term SIGTERM SIGINT SIGQUIT
 
-# HACK
-# Try to create /dev/kvm if not present
-if [ ! -e /dev/kvm ]; then
-   mknod /dev/kvm c 10 $(grep '\<kvm\>' /proc/misc | cut -f 1 -d' ')
-fi
-
+# FIXME: The plugin framework doesn't appear to (currently) have a means
+# to specify device ownership. This needs to be re-visited if that changes
 chown :qemu /dev/kvm
 chmod 660 /dev/kvm
 

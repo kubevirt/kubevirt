@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -932,10 +933,24 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{Ports: Ports}}}}
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+	return vmi
+}
+
+func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+}
+
 func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurily before link is ready
 	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
-	vmi.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
+	AddExplicitPodNetworkInterface(vmi)
+	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	return vmi
 }
 
@@ -1060,7 +1075,6 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	vmiReader, vmiWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
-	stopChan := make(chan struct{})
 	go func() {
 		con, err := virtCli.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name)
 		if err != nil {
@@ -1081,7 +1095,8 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 			return <-resCh
 		},
 		Close: func() error {
-			close(stopChan)
+			expecterWriter.Close()
+			vmiReader.Close()
 			return nil
 		},
 		Check: func() bool { return true },
@@ -1107,19 +1122,19 @@ func RegistryDiskFor(name RegistryDisk) string {
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
 
-func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, text string, wait int) error {
+func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return err
 	}
-	b := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: text},
-	})
-	_, err = expecter.ExpectBatch(b, time.Second*time.Duration(wait))
+	defer expecter.Close()
+
+	resp, err := expecter.ExpectBatch(expected, time.Second*time.Duration(wait))
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("%v", resp)
+	}
 	return err
 }
 
@@ -1134,6 +1149,18 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	if vmi.Spec.Hostname != "" {
 		vmiName = vmi.Spec.Hostname
 	}
+
+	// Do not login, if we already logged in
+	err = expecter.Send("\n")
+	if err != nil {
+		expecter.Close()
+		return nil, err
+	}
+	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
+	if err == nil {
+		return expecter, nil
+	}
+
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
@@ -1143,10 +1170,14 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
-		&expect.BExp{R: "$"}})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
-	log.DefaultLogger().Object(vmi).V(4).Infof("%v", res)
-	return expecter, err
+		&expect.BExp{R: "\\$"}})
+	resp, err := expecter.ExpectBatch(b, 180*time.Second)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
+		expecter.Close()
+		return nil, err
+	}
+	return expecter, nil
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -1163,7 +1194,11 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BSnd{S: "root\n"},
 		&expect.BExp{R: "localhost:~#"}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
-	log.DefaultLogger().Object(vmi).V(4).Infof("%v", res)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		expecter.Close()
+		return nil, err
+	}
 	return expecter, err
 }
 

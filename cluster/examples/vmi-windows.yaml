@@ -1,8 +1,6 @@
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  annotations:
-    alpha.kubevirt.io/interface-model: e1000
   creationTimestamp: null
   labels:
     special: vmi-windows
@@ -27,6 +25,10 @@ spec:
           bus: sata
         name: pvcdisk
         volumeName: pvcvolume
+      interfaces:
+      - bridge: {}
+        model: e1000
+        name: default
     features:
       acpi: {}
       apic: {}
@@ -42,6 +44,9 @@ spec:
     resources:
       requests:
         memory: 2Gi
+  networks:
+  - name: default
+    pod: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - name: pvcvolume

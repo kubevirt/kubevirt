@@ -35,7 +35,9 @@ import (
 )
 
 const configMapName = "kube-system/kubevirt-config"
-const allowEmulationKey = "debug.allowEmulation"
+const useEmulationKey = "debug.useEmulation"
+const KvmDevice = "devices.kubevirt.io/kvm"
+const TunDevice = "devices.kubevirt.io/tun"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -56,15 +58,13 @@ func IsEmulationAllowed(store cache.Store) (bool, error) {
 	if !exists {
 		return exists, nil
 	}
-	allowEmulation := false
+	useEmulation := false
 	cm := obj.(*k8sv1.ConfigMap)
-	emu, ok := cm.Data[allowEmulationKey]
+	emu, ok := cm.Data[useEmulationKey]
 	if ok {
-		// TODO: is this too specific? should we just look for the existence of
-		// the 'allowEmulation' key itself regardless of content?
-		allowEmulation = (strings.ToLower(emu) == "true")
+		useEmulation = (strings.ToLower(emu) == "true")
 	}
-	return allowEmulation, nil
+	return useEmulation, nil
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -80,7 +80,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	var volumes []k8sv1.Volume
 	var userId int64 = 0
-	var privileged bool = true
+	var privileged bool = false
 	var volumesMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
@@ -213,12 +213,26 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 	}
 
-	allowEmulation, err := IsEmulationAllowed(t.store)
+	useEmulation, err := IsEmulationAllowed(t.store)
 	if err != nil {
 		return nil, err
 	}
-	if allowEmulation {
-		command = append(command, "--allow-emulation")
+
+	if resources.Limits == nil {
+		resources.Limits = make(k8sv1.ResourceList)
+	}
+
+	// TODO: This can be hardcoded in the current model, but will need to be revisted
+	// once dynamic network device allocation is added
+	resources.Limits[TunDevice] = resource.MustParse("1")
+
+	// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
+	// but if the KVM resource is not requested then it's guaranteed to be not present
+	// This code works for now, but the semantics are wrong. revisit this.
+	if useEmulation {
+		command = append(command, "--use-emulation")
+	} else {
+		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
 	// VirtualMachineInstance target container
@@ -226,11 +240,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
-		// Privileged mode is required for /dev/kvm and the
-		// ability to create macvtap devices
 		SecurityContext: &k8sv1.SecurityContext{
-			RunAsUser:  &userId,
+			RunAsUser: &userId,
+			// Privileged mode is disabled.
 			Privileged: &privileged,
+			Capabilities: &k8sv1.Capabilities{
+				// NET_ADMIN is needed to set up networking for the VM
+				Add: []k8sv1.Capability{"NET_ADMIN"},
+			},
 		},
 		Command:      command,
 		VolumeMounts: volumesMounts,

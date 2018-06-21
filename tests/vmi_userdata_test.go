@@ -64,8 +64,8 @@ var _ = Describe("CloudInit UserData", func() {
 	VerifyUserDataVMI := func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 		By("Expecting the VirtualMachineInstance console")
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
+		defer expecter.Close()
 
 		By("Checking that the VirtualMachineInstance serial console output equals to expected one")
 		resp, err := expecter.ExpectBatch(commands, timeout)
@@ -149,6 +149,7 @@ var _ = Describe("CloudInit UserData", func() {
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
+
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
 					&expect.BExp{R: vmi.Name},

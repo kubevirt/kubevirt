@@ -18,14 +18,19 @@ virtualization should be preferred.
 Runs master and nodes containers, when each one of them run virtual machine via QEMU.
 In additional it runs dnsmasq and docker registry containers.
 
+### Compatibility
+
+The minimum compatible Kubernetes version is 1.10.0. Important features required
+for scheduling and memory are missing or incompatible with previous versions.
+
 ### Compile and run it
 
 Build all required artifacts and launch the
 dockerizied environment:
 
 ```bash
-# Build and deploy KubeVirt on Kubernetes 1.10.3 in our vms inside containers
-export KUBEVIRT_PROVIDER=k8s-1.10.3 # this is also the default if no KUBEVIRT_PROVIDER is set
+# Build and deploy KubeVirt on Kubernetes 1.10.4 in our vms inside containers
+export KUBEVIRT_PROVIDER=k8s-1.10.4 # this is also the default if no KUBEVIRT_PROVIDER is set
 make cluster-up
 make cluster-sync
 ```
