@@ -67,28 +67,6 @@ const (
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
 )
 
-// Reasons for DataVolume events
-const (
-	// FailedDataVolumeImportReason is added in an event when a dynamically generated
-	// dataVolume reaches the failed status phase.
-	FailedDataVolumeImportReason = "FailedDataVolumeImport"
-	// FailedDataVolumeCreateReason is added in an event when posting a dynamically
-	// generated dataVolume to the cluster fails.
-	FailedDataVolumeCreateReason = "FailedDataVolumeCreate"
-	// FailedDataVolumeDeleteReason is added in an event when deleting a dynamically
-	// generated dataVolume in the cluster fails.
-	FailedDataVolumeDeleteReason = "FailedDataVolumeDelete"
-	// SuccessfulDataVolumeCreateReason is added in an event when a dynamically generated
-	// dataVolume is successfully created
-	SuccessfulDataVolumeCreateReason = "SuccessfulDataVolumeCreate"
-	// SuccessfulDataVolumeImportReason is added in an event when a dynamically generated
-	// dataVolume is successfully imports its data
-	SuccessfulDataVolumeImportReason = "SuccessfulDataVolumeImport"
-	// SuccessfulDataVolumeDeleteReason is added in an event when a dynamically generated
-	// dataVolume is successfully deleted
-	SuccessfulDataVolumeDeleteReason = "SuccessfulDataVolumeDelete"
-)
-
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
@@ -254,7 +232,7 @@ func (c *VMIController) execute(key string) error {
 	}
 
 	// Get all dataVolumes from the namespace
-	dataVolumes, err := c.listDataVolumesFromNamespace(vmi.Namespace)
+	dataVolumes, err := listDataVolumesFromNamespace(c.dataVolumeInformer.GetIndexer(), vmi.Namespace)
 
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
@@ -420,7 +398,10 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
 
-			newDataVolume, err := c.templateService.RenderDataVolumeManifest(vmi, volume.Name)
+			newDataVolume, err := createDataVolumeManifest(&volume,
+				&vmi.ObjectMeta,
+				virtv1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+				virtv1.VirtualMachineInstanceGroupVersionKind.Kind)
 			if err != nil {
 				return ready, &syncErrorImpl{fmt.Errorf("Failed to generate new DataVolume: %v", err), FailedDataVolumeCreateReason}
 			}
@@ -557,7 +538,10 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 		return
 	}
 
-	controllerRef := c.getControllerOfDataVolume(dataVolume)
+	controllerRef := controller.GetControllerOf(dataVolume)
+	if controllerRef == nil {
+		return
+	}
 
 	vmi := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
 	if vmi == nil {
@@ -598,8 +582,8 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		return
 	}
 
-	curControllerRef := c.getControllerOfDataVolume(curDataVolume)
-	oldControllerRef := c.getControllerOfDataVolume(oldDataVolume)
+	curControllerRef := controller.GetControllerOf(curDataVolume)
+	oldControllerRef := controller.GetControllerOf(oldDataVolume)
 	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -637,7 +621,12 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 		}
 	}
 
-	controllerRef := c.getControllerOfDataVolume(dataVolume)
+	controllerRef := controller.GetControllerOf(dataVolume)
+	if controllerRef == nil {
+		// No controller should care about orphans being deleted.
+		return
+	}
+
 	vmi := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -831,17 +820,24 @@ func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, e
 }
 
 func (c *VMIController) filterMatchingDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) ([]*cdiv1.DataVolume, error) {
-	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{MatchLabels: map[string]string{virtv1.DomainLabel: vmi.Name, virtv1.AppLabel: "virt-launcher"}})
-	if err != nil {
-		return nil, err
-	}
 	matchingDataVolumes := []*cdiv1.DataVolume{}
 	for _, dataVolume := range dataVolumes {
-		if selector.Matches(labels.Set(dataVolume.ObjectMeta.Labels)) && dataVolume.Annotations[virtv1.CreatedByAnnotation] == string(vmi.UID) {
-			matchingDataVolumes = append(matchingDataVolumes, dataVolume)
+
+		controllerRef := controller.GetControllerOf(dataVolume)
+		if controllerRef == nil {
+			continue
 		}
+		ownerVMI := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+		if ownerVMI == nil {
+			continue
+		} else if ownerVMI.UID != vmi.UID {
+			continue
+		}
+
+		matchingDataVolumes = append(matchingDataVolumes, dataVolume)
 	}
 	return matchingDataVolumes, nil
+
 }
 
 func (c *VMIController) filterMatchingPods(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
@@ -879,17 +875,6 @@ func (c *VMIController) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
 		Kind:               virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
 		Name:               pod.Labels[virtv1.DomainLabel],
 		UID:                types.UID(pod.Annotations[virtv1.CreatedByAnnotation]),
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}
-}
-
-func (c *VMIController) getControllerOfDataVolume(dataVolume *cdiv1.DataVolume) *v1.OwnerReference {
-	t := true
-	return &v1.OwnerReference{
-		Kind:               virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
-		Name:               dataVolume.Labels[virtv1.DomainLabel],
-		UID:                types.UID(dataVolume.Annotations[virtv1.CreatedByAnnotation]),
 		Controller:         &t,
 		BlockOwnerDeletion: &t,
 	}

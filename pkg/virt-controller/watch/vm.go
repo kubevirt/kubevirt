@@ -196,7 +196,7 @@ func (c *VMController) execute(key string) error {
 	}
 
 	// Get all dataVolumes from the namespace
-	dataVolumes, err := c.listDataVolumesFromNamespace(VM.Namespace)
+	dataVolumes, err := listDataVolumesFromNamespace(c.dataVolumeInformer.GetIndexer(), VM.Namespace)
 
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
@@ -243,19 +243,6 @@ func (c *VMController) execute(key string) error {
 	return createErr
 }
 
-func (c *VMController) listDataVolumesFromNamespace(namespace string) ([]*cdiv1.DataVolume, error) {
-	objs, err := c.dataVolumeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-	dataVolumes := []*cdiv1.DataVolume{}
-	for _, obj := range objs {
-		dataVolume := obj.(*cdiv1.DataVolume)
-		dataVolumes = append(dataVolumes, dataVolume)
-	}
-	return dataVolumes, nil
-}
-
 func (c *VMController) filterMatchingDataVolumes(vm *virtv1.VirtualMachine, dataVolumes []*cdiv1.DataVolume) ([]*cdiv1.DataVolume, error) {
 	matchingDataVolumes := []*cdiv1.DataVolume{}
 	for _, dataVolume := range dataVolumes {
@@ -271,7 +258,6 @@ func (c *VMController) filterMatchingDataVolumes(vm *virtv1.VirtualMachine, data
 			continue
 		}
 
-		// TODO start here verify we match a dataVolume
 		matchingDataVolumes = append(matchingDataVolumes, dataVolume)
 	}
 	return matchingDataVolumes, nil
@@ -368,7 +354,10 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
 
-			newDataVolume, err := setupDataVolumeFromVM(vm, volume.Name)
+			newDataVolume, err := createDataVolumeManifest(&volume,
+				&vm.ObjectMeta,
+				virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				virtv1.VirtualMachineGroupVersionKind.Kind)
 			if err != nil {
 				return ready, fmt.Errorf("Failed to generate new DataVolume: %v", err)
 			}
@@ -449,45 +438,6 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	log.Log.Object(vm).Info("Dispatching delete event")
 
 	return nil
-}
-
-func setupDataVolumeFromVM(vm *virtv1.VirtualMachine, volumeName string) (*cdiv1.DataVolume, error) {
-	var volume *virtv1.Volume
-	for _, curVolume := range vm.Spec.Template.Spec.Volumes {
-		if curVolume.Name == volumeName {
-			volume = curVolume.DeepCopy()
-			break
-		}
-	}
-
-	if volume == nil {
-		return nil, fmt.Errorf("Unable to generate DataVolume spec, volume %s does not exist on vm %s", volumeName, vm.Name)
-	}
-
-	annotations := map[string]string{}
-
-	annotations[virtv1.DataVolumeSourceName] = volume.Name
-	annotations[virtv1.CreatedByAnnotation] = string(vm.UID)
-	annotations[virtv1.OwnedByAnnotation] = "virt-controller"
-
-	newDataVolume := &cdiv1.DataVolume{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        services.GetDataVolumeName(vm.Name, volume.Name),
-			Annotations: annotations,
-		},
-		Spec: *volume.VolumeSource.DataVolume,
-	}
-	t := true
-	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
-		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
-		Name:               vm.ObjectMeta.Name,
-		UID:                vm.ObjectMeta.UID,
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}}
-
-	return newDataVolume, nil
 }
 
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.

@@ -34,8 +34,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -45,7 +43,6 @@ const TunDevice = "devices.kubevirt.io/tun"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderDataVolumeManifest(*v1.VirtualMachineInstance, string) (*cdiv1.DataVolume, error)
 }
 
 type templateService struct {
@@ -366,42 +363,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	return &pod, nil
-}
-
-func (t *templateService) RenderDataVolumeManifest(vmi *v1.VirtualMachineInstance, volumeName string) (*cdiv1.DataVolume, error) {
-
-	var volume *v1.Volume
-	for _, curVolume := range vmi.Spec.Volumes {
-		if curVolume.Name == volumeName {
-			volume = curVolume.DeepCopy()
-			break
-		}
-	}
-
-	if volume == nil {
-		return nil, fmt.Errorf("Unable to generate DataVolume spec, volume %s does not exist on vmi %s", volumeName, vmi.Name)
-	}
-
-	labels := map[string]string{}
-	annotations := map[string]string{}
-
-	labels[v1.DomainLabel] = vmi.Name
-	labels[v1.AppLabel] = "virt-launcher"
-
-	annotations[v1.DataVolumeSourceName] = volume.Name
-	annotations[v1.CreatedByAnnotation] = string(vmi.UID)
-	annotations[v1.OwnedByAnnotation] = "virt-controller"
-
-	newDataVolume := &cdiv1.DataVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        GetDataVolumeName(vmi.Name, volume.Name),
-			Labels:      labels,
-			Annotations: annotations,
-		},
-		Spec: *volume.VolumeSource.DataVolume,
-	}
-
-	return newDataVolume, nil
 }
 
 func GetDataVolumeToPVC(vmName string, volumeName string) string {
