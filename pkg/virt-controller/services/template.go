@@ -20,6 +20,7 @@
 package services
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -329,9 +330,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	containers = append(containers, container)
 
-	for _, requestedHookSidecar := range requestedHookSidecarList {
+	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(containers, k8sv1.Container{
-			Name:            "hook-sidecar-" + requestedHookSidecar.Image,
+			Name:            fmt.Sprintf("hook-sidecar-%d", i),
 			Image:           requestedHookSidecar.Image,
 			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
 			VolumeMounts: []k8sv1.VolumeMount{

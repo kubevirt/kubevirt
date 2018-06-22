@@ -6,7 +6,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 )
 
-const HookSidecarListAnnotationName = "hookSidecars"
+const HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
 const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
 
 type HookSidecarList []HookSidecar
