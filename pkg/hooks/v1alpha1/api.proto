@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package kubevirt.hooks.v1alpha1;
+
+service Callbacks {
+  rpc OnDefineDomain (OnDefineDomainParams) returns (OnDefineDomainResult);
+}
+
+message OnDefineDomainParams {
+  // domainXML is original libvirt domain specification, it is XML passed as string
+  string domainXML = 1;
+  // vm is VirtualMachine is object of virtual machine currently processed by virt-launcher, it is encoded as JSON and passed as string
+  string vm = 2;
+}
+
+message OnDefineDomainResult {
+  // domainXML is processed libvirt domain specification, it is XML passed as string
+  string domainXML = 1;
+}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"net"
 	"os"
 
@@ -12,52 +11,33 @@ import (
 
 	vmSchema "kubevirt.io/kubevirt/pkg/api/v1"
 	hooks "kubevirt.io/kubevirt/pkg/hooks"
-	hooksApi "kubevirt.io/kubevirt/pkg/hooks/v1alpha"
+	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
+	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	domainSchema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const name = "smbios"
-const version = hooksApi.Version
-const priority = 50
-
-var hookPoints = [...]string{hooksApi.OnDefineDomainHookPointName}
-
 const baseBoardManufacturerAnnotation = "smbios.vm.kubevirt.io/baseBoardManufacturer"
 
-type hookServer struct{}
+type infoServer struct{}
 
-func newHookServer() *hookServer {
-	return &hookServer{}
+func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*hooksInfo.InfoResult, error) {
+	return &hooksInfo.InfoResult{
+		Name: "smbios",
+		Versions: []string{
+			hooksV1alpha1.Version,
+		},
+		HookPoints: []*hooksInfo.HookPoint{
+			&hooksInfo.HookPoint{
+				Name:     hooksInfo.OnDefineDomainHookPointName,
+				Priority: 50,
+			},
+		},
+	}, nil
 }
 
-func (h *hookServer) Run() {
-	socketPath := hooks.HookSocketsSharedDirectory + "/" + name + ".sock"
-	socket, err := net.Listen("unix", socketPath)
-	if err != nil {
-		panic(err)
-	}
-	defer os.Remove(socketPath)
+type v1alpha1Server struct{}
 
-	server := grpc.NewServer([]grpc.ServerOption{}...)
-	hooksApi.RegisterHookServer(server, hookServer{})
-	server.Serve(socket)
-}
-
-func (h hookServer) Info(ctx context.Context, params *hooksApi.InfoParams) (*hooksApi.InfoResult, error) {
-	for _, supportedVersion := range params.GetSupportedVersions() {
-		if supportedVersion == hooksApi.Version {
-			return &hooksApi.InfoResult{
-				Name:       name,
-				Version:    version,
-				Priority:   priority,
-				HookPoints: hookPoints[:],
-			}, nil
-		}
-	}
-	return nil, fmt.Errorf("No supported hook API version")
-}
-
-func (h hookServer) OnDefineDomain(ctx context.Context, params *hooksApi.OnDefineDomainParams) (*hooksApi.OnDefineDomainResult, error) {
+func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha1.OnDefineDomainParams) (*hooksV1alpha1.OnDefineDomainResult, error) {
 	vmJSON := params.GetVm()
 	vmSpec := vmSchema.VirtualMachine{}
 	err := json.Unmarshal([]byte(vmJSON), &vmSpec)
@@ -68,7 +48,7 @@ func (h hookServer) OnDefineDomain(ctx context.Context, params *hooksApi.OnDefin
 	annotations := vmSpec.GetAnnotations()
 
 	if _, found := annotations[baseBoardManufacturerAnnotation]; !found {
-		return &hooksApi.OnDefineDomainResult{
+		return &hooksV1alpha1.OnDefineDomainResult{
 			DomainXML: params.GetDomainXML(),
 		}, nil
 	}
@@ -104,11 +84,21 @@ func (h hookServer) OnDefineDomain(ctx context.Context, params *hooksApi.OnDefin
 
 	newDomainXML := string(newDomainXMLRaw[:])
 
-	return &hooksApi.OnDefineDomainResult{
+	return &hooksV1alpha1.OnDefineDomainResult{
 		DomainXML: newDomainXML,
 	}, nil
 }
 
 func main() {
-	newHookServer().Run()
+	socketPath := hooks.HookSocketsSharedDirectory + "/smbios.sock"
+	socket, err := net.Listen("unix", socketPath)
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(socketPath)
+
+	server := grpc.NewServer([]grpc.ServerOption{}...)
+	hooksInfo.RegisterInfoServer(server, infoServer{})
+	hooksV1alpha1.RegisterCallbacksServer(server, v1alpha1Server{})
+	server.Serve(socket)
 }
