@@ -997,6 +997,13 @@ func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	AddExplicitPodNetworkInterface(vmi)
+	vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+	return vmi
+}
+
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)

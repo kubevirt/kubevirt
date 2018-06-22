@@ -380,4 +380,26 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
+	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
+		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: "cat /sys/class/net/eth0/address\n"},
+			&expect.BExp{R: expectedMacAddress},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	Context("VirtualMachineInstance with custom MAC address", func() {
+		It("should configure custom MAC address", func() {
+			By("checking eth0 MAC address")
+			deadbeafVMI := tests.NewRandomVMIWithCustomMacAddress()
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
+		})
+	})
+
 })

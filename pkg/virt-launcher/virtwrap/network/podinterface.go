@@ -23,6 +23,7 @@ package network
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/vishvananda/netlink"
 
@@ -111,8 +112,20 @@ func getBinding(iface *v1.Interface, domain *api.Domain) (BindMechanism, error) 
 		return nil, err
 	}
 
+	populateMacAddress := func(vif *VIF, iface *v1.Interface) error {
+		if iface.MacAddress != "" {
+			macAddress, err := net.ParseMAC(iface.MacAddress)
+			if err != nil {
+				return err
+			}
+			vif.MAC = macAddress
+		}
+		return nil
+	}
+
 	if iface.Bridge != nil {
 		vif := &VIF{Name: podInterface}
+		populateMacAddress(vif, iface)
 		return &BridgePodInterface{iface: iface, vif: vif, domain: domain, podInterfaceNum: podInterfaceNum}, nil
 	}
 	if iface.Slirp != nil {
@@ -153,13 +166,15 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 		return err
 	}
 
-	// Get interface MAC address
-	mac, err := Handler.GetMacDetails(podInterface)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get MAC for %s", podInterface)
-		return err
+	if len(b.vif.MAC) == 0 {
+		// Get interface MAC address
+		mac, err := Handler.GetMacDetails(podInterface)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get MAC for %s", podInterface)
+			return err
+		}
+		b.vif.MAC = mac
 	}
-	b.vif.MAC = mac
 
 	// Get interface MTU
 	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
@@ -288,6 +303,7 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 }
 
 type SlirpPodInterface struct {
+	// TODO:(ihar) implement custom MAC address support
 	iface           *v1.Interface
 	domain          *api.Domain
 	podInterfaceNum int
