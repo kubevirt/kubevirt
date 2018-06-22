@@ -274,7 +274,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 		if !podExists {
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 		}
-	case vmi.IsRunning() || vmi.IsScheduled():
+	case vmi.IsRunning() || vmi.IsScheduled() || vmi.IsStopping():
 		// Don't process states where the vmi is clearly owned by virt-handler
 		return nil
 	default:
