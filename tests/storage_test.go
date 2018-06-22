@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"time"
 
 	"github.com/google/goexpect"
@@ -34,6 +35,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
+)
+
+const (
+	diskSerial = "FB-fb_18030C10002032"
 )
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
@@ -149,6 +154,48 @@ var _ = Describe("Storage", func() {
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},
 				}, 20*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).To(BeNil())
+			})
+
+		})
+
+		Context("With an emptyDisk defined and a specified serial number", func() {
+			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
+			It("should create a writeable emptyDisk with the specified serial number", func() {
+
+				// Start the VirtualMachineInstance with the empty disk attached
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name:       "emptydisk1",
+					VolumeName: "emptydiskvolume1",
+					Serial:     diskSerial,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "emptydiskvolume1",
+					VolumeSource: v1.VolumeSource{
+						EmptyDisk: &v1.EmptyDiskSource{
+							Capacity: resource.MustParse("1Gi"),
+						},
+					},
+				})
+				RunVMIAndExpectLaunch(vmi, false, 90)
+
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).To(BeNil())
+				defer expecter.Close()
+
+				snQuery := fmt.Sprintf("sudo find /sys -type f -regex \".*/block/vdb/serial\" | xargs cat && echo %s\n", diskSerial)
+				By("Checking for the specified serial number")
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: snQuery},
+					&expect.BExp{R: diskSerial},
+				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).To(BeNil())
 			})

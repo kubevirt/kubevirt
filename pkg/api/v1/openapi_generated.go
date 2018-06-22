@@ -290,6 +290,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int32",
 							},
 						},
+						"serial": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Serial provides the ability to specify a serial number for the disk device.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 					},
 					Required: []string{"name", "volumeName"},
 				},

@@ -83,6 +83,8 @@ spec:
                                 type: boolean
                           name:
                             type: string
+                          serial:
+                            type: string
                           volumeName:
                             type: string
                         required:
