@@ -25,6 +25,6 @@ RUN useradd -u 1001 --create-home -s /bin/bash virt-api
 WORKDIR /home/virt-api
 USER 1001
 
-COPY virt-api /virt-api
+COPY virt-api /usr/bin/virt-api
 
-ENTRYPOINT [ "/virt-api" ]
+ENTRYPOINT [ "/usr/bin/virt-api" ]
