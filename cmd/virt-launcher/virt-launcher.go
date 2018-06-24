@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -265,9 +266,9 @@ func main() {
 	log.InitializeLogging("virt-launcher")
 
 	// Block until all requested hookSidecars are ready
-	// TODO: Implement waiting/registration
 	if *requestedHooks != 0 {
-		panic("Waiting mechanism for hookSidecars is not implemented")
+		hookManager := hooks.NewManager()
+		hookManager.Collect(*requestedHooks)
 	}
 
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)

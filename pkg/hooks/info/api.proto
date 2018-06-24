@@ -21,5 +21,5 @@ message HookPoint {
   // name represents name of the subscribed hook point
   string name = 1;
   // priority is used to sort hooks prior to their execution (second key is the name)
-  uint32 priority = 2;
+  int32 priority = 2;
 }
