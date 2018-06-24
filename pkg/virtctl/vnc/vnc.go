@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"time"
 
 	"github.com/golang/glog"
@@ -39,6 +40,18 @@ import (
 const LISTEN_TIMEOUT = 60 * time.Second
 
 const FLAG = "vnc"
+
+//#### Tiger VNC ####
+//# https://github.com/TigerVNC/tigervnc/releases
+const TIGER_VNC = "/Applications/TigerVNC Viewer 1.8.0.app/Contents/MacOS/TigerVNC Viewer"
+
+//#### Chicken VNC ####
+//# https://sourceforge.net/projects/chicken/
+const CHICKEN_VNC = "/Applications/Chicken.app/Contents/MacOS/Chicken"
+
+//####  Real VNC ####
+//# https://www.realvnc.com/en/connect/download/viewer/macos/
+const REAL_VNC = "/Applications/VNC Viewer.app/Contents/MacOS/vncviewer"
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
@@ -155,13 +168,37 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			glog.Infof("remote-viewer commandline: %v", args)
 		}
 
-		cmnd := exec.Command("remote-viewer", args...)
+		vncBin := ""
+		osType := runtime.GOOS
+		switch osType {
+		case "darwin":
+			if _, err := os.Stat(TIGER_VNC); err == nil {
+				vncBin = TIGER_VNC
+			}
+			if _, err := os.Stat(CHICKEN_VNC); err == nil {
+				vncBin = CHICKEN_VNC
+			}
+			if _, err := os.Stat(REAL_VNC); err == nil {
+				vncBin = REAL_VNC
+				args = append(args, "-WarnUnencrypted=0")
+			}
+		case "linux":
+			vncBin = "remote-viewer"
+		default:
+			// do nothing vncBin = ""
+		}
 
-		output, err := cmnd.CombinedOutput()
-		if err != nil {
-			glog.Errorf("remote-viewer execution failed: %v, output: %v", err, string(output))
+		if vncBin == "" {
+			glog.Errorf("No supported VNC app found in %s", osType)
+			err = fmt.Errorf("No supported VNC app found in %s", osType)
 		} else {
-			glog.V(2).Infof("remote-viewer output: %v", string(output))
+			cmnd := exec.Command(vncBin, args...)
+			output, err := cmnd.CombinedOutput()
+			if err != nil {
+				glog.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
+			} else {
+				glog.V(2).Infof("remote-viewer output: %v", string(output))
+			}
 		}
 		viewResChan <- err
 		close(doneChan)
