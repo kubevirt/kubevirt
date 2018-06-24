@@ -28,6 +28,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -43,6 +44,7 @@ var _ = Describe("Networking", func() {
 	tests.PanicOnError(err)
 
 	var vmi *v1.VirtualMachineInstance
+	var container k8sv1.Container
 
 	Context("VirtualMachineInstance with slirp interface", func() {
 		tests.BeforeAll(func() {
@@ -53,7 +55,20 @@ var _ = Describe("Networking", func() {
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			generateHelloWorldServer(vmi, virtClient, 80, "tcp")
 		})
-
+		It("should contains containerPort in the pod manifest", func() {
+			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+			for _, containerSpec := range vmiPod.Spec.Containers {
+				if containerSpec.Name == "compute" {
+					container = containerSpec
+					break
+				}
+			}
+			Expect(container.Name).ToNot(Equal(""))
+			Expect(container.Ports).ToNot(Equal(nil))
+			Expect(container.Ports[0].Name).To(Equal("tcp-80"))
+			Expect(container.Ports[0].Protocol).To(Equal(k8sv1.Protocol("TCP")))
+			Expect(container.Ports[0].ContainerPort).To(Equal(int32(80)))
+		})
 		It("should start the virtial machine with slirp interface", func() {
 			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
