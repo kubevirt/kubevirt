@@ -419,10 +419,10 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 				if port.PodPort == 0 {
 					port.PodPort = port.Port
 				}
-				// The container port name must be unique, combination of protocol and port
+				// The container port name must be unique, a combination of protocol and port.
 				name := fmt.Sprintf("%s-%d", strings.ToLower(port.Protocol), port.PodPort)
 
-				// Need to add the port only one time
+				// Need to add the port only one time.
 				if _, ok := configuredPorts[name]; !ok {
 					ports = append(ports, k8sv1.ContainerPort{Protocol: k8sv1.Protocol(port.Protocol), Name: name, ContainerPort: port.PodPort})
 					configuredPorts[name] = struct{}{}

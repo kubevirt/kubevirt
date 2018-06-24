@@ -430,7 +430,7 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with slirp interface", func() {
-			It("Should not create a ports in the pod manifest", func() {
+			It("Should have empty port list in the pod manifest", func() {
 				slirpInterface := v1.InterfaceSlirp{}
 				domain := v1.DomainSpec{}
 				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface}}}
@@ -447,7 +447,7 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(len(pod.Spec.Containers[0].Ports)).To(Equal(0))
 			})
-			It("Should create a ports in the pod manifest", func() {
+			It("Should create a port list in the pod manifest", func() {
 				slirpInterface := v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}, {Port: 90}}}
 				domain := v1.DomainSpec{}
 				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface}}}
