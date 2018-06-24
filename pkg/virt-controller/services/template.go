@@ -20,6 +20,7 @@
 package services
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -235,6 +236,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
+	// Add ports from slirp interfaces to the pod manifest
+	ports := getPortsFromVMI(vmi)
+
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
@@ -267,6 +271,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			FailureThreshold:    int32(failureThreshold),
 		},
 		Resources: resources,
+		Ports:     ports,
 	}
 
 	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
@@ -399,6 +404,38 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	overhead.Add(resource.MustParse("16Mi"))
 
 	return overhead
+}
+
+func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
+	ports := make([]k8sv1.ContainerPort, 0)
+
+	configuredPorts := make(map[string]struct{})
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Slirp != nil && iface.Slirp.Ports != nil {
+			for _, port := range iface.Slirp.Ports {
+				if port.Protocol == "" {
+					port.Protocol = "TCP"
+				}
+				if port.PodPort == 0 {
+					port.PodPort = port.Port
+				}
+				// The container port name must be unique, combination of protocol and port
+				name := fmt.Sprintf("%s-%d", strings.ToLower(port.Protocol), port.PodPort)
+
+				// Need to add the port only one time
+				if _, ok := configuredPorts[name]; !ok {
+					ports = append(ports, k8sv1.ContainerPort{Protocol: k8sv1.Protocol(port.Protocol), Name: name, ContainerPort: port.PodPort})
+					configuredPorts[name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	if len(ports) == 0 {
+		return nil
+	}
+
+	return ports
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
