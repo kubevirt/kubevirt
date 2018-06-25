@@ -246,7 +246,6 @@ type VirDomain interface {
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
-	Undefine() error
 	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
 	Free() error
 }

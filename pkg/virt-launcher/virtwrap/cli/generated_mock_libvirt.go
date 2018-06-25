@@ -263,16 +263,6 @@ func (_mr *_MockVirDomainRecorder) GetXMLDesc(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetXMLDesc", arg0)
 }
 
-func (_m *MockVirDomain) Undefine() error {
-	ret := _m.ctrl.Call(_m, "Undefine")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirDomainRecorder) Undefine() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Undefine")
-}
-
 func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt_go.Stream, flags libvirt_go.DomainConsoleFlags) error {
 	ret := _m.ctrl.Call(_m, "OpenConsole", devname, stream, flags)
 	ret0, _ := ret[0].(error)

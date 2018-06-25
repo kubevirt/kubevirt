@@ -140,7 +140,6 @@ var _ = Describe("Manager", func() {
 			func(state libvirt.DomainState) {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
-				mockDomain.EXPECT().Undefine().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
 				err := manager.KillVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
@@ -155,7 +154,6 @@ var _ = Describe("Manager", func() {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Destroy().Return(nil)
-				mockDomain.EXPECT().Undefine().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
 				err := manager.KillVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())

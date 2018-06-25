@@ -807,6 +807,13 @@ var _ = Describe("VMIlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
+				By("Verifying VirtualMachineInstance's status is Running")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					currVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return currVMI.Status.Phase
+				}, 60, 0.5).Should(Equal(v1.Running))
+
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed())
 
@@ -816,6 +823,13 @@ var _ = Describe("VMIlifecycle", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return len(pods.Items)
 				}, 75, 0.5).Should(Equal(0))
+
+				By("Verifying VirtualMachineInstance's status is Succeeded")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					currVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return currVMI.Status.Phase
+				}, 10, 0.5).Should(Equal(v1.Succeeded))
 			})
 		})
 		Context("with grace period greater than 0", func() {

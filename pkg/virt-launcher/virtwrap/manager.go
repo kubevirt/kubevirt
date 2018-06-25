@@ -301,15 +301,7 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 		log.Log.Object(vmi).Info("Domain stopped.")
 	}
 
-	err = dom.Undefine()
-	if err != nil {
-		if domainerrors.IsNotFound(err) {
-			return nil
-		}
-		log.Log.Object(vmi).Reason(err).Error("Undefining the domain state failed.")
-		return err
-	}
-	log.Log.Object(vmi).Info("Domain undefined.")
+	log.Log.Object(vmi).Info("Domain not running or paused, nothing to do.")
 	return nil
 }
 
