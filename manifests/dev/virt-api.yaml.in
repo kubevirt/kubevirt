@@ -42,7 +42,7 @@ spec:
           image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-              - "/virt-api"
+              - "virt-api"
               - "--port"
               - "8443"
               - "--subresources-only"

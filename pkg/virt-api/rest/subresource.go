@@ -115,7 +115,7 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 	vmiName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	cmd := []string{"/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", namespace, vmiName, "vnc")}
+	cmd := []string{"/usr/share/kubevirt/virt-launcher/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", namespace, vmiName, "vnc")}
 	app.requestHandler(request, response, cmd)
 }
 
@@ -123,7 +123,7 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 	vmiName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	cmd := []string{"/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", namespace, vmiName, "serial0")}
+	cmd := []string{"/usr/share/kubevirt/virt-launcher/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", namespace, vmiName, "serial0")}
 
 	app.requestHandler(request, response, cmd)
 }
