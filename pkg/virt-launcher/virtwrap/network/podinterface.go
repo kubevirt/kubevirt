@@ -303,7 +303,6 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 }
 
 type SlirpPodInterface struct {
-	// TODO:(ihar) implement custom MAC address support
 	iface           *v1.Interface
 	domain          *api.Domain
 	podInterfaceNum int
@@ -327,6 +326,10 @@ func (s *SlirpPodInterface) preparePodNetworkInterfaces() error {
 
 func (s *SlirpPodInterface) decorateConfig() error {
 	s.domain.Spec.QEMUCmd.QEMUArg[s.podInterfaceNum].Value += fmt.Sprintf(",id=%s", s.iface.Name)
+	if s.iface.MacAddress != "" {
+		// We assume address was already validated in API layer so just pass it to libvirt as-is.
+		s.domain.Spec.QEMUCmd.QEMUArg[s.podInterfaceNum].Value += fmt.Sprintf(",mac=%s", s.iface.MacAddress)
+	}
 	return nil
 }
 

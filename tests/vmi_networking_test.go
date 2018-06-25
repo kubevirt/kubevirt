@@ -402,4 +402,16 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
+	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
+		It("should configure custom MAC address", func() {
+			By("checking eth0 MAC address")
+			deadbeafVMI := tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskAlpine), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
+			deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
+		})
+	})
 })
