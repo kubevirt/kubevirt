@@ -185,8 +185,6 @@ func (c *VMIReplicaSet) execute(key string) error {
 		return err
 	}
 
-	vmis = c.filterActiveVMIs(vmis)
-
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
@@ -258,33 +256,45 @@ func (c *VMIReplicaSet) orphan(cm *controller.VirtualMachineControllerRefManager
 }
 
 func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance) error {
+	log.Log.V(4).Object(rs).Info("Scale")
+	activeVmis := c.filterActiveVMIs(vmis)
+	diff := c.calcDiff(rs, activeVmis)
+	totalDiff := c.calcDiff(rs, vmis)
 
-	diff := c.calcDiff(rs, vmis)
 	rsKey, err := controller.KeyFunc(rs)
 	if err != nil {
 		log.Log.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
 		return nil
 	}
 
-	if diff == 0 {
+	if totalDiff == 0 && diff == 0 {
 		return nil
 	}
 
 	// Make sure that we don't overload the cluster
 	diff = limit(diff, c.burstReplicas)
+	totalDiff = limit(totalDiff, c.burstReplicas)
 
 	// Every delete request can fail, give the channel enough room, to not block the go routines
 	errChan := make(chan error, abs(diff))
 
 	var wg sync.WaitGroup
-	wg.Add(abs(diff))
 
-	if diff > 0 {
+	if totalDiff > 0 {
+		log.Log.V(4).Object(rs).Info("Delete excess VM's")
+		wg.Add(abs(totalDiff))
 		// We have to delete VMIs, use a very simple selection strategy for now
 		// TODO: Possible deletion order: not yet running VMIs < migrating VMIs < other
-		deleteCandidates := vmis[0:diff]
+		// First we try to delete finished VM's
+		finishedVmis := c.filterFinishedVMIs(vmis)
+		var deleteCandidates []*virtv1.VirtualMachineInstance
+		if len(finishedVmis) >= totalDiff {
+			deleteCandidates = finishedVmis
+		} else {
+			deleteCandidates = append(finishedVmis, vmis[0:diff-len(finishedVmis)]...)
+		}
 		c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineKeys(deleteCandidates))
-		for i := 0; i < diff; i++ {
+		for i := 0; i < totalDiff; i++ {
 			go func(idx int) {
 				defer wg.Done()
 				deleteCandidate := vmis[idx]
@@ -302,6 +312,8 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 		}
 
 	} else if diff < 0 {
+		log.Log.V(4).Object(rs).Info("Add missing VM's")
+		wg.Add(abs(diff))
 		// We have to create VMIs
 		c.expectations.ExpectCreations(rsKey, abs(diff))
 		basename := c.getVirtualMachineBaseName(rs)
@@ -349,6 +361,13 @@ func (c *VMIReplicaSet) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) 
 func (c *VMIReplicaSet) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return vmi.IsReady()
+	})
+}
+
+// filterFinishedVMIs takes a list of VMIs and returns all VMIs which are in final state.
+func (c *VMIReplicaSet) filterFinishedVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
+	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+		return vmi.IsFinal()
 	})
 }
 
@@ -469,7 +488,7 @@ func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 	}
 
 	labelChanged := !reflect.DeepEqual(curVMI.Labels, oldVMI.Labels)
-	if curVMI.DeletionTimestamp != nil {
+	if curVMI.DeletionTimestamp != nil || curVMI.IsFinal() {
 		// when a vmi is deleted gracefully it's deletion timestamp is first modified to reflect a grace period,
 		// and after such time has passed, the virt-handler actually deletes it from the store. We receive an update
 		// for modification of the deletion timestamp and expect an rs to create more replicas asap, not wait
