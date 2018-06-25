@@ -54,7 +54,7 @@ var _ = Describe("Slirp", func() {
 			generateHelloWorldServer(vmi, virtClient, 80, "tcp")
 		})
 
-		It("should start the virtial machine with slirp interface", func() {
+		It("should start the virtual machine with slirp interface", func() {
 			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
@@ -66,7 +66,7 @@ var _ = Describe("Slirp", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Contains(output, "0.0.0.0:80")).To(BeTrue())
 		})
-		It("should return \"Hello World\" when connecting to localhost on port 80", func() {
+		It("should return \"Hello World!\" when connecting to localhost on port 80", func() {
 			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
@@ -79,7 +79,7 @@ var _ = Describe("Slirp", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Contains(output, "Hello World!")).To(BeTrue())
 		})
-		It("should reject the connecting to localhost and port different than 80", func() {
+		It("should reject connecting to localhost and port different than 80", func() {
 			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
