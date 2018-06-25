@@ -391,7 +391,7 @@ spec:
           image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-              - "/virt-api"
+              - "virt-api"
               - "--port"
               - "8443"
               - "--subresources-only"
@@ -428,7 +428,7 @@ spec:
           image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-              - "/virt-controller"
+              - "virt-controller"
               - "--launcher-image"
               - "{{.DockerPrefix}}/virt-launcher:{{.DockerTag}}"
               - "--port"
@@ -480,7 +480,7 @@ spec:
           image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-            - "/virt-handler"
+            - "virt-handler"
             - "-v"
             - "3"
             - "--hostname-override"

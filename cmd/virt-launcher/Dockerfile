@@ -29,18 +29,11 @@ RUN dnf -y install \
   sudo && dnf -y clean all && \
   test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
-COPY sock-connector /sock-connector
-COPY sh.sh /sh.sh
-COPY virt-launcher /virt-launcher
-
+COPY virt-launcher /usr/bin/virt-launcher
 COPY kubevirt-sudo /etc/sudoers.d/kubevirt
-RUN chmod 0640 /etc/sudoers.d/kubevirt
 
 # libvirtd.sh in this image differs from upstream
-RUN rm -f /libvirtd.sh
-COPY libvirtd.sh /libvirtd.sh
-RUN chmod a+x /libvirtd.sh
+RUN mkdir -p /usr/share/kubevirt/virt-launcher
+COPY entrypoint.sh libvirtd.sh sh.sh sock-connector /usr/share/kubevirt/virt-launcher/
 
-COPY entrypoint.sh /entrypoint.sh
-
-ENTRYPOINT [ "/entrypoint.sh" ]
+ENTRYPOINT [ "/usr/share/kubevirt/virt-launcher/entrypoint.sh" ]

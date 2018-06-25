@@ -24,7 +24,7 @@ spec:
           image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-            - "/virt-handler"
+            - "virt-handler"
             - "-v"
             - "3"
             - "--hostname-override"
