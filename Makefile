@@ -44,6 +44,9 @@ deps-update:
 docker: build
 	hack/build-docker.sh build ${WHAT}
 
+push: docker
+	hack/build-docker.sh push ${WHAT}
+
 publish: docker verify-build
 	hack/build-docker.sh push ${WHAT}
 

@@ -48,7 +48,7 @@ function build() {
 
     # Build everyting and publish it
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/build-manifests.sh"
-    make build docker publish
+    make push
 
     # Make sure that all nodes use the newest images
     container=""
