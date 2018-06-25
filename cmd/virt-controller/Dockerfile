@@ -24,6 +24,6 @@ MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 RUN useradd -u 1001 --create-home -s /bin/bash virt-controller
 WORKDIR /home/virt-controller
 USER 1001
-COPY virt-controller /virt-controller
+COPY virt-controller /usr/bin/virt-controller
 
-ENTRYPOINT [ "/virt-controller" ]
+ENTRYPOINT [ "/usr/bin/virt-controller" ]
