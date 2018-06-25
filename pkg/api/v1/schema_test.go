@@ -151,7 +151,7 @@ var exampleJSON = `{
               "readonly": true
             }
           },
-		  {
+          {
             "name": "disk1",
             "volumeName": "volume4",
             "disk": {
