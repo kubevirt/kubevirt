@@ -297,6 +297,8 @@ var _ = Describe("VMIlifecycle", func() {
 
 		Context("when virt-handler crashes", func() {
 			It("should recover and continue management", func() {
+				tests.SkipIfNoVersion(virtClient)
+
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil())
 
@@ -327,6 +329,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 		Context("when virt-handler is responsive", func() {
 			It("should indicate that a node is ready for vmis", func() {
+				tests.SkipIfNoVersion(virtClient)
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
@@ -364,6 +367,8 @@ var _ = Describe("VMIlifecycle", func() {
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
+				tests.SkipIfNoVersion(virtClient)
+
 				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
