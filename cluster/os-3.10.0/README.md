@@ -39,7 +39,7 @@ Use the default user `admin:admin` to log in.
 ## Bringing the cluster down
 
 ```bash
-export KUBEVIRT_PROVIDER=3.10.0
+export KUBEVIRT_PROVIDER=os-3.10.0
 make cluster-down
 ```
 
