@@ -34,7 +34,7 @@ if [[ $TARGET =~ openshift-.* ]]; then
   if [[ $TARGET =~ .*-crio-.* ]]; then
     export KUBEVIRT_PROVIDER="os-3.9.0-crio"
   else
-    export KUBEVIRT_PROVIDER="os-3.9.0"
+    export KUBEVIRT_PROVIDER="os-3.10.0"
   fi
 elif [[ $TARGET =~ .*-1.9.3-.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.9.3"
