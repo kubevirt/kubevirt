@@ -700,14 +700,24 @@ type InterfaceSlirp struct {
 
 // Port repesents a port to expose from the virtual machine.
 // Default protocol TCP.
-// Default port is PodPort.
+// Default podPort is port.
 // ---
 // +k8s:openapi-gen=true
 type Port struct {
-	Name     string `json:"name,omitempty"`
+	Name string `json:"name,omitempty"`
+	// Protocol for port. Must be UDP or TCP.
+	// Defaults to "TCP".
+	// +optional
 	Protocol string `json:"protocol,omitempty"`
-	Port     int32  `json:"port"`
-	PodPort  int32  `json:"podPort,omitempty"`
+	// Number of port to expose for the virtual machine.
+	// This must be a valid port number, 0 < x < 65536.
+	Port int32 `json:"port"`
+	// Number of port to expose on the pod's IP address.
+	// This must be a valid port number, 0 < x < 65536.
+	// This will forward the incoming connection, podPort will be translated to port and transmit it to the virtual machine itself.
+	// Most virtual machines do not need this.
+	// +optional
+	PodPort int32 `json:"podPort,omitempty"`
 }
 
 // Network represents a network type and a resource that should be connected to the vm.

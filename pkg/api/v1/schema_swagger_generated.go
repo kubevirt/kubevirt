@@ -336,7 +336,10 @@ func (InterfaceSlirp) SwaggerDoc() map[string]string {
 
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nDefault port is PodPort.",
+		"":         "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nDefault podPort is port.",
+		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
+		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
+		"podPort":  "Number of port to expose on the pod's IP address.\nThis must be a valid port number, 0 < x < 65536.\nThis will forward the incoming connection, podPort will be translated to port and transmit it to the virtual machine itself.\nMost virtual machines do not need this.\n+optional",
 	}
 }
 

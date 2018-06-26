@@ -1047,7 +1047,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Port": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. Default port is PodPort.",
+					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. Default podPort is port.",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
@@ -1057,20 +1057,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"protocol": {
 							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "Protocol for port. Must be UDP or TCP. Defaults to \"TCP\".",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"port": {
 							SchemaProps: spec.SchemaProps{
-								Type:   []string{"integer"},
-								Format: "int32",
+								Description: "Number of port to expose for the virtual machine. This must be a valid port number, 0 < x < 65536.",
+								Type:        []string{"integer"},
+								Format:      "int32",
 							},
 						},
 						"podPort": {
 							SchemaProps: spec.SchemaProps{
-								Type:   []string{"integer"},
-								Format: "int32",
+								Description: "Number of port to expose on the pod's IP address. This must be a valid port number, 0 < x < 65536. This will forward the incoming connection, podPort will be translated to port and transmit it to the virtual machine itself. Most virtual machines do not need this.",
+								Type:        []string{"integer"},
+								Format:      "int32",
 							},
 						},
 					},
