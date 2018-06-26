@@ -1438,20 +1438,23 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 	return nil
 }
 
-// SkipIfNoVersion will skip tests if it runs on k8s version less than 1.10.3
-func SkipIfNoVersion(virtClient kubecli.KubevirtClient) {
-	version, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
+// SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
+func SkipIfVersionBelow(message string, expectedVersion string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
 	Expect(err).ToNot(HaveOccurred())
 
 	var info k8sversion.Info
 
-	err = json.Unmarshal(version, &info)
+	err = json.Unmarshal(response, &info)
 	Expect(err).ToNot(HaveOccurred())
 
-	gitVersion := strings.Split(info.GitVersion, ".")
-	gitMinorVersion, err := strconv.Atoi(strings.Split(gitVersion[2], "+")[0])
-	Expect(err).ToNot(HaveOccurred())
-	if gitMinorVersion < 3 {
-		Skip(fmt.Sprintf("Test does not supported under the version %s", info.String()))
+	curVersion := strings.Split(info.GitVersion, "+")[0]
+	curVersion = strings.Trim(curVersion, "v")
+
+	if curVersion < expectedVersion {
+		Skip(message)
 	}
 }
