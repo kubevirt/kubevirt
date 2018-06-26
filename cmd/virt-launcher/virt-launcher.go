@@ -266,9 +266,10 @@ func main() {
 	log.InitializeLogging("virt-launcher")
 
 	// Block until all requested hookSidecars are ready
-	if *requestedHooks != 0 {
-		hookManager := hooks.NewManager()
-		hookManager.Collect(*requestedHooks)
+	hookManager := hooks.GetManager()
+	err := hookManager.Collect(*requestedHooks)
+	if err != nil {
+		panic(err)
 	}
 
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)

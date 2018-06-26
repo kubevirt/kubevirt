@@ -7,6 +7,7 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -23,12 +24,19 @@ type hookClient struct {
 	hookPoints []*hooksInfo.HookPoint
 }
 
+var manager *Manager
+var once sync.Once
+
 type Manager struct {
+	collected             bool
 	callbacksPerHookPoint map[string][]*hookClient
 }
 
-func NewManager() *Manager {
-	return &Manager{}
+func GetManager() *Manager {
+	once.Do(func() {
+		manager = &Manager{collected: false}
+	})
+	return manager
 }
 
 func (m *Manager) Collect(numberOfRequestedHookSidecars uint) error {
@@ -41,6 +49,7 @@ func (m *Manager) Collect(numberOfRequestedHookSidecars uint) error {
 	sortCallbacksPerHookPoint(callbacksPerHookPoint)
 	log.Log.Infof("Sorted all collected sidecar sockets per hook point based on their priority and name: %v", callbacksPerHookPoint)
 
+	m.collected = true
 	m.callbacksPerHookPoint = callbacksPerHookPoint
 
 	return nil
