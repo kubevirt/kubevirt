@@ -402,6 +402,19 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
+	Context("VirtualMachineInstance with custom MAC address in non-conventional format", func() {
+		It("should configure custom MAC address", func() {
+			By("checking eth0 MAC address")
+			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
+			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "BE-AF-00-00-DE-AD"
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
+			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad", "localhost:~#")
+		})
+	})
+
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
 		It("should configure custom MAC address", func() {
 			By("checking eth0 MAC address")
