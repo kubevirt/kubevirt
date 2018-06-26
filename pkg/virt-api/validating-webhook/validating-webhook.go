@@ -613,11 +613,18 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 			// verify that selected macAddress is valid
 			if iface.MacAddress != "" {
-				_, err := net.ParseMAC(iface.MacAddress)
+				mac, err := net.ParseMAC(iface.MacAddress)
 				if err != nil {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("interface %s has malformed MAC address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
+					})
+				}
+				if len(mac) > 6 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("interface %s has MAC address (%s) that is too long.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
 						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
 					})
 				}

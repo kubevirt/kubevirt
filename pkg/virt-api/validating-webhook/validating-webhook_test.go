@@ -828,8 +828,8 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			for _, macAddress := range []string{"de:ad:00:00:be", "de-ad-00-00-be"} {
-				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = macAddress // missing octet
+			for _, macAddress := range []string{"de:ad:00:00:be", "de-ad-00-00-be", "de:ad:00:00:be:af:be:af"} {
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = macAddress
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 				Expect(len(causes)).To(Equal(1))
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].macAddress"))
