@@ -174,6 +174,42 @@ var _ = Describe("Replicaset", func() {
 			// TODO test for missing 5
 		})
 
+		It("should already create replacement VMIs once it discovers that a VMI is marked for deletion", func() {
+			rs, vmi := DefaultReplicaSet(10)
+
+			addReplicaSet(rs)
+
+			// Add 3 VMIs to the cache which are already running
+			for x := 0; x < 3; x++ {
+				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
+				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
+				vmiFeeder.Add(vmi)
+			}
+
+			// Add 3 VMIs to the cache which are marked for deletion
+			for x := 3; x < 6; x++ {
+				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
+				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
+				vmi.DeletionTimestamp = now()
+				vmiFeeder.Add(vmi)
+			}
+
+			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
+
+			// Should create 7 vms, 3 are already there and 3 are there but marked for deletion
+			vmiInterface.EXPECT().Create(gomock.Any()).Times(7).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal("testvmi"))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+
+			for x := 0; x < 7; x++ {
+				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			}
+		})
+
 		It("should delete missing VMIs in batches of a maximum of 10 VMIs at once", func() {
 			rs, _ := DefaultReplicaSet(0)
 
@@ -200,6 +236,40 @@ var _ = Describe("Replicaset", func() {
 			}
 
 			// TODO test for missing 5
+		})
+
+		It("should not delete vmis which are already marked deleted", func() {
+			rs, _ := DefaultReplicaSet(3)
+
+			addReplicaSet(rs)
+
+			// Add 5 VMIs without deletion timestamp
+			for x := 0; x < 5; x++ {
+				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
+				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
+				vmiFeeder.Add(vmi)
+			}
+			// Add 5 VMIs with deletion timestamp
+			for x := 5; x < 9; x++ {
+				vmi := v1.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
+				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
+				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
+				vmi.DeletionTimestamp = now()
+				vmiFeeder.Add(vmi)
+			}
+
+			rsInterface.EXPECT().Update(gomock.Any()).AnyTimes()
+
+			// Check if only two vms get deleted
+			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).
+				Times(2).Return(nil)
+
+			controller.Execute()
+
+			for x := 0; x < 2; x++ {
+				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			}
 		})
 
 		It("should ignore non-matching VMIs", func() {
