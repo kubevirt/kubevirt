@@ -20,20 +20,26 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 func main() {
+	uuid := flag.String("uuid", "", "some fake arg")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
 		syscall.SIGTERM,
 	)
 
-	fmt.Printf("Started fake qemu process\n")
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+	fmt.Printf("Started fake qemu process with uuid %s\n", *uuid)
 
 	timeout := time.After(60 * time.Second)
 	select {
