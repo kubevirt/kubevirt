@@ -264,6 +264,21 @@ var _ = Describe("Pod Network", func() {
 				Expect(idx).To(Equal(2))
 			})
 		})
+		Context("getBinding", func() {
+			Context("for Bridge", func() {
+				It("should populate MAC address", func() {
+					domain := NewDomainWithBridgeInterface()
+					vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+					api.SetObjectDefaults_Domain(domain)
+					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+					driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+					Expect(err).ToNot(HaveOccurred())
+					bridge, ok := driver.(*BridgePodInterface)
+					Expect(ok).To(BeTrue())
+					Expect(bridge.vif.MAC.String()).To(Equal("de:ad:00:00:be:af"))
+				})
+			})
+		})
 		Context("Slirp Plug", func() {
 			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
 				domain := NewDomainWithSlirpInterface()
