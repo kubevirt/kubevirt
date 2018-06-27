@@ -167,6 +167,18 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
+		It("should not delete the VirtualMachineInstance again if it is already marked for deletion", func() {
+			vm, vmi := DefaultVirtualMachine(false)
+			vmi.DeletionTimestamp = now()
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+		})
+
 		It("should ignore non-matching VMIs", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 
