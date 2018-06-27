@@ -294,6 +294,21 @@ var _ = Describe("Pod Network", func() {
 				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
 				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
 			})
+			It("Should append MAC address to qemu arguments if set", func() {
+				domain := NewDomainWithSlirpInterface()
+				vmi := newVMISlirpInterface("testnamespace", "testVmName")
+
+				api.SetObjectDefaults_Domain(domain)
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+
+				driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+				Expect(err).ToNot(HaveOccurred())
+				TestRunPlug(driver)
+				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
+				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
+				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
+				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default,mac=de-ad-00-00-be-af"}))
+			})
 			It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
 				domain := NewDomainWithSlirpInterface()
 				vmi := newVMISlirpInterface("testnamespace", "testVmName")
