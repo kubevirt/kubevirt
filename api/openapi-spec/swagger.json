@@ -3828,23 +3828,20 @@
       "description": "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
       "type": "string"
      },
-     "slirp": {
-      "$ref": "#/definitions/v1.InterfaceSlirp"
-     }
-    }
-   },
-   "v1.InterfaceBridge": {},
-   "v1.InterfaceSlirp": {
-    "properties": {
      "ports": {
       "description": "List of ports to be forwarded to the virtual machine.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Port"
       }
+     },
+     "slirp": {
+      "$ref": "#/definitions/v1.InterfaceSlirp"
      }
     }
    },
+   "v1.InterfaceBridge": {},
+   "v1.InterfaceSlirp": {},
    "v1.KVMTimer": {
     "properties": {
      "present": {
@@ -4265,12 +4262,8 @@
     ],
     "properties": {
      "name": {
+      "description": "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
       "type": "string"
-     },
-     "podPort": {
-      "description": "Number of port to expose on the pod's IP address.\nThis must be a valid port number, 0 \u003c x \u003c 65536.\nThis will forward the incoming connection, podPort will be translated to port and transmit it to the virtual machine itself.\nMost virtual machines do not need this.\n+optional",
-      "type": "integer",
-      "format": "int32"
      },
      "port": {
       "description": "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 \u003c x \u003c 65536.",

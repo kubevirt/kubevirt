@@ -315,6 +315,7 @@ func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":  "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
 		"model": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"ports": "List of ports to be forwarded to the virtual machine.",
 	}
 }
 
@@ -329,17 +330,15 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 }
 
 func (InterfaceSlirp) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"ports": "List of ports to be forwarded to the virtual machine.",
-	}
+	return map[string]string{}
 }
 
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nDefault podPort is port.",
+		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
 		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
 		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
-		"podPort":  "Number of port to expose on the pod's IP address.\nThis must be a valid port number, 0 < x < 65536.\nThis will forward the incoming connection, podPort will be translated to port and transmit it to the virtual machine itself.\nMost virtual machines do not need this.\n+optional",
 	}
 }
 

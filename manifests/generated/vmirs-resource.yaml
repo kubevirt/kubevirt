@@ -110,24 +110,20 @@ spec:
                                     type: string
                                   name:
                                     type: string
-                                  slirp:
-                                    properties:
-                                      ports:
-                                        items:
-                                          properties:
-                                            name:
-                                              type: string
-                                            podPort:
-                                              format: int32
-                                              type: integer
-                                            port:
-                                              format: int32
-                                              type: integer
-                                            protocol:
-                                              type: string
-                                          required:
-                                          - port
-                                        type: array
+                                  ports:
+                                    items:
+                                      properties:
+                                        name:
+                                          type: string
+                                        port:
+                                          format: int32
+                                          type: integer
+                                        protocol:
+                                          type: string
+                                      required:
+                                      - port
+                                    type: array
+                                  slirp: {}
                                 required:
                                 - name
                               type: array

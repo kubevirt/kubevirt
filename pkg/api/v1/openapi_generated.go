@@ -832,12 +832,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"),
 							},
 						},
+						"ports": {
+							SchemaProps: spec.SchemaProps{
+								Description: "List of ports to be forwarded to the virtual machine.",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Port"),
+										},
+									},
+								},
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp", "kubevirt.io/kubevirt/pkg/api/v1.Port"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod": {
 			Schema: spec.Schema{
@@ -871,25 +884,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"ports": {
-							SchemaProps: spec.SchemaProps{
-								Description: "List of ports to be forwarded to the virtual machine.",
-								Type:        []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Port"),
-										},
-									},
-								},
-							},
-						},
-					},
+					Properties: map[string]spec.Schema{},
 				},
 			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Port"},
+			Dependencies: []string{},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.KVMTimer": {
 			Schema: spec.Schema{
@@ -1051,8 +1049,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each named port in a pod must have a unique name. Name for the port that can be referred to by services.",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"protocol": {
@@ -1065,13 +1064,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"port": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Number of port to expose for the virtual machine. This must be a valid port number, 0 < x < 65536.",
-								Type:        []string{"integer"},
-								Format:      "int32",
-							},
-						},
-						"podPort": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Number of port to expose on the pod's IP address. This must be a valid port number, 0 < x < 65536. This will forward the incoming connection, podPort will be translated to port and transmit it to the virtual machine itself. Most virtual machines do not need this.",
 								Type:        []string{"integer"},
 								Format:      "int32",
 							},

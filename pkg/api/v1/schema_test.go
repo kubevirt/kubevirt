@@ -423,17 +423,16 @@ var _ = Describe("Schema", func() {
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Slirp: &InterfaceSlirp{Ports: []Port{{Port: 80}}},
-					},
+						Slirp: &InterfaceSlirp{}},
+					Ports: []Port{{Port: 80}},
 				},
 			}
-			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {
-              "ports": [
-                {
-                  "port": 80
-                }
-              ]
-            }`}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {},
+            "ports": [
+              {
+                "port": 80
+              }
+            ]`}
 
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
 			Expect(err).To(BeNil())

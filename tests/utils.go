@@ -972,7 +972,7 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 
 func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{Ports: Ports}}}}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}}}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 	return vmi

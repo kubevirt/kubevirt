@@ -46,16 +46,16 @@ var _ = Describe("Networking", func() {
 	var vmi *v1.VirtualMachineInstance
 	var container k8sv1.Container
 
-	Context("VirtualMachineInstance with slirp interface", func() {
+	FContext("VirtualMachineInstance with slirp interface", func() {
 		tests.BeforeAll(func() {
-			ports := []v1.Port{{Port: 80}}
+			ports := []v1.Port{{Name: "http", Port: 80}}
 			vmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			generateHelloWorldServer(vmi, virtClient, 80, "tcp")
 		})
-		It("should contains containerPort in the pod manifest", func() {
+		FIt("should contains containerPort in the pod manifest", func() {
 			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			for _, containerSpec := range vmiPod.Spec.Containers {
 				if containerSpec.Name == "compute" {
@@ -65,7 +65,7 @@ var _ = Describe("Networking", func() {
 			}
 			Expect(container.Name).ToNot(Equal(""))
 			Expect(container.Ports).ToNot(Equal(nil))
-			Expect(container.Ports[0].Name).To(Equal("tcp-80"))
+			Expect(container.Ports[0].Name).To(Equal("http"))
 			Expect(container.Ports[0].Protocol).To(Equal(k8sv1.Protocol("TCP")))
 			Expect(container.Ports[0].ContainerPort).To(Equal(int32(80)))
 		})

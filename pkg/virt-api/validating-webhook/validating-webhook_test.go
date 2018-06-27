@@ -685,8 +685,9 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Slirp: &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}}},
-				}}}
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Ports: []v1.Port{{Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
@@ -703,8 +704,9 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Slirp: &v1.InterfaceSlirp{Ports: []v1.Port{{PodPort: 80}}},
-				}}}
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Ports: []v1.Port{{Name: "test"}}}}
 
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
@@ -722,8 +724,9 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Slirp: &v1.InterfaceSlirp{Ports: []v1.Port{{Protocol: "bad", Port: 80}}},
-				}}}
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Ports: []v1.Port{{Protocol: "bad", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
@@ -741,8 +744,9 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Slirp: &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}}},
-				}}}
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Ports: []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
@@ -754,13 +758,14 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
-		It("should reject networks with a pod network source and slirp interface with two same Ports", func() {
+		It("should reject port out of range", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Slirp: &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Protocol: "TCP", Port: 80}}},
-				}}}
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Ports: []v1.Port{{Port: 80000}}}}
 
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
@@ -771,15 +776,16 @@ var _ = Describe("Validating Webhook", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[1]"))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0]"))
 		})
-		It("should reject networks with a pod network source and slirp interface with two same Ports and Protocol", func() {
+		It("should reject interface with two port with the same name", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Slirp: &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}, {Protocol: "TCP", Port: 80}}},
-				}}}
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Ports: []v1.Port{{Name: "testPort", Port: 80}, {Name: "testPort", Protocol: "UDP", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
@@ -790,7 +796,52 @@ var _ = Describe("Validating Webhook", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[2]"))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[1].name"))
+		})
+		It("should reject two interfaces with same port name", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Ports: []v1.Port{{Name: "testPort", Port: 80}}},
+				v1.Interface{
+					Name: "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Slirp: &v1.InterfaceSlirp{},
+					},
+					Ports: []v1.Port{{Name: "testPort", Protocol: "UDP", Port: 80}}}}
+
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].ports[0].name"))
+		})
+		It("should allow interface with two same Ports and Protocol", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Ports: []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}, {Protocol: "TCP", Port: 80}}}}
+
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject specs with multiple pod interfaces", func() {
 			vm := v1.NewMinimalVMI("testvm")
