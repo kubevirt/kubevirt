@@ -32,6 +32,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/goexpect"
@@ -48,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -1434,4 +1436,25 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 		}
 	}
 	return nil
+}
+
+// SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
+func SkipIfVersionBelow(message string, expectedVersion string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
+	Expect(err).ToNot(HaveOccurred())
+
+	var info k8sversion.Info
+
+	err = json.Unmarshal(response, &info)
+	Expect(err).ToNot(HaveOccurred())
+
+	curVersion := strings.Split(info.GitVersion, "+")[0]
+	curVersion = strings.Trim(curVersion, "v")
+
+	if curVersion < expectedVersion {
+		Skip(message)
+	}
 }

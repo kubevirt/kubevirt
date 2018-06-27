@@ -45,6 +45,8 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+const dpIssue = "https://github.com/kubevirt/kubevirt/issues/1196"
+
 var _ = Describe("VMIlifecycle", func() {
 
 	flag.Parse()
@@ -297,6 +299,8 @@ var _ = Describe("VMIlifecycle", func() {
 
 		Context("when virt-handler crashes", func() {
 			It("should recover and continue management", func() {
+				tests.SkipIfVersionBelow(fmt.Sprintf("Device plugins have issue %s in these versions", dpIssue), "1.10.3")
+
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil())
 
@@ -327,6 +331,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 		Context("when virt-handler is responsive", func() {
 			It("should indicate that a node is ready for vmis", func() {
+				tests.SkipIfVersionBelow(fmt.Sprintf("Device plugins have issue %s in these versions", dpIssue), "1.10.3")
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
@@ -364,6 +369,8 @@ var _ = Describe("VMIlifecycle", func() {
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
+				tests.SkipIfVersionBelow(fmt.Sprintf("Device plugins have issue %s in these versions", dpIssue), "1.10.3")
+
 				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
