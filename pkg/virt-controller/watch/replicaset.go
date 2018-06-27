@@ -257,6 +257,7 @@ func (c *VMIReplicaSet) orphan(cm *controller.VirtualMachineControllerRefManager
 
 func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance) error {
 	log.Log.V(4).Object(rs).Info("Scale")
+
 	activeVmis := c.filterActiveVMIs(vmis)
 	diff := c.calcDiff(rs, activeVmis)
 	totalDiff := c.calcDiff(rs, vmis)
@@ -282,22 +283,24 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 
 	if totalDiff > 0 {
 		log.Log.V(4).Object(rs).Info("Delete excess VM's")
-		wg.Add(abs(totalDiff))
 		// We have to delete VMIs, use a very simple selection strategy for now
 		// TODO: Possible deletion order: not yet running VMIs < migrating VMIs < other
 		// First we try to delete finished VM's
 		finishedVmis := c.filterFinishedVMIs(vmis)
-		var deleteCandidates []*virtv1.VirtualMachineInstance
-		if len(finishedVmis) >= totalDiff {
-			deleteCandidates = finishedVmis
-		} else {
-			deleteCandidates = append(finishedVmis, vmis[0:diff-len(finishedVmis)]...)
-		}
-		c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineKeys(deleteCandidates))
+		notFinishedVmis := c.filterNotFinishedVMIs(vmis)
+
+		deleteCandidates := append(finishedVmis, notFinishedVmis...)
+		totalDiff = min(totalDiff, len(deleteCandidates))
+		wg.Add(abs(totalDiff))
+
+		c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineKeys(deleteCandidates[0:totalDiff]))
 		for i := 0; i < totalDiff; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				deleteCandidate := vmis[idx]
+				deleteCandidate := deleteCandidates[idx]
+				if deleteCandidate.DeletionTimestamp != nil {
+					return
+				}
 				err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
 				// Don't log an error if it is already deleted
 				if err != nil {
@@ -368,6 +371,13 @@ func (c *VMIReplicaSet) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) [
 func (c *VMIReplicaSet) filterFinishedVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return vmi.IsFinal()
+	})
+}
+
+// filterNotFinishedVMIs takes a list of VMIs and returns all VMIs which are not in final state.
+func (c *VMIReplicaSet) filterNotFinishedVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
+	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+		return !vmi.IsFinal()
 	})
 }
 
@@ -651,7 +661,6 @@ func (c *VMIReplicaSet) removeCondition(rs *virtv1.VirtualMachineInstanceReplica
 }
 
 func (c *VMIReplicaSet) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance, scaleErr error) error {
-
 	diff := c.calcDiff(rs, vmis)
 
 	readyReplicas := int32(len(c.filterReadyVMIs(vmis)))
