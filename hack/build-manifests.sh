@@ -55,14 +55,27 @@ for arg in $args; do
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
 
+# Remove empty lines at the end of files which are added by go templating
+find ${MANIFESTS_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
+find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
+
 # make sure that template manifests align with release manifests
 export namespace=${namespace}
 export docker_tag=${docker_tag}
 export docker_prefix=${manifest_docker_prefix}
 
-# Very cheap test to make sure that our jinja2 template produces the exact same output like our released manifests
-# This diff is a little bit hacky:
-# First, find all full manifests and templates and sort them.
-# Next in case of the templates apply j2cli on them, in case of processed manifests simply cat them
-# Finally apply sed to make sure that every file has a proper newline at the end (j2cli tends to clean the file unasked).
-diff <(find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -print0 | sort -z | xargs -I {} -0 -n1 sh -c "j2 {} | sed -e '/.$/a\'") <(find ${MANIFESTS_OUT_DIR}/ -type f -print0 | sort -z | xargs -0 -I {} -n1 sh -c "cat {} | sed -e '/.$/a\'")
+TMP_DIR=$(mktemp -d)
+cleanup() {
+    ret=$?
+    rm -rf "${TMP_DIR}"
+    exit ${ret}
+}
+trap "cleanup" INT TERM EXIT
+
+for file in $(find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f); do
+    mkdir -p ${TMP_DIR}/$(dirname ${file})
+    j2 ${file} | sed -e '/.$/a\' >${TMP_DIR}/${file%.j2}
+done
+
+# If diff fails then we have an issue
+diff -r ${MANIFESTS_OUT_DIR} ${TMP_DIR}/${MANIFEST_TEMPLATES_OUT_DIR}
