@@ -26,12 +26,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -366,6 +368,18 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		})
 		// We won't process anything over the limit
 		return causes
+	}
+	// Validate hostname according to DNS label rules
+	if spec.Hostname != "" {
+		errors := validation.IsDNS1123Label(spec.Hostname)
+		if len(errors) != 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_LABEL rules : %s",
+					field.Child("hostname").String(), strings.Join(errors, ", ")),
+				Field: field.Child("hostname").String(),
+			})
+		}
 	}
 
 	// Validate memory size if values are not negative

@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -303,10 +304,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	containers = append(containers, container)
 
-	hostName := vmi.Name
-	if vmi.Spec.Hostname != "" {
-		hostName = vmi.Spec.Hostname
-	}
+	hostName := dns.SanitizeHostname(vmi)
 
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
