@@ -46,7 +46,7 @@ var _ = Describe("Networking", func() {
 	var vmi *v1.VirtualMachineInstance
 	var container k8sv1.Container
 
-	FContext("VirtualMachineInstance with slirp interface", func() {
+	Context("VirtualMachineInstance with slirp interface", func() {
 		tests.BeforeAll(func() {
 			ports := []v1.Port{{Name: "http", Port: 80}}
 			vmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
@@ -55,7 +55,7 @@ var _ = Describe("Networking", func() {
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			generateHelloWorldServer(vmi, virtClient, 80, "tcp")
 		})
-		FIt("should contains containerPort in the pod manifest", func() {
+		It("should contains containerPort in the pod manifest", func() {
 			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			for _, containerSpec := range vmiPod.Spec.Containers {
 				if containerSpec.Name == "compute" {
