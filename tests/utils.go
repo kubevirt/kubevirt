@@ -62,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 )
@@ -1184,10 +1185,7 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	if err != nil {
 		return nil, err
 	}
-	vmiName := vmi.Name
-	if vmi.Spec.Hostname != "" {
-		vmiName = vmi.Spec.Hostname
-	}
+	hostName := dns.SanitizeHostname(vmi)
 
 	// Do not login, if we already logged in
 	err = expecter.Send("\n")
@@ -1205,7 +1203,7 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: vmiName + " login:"},
+		&expect.BExp{R: hostName + " login:"},
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
