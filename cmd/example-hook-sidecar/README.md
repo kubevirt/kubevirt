@@ -1,37 +1,28 @@
 # KubeVirt SMBIOS hook sidecar
 
-Example VM definition:
+To use this hook, use following annotations:
 
 ```yaml
-apiVersion: kubevirt.io/v1alpha2
-kind: VirtualMachineInstance
-metadata:
-  creationTimestamp: null
-  labels:
-    special: vm-hook-sidecar-consumer
-  name: vm-hook-sidecar-consumer
-  annotations:
-    # Request the hook sidecar
-    hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
-    # Overwrite base board manufacturer name
-    smbios.vm.kubevirt.io/baseBoardManufacturer: "Radical Edward"
-spec:
-  domain:
-    devices:
-      disks:
-      - disk:
-          bus: virtio
-        name: registrydisk
-        volumeName: registryvolume
-    machine:
-      type: ""
-    resources:
-      requests:
-        memory: 64M
-  terminationGracePeriodSeconds: 0
-  volumes:
-  - name: registryvolume
-    registryDisk:
-      image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
-status: {}
+annotations:
+  # Request the hook sidecar
+  hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
+  # Overwrite base board manufacturer name
+  smbios.vm.kubevirt.io/baseBoardManufacturer: "Radical Edward"
 ```
+
+## Example
+
+```shell
+# Create a VM requesting the hook sidecar
+cluster/kubectl.sh create -f cluster/examples/hook-sidecar-consumer.yml
+
+# Once the VM is ready, connect to its display and login using name and password "fedora"
+cluster/virtctl.sh vnc vm-hook-sidecar-consumer
+
+# Install dmidecode
+sudo dnf install -y dmidecode
+
+# Check whether the base board manufacturer value was successfully overwritten
+sudo dmidecode -s baseboard-manufacturer
+```
+

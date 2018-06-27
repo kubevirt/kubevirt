@@ -1,3 +1,4 @@
+status: {}
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 metadata:
@@ -18,14 +19,24 @@ spec:
           bus: virtio
         name: registrydisk
         volumeName: registryvolume
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+        volumeName: cloudinitvolume
     machine:
       type: ""
     resources:
       requests:
-        memory: 64M
+        memory: 1024M
   terminationGracePeriodSeconds: 0
   volumes:
   - name: registryvolume
     registryDisk:
-      image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
+      image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
+  - cloudInitNoCloud:
+      userData: |-
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
+    name: cloudinitvolume
 status: {}

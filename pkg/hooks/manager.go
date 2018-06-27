@@ -2,6 +2,8 @@ package hooks
 
 import (
 	"context"
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -12,16 +14,18 @@ import (
 
 	"google.golang.org/grpc"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/log"
+	domainSchema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type hookClient struct {
-	client     interface{}
-	version    string
-	name       string
-	hookPoints []*hooksInfo.HookPoint
+type callackClient struct {
+	SocketPath          string
+	Version             string
+	subsribedHookPoints []*hooksInfo.HookPoint
 }
 
 var manager *Manager
@@ -29,7 +33,7 @@ var once sync.Once
 
 type Manager struct {
 	collected             bool
-	callbacksPerHookPoint map[string][]*hookClient
+	callbacksPerHookPoint map[string][]*callackClient
 }
 
 func GetManager() *Manager {
@@ -55,8 +59,8 @@ func (m *Manager) Collect(numberOfRequestedHookSidecars uint) error {
 	return nil
 }
 
-func collectSideCarSockets(numberOfRequestedHookSidecars uint) (map[string][]*hookClient, error) {
-	callbacksPerHookPoint := make(map[string][]*hookClient)
+func collectSideCarSockets(numberOfRequestedHookSidecars uint) (map[string][]*callackClient, error) {
+	callbacksPerHookPoint := make(map[string][]*callackClient)
 	processedSockets := make(map[string]bool)
 
 	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
@@ -70,7 +74,7 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint) (map[string][]*ho
 				continue
 			}
 
-			hookClient, notReady, err := processSideCarSocket(HookSocketsSharedDirectory + "/" + socket.Name())
+			callackClient, notReady, err := processSideCarSocket(HookSocketsSharedDirectory + "/" + socket.Name())
 			if notReady {
 				log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
 				continue
@@ -79,8 +83,8 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint) (map[string][]*ho
 				return nil, err
 			}
 
-			for _, hookPoint := range hookClient.hookPoints {
-				callbacksPerHookPoint[hookPoint.GetName()] = append(callbacksPerHookPoint[hookPoint.GetName()], hookClient)
+			for _, subsribedHookPoint := range callackClient.subsribedHookPoints {
+				callbacksPerHookPoint[subsribedHookPoint.GetName()] = append(callbacksPerHookPoint[subsribedHookPoint.GetName()], callackClient)
 			}
 
 			processedSockets[socket.Name()] = true
@@ -92,14 +96,8 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint) (map[string][]*ho
 	return callbacksPerHookPoint, nil
 }
 
-func processSideCarSocket(socketPath string) (*hookClient, bool, error) {
-	conn, err := grpc.Dial(
-		socketPath,
-		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
-	)
+func processSideCarSocket(socketPath string) (*callackClient, bool, error) {
+	conn, err := dialSocket(socketPath)
 	if err != nil {
 		log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", socketPath)
 		return nil, true, nil
@@ -118,27 +116,87 @@ func processSideCarSocket(socketPath string) (*hookClient, bool, error) {
 	}
 
 	if _, found := versionsSet[hooksV1alpha1.Version]; found {
-		return &hookClient{
-			client:     hooksV1alpha1.NewCallbacksClient(conn),
-			name:       info.GetName(),
-			version:    hooksV1alpha1.Version,
-			hookPoints: info.GetHookPoints(),
+		return &callackClient{
+			SocketPath:          socketPath,
+			Version:             hooksV1alpha1.Version,
+			subsribedHookPoints: info.GetHookPoints(),
 		}, false, nil
 	} else {
 		return nil, false, fmt.Errorf("Hook sidecar does not expose a supported version. Exposed versions: %v, supported versions: %s", versionsSet, hooksV1alpha1.Version)
 	}
 }
 
-func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*hookClient) {
+func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callackClient) {
 	for _, callbacks := range callbacksPerHookPoint {
 		for _, callback := range callbacks {
 			sort.Slice(callbacks, func(i, j int) bool {
-				if callback.hookPoints[i].Priority == callback.hookPoints[j].Priority {
-					return strings.Compare(callback.hookPoints[i].Name, callback.hookPoints[j].Name) < 0
+				if callback.subsribedHookPoints[i].Priority == callback.subsribedHookPoints[j].Priority {
+					return strings.Compare(callback.subsribedHookPoints[i].Name, callback.subsribedHookPoints[j].Name) < 0
 				} else {
-					return callback.hookPoints[i].Priority > callback.hookPoints[j].Priority
+					return callback.subsribedHookPoints[i].Priority > callback.subsribedHookPoints[j].Priority
 				}
 			})
 		}
 	}
+}
+
+func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vm *v1.VirtualMachine) (*virtwrapApi.DomainSpec, error) {
+	if !m.collected {
+		return nil, fmt.Errorf("Hook sidecars have not been collected yet")
+	}
+
+	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
+		for _, callback := range callbacks {
+			if callback.Version == hooksV1alpha1.Version {
+				domainSpecXML, err := xml.Marshal(domainSpec)
+				if err != nil {
+					return nil, fmt.Errorf("Failed to marshal domain spec: %v", domainSpec)
+				}
+				vmJSON, err := json.Marshal(vm)
+				if err != nil {
+					return nil, fmt.Errorf("Failed to marshal VM spec: %v", vm)
+				}
+
+				conn, err := dialSocket(callback.SocketPath)
+				if err != nil {
+					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
+					return nil, err
+				}
+				defer conn.Close()
+
+				client := hooksV1alpha1.NewCallbacksClient(conn)
+
+				result, err := client.OnDefineDomain(context.Background(), &hooksV1alpha1.OnDefineDomainParams{
+					DomainXML: domainSpecXML,
+					Vm:        vmJSON,
+				})
+				if err != nil {
+					return nil, err
+				}
+
+				newDomainSpecXML := result.GetDomainXML()
+				newDomainSpec := domainSchema.DomainSpec{}
+				err = xml.Unmarshal(newDomainSpecXML, &newDomainSpec)
+				if err != nil {
+					return nil, fmt.Errorf("Failed to unmarshal given domain spec: %s", newDomainSpecXML)
+				}
+
+				domainSpec = &newDomainSpec
+			} else {
+				panic("Should never happen, version compatibility check is done during Info call")
+			}
+		}
+	}
+
+	return domainSpec, nil
+}
+
+func dialSocket(socketPath string) (*grpc.ClientConn, error) {
+	return grpc.Dial(
+		socketPath,
+		grpc.WithInsecure(),
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		}),
+	)
 }

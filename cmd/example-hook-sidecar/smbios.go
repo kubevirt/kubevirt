@@ -45,7 +45,7 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 
 	vmJSON := params.GetVm()
 	vmSpec := vmSchema.VirtualMachine{}
-	err := json.Unmarshal([]byte(vmJSON), &vmSpec)
+	err := json.Unmarshal(vmJSON, &vmSpec)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to unmarshal given VM spec: %s", vmJSON)
 		panic(err)
@@ -54,7 +54,7 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 	annotations := vmSpec.GetAnnotations()
 
 	if _, found := annotations[baseBoardManufacturerAnnotation]; !found {
-		log.Log.Info("SMBIOS hook sidecar was requested, but no attributes provided. Returning original domain spec")
+		log.Log.Info("SM BIOS hook sidecar was requested, but no attributes provided. Returning original domain spec")
 		return &hooksV1alpha1.OnDefineDomainResult{
 			DomainXML: params.GetDomainXML(),
 		}, nil
@@ -62,22 +62,18 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 
 	domainXML := params.GetDomainXML()
 	domainSpec := domainSchema.DomainSpec{}
-	err = xml.Unmarshal([]byte(domainXML), &domainSpec)
+	err = xml.Unmarshal(domainXML, &domainSpec)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to unmarshal given domain spec: %s", domainXML)
 		panic(err)
 	}
 
-	if domainSpec.OS.SMBios == nil {
-		domainSpec.OS.SMBios = &domainSchema.SMBios{Mode: "sysinfo"}
-	} else {
-		domainSpec.OS.SMBios.Mode = "sysinfo"
-	}
+	domainSpec.OS.SMBios = &domainSchema.SMBios{Mode: "sysinfo"}
 
 	if domainSpec.SysInfo == nil {
 		domainSpec.SysInfo = &domainSchema.SysInfo{}
 	}
-	domainSpec.Type = "smbios"
+	domainSpec.SysInfo.Type = "smbios"
 	if baseBoardManufacturer, found := annotations[baseBoardManufacturerAnnotation]; found {
 		domainSpec.SysInfo.BaseBoard = append(domainSpec.SysInfo.BaseBoard, domainSchema.Entry{
 			Name:  "manufacturer",
@@ -85,13 +81,11 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 		})
 	}
 
-	newDomainXMLRaw, err := xml.Marshal(domainSpec)
+	newDomainXML, err := xml.Marshal(domainSpec)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal updated domain spec: %s", domainSpec)
 		panic(err)
 	}
-
-	newDomainXML := string(newDomainXMLRaw[:])
 
 	log.Log.Info("Successfully updated original domain spec with requested SMBIOS attributes")
 
