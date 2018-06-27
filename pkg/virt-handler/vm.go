@@ -195,6 +195,8 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		switch vmi.Status.Phase {
 		case v1.Running:
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Started.String(), "VirtualMachineInstance started.")
+		case v1.Stopping:
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), "VirtualMachineInstance is shutting down.")
 		case v1.Succeeded:
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Stopped.String(), "The VirtualMachineInstance was shut down.")
 		case v1.Failed:
@@ -610,8 +612,11 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				return v1.Failed, nil
 			}
 			return v1.Scheduled, nil
-		} else if !vmi.IsRunning() && !vmi.IsFinal() {
+		} else if !vmi.IsRunning() && !vmi.IsStopping() && !vmi.IsFinal() {
 			return v1.Scheduled, nil
+		} else if vmi.IsStopping() {
+			// Seems the domain is already deleted
+			return v1.Succeeded, nil
 		} else if !vmi.IsFinal() {
 			// That is unexpected. We should not be able to delete a VirtualMachineInstance before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
@@ -627,7 +632,11 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				return v1.Succeeded, nil
 			}
 		case api.Running, api.Paused, api.Blocked, api.PMSuspended:
-			return v1.Running, nil
+			if vmi.ObjectMeta.DeletionTimestamp != nil {
+				return v1.Stopping, nil
+			} else {
+				return v1.Running, nil
+			}
 		}
 	}
 	return vmi.Status.Phase, nil

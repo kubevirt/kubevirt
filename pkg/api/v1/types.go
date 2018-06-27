@@ -213,6 +213,10 @@ func (v *VirtualMachineInstance) IsRunning() bool {
 	return v.Status.Phase == Running
 }
 
+func (v *VirtualMachineInstance) IsStopping() bool {
+	return v.Status.Phase == Stopping
+}
+
 func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
@@ -320,6 +324,8 @@ const (
 	Scheduled VirtualMachineInstancePhase = "Scheduled"
 	// Running means the pod has been bound to a node and the VirtualMachineInstance is started.
 	Running VirtualMachineInstancePhase = "Running"
+	// Stopping means virt-handler detected a deletion timestamp on the VirtualMachineInstance and triggered a shutdown of the vm.
+	Stopping VirtualMachineInstancePhase = "Stopping"
 	// Succeeded means that the VirtualMachineInstance stopped voluntarily, e.g. reacted to SIGTERM or shutdown was invoked from
 	// inside the VirtualMachineInstance.
 	Succeeded VirtualMachineInstancePhase = "Succeeded"
