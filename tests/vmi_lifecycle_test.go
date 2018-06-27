@@ -45,6 +45,10 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+func newCirrosVMI() *v1.VirtualMachineInstance {
+	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+}
+
 var _ = Describe("VMIlifecycle", func() {
 
 	flag.Parse()
@@ -807,13 +811,6 @@ var _ = Describe("VMIlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
-				By("Verifying VirtualMachineInstance's status is Running")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					currVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return currVMI.Status.Phase
-				}, 60, 0.5).Should(Equal(v1.Running))
-
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed())
 
@@ -824,12 +821,56 @@ var _ = Describe("VMIlifecycle", func() {
 					return len(pods.Items)
 				}, 75, 0.5).Should(Equal(0))
 
+			})
+		})
+		Context("with ACPI and 0 grace period seconds", func() {
+			It("should result in vmi status failed", func() {
+
+				vmi = newCirrosVMI()
+				gracePeriod := int64(0)
+				vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
+
+				By("Creating the VirtualMachineInstance")
+				obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				// wait until booted
+				vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				By("Deleting the VirtualMachineInstance")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Verifying VirtualMachineInstance's status is Failed")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					currVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return currVMI.Status.Phase
+				}, 5, 0.5).Should(Equal(v1.Failed))
+			})
+		})
+		Context("with ACPI and some grace period seconds", func() {
+			It("should result in vmi status succeeded", func() {
+
+				vmi = newCirrosVMI()
+				gracePeriod := int64(10)
+				vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
+
+				By("Creating the VirtualMachineInstance")
+				obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				// wait until booted
+				vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				By("Deleting the VirtualMachineInstance")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed())
+
 				By("Verifying VirtualMachineInstance's status is Succeeded")
 				Eventually(func() v1.VirtualMachineInstancePhase {
 					currVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return currVMI.Status.Phase
-				}, 10, 0.5).Should(Equal(v1.Succeeded))
+				}, gracePeriod+5, 0.5).Should(Equal(v1.Succeeded))
 			})
 		})
 		Context("with grace period greater than 0", func() {
@@ -879,7 +920,7 @@ var _ = Describe("VMIlifecycle", func() {
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred())
 					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())))
+				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())))
 			})
 		})
 	})

@@ -131,6 +131,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	initGracePeriodHelper := func(gracePeriod int64, vmi *v1.VirtualMachineInstance, dom *api.Domain) {
 		vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
+		dom.Spec.Features = &api.Features{
+			ACPI: &api.FeatureEnabled{},
+		}
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 

@@ -210,24 +210,24 @@ func (_mr *_MockVirDomainRecorder) Resume() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Resume")
 }
 
-func (_m *MockVirDomain) Destroy() error {
-	ret := _m.ctrl.Call(_m, "Destroy")
+func (_m *MockVirDomain) DestroyFlags(flags libvirt_go.DomainDestroyFlags) error {
+	ret := _m.ctrl.Call(_m, "DestroyFlags", flags)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirDomainRecorder) Destroy() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Destroy")
+func (_mr *_MockVirDomainRecorder) DestroyFlags(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DestroyFlags", arg0)
 }
 
-func (_m *MockVirDomain) Shutdown() error {
-	ret := _m.ctrl.Call(_m, "Shutdown")
+func (_m *MockVirDomain) ShutdownFlags(flags libvirt_go.DomainShutdownFlags) error {
+	ret := _m.ctrl.Call(_m, "ShutdownFlags", flags)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirDomainRecorder) Shutdown() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Shutdown")
+func (_mr *_MockVirDomainRecorder) ShutdownFlags(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ShutdownFlags", arg0)
 }
 
 func (_m *MockVirDomain) GetName() (string, error) {

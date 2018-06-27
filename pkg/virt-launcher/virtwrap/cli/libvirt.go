@@ -241,8 +241,8 @@ type VirDomain interface {
 	GetState() (libvirt.DomainState, int, error)
 	Create() error
 	Resume() error
-	Destroy() error
-	Shutdown() error
+	DestroyFlags(flags libvirt.DomainDestroyFlags) error
+	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)

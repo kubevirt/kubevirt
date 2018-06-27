@@ -246,7 +246,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 		}
 
 		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
-			err = dom.Shutdown()
+			err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
 				return err
@@ -289,8 +289,8 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 
-	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
-		err = dom.Destroy()
+	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED || domState == libvirt.DOMAIN_SHUTDOWN {
+		err = dom.DestroyFlags(libvirt.DOMAIN_DESTROY_GRACEFUL)
 		if err != nil {
 			if domainerrors.IsNotFound(err) {
 				return nil

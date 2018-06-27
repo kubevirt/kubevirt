@@ -308,10 +308,29 @@ func (d *VirtualMachineController) execute(key string) error {
 		return err
 	}
 
+	log.Log.V(3).Infof("Processing vmi %v, existing: %v\n", vmi.Name, vmiExists)
+	if vmiExists {
+		log.Log.V(3).Infof("vmi is in phase: %v\n", vmi.Status.Phase)
+	}
+
 	domain, domainExists, err := d.getDomainFromCache(key)
 	if err != nil {
 		return err
 	}
+
+	// Ignore domains from an older VMI
+	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
+		log.Log.Object(vmi).Info("Ignoring domain from an older VMI.")
+		domain = nil
+		domainExists = false
+	}
+
+	log.Log.V(3).Infof("Domain: existing: %v\n", domainExists)
+	if domainExists {
+		log.Log.V(3).Infof("Domain status: %v, reason: %v\n", domain.Status.Status, domain.Status.Reason)
+	}
+
+	domainAlive := domainExists && domain.Status.Status != api.Shutoff && domain.Status.Status != api.Crashed
 
 	// Determine if gracefulShutdown has been triggered by virt-launcher
 	gracefulShutdown, err := virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
@@ -324,7 +343,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// Determine removal of VirtualMachineInstance from cache should result in deletion.
 	if !vmiExists {
-		if domainExists {
+		if domainAlive {
 			// The VirtualMachineInstance is deleted on the cluster,
 			// then continue with processing the deletion on the host.
 			log.Log.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
@@ -338,7 +357,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// Determine if VirtualMachineInstance is being deleted.
 	if vmiExists && vmi.ObjectMeta.DeletionTimestamp != nil {
-		if vmi.IsRunning() || domainExists {
+		if vmi.IsRunning() || domainAlive {
 			log.Log.Object(vmi).V(3).Info("Shutting down domain for VirtualMachineInstance with deletion timestamp.")
 			shouldShutdownAndDelete = true
 		} else {
@@ -348,7 +367,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// Determine if domain needs to be deleted as a result of VirtualMachineInstance
 	// shutting down naturally (guest internal invoked shutdown)
-	if domainExists && vmiExists && vmi.IsFinal() {
+	if domainAlive && vmiExists && vmi.IsFinal() {
 		log.Log.Object(vmi).V(3).Info("Removing domain and ephemeral data for finalized vmi.")
 		shouldShutdownAndDelete = true
 	}
@@ -364,13 +383,6 @@ func (d *VirtualMachineController) execute(key string) error {
 		if vmi.Status.Phase == phase {
 			shouldUpdate = true
 		}
-	}
-
-	// If for instance an orphan delete was performed on a vmi, a pod can still be in terminating state,
-	// make sure that we don't perform an update and instead try to make sure that the pod goes definitely away
-	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
-		log.Log.Object(vmi).Errorf("Libvirt domain seems to be from a wrong VirtualMachineInstance instance. That should never happen. Manual intervention required.")
-		return nil
 	}
 
 	var syncErr error
@@ -518,26 +530,33 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	// Only attempt to gracefully terminate if we still have a
-	// connection established with the pod.
-	// If the pod has been torn down, we know the VirtualMachineInstance has been destroyed.
+	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
+	// If the pod has been torn down, we know the VirtualMachineInstance is down.
 	if clientDisconnected == false {
-		expired, timeLeft := d.hasGracePeriodExpired(domain)
-		if expired == false {
-			err = client.ShutdownVirtualMachine(vmi)
-			if err != nil && !cmdclient.IsDisconnected(err) {
-				// Only report err if it wasn't the result of a disconnect.
-				return err
+
+		// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
+		if isAcpiEnabled(domain) {
+			expired, timeLeft := d.hasGracePeriodExpired(domain)
+			if !expired && domain.Status.Status != api.Shutdown {
+				err = client.ShutdownVirtualMachine(vmi)
+				if err != nil && !cmdclient.IsDisconnected(err) {
+					// Only report err if it wasn't the result of a disconnect.
+					return err
+				}
+
+				log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
+				// pending graceful shutdown.
+				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Duration(timeLeft)*time.Second)
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
+				return nil
+			} else if !expired {
+				log.Log.V(4).Object(vmi).Infof("%s is already shutting down.", vmi.GetObjectMeta().GetName())
+				return nil
 			}
-
-			log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
-			// pending graceful shutdown.
-			d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Duration(timeLeft)*time.Second)
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
-			return nil
+			log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
+		} else {
+			log.Log.Object(vmi).Infof("ACPI feature not available, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
 		}
-
-		log.Log.Object(vmi).Infof("grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
 
 		err = client.KillVirtualMachine(vmi)
 		if err != nil && !cmdclient.IsDisconnected(err) {
@@ -618,12 +637,21 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			return v1.Failed, nil
 		}
 	} else {
+
 		switch domain.Status.Status {
 		case api.Shutoff, api.Crashed:
 			switch domain.Status.Reason {
 			case api.ReasonCrashed, api.ReasonPanicked:
 				return v1.Failed, nil
-			case api.ReasonShutdown, api.ReasonDestroyed, api.ReasonSaved, api.ReasonFromSnapshot:
+			case api.ReasonDestroyed:
+				// When ACPI is available, the domain was tried to be shutdown,
+				// and destroyed means that the domain was destroyed after the graceperiod expired.
+				// Without ACPI a destroyed domain is ok.
+				if isAcpiEnabled(domain) {
+					return v1.Failed, nil
+				}
+				return v1.Succeeded, nil
+			case api.ReasonShutdown, api.ReasonSaved, api.ReasonFromSnapshot:
 				return v1.Succeeded, nil
 			}
 		case api.Running, api.Paused, api.Blocked, api.PMSuspended:
@@ -710,4 +738,8 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 			log.DefaultLogger().V(4).Infof("Heartbeat sent")
 		}, interval, 1.2, true, stopCh)
 	}
+}
+
+func isAcpiEnabled(domain *api.Domain) bool {
+	return domain.Spec.Features != nil && domain.Spec.Features.ACPI != nil
 }
