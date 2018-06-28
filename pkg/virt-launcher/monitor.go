@@ -43,7 +43,7 @@ type OnShutdownCallback func(pid int)
 type monitor struct {
 	timeout                     time.Duration
 	pid                         int
-	commandPrefix               string
+	cmdlineMatchStr             string
 	start                       time.Time
 	isDone                      bool
 	gracePeriod                 int
@@ -167,12 +167,12 @@ func InitializeSharedDirectories(baseDir string) error {
 	return nil
 }
 
-func NewProcessMonitor(commandPrefix string,
+func NewProcessMonitor(cmdlineMatchStr string,
 	gracefulShutdownTriggerFile string,
 	gracePeriod int,
 	shutdownCallback OnShutdownCallback) ProcessMonitor {
 	return &monitor{
-		commandPrefix:               commandPrefix,
+		cmdlineMatchStr:             cmdlineMatchStr,
 		gracePeriod:                 gracePeriod,
 		gracefulShutdownTriggerFile: gracefulShutdownTriggerFile,
 		shutdownCallback:            shutdownCallback,
@@ -195,7 +195,7 @@ func (mon *monitor) refresh() {
 		return
 	}
 
-	log.Log.V(4).Infof("Refreshing. CommandPrefix %s pid %d", mon.commandPrefix, mon.pid)
+	log.Log.V(4).Infof("Refreshing. CommandPrefix %s pid %d", mon.cmdlineMatchStr, mon.pid)
 
 	expired := mon.isGracePeriodExpired()
 
@@ -203,23 +203,23 @@ func (mon *monitor) refresh() {
 	if mon.pid == 0 {
 		var err error
 
-		mon.pid, err = findPid(mon.commandPrefix)
+		mon.pid, err = findPid(mon.cmdlineMatchStr)
 		if err != nil {
 
-			log.Log.Infof("Still missing PID for %s, %v", mon.commandPrefix, err)
+			log.Log.Infof("Still missing PID for %s, %v", mon.cmdlineMatchStr, err)
 			// check to see if we've timed out looking for the process
 			elapsed := time.Since(mon.start)
 			if mon.timeout > 0 && elapsed >= mon.timeout {
-				log.Log.Infof("%s not found after timeout", mon.commandPrefix)
+				log.Log.Infof("%s not found after timeout", mon.cmdlineMatchStr)
 				mon.isDone = true
 			} else if expired {
-				log.Log.Infof("%s not found after grace period expired", mon.commandPrefix)
+				log.Log.Infof("%s not found after grace period expired", mon.cmdlineMatchStr)
 				mon.isDone = true
 			}
 			return
 		}
 
-		log.Log.Infof("Found PID for %s: %d", mon.commandPrefix, mon.pid)
+		log.Log.Infof("Found PID for %s: %d", mon.cmdlineMatchStr, mon.pid)
 	}
 
 	exists, err := pidExists(mon.pid)
@@ -228,7 +228,7 @@ func (mon *monitor) refresh() {
 		return
 	}
 	if exists == false {
-		log.Log.Infof("Process %s and pid %d is gone!", mon.commandPrefix, mon.pid)
+		log.Log.Infof("Process %s and pid %d is gone!", mon.cmdlineMatchStr, mon.pid)
 		mon.pid = 0
 		mon.isDone = true
 		return
@@ -322,14 +322,12 @@ func findPid(commandNamePrefix string) (int, error) {
 	}
 
 	for _, entry := range entries {
-		argv, err := readProcCmdline(entry)
+		content, err := ioutil.ReadFile(entry)
 		if err != nil {
 			return 0, err
 		}
 
-		match, _ := filepath.Match(fmt.Sprintf("%s*", commandNamePrefix), filepath.Base(argv[0]))
-		// command prefix does not match
-		if !match {
+		if !strings.Contains(string(content), commandNamePrefix) {
 			continue
 		}
 

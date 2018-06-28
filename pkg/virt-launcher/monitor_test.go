@@ -37,6 +37,8 @@ var _ = Describe("VirtLauncher", func() {
 	var mon *monitor
 	var cmd *exec.Cmd
 
+	uuid := "123-123-123-123"
+
 	tmpDir, _ := ioutil.TempDir("", "monitortest")
 
 	log.Log.SetIOWriter(GinkgoWriter)
@@ -50,7 +52,7 @@ var _ = Describe("VirtLauncher", func() {
 	processStarted := false
 
 	StartProcess := func() {
-		cmd = exec.Command(processPath)
+		cmd = exec.Command(processPath, "--uuid", uuid)
 		err := cmd.Start()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -102,7 +104,7 @@ var _ = Describe("VirtLauncher", func() {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
 		mon = &monitor{
-			commandPrefix:               "fake-qemu",
+			cmdlineMatchStr:             uuid,
 			gracePeriod:                 30,
 			gracefulShutdownTriggerFile: triggerFile,
 			shutdownCallback:            shutdownCallback,

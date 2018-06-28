@@ -85,7 +85,7 @@ var _ = Describe("VMIlifecycle", func() {
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
-				Should(ContainSubstring("Found PID for qemu"))
+				Should(ContainSubstring("Found PID for"))
 		})
 
 		It("should reject POST if schema is invalid", func() {
