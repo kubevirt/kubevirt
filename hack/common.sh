@@ -10,6 +10,7 @@ CMD_OUT_DIR=$OUT_DIR/cmd
 TESTS_OUT_DIR=$OUT_DIR/tests
 APIDOCS_OUT_DIR=$OUT_DIR/apidocs
 MANIFESTS_OUT_DIR=$OUT_DIR/manifests
+MANIFEST_TEMPLATES_OUT_DIR=$OUT_DIR/templates/manifests
 PYTHON_CLIENT_OUT_DIR=$OUT_DIR/client-python
 
 function build_func_tests() {
