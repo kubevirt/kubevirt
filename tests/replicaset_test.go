@@ -179,7 +179,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 			vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(&v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vmis.Items)
-		}, 60*time.Second, 1*time.Second).Should(BeZero())
+		}, 120*time.Second, 1*time.Second).Should(BeZero())
 	})
 
 	It("should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {

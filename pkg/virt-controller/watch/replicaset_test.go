@@ -286,11 +286,12 @@ var _ = Describe("Replicaset", func() {
 
 		It("should be woken by a stopped VirtualMachineInstance and create a new one", func() {
 			rs, vmi := DefaultReplicaSet(1)
-			vmi.Status.Phase = v1.Running
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
+			vmi.Status.Phase = v1.Running
 
 			rsCopy := rs.DeepCopy()
+			rsCopy.Status.Replicas = 0
 			rsCopy.Status.ReadyReplicas = 0
 
 			addReplicaSet(rs)
@@ -307,12 +308,12 @@ var _ = Describe("Replicaset", func() {
 
 			// Expect the re-crate of the VirtualMachineInstance
 			rsInterface.EXPECT().Update(rsCopy).Times(1)
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
 			vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, nil)
-
 			// Run the controller again
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should be woken by a ready VirtualMachineInstance and update the readyReplicas counter", func() {
