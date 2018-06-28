@@ -1,5 +1,5 @@
-hash: 14f8da020417d80931d53d6f1c219388649e17aa63335c9fe6ae95cfa2218c90
-updated: 2018-06-21T20:31:05.563143806Z
+hash: a2a9f52b854e1e50be5731cfaac26dfe6ee062a761a941446461c09182852918
+updated: 2018-06-28T15:56:35.588029747Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -52,13 +52,13 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-openapi/jsonpointer
-  version: 3a0015ad55fa9873f41605d3e8f28cd279c32ab2
+  version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
   version: 3fb327e6747da3043567ee86abd02bb6376b6be2
 - name: github.com/go-openapi/spec
-  version: bcff419492eeeb01f76e77d2ebc714dc97b607f5
+  version: 1de3e0542de65ad8d75452a595886fdd0befb363
 - name: github.com/go-openapi/swag
-  version: 811b1089cde9dad18d4d0c2d09fbdbf28dbd27a5
+  version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-stack/stack
   version: 259ab82a6cad3992b4e21ff5cac294ccb06474bc
 - name: github.com/gogo/protobuf
@@ -138,7 +138,7 @@ imports:
   - jlexer
   - jwriter
 - name: github.com/onsi/ginkgo
-  version: 000d317071340972710dc1da9ae3c2c016a7a560
+  version: 9eda700730cba42af70d53180f9dcce9266bc2bc
   subpackages:
   - config
   - extensions/table
@@ -513,6 +513,22 @@ imports:
   subpackages:
   - pkg/common
   - pkg/util/proto
+- name: kubevirt.io/containerized-data-importer
+  version: 0c0514c03966b08cab20659fd2ec680640a0fc29
+  repo: https://github.com/kubevirt/containerized-data-importer.git
+  subpackages:
+  - pkg/apis/datavolumecontroller
+  - pkg/apis/datavolumecontroller/v1alpha1
+  - pkg/client/clientset/versioned
+  - pkg/client/clientset/versioned/fake
+  - pkg/client/clientset/versioned/scheme
+  - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1
+  - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1/fake
+  - pkg/client/informers/externalversions
+  - pkg/client/informers/externalversions/datavolumecontroller
+  - pkg/client/informers/externalversions/datavolumecontroller/v1alpha1
+  - pkg/client/informers/externalversions/internalinterfaces
+  - pkg/client/listers/datavolumecontroller/v1alpha1
 - name: kubevirt.io/qe-tools
   version: 51aa15b370eeb41194adc275eba8f7f362fdaceb
   repo: https://github.com/kubevirt/qe-tools.git

@@ -19,6 +19,8 @@ ignore:
 - google.golang.org/grpc/internal/backoff
 - google.golang.org/grpc/encoding/proto
 - google.golang.org/grpc/encoding
+- google.golang.org/grpc/internal/envconfig
+- google.golang.org/grpc/internal/grpcrand
 import:
 - package: github.com/go-kit/kit
   version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
@@ -69,6 +71,9 @@ import:
 - package: kubevirt.io/qe-tools
   version: v0.1.1
   repo:    https://github.com/kubevirt/qe-tools.git
+- package: kubevirt.io/containerized-data-importer
+  repo:    https://github.com/kubevirt/containerized-data-importer.git
+  version: 0c0514c03966b08cab20659fd2ec680640a0fc29
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92

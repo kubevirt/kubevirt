@@ -1,0 +1,15 @@
+package: github.com/yard-turkey/vm-image-import
+import:
+- package: github.com/golang/glog
+- package: github.com/gorilla/mux
+  version: ^1.6.1
+- package: github.com/minio/minio-go
+  version: ^4.0.6
+- package: k8s.io/apimachinery
+  version: kubernetes-1.10.3
+- package: k8s.io/code-generator
+  version: kubernetes-1.10.3
+- package: k8s.io/client-go
+  version: kubernetes-1.10.3
+- package: k8s.io/gengo
+- package: github.com/xi2/xz
