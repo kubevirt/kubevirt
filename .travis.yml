@@ -45,6 +45,7 @@ deploy:
   file:
   - _out/cmd/virtctl/virtctl-*
   - _out/manifests/release/kubevirt.yaml
+  - _out/templates/manifests/release/kubevirt.yaml.j2
   - _out/manifests/release/demo-content.yaml
   prerelease: true
   overwrite: true
