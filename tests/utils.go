@@ -65,6 +65,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 var KubeVirtVersionTag = "latest"
@@ -104,6 +106,10 @@ const (
 	NamespaceTestDefault = "kubevirt-test-default"
 	// NamespaceTestAlternative is used to test controller-namespace independency.
 	NamespaceTestAlternative = "kubevirt-test-alternative"
+)
+
+const (
+	AlpineHttpUrl = "http://cdi-http-import-server.kube-system/images/alpine.iso"
 )
 
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
@@ -879,6 +885,49 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+			},
+		},
+	})
+	return vmi
+}
+
+func NewRandomVMIWithDataVolume(imageUrl string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "disk0",
+		VolumeName: "disk0",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: "virtio",
+			},
+		},
+	})
+	quantity, err := resource.ParseQuantity(defaultDiskSize)
+	PanicOnError(err)
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: "disk0",
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &cdiv1.DataVolumeSpec{
+				Source: cdiv1.DataVolumeSource{
+
+					HTTP: &cdiv1.DataVolumeSourceHTTP{
+						URL: imageUrl,
+					},
+				},
+				PVC: &k8sv1.PersistentVolumeClaimSpec{
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+					Resources: k8sv1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							"storage": quantity,
+						},
+					},
+					Selector: &metav1.LabelSelector{
+
+						MatchLabels: map[string]string{"os": "datavolume1"},
+					},
+				},
 			},
 		},
 	})
