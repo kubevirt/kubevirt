@@ -21,6 +21,12 @@ to libvirt domains based on the state of those resources.
 
  * `cluster/kubectl.sh`: This is a wrapper around Kubernetes' kubectl command so
    that it can be run directly from this checkout without logging into a node.
+ * `cluster/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
+   virtual machine specific commands with it. It is supplement to `kubectl`.
+   e.g. `cluster/virtctl.sh console testvm`.
+ * `cluster/cli.sh` helps you creating ephemeral kubernetes and openshift
+   clusters for testing. This is helpful when direct management or access to
+   cluster nodes is necessary. e.g. `cluster/cli.sh ssh node01`.
 
 ### Makefile Commands
 
