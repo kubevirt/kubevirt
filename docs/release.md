@@ -93,6 +93,10 @@ The release process is mostly automatic and consists of the following steps:
 Stable Branches
 ---------------
 
+> **Note:** Before a bug is fixed in a stable branch, the same bug must be fixed
+> in the `master` branch. The only exception is when a bug exists in a stable
+> branch only.
+
 For every release a barnch will be created following the pattern `release-x.y`.
 For now, community members can propose pull requests to be included into a
 stable branch.
