@@ -63,6 +63,12 @@ var _ = Describe("VMIlifecycle", func() {
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 	})
 
+	AfterEach(func() {
+		// Not every test causes virt-handler to restart, but a few different contexts do.
+		// This check is fast and non-intrusive if virt-handler is already running.
+		tests.EnsureKVMPresent()
+	})
+
 	Describe("Creating a VirtualMachineInstance", func() {
 		It("should success", func() {
 			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)

@@ -362,8 +362,9 @@ func EnsureKVMPresent() {
 			ready := true
 			// cluster is not ready until all nodes are ready.
 			for _, node := range nodeList.Items {
-				_, ok := node.Status.Allocatable[services.KvmDevice]
+				allocatable, ok := node.Status.Allocatable[services.KvmDevice]
 				ready = ready && ok
+				ready = ready && (allocatable.Value() > 0)
 			}
 			return ready
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
