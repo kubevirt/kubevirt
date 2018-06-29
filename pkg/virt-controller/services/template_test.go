@@ -76,8 +76,8 @@ var _ = Describe("Template", func() {
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
-					"--requested-hooks", "1"}))
-				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-some-image:v1"))
+					"--hook-sidecars", "1"}))
+				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
@@ -119,8 +119,8 @@ var _ = Describe("Template", func() {
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
-					"--requested-hooks", "1"}))
-				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-some-image:v1"))
+					"--hook-sidecars", "1"}))
+				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
 				Expect(pod.Spec.Containers[1].VolumeMounts[0].MountPath).To(Equal(hooks.HookSocketsSharedDirectory))

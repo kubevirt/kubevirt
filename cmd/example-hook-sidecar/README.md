@@ -14,10 +14,10 @@ annotations:
 
 ```shell
 # Create a VM requesting the hook sidecar
-cluster/kubectl.sh create -f cluster/examples/hook-sidecar-consumer.yml
+cluster/kubectl.sh create -f cluster/examples/hook-with-sidecar-hook.yml
 
 # Once the VM is ready, connect to its display and login using name and password "fedora"
-cluster/virtctl.sh vnc vm-hook-sidecar-consumer
+cluster/virtctl.sh vnc vm-with-sidecar-hook
 
 # Install dmidecode
 sudo dnf install -y dmidecode
@@ -25,4 +25,3 @@ sudo dnf install -y dmidecode
 # Check whether the base board manufacturer value was successfully overwritten
 sudo dmidecode -s baseboard-manufacturer
 ```
-

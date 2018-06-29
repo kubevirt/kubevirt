@@ -50,6 +50,7 @@ import (
 
 const defaultStartTimeout = 3 * time.Minute
 const defaultWatchdogInterval = 5 * time.Second
+const hookSidecarsCollectTimeout = 10 * time.Second
 
 func markReady(readinessFile string) {
 	f, err := os.OpenFile(readinessFile, os.O_RDONLY|os.O_CREATE, 0666)
@@ -255,7 +256,7 @@ func main() {
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	useEmulation := flag.Bool("use-emulation", false, "Use software emulation")
-	requestedHooks := flag.Uint("requested-hooks", 0, "Number of requested hooks, virt-launcher will wait for all of them to become available")
+	hookSidecars := flag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 
 	// set new default verbosity, was set to 0 by glog
 	flag.Set("v", "2")
@@ -267,7 +268,7 @@ func main() {
 
 	// Block until all requested hookSidecars are ready
 	hookManager := hooks.GetManager()
-	err := hookManager.Collect(*requestedHooks)
+	err := hookManager.Collect(*hookSidecars, hookSidecarsCollectTimeout)
 	if err != nil {
 		panic(err)
 	}

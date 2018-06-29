@@ -44,17 +44,18 @@ import (
 )
 
 const (
-	vmiEphemeral      = "vmi-ephemeral"
-	vmiFlavorSmall    = "vmi-flavor-small"
-	vmiSata           = "vmi-sata"
-	vmiFedora         = "vmi-fedora"
-	vmiNoCloud        = "vmi-nocloud"
-	vmiPVC            = "vmi-pvc"
-	vmiWindows        = "vmi-windows"
-	vmiSlirp          = "vmi-slirp"
-	vmTemplateFedora  = "vm-template-fedora"
-	vmTemplateRHEL7   = "vm-template-rhel7"
-	vmTemplateWindows = "vm-template-windows2012r2"
+	vmiEphemeral       = "vmi-ephemeral"
+	vmiFlavorSmall     = "vmi-flavor-small"
+	vmiSata            = "vmi-sata"
+	vmiFedora          = "vmi-fedora"
+	vmiNoCloud         = "vmi-nocloud"
+	vmiPVC             = "vmi-pvc"
+	vmiWindows         = "vmi-windows"
+	vmiSlirp           = "vmi-slirp"
+	vmiWithHookSidecar = "vmi-with-sidecar-hook"
+	vmTemplateFedora   = "vm-template-fedora"
+	vmTemplateRHEL7    = "vm-template-rhel7"
+	vmTemplateWindows  = "vm-template-windows2012r2"
 )
 
 const (
@@ -577,6 +578,20 @@ func getVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 	return vmPreset
 }
 
+func getVmWithHookSidecar() *v1.VirtualMachine {
+	vm := getBaseVMI(vmiWithHookSidecar)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+
+	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+
+	vm.ObjectMeta.Annotations = map[string]string{
+		"hooks.kubevirt.io/hookSidecars":              `[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]`,
+		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
+	}
+	return vm
+}
+
 func main() {
 	flag.StringVar(&dockerPrefix, "docker-prefix", dockerPrefix, "")
 	flag.StringVar(&dockerTag, "docker-tag", dockerTag, "")
@@ -589,14 +604,15 @@ func main() {
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
-		vmiEphemeral:   getVMIEphemeral(),
-		vmiFlavorSmall: getVMIFlavorSmall(),
-		vmiSata:        getVMISata(),
-		vmiFedora:      getVMIEphemeralFedora(),
-		vmiNoCloud:     getVMINoCloud(),
-		vmiPVC:         getVMIPvc(),
-		vmiWindows:     getVMIWindows(),
-		vmiSlirp:       getVMISlirp(),
+		vmiEphemeral:       getVMIEphemeral(),
+		vmiFlavorSmall:     getVMIFlavorSmall(),
+		vmiSata:            getVMISata(),
+		vmiFedora:          getVMIEphemeralFedora(),
+		vmiNoCloud:         getVMINoCloud(),
+		vmiPVC:             getVMIPvc(),
+		vmiWindows:         getVMIWindows(),
+		vmiSlirp:           getVMISlirp(),
+		vmiWithHookSidecar: getVMIWithHookSidecar(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{

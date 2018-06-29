@@ -32,19 +32,18 @@ var manager *Manager
 var once sync.Once
 
 type Manager struct {
-	collected             bool
 	callbacksPerHookPoint map[string][]*callackClient
 }
 
 func GetManager() *Manager {
 	once.Do(func() {
-		manager = &Manager{collected: false}
+		manager = &Manager{callbacksPerHookPoint: make(map[string][]*callackClient)}
 	})
 	return manager
 }
 
-func (m *Manager) Collect(numberOfRequestedHookSidecars uint) error {
-	callbacksPerHookPoint, err := collectSideCarSockets(numberOfRequestedHookSidecars)
+func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Duration) error {
+	callbacksPerHookPoint, err := collectSideCarSockets(numberOfRequestedHookSidecars, timeout)
 	if err != nil {
 		return err
 	}
@@ -53,15 +52,17 @@ func (m *Manager) Collect(numberOfRequestedHookSidecars uint) error {
 	sortCallbacksPerHookPoint(callbacksPerHookPoint)
 	log.Log.Infof("Sorted all collected sidecar sockets per hook point based on their priority and name: %v", callbacksPerHookPoint)
 
-	m.collected = true
 	m.callbacksPerHookPoint = callbacksPerHookPoint
 
 	return nil
 }
 
-func collectSideCarSockets(numberOfRequestedHookSidecars uint) (map[string][]*callackClient, error) {
+// TODO: Handle sockets in parallel, when a socket appears, run a goroutine trying to read Info from it
+func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callackClient, error) {
 	callbacksPerHookPoint := make(map[string][]*callackClient)
 	processedSockets := make(map[string]bool)
+
+	timeoutCh := time.After(timeout)
 
 	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
 		sockets, err := ioutil.ReadDir(HookSocketsSharedDirectory)
@@ -70,24 +71,29 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint) (map[string][]*ca
 		}
 
 		for _, socket := range sockets {
-			if _, processed := processedSockets[socket.Name()]; processed {
-				continue
-			}
+			select {
+			case <-timeoutCh:
+				return nil, fmt.Errorf("Failed to collect all expected sidecar hook sockets within given timeout")
+			default:
+				if _, processed := processedSockets[socket.Name()]; processed {
+					continue
+				}
 
-			callackClient, notReady, err := processSideCarSocket(HookSocketsSharedDirectory + "/" + socket.Name())
-			if notReady {
-				log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
-				continue
-			} else if err != nil {
-				log.Log.Reason(err).Infof("Failed to process sidecar socket: %s", socket.Name())
-				return nil, err
-			}
+				callackClient, notReady, err := processSideCarSocket(HookSocketsSharedDirectory + "/" + socket.Name())
+				if notReady {
+					log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
+					continue
+				} else if err != nil {
+					log.Log.Reason(err).Infof("Failed to process sidecar socket: %s", socket.Name())
+					return nil, err
+				}
 
-			for _, subsribedHookPoint := range callackClient.subsribedHookPoints {
-				callbacksPerHookPoint[subsribedHookPoint.GetName()] = append(callbacksPerHookPoint[subsribedHookPoint.GetName()], callackClient)
-			}
+				for _, subsribedHookPoint := range callackClient.subsribedHookPoints {
+					callbacksPerHookPoint[subsribedHookPoint.GetName()] = append(callbacksPerHookPoint[subsribedHookPoint.GetName()], callackClient)
+				}
 
-			processedSockets[socket.Name()] = true
+				processedSockets[socket.Name()] = true
+			}
 		}
 
 		time.Sleep(time.Second)
@@ -105,7 +111,9 @@ func processSideCarSocket(socketPath string) (*callackClient, bool, error) {
 	defer conn.Close()
 
 	infoClient := hooksInfo.NewInfoClient(conn)
-	info, err := infoClient.Info(context.Background(), &hooksInfo.InfoParams{})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	info, err := infoClient.Info(ctx, &hooksInfo.InfoParams{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -141,10 +149,6 @@ func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callackClient
 }
 
 func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vm *v1.VirtualMachine) (*virtwrapApi.DomainSpec, error) {
-	if !m.collected {
-		return nil, fmt.Errorf("Hook sidecars have not been collected yet")
-	}
-
 	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha1.Version {
@@ -166,7 +170,9 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vm *v1.Virt
 
 				client := hooksV1alpha1.NewCallbacksClient(conn)
 
-				result, err := client.OnDefineDomain(context.Background(), &hooksV1alpha1.OnDefineDomainParams{
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				result, err := client.OnDefineDomain(ctx, &hooksV1alpha1.OnDefineDomainParams{
 					DomainXML: domainSpecXML,
 					Vm:        vmJSON,
 				})
@@ -198,5 +204,6 @@ func dialSocket(socketPath string) (*grpc.ClientConn, error) {
 		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 			return net.DialTimeout("unix", addr, timeout)
 		}),
+		grpc.WithTimeout(time.Second),
 	)
 }

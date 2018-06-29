@@ -219,13 +219,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	if len(requestedHookSidecarList) != 0 {
 		volumes = append(volumes, k8sv1.Volume{
-			Name: "hooks",
+			Name: "hook-sidecar-sockets",
 			VolumeSource: k8sv1.VolumeSource{
 				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			},
 		})
 		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
-			Name:      "hooks",
+			Name:      "hook-sidecar-sockets",
 			MountPath: hooks.HookSocketsSharedDirectory,
 		})
 	}
@@ -237,7 +237,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--kubevirt-share-dir", t.virtShareDir,
 		"--readiness-file", "/tmp/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
-		"--requested-hooks", strconv.Itoa(len(requestedHookSidecarList)),
+		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 	}
 
 	useEmulation, err := IsEmulationAllowed(t.store)
@@ -337,7 +337,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
 			VolumeMounts: []k8sv1.VolumeMount{
 				k8sv1.VolumeMount{
-					Name:      "hooks",
+					Name:      "hook-sidecar-sockets",
 					MountPath: hooks.HookSocketsSharedDirectory,
 				},
 			},

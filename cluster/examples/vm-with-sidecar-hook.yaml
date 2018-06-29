@@ -1,16 +1,13 @@
-status: {}
 apiVersion: kubevirt.io/v1alpha1
 kind: VirtualMachine
 metadata:
+  annotations:
+    hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
+    smbios.vm.kubevirt.io/baseBoardManufacturer: Radical Edward
   creationTimestamp: null
   labels:
-    special: vm-hook-sidecar-consumer
-  name: vm-hook-sidecar-consumer
-  annotations:
-    # Request the hook sidecar
-    hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
-    # Overwrite base board manufacturer name
-    smbios.vm.kubevirt.io/baseBoardManufacturer: "Radical Edward"
+    special: vm-with-sidecar-hook
+  name: vm-with-sidecar-hook
 spec:
   domain:
     devices:

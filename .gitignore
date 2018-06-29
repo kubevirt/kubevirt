@@ -27,5 +27,4 @@ _out
 vendor/**/*_test.go
 **/polarion.xml
 tools/manifest-templator/manifest-templator
-.coverprofile
 tools/vms-generator/vms-generator

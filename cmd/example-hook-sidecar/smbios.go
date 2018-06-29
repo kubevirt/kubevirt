@@ -41,7 +41,7 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 type v1alpha1Server struct{}
 
 func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha1.OnDefineDomainParams) (*hooksV1alpha1.OnDefineDomainResult, error) {
-	log.Log.Info("Hook's OnDefinedComain callback method has been called")
+	log.Log.Info("Hook's OnDefineDomain callback method has been called")
 
 	vmJSON := params.GetVm()
 	vmSpec := vmSchema.VirtualMachine{}

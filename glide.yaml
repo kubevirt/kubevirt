@@ -63,7 +63,7 @@ import:
 - package: github.com/ant31/crd-validation
   version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
 - package: kubevirt.io/qe-tools
-  version: v0.1.1
+  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
   repo: https://github.com/kubevirt/qe-tools.git
 - package: github.com/golang/protobuf
   subpackages:
