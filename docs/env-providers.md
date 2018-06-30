@@ -10,7 +10,7 @@ All following providers allow a common workflow:
  * `make functests` to run the functional tests against KubeVirt
  * `cluster/kubectl.sh` to talk to the k8s installation
 
-It is recommended to export the `KUBEVIRT_PROVIDER` vagirable as part of your `.bashrc`
+It is recommended to export the `KUBEVIRT_PROVIDER` variable as part of your `.bashrc`
 file.
 
 ## Dockerized k8s/ocp clusters
