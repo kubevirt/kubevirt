@@ -302,7 +302,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 				return true
 			}
 			return false
-		}, 60*time.Second, time.Second).Should(Equal(true))
+		}, 120*time.Second, time.Second).Should(Equal(true))
 
 		By("Checking number of RS VM's")
 		vmis, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})

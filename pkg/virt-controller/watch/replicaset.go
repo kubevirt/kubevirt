@@ -207,23 +207,18 @@ func (c *VMIReplicaSet) execute(key string) error {
 	activeVmis := c.filterActiveVMIs(vmis)
 
 	var scaleErr error
-	var cleanErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if needsSync && !rs.Spec.Paused && rs.ObjectMeta.DeletionTimestamp == nil {
-		if len(finishedVmis) > 0 {
-			cleanErr = c.cleanFinishedVmis(rs, finishedVmis)
-		}
 		scaleErr = c.scale(rs, activeVmis)
+		if len(finishedVmis) > 0 && scaleErr == nil {
+			scaleErr = c.cleanFinishedVmis(rs, finishedVmis)
+		}
 	}
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
 	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
 	if rs.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(rs, v1.FinalizerOrphanDependents) {
 		return c.orphan(cm, rs, activeVmis)
-	}
-
-	if cleanErr != nil {
-		logger.Reason(err).Error("Cleaning finished VM's failed.")
 	}
 
 	if scaleErr != nil {
@@ -487,7 +482,7 @@ func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 	}
 
 	labelChanged := !reflect.DeepEqual(curVMI.Labels, oldVMI.Labels)
-	if curVMI.DeletionTimestamp != nil || curVMI.IsFinal() {
+	if curVMI.DeletionTimestamp != nil {
 		// when a vmi is deleted gracefully it's deletion timestamp is first modified to reflect a grace period,
 		// and after such time has passed, the virt-handler actually deletes it from the store. We receive an update
 		// for modification of the deletion timestamp and expect an rs to create more replicas asap, not wait
