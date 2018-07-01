@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -85,10 +86,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// generate cloud-init data
 	cloudInitData := cloudinit.GetCloudInitNoCloudSource(vmi)
 	if cloudInitData != nil {
-		hostname := vmi.Name
-		if vmi.Spec.Hostname != "" {
-			hostname = vmi.Spec.Hostname
-		}
+		hostname := dns.SanitizeHostname(vmi)
 
 		err := cloudinit.GenerateLocalData(vmi.Name, hostname, vmi.Namespace, cloudInitData)
 		if err != nil {

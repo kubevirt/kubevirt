@@ -27,14 +27,18 @@ manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 args=$(cd ${KUBEVIRT_DIR}/manifests && find * -type f -name "*.yaml.in")
 
 rm -rf ${MANIFESTS_OUT_DIR}
+rm -rf ${MANIFEST_TEMPLATES_OUT_DIR}
 
 (cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go build)
 
 for arg in $args; do
     final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
+    final_templates_out_dir=$(dirname ${MANIFEST_TEMPLATES_OUT_DIR}/${arg})
     mkdir -p ${final_out_dir}
+    mkdir -p ${final_templates_out_dir}
     manifest=$(basename -s .in ${arg})
     outfile=${final_out_dir}/${manifest}
+    template_outfile=${final_templates_out_dir}/${manifest}.j2
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --namespace=${namespace} \
@@ -42,4 +46,36 @@ for arg in $args; do
         --docker-tag=${docker_tag} \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
+
+    ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+        --namespace="{{ namespace }}" \
+        --docker-prefix="{{ docker_prefix }}" \
+        --docker-tag="{{ docker_tag }}" \
+        --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
+        --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
+
+# Remove empty lines at the end of files which are added by go templating
+find ${MANIFESTS_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
+find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
+
+# make sure that template manifests align with release manifests
+export namespace=${namespace}
+export docker_tag=${docker_tag}
+export docker_prefix=${manifest_docker_prefix}
+
+TMP_DIR=$(mktemp -d)
+cleanup() {
+    ret=$?
+    rm -rf "${TMP_DIR}"
+    exit ${ret}
+}
+trap "cleanup" INT TERM EXIT
+
+for file in $(find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f); do
+    mkdir -p ${TMP_DIR}/$(dirname ${file})
+    j2 ${file} | sed -e '/.$/a\' >${TMP_DIR}/${file%.j2}
+done
+
+# If diff fails then we have an issue
+diff -r ${MANIFESTS_OUT_DIR} ${TMP_DIR}/${MANIFEST_TEMPLATES_OUT_DIR}

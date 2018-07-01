@@ -13,40 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
-package main
+package dns
 
 import (
-	"flag"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	"strings"
 
-	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/validation"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-func main() {
-	uuid := flag.String("uuid", "", "some fake arg")
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt,
-		syscall.SIGTERM,
-	)
+// Sanitize hostname according to DNS label rules
+// If the hostname is taken from vmi.Spec.Hostname
+// then it already passed DNS label validations.
+func SanitizeHostname(vmi *v1.VirtualMachineInstance) string {
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-	fmt.Printf("Started fake qemu process with uuid %s\n", *uuid)
-
-	timeout := time.After(60 * time.Second)
-	select {
-	case <-timeout:
-	case <-c:
-		time.Sleep(1 * time.Second)
+	hostName := strings.Split(vmi.Name, ".")[0]
+	if len(hostName) > validation.DNS1123LabelMaxLength {
+		hostName = hostName[:validation.DNS1123LabelMaxLength]
+	}
+	if vmi.Spec.Hostname != "" {
+		hostName = vmi.Spec.Hostname
 	}
 
-	fmt.Printf("Exit fake qemu process\n")
+	return hostName
 }

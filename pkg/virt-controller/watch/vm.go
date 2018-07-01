@@ -295,7 +295,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 }
 
 func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if vmi == nil {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
 		// nothing to do
 		return nil
 	}
