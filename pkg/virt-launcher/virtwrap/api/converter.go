@@ -445,14 +445,26 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	if vmi.Spec.Domain.CPU != nil {
-		domain.Spec.CPU.Topology = &CPUTopology{
-			Sockets: 1,
-			Cores:   vmi.Spec.Domain.CPU.Cores,
-			Threads: 1,
+		// Set VM CPU cores
+		if vmi.Spec.Domain.CPU.Cores != 0 {
+			domain.Spec.CPU.Topology = &CPUTopology{
+				Sockets: 1,
+				Cores:   vmi.Spec.Domain.CPU.Cores,
+				Threads: 1,
+			}
+			domain.Spec.VCPU = &VCPU{
+				Placement: "static",
+				CPUs:      vmi.Spec.Domain.CPU.Cores,
+			}
 		}
-		domain.Spec.VCPU = &VCPU{
-			Placement: "static",
-			CPUs:      vmi.Spec.Domain.CPU.Cores,
+
+		// Set VM CPU model and vendor
+		if vmi.Spec.Domain.CPU.Model != "" && vmi.Spec.Domain.CPU.Vendor != "" {
+			domain.Spec.CPU.Mode = "custom"
+			domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			domain.Spec.CPU.Vendor = vmi.Spec.Domain.CPU.Vendor
+		} else {
+			domain.Spec.CPU.Mode = "host-model"
 		}
 	}
 

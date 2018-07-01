@@ -123,6 +123,12 @@ type CPU struct {
 	// Cores specifies the number of cores inside the vmi.
 	// Must be a value greater or equal 1.
 	Cores uint32 `json:"cores,omitempty"`
+	// Model specifies the CPU model inside the VMI.
+	// +optional
+	Model string `json:"model,omitempty"`
+	// Vendor specifies the CPU vendor inside the VMI.
+	// +optional
+	Vendor string `json:"vendor,omitempty"`
 }
 
 // Memory allows specifying the VirtualMachineInstance memory features.

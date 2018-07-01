@@ -98,6 +98,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int64",
 							},
 						},
+						"model": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Model specifies the CPU model inside the VMI.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"vendor": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Vendor specifies the CPU vendor inside the VMI.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 					},
 				},
 			},
