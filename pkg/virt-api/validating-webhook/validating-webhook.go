@@ -543,7 +543,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			if iface.Ports != nil {
+			// Check only ports configured on interfaces connected to a pod network
+			if networkExists && networkData.Pod != nil && iface.Ports != nil {
 				for portIdx, forwardPort := range iface.Ports {
 
 					if forwardPort.Port == 0 {
@@ -556,7 +557,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 					if forwardPort.Port < 0 || forwardPort.Port > 65536 {
 						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueRequired,
+							Type:    metav1.CauseTypeFieldValueInvalid,
 							Message: fmt.Sprintf("Port field must be in range 0 < x < 65536."),
 							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
 						})
@@ -577,7 +578,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					if forwardPort.Name != "" {
 						if _, ok := portForwardMap[forwardPort.Name]; ok {
 							causes = append(causes, metav1.StatusCause{
-								Type:    metav1.CauseTypeFieldValueInvalid,
+								Type:    metav1.CauseTypeFieldValueDuplicate,
 								Message: fmt.Sprintf("Duplicate value: %s", forwardPort.Name),
 								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
 							})

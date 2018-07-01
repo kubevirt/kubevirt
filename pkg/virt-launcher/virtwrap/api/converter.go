@@ -601,7 +601,7 @@ func configPortForward(qemuArg *Arg, iface v1.Interface) error {
 		return nil
 	}
 
-	// Cant be duplicated ports forward or the qemu process will crash
+	// Can't be duplicated ports forward or the qemu process will crash
 	configuredPorts := make(map[string]struct{}, 0)
 	for _, forwardPort := range iface.Ports {
 
@@ -613,9 +613,10 @@ func configPortForward(qemuArg *Arg, iface v1.Interface) error {
 			forwardPort.Protocol = DefaultProtocol
 		}
 
-		if _, ok := configuredPorts[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)]; !ok {
+		portConfig := fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)
+		if _, ok := configuredPorts[portConfig]; !ok {
 			qemuArg.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(forwardPort.Protocol), forwardPort.Port, forwardPort.Port)
-			configuredPorts[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)] = struct{}{}
+			configuredPorts[portConfig] = struct{}{}
 		}
 	}
 

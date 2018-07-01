@@ -1045,7 +1045,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Port": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. Default podPort is port.",
+					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. Port is mandatory.",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{

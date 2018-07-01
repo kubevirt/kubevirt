@@ -477,6 +477,39 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Ports[3].ContainerPort).To(Equal(int32(80)))
 				Expect(pod.Spec.Containers[0].Ports[3].Protocol).To(Equal(kubev1.Protocol("TCP")))
 			})
+			It("Should create a port list in the pod manifest with multiple interfaces", func() {
+				slirpInterface1 := v1.InterfaceSlirp{}
+				slirpInterface2 := v1.InterfaceSlirp{}
+				ports1 := []v1.Port{{Name: "http", Port: 80}}
+				ports2 := []v1.Port{{Name: "other-http", Port: 80}}
+				domain := v1.DomainSpec{}
+				domain.Devices.Interfaces = []v1.Interface{
+					{Name: "testnet",
+						Ports: ports1,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface1}},
+					{Name: "testnet",
+						Ports: ports2,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface2}}}
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				Expect(len(pod.Spec.Containers[0].Ports)).To(Equal(2))
+				Expect(pod.Spec.Containers[0].Ports[0].Name).To(Equal("http"))
+				Expect(pod.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(80)))
+				Expect(pod.Spec.Containers[0].Ports[0].Protocol).To(Equal(kubev1.Protocol("TCP")))
+				Expect(pod.Spec.Containers[0].Ports[1].Name).To(Equal("other-http"))
+				Expect(pod.Spec.Containers[0].Ports[1].ContainerPort).To(Equal(int32(80)))
+				Expect(pod.Spec.Containers[0].Ports[1].Protocol).To(Equal(kubev1.Protocol("TCP")))
+			})
 		})
 	})
 	Describe("ConfigMap", func() {

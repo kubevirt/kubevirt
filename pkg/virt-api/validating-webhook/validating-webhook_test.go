@@ -778,7 +778,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0]"))
 		})
-		It("should reject interface with two port with the same name", func() {
+		It("should reject interface with two ports with the same name", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
@@ -824,7 +824,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].ports[0].name"))
 		})
-		It("should allow interface with two same Ports and Protocol", func() {
+		It("should allow interface with two same ports and protocol", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",

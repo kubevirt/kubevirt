@@ -699,7 +699,7 @@ type InterfaceSlirp struct{}
 
 // Port repesents a port to expose from the virtual machine.
 // Default protocol TCP.
-// Default podPort is port.
+// Port is mandatory.
 // ---
 // +k8s:openapi-gen=true
 type Port struct {

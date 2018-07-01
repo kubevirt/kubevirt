@@ -235,7 +235,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
-	// Add ports from slirp interfaces to the pod manifest
+	// Add ports from interfaces to the pod manifest
 	ports := getPortsFromVMI(vmi)
 
 	// VirtualMachineInstance target container

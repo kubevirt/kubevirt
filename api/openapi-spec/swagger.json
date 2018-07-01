@@ -4256,7 +4256,7 @@
     }
    },
    "v1.Port": {
-    "description": "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nDefault podPort is port.",
+    "description": "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nPort is mandatory.",
     "required": [
      "port"
     ],

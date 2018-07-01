@@ -55,7 +55,7 @@ var _ = Describe("Networking", func() {
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			generateHelloWorldServer(vmi, virtClient, 80, "tcp")
 		})
-		It("should contains containerPort in the pod manifest", func() {
+		It("should contain containerPort in the pod manifest", func() {
 			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			for _, containerSpec := range vmiPod.Spec.Containers {
 				if containerSpec.Name == "compute" {
