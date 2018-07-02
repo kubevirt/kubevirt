@@ -44,8 +44,6 @@ spec:
                       type: integer
                     model:
                       type: string
-                    vendor:
-                      type: string
                 devices:
                   properties:
                     disks:

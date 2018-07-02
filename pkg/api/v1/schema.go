@@ -126,9 +126,6 @@ type CPU struct {
 	// Model specifies the CPU model inside the VMI.
 	// +optional
 	Model string `json:"model,omitempty"`
-	// Vendor specifies the CPU vendor inside the VMI.
-	// +optional
-	Vendor string `json:"vendor,omitempty"`
 }
 
 // Memory allows specifying the VirtualMachineInstance memory features.

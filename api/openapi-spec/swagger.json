@@ -3356,10 +3356,6 @@
      "model": {
       "description": "Model specifies the CPU model inside the VMI.\n+optional",
       "type": "string"
-     },
-     "vendor": {
-      "description": "Vendor specifies the CPU vendor inside the VMI.\n+optional",
-      "type": "string"
      }
     }
    },

@@ -46,10 +46,9 @@ func (ResourceRequirements) SwaggerDoc() map[string]string {
 
 func (CPU) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "CPU allows specifying the CPU topology.",
-		"cores":  "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
-		"model":  "Model specifies the CPU model inside the VMI.\n+optional",
-		"vendor": "Vendor specifies the CPU vendor inside the VMI.\n+optional",
+		"":      "CPU allows specifying the CPU topology.",
+		"cores": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
+		"model": "Model specifies the CPU model inside the VMI.\n+optional",
 	}
 }
 

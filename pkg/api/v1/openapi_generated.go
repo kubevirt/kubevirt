@@ -105,13 +105,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
-						"vendor": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Vendor specifies the CPU vendor inside the VMI.",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
 					},
 				},
 			},
