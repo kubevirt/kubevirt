@@ -54,6 +54,7 @@ var _ = Describe("Networking", func() {
 
 	var inboundVMI *v1.VirtualMachineInstance
 	var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
+	var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 	var outboundVMI *v1.VirtualMachineInstance
 
 	const testPort = 1500
@@ -133,8 +134,14 @@ var _ = Describe("Networking", func() {
 		v1.SetDefaults_NetworkInterface(inboundVMIWithPodNetworkSet)
 		Expect(inboundVMIWithPodNetworkSet.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
 
+		// inboundVMIWithCustomMacAddress specifies a custom MAC address
+		inboundVMIWithCustomMacAddress = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		v1.SetDefaults_NetworkInterface(inboundVMIWithCustomMacAddress)
+		Expect(inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+		inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+
 		// Create VMIs
-		for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithPodNetworkSet} {
+		for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithPodNetworkSet, inboundVMIWithCustomMacAddress} {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(networkVMI)
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -143,6 +150,7 @@ var _ = Describe("Networking", func() {
 		inboundVMI = waitUntilVMIReady(inboundVMI, tests.LoggedInCirrosExpecter)
 		outboundVMI = waitUntilVMIReady(outboundVMI, tests.LoggedInCirrosExpecter)
 		inboundVMIWithPodNetworkSet = waitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoggedInCirrosExpecter)
+		inboundVMIWithCustomMacAddress = waitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoggedInCirrosExpecter)
 
 		startTCPServer(inboundVMI, testPort)
 	})
@@ -162,6 +170,8 @@ var _ = Describe("Networking", func() {
 			addr = inboundVMI.Status.Interfaces[0].IP
 		case "InboundVMIWithPodNetworkSet":
 			addr = inboundVMIWithPodNetworkSet.Status.Interfaces[0].IP
+		case "InboundVMIWithCustomMacAddress":
+			addr = inboundVMIWithCustomMacAddress.Status.Interfaces[0].IP
 		}
 		fmt.Println(addr)
 
@@ -227,6 +237,7 @@ var _ = Describe("Networking", func() {
 	},
 		table.Entry("the Inbound VirtualMachineInstance", "InboundVMI"),
 		table.Entry("the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
+		table.Entry("the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
 		table.Entry("the internet", "Internet"),
 	)
 
