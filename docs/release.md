@@ -97,7 +97,7 @@ Stable Branches
 > in the `master` branch. The only exception is when a bug exists in a stable
 > branch only.
 
-For every release a barnch will be created following the pattern `release-x.y`.
+For every release a branch will be created following the pattern `release-x.y`.
 For now, community members can propose pull requests to be included into a
 stable branch.
 Those pull requests should be limited to bug fixes and must not be
