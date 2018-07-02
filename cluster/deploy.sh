@@ -29,6 +29,7 @@ echo "Deploying ..."
 if [[ -z $TARGET ]] || [[ $TARGET =~ .*-dev ]]; then
 
     # Enable dataVolume integration support for dev
+    _kubectl create -f ${MANIFESTS_OUT_DIR}/optional/cdi-controller-deployment.yaml -R $i
     cat <<EOF | _kubectl create -f -
 apiVersion: v1
 kind: ConfigMap
@@ -42,8 +43,6 @@ data:
 EOF
 
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
-    # Only Include CDI in dev providers for now.
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/optional/cdi-controller-deployment.yaml -R $i
 elif [[ $TARGET =~ .*-release ]] || [[ $TARGET =~ windows.* ]]; then
     for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
         if [[ $manifest =~ .*demo.* ]]; then

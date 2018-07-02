@@ -396,12 +396,6 @@ spec:
               - "--port"
               - "8443"
               - "--subresources-only"
-          env:
-            - name: FEATURE_GATES
-              valueFrom:
-                configMapKeyRef:
-                  name: kubevirt-config
-                  key: feature-gates
           ports:
             - containerPort: 8443
               name: "virt-api"
@@ -449,12 +443,6 @@ spec:
               - "{{.DockerPrefix}}/virt-launcher:{{.DockerTag}}"
               - "--port"
               - "8182"
-          env:
-            - name: FEATURE_GATES
-              valueFrom:
-                configMapKeyRef:
-                  name: kubevirt-config
-                  key: feature-gates
           ports:
             - containerPort: 8182
               name: "virt-controller"

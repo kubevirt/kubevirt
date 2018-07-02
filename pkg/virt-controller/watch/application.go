@@ -120,6 +120,8 @@ func Execute() {
 	var err error
 	var app VirtControllerApp = VirtControllerApp{}
 
+	featuregates.ParseFeatureGatesFromConfigMap()
+
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	service.Setup(&app)
