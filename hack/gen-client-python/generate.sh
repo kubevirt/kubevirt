@@ -11,6 +11,7 @@ SWAGGER_CODEGEN_CLI="/tmp/swagger-codegen-cli.jar"
 KUBEVIRT_SPEC="${KUBEVIRT_DIR}/api/openapi-spec/swagger.json"
 CODEGEN_CONFIG_SRC="${KUBEVIRT_DIR}/hack/gen-client-python/swagger-codegen-config.json.in"
 CODEGEN_CONFIG="${PYTHON_CLIENT_OUT_DIR}/swagger-codegen-config.json"
+HARD_CODED_MODULES="${KUBEVIRT_DIR}/hack/gen-client-python/hard-coded-modules"
 
 # Define version of client
 if [ -n "${TRAVIS_TAG:-}" ]; then
@@ -37,3 +38,11 @@ java -jar "$SWAGGER_CODEGEN_CLI" generate \
     --git-repo-id client-python \
     --release-note "Auto-generated client ${CLIENT_PYTHON_VERSION}" \
     -c "${CODEGEN_CONFIG}" &>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt-pysdk-codegen.log
+
+cp "${HARD_CODED_MODULES}"/* "${PYTHON_CLIENT_OUT_DIR}"/kubevirt/models
+
+echo "from .v1_interface_bridge import V1InterfaceBridge" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/models/__init__.py
+echo "from .v1_interface_slirp import V1InterfaceSlirp" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/models/__init__.py
+
+echo "from .models.v1_interface_bridge import V1InterfaceBridge" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/__init__.py
+echo "from .models.v1_interface_slirp import V1InterfaceSlirp" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/__init__.py
