@@ -214,6 +214,17 @@ var _ = Describe("Networking", func() {
 			&expect.BExp{R: "0"},
 		}, 180)
 		Expect(err).ToNot(HaveOccurred())
+
+		By("checking the VirtualMachineInstance can fetch via HTTP")
+		err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: "0"},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
 	},
 		table.Entry("the Inbound VirtualMachineInstance", "InboundVMI"),
 		table.Entry("the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
