@@ -311,6 +311,64 @@ func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e
 	return
 }
 
+func TaintAllButOne() {
+	skippedFirstAvailable := false
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	listOptions := metav1.ListOptions{}
+	nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	for _, node := range nodeList.Items {
+		shouldSkip := false
+		if !skippedFirstAvailable {
+			canScheduleVMs, ok := node.Labels[v1.NodeSchedulable]
+			if ok && canScheduleVMs == "true" {
+				shouldSkip = true
+				skippedFirstAvailable = true
+			}
+		}
+
+		if shouldSkip {
+			continue
+		}
+
+		node.Spec.Taints = append(node.Spec.Taints, k8sv1.Taint{
+			Key:    "kubevirt-ci",
+			Effect: k8sv1.TaintEffectNoSchedule,
+		})
+
+		_, err := virtClient.CoreV1().Nodes().Update(&node)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func RemoveAllTaints() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	listOptions := metav1.ListOptions{}
+	nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	for _, node := range nodeList.Items {
+
+		shouldUpdate := false
+		for i, taint := range node.Spec.Taints {
+			if taint.Key == "kubevirt-ci" {
+
+				node.Spec.Taints = append(node.Spec.Taints[:i], node.Spec.Taints[i+1:]...)
+				shouldUpdate = true
+				break
+			}
+		}
+
+		if shouldUpdate {
+			_, err := virtClient.CoreV1().Nodes().Update(&node)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+}
+
 func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
@@ -323,6 +381,7 @@ func AfterTestSuitCleanup() {
 	DeletePV(osAlpineHostPath)
 
 	removeNamespaces()
+	RemoveAllTaints()
 }
 
 func BeforeTestCleanup() {

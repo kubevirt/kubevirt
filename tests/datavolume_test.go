@@ -44,6 +44,17 @@ var _ = Describe("DataVolume Integration", func() {
 		if !tests.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")
 		}
+
+		// TODO remove this once local storage provider is used
+		//
+		// In order to be able to test CDI with hostPath, we have to Temporarily
+		// ensure just for these DataVolume tests that only a single node is scheduable.
+		// This is the only way to guarantee both the import pod and VM pod land on the same node.
+		tests.TaintAllButOne()
+	})
+
+	AfterEach(func() {
+		tests.RemoveAllTaints()
 	})
 
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
