@@ -194,6 +194,31 @@ func initializeDirs(virtShareDir string,
 	}
 }
 
+func waitForDomainUUID(timeout time.Duration, domainManager virtwrap.DomainManager) string {
+	start := time.Now()
+
+	for time.Since(start) < timeout {
+		time.Sleep(time.Second)
+		list, err := domainManager.ListAllDomains()
+		if err != nil {
+			log.Log.Reason(err).Error("failed to retrieve domains from libvirt")
+			continue
+		}
+
+		if len(list) == 0 {
+			continue
+		}
+
+		domain := list[0]
+		if domain.Spec.UUID != "" {
+			log.Log.Infof("Detected domain with UUID %s", domain.Spec.UUID)
+			return domain.Spec.UUID
+		}
+	}
+
+	panic(fmt.Errorf("timed out waiting for domain to be defined"))
+}
+
 func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	domainManager virtwrap.DomainManager,
 	vm *v1.VirtualMachineInstance) {
@@ -286,10 +311,6 @@ func main() {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
 	}
-	mon := virtlauncher.NewProcessMonitor("qemu-system",
-		gracefulShutdownTriggerFile,
-		*gracePeriodSeconds,
-		shutdownCallback)
 
 	deleteNotificationSent := make(chan watch.Event, 10)
 	// Send domain notifications to virt-handler
@@ -299,6 +320,12 @@ func main() {
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
 	markReady(*readinessFile)
+
+	domainUUID := waitForDomainUUID(*qemuTimeout, domainManager)
+	mon := virtlauncher.NewProcessMonitor(domainUUID,
+		gracefulShutdownTriggerFile,
+		*gracePeriodSeconds,
+		shutdownCallback)
 
 	// This is a wait loop that monitors the qemu pid. When the pid
 	// exits, the wait loop breaks.
