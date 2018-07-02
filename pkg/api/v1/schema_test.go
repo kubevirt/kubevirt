@@ -22,6 +22,7 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"text/template"
 
 	. "github.com/onsi/ginkgo"
@@ -50,7 +51,8 @@ var exampleJSON = `{
         }
       },
       "cpu": {
-        "cores": 3
+        "cores": 3,
+        "model": "Conroe"
       },
       "machine": {
         "type": "q35"
@@ -321,6 +323,7 @@ var _ = Describe("Schema", func() {
 		}
 		exampleVMI.Spec.Domain.CPU = &CPU{
 			Cores: 3,
+			Model: "Conroe",
 		}
 		exampleVMI.Spec.Networks = []Network{
 			Network{
@@ -373,6 +376,8 @@ var _ = Describe("Schema", func() {
 			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
+			fmt.Println(string(buf))
+			fmt.Println(exampleJSONParsed)
 			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})
