@@ -578,18 +578,18 @@ func getVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 	return vmPreset
 }
 
-func getVmWithHookSidecar() *v1.VirtualMachine {
-	vm := getBaseVMI(vmiWithHookSidecar)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+func getVMIWithHookSidecar() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiWithHookSidecar)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
-	addNoCloudDiskWitUserData(&vm.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
-	vm.ObjectMeta.Annotations = map[string]string{
+	vmi.ObjectMeta.Annotations = map[string]string{
 		"hooks.kubevirt.io/hookSidecars":              `[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]`,
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
-	return vm
+	return vmi
 }
 
 func main() {

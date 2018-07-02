@@ -167,7 +167,7 @@ func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callackClient
 	}
 }
 
-func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vm *v1.VirtualMachine) (*virtwrapApi.DomainSpec, error) {
+func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.VirtualMachineInstance) (*virtwrapApi.DomainSpec, error) {
 	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha1.Version {
@@ -175,9 +175,9 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vm *v1.Virt
 				if err != nil {
 					return nil, fmt.Errorf("Failed to marshal domain spec: %v", domainSpec)
 				}
-				vmJSON, err := json.Marshal(vm)
+				vmiJSON, err := json.Marshal(vmi)
 				if err != nil {
-					return nil, fmt.Errorf("Failed to marshal VM spec: %v", vm)
+					return nil, fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
 				}
 
 				conn, err := dialSocket(callback.SocketPath)
@@ -193,7 +193,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vm *v1.Virt
 				defer cancel()
 				result, err := client.OnDefineDomain(ctx, &hooksV1alpha1.OnDefineDomainParams{
 					DomainXML: domainSpecXML,
-					Vm:        vmJSON,
+					Vmi:       vmiJSON,
 				})
 				if err != nil {
 					return nil, err

@@ -62,15 +62,15 @@ type v1alpha1Server struct{}
 func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha1.OnDefineDomainParams) (*hooksV1alpha1.OnDefineDomainResult, error) {
 	log.Log.Info("Hook's OnDefineDomain callback method has been called")
 
-	vmJSON := params.GetVm()
-	vmSpec := vmSchema.VirtualMachine{}
-	err := json.Unmarshal(vmJSON, &vmSpec)
+	vmiJSON := params.GetVmi()
+	vmiSpec := vmSchema.VirtualMachineInstance{}
+	err := json.Unmarshal(vmiJSON, &vmiSpec)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal given VM spec: %s", vmJSON)
+		log.Log.Reason(err).Errorf("Failed to unmarshal given VMI spec: %s", vmiJSON)
 		panic(err)
 	}
 
-	annotations := vmSpec.GetAnnotations()
+	annotations := vmiSpec.GetAnnotations()
 
 	if _, found := annotations[baseBoardManufacturerAnnotation]; !found {
 		log.Log.Info("SM BIOS hook sidecar was requested, but no attributes provided. Returning original domain spec")

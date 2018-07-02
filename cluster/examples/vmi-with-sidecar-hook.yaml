@@ -1,13 +1,13 @@
-apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachine
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
 metadata:
   annotations:
     hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
     smbios.vm.kubevirt.io/baseBoardManufacturer: Radical Edward
   creationTimestamp: null
   labels:
-    special: vm-with-sidecar-hook
-  name: vm-with-sidecar-hook
+    special: vmi-with-sidecar-hook
+  name: vmi-with-sidecar-hook
 spec:
   domain:
     devices:

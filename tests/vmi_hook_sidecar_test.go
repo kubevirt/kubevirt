@@ -42,32 +42,32 @@ var _ = Describe("HookSidecars", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var vm *v1.VirtualMachine
+	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vm = tests.NewRandomVMWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
-		vm.ObjectMeta.Annotations = map[string]string{
+		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+		vmi.ObjectMeta.Annotations = map[string]string{
 			"hooks.kubevirt.io/hookSidecars":              `[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]`,
 			"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 		}
 	})
 
-	Describe("VM definition", func() {
+	Describe("VMI definition", func() {
 		Context("with SM BIOS hook sidecar", func() {
 			It("should successfully start with hook sidecar annotation", func() {
-				By("Starting a VM")
-				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+				By("Starting a VMI")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMStart(vm)
+				tests.WaitForSuccessfulVMIStart(vmi)
 			}, 300)
 
 			It("should call Collect on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
-				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				logs := func() string { return getHookSidecarLogs(virtClient, vm) }
-				tests.WaitForSuccessfulVMStart(vm)
+				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
+				tests.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,
 					500*time.Millisecond).
@@ -76,10 +76,10 @@ var _ = Describe("HookSidecars", func() {
 
 			It("should call OnDefineDomain on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
-				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				logs := func() string { return getHookSidecarLogs(virtClient, vm) }
-				tests.WaitForSuccessfulVMStart(vm)
+				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
+				tests.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,
 					500*time.Millisecond).
@@ -89,9 +89,9 @@ var _ = Describe("HookSidecars", func() {
 			It("should update domain XML with SM BIOS properties", func() {
 				By("Reading domain XML using virsh")
 				tests.SkipIfNoKubectl()
-				vm, err = virtClient.VM(tests.NamespaceTestDefault).Create(vm)
-				tests.WaitForSuccessfulVMStart(vm)
-				domainXml := getVmDomainXml(virtClient, vm)
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				tests.WaitForSuccessfulVMIStart(vmi)
+				domainXml := getVmDomainXml(virtClient, vmi)
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
@@ -101,9 +101,9 @@ var _ = Describe("HookSidecars", func() {
 
 })
 
-func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) string {
-	namespace := vm.GetObjectMeta().GetNamespace()
-	podName := getVmPodName(virtCli, vm)
+func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+	namespace := vmi.GetObjectMeta().GetNamespace()
+	podName := getVmPodName(virtCli, vmi)
 
 	var tailLines int64 = 100
 	logsRaw, err := virtCli.CoreV1().
@@ -118,22 +118,22 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) s
 	return string(logsRaw)
 }
 
-func getVmDomainXml(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) string {
-	podName := getVmPodName(virtCli, vm)
+func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+	podName := getVmPodName(virtCli, vmi)
 
-	vmNameListRaw, err := tests.RunKubectlCommand("exec", "-ti", "--namespace", vm.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
+	vmNameListRaw, err := tests.RunKubectlCommand("exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
 	Expect(err).ToNot(HaveOccurred())
 
 	vmName := strings.Split(vmNameListRaw, "\n")[0]
-	vmDomainXML, err := tests.RunKubectlCommand("exec", "-ti", "--namespace", vm.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "dumpxml", vmName)
+	vmDomainXML, err := tests.RunKubectlCommand("exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "dumpxml", vmName)
 	Expect(err).ToNot(HaveOccurred())
 
 	return vmDomainXML
 }
 
-func getVmPodName(virtCli kubecli.KubevirtClient, vm *v1.VirtualMachine) string {
-	namespace := vm.GetObjectMeta().GetNamespace()
-	domain := vm.GetObjectMeta().GetName()
+func getVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+	namespace := vmi.GetObjectMeta().GetNamespace()
+	domain := vmi.GetObjectMeta().GetName()
 	labelSelector := fmt.Sprintf("kubevirt.io/domain in (%s)", domain)
 
 	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})

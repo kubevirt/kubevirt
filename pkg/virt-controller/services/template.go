@@ -210,7 +210,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	// Read requested hookSidecars from VM annotation
 	var err error
 	requestedHookSidecarList := make(hooks.HookSidecarList, 0)
-	if rawRequestedHookSidecarList, requestedHookSidecarListDefined := vm.GetObjectMeta().GetAnnotations()[hooks.HookSidecarListAnnotationName]; requestedHookSidecarListDefined {
+	if rawRequestedHookSidecarList, requestedHookSidecarListDefined := vmi.GetObjectMeta().GetAnnotations()[hooks.HookSidecarListAnnotationName]; requestedHookSidecarListDefined {
 		requestedHookSidecarList, err = hooks.UnmarshalHookSidecarList(rawRequestedHookSidecarList)
 		if err != nil {
 			return nil, err

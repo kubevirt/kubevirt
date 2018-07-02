@@ -112,7 +112,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	hooksManager := hooks.GetManager()
-	domainSpec, err := hooksManager.OnDefineDomain(&domain.Spec, vm)
+	domainSpec, err := hooksManager.OnDefineDomain(&domain.Spec, vmi)
 	if err != nil {
 		return domain, err
 	}
