@@ -41,25 +41,29 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-api/validating-webhook"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 const (
-	vmiEphemeral      = "vmi-ephemeral"
-	vmiFlavorSmall    = "vmi-flavor-small"
-	vmiSata           = "vmi-sata"
-	vmiFedora         = "vmi-fedora"
-	vmiNoCloud        = "vmi-nocloud"
-	vmiPVC            = "vmi-pvc"
-	vmiWindows        = "vmi-windows"
-	vmiSlirp          = "vmi-slirp"
-	vmTemplateFedora  = "vm-template-fedora"
-	vmTemplateRHEL7   = "vm-template-rhel7"
-	vmTemplateWindows = "vm-template-windows2012r2"
+	vmiEphemeral        = "vmi-ephemeral"
+	vmiFlavorSmall      = "vmi-flavor-small"
+	vmiSata             = "vmi-sata"
+	vmiFedora           = "vmi-fedora"
+	vmiNoCloud          = "vmi-nocloud"
+	vmiPVC              = "vmi-pvc"
+	vmiAlpineDataVolume = "vmi-alpine-datavolume"
+	vmiWindows          = "vmi-windows"
+	vmiSlirp            = "vmi-slirp"
+	vmTemplateFedora    = "vm-template-fedora"
+	vmTemplateRHEL7     = "vm-template-rhel7"
+	vmTemplateWindows   = "vm-template-windows2012r2"
 )
 
 const (
-	vmCirros         = "vm-cirros"
-	vmAlpineMultiPvc = "vm-alpine-multipvc"
+	vmCirros           = "vm-cirros"
+	vmAlpineMultiPvc   = "vm-alpine-multipvc"
+	vmAlpineDataVolume = "vm-alpine-datavolume"
 )
 
 const vmiReplicaSetCirros = "vmi-replicaset-cirros"
@@ -189,6 +193,48 @@ func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualM
 	return spec
 }
 
+func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, httpUrl string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
+
+	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
+		Name:       diskName,
+		VolumeName: volumeName,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: bus,
+			},
+		},
+	})
+
+	quantity, err := resource.ParseQuantity("1Gi")
+	if err != nil {
+		panic(err)
+	}
+	spec.Volumes = append(spec.Volumes, v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &cdiv1.DataVolumeSpec{
+				Source: cdiv1.DataVolumeSource{
+					HTTP: &cdiv1.DataVolumeSourceHTTP{
+						URL: "http://cdi-http-import-server.kube-system/images/alpine.iso",
+					},
+				},
+				PVC: &k8sv1.PersistentVolumeClaimSpec{
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+					Resources: k8sv1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							"storage": quantity,
+						},
+					},
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"os": "datavolume2"},
+					},
+				},
+			},
+		},
+	})
+	return spec
+}
+
 func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
 		Name:       diskName,
@@ -274,6 +320,13 @@ func getVMIPvc() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func getVMIAlpineDataVolume() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(vmiAlpineDataVolume)
+	addDataVolumeDisk(&vm.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
+
+	return vm
+}
+
 func getVMIWindows() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(vmiWindows)
 
@@ -355,6 +408,15 @@ func getVMCirros() *v1.VirtualMachine {
 
 	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageCirros, dockerTag), busVirtio)
 	addNoCloudDisk(&vm.Spec.Template.Spec)
+	return vm
+}
+
+func getVMAlpineDataVolume() *v1.VirtualMachine {
+	vm := getBaseVM(vmAlpineDataVolume, map[string]string{
+		"kubevirt.io/vm": vmAlpineDataVolume,
+	})
+	addDataVolumeDisk(&vm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
+
 	return vm
 }
 
@@ -583,20 +645,25 @@ func main() {
 	genDir := flag.String("generated-vms-dir", "", "")
 	flag.Parse()
 
+	// enable feature gates for volume validation code
+	os.Setenv("FEATURE_GATES", "DataVolumes")
+
 	var vms = map[string]*v1.VirtualMachine{
-		vmCirros:         getVMCirros(),
-		vmAlpineMultiPvc: getVMMultiPvc(),
+		vmCirros:           getVMCirros(),
+		vmAlpineMultiPvc:   getVMMultiPvc(),
+		vmAlpineDataVolume: getVMAlpineDataVolume(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
-		vmiEphemeral:   getVMIEphemeral(),
-		vmiFlavorSmall: getVMIFlavorSmall(),
-		vmiSata:        getVMISata(),
-		vmiFedora:      getVMIEphemeralFedora(),
-		vmiNoCloud:     getVMINoCloud(),
-		vmiPVC:         getVMIPvc(),
-		vmiWindows:     getVMIWindows(),
-		vmiSlirp:       getVMISlirp(),
+		vmiEphemeral:        getVMIEphemeral(),
+		vmiFlavorSmall:      getVMIFlavorSmall(),
+		vmiSata:             getVMISata(),
+		vmiFedora:           getVMIEphemeralFedora(),
+		vmiNoCloud:          getVMINoCloud(),
+		vmiPVC:              getVMIPvc(),
+		vmiAlpineDataVolume: getVMIAlpineDataVolume(),
+		vmiWindows:          getVMIWindows(),
+		vmiSlirp:            getVMISlirp(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
