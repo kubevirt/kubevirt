@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
@@ -164,7 +165,7 @@ func Execute() {
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
-	if os.Getenv("DATAVOLUMES_ENABLED") == "true" {
+	if featuregates.DataVolumesEnabled() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
 		log.Log.Infof("DataVolume integration enabled")
 	} else {

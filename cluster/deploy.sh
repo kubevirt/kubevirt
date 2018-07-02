@@ -38,7 +38,7 @@ metadata:
   labels:
     kubevirt.io: ""
 data:
-  dataVolumesEnabled: "true"
+  feature-gates: "DataVolumes"
 EOF
 
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i

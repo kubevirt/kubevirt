@@ -21,10 +21,15 @@ package featuregates
 
 import (
 	"os"
+	"strings"
 )
 
-const dataVolumesEnabledEnv = "DATAVOLUMES_ENABLED"
+const featureGateEnvVar = "FEATURE_GATES"
+
+const (
+	dataVolumesGate = "DataVolumes"
+)
 
 func DataVolumesEnabled() bool {
-	return os.Getenv("DATAVOLUMES_ENABLED") == "true"
+	return strings.Contains(os.Getenv(featureGateEnvVar), dataVolumesGate)
 }

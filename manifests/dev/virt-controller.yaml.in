@@ -47,11 +47,11 @@ spec:
               - "--port"
               - "8182"
           env:
-            - name: DATAVOLUMES_ENABLED
+            - name: FEATURE_GATES
               valueFrom:
                 configMapKeyRef:
                   name: kubevirt-config
-                  key: dataVolumesEnabled
+                  key: feature-gates
           ports:
             - containerPort: 8182
               name: "virt-controller"

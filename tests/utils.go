@@ -74,7 +74,6 @@ var KubeVirtRepoPrefix = "kubevirt"
 var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
 var KubeVirtInstallNamespace = "kube-system"
-var KubeVirtHasCDI = false
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
@@ -82,7 +81,6 @@ func init() {
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kube-system", "Set the namespace KubeVirt is installed in")
-	flag.BoolVar(&KubeVirtHasCDI, "has-cdi", false, "Explicitly set whether tests should expect CDI or not")
 }
 
 type EventType string
@@ -1713,5 +1711,25 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 }
 
 func HasCDI() bool {
-	return KubeVirtHasCDI
+	hasCDI := false
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	options := metav1.GetOptions{}
+	cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
+	if err == nil {
+		val, ok := cfgMap.Data["feature-gates"]
+		if !ok {
+			return hasCDI
+		}
+
+		hasCDI = strings.Contains(val, "DataVolumes")
+	} else {
+		if !errors.IsNotFound(err) {
+			PanicOnError(err)
+		}
+	}
+
+	return hasCDI
 }
