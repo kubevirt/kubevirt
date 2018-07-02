@@ -28,4 +28,9 @@ if [[ ${TARGET} == openshift* ]]; then
     oc=${kubectl}
 fi
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -tag=${docker_tag} -prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 90m ${FUNC_TEST_ARGS}
+# Include CDI in dev providers for now.  
+if [[ "$TARGET" =~ .*-dev ]]; then
+    _kubectl create -f ${MANIFESTS_OUT_DIR}/optional/cdi-controller-deployment.yaml -R $i
+fi
+
+${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -tag=${docker_tag} -prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -has-cdi -test.timeout 90m ${FUNC_TEST_ARGS}

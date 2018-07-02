@@ -62,6 +62,13 @@ for i in ${namespaces[@]}; do
     if [ $(_kubectl -n ${i} get crd offlinevirtualmachines.kubevirt.io | wc -l) -gt 0 ]; then
         _kubectl -n ${i} delete crd 'offlinevirtualmachines.kubevirt.io'
     fi
+
+    _kubectl -n ${i} delete deployment -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete serviceaccounts -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete clusterroles -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete clusterrolebinding -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete customresourcedefinitions -l 'cdi.kubevirt.io'
+
 done
 
 sleep 2

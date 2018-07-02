@@ -74,6 +74,7 @@ var KubeVirtRepoPrefix = "kubevirt"
 var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
 var KubeVirtInstallNamespace = "kube-system"
+var KubeVirtHasCDI = false
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
@@ -81,6 +82,7 @@ func init() {
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kube-system", "Set the namespace KubeVirt is installed in")
+	flag.BoolVar(&KubeVirtHasCDI, "has-cdi", false, "Explicitly set whether tests should expect CDI or not")
 }
 
 type EventType string
@@ -1711,6 +1713,5 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 }
 
 func HasCDI() bool {
-	// TODO autodetect if CDI is present which will toggle cdi integration tests
-	return false
+	return KubeVirtHasCDI
 }
