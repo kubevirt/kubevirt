@@ -155,7 +155,6 @@ var _ = Describe("Networking", func() {
 		ipHeaderSize := 28 // IPv4 specific
 		payloadSize := expectedMtu - ipHeaderSize
 
-		// Wait until the VirtualMachineInstance is booted, ping google and check if we can reach the internet
 		switch destination {
 		case "Internet":
 			addr = "kubevirt.io"
