@@ -32,9 +32,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	//registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -70,6 +72,30 @@ func IsEmulationAllowed(store cache.Store) (bool, error) {
 	return useEmulation, nil
 }
 
+// return true if a PersistentVolumeClaim uses VolumeMode = Block
+func isPVCBlock(namespace string, claimName string) (bool, error) {
+	// FIXME: using a client to make synchronous calls is suboptimal
+	// ideally this would be using a cache/informer
+	client, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return false, err
+	}
+	opts := metav1.GetOptions{}
+	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, opts)
+	if err != nil {
+		return false, err
+	}
+	if pvc == nil {
+		return false, fmt.Errorf("unknown persistentvolumeclaim: %s", claimName)
+	}
+	// We do not need to consider the data in a PersistentVolume (as of Kubernetes 1.9)
+	// If a PVC does not specify VolumeMode and the PV specifies VolumeMode = Block
+	// the claim will not be bound. So for the sake of a boolean answer, if the PVC's
+	// VolumeMode is Block, that unambiguously answers the question
+	isBlock := pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock
+	return isBlock, nil
+}
+
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -82,9 +108,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	failureThreshold := 5
 
 	var volumes []k8sv1.Volume
+	var volumeDevices []k8sv1.VolumeDevice
 	var userId int64 = 0
 	var privileged bool = false
-	var volumesMounts []k8sv1.VolumeMount
+	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
@@ -92,11 +119,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 
-	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "virt-share-dir",
 		MountPath: t.virtShareDir,
 	})
-	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
@@ -106,7 +133,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			MountPath: filepath.Join("/var/run/kubevirt-private", "vmi-disks", volume.Name),
 		}
 		if volume.PersistentVolumeClaim != nil {
-			volumesMounts = append(volumesMounts, volumeMount)
+			isBlock, err := isPVCBlock(namespace, volume.PersistentVolumeClaim.ClaimName)
+			if err != nil {
+				return nil, err
+			}
+			if isBlock {
+				devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
+				device := k8sv1.VolumeDevice{
+					Name:       volume.Name,
+					DevicePath: devicePath,
+				}
+				volumeDevices = append(volumeDevices, device)
+			} else {
+				volumeMounts = append(volumeMounts, volumeMount)
+			}
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
@@ -115,7 +155,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			})
 		}
 		if volume.Ephemeral != nil {
-			volumesMounts = append(volumesMounts, volumeMount)
+			volumeMounts = append(volumeMounts, volumeMount)
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
@@ -177,7 +217,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
 
 		// Configure hugepages mount on a pod
-		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      "hugepages",
 			MountPath: filepath.Join("/dev/hugepages"),
 		})
@@ -220,7 +260,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			},
 		})
-		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      "hook-sidecar-sockets",
 			MountPath: hooks.HookSocketsSharedDirectory,
 		})
@@ -276,7 +316,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			},
 		},
 		Command:      command,
-		VolumeMounts: volumesMounts,
+		VolumeMounts: volumeMounts,
 		ReadinessProbe: &k8sv1.Probe{
 			Handler: k8sv1.Handler{
 				Exec: &k8sv1.ExecAction{
