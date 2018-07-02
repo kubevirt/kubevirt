@@ -22,7 +22,6 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"text/template"
 
 	. "github.com/onsi/ginkgo"
@@ -376,8 +375,6 @@ var _ = Describe("Schema", func() {
 			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
-			fmt.Println(string(buf))
-			fmt.Println(exampleJSONParsed)
 			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})
