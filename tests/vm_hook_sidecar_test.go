@@ -22,8 +22,8 @@ package tests_test
 import (
 	"flag"
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
