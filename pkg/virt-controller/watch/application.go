@@ -44,9 +44,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 const (
@@ -161,7 +164,13 @@ func Execute() {
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
-	app.dataVolumeInformer = app.informerFactory.DataVolume()
+	if os.Getenv("DATAVOLUMES_ENABLED") == "true" {
+		app.dataVolumeInformer = app.informerFactory.DataVolume()
+		log.Log.Infof("DataVolume integration enabled")
+	} else {
+		app.dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		log.Log.Infof("DataVolume integration disabled")
+	}
 
 	app.initCommon()
 	app.initReplicaSet()

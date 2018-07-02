@@ -46,6 +46,12 @@ spec:
               - "{{.DockerPrefix}}/virt-launcher:{{.DockerTag}}"
               - "--port"
               - "8182"
+          env:
+            - name: DATAVOLUMES_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: kubevirt-config
+                  key: dataVolumesEnabled
           ports:
             - containerPort: 8182
               name: "virt-controller"

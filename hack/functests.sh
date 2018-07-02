@@ -28,7 +28,7 @@ if [[ ${TARGET} == openshift* ]]; then
     oc=${kubectl}
 fi
 
-# Include CDI in dev providers for now.  
+# Include CDI in dev providers for now.
 if [[ "$TARGET" =~ .*-dev ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/optional/cdi-controller-deployment.yaml -R $i
 fi

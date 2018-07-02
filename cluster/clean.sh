@@ -41,6 +41,7 @@ _kubectl delete pods -n ${namespace} -l="kubevirt.io=virt-handler" --force --gra
 # Delete all traces of kubevirt
 namespaces=(default ${namespace})
 for i in ${namespaces[@]}; do
+    _kubectl -n ${i} delete configmaps -l 'kubevirt.io'
     _kubectl -n ${i} delete apiservices -l 'kubevirt.io'
     _kubectl -n ${i} delete deployment -l 'kubevirt.io'
     _kubectl -n ${i} delete rs -l 'kubevirt.io'
