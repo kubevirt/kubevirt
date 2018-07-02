@@ -1420,23 +1420,14 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateVmTemplateJson(vmTemplate *Template) (string, error) {
-	data, err := json.Marshal(vmTemplate)
+func GenerateTemplateJson(template *Template) (string, error) {
+	data, err := json.Marshal(template)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vm template %s", vmTemplate.Name)
+		return "", fmt.Errorf("failed to generate json for vm template %s", template.Name)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", vmTemplate.Name)
+	jsonFile := fmt.Sprintf("%s.json", template.Name)
 	err = ioutil.WriteFile(jsonFile, data, 0644)
-	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", jsonFile)
-	}
-	return jsonFile, nil
-}
-
-func WriteJson(name string, json string) (string, error) {
-	jsonFile := fmt.Sprintf("%s.json", name)
-	err := ioutil.WriteFile(jsonFile, []byte(json), 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
 	}
