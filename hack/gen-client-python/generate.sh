@@ -40,3 +40,9 @@ java -jar "$SWAGGER_CODEGEN_CLI" generate \
     -c "${CODEGEN_CONFIG}" &>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt-pysdk-codegen.log
 
 cp "${HARD_CODED_MODULES}"/* "${PYTHON_CLIENT_OUT_DIR}"/kubevirt/models
+
+echo "from .v1_interface_bridge import V1InterfaceBridge" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/models/__init__.py
+echo "from .v1_interface_slirp import V1InterfaceSlirp" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/models/__init__.py
+
+echo "from .models.v1_interface_bridge import V1InterfaceBridge" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/__init__.py
+echo "from .models.v1_interface_slirp import V1InterfaceSlirp" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/__init__.py

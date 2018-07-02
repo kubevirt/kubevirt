@@ -21,6 +21,9 @@ class V1InterfaceSlirp(object):
     NOTE: This class is hard coded until swagger-codegen fix the empty struct problem
     """
 
+    swagger_types = {}
+
+    attribute_map = {}
 
     def __init__(self, ports=None):
         """
