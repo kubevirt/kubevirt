@@ -140,6 +140,8 @@ type VirtualMachineInstanceSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// If affinity is specifies, obey all the affinity rules
 	Affinity *k8sv1.Affinity `json:"affinity,omitempty"`
+	// If toleration is specified, obey all the toleration rules.
+	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
