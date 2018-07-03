@@ -105,10 +105,12 @@ var _ = Describe("Networking", func() {
 			inboundVMI.Labels = map[string]string{"expose": "me"}
 			inboundVMI.Spec.Subdomain = "myvmi"
 			inboundVMI.Spec.Hostname = "my-subdomain"
+
 			outboundVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
 			if withPodNetwork {
 				v1.SetDefaults_NetworkInterface(inboundVMI)
+				inboundVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 				v1.SetDefaults_NetworkInterface(outboundVMI)
 				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 					Expect(networkVMI.Spec.Domain.Devices.Interfaces).ToNot(BeZero())
