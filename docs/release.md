@@ -89,3 +89,33 @@ The release process is mostly automatic and consists of the following steps:
 5. Adjust the release details (draft, pre-release) as necessary at
    <https://github.com/kubevirt/kubevirt/releases/tag/$TAG>
 6. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com>
+
+Stable Branches
+---------------
+
+> **Note:** Before a bug is fixed in a stable branch, the same bug must be fixed
+> in the `master` branch. The only exception is when a bug exists in a stable
+> branch only.
+
+For every release a branch will be created following the pattern `release-x.y`.
+For now, community members can propose pull requests to be included into a
+stable branch.
+Those pull requests should be limited to bug fixes and must not be
+enhancements.
+
+Cherry picking can be used to pick a merge commit from the master branch
+to a stable branch. An example:
+
+```bash
+git checkout release-0.6
+git cherry-pick $THE_MERGE_COMMIT_ID -m 1 -sx
+[release-0.6 acd756040] Merge pull request #1234 from great_person
+ Author: Bob Builder <builder@bob.com>
+ Date: Thu Jun 28 17:50:05 2018 +0300
+ 5 files changed, 55 insertions(+), 22 deletions(-)
+git push $YOUR_REMOTE release-0.6:release-0.6-aParticularFix
+```
+
+After pushing the branch, you'll need to make sure to create a pull request
+against the correct target branch in GitHub (in this case the target branch
+is `release-0.6`).
