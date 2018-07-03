@@ -769,6 +769,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
 							},
 						},
+						"macAddress": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 						"bootOrder": {
 							SchemaProps: spec.SchemaProps{
 								Description: "BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each interface or disk that has a boot order must have a unique value. Interfaces without a boot order are not tried.",

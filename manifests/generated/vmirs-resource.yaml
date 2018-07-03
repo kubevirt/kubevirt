@@ -111,6 +111,8 @@ spec:
                                     format: int32
                                     type: integer
                                   bridge: {}
+                                  macAddress:
+                                    type: string
                                   name:
                                     type: string
                                 required:
