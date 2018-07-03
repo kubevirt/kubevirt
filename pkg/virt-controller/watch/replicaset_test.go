@@ -287,14 +287,15 @@ var _ = Describe("Replicaset", func() {
 		It("should be woken by a stopped VirtualMachineInstance and create a new one", func() {
 			rs, vmi := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
+			rs.Status.ReadyReplicas = 1
+			vmi.Status.Phase = v1.Running
 
 			rsCopy := rs.DeepCopy()
 			rsCopy.Status.Replicas = 0
+			rsCopy.Status.ReadyReplicas = 0
 
 			addReplicaSet(rs)
 			vmiFeeder.Add(vmi)
-
-			rsInterface.EXPECT().Update(rsCopy).Times(1)
 
 			// First make sure that we don't have to do anything
 			controller.Execute()
@@ -306,12 +307,13 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Modify(modifiedVMI)
 
 			// Expect the re-crate of the VirtualMachineInstance
+			rsInterface.EXPECT().Update(rsCopy).Times(1)
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
 			vmiInterface.EXPECT().Create(gomock.Any()).Return(vmi, nil)
-
 			// Run the controller again
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should be woken by a ready VirtualMachineInstance and update the readyReplicas counter", func() {
@@ -368,6 +370,33 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should delete VirtualMachineIstance in the final state", func() {
+			rs, vmi := DefaultReplicaSet(1)
+			rs.Status.Replicas = 1
+			rs.Status.ReadyReplicas = 1
+			vmi.Status.Phase = v1.Running
+
+			addReplicaSet(rs)
+			vmiFeeder.Add(vmi)
+
+			// First make sure that we don't have to do anything
+			controller.Execute()
+
+			// Move one VirtualMachineInstance to a final state
+			modifiedVMI := vmi.DeepCopy()
+			modifiedVMI.Status.Phase = v1.Failed
+			modifiedVMI.ResourceVersion = "1"
+			vmiFeeder.Modify(modifiedVMI)
+
+			// Expect the re-crate of the VirtualMachineInstance
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
+
+			// Run the cleanFinishedVmis method
+			controller.cleanFinishedVmis(rs, []*v1.VirtualMachineInstance{modifiedVMI})
+
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
 		It("should add a fail condition if scaling up fails", func() {

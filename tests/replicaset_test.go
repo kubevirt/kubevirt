@@ -77,7 +77,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
-		}, 60, 1).Should(Equal(int32(scale)))
+		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
 
 		vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -179,7 +179,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 			vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(&v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vmis.Items)
-		}, 60*time.Second, 1*time.Second).Should(BeZero())
+		}, 120*time.Second, 1*time.Second).Should(BeZero())
 	})
 
 	It("should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -274,5 +274,39 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(2)))
+	})
+
+	It("should remove the finished VM", func() {
+		By("Creating new replica set")
+		rs := newReplicaSet()
+		doScale(rs.ObjectMeta.Name, int32(2))
+
+		vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmis.Items).ToNot(BeEmpty())
+
+		vmi := vmis.Items[0]
+		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(&vmi))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(pods.Items)).To(Equal(1))
+		pod := pods.Items[0]
+
+		By("Deleting one of the RS VMS pods")
+		err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(pod.Name, &v12.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Checking that the VM dissapeared")
+		Eventually(func() bool {
+			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v12.GetOptions{})
+			if errors.IsNotFound(err) {
+				return true
+			}
+			return false
+		}, 120*time.Second, time.Second).Should(Equal(true))
+
+		By("Checking number of RS VM's")
+		vmis, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(vmis.Items)).Should(Equal(2))
 	})
 })
