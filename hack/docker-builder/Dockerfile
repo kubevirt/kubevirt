@@ -1,6 +1,6 @@
 FROM fedora:28
 
-ENV LIBVIRT_VERSION 3.7.0
+ENV LIBVIRT_VERSION 4.2.0
 
 RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img protobuf-compiler && \
     dnf -y clean all
