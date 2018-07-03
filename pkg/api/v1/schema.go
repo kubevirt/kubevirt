@@ -124,6 +124,7 @@ type CPU struct {
 	// Must be a value greater or equal 1.
 	Cores uint32 `json:"cores,omitempty"`
 	// Model specifies the CPU model inside the VMI.
+	// List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.
 	// +optional
 	Model string `json:"model,omitempty"`
 }
