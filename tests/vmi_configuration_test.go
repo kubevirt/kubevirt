@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -230,6 +231,94 @@ var _ = Describe("Configurations", func() {
 					Expect(vmiCondition.Message).To(ContainSubstring("Insufficient hugepages-3Mi"))
 					Expect(vmiCondition.Reason).To(Equal("Unschedulable"))
 				})
+			})
+		})
+	})
+
+	Context("with CPU spec", func() {
+		cpuRegexp := regexp.MustCompile(`<model>(\w+)\-*\w*</model>`)
+		vendorRegexp := regexp.MustCompile(`<vendor>(\w+)</vendor>`)
+
+		var cpuModel string
+		var cpuVendor string
+		var cpuVmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodes.Items).NotTo(BeEmpty())
+
+			virshCaps := tests.GetNodeLibvirtCapabilities(nodes.Items[0].Name)
+
+			model := cpuRegexp.FindStringSubmatch(virshCaps)
+			Expect(len(model)).To(Equal(2))
+			cpuModel = model[1]
+
+			vendor := vendorRegexp.FindStringSubmatch(virshCaps)
+			Expect(len(vendor)).To(Equal(2))
+			cpuVendor = vendor[1]
+
+			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			cpuVmi.Spec.Affinity = &v1.Affinity{
+				NodeAffinity: &kubev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &kubev1.NodeSelector{
+						NodeSelectorTerms: []kubev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []kubev1.NodeSelectorRequirement{
+									{Key: "kubernetes.io/hostname", Operator: kubev1.NodeSelectorOpIn, Values: []string{nodes.Items[0].Name}},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		Context("when CPU model definied", func() {
+			It("should report definied CPU model", func() {
+				vmiModel := "Conroe"
+				if cpuVendor == "AMD" {
+					vmiModel = "Opteron_G1"
+				}
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Model: vmiModel,
+				}
+
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the CPU model under the guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", vmiModel)},
+					&expect.BExp{R: "model name"},
+				}, 10*time.Second)
+			})
+		})
+
+		Context("when CPU model not definied", func() {
+			It("should report CPU model from libvirt capabilities", func() {
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the CPU model under the guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuModel)},
+					&expect.BExp{R: "model name"},
+				}, 10*time.Second)
 			})
 		})
 	})

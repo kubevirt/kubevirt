@@ -1515,3 +1515,44 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 		Skip(message)
 	}
 }
+
+// GetNodeLibvirtCapabilities returns node libvirt capabilities
+func GetNodeLibvirtCapabilities(nodeName string) string {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	// Create a virt-launcher pod, that can fetch virsh capabilities
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vmi.Spec.Affinity = &v1.Affinity{
+		NodeAffinity: &k8sv1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+					{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeName}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
+	Expect(err).ToNot(HaveOccurred())
+	WaitForSuccessfulVMIStart(vmi)
+
+	pods, err := virtClient.CoreV1().Pods(NamespaceTestDefault).List(UnfinishedVMIPodSelector(vmi))
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pods.Items).NotTo(BeEmpty())
+	vmiPod := pods.Items[0]
+
+	output, err := ExecuteCommandOnPod(
+		virtClient,
+		&vmiPod,
+		"compute",
+		[]string{"virsh", "-r", "capabilities"},
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	return output
+}
