@@ -314,8 +314,9 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name":  "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
-		"model": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"name":       "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
+		"model":      "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"macAddress": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
 	}
 }
 

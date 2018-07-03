@@ -27,6 +27,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -42,67 +43,74 @@ var _ = Describe("Slirp", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var vmi *v1.VirtualMachineInstance
+	var genericVmi *v1.VirtualMachineInstance
+	var deadbeafVmi *v1.VirtualMachineInstance
 
-	Context("VirtualMachineInstance with slirp interface", func() {
-		tests.BeforeAll(func() {
-			ports := []v1.Port{{Port: 80}}
-			vmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+	tests.BeforeAll(func() {
+		ports := []v1.Port{{Port: 80}}
+		genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+		deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+		deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+
+		for _, vmi := range []*v1.VirtualMachineInstance{genericVmi, deadbeafVmi} {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			generateHelloWorldServer(vmi, virtClient, 80, "tcp")
-		})
-
-		It("should start the virtial machine with slirp interface", func() {
-			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
-			output, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				vmiPod.Spec.Containers[1].Name,
-				[]string{"netstat", "-tnlp"},
-			)
-			log.Log.Infof("%v", output)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(strings.Contains(output, "0.0.0.0:80")).To(BeTrue())
-		})
-		It("should return \"Hello World\" when connecting to localhost on port 80", func() {
-			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
-			output, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				vmiPod.Spec.Containers[1].Name,
-				[]string{"curl", "-s", "--retry", "30", "--retry-delay", "30", "127.0.0.1"},
-			)
-			fmt.Println(err)
-			log.Log.Infof("%v", output)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(strings.Contains(output, "Hello World!")).To(BeTrue())
-		})
-		It("should reject the connecting to localhost and port different than 80", func() {
-			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
-			output, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				vmiPod.Spec.Containers[1].Name,
-				[]string{"curl", "127.0.0.1:9080"},
-			)
-			log.Log.Infof("%v", output)
-			Expect(err).To(HaveOccurred())
-		})
-		It("should be able to communicate with the outside world", func() {
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
-
-			out, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
-				&expect.BExp{R: "301"},
-			}, 180*time.Second)
-			log.Log.Infof("%v", out)
-			Expect(err).ToNot(HaveOccurred())
-		})
+		}
 	})
+
+	table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
+		By("start the virtual machine with slirp interface")
+		vmi := *vmiRef
+		vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+		output, err := tests.ExecuteCommandOnPod(
+			virtClient,
+			vmiPod,
+			vmiPod.Spec.Containers[1].Name,
+			[]string{"netstat", "-tnlp"},
+		)
+		log.Log.Infof("%v", output)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(strings.Contains(output, "0.0.0.0:80")).To(BeTrue())
+
+		By("return \"Hello World!\" when connecting to localhost on port 80")
+		output, err = tests.ExecuteCommandOnPod(
+			virtClient,
+			vmiPod,
+			vmiPod.Spec.Containers[1].Name,
+			[]string{"curl", "-s", "--retry", "30", "--retry-delay", "30", "127.0.0.1"},
+		)
+		fmt.Println(err)
+		log.Log.Infof("%v", output)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(strings.Contains(output, "Hello World!")).To(BeTrue())
+
+		By("reject connecting to localhost and port different than 80")
+		output, err = tests.ExecuteCommandOnPod(
+			virtClient,
+			vmiPod,
+			vmiPod.Spec.Containers[1].Name,
+			[]string{"curl", "127.0.0.1:9080"},
+		)
+		log.Log.Infof("%v", output)
+		Expect(err).To(HaveOccurred())
+
+		By("communicate with the outside world")
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+		defer expecter.Close()
+		Expect(err).ToNot(HaveOccurred())
+
+		out, err := expecter.ExpectBatch([]expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
+			&expect.BExp{R: "301"},
+		}, 180*time.Second)
+		log.Log.Infof("%v", out)
+		Expect(err).ToNot(HaveOccurred())
+	},
+		table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
+		table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
+	)
 })
