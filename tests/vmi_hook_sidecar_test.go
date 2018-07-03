@@ -35,6 +35,8 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+const hookSidecarImage = "example-hook-sidecar"
+
 var _ = Describe("HookSidecars", func() {
 
 	flag.Parse()
@@ -48,7 +50,7 @@ var _ = Describe("HookSidecars", func() {
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 		vmi.ObjectMeta.Annotations = map[string]string{
-			"hooks.kubevirt.io/hookSidecars":              `[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]`,
+			"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, tests.KubeVirtRepoPrefix, hookSidecarImage, tests.KubeVirtVersionTag),
 			"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 		}
 	})
@@ -62,7 +64,7 @@ var _ = Describe("HookSidecars", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 			}, 300)
 
-			It("should call Collect on the hook sidecar", func() {
+			It("should call Collect and OnDefineDomain on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -72,14 +74,6 @@ var _ = Describe("HookSidecars", func() {
 					11*time.Second,
 					500*time.Millisecond).
 					Should(ContainSubstring("Hook's Info method has been called"))
-			}, 300)
-
-			It("should call OnDefineDomain on the hook sidecar", func() {
-				By("Getting hook-sidecar logs")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
-				tests.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,
 					500*time.Millisecond).

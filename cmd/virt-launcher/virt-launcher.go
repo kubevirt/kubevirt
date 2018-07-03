@@ -50,7 +50,6 @@ import (
 
 const defaultStartTimeout = 3 * time.Minute
 const defaultWatchdogInterval = 5 * time.Second
-const hookSidecarsCollectTimeout = 10 * time.Second
 
 func markReady(readinessFile string) {
 	f, err := os.OpenFile(readinessFile, os.O_RDONLY|os.O_CREATE, 0666)
@@ -268,7 +267,7 @@ func main() {
 
 	// Block until all requested hookSidecars are ready
 	hookManager := hooks.GetManager()
-	err := hookManager.Collect(*hookSidecars, hookSidecarsCollectTimeout)
+	err := hookManager.Collect(*hookSidecars, *qemuTimeout)
 	if err != nil {
 		panic(err)
 	}
