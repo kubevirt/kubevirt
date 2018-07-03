@@ -3273,6 +3273,10 @@
      "cores": {
       "description": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
       "type": "integer"
+     },
+     "model": {
+      "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\n+optional",
+      "type": "string"
      }
     }
    },

@@ -73,7 +73,8 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
   <features>
     <acpi></acpi>
   </features>
-  <cpu>
+  <cpu mode="custom">
+    <model>Conroe</model>
     <topology sockets="1" cores="2" threads="1"></topology>
   </cpu>
   <vcpu placement="static">2</vcpu>
@@ -143,6 +144,8 @@ var _ = Describe("Schema", func() {
 		Placement: "static",
 		CPUs:      2,
 	}
+	exampleDomain.Spec.CPU.Mode = "custom"
+	exampleDomain.Spec.CPU.Model = "Conroe"
 	exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
 
