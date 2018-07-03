@@ -1,0 +1,16 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstancePreset
+metadata:
+  creationTimestamp: null
+  name: vmi-preset-small
+spec:
+  domain:
+    devices: {}
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 64M
+  selector:
+    matchLabels:
+      kubevirt.io/vmPreset: vmi-preset-small

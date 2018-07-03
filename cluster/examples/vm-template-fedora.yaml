@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Template
+metadata:
+  annotations:
+    description: OCP KubeVirt Fedora 27 VM template
+    iconClass: icon-fedora
+    tags: kubevirt,ocp,template,linux,virtualmachine
+  creationTimestamp: null
+  labels:
+    kubevirt.io/os: fedora27
+    miq.github.io/kubevirt-is-vm-template: "true"
+  name: vm-template-fedora
+objects:
+- apiVersion: kubevirt.io/v1alpha2
+  kind: VirtualMachine
+  metadata:
+    creationTimestamp: null
+    labels:
+      kubevirt-vm: vm-${NAME}
+    name: ${NAME}
+  spec:
+    running: false
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          kubevirt-vm: vm-${NAME}
+      spec:
+        domain:
+          cpu:
+            cores: ${{CPU_CORES}}
+          devices:
+            disks:
+            - disk:
+                bus: virtio
+              name: registrydisk
+              volumeName: registryvolume
+            - disk:
+                bus: virtio
+              name: cloudinitdisk
+              volumeName: cloudinitvolume
+          machine:
+            type: ""
+          resources:
+            requests:
+              memory: ${MEMORY}
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: registryvolume
+          registryDisk:
+            image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
+        - cloudInitNoCloud:
+            userData: |-
+              #cloud-config
+              password: fedora
+              chpasswd: { expire: False }
+          name: cloudinitvolume
+  status: {}
+parameters:
+- description: Name for the new VM
+  name: NAME
+- description: Amount of memory
+  name: MEMORY
+  value: 4096Mi
+- description: Amount of cores
+  name: CPU_CORES
+  value: "4"

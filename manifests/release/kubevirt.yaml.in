@@ -5,6 +5,7 @@ metadata:
   name: kubevirt.io:admin
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
   - apiGroups:
       - subresources.kubevirt.io
@@ -29,17 +30,6 @@ rules:
       - list
       - watch
       - deletecollection
-  - apiGroups: [""]
-    resources:
-      - configmaps
-    resourceNames:
-      - kubevirt-config
-    verbs:
-      - update
-      - get
-      - patch
-      - create
-      - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -47,6 +37,7 @@ metadata:
   name: kubevirt.io:edit
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
 rules:
   - apiGroups:
       - subresources.kubevirt.io
@@ -77,6 +68,7 @@ metadata:
   name: kubevirt.io:view
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
 rules:
   - apiGroups:
       - kubevirt.io
@@ -382,6 +374,15 @@ spec:
   replicas: 2
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-api
     spec:
@@ -391,7 +392,7 @@ spec:
           image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-              - "/virt-api"
+              - "virt-api"
               - "--port"
               - "8443"
               - "--subresources-only"
@@ -419,6 +420,15 @@ spec:
   replicas: 2
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-controller
     spec:
@@ -428,7 +438,7 @@ spec:
           image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-              - "/virt-controller"
+              - "virt-controller"
               - "--launcher-image"
               - "{{.DockerPrefix}}/virt-launcher:{{.DockerTag}}"
               - "--port"
@@ -467,6 +477,15 @@ spec:
   template:
     metadata:
       name: virt-handler
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-handler
     spec:
@@ -480,7 +499,7 @@ spec:
           image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-            - "/virt-handler"
+            - "virt-handler"
             - "-v"
             - "3"
             - "--hostname-override"
@@ -494,6 +513,8 @@ spec:
               mountPath: /var/run/kubevirt
             - name: virt-private-dir
               mountPath: /var/run/kubevirt-private
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
           env:
             - name: NODE_NAME
               valueFrom:
@@ -509,6 +530,9 @@ spec:
         - name: virt-private-dir
           hostPath:
             path: /var/run/kubevirt-private
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
 {{index .GeneratedManifests "vmi-resource.yaml"}}
 {{index .GeneratedManifests "vmirs-resource.yaml"}}
 {{index .GeneratedManifests "vmipreset-resource.yaml"}}

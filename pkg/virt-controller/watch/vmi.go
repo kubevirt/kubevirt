@@ -226,6 +226,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 		pod = pods[0]
 	}
 
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	vmiCopy := vmi.DeepCopy()
 
 	switch {
@@ -241,6 +242,13 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 	case vmi.IsScheduling():
 		switch {
 		case podExists:
+			// Add PodScheduled False condition to the VM
+			if cond := conditionManager.GetPodCondition(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
+				conditionManager.AddPodCondition(vmiCopy, cond)
+			} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
+				// Remove PodScheduling condition from the VM
+				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+			}
 			if isPodOwnedByHandler(pod) {
 				// vmi is still owned by the controller but pod is already handed over,
 				// so let's hand over the vmi too
@@ -278,7 +286,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 		reason = syncErr.Reason()
 	}
 
-	controller.NewVirtualMachineConditionManager().CheckFailure(vmiCopy, syncErr, reason)
+	conditionManager.CheckFailure(vmiCopy, syncErr, reason)
 
 	// If we detect a change on the vmi we update the vmi
 	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||

@@ -20,14 +20,20 @@
 package api
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"strconv"
+	"strings"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
@@ -39,7 +45,7 @@ import (
 )
 
 type ConverterContext struct {
-	AllowEmulation bool
+	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 }
@@ -343,7 +349,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
-		if c.AllowEmulation {
+		if c.UseEmulation {
 			logger := log.DefaultLogger()
 			logger.Infof("Hardware emulation device '/dev/kvm' not present. Using software emulation.")
 			domain.Spec.Type = "qemu"
@@ -373,6 +379,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	if v, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
 		if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
 			return err
+		}
+	}
+
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+		domain.Spec.MemoryBacking = &MemoryBacking{
+			HugePages: &HugePages{},
 		}
 	}
 
@@ -481,25 +493,161 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		},
 	}
 
-	// Add mandatory interface
-	interfaceType := "virtio"
-
-	_, ok := vmi.ObjectMeta.Annotations[v1.InterfaceModel]
-	if ok {
-		interfaceType = vmi.ObjectMeta.Annotations[v1.InterfaceModel]
+	getInterfaceType := func(iface *v1.Interface) string {
+		if iface.Slirp != nil {
+			// Slirp configuration works only with e1000 or rtl8139
+			if iface.Model != "e1000" && iface.Model != "rtl8139" {
+				log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
+				return "e1000"
+			}
+			return iface.Model
+		}
+		if iface.Model != "" {
+			return iface.Model
+		}
+		return "virtio"
 	}
 
-	// For now connect every virtual machine to the pod network
-	domain.Spec.Devices.Interfaces = []Interface{{
-		Model: &Model{
-			Type: interfaceType,
-		},
-		Type: "bridge",
-		Source: InterfaceSource{
-			Bridge: DefaultBridgeName,
-		}},
+	networks := map[string]*v1.Network{}
+	for _, network := range vmi.Spec.Networks {
+		networks[network.Name] = network.DeepCopy()
 	}
 
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		net, isExist := networks[iface.Name]
+		if !isExist {
+			return fmt.Errorf("failed to find network %s", iface.Name)
+		}
+
+		if net.Pod == nil {
+			return fmt.Errorf("network interface type not supported for %s", iface.Name)
+		}
+
+		if iface.Bridge != nil {
+			// TODO:(ihar) consider abstracting interface type conversion /
+			// detection into drivers
+			domainIface := Interface{
+				Model: &Model{
+					Type: getInterfaceType(&iface),
+				},
+				Type: "bridge",
+				Source: InterfaceSource{
+					Bridge: DefaultBridgeName,
+				},
+				Alias: &Alias{
+					Name: iface.Name,
+				},
+			}
+			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+		} else if iface.Slirp != nil {
+			domainIface := Interface{
+				Model: &Model{
+					Type: getInterfaceType(&iface),
+				},
+				Type: "user",
+				Alias: &Alias{
+					Name: iface.Name,
+				},
+			}
+			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+
+			// Create network interface
+			if domain.Spec.QEMUCmd == nil {
+				domain.Spec.QEMUCmd = &Commandline{}
+			}
+
+			if domain.Spec.QEMUCmd.QEMUArg == nil {
+				domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
+			}
+
+			err := createSlirpNetwork(iface, *net, domain)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *Domain) error {
+	qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+
+	err := configVMCIDR(&qemuArg, iface, network)
+	if err != nil {
+		return err
+	}
+
+	err = configDNSSearchName(&qemuArg)
+	if err != nil {
+		return err
+	}
+
+	err = configPortForward(&qemuArg, iface)
+	if err != nil {
+		return err
+	}
+
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-netdev"})
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, qemuArg)
+
+	return nil
+}
+
+func configPortForward(qemuArg *Arg, iface v1.Interface) error {
+	if iface.Slirp.Ports == nil {
+		return nil
+	}
+
+	for _, forwardPort := range iface.Slirp.Ports {
+
+		if forwardPort.Port == 0 {
+			return fmt.Errorf("Port must be configured")
+		}
+
+		if forwardPort.Protocol == "" {
+			forwardPort.Protocol = DefaultProtocol
+		}
+
+		// Check if PodPort is configure If not Get the same Port as the vm port
+		if forwardPort.PodPort == 0 {
+			forwardPort.PodPort = forwardPort.Port
+		}
+
+		qemuArg.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(forwardPort.Protocol), forwardPort.PodPort, forwardPort.Port)
+
+	}
+
+	return nil
+}
+
+func configVMCIDR(qemuArg *Arg, iface v1.Interface, network v1.Network) error {
+	vmNetworkCIDR := ""
+	if network.Pod.VMNetworkCIDR != "" {
+		_, _, err := net.ParseCIDR(network.Pod.VMNetworkCIDR)
+		if err != nil {
+			return fmt.Errorf("Failed parsing CIDR %s", network.Pod.VMNetworkCIDR)
+		}
+		vmNetworkCIDR = network.Pod.VMNetworkCIDR
+	} else {
+		vmNetworkCIDR = DefaultVMCIDR
+	}
+
+	// Insert configuration to qemu commandline
+	qemuArg.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
+
+	return nil
+}
+
+func configDNSSearchName(qemuArg *Arg) error {
+	_, dnsDoms, err := GetResolvConfDetailsFromPod()
+	if err != nil {
+		return err
+	}
+
+	for _, dom := range dnsDoms {
+		qemuArg.Value += fmt.Sprintf(",dnssearch=%s", dom)
+	}
 	return nil
 }
 
@@ -544,4 +692,85 @@ func boolToYesNo(value *bool, defaultYes bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+// returns nameservers [][]byte, searchdomains []string, error
+func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
+	b, err := ioutil.ReadFile(resolvConf)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nameservers, err := ParseNameservers(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	searchDomains, err := ParseSearchDomains(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
+	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
+
+	return nameservers, searchDomains, err
+}
+
+func ParseNameservers(content string) ([][]byte, error) {
+	var nameservers [][]byte
+
+	re, err := regexp.Compile("([0-9]{1,3}.?){4}")
+	if err != nil {
+		return nameservers, err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, nameserverPrefix) {
+			nameserver := re.FindString(line)
+			if nameserver != "" {
+				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
+			}
+		}
+	}
+
+	if err = scanner.Err(); err != nil {
+		return nameservers, err
+	}
+
+	// apply a default DNS if none found from pod
+	if len(nameservers) == 0 {
+		nameservers = append(nameservers, net.ParseIP(defaultDNS).To4())
+	}
+
+	return nameservers, nil
+}
+
+func ParseSearchDomains(content string) ([]string, error) {
+	var searchDomains []string
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, domainSearchPrefix) {
+			doms := strings.Fields(strings.TrimPrefix(line, domainSearchPrefix))
+			for _, dom := range doms {
+				searchDomains = append(searchDomains, dom)
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(searchDomains) == 0 {
+		searchDomains = append(searchDomains, defaultSearchDomain)
+	}
+
+	return searchDomains, nil
 }

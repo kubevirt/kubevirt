@@ -24,6 +24,15 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-api
     spec:
@@ -33,7 +42,7 @@ spec:
           image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-              - "/virt-api"
+              - "virt-api"
               - "--port"
               - "8443"
               - "--subresources-only"

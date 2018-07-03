@@ -60,18 +60,12 @@ var _ = Describe("Health Monitoring", func() {
 			launchVMI(vmi)
 
 			By("Expecting the VirtualMachineInstance console")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+			expecter, err := tests.LoggedInAlpineExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
 			By("Killing the watchdog device")
 			_, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "Welcome to Alpine"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "login"},
-				&expect.BSnd{S: "root\n"},
-				&expect.BExp{R: "#"},
 				&expect.BSnd{S: "watchdog -t 2000ms -T 4000ms /dev/watchdog && sleep 5 && killall -9 watchdog\n"},
 				&expect.BExp{R: "#"},
 				&expect.BSnd{S: "echo $?\n"},

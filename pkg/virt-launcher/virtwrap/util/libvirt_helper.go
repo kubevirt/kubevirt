@@ -125,7 +125,7 @@ func StartLibvirt(stopChan chan struct{}) {
 	go func() {
 		for {
 			exitChan := make(chan struct{})
-			cmd := exec.Command("/libvirtd.sh")
+			cmd := exec.Command("/usr/share/kubevirt/virt-launcher/libvirtd.sh")
 
 			err := cmd.Start()
 			if err != nil {

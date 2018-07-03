@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -60,6 +61,7 @@ func NewController(
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
+	maxDevices int,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -97,6 +99,8 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
+	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
+
 	return c
 }
 
@@ -113,6 +117,7 @@ type VirtualMachineController struct {
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
+	kvmController            *device_manager.DeviceController
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -177,7 +182,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
-	controller.NewVirtualMachineConditionManager().CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
+	controller.NewVirtualMachineInstanceConditionManager().CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
 		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
@@ -207,6 +212,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	// Wait for the domain cache to be synced
 	go c.domainInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced)
+
+	go c.kvmController.Run(stopCh)
 
 	// Poplulate the VirtualMachineInstance store with known Domains on the host, to get deletes since the last run
 	for _, domain := range c.domainInformer.GetStore().List() {

@@ -194,6 +194,31 @@ func initializeDirs(virtShareDir string,
 	}
 }
 
+func waitForDomainUUID(timeout time.Duration, domainManager virtwrap.DomainManager) string {
+	start := time.Now()
+
+	for time.Since(start) < timeout {
+		time.Sleep(time.Second)
+		list, err := domainManager.ListAllDomains()
+		if err != nil {
+			log.Log.Reason(err).Error("failed to retrieve domains from libvirt")
+			continue
+		}
+
+		if len(list) == 0 {
+			continue
+		}
+
+		domain := list[0]
+		if domain.Spec.UUID != "" {
+			log.Log.Infof("Detected domain with UUID %s", domain.Spec.UUID)
+			return domain.Spec.UUID
+		}
+	}
+
+	panic(fmt.Errorf("timed out waiting for domain to be defined"))
+}
+
 func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	domainManager virtwrap.DomainManager,
 	vm *v1.VirtualMachineInstance) {
@@ -228,7 +253,7 @@ func main() {
 	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
-	allowEmulation := flag.Bool("allow-emulation", false, "Allow fallback to emulation if /dev/kvm is not present")
+	useEmulation := flag.Bool("use-emulation", false, "Use software emulation")
 
 	// set new default verbosity, was set to 0 by glog
 	flag.Set("v", "2")
@@ -261,7 +286,7 @@ func main() {
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
-	options := cmdserver.NewServerOptions(*allowEmulation)
+	options := cmdserver.NewServerOptions(*useEmulation)
 	socketPath := cmdclient.SocketFromNamespaceName(*virtShareDir, *namespace, *name)
 	startCmdServer(socketPath, domainManager, stopChan, options)
 
@@ -286,10 +311,6 @@ func main() {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
 	}
-	mon := virtlauncher.NewProcessMonitor("qemu-system",
-		gracefulShutdownTriggerFile,
-		*gracePeriodSeconds,
-		shutdownCallback)
 
 	deleteNotificationSent := make(chan watch.Event, 10)
 	// Send domain notifications to virt-handler
@@ -299,6 +320,12 @@ func main() {
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
 	markReady(*readinessFile)
+
+	domainUUID := waitForDomainUUID(*qemuTimeout, domainManager)
+	mon := virtlauncher.NewProcessMonitor(domainUUID,
+		gracefulShutdownTriggerFile,
+		*gracePeriodSeconds,
+		shutdownCallback)
 
 	// This is a wait loop that monitors the qemu pid. When the pid
 	// exits, the wait loop breaks.

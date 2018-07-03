@@ -44,8 +44,14 @@ deps-update:
 docker: build
 	hack/build-docker.sh build ${WHAT}
 
-publish: docker
+push: docker
 	hack/build-docker.sh push ${WHAT}
+
+publish: docker verify-build
+	hack/build-docker.sh push ${WHAT}
+
+verify-build:
+	hack/verify-build.sh
 
 manifests:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"

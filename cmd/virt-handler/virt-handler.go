@@ -58,6 +58,9 @@ const (
 	hostOverride = ""
 
 	virtShareDir = "/var/run/kubevirt"
+
+	// This value is derived from default MaxPods in Kubelet Config
+	maxDevices = 110
 )
 
 type virtHandlerApp struct {
@@ -65,6 +68,7 @@ type virtHandlerApp struct {
 	HostOverride            string
 	VirtShareDir            string
 	WatchdogTimeoutDuration time.Duration
+	MaxDevices              int
 }
 
 var _ service.Service = &virtHandlerApp{}
@@ -134,6 +138,7 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
+		maxDevices,
 	)
 
 	// Bootstrapping. From here on the startup order matters
@@ -152,13 +157,19 @@ func (app *virtHandlerApp) AddFlags() {
 	app.AddCommonFlags()
 
 	flag.StringVar(&app.HostOverride, "hostname-override", hostOverride,
-		"Name under which the node is registered in kubernetes, where this virt-handler instance is running on")
+		"Name under which the node is registered in Kubernetes, where this virt-handler instance is running on")
 
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
+
+	// TODO: the Device Plugin API does not allow for infinitely available (shared) devices
+	// so the current approach is to register an arbitrary number.
+	// This should be deprecated if the API allows for shared resources in the future
+	flag.IntVar(&app.MaxDevices, "max-devices", maxDevices,
+		"Number of devices to register with Kubernetes device plugin framework")
 }
 
 func main() {

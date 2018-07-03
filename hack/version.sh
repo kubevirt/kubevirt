@@ -27,6 +27,9 @@
 #        "dirty" indicates source code changes after the git commit id
 #        "archive" indicates the tree was produced by 'git archive'
 #    KUBEVIRT_GIT_VERSION - "vX.Y" used to indicate the last release version.
+#    KUBEVIRT_SOURCE_DATE_EPOCH - unix timestamp.  Set to ' ' to generate using
+#          'date' instead of 'git'.
+#
 
 # Grovels through git to set a set of env variables.
 
@@ -100,7 +103,7 @@ function kubevirt::version::ldflag() {
 function kubevirt::version::ldflags() {
     kubevirt::version::get_version_vars
 
-    SOURCE_DATE_EPOCH=$(git show -s --format=format:%ct HEAD)
+    SOURCE_DATE_EPOCH=${KUBEVIRT_SOURCE_DATE_EPOCH-$(git show -s --format=format:%ct HEAD)}
 
     local buildDate
     [[ -z ${SOURCE_DATE_EPOCH-} ]] || buildDate="--date=@${SOURCE_DATE_EPOCH}"

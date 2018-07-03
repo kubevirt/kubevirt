@@ -238,6 +238,7 @@ metadata:
   name: kubevirt.io:admin
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
   - apiGroups:
       - subresources.kubevirt.io
@@ -262,15 +263,6 @@ rules:
       - list
       - watch
       - deletecollection
-  - apiGroups: [""]
-    resources:
-      - configmaps
-    resourceNames:
-      - kubevirt-config
-    verbs:
-      - update
-      - get
-      - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -278,6 +270,7 @@ metadata:
   name: kubevirt.io:edit
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
 rules:
   - apiGroups:
       - subresources.kubevirt.io
@@ -308,6 +301,7 @@ metadata:
   name: kubevirt.io:view
   labels:
     kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
 rules:
   - apiGroups:
       - kubevirt.io

@@ -10,6 +10,7 @@ CMD_OUT_DIR=$OUT_DIR/cmd
 TESTS_OUT_DIR=$OUT_DIR/tests
 APIDOCS_OUT_DIR=$OUT_DIR/apidocs
 MANIFESTS_OUT_DIR=$OUT_DIR/manifests
+MANIFEST_TEMPLATES_OUT_DIR=$OUT_DIR/templates/manifests
 PYTHON_CLIENT_OUT_DIR=$OUT_DIR/client-python
 
 function build_func_tests() {
@@ -18,13 +19,12 @@ function build_func_tests() {
     mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
 }
 
-# For backward compatibility
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-${PROVIDER}}
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.3}
-
-# For backward compatibility
-KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-${VAGRANT_NUM_NODES}}
 KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-1}
+
+# Use this environment variable to set a custom pkgdir path
+# Useful for cross-compilation where the default -pkdir for cross-builds may not be writable
+#KUBEVIRT_GO_BASE_PKGDIR="${GOPATH}/crossbuild-cache-root/"
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
 if [ -z "${JOB_NAME}" ]; then

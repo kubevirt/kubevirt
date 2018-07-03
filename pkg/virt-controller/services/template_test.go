@@ -25,6 +25,7 @@ import (
 	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -63,7 +64,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					v1.NodeSchedulable: "true",
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 					"--qemu-timeout", "5m",
 					"--name", "testvmi",
 					"--namespace", "testns",
@@ -98,7 +99,7 @@ var _ = Describe("Template", func() {
 					"kubernetes.io/hostname": "master",
 					v1.NodeSchedulable:       "true",
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/entrypoint.sh",
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 					"--qemu-timeout", "5m",
 					"--name", "testvmi",
 					"--namespace", "default",
@@ -273,8 +274,61 @@ var _ = Describe("Template", func() {
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
-				Expect(pod.Spec.Containers[0].Resources.Limits).To(BeNil())
+
+				// Limits for KVM and TUN devices should be requested.
+				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			})
+		})
+
+		Context("with hugepages constraints", func() {
+			table.DescribeTable("should add to the template constraints ", func(value string) {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Memory: &v1.Memory{
+								Hugepages: &v1.Hugepages{
+									PageSize: value,
+								},
+							},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
+
+				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + value)
+				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[hugepageType]
+				hugepagesLimit := pod.Spec.Containers[0].Resources.Limits[hugepageType]
+				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+
+				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3))
+				Expect(pod.Spec.Containers[0].VolumeMounts[2].MountPath).To(Equal("/dev/hugepages"))
+			},
+				table.Entry("hugepages-2Mi", "2Mi"),
+				table.Entry("hugepages-1Gi", "1Gi"),
+			)
 		})
 
 		Context("with pvc source", func() {
@@ -401,7 +455,7 @@ var _ = Describe("Template", func() {
 			Expect(result).To(BeFalse())
 		})
 
-		It("Should return false if configmap doesn't have allowEmulation set", func() {
+		It("Should return false if configmap doesn't have useEmulation set", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "kube-system",
@@ -420,13 +474,13 @@ var _ = Describe("Template", func() {
 			Expect(result).To(BeFalse())
 		})
 
-		It("Should return true if allowEmulation = true", func() {
+		It("Should return true if useEmulation = true", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "kube-system",
 					Name:      "kubevirt-config",
 				},
-				Data: map[string]string{"debug.allowEmulation": "true"},
+				Data: map[string]string{"debug.useEmulation": "true"},
 			}
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})

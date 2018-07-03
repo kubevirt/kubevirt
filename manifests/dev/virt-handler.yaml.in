@@ -10,6 +10,15 @@ spec:
     type: RollingUpdate
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       name: virt-handler
       labels:
         kubevirt.io: virt-handler
@@ -24,7 +33,7 @@ spec:
           image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-            - "/virt-handler"
+            - "virt-handler"
             - "-v"
             - "3"
             - "--hostname-override"
@@ -38,6 +47,8 @@ spec:
               mountPath: /var/run/kubevirt
             - name: virt-private-dir
               mountPath: /var/run/kubevirt-private
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
           env:
             - name: NODE_NAME
               valueFrom:
@@ -53,3 +64,6 @@ spec:
         - name: virt-private-dir
           hostPath:
             path: /var/run/kubevirt-private
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins

@@ -20,6 +20,6 @@ FROM fedora:27
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
-COPY virt-handler /virt-handler
+COPY virt-handler /usr/bin/virt-handler
 
-ENTRYPOINT [ "/virt-handler" ]
+ENTRYPOINT [ "/usr/bin/virt-handler" ]

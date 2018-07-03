@@ -26,6 +26,8 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -87,13 +89,6 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var running bool
-	if o.command == COMMAND_START {
-		running = true
-	} else if o.command == COMMAND_STOP {
-		running = false
-	}
-
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
 	if err != nil {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
@@ -105,12 +100,23 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Error fetching VirtualMachine: %v", err)
 	}
 
+	var running bool
+	if o.command == COMMAND_START {
+		running = true
+	} else if o.command == COMMAND_STOP {
+		running = false
+	}
+
 	if vm.Spec.Running != running {
-		vm.Spec.Running = running
-		_, err := virtClient.VirtualMachine(namespace).Update(vm)
+		bodyStr := fmt.Sprintf("{\"spec\":{\"running\":%t}}", running)
+
+		_, err := virtClient.VirtualMachine(namespace).Patch(vm.Name, types.MergePatchType,
+			[]byte(bodyStr))
+
 		if err != nil {
 			return fmt.Errorf("Error updating VirtualMachine: %v", err)
 		}
+
 	} else {
 		stateMsg := "stopped"
 		if running {

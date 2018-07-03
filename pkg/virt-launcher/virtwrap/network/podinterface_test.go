@@ -56,7 +56,7 @@ var _ = Describe("Pod Network", func() {
 
 	BeforeEach(func() {
 		tmpDir, _ := ioutil.TempDir("", "networktest")
-		setInterfaceCacheFile(tmpDir + "/cache.json")
+		setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = NewMockNetworkHandler(ctrl)
@@ -85,7 +85,7 @@ var _ = Describe("Pod Network", func() {
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="default"></alias></Interface>`)
 	})
 
 	AfterEach(func() {
@@ -127,19 +127,30 @@ var _ = Describe("Pod Network", func() {
 		Expect(err).To(BeNil())
 	}
 
+	TestRunPlug := func(driver BindMechanism) {
+		err := driver.discoverPodNetworkInterface()
+		Expect(err).ToNot(HaveOccurred())
+
+		err = driver.preparePodNetworkInterfaces()
+		Expect(err).ToNot(HaveOccurred())
+
+		err = driver.decorateConfig()
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	Context("on successful setup", func() {
 		It("should define a new VIF bind to a bridge", func() {
 
-			domain := NewDomainWithPodNetwork()
-			vm := newVM("testnamespace", "testVmName")
+			domain := NewDomainWithBridgeInterface()
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
 			api.SetObjectDefaults_Domain(domain)
 			TestPodInterfaceIPBinding(vm, domain)
 		})
 		It("should panic if pod networking fails to setup", func() {
 			testNetworkPanic := func() {
-				domain := NewDomainWithPodNetwork()
-				vm := newVM("testnamespace", "testVmName")
+				domain := NewDomainWithBridgeInterface()
+				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
 				api.SetObjectDefaults_Domain(domain)
 
@@ -173,20 +184,155 @@ var _ = Describe("Pod Network", func() {
 				Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
 			})
 		})
+		Context("func findInterfaceByName()", func() {
+			It("should fail on empty interface list", func() {
+				_, err := findInterfaceByName([]api.Interface{}, "default")
+				Expect(err).To(HaveOccurred())
+			})
+			It("should fail when interface is missing", func() {
+				interfaces := []api.Interface{
+					api.Interface{
+						Type: "not-bridge",
+						Source: api.InterfaceSource{
+							Bridge: api.DefaultBridgeName,
+						},
+						Alias: &api.Alias{
+							Name: "iface1",
+						},
+					},
+					api.Interface{
+						Type: "bridge",
+						Source: api.InterfaceSource{
+							Bridge: "other_br",
+						},
+						Alias: &api.Alias{
+							Name: "iface2",
+						},
+					},
+				}
+				_, err := findInterfaceByName(interfaces, "iface3")
+				Expect(err).To(HaveOccurred())
+			})
+			It("should pass when interface alias matches the name", func() {
+				interfaces := []api.Interface{
+					api.Interface{
+						Type: "bridge",
+						Source: api.InterfaceSource{
+							Bridge: api.DefaultBridgeName,
+						},
+						Alias: &api.Alias{
+							Name: "iface1",
+						},
+					},
+				}
+				idx, err := findInterfaceByName(interfaces, "iface1")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(idx).To(Equal(0))
+			})
+			It("should pass when matched interface is not the first in the list", func() {
+				interfaces := []api.Interface{
+					api.Interface{
+						Type: "not-bridge",
+						Source: api.InterfaceSource{
+							Bridge: api.DefaultBridgeName,
+						},
+						Alias: &api.Alias{
+							Name: "iface1",
+						},
+					},
+					api.Interface{
+						Type: "bridge",
+						Source: api.InterfaceSource{
+							Bridge: "other_br",
+						},
+						Alias: &api.Alias{
+							Name: "iface2",
+						},
+					},
+					api.Interface{
+						Type: "bridge",
+						Source: api.InterfaceSource{
+							Bridge: api.DefaultBridgeName,
+						},
+						Alias: &api.Alias{
+							Name: "iface3",
+						},
+					},
+				}
+				idx, err := findInterfaceByName(interfaces, "iface3")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(idx).To(Equal(2))
+			})
+		})
+		It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
+			domain := NewDomainWithSlirpInterface()
+			vmi := newVMISlirpInterface("testnamespace", "testVmName")
+
+			api.SetObjectDefaults_Domain(domain)
+
+			driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+			Expect(err).ToNot(HaveOccurred())
+			TestRunPlug(driver)
+			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
+			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
+		})
+		It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
+			domain := NewDomainWithSlirpInterface()
+			vmi := newVMISlirpInterface("testnamespace", "testVmName")
+
+			api.SetObjectDefaults_Domain(domain)
+
+			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
+				Model: &api.Model{
+					Type: "virtio",
+				},
+				Type: "bridge",
+				Source: api.InterfaceSource{
+					Bridge: api.DefaultBridgeName,
+				},
+				Alias: &api.Alias{
+					Name: "default",
+				}})
+
+			driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
+			Expect(err).ToNot(HaveOccurred())
+			TestRunPlug(driver)
+			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
+			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
+		})
 	})
 })
 
-func newVM(namespace string, name string) *v1.VirtualMachineInstance {
+func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := &v1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.NewMinimalDomainSpec()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.VirtualMachineInstanceSpec{
+			Domain:   v1.NewMinimalDomainSpec(),
+			Networks: []v1.Network{*v1.DefaultPodNetwork()},
+		},
 	}
+
+	return vmi
+}
+
+func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInstance {
+	vmi := newVMI(namespace, name)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }
 
-func NewDomainWithPodNetwork() *api.Domain {
+func newVMISlirpInterface(namespace string, name string) *v1.VirtualMachineInstance {
+	vmi := newVMI(namespace, name)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultSlirpNetworkInterface()}
+	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+	return vmi
+}
 
+func NewDomainWithBridgeInterface() *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
 		Model: &api.Model{
@@ -195,7 +341,34 @@ func NewDomainWithPodNetwork() *api.Domain {
 		Type: "bridge",
 		Source: api.InterfaceSource{
 			Bridge: api.DefaultBridgeName,
+		},
+		Alias: &api.Alias{
+			Name: "default",
 		}},
 	}
+	return domain
+}
+
+func NewDomainWithSlirpInterface() *api.Domain {
+	domain := &api.Domain{}
+	domain.Spec.Devices.Interfaces = []api.Interface{{
+		Model: &api.Model{
+			Type: "e1000",
+		},
+		Type: "user",
+		Alias: &api.Alias{
+			Name: "default",
+		}},
+	}
+
+	// Create network interface
+	if domain.Spec.QEMUCmd == nil {
+		domain.Spec.QEMUCmd = &api.Commandline{}
+	}
+
+	if domain.Spec.QEMUCmd.QEMUArg == nil {
+		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
+	}
+
 	return domain
 }

@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: Template
+metadata:
+  annotations:
+    description: OCP KubeVirt Microsoft Windows Server 2012 R2 VM template
+    iconClass: icon-windows
+    tags: kubevirt,ocp,template,windows,virtualmachine
+  creationTimestamp: null
+  labels:
+    kubevirt.io/os: win2k12r2
+    miq.github.io/kubevirt-is-vm-template: "true"
+  name: vm-template-windows2012r2
+objects:
+- apiVersion: kubevirt.io/v1alpha2
+  kind: VirtualMachine
+  metadata:
+    creationTimestamp: null
+    labels:
+      kubevirt-vm: vm-${NAME}
+    name: ${NAME}
+  spec:
+    running: false
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          kubevirt-vm: vm-${NAME}
+      spec:
+        domain:
+          clock:
+            timer:
+              hpet:
+                present: false
+              hyperv: {}
+              pit:
+                tickPolicy: delay
+              rtc:
+                tickPolicy: catchup
+            utc: {}
+          cpu:
+            cores: ${{CPU_CORES}}
+          devices:
+            disks:
+            - disk:
+                bus: sata
+              name: pvcdisk
+              volumeName: pvcvolume
+            - disk:
+                bus: virtio
+              name: disk0
+              volumeName: disk0-pvc
+            interfaces:
+            - bridge: {}
+              model: e1000
+              name: default
+          features:
+            acpi: {}
+            apic: {}
+            hyperv:
+              relaxed: {}
+              spinlocks:
+                spinlocks: 8191
+              vapic: {}
+          firmware:
+            uuid: 5d307ca9-b3ef-428c-8861-06e72d69f223
+          machine:
+            type: q35
+          resources:
+            requests:
+              memory: ${MEMORY}
+        networks:
+        - name: default
+          pod: {}
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: pvcvolume
+          persistentVolumeClaim:
+            claimName: disk-windows
+        - name: disk0-pvc
+          persistentVolumeClaim:
+            claimName: windows-vm-pvc-${NAME}
+  status: {}
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    creationTimestamp: null
+    name: windows-vm-pvc-${NAME}
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+  status: {}
+parameters:
+- description: Name for the new VM
+  name: NAME
+- description: Amount of memory
+  name: MEMORY
+  value: 4096Mi
+- description: Amount of cores
+  name: CPU_CORES
+  value: "4"

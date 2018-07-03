@@ -23,6 +23,15 @@ spec:
   replicas: 2
   template:
     metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
       labels:
         kubevirt.io: virt-controller
     spec:
@@ -32,7 +41,7 @@ spec:
           image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
           imagePullPolicy: IfNotPresent
           command:
-              - "/virt-controller"
+              - "virt-controller"
               - "--launcher-image"
               - "{{.DockerPrefix}}/virt-launcher:{{.DockerTag}}"
               - "--port"

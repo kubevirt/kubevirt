@@ -222,7 +222,6 @@ func (vca *VirtControllerApp) Run() {
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmiPresetController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
-					go vca.configMapInformer.Run(stop)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {

@@ -5,8 +5,6 @@ package network
 
 import (
 	gomock "github.com/golang/mock/gomock"
-
-	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // Mock of BindMechanism interface
@@ -50,18 +48,33 @@ func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces")
 }
 
-func (_m *MockBindMechanism) startDHCPServer() {
-	_m.ctrl.Call(_m, "startDHCPServer")
+func (_m *MockBindMechanism) decorateConfig() error {
+	ret := _m.ctrl.Call(_m, "decorateConfig")
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) startDHCPServer() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDHCPServer")
+func (_mr *_MockBindMechanismRecorder) decorateConfig() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "decorateConfig")
 }
 
-func (_m *MockBindMechanism) decorateInterfaceConfig(ifconf *api.Interface) {
-	_m.ctrl.Call(_m, "decorateInterfaceConfig", ifconf)
+func (_m *MockBindMechanism) loadCachedInterface(name string) (bool, error) {
+	ret := _m.ctrl.Call(_m, "loadCachedInterface", name)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-func (_mr *_MockBindMechanismRecorder) decorateInterfaceConfig(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "decorateInterfaceConfig", arg0)
+func (_mr *_MockBindMechanismRecorder) loadCachedInterface(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedInterface", arg0)
+}
+
+func (_m *MockBindMechanism) setCachedInterface(name string) error {
+	ret := _m.ctrl.Call(_m, "setCachedInterface", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) setCachedInterface(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedInterface", arg0)
 }

@@ -48,4 +48,9 @@ fi
 
 echo "cgroup_controllers = [ ]" >>/etc/libvirt/qemu.conf
 
-/usr/sbin/libvirtd 
+# Be sure that libvirt always will be look the same directory for hugepages mount
+if [ -d "/dev/hugepages" ]; then
+    echo 'hugetlbfs_mount = "/dev/hugepages"' >>/etc/libvirt/qemu.conf
+fi
+
+/usr/sbin/libvirtd

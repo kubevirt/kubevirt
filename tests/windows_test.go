@@ -126,7 +126,8 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		tests.BeforeTestCleanup()
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = windowsVMISpec
-		windowsVMI.ObjectMeta.Annotations = map[string]string{v1.InterfaceModel: "e1000"}
+		tests.AddExplicitPodNetworkInterface(windowsVMI)
+		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
 	It("should succeed to start a vmi", func() {

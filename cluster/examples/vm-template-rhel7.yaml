@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: Template
+metadata:
+  annotations:
+    description: OCP KubeVirt Red Hat Enterprise Linux 7.4 VM template
+    iconClass: icon-rhel
+    tags: kubevirt,ocp,template,linux,virtualmachine
+  creationTimestamp: null
+  labels:
+    kubevirt.io/os: rhel-7.4
+    miq.github.io/kubevirt-is-vm-template: "true"
+  name: vm-template-rhel7
+objects:
+- apiVersion: kubevirt.io/v1alpha2
+  kind: VirtualMachine
+  metadata:
+    creationTimestamp: null
+    labels:
+      kubevirt-vm: vm-${NAME}
+    name: ${NAME}
+  spec:
+    running: false
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          kubevirt-vm: vm-${NAME}
+      spec:
+        domain:
+          cpu:
+            cores: ${{CPU_CORES}}
+          devices:
+            disks:
+            - disk:
+                bus: virtio
+              name: disk0
+              volumeName: disk0-pvc
+          machine:
+            type: ""
+          resources:
+            requests:
+              memory: ${MEMORY}
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: disk0-pvc
+          persistentVolumeClaim:
+            claimName: linux-vm-pvc-${NAME}
+  status: {}
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    creationTimestamp: null
+    name: linux-vm-pvc-${NAME}
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+  status: {}
+parameters:
+- description: Name for the new VM
+  name: NAME
+- description: Amount of memory
+  name: MEMORY
+  value: 4096Mi
+- description: Amount of cores
+  name: CPU_CORES
+  value: "4"

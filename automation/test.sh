@@ -34,7 +34,7 @@ if [[ $TARGET =~ openshift-.* ]]; then
   if [[ $TARGET =~ .*-crio-.* ]]; then
     export KUBEVIRT_PROVIDER="os-3.9.0-crio"
   else
-    export KUBEVIRT_PROVIDER="os-3.9.0"
+    export KUBEVIRT_PROVIDER="os-3.10.0"
   fi
 elif [[ $TARGET =~ .*-1.9.3-.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.9.3"
@@ -50,51 +50,73 @@ kubectl() { cluster/kubectl.sh "$@"; }
 export NAMESPACE="${NAMESPACE:-kube-system}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ make cluster-down; }' EXIT
+trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 make cluster-down
 make cluster-up
 
 # Wait for nodes to become ready
-while [ -n "$(kubectl get nodes --no-headers | grep -v Ready)" ]; do
-   echo "Waiting for all nodes to become ready ..."
-   kubectl get nodes --no-headers | >&2 grep -v Ready || true
-   sleep 10
+set +e
+kubectl get nodes --no-headers
+kubectl_rc=$?
+while [ $kubectl_rc -ne 0 ] || [ -n "$(kubectl get nodes --no-headers | grep NotReady)" ]; do
+    echo "Waiting for all nodes to become ready ..."
+    kubectl get nodes --no-headers
+    kubectl_rc=$?
+    sleep 10
 done
+set -e
+
 echo "Nodes are ready:"
 kubectl get nodes
 
 make cluster-sync
 
-# Wait until kubevirt pods are running
-while [ -n "$(kubectl get pods -n ${NAMESPACE} --no-headers | grep -v Running)" ]; do
+# OpenShift is running important containers under default namespace
+namespaces=(kube-system default)
+if [[ $NAMESPACE != "kube-system" ]]; then
+  namespaces+=($NAMESPACE)
+fi
+
+timeout=300
+sample=30
+
+for i in ${namespaces[@]}; do
+  # Wait until kubevirt pods are running
+  current_time=0
+  while [ -n "$(kubectl get pods -n $i --no-headers | grep -v Running)" ]; do
     echo "Waiting for kubevirt pods to enter the Running state ..."
-    kubectl get pods -n ${NAMESPACE} --no-headers | >&2 grep -v Running || true
-    sleep 10
-done
+    kubectl get pods -n $i --no-headers | >&2 grep -v Running || true
+    sleep $sample
 
-# Make sure all containers except virt-controller are ready
-while [ -n "$(kubectl get pods -n ${NAMESPACE} -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/')" ]; do
+    current_time=$((current_time + sample))
+    if [ $current_time -gt $timeout ]; then
+      exit 1
+    fi
+  done
+
+  # Make sure all containers are ready
+  current_time=0
+  while [ -n "$(kubectl get pods -n $i -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false)" ]; do
     echo "Waiting for KubeVirt containers to become ready ..."
-    kubectl get pods -n ${NAMESPACE} -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '!/virt-controller/ && /false/' || true
-    sleep 10
+    kubectl get pods -n $i -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false || true
+    sleep $sample
+
+    current_time=$((current_time + sample))
+    if [ $current_time -gt $timeout ]; then
+      exit 1
+    fi
+  done
+  kubectl get pods -n $i
 done
 
-# Make sure that at least one virt-controller container is ready
-while [ "$(kubectl get pods -n ${NAMESPACE} -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l)" -lt "1" ]; do
-    echo "Waiting for KubeVirt virt-controller container to become ready ..."
-    kubectl get pods -n ${NAMESPACE} -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | awk '/virt-controller/ && /true/' | wc -l
-    sleep 10
-done
-
-kubectl get pods -n ${NAMESPACE}
 kubectl version
 
 ginko_params="--ginkgo.noColor --junit-output=$WORKSPACE/junit.xml"
 
 # Prepare PV for windows testing
 if [[ -d $NFS_WINDOWS_DIR ]] && [[ $TARGET =~ windows.* ]]; then
-    kubectl create -f - <<EOF
+  kubectl create -f - <<EOF
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -111,7 +133,7 @@ spec:
     server: "nfs"
     path: /
 EOF
-ginko_params="$ginko_params --ginkgo.focus=Windows"
+  ginko_params="$ginko_params --ginkgo.focus=Windows"
 fi
 
 # Run functional tests

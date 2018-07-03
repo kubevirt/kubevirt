@@ -32,10 +32,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
 const configMapName = "kube-system/kubevirt-config"
-const allowEmulationKey = "debug.allowEmulation"
+const useEmulationKey = "debug.useEmulation"
+const KvmDevice = "devices.kubevirt.io/kvm"
+const TunDevice = "devices.kubevirt.io/tun"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -56,15 +59,13 @@ func IsEmulationAllowed(store cache.Store) (bool, error) {
 	if !exists {
 		return exists, nil
 	}
-	allowEmulation := false
+	useEmulation := false
 	cm := obj.(*k8sv1.ConfigMap)
-	emu, ok := cm.Data[allowEmulationKey]
+	emu, ok := cm.Data[useEmulationKey]
 	if ok {
-		// TODO: is this too specific? should we just look for the existence of
-		// the 'allowEmulation' key itself regardless of content?
-		allowEmulation = (strings.ToLower(emu) == "true")
+		useEmulation = (strings.ToLower(emu) == "true")
 	}
-	return allowEmulation, nil
+	return useEmulation, nil
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -80,7 +81,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	var volumes []k8sv1.Volume
 	var userId int64 = 0
-	var privileged bool = true
+	var privileged bool = false
 	var volumesMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
@@ -140,6 +141,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
+	// Get memory overhead
+	memoryOverhead := getMemoryOverhead(vmi.Spec.Domain)
+
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
 	vmiResources := vmi.Spec.Domain.Resources
@@ -155,14 +159,53 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	if vmiResources.Limits != nil {
 		resources.Limits = make(k8sv1.ResourceList)
 	}
+
 	for key, value := range vmiResources.Limits {
 		resources.Limits[key] = value
 	}
 
-	// Add memory overhead
-	setMemoryOverhead(vmi.Spec.Domain, &resources)
+	// Consider hugepages resource for pod scheduling
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+		if resources.Limits == nil {
+			resources.Limits = make(k8sv1.ResourceList)
+		}
 
-	command := []string{"/entrypoint.sh",
+		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
+		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
+		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
+
+		// Configure hugepages mount on a pod
+		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+			Name:      "hugepages",
+			MountPath: filepath.Join("/dev/hugepages"),
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "hugepages",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{
+					Medium: k8sv1.StorageMediumHugePages,
+				},
+			},
+		})
+
+		// Set requested memory equals to overhead memory
+		resources.Requests[k8sv1.ResourceMemory] = *memoryOverhead
+		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
+			resources.Limits[k8sv1.ResourceMemory] = *memoryOverhead
+		}
+	} else {
+		// Add overhead memory
+		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
+		memoryRequest.Add(*memoryOverhead)
+		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
+
+		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
+			memoryLimit.Add(*memoryOverhead)
+			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
+		}
+	}
+
+	command := []string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 		"--qemu-timeout", "5m",
 		"--name", domain,
 		"--namespace", namespace,
@@ -171,12 +214,26 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 	}
 
-	allowEmulation, err := IsEmulationAllowed(t.store)
+	useEmulation, err := IsEmulationAllowed(t.store)
 	if err != nil {
 		return nil, err
 	}
-	if allowEmulation {
-		command = append(command, "--allow-emulation")
+
+	if resources.Limits == nil {
+		resources.Limits = make(k8sv1.ResourceList)
+	}
+
+	// TODO: This can be hardcoded in the current model, but will need to be revisted
+	// once dynamic network device allocation is added
+	resources.Limits[TunDevice] = resource.MustParse("1")
+
+	// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
+	// but if the KVM resource is not requested then it's guaranteed to be not present
+	// This code works for now, but the semantics are wrong. revisit this.
+	if useEmulation {
+		command = append(command, "--use-emulation")
+	} else {
+		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
 	// VirtualMachineInstance target container
@@ -184,11 +241,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
-		// Privileged mode is required for /dev/kvm and the
-		// ability to create macvtap devices
 		SecurityContext: &k8sv1.SecurityContext{
-			RunAsUser:  &userId,
+			RunAsUser: &userId,
+			// Privileged mode is disabled.
 			Privileged: &privileged,
+			Capabilities: &k8sv1.Capabilities{
+				// NET_ADMIN is needed to set up networking for the VM
+				Add: []k8sv1.Capability{"NET_ADMIN"},
+			},
 		},
 		Command:      command,
 		VolumeMounts: volumesMounts,
@@ -244,10 +304,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	containers = append(containers, container)
 
-	hostName := vmi.Name
-	if vmi.Spec.Hostname != "" {
-		hostName = vmi.Spec.Hostname
-	}
+	hostName := dns.SanitizeHostname(vmi)
 
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
@@ -264,6 +321,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Subdomain: vmi.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
+				SELinuxOptions: &k8sv1.SELinuxOptions{
+					Type: "spc_t",
+				},
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
@@ -302,16 +362,16 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 	return append(secrets, newsecret)
 }
 
-// setMemoryOverhead computes the estimation of total
+// getMemoryOverhead computes the estimation of total
 // memory needed for the domain to operate properly.
 // This includes the memory needed for the guest and memory
 // for Qemu and OS overhead.
 //
-// The return values are requested memory and limit memory quantities
+// The return value is overhead memory quantity
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func setMemoryOverhead(domain v1.DomainSpec, resources *k8sv1.ResourceRequirements) error {
+func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
 	overhead := resource.NewScaledQuantity(0, resource.Kilo)
@@ -339,18 +399,7 @@ func setMemoryOverhead(domain v1.DomainSpec, resources *k8sv1.ResourceRequiremen
 	// Add video RAM overhead
 	overhead.Add(resource.MustParse("16Mi"))
 
-	// Add overhead to memory request
-	memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-	memoryRequest.Add(*overhead)
-	resources.Requests[k8sv1.ResourceMemory] = memoryRequest
-
-	// Add overhead to memory limits, if exists
-	if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-		memoryLimit.Add(*overhead)
-		resources.Limits[k8sv1.ResourceMemory] = memoryLimit
-	}
-
-	return nil
+	return overhead
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
