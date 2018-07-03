@@ -464,6 +464,27 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)))
 		})
 
+		Context("when CPU spec defined and model not", func() {
+			It("should set host-model CPU mode", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 3,
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Mode).To(Equal("host-model"))
+			})
+		})
+
+		Context("when CPU spec not defined", func() {
+			It("should set host-model CPU mode", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Mode).To(Equal("host-model"))
+			})
+		})
+
 		It("should select explicitly chosen network model", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
