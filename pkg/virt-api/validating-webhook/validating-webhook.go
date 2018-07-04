@@ -593,7 +593,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						if _, ok := portForwardMap[forwardPort.Name]; ok {
 							causes = append(causes, metav1.StatusCause{
 								Type:    metav1.CauseTypeFieldValueDuplicate,
-								Message: fmt.Sprintf("Duplicate value: %s", forwardPort.Name),
+								Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
 								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
 							})
 						}
