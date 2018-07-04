@@ -45,12 +45,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/service"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 const (
@@ -171,7 +168,10 @@ func Execute() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
 		log.Log.Infof("DataVolume integration enabled")
 	} else {
-		app.dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		// Add a dummy DataVolume informer in the event datavolume support
+		// is disabled. This lets the controller continue to work without
+		// requiring a separate branching code path.
+		app.dataVolumeInformer = app.informerFactory.DummyDataVolume()
 		log.Log.Infof("DataVolume integration disabled")
 	}
 
