@@ -357,14 +357,18 @@ func EnsureKVMPresent() {
 		}
 	}
 	if !useEmulation {
-		listOptions := metav1.ListOptions{}
+		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+		virtHandlerPods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(listOptions)
+		Expect(err).ToNot(HaveOccurred())
+
 		Eventually(func() bool {
-			nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
-			Expect(err).ToNot(HaveOccurred())
 			ready := true
 			// cluster is not ready until all nodes are ready.
-			for _, node := range nodeList.Items {
-				allocatable, ok := node.Status.Allocatable[services.KvmDevice]
+			for _, pod := range virtHandlerPods.Items {
+				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				allocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
 				ready = ready && ok
 				ready = ready && (allocatable.Value() > 0)
 			}
