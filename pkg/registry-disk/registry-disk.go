@@ -114,8 +114,8 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 			diskContainerImage := volume.RegistryDisk.Image
 			resources := kubev1.ResourceRequirements{}
 			resources.Limits = make(kubev1.ResourceList)
-			resources.Limits[kubev1.ResourceCPU] = *resource.NewQuantity(int64(1), resource.BinarySI)
-			resources.Limits[kubev1.ResourceMemory] = resource.MustParse("8Mi")
+			resources.Limits[kubev1.ResourceCPU] = resource.MustParse("50m")
+			resources.Limits[kubev1.ResourceMemory] = resource.MustParse("64Ki")
 			containers = append(containers, kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
