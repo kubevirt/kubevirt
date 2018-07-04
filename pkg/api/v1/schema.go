@@ -680,6 +680,8 @@ type Interface struct {
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
 	// Defaults to Bridge.
 	InterfaceBindingMethod `json:",inline"`
+	// List of ports to be forwarded to the virtual machine.
+	Ports []Port `json:"ports,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
 	MacAddress string `json:"macAddress,omitempty"`
 }
@@ -699,21 +701,26 @@ type InterfaceBridge struct{}
 
 // ---
 // +k8s:openapi-gen=true
-type InterfaceSlirp struct {
-	// List of ports to be forwarded to the virtual machine.
-	Ports []Port `json:"ports,omitempty"`
-}
+type InterfaceSlirp struct{}
 
 // Port repesents a port to expose from the virtual machine.
 // Default protocol TCP.
-// Default port is PodPort.
+// The port field is mandatory
 // ---
 // +k8s:openapi-gen=true
 type Port struct {
-	Name     string `json:"name,omitempty"`
+	// If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+	// named port in a pod must have a unique name. Name for the port that can be
+	// referred to by services.
+	// +optional
+	Name string `json:"name,omitempty"`
+	// Protocol for port. Must be UDP or TCP.
+	// Defaults to "TCP".
+	// +optional
 	Protocol string `json:"protocol,omitempty"`
-	Port     int32  `json:"port"`
-	PodPort  int32  `json:"podPort,omitempty"`
+	// Number of port to expose for the virtual machine.
+	// This must be a valid port number, 0 < x < 65536.
+	Port int32 `json:"port"`
 }
 
 // Network represents a network type and a resource that should be connected to the vm.

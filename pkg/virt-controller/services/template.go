@@ -236,6 +236,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
+	// Add ports from interfaces to the pod manifest
+	ports := getPortsFromVMI(vmi)
+
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
@@ -268,6 +271,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			FailureThreshold:    int32(failureThreshold),
 		},
 		Resources: resources,
+		Ports:     ports,
 	}
 
 	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
@@ -400,6 +404,28 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	overhead.Add(resource.MustParse("16Mi"))
 
 	return overhead
+}
+
+func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
+	ports := make([]k8sv1.ContainerPort, 0)
+
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Ports != nil {
+			for _, port := range iface.Ports {
+				if port.Protocol == "" {
+					port.Protocol = "TCP"
+				}
+
+				ports = append(ports, k8sv1.ContainerPort{Protocol: k8sv1.Protocol(port.Protocol), Name: port.Name, ContainerPort: port.Port})
+			}
+		}
+	}
+
+	if len(ports) == 0 {
+		return nil
+	}
+
+	return ports
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {

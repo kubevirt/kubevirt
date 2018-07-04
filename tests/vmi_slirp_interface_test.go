@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -45,9 +46,10 @@ var _ = Describe("Slirp", func() {
 
 	var genericVmi *v1.VirtualMachineInstance
 	var deadbeafVmi *v1.VirtualMachineInstance
+	var container k8sv1.Container
 
 	tests.BeforeAll(func() {
-		ports := []v1.Port{{Port: 80}}
+		ports := []v1.Port{{Name: "http", Port: 80}}
 		genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 		deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 		deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
@@ -61,9 +63,22 @@ var _ = Describe("Slirp", func() {
 	})
 
 	table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
-		By("start the virtual machine with slirp interface")
+		By("have containerPort in the pod manifest")
 		vmi := *vmiRef
 		vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+		for _, containerSpec := range vmiPod.Spec.Containers {
+			if containerSpec.Name == "compute" {
+				container = containerSpec
+				break
+			}
+		}
+		Expect(container.Name).ToNot(Equal(""))
+		Expect(container.Ports).ToNot(Equal(nil))
+		Expect(container.Ports[0].Name).To(Equal("http"))
+		Expect(container.Ports[0].Protocol).To(Equal(k8sv1.Protocol("TCP")))
+		Expect(container.Ports[0].ContainerPort).To(Equal(int32(80)))
+
+		By("start the virtual machine with slirp interface")
 		output, err := tests.ExecuteCommandOnPod(
 			virtClient,
 			vmiPod,

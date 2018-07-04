@@ -242,8 +242,9 @@ func getVMISlirp() *v1.VirtualMachineInstance {
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
 
-	Slirp := &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80, PodPort: 80}}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testSlirp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: Slirp}}}
+	slirp := &v1.InterfaceSlirp{}
+	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
 
 	return vm
 }

@@ -19,12 +19,11 @@ spec:
         volumeName: cloudinitvolume
       interfaces:
       - name: testSlirp
-        slirp:
-          ports:
-          - name: http
-            podPort: 80
-            port: 80
-            protocol: TCP
+        ports:
+        - name: http
+          port: 80
+          protocol: TCP
+        slirp: {}
     machine:
       type: ""
     resources:

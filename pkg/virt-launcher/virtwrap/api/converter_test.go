@@ -566,26 +566,17 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should add tcp if protocol not exist", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Port: 80}}}
+			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{v1.Port{Port: 80}}}
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 			err := configPortForward(&qemuArg, iface)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80", iface.Name)))
 		})
-		It("should use podPort", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{PodPort: 9080, Port: 80}}}
-			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-
-			err := configPortForward(&qemuArg, iface)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::9080-:80", iface.Name)))
-		})
 		It("should not fail for duplicate port with different protocol configuration", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 			err := configPortForward(&qemuArg, iface)
@@ -595,8 +586,8 @@ var _ = Describe("Converter", func() {
 		It("Should create network configuration for slirp device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "otherName"
-			iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net := v1.DefaultPodNetwork()
 			net.Name = name
 			vmi.Spec.Networks = []v1.Network{*net}
@@ -610,14 +601,14 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = name1
 
 			name2 := "otherName"
-			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 90}}}
+			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 90}}}
+			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net2 := v1.DefaultPodNetwork()
 			net2.Name = name2
 
@@ -638,8 +629,8 @@ var _ = Describe("Converter", func() {
 			net1.Name = name1
 
 			name2 := "otherName"
-			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 90}}}
+			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 90}}}
+			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net2 := v1.DefaultPodNetwork()
 			net2.Name = name2
 
