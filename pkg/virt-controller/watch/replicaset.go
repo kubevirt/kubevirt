@@ -185,8 +185,6 @@ func (c *VMIReplicaSet) execute(key string) error {
 		return err
 	}
 
-	vmis = c.filterActiveVMIs(vmis)
-
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
@@ -205,24 +203,29 @@ func (c *VMIReplicaSet) execute(key string) error {
 		return err
 	}
 
+	finishedVmis := c.filterFinishedVMIs(vmis)
+	activeVmis := c.filterActiveVMIs(vmis)
+
 	var scaleErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if needsSync && !rs.Spec.Paused && rs.ObjectMeta.DeletionTimestamp == nil {
-		scaleErr = c.scale(rs, vmis)
+		scaleErr = c.scale(rs, activeVmis)
+		if len(finishedVmis) > 0 && scaleErr == nil {
+			scaleErr = c.cleanFinishedVmis(rs, finishedVmis)
+		}
 	}
-
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
 	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
 	if rs.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(rs, v1.FinalizerOrphanDependents) {
-		return c.orphan(cm, rs, vmis)
+		return c.orphan(cm, rs, activeVmis)
 	}
 
 	if scaleErr != nil {
 		logger.Reason(err).Error("Scaling the replicaset failed.")
 	}
 
-	err = c.updateStatus(rs.DeepCopy(), vmis, scaleErr)
+	err = c.updateStatus(rs.DeepCopy(), activeVmis, scaleErr)
 	if err != nil {
 		logger.Reason(err).Error("Updating the replicaset status failed.")
 	}
@@ -258,8 +261,9 @@ func (c *VMIReplicaSet) orphan(cm *controller.VirtualMachineControllerRefManager
 }
 
 func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance) error {
-
+	log.Log.V(4).Object(rs).Info("Scale")
 	diff := c.calcDiff(rs, vmis)
+
 	rsKey, err := controller.KeyFunc(rs)
 	if err != nil {
 		log.Log.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
@@ -280,6 +284,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 	wg.Add(abs(diff))
 
 	if diff > 0 {
+		log.Log.V(4).Object(rs).Info("Delete excess VM's")
 		// We have to delete VMIs, use a very simple selection strategy for now
 		// TODO: Possible deletion order: not yet running VMIs < migrating VMIs < other
 		deleteCandidates := vmis[0:diff]
@@ -302,6 +307,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 		}
 
 	} else if diff < 0 {
+		log.Log.V(4).Object(rs).Info("Add missing VM's")
 		// We have to create VMIs
 		c.expectations.ExpectCreations(rsKey, abs(diff))
 		basename := c.getVirtualMachineBaseName(rs)
@@ -338,10 +344,10 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 	return nil
 }
 
-// filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
+// filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state and not terminating
 func (c *VMIReplicaSet) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return !vmi.IsFinal()
+		return !vmi.IsFinal() && vmi.DeletionTimestamp == nil
 	})
 }
 
@@ -349,6 +355,13 @@ func (c *VMIReplicaSet) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) 
 func (c *VMIReplicaSet) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return vmi.IsReady()
+	})
+}
+
+// filterFinishedVMIs takes a list of VMIs and returns all VMIs which are in final state.
+func (c *VMIReplicaSet) filterFinishedVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
+	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+		return vmi.IsFinal() && vmi.DeletionTimestamp == nil
 	})
 }
 
@@ -632,9 +645,7 @@ func (c *VMIReplicaSet) removeCondition(rs *virtv1.VirtualMachineInstanceReplica
 }
 
 func (c *VMIReplicaSet) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance, scaleErr error) error {
-
 	diff := c.calcDiff(rs, vmis)
-
 	readyReplicas := int32(len(c.filterReadyVMIs(vmis)))
 
 	// check if we have reached the equilibrium
@@ -773,4 +784,49 @@ func (c *VMIReplicaSet) resolveControllerRef(namespace string, controllerRef *v1
 		return nil
 	}
 	return rs.(*virtv1.VirtualMachineInstanceReplicaSet)
+}
+
+func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance) error {
+	rsKey, err := controller.KeyFunc(rs)
+	if err != nil {
+		log.Log.Object(rs).Reason(err).Error("Failed to extract rsKey from replicaset.")
+		return nil
+	}
+
+	diff := limit(len(vmis), c.burstReplicas)
+
+	// Every delete request can fail, give the channel enough room, to not block the go routines
+	errChan := make(chan error, abs(diff))
+
+	var wg sync.WaitGroup
+	wg.Add(abs(diff))
+
+	log.Log.V(4).Object(rs).Info("Delete finished VM's")
+	deleteCandidates := vmis[0:diff]
+	c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineKeys(deleteCandidates))
+	for i := 0; i < diff; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			deleteCandidate := vmis[idx]
+			err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
+			// Don't log an error if it is already deleted
+			if err != nil {
+				// We can't observe a delete if it was not accepted by the server
+				c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(deleteCandidate))
+				c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting finished virtual machine %s: %v", deleteCandidate.ObjectMeta.Name, err)
+				errChan <- err
+				return
+			}
+			c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted finished virtual machine: %v", deleteCandidate.ObjectMeta.UID)
+		}(i)
+	}
+	wg.Wait()
+
+	select {
+	case err := <-errChan:
+		// Only return the first error which occurred, the others will most likely be equal errors
+		return err
+	default:
+	}
+	return nil
 }

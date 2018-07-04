@@ -418,7 +418,7 @@ var _ = Describe("Converter", func() {
       <vendor_id state="off" value="myvendor"></vendor_id>
     </hyperv>
   </features>
-  <cpu></cpu>
+  <cpu mode="host-model"></cpu>
 </domain>`, domainType)
 
 		var c *ConverterContext
@@ -447,17 +447,21 @@ var _ = Describe("Converter", func() {
 			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal(domainType))
 		})
 
-		It("should convert CPU cores", func() {
+		It("should convert CPU cores and model", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores: 3,
+				Model: "Conroe",
 			}
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Cores).To(Equal(uint32(3)))
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Sockets).To(Equal(uint32(1)))
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Threads).To(Equal(uint32(1)))
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).VCPU.Placement).To(Equal("static"))
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).VCPU.CPUs).To(Equal(uint32(3)))
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
+			Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(3)))
+			Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(1)))
+			Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)))
+			Expect(domainSpec.CPU.Mode).To(Equal("custom"))
+			Expect(domainSpec.CPU.Model).To(Equal("Conroe"))
+			Expect(domainSpec.VCPU.Placement).To(Equal("static"))
+			Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)))
 		})
 
 		It("should select explicitly chosen network model", func() {

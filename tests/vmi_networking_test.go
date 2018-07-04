@@ -54,6 +54,7 @@ var _ = Describe("Networking", func() {
 
 	var inboundVMI *v1.VirtualMachineInstance
 	var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
+	var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 	var outboundVMI *v1.VirtualMachineInstance
 
 	const testPort = 1500
@@ -133,8 +134,14 @@ var _ = Describe("Networking", func() {
 		v1.SetDefaults_NetworkInterface(inboundVMIWithPodNetworkSet)
 		Expect(inboundVMIWithPodNetworkSet.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
 
+		// inboundVMIWithCustomMacAddress specifies a custom MAC address
+		inboundVMIWithCustomMacAddress = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		v1.SetDefaults_NetworkInterface(inboundVMIWithCustomMacAddress)
+		Expect(inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+		inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+
 		// Create VMIs
-		for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithPodNetworkSet} {
+		for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithPodNetworkSet, inboundVMIWithCustomMacAddress} {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(networkVMI)
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -143,6 +150,7 @@ var _ = Describe("Networking", func() {
 		inboundVMI = waitUntilVMIReady(inboundVMI, tests.LoggedInCirrosExpecter)
 		outboundVMI = waitUntilVMIReady(outboundVMI, tests.LoggedInCirrosExpecter)
 		inboundVMIWithPodNetworkSet = waitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoggedInCirrosExpecter)
+		inboundVMIWithCustomMacAddress = waitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoggedInCirrosExpecter)
 
 		startTCPServer(inboundVMI, testPort)
 	})
@@ -155,7 +163,6 @@ var _ = Describe("Networking", func() {
 		ipHeaderSize := 28 // IPv4 specific
 		payloadSize := expectedMtu - ipHeaderSize
 
-		// Wait until the VirtualMachineInstance is booted, ping google and check if we can reach the internet
 		switch destination {
 		case "Internet":
 			addr = "kubevirt.io"
@@ -163,6 +170,8 @@ var _ = Describe("Networking", func() {
 			addr = inboundVMI.Status.Interfaces[0].IP
 		case "InboundVMIWithPodNetworkSet":
 			addr = inboundVMIWithPodNetworkSet.Status.Interfaces[0].IP
+		case "InboundVMIWithCustomMacAddress":
+			addr = inboundVMIWithCustomMacAddress.Status.Interfaces[0].IP
 		}
 		fmt.Println(addr)
 
@@ -214,9 +223,21 @@ var _ = Describe("Networking", func() {
 			&expect.BExp{R: "0"},
 		}, 180)
 		Expect(err).ToNot(HaveOccurred())
+
+		By("checking the VirtualMachineInstance can fetch via HTTP")
+		err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: "0"},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
 	},
 		table.Entry("the Inbound VirtualMachineInstance", "InboundVMI"),
 		table.Entry("the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
+		table.Entry("the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
 		table.Entry("the internet", "Internet"),
 	)
 
@@ -380,4 +401,51 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
+	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
+		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: "cat /sys/class/net/eth0/address\n"},
+			&expect.BExp{R: expectedMacAddress},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	Context("VirtualMachineInstance with custom MAC address", func() {
+		It("should configure custom MAC address", func() {
+			By("checking eth0 MAC address")
+			deadbeafVMI := tests.NewRandomVMIWithCustomMacAddress()
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
+		})
+	})
+
+	Context("VirtualMachineInstance with custom MAC address in non-conventional format", func() {
+		It("should configure custom MAC address", func() {
+			By("checking eth0 MAC address")
+			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
+			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "BE-AF-00-00-DE-AD"
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
+			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad", "localhost:~#")
+		})
+	})
+
+	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
+		It("should configure custom MAC address", func() {
+			By("checking eth0 MAC address")
+			deadbeafVMI := tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskAlpine), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
+			deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
+		})
+	})
 })

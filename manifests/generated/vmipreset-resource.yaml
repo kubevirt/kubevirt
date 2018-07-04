@@ -42,6 +42,8 @@ spec:
                     cores:
                       format: int64
                       type: integer
+                    model:
+                      type: string
                 devices:
                   properties:
                     disks:
@@ -90,6 +92,8 @@ spec:
                       items:
                         properties:
                           bridge: {}
+                          macAddress:
+                            type: string
                           model:
                             type: string
                           name:

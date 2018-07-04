@@ -123,6 +123,10 @@ type CPU struct {
 	// Cores specifies the number of cores inside the vmi.
 	// Must be a value greater or equal 1.
 	Cores uint32 `json:"cores,omitempty"`
+	// Model specifies the CPU model inside the VMI.
+	// List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.
+	// +optional
+	Model string `json:"model,omitempty"`
 }
 
 // Memory allows specifying the VirtualMachineInstance memory features.
@@ -678,6 +682,8 @@ type Interface struct {
 	InterfaceBindingMethod `json:",inline"`
 	// List of ports to be forwarded to the virtual machine.
 	Ports []Port `json:"ports,omitempty"`
+	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
+	MacAddress string `json:"macAddress,omitempty"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

@@ -50,7 +50,8 @@ var exampleJSON = `{
         }
       },
       "cpu": {
-        "cores": 3
+        "cores": 3,
+        "model": "Conroe"
       },
       "machine": {
         "type": "q35"
@@ -321,6 +322,7 @@ var _ = Describe("Schema", func() {
 		}
 		exampleVMI.Spec.Domain.CPU = &CPU{
 			Cores: 3,
+			Model: "Conroe",
 		}
 		exampleVMI.Spec.Networks = []Network{
 			Network{

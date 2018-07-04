@@ -997,6 +997,13 @@ func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	AddExplicitPodNetworkInterface(vmi)
+	vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+	return vmi
+}
+
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
@@ -1420,23 +1427,14 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateVmTemplateJson(vmTemplate *Template) (string, error) {
-	data, err := json.Marshal(vmTemplate)
+func GenerateTemplateJson(template *Template) (string, error) {
+	data, err := json.Marshal(template)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vm template %s", vmTemplate.Name)
+		return "", fmt.Errorf("failed to generate json for vm template %s", template.Name)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", vmTemplate.Name)
+	jsonFile := fmt.Sprintf("%s.json", template.Name)
 	err = ioutil.WriteFile(jsonFile, data, 0644)
-	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", jsonFile)
-	}
-	return jsonFile, nil
-}
-
-func WriteJson(name string, json string) (string, error) {
-	jsonFile := fmt.Sprintf("%s.json", name)
-	err := ioutil.WriteFile(jsonFile, []byte(json), 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
 	}
@@ -1523,4 +1521,45 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	if curVersion < expectedVersion {
 		Skip(message)
 	}
+}
+
+// GetNodeLibvirtCapabilities returns node libvirt capabilities
+func GetNodeLibvirtCapabilities(nodeName string) string {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	// Create a virt-launcher pod, that can fetch virsh capabilities
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vmi.Spec.Affinity = &v1.Affinity{
+		NodeAffinity: &k8sv1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+					{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeName}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
+	Expect(err).ToNot(HaveOccurred())
+	WaitForSuccessfulVMIStart(vmi)
+
+	pods, err := virtClient.CoreV1().Pods(NamespaceTestDefault).List(UnfinishedVMIPodSelector(vmi))
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pods.Items).NotTo(BeEmpty())
+	vmiPod := pods.Items[0]
+
+	output, err := ExecuteCommandOnPod(
+		virtClient,
+		&vmiPod,
+		"compute",
+		[]string{"virsh", "-r", "capabilities"},
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	return output
 }

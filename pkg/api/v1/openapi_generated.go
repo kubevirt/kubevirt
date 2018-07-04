@@ -98,6 +98,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int64",
 							},
 						},
+						"model": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 					},
 				},
 			},
@@ -845,6 +852,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								},
 							},
 						},
+						"macAddress": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
@@ -1045,7 +1059,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Port": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. Port is mandatory.",
+					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
