@@ -274,8 +274,8 @@ var _ = Describe("Configurations", func() {
 			}
 		})
 
-		Context("when CPU model definied", func() {
-			It("should report definied CPU model", func() {
+		Context("when CPU model defined", func() {
+			It("should report defined CPU model", func() {
 				vmiModel := "Conroe"
 				if cpuVendor == "AMD" {
 					vmiModel = "Opteron_G1"
@@ -302,7 +302,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("when CPU model not definied", func() {
+		Context("when CPU model not defined", func() {
 			It("should report CPU model from libvirt capabilities", func() {
 				By("Starting a VirtualMachineInstance")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
