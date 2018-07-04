@@ -35,7 +35,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -1412,6 +1411,48 @@ func RunOcCommand(args ...string) (string, error) {
 
 	if err != nil {
 		fmt.Printf("%s %s %s\n%s%v\n", kubeconfEnv, KubeVirtOcPath, strings.Join(args, " "), string(stdOutErrBytes), err)
+		return string(stdOutErrBytes), err
+	}
+	return string(stdOutErrBytes), nil
+}
+
+func SkipIfNoVirtctl() {
+	if KubeVirtVirtctlPath == "" {
+		var err error
+		KubeVirtVirtctlPath, err = exec.LookPath("virtctl")
+		if err != nil {
+			Skip("Skip test that requires virtctl binary")
+		}
+	}
+}
+
+func RunVirtctlCommand(args ...string) (string, error) {
+	if KubeVirtVirtctlPath == "" {
+		var err error
+		KubeVirtVirtctlPath, err = exec.LookPath("virtctl")
+		if err != nil {
+			return "", fmt.Errorf("can not find virtctl binary")
+		}
+	}
+
+	kubeconfig := flag.Lookup("kubeconfig").Value
+	if kubeconfig == nil || kubeconfig.String() == "" {
+		return "", fmt.Errorf("can not find kubeconfig")
+	}
+
+	master := flag.Lookup("master").Value
+	if master != nil && master.String() != "" {
+		args = append(args, "--server", master.String())
+	}
+
+	cmd := exec.Command(KubeVirtVirtctlPath, args...)
+	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
+	cmd.Env = append(os.Environ(), kubeconfEnv)
+
+	stdOutErrBytes, err := cmd.CombinedOutput()
+
+	if err != nil {
+		fmt.Printf("%s %s %s\n%s%v\n", kubeconfEnv, KubeVirtVirtctlPath, strings.Join(args, " "), string(stdOutErrBytes), err)
 		return string(stdOutErrBytes), err
 	}
 	return string(stdOutErrBytes), nil
