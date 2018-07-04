@@ -47,6 +47,8 @@ spec:
                     cores:
                       format: int64
                       type: integer
+                    model:
+                      type: string
                 devices:
                   properties:
                     disks:
