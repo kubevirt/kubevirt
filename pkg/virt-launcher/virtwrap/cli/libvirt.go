@@ -24,6 +24,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"runtime"
 	"sync"
 	"time"
 
@@ -98,6 +99,10 @@ func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error)
 	}
 	defer l.checkConnectionLost()
 
+	// TODO: Must be removed once https://github.com/libvirt/libvirt-go/issues/38 is fixed
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	s, err := l.Connect.NewStream(flags)
 	if err != nil {
 		return nil, err
@@ -107,6 +112,11 @@ func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error)
 
 func (l *LibvirtConnection) Close() (int, error) {
 	close(l.stop)
+
+	// TODO: Must be removed once https://github.com/libvirt/libvirt-go/issues/38 is fixed
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	return l.Connect.Close()
 }
 
@@ -115,6 +125,10 @@ func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.Domain
 		return
 	}
 	defer l.checkConnectionLost()
+
+	// TODO: Must be removed once https://github.com/libvirt/libvirt-go/issues/38 is fixed
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	l.callbacks = append(l.callbacks, callback)
 	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
@@ -127,6 +141,10 @@ func (l *LibvirtConnection) LookupDomainByName(name string) (dom VirDomain, err 
 	}
 	defer l.checkConnectionLost()
 
+	// TODO: Must be removed once https://github.com/libvirt/libvirt-go/issues/38 is fixed
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	return l.Connect.LookupDomainByName(name)
 }
 
@@ -135,6 +153,10 @@ func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err erro
 		return
 	}
 	defer l.checkConnectionLost()
+
+	// TODO: Must be removed once https://github.com/libvirt/libvirt-go/issues/38 is fixed
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	dom, err = l.Connect.DomainDefineXML(xml)
 	return
@@ -145,6 +167,10 @@ func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFl
 		return nil, err
 	}
 	defer l.checkConnectionLost()
+
+	// TODO: Must be removed once https://github.com/libvirt/libvirt-go/issues/38 is fixed
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	virDoms, err := l.Connect.ListAllDomains(flags)
 	if err != nil {
@@ -300,6 +326,11 @@ func newConnection(uri string, user string, pass string) (*libvirt.Connect, erro
 		},
 		Callback: callback,
 	}
+
+	// TODO: Must be removed once https://github.com/libvirt/libvirt-go/issues/38 is fixed
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	virConn, err := libvirt.NewConnectWithAuth(uri, auth, 0)
 
 	return virConn, err
