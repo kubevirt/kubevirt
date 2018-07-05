@@ -16,7 +16,6 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
-	vmictl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -105,6 +104,13 @@ var _ = Describe("Expose", func() {
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
+				By("Waiting for kubernetes to create the relevant endpoint")
+				getEndpoint := func() error {
+					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+					return err
+				}
+				Eventually(getEndpoint, 60, 1).Should(BeNil())
+
 				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -114,7 +120,7 @@ var _ = Describe("Expose", func() {
 				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
 			})
 		})
-		
+
 		Context("Expose NodePort service", func() {
 			const servicePort = "27017"
 			const serviceName = "node-port-vmi"
@@ -331,7 +337,7 @@ var _ = Describe("Expose", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Calling the start command")
-			virtctl = tests.NewRepeatableVirtctlCommand(vmictl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
+			virtctl = tests.NewRepeatableVirtctlCommand("start", "--namespace", vm.Namespace, vm.Name)
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -343,14 +349,14 @@ var _ = Describe("Expose", func() {
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
 			By("Getting the running VMI")
-			var vm *v1.VirtualMachineInstance
+			var vmi *v1.VirtualMachineInstance
 			Eventually(func() bool {
-				vm, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return vm.Status.Phase == v1.Running
+				return vmi.Status.Phase == v1.Running
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
-			generateHelloWorldServer(vm, virtClient, testPort, "tcp")
+			generateHelloWorldServer(vmi, virtClient, testPort, "tcp")
 		})
 
 		Context("Expose ClusterIP service", func() {
