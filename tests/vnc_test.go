@@ -29,6 +29,15 @@ import (
 
 	"time"
 
+	"net/http"
+
+	"github.com/gorilla/websocket"
+	"github.com/onsi/ginkgo/extensions/table"
+	"k8s.io/client-go/rest"
+
+	"fmt"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/tests"
@@ -40,19 +49,19 @@ var _ = Describe("VNC", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
-
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-	})
+	var vmi *v1.VirtualMachineInstance
 
 	Describe("A new VirtualMachineInstance", func() {
-		Context("with VNC connection", func() {
-			It("should allow accessing the VNC device", func() {
-				By("Starting a VirtualMachineInstance")
-				vmi := tests.NewRandomVMI()
-				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
-				tests.WaitForSuccessfulVMIStart(vmi)
+		tests.BeforeAll(func() {
+			tests.BeforeTestCleanup()
+			vmi = tests.NewRandomVMI()
+			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+			tests.WaitForSuccessfulVMIStart(vmi)
+		})
 
+		Context("with VNC connection", func() {
+
+			It("should allow accessing the VNC device", func() {
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
 				defer pipeInReader.Close()
@@ -110,5 +119,63 @@ var _ = Describe("VNC", func() {
 				Expect(err).To(BeNil())
 			})
 		})
+
+		table.DescribeTable("should upgrade subresource connections if an origin header is given", func(subresource string) {
+			config, err := kubecli.GetKubevirtClientConfig()
+			Expect(err).ToNot(HaveOccurred())
+			rt, err := upgradeCheckRoundTripperFromConfig(config)
+			Expect(err).ToNot(HaveOccurred())
+			req, err := kubecli.RequestFromConfig(config, vmi.Name, vmi.Namespace, subresource)
+
+			// Add an Origin header to look more like an arbitrary browser
+			if req.Header == nil {
+				req.Header = http.Header{}
+			}
+			req.Header.Add("Origin", config.Host)
+			_, err = rt.RoundTrip(req)
+			Expect(err).ToNot(HaveOccurred())
+		},
+			table.Entry("for vnc", "vnc"),
+			table.Entry("for serial console", "console"),
+		)
 	})
 })
+
+// checkUpgradeRoundTripper checks if an upgrade confirmation is received from the server
+type checkUpgradeRoundTripper struct {
+	Dialer *websocket.Dialer
+}
+
+func (t checkUpgradeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	conn, resp, err := t.Dialer.Dial(r.URL.String(), r.Header)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("%v: %d", err, resp.StatusCode))
+	Expect(resp.StatusCode).To(Equal(http.StatusSwitchingProtocols))
+	conn.Close()
+	return nil, nil
+}
+
+// upgradeCheckRoundTripperFromConfig returns a wrapped roundtripper which checks if an upgrade confirmation from servers is received
+func upgradeCheckRoundTripperFromConfig(config *rest.Config) (http.RoundTripper, error) {
+
+	// Configure TLS
+	tlsConfig, err := rest.TLSConfigFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Configure the websocket dialer
+	dialer := &websocket.Dialer{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsConfig,
+		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
+		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
+	}
+
+	// Create a roundtripper which will pass in the final underlying websocket connection to a callback
+	rt := &checkUpgradeRoundTripper{
+		Dialer: dialer,
+	}
+
+	// Make sure we inherit all relevant security headers
+	return rest.HTTPWrappersForConfig(config, rt)
+}
