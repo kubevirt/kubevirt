@@ -61,6 +61,16 @@ func (_mr *_MockLauncherClientRecorder) KillVirtualMachine(arg0 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVirtualMachine", arg0)
 }
 
+func (_m *MockLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "DeleteDomain", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) DeleteDomain(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteDomain", arg0)
+}
+
 func (_m *MockLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	ret := _m.ctrl.Call(_m, "GetDomain")
 	ret0, _ := ret[0].(*api.Domain)

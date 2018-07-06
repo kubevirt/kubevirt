@@ -402,7 +402,7 @@ var _ = Describe("Networking", func() {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
 		})
 	})
@@ -415,7 +415,7 @@ var _ = Describe("Networking", func() {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad", "localhost:~#")
 		})
 	})
@@ -428,7 +428,7 @@ var _ = Describe("Networking", func() {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
 		})
 	})

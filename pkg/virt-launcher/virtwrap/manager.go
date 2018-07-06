@@ -51,6 +51,7 @@ import (
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
 	KillVMI(*v1.VirtualMachineInstance) error
+	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
 }
@@ -299,9 +300,33 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 			return err
 		}
 		log.Log.Object(vmi).Info("Domain stopped.")
+		return nil
 	}
 
 	log.Log.Object(vmi).Info("Domain not running or paused, nothing to do.")
+	return nil
+}
+
+func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the domain does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return nil
+		} else {
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed.")
+			return err
+		}
+	}
+	defer dom.Free()
+
+	err = dom.Undefine()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Undefining the domain failed.")
+		return err
+	}
+	log.Log.Object(vmi).Info("Domain undefined.")
 	return nil
 }
 

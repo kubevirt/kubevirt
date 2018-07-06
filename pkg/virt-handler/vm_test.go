@@ -144,7 +144,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
+			client.EXPECT().DeleteDomain(v1.NewVMIReferenceFromName("testvmi"))
 			client.EXPECT().Close()
 			controller.Execute()
 		})
@@ -156,7 +156,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
-			client.EXPECT().Close()
 
 			controller.Execute()
 		})
@@ -215,7 +214,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
-			client.EXPECT().Close()
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -232,7 +230,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
-			client.EXPECT().Close()
 			domainFeeder.Add(domain)
 			controller.Execute()
 		}, 3)
