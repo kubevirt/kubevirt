@@ -22,7 +22,7 @@ MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
 
 # Prepare all images
-RUN mkdir -p /images/custom /images/alpine \
+RUN mkdir -p /images/custom /images/alpine /images/datavolume1 /images/datavolume2 /images/datavolume3 \
     && truncate -s 64M /images/custom/disk.img \
     && curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /images/alpine/disk.img
 

@@ -12,6 +12,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 /*
@@ -97,6 +99,29 @@ func NewVirtualMachineFeeder(queue *MockWorkQueue, source *framework.FakeControl
 	}
 }
 
+type DataVolumeFeeder struct {
+	MockQueue *MockWorkQueue
+	Source    *framework.FakeControllerSource
+}
+
+func (v *DataVolumeFeeder) Add(d *cdiv1.DataVolume) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Add(d)
+	v.MockQueue.Wait()
+}
+
+func (v *DataVolumeFeeder) Modify(d *cdiv1.DataVolume) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Modify(d)
+	v.MockQueue.Wait()
+}
+
+func (v *DataVolumeFeeder) Delete(d *cdiv1.DataVolume) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Delete(d)
+	v.MockQueue.Wait()
+}
+
 type PodFeeder struct {
 	MockQueue *MockWorkQueue
 	Source    *framework.FakeControllerSource
@@ -122,6 +147,13 @@ func (v *PodFeeder) Delete(pod *k8sv1.Pod) {
 
 func NewPodFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *PodFeeder {
 	return &PodFeeder{
+		MockQueue: queue,
+		Source:    source,
+	}
+}
+
+func NewDataVolumeFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *DataVolumeFeeder {
+	return &DataVolumeFeeder{
 		MockQueue: queue,
 		Source:    source,
 	}

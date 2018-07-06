@@ -129,69 +129,6 @@ var _ = Describe("VirtualMachine", func() {
 			return newVMI
 		}
 
-		startVMI := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
-			By("Starting the VirtualMachineInstance")
-
-			Eventually(func() error {
-				updatedVMI, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				updatedVMI.Spec.Running = true
-				_, err = virtClient.VirtualMachine(updatedVMI.Namespace).Update(updatedVMI)
-				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-			updatedVMI, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Observe the VirtualMachineInstance created
-			Eventually(func() error {
-				_, err := virtClient.VirtualMachineInstance(updatedVMI.Namespace).Get(updatedVMI.Name, &v12.GetOptions{})
-				return err
-			}, 300*time.Second, 1*time.Second).Should(Succeed())
-
-			By("VMI has the running condition")
-			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(updatedVMI.Namespace).Get(updatedVMI.Name, &v12.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vm.Status.Ready
-			}, 300*time.Second, 1*time.Second).Should(BeTrue())
-
-			return updatedVMI
-		}
-
-		stopVMI := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
-			By("Stopping the VirtualMachineInstance")
-
-			Eventually(func() error {
-				updatedVMI, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				updatedVMI.Spec.Running = false
-				_, err = virtClient.VirtualMachine(updatedVMI.Namespace).Update(updatedVMI)
-				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-			updatedVMI, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Observe the VirtualMachineInstance deleted
-			Eventually(func() bool {
-				_, err = virtClient.VirtualMachineInstance(updatedVMI.Namespace).Get(updatedVMI.Name, &v12.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				return false
-			}, 300*time.Second, 1*time.Second).Should(BeTrue(), "The vmi did not disappear")
-
-			By("VMI has not the running condition")
-			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(updatedVMI.Namespace).Get(updatedVMI.Name, &v12.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vm.Status.Ready
-			}, 300*time.Second, 1*time.Second).Should(BeFalse())
-
-			return updatedVMI
-		}
-
 		It("should update VirtualMachine once VMIs are up", func() {
 			newVMI := newVirtualMachine(true)
 			Eventually(func() bool {
@@ -243,7 +180,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should recreate VirtualMachineInstance if it gets deleted", func() {
-			newVMI := startVMI(newVirtualMachine(false))
+			newVMI := tests.StartVirtualMachine(newVirtualMachine(false))
 
 			currentVMI, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -325,8 +262,8 @@ var _ = Describe("VirtualMachine", func() {
 		It("should stop VirtualMachineInstance if running set to false", func() {
 
 			currVMI := newVirtualMachine(false)
-			currVMI = startVMI(currVMI)
-			currVMI = stopVMI(currVMI)
+			currVMI = tests.StartVirtualMachine(currVMI)
+			currVMI = tests.StopVirtualMachine(currVMI)
 
 		})
 
@@ -338,8 +275,8 @@ var _ = Describe("VirtualMachine", func() {
 			// Start and stop VirtualMachineInstance multiple times
 			for i := 0; i < 5; i++ {
 				By(fmt.Sprintf("Doing run: %d", i))
-				startVMI(currVMI)
-				stopVMI(currVMI)
+				tests.StartVirtualMachine(currVMI)
+				tests.StopVirtualMachine(currVMI)
 			}
 		})
 
@@ -372,8 +309,8 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
 
 			By("Restarting the VMI")
-			newVMI = stopVMI(newVMI)
-			newVMI = startVMI(newVMI)
+			newVMI = tests.StopVirtualMachine(newVMI)
+			newVMI = tests.StartVirtualMachine(newVMI)
 
 			By("Expecting updated spec running")
 			vmi, err = virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, &v12.GetOptions{})
@@ -387,7 +324,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should survive guest shutdown, multiple times", func() {
 			By("Creating new VMI, not running")
 			newVMI := newVirtualMachine(false)
-			newVMI = startVMI(newVMI)
+			newVMI = tests.StartVirtualMachine(newVMI)
 			var vmi *v1.VirtualMachineInstance
 
 			for i := 0; i < 3; i++ {

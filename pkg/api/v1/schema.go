@@ -23,6 +23,8 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 //go:generate swagger-doc
@@ -310,6 +312,10 @@ type VolumeSource struct {
 	// More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
 	// +optional
 	EmptyDisk *EmptyDiskSource `json:"emptyDisk,omitempty"`
+	// DataVolume represents the dynamic creation a PVC for this volume as well as
+	// the process of populating that PVC with a disk image.
+	// +optional
+	DataVolume *cdiv1.DataVolumeSpec `json:"dataVolume,omitempty"`
 }
 
 // ---

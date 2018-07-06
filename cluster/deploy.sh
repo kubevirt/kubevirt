@@ -27,6 +27,21 @@ echo "Deploying ..."
 
 # Deploy the right manifests for the right target
 if [[ -z $TARGET ]] || [[ $TARGET =~ .*-dev ]]; then
+
+    # Enable dataVolume integration support for dev
+    _kubectl create -f ${MANIFESTS_OUT_DIR}/optional/cdi-controller-deployment.yaml -R $i
+    cat <<EOF | _kubectl create -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubevirt-config
+  namespace: ${namespace}
+  labels:
+    kubevirt.io: ""
+data:
+  feature-gates: "DataVolumes"
+EOF
+
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
 elif [[ $TARGET =~ .*-release ]] || [[ $TARGET =~ windows.* ]]; then
     for manifest in ${MANIFESTS_OUT_DIR}/release/*; do

@@ -45,6 +45,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
 )
 
 var _ = Describe("VirtualMachineInstance watcher", func() {
@@ -54,16 +57,49 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var vmiSource *framework.FakeControllerSource
 	var podSource *framework.FakeControllerSource
+	var dataVolumeSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
+	var dataVolumeInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *VMIController
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var podFeeder *testutils.PodFeeder
+
+	var dataVolumeFeeder *testutils.DataVolumeFeeder
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
+	var cdiClient *cdifake.Clientset
 	var configMapInformer cache.SharedIndexInformer
+
+	shouldExpectDataVolumeCreation := func(uid types.UID, idx *int) {
+
+		cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+
+			*idx++
+			dataVolume := update.GetObject().(*cdiv1.DataVolume)
+			volName := fmt.Sprintf("test%d", *idx)
+
+			Expect(dataVolume.ObjectMeta.OwnerReferences[0].UID).To(Equal(uid))
+			Expect(dataVolume.Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
+			Expect(dataVolume.Annotations[v1.DataVolumeSourceName]).To(Equal(volName))
+
+			return true, update.GetObject(), nil
+		})
+	}
+
+	shouldExpectDataVolumeDeletion := func(idx *int) {
+		cdiClient.Fake.PrependReactor("delete", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			_, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+
+			*idx++
+			return true, nil, nil
+		})
+	}
 
 	shouldExpectPodCreation := func(uid types.UID) {
 		// Expect pod creation
@@ -119,6 +155,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}).Return(vmi, nil)
 	}
 
+	shouldExpectVirtualMachineFailedStateWithCondition := func(vmi *v1.VirtualMachineInstance) {
+		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Failed))
+			Expect(len(arg.(*v1.VirtualMachineInstance).Status.Conditions)).To(Equal(1))
+			Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
+		}).Return(vmi, nil)
+	}
+
 	shouldExpectVirtualMachineFailedState := func(vmi *v1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Failed))
@@ -130,7 +174,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, podInformer.HasSynced)).To(BeTrue())
+		go dataVolumeInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop,
+			vmiInformer.HasSynced,
+			podInformer.HasSynced,
+			dataVolumeInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -141,14 +189,23 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		recorder = record.NewFakeRecorder(100)
 
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		controller = NewVMIController(services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()), vmiInformer, podInformer, recorder, virtClient, configMapInformer)
+		controller = NewVMIController(
+			services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()),
+			vmiInformer,
+			podInformer,
+			recorder,
+			virtClient,
+			configMapInformer,
+			dataVolumeInformer)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
+		dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
@@ -160,6 +217,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
+
+		cdiClient = cdifake.NewSimpleClientset()
+		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+		cdiClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Expect(action).To(BeNil())
+			return true, nil, nil
+		})
+
 		syncCaches(stop)
 	})
 	AfterEach(func() {
@@ -176,6 +241,130 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	Context("On valid VirtualMachineInstance given", func() {
+
+		It("should create a corresponding DataVolumes on VirtualMachineInstance creation", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &cdiv1.DataVolumeSpec{
+						Source: cdiv1.DataVolumeSource{},
+						PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test2",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &cdiv1.DataVolumeSpec{
+						Source: cdiv1.DataVolumeSource{},
+						PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					},
+				},
+			})
+			addVirtualMachine(vmi)
+
+			createCount := 0
+			shouldExpectDataVolumeCreation(vmi.UID, &createCount)
+			controller.Execute()
+			Expect(createCount).To(Equal(len(vmi.Spec.Volumes)))
+
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+		})
+
+		It("should only create DataVolumes that don't already exist for a VirtualMachineInstance", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &cdiv1.DataVolumeSpec{
+						Source: cdiv1.DataVolumeSource{},
+						PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test2",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &cdiv1.DataVolumeSpec{
+						Source: cdiv1.DataVolumeSource{},
+						PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					},
+				},
+			})
+			existingDataVolume, _ := createDataVolumeManifest(&vmi.Spec.Volumes[1],
+				&vmi.ObjectMeta,
+				v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+				v1.VirtualMachineInstanceGroupVersionKind.Kind)
+			existingDataVolume.Namespace = "default"
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(existingDataVolume)
+
+			createCount := 0
+			shouldExpectDataVolumeCreation(vmi.UID, &createCount)
+			controller.Execute()
+			Expect(createCount).To(Equal(1))
+
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+		})
+
+		It("should only start Pod once DataVolumes are completed", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &cdiv1.DataVolumeSpec{
+						Source: cdiv1.DataVolumeSource{},
+						PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					},
+				},
+			})
+			existingDataVolume, _ := createDataVolumeManifest(&vmi.Spec.Volumes[0],
+				&vmi.ObjectMeta,
+				v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+				v1.VirtualMachineInstanceGroupVersionKind.Kind)
+			existingDataVolume.Namespace = "default"
+			existingDataVolume.Status.Phase = cdiv1.Succeeded
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(existingDataVolume)
+
+			shouldExpectPodCreation(vmi.UID)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should fail VirtualMachineInstance if DataVolume import fails", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &cdiv1.DataVolumeSpec{
+						Source: cdiv1.DataVolumeSource{},
+						PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					},
+				},
+			})
+			existingDataVolume, _ := createDataVolumeManifest(&vmi.Spec.Volumes[0],
+				&vmi.ObjectMeta,
+				v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+				v1.VirtualMachineInstanceGroupVersionKind.Kind)
+			existingDataVolume.Namespace = "default"
+			existingDataVolume.Status.Phase = cdiv1.Failed
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(existingDataVolume)
+			shouldExpectVirtualMachineFailedStateWithCondition(vmi)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+		})
+
 		It("should create a corresponding Pod on VirtualMachineInstance creation", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
@@ -187,6 +376,79 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
+
+		table.DescribeTable("should delete the corresponding DataVolumes on VirtualMachineInstance deletion with vmi", func(phase v1.VirtualMachineInstancePhase) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &cdiv1.DataVolumeSpec{
+						Source: cdiv1.DataVolumeSource{},
+						PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test2",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &cdiv1.DataVolumeSpec{
+						Source: cdiv1.DataVolumeSource{},
+						PVC:    &k8sv1.PersistentVolumeClaimSpec{},
+					},
+				},
+			})
+			vmi.Status.Phase = phase
+			vmi.DeletionTimestamp = now()
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			deletionCount := 0
+			for _, volume := range vmi.Spec.Volumes {
+				existingDataVolume, _ := createDataVolumeManifest(&volume,
+					&vmi.ObjectMeta,
+					v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+					v1.VirtualMachineInstanceGroupVersionKind.Kind)
+				existingDataVolume.Namespace = "default"
+
+				dataVolumeFeeder.Add(existingDataVolume)
+				shouldExpectDataVolumeDeletion(&deletionCount)
+			}
+
+			// THis is added to ensure we don't delete datavolumes unrelated to a vmi
+			unrelatedDataVolume, _ := createDataVolumeManifest(&vmi.Spec.Volumes[0],
+				&vmi.ObjectMeta,
+				v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+				v1.VirtualMachineInstanceGroupVersionKind.Kind)
+			unrelatedDataVolume.Namespace = "default"
+			unrelatedDataVolume.ObjectMeta.OwnerReferences[0].UID = "01010"
+			unrelatedDataVolume.Name = "madeup"
+			dataVolumeSource.Add(unrelatedDataVolume)
+
+			shouldExpectPodDeletion(pod)
+
+			if vmi.IsUnprocessed() {
+				shouldExpectVirtualMachineSchedulingState(vmi)
+			}
+
+			controller.Execute()
+
+			Expect(deletionCount).To(Equal(2))
+
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeDeleteReason)
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeDeleteReason)
+			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+		},
+			table.Entry("in running state", v1.Running),
+			table.Entry("in unset state", v1.VmPhaseUnset),
+			table.Entry("in pending state", v1.Pending),
+			table.Entry("in succeeded state", v1.Succeeded),
+			table.Entry("in failed state", v1.Failed),
+			table.Entry("in scheduled state", v1.Scheduled),
+			table.Entry("in scheduling state", v1.Scheduling),
+		)
+
 		table.DescribeTable("should delete the corresponding Pod on VirtualMachineInstance deletion with vmi", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase

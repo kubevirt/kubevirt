@@ -1,5 +1,5 @@
-hash: 72f3abe955ef368d170b0201cdb32729b15c0c5bc3e8523dbd6d7dc7d235fbcb
-updated: 2018-05-30T17:36:13.225619211-04:00
+hash: a2a9f52b854e1e50be5731cfaac26dfe6ee062a761a941446461c09182852918
+updated: 2018-06-28T15:56:35.588029747Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -13,7 +13,7 @@ imports:
 - name: github.com/asaskevich/govalidator
   version: 7d2e70ef918f16bd6455529af38304d6d025c952
 - name: github.com/Azure/go-autorest
-  version: e14a70c556c8e0db173358d1a903dca345a8e75e
+  version: d4e6b95c12a08b4de2d48b45d5b4d594e5d32fab
   subpackages:
   - autorest
   - autorest/adal
@@ -34,7 +34,7 @@ imports:
   subpackages:
   - log
 - name: github.com/emicklei/go-restful-openapi
-  version: 51bf251d405ad1e23511fef0a2dbe40bc70ce2c6
+  version: ca11c31130f54bf8dfaa69dac83d8603b2d4b48e
 - name: github.com/emicklei/go-restful-swagger12
   version: 7524189396c68dc4b04d53852f9edc00f816b123
 - name: github.com/evanphx/json-patch
@@ -54,9 +54,9 @@ imports:
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
-  version: 13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272
+  version: 3fb327e6747da3043567ee86abd02bb6376b6be2
 - name: github.com/go-openapi/spec
-  version: 7abd5745472fff5eb3685386d5fb8bf38683154d
+  version: 1de3e0542de65ad8d75452a595886fdd0befb363
 - name: github.com/go-openapi/swag
   version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-stack/stack
@@ -86,8 +86,6 @@ imports:
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
-- name: github.com/google/btree
-  version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/goexpect
   version: 756071476d4175eed2d146a607574a92063d1f58
 - name: github.com/google/gofuzz
@@ -103,7 +101,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gophercloud/gophercloud
-  version: 8183543f90d1aef267a5ecc209f2e0715b355acb
+  version: 6da026c32e2d622cc242d32984259c77237aefe1
   subpackages:
   - openstack
   - openstack/identity/v2/tenants
@@ -113,10 +111,6 @@ imports:
   - pagination
 - name: github.com/gorilla/websocket
   version: 0647012449a1878977514a346b26637dd022446c
-- name: github.com/gregjones/httpcache
-  version: 787624de3eb7bd915c329cba748687a3b22666a6
-  subpackages:
-  - diskcache
 - name: github.com/hashicorp/golang-lru
   version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
   subpackages:
@@ -128,9 +122,7 @@ imports:
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/json-iterator/go
-  version: 36b14963da70d11297d313183d7e6388c8510e1e
-- name: github.com/juju/ratelimit
-  version: 5b9ff866471762aa2ab2dced63c9fb6f53921342
+  version: 13f86432b882000a51c6e610c620974462691a97
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/krolaw/dhcp4
@@ -146,7 +138,7 @@ imports:
   - jlexer
   - jwriter
 - name: github.com/onsi/ginkgo
-  version: 11459a886d9cd66b319dac7ef1e917ee221372c9
+  version: 9eda700730cba42af70d53180f9dcce9266bc2bc
   subpackages:
   - config
   - extensions/table
@@ -167,7 +159,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: dcabb60a477c2b6f456df65037cb6708210fbb02
+  version: 9be84105672ba4433a3b61f1b4d7f9ff8b022293
   subpackages:
   - format
   - ghttp
@@ -183,8 +175,6 @@ imports:
   - types
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
-- name: github.com/peterbourgon/diskv
-  version: 5f041e8faa004a95c88a202771f4cc3e991971e6
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
@@ -229,6 +219,7 @@ imports:
   - ipv4
   - lex/httplex
   - trace
+  - websocket
 - name: golang.org/x/oauth2
   version: a6bd8cefa1811bd24b86f8902872e4e8225f74c4
   subpackages:
@@ -266,6 +257,10 @@ imports:
   - unicode/bidi
   - unicode/norm
   - width
+- name: golang.org/x/time
+  version: f51c12702a4d776e4c1fa9b0fabab841babae631
+  subpackages:
+  - rate
 - name: google.golang.org/appengine
   version: b1f26356af11148e710935ed1ac8a7f5702c7612
   subpackages:
@@ -283,17 +278,22 @@ imports:
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: d2e1b51f33ff8c5e4a15560ff049d200e83726c5
+  version: 5b3c4e850e90a4cf6a20ebd46c8b32a0a3afcb9e
   subpackages:
+  - balancer
+  - balancer/roundrobin
   - codes
+  - connectivity
   - credentials
-  - grpclb/grpc_lb_v1
   - grpclog
   - internal
   - keepalive
   - metadata
   - naming
   - peer
+  - resolver
+  - resolver/dns
+  - resolver/passthrough
   - stats
   - status
   - tap
@@ -303,9 +303,9 @@ imports:
 - name: gopkg.in/ini.v1
   version: 06f5f3d67269ccec1fe5fe4134ba6e982984f7f5
 - name: gopkg.in/yaml.v2
-  version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
+  version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
-  version: acf347b865f29325eb61f4cd2df11e86e073a5ee
+  version: feb48db456a5912850dcccbd42a3535382ba76de
   subpackages:
   - admission/v1beta1
   - admissionregistration/v1alpha1
@@ -338,12 +338,12 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: ce97df4801e4c2c08188f5ea3bdea37f8e3b6472
+  version: 4f483a67720d777c728b7225218d5f4300b948ab
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
 - name: k8s.io/apimachinery
-  version: 19e3f5aa3adca672c153d324e6b7d82ff8935f03
+  version: 31dade610c053669d8054bfd847da657251e8c1a
   subpackages:
   - pkg/api/errors
   - pkg/api/meta
@@ -354,7 +354,7 @@ imports:
   - pkg/apis/meta/internalversion
   - pkg/apis/meta/v1
   - pkg/apis/meta/v1/unstructured
-  - pkg/apis/meta/v1alpha1
+  - pkg/apis/meta/v1beta1
   - pkg/conversion
   - pkg/conversion/queryparams
   - pkg/fields
@@ -396,7 +396,7 @@ imports:
   - third_party/forked/golang/netutil
   - third_party/forked/golang/reflect
 - name: k8s.io/client-go
-  version: 90539b4e75a8daaf7f67c3874c6180bfb1a63936
+  version: 29ae1f00c3d8bb759d6246c357573a9af3c659c1
   subpackages:
   - discovery
   - discovery/fake
@@ -459,9 +459,12 @@ imports:
   - kubernetes/typed/storage/v1alpha1/fake
   - kubernetes/typed/storage/v1beta1
   - kubernetes/typed/storage/v1beta1/fake
+  - pkg/apis/clientauthentication
+  - pkg/apis/clientauthentication/v1alpha1
   - pkg/version
   - plugin/pkg/client/auth
   - plugin/pkg/client/auth/azure
+  - plugin/pkg/client/auth/exec
   - plugin/pkg/client/auth/gcp
   - plugin/pkg/client/auth/oidc
   - plugin/pkg/client/auth/openstack
@@ -493,22 +496,41 @@ imports:
   - util/homedir
   - util/integer
   - util/jsonpath
+  - util/retry
   - util/workqueue
 - name: k8s.io/kube-aggregator
-  version: f2179cbd9d5726787907db25bd3a034229d87635
+  version: a305d191dfc1956bfaa9500f0d2f3481e0e3ffb2
   subpackages:
   - pkg/apis/apiregistration
+  - pkg/apis/apiregistration/v1
   - pkg/apis/apiregistration/v1beta1
   - pkg/client/clientset_generated/clientset
   - pkg/client/clientset_generated/clientset/scheme
+  - pkg/client/clientset_generated/clientset/typed/apiregistration/v1
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
 - name: k8s.io/kube-openapi
-  version: 39a7bf85c140f972372c2a0d1ee40adbf0c8bfe1
+  version: 39cb288412c48cb533ba4be5d6c28620b9a0c1b4
   subpackages:
   - pkg/common
   - pkg/util/proto
+- name: kubevirt.io/containerized-data-importer
+  version: 0c0514c03966b08cab20659fd2ec680640a0fc29
+  repo: https://github.com/kubevirt/containerized-data-importer.git
+  subpackages:
+  - pkg/apis/datavolumecontroller
+  - pkg/apis/datavolumecontroller/v1alpha1
+  - pkg/client/clientset/versioned
+  - pkg/client/clientset/versioned/fake
+  - pkg/client/clientset/versioned/scheme
+  - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1
+  - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1/fake
+  - pkg/client/informers/externalversions
+  - pkg/client/informers/externalversions/datavolumecontroller
+  - pkg/client/informers/externalversions/datavolumecontroller/v1alpha1
+  - pkg/client/informers/externalversions/internalinterfaces
+  - pkg/client/listers/datavolumecontroller/v1alpha1
 - name: kubevirt.io/qe-tools
-  version: 80f4b017d28e9c45955ac462dfcdef4520e6ec1a
+  version: 51aa15b370eeb41194adc275eba8f7f362fdaceb
   repo: https://github.com/kubevirt/qe-tools.git
   subpackages:
   - pkg/ginkgo-reporters

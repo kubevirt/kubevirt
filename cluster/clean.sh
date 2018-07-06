@@ -41,6 +41,7 @@ _kubectl delete pods -n ${namespace} -l="kubevirt.io=virt-handler" --force --gra
 # Delete all traces of kubevirt
 namespaces=(default ${namespace})
 for i in ${namespaces[@]}; do
+    _kubectl -n ${i} delete configmaps -l 'kubevirt.io'
     _kubectl -n ${i} delete apiservices -l 'kubevirt.io'
     _kubectl -n ${i} delete deployment -l 'kubevirt.io'
     _kubectl -n ${i} delete rs -l 'kubevirt.io'
@@ -62,6 +63,13 @@ for i in ${namespaces[@]}; do
     if [ $(_kubectl -n ${i} get crd offlinevirtualmachines.kubevirt.io | wc -l) -gt 0 ]; then
         _kubectl -n ${i} delete crd 'offlinevirtualmachines.kubevirt.io'
     fi
+
+    _kubectl -n ${i} delete deployment -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete serviceaccounts -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete clusterroles -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete clusterrolebinding -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete customresourcedefinitions -l 'cdi.kubevirt.io'
+
 done
 
 sleep 2

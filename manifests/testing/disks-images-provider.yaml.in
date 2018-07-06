@@ -65,6 +65,99 @@ spec:
   hostPath:
     path: /tmp/hostImages/custom
 ---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-path-disk-datavolume1
+  labels:
+    kubevirt.io: ""
+    os: "datavolume1"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp/hostImages/datavolume1
+  persistentVolumeReclaimPolicy: Recycle
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-path-disk-datavolume2
+  labels:
+    kubevirt.io: ""
+    os: "datavolume2"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp/hostImages/datavolume2
+  persistentVolumeReclaimPolicy: Recycle
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-path-disk-datavolume3
+  labels:
+    kubevirt.io: ""
+    os: "datavolume3"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp/hostImages/datavolume3
+  persistentVolumeReclaimPolicy: Recycle
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdi-http-import-server
+  namespace: {{.Namespace}}
+  labels:
+    kubevirt.io: "cdi-http-import-server"
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    kubevirt.io: cdi-http-import-server
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cdi-http-import-server
+  namespace: {{.Namespace}}
+  labels:
+    kubevirt.io: "cdi-http-import-server"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        kubevirt.io: cdi-http-import-server
+    spec:
+      containers:
+        - name: cdi-http-import-server
+          image: {{.DockerPrefix}}/cdi-http-import-server:{{.DockerTag}}
+          imagePullPolicy: IfNotPresent
+          command:
+              - "/usr/sbin/nginx"
+          ports:
+            - containerPort: 80
+              name: "http"
+              protocol: "TCP"
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:

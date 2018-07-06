@@ -20,6 +20,7 @@
 package services
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -124,6 +125,17 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		if volume.RegistryDisk != nil && volume.RegistryDisk.ImagePullSecret != "" {
 			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 				Name: volume.RegistryDisk.ImagePullSecret,
+			})
+		}
+		if volume.DataVolume != nil {
+			volumesMounts = append(volumesMounts, volumeMount)
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: GetDataVolumeToPVC(vmi.Name, volume.Name),
+					},
+				},
 			})
 		}
 	}
@@ -355,6 +367,15 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	return &pod, nil
+}
+
+func GetDataVolumeToPVC(vmName string, volumeName string) string {
+	// dataVolume generates a PVC of the same name in the same namespace
+	return GetDataVolumeName(vmName, volumeName)
+}
+
+func GetDataVolumeName(vmName string, volumeName string) string {
+	return fmt.Sprintf("%s-%s---autogen", vmName, volumeName)
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {

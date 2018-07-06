@@ -1,0 +1,38 @@
+# This manifest is strictly intended for standalone testing of the data importer.  As such, it will not be similar
+# to the data importer pod created by the cdi-controller.  Here, we must provide the secret and endpoint information as
+# environmental variables.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: data-importer
+  labels:
+    app: containerized-data-importer
+spec:
+  restartPolicy: Never
+  containers:
+  - name: importer
+    image: kubevirt/cdi-importer:v1.0.0
+    imagePullPolicy: Always
+    env:
+    # REQUIRED!  Location of source data.
+    - name: IMPORTER_ENDPOINT
+      value: ""  # format: (http||s3)://www.Server.com/path/of/data
+    # Optional.  If no credentials are required to access the source data, these fields should be removed.
+    - name: IMPORTER_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: <YOUR ENDPOINT SECRET>
+          key: <name of key for access key id>
+    - name: IMPORTER_SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: <YOUR ENDPOINT SECRET>
+          key: <name of key for secret key>
+    # End Optional
+    volumeMounts:
+    - name: data-path
+      mountPath: /data
+  volumes:
+  - name: data-path
+    persistentVolumeClaim:
+      claimName: golden-pvc

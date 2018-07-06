@@ -240,6 +240,7 @@ spec:
                         type: string
                       userDataBase64:
                         type: string
+                  dataVolume: {}
                   emptyDisk:
                     properties:
                       capacity: {}
