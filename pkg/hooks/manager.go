@@ -189,7 +189,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 
 				client := hooksV1alpha1.NewCallbacksClient(conn)
 
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
 				result, err := client.OnDefineDomain(ctx, &hooksV1alpha1.OnDefineDomainParams{
 					DomainXML: domainSpecXML,

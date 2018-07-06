@@ -50,7 +50,7 @@ var _ = Describe("HookSidecars", func() {
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 		vmi.ObjectMeta.Annotations = map[string]string{
-			"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, tests.KubeVirtRepoPrefix, hookSidecarImage, tests.KubeVirtVersionTag),
+			"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, tests.KubeVirtRepoPrefix, hookSidecarImage, tests.KubeVirtVersionTag),
 			"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 		}
 	})

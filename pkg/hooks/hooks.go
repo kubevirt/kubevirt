@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 
 	k8sv1 "k8s.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 const HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
@@ -35,10 +37,14 @@ type HookSidecar struct {
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy"`
 }
 
-func UnmarshalHookSidecarList(annotation string) (HookSidecarList, error) {
-	var hookSidecarList HookSidecarList
-	if err := json.Unmarshal([]byte(annotation), &hookSidecarList); err != nil {
-		return nil, err
+func UnmarshalHookSidecarList(vmiObject *v1.VirtualMachineInstance) (HookSidecarList, error) {
+	hookSidecarList := make(HookSidecarList, 0)
+
+	if rawRequestedHookSidecarList, requestedHookSidecarListDefined := vmiObject.GetAnnotations()[HookSidecarListAnnotationName]; requestedHookSidecarListDefined {
+		if err := json.Unmarshal([]byte(rawRequestedHookSidecarList), &hookSidecarList); err != nil {
+			return nil, err
+		}
 	}
+
 	return hookSidecarList, nil
 }

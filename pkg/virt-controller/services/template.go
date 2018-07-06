@@ -207,14 +207,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
-	// Read requested hookSidecars from VM annotation
-	var err error
-	requestedHookSidecarList := make(hooks.HookSidecarList, 0)
-	if rawRequestedHookSidecarList, requestedHookSidecarListDefined := vmi.GetObjectMeta().GetAnnotations()[hooks.HookSidecarListAnnotationName]; requestedHookSidecarListDefined {
-		requestedHookSidecarList, err = hooks.UnmarshalHookSidecarList(rawRequestedHookSidecarList)
-		if err != nil {
-			return nil, err
-		}
+	// Read requested hookSidecars from VMI meta
+	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(requestedHookSidecarList) != 0 {
