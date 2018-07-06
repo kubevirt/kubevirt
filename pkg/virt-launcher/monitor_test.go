@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -36,6 +37,7 @@ import (
 var _ = Describe("VirtLauncher", func() {
 	var mon *monitor
 	var cmd *exec.Cmd
+	var cmdLock sync.Mutex
 
 	uuid := "123-123-123-123"
 
@@ -52,6 +54,9 @@ var _ = Describe("VirtLauncher", func() {
 	processStarted := false
 
 	StartProcess := func() {
+		cmdLock.Lock()
+		defer cmdLock.Unlock()
+
 		cmd = exec.Command(processPath, "--uuid", uuid)
 		err := cmd.Start()
 		Expect(err).ToNot(HaveOccurred())
@@ -63,11 +68,17 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	StopProcess := func() {
+		cmdLock.Lock()
+		defer cmdLock.Unlock()
+
 		cmd.Process.Kill()
 		processStarted = false
 	}
 
 	CleanupProcess := func() {
+		cmdLock.Lock()
+		defer cmdLock.Unlock()
+
 		cmd.Wait()
 	}
 
@@ -114,6 +125,8 @@ var _ = Describe("VirtLauncher", func() {
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
 		if processStarted == true {
+			cmdLock.Lock()
+			defer cmdLock.Unlock()
 			cmd.Process.Kill()
 		}
 		processStarted = false
