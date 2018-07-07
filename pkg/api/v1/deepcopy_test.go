@@ -51,7 +51,6 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&VirtualMachineInstance{},
 			&VirtualMachineInstanceList{},
 			&VirtualMachineInstanceSpec{},
-			&Affinity{},
 			&VirtualMachineInstanceStatus{},
 			&VirtualMachineInstanceCondition{},
 			&VMISelector{},
