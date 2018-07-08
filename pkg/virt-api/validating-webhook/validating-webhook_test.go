@@ -585,7 +585,7 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			// if this is processed correctly, it should not result in any error
+			// if this is processed correctly, it should result an error
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
 		})
