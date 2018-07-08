@@ -472,7 +472,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	} else if getNumberOfPodInterfaces(spec) > 1 {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueDuplicate,
-			Message: fmt.Sprintf("multiple pod interfaces in %s", field.Child("interfaces").String()),
+			Message: fmt.Sprintf("multiple pod networks in %s", field.Child("interfaces").String()),
 			Field:   field.Child("interfaces").String(),
 		})
 		return causes
@@ -529,6 +529,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 			networkNameMap[network.Name] = &network
 		}
+		// Make sure interface and networks are 1to1 related
+		networkInterfaceMap := make(map[string]struct{})
 
 		// Make sure the port name is unique across all the interfaces
 		portForwardMap := make(map[string]struct{})
@@ -557,6 +559,18 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			}
+
+			// Check interface network relation
+			_, networkAlreadyUsed := networkInterfaceMap[iface.Name]
+			if networkAlreadyUsed {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueDuplicate,
+					Message: fmt.Sprintf("Only one interface can be connected to one spesefic network"),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
+			}
+
+			networkInterfaceMap[iface.Name] = struct{}{}
 
 			// Check only ports configured on interfaces connected to a pod network
 			if networkExists && networkData.Pod != nil && iface.Ports != nil {
