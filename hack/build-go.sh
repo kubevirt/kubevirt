@@ -43,7 +43,7 @@ if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (
             cd ${KUBEVIRT_DIR}/pkg
-            go ${target} -v ./...
+            go ${target} -v -race ./...
         )
     else
         (
