@@ -529,7 +529,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 			networkNameMap[network.Name] = &network
 		}
-		// Make sure interface and networks are 1to1 related
+		// Make sure interfaces and networks are 1to1 related
 		networkInterfaceMap := make(map[string]struct{})
 
 		// Make sure the port name is unique across all the interfaces
@@ -560,9 +560,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			// Check interface network relation
-			_, networkAlreadyUsed := networkInterfaceMap[iface.Name]
-			if networkAlreadyUsed {
+			// Check if the interface name is unique
+			if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueDuplicate,
 					Message: fmt.Sprintf("Only one interface can be connected to one spesefic network"),
