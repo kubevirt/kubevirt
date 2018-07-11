@@ -26,8 +26,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/berrange/libvirt-go"
 	"github.com/golang/mock/gomock"
-	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

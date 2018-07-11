@@ -29,7 +29,7 @@ import (
 	"encoding/xml"
 	"fmt"
 
-	"github.com/libvirt/libvirt-go"
+	"github.com/berrange/libvirt-go"
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

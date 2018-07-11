@@ -6,7 +6,7 @@ import (
 	"net/rpc"
 	"path/filepath"
 
-	"github.com/libvirt/libvirt-go"
+	"github.com/berrange/libvirt-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 

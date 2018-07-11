@@ -212,4 +212,70 @@ virDomainPtr virDomainDefineXMLFlagsCompat(virConnectPtr conn,
 #define VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV 1 << 15
 #endif
 
+/* 4.1.0 */
+
+virStoragePoolPtr virStoragePoolLookupByTargetPathCompat(virConnectPtr conn,
+							 const char *path);
+
+/* 4.4.0 */
+
+char *virConnectBaselineHypervisorCPUCompat(virConnectPtr conn,
+					    const char *emulator,
+					    const char *arch,
+					    const char *machine,
+					    const char *virttype,
+					    const char **xmlCPUs,
+					    unsigned int ncpus,
+					    unsigned int flags);
+
+int virConnectCompareHypervisorCPUCompat(virConnectPtr conn,
+					 const char *emulator,
+					 const char *arch,
+					 const char *machine,
+					 const char *virttype,
+					 const char *xmlCPU,
+					 unsigned int flags);
+
+/* 4.5.0 */
+
+int virNodeGetSEVInfoCompat(virConnectPtr conn,
+                            virTypedParameterPtr *params,
+                            int *nparams,
+                            unsigned int flags);
+
+#ifndef VIR_NODE_SEV_CBITPOS
+#define VIR_NODE_SEV_CBITPOS "cbitpos"
+#endif
+
+#ifndef VIR_NODE_SEV_REDUCED_PHYS_BITS
+#define VIR_NODE_SEV_REDUCED_PHYS_BITS "reduced-phys-bits"
+#endif
+
+#ifndef VIR_NODE_SEV_PDH
+#define VIR_NODE_SEV_PDH "pdh"
+#endif
+
+#ifndef VIR_NODE_SEV_CERT_CHAIN
+#define VIR_NODE_SEV_CERT_CHAIN "cert-chain"
+#endif
+
+#if LIBVIR_VERSION_NUMBER < 4005000
+typedef struct _virNWFilterBinding *virNWFilterBindingPtr;
+#endif
+
+int virConnectListAllNWFilterBindingsCompat(virConnectPtr conn,
+                                            virNWFilterBindingPtr **bindings,
+                                            unsigned int flags);
+
+virNWFilterBindingPtr virNWFilterBindingCreateXMLCompat(virConnectPtr conn,
+							const char *xml,
+							unsigned int flags);
+
+virNWFilterBindingPtr virNWFilterBindingLookupByPortDevCompat(virConnectPtr conn,
+							      const char *portdev);
+
+#ifndef VIR_CONNECT_GET_ALL_DOMAINS_STATS_NOWAIT
+#define VIR_CONNECT_GET_ALL_DOMAINS_STATS_NOWAIT 1 << 29
+#endif
+
 #endif /* LIBVIRT_GO_CONNECT_COMPAT_H__ */

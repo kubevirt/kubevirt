@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/libvirt/libvirt-go"
+	"github.com/berrange/libvirt-go"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"

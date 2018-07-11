@@ -1,5 +1,5 @@
-hash: ebd1a28c668003c851e1c906d85743b0379a4adebb84894247d9c4817f09946f
-updated: 2018-06-22T13:13:30.882266906+02:00
+hash: 60cf1830ae7d138998aad40359b5f79e6cb49c281db951350c551541d0515036
+updated: 2018-07-11T11:31:01.569287775Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -19,6 +19,8 @@ imports:
   - autorest/adal
   - autorest/azure
   - autorest/date
+- name: github.com/berrange/libvirt-go
+  version: a597b962c91f5d6d4a48bef4f914306eded7adc5
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
@@ -34,7 +36,7 @@ imports:
   subpackages:
   - log
 - name: github.com/emicklei/go-restful-openapi
-  version: 51bf251d405ad1e23511fef0a2dbe40bc70ce2c6
+  version: ca11c31130f54bf8dfaa69dac83d8603b2d4b48e
 - name: github.com/emicklei/go-restful-swagger12
   version: 7524189396c68dc4b04d53852f9edc00f816b123
 - name: github.com/evanphx/json-patch
@@ -89,7 +91,7 @@ imports:
 - name: github.com/google/btree
   version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/goexpect
-  version: 756071476d4175eed2d146a607574a92063d1f58
+  version: ab4b830a1d94b505ac5025eaa09ed950b329efa4
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/google/goterm
@@ -138,7 +140,7 @@ imports:
   subpackages:
   - conn
 - name: github.com/libvirt/libvirt-go
-  version: 0822ea6d658d7a0deeaa2ce63ed3efd6306bee03
+  version: 1dc878bc190df8aab9be86bfb657039a4f906573
 - name: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
   subpackages:
@@ -283,17 +285,28 @@ imports:
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: d2e1b51f33ff8c5e4a15560ff049d200e83726c5
+  version: 168a6198bcb0ef175f7dacec0b8691fc141dc9b8
   subpackages:
+  - balancer
+  - balancer/base
+  - balancer/roundrobin
   - codes
+  - connectivity
   - credentials
-  - grpclb/grpc_lb_v1
+  - encoding
+  - encoding/proto
   - grpclog
   - internal
+  - internal/backoff
+  - internal/channelz
+  - internal/grpcrand
   - keepalive
   - metadata
   - naming
   - peer
+  - resolver
+  - resolver/dns
+  - resolver/passthrough
   - stats
   - status
   - tap
@@ -508,7 +521,7 @@ imports:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/qe-tools
-  version: 80f4b017d28e9c45955ac462dfcdef4520e6ec1a
+  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
   repo: https://github.com/kubevirt/qe-tools.git
   subpackages:
   - pkg/ginkgo-reporters
@@ -531,4 +544,4 @@ testImports:
   subpackages:
   - errgroup
 - name: gopkg.in/check.v1
-  version: 20d25e2804050c1cd24a7eea1e7a6447dd0e74ec
+  version: 788fd78401277ebd861206a03c884797c6ec5541

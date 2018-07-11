@@ -353,6 +353,15 @@ const (
 
 	// error in libssh transport driver
 	ERR_LIBSSH = ErrorNumber(C.VIR_ERR_LIBSSH)
+
+	// libvirt fail to find the desired device
+	ERR_DEVICE_MISSING = ErrorNumber(C.VIR_ERR_DEVICE_MISSING)
+
+	// Invalid nwfilter binding object
+	ERR_INVALID_NWFILTER_BINDING = ErrorNumber(C.VIR_ERR_INVALID_NWFILTER_BINDING)
+
+	// Requested nwfilter binding does not exist
+	ERR_NO_NWFILTER_BINDING = ErrorNumber(C.VIR_ERR_NO_NWFILTER_BINDING)
 )
 
 type ErrorDomain int

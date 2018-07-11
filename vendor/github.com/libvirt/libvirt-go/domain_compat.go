@@ -345,5 +345,40 @@ int virDomainManagedSaveDefineXMLCompat(virDomainPtr domain,
 #endif
 }
 
+int virDomainSetLifecycleActionCompat(virDomainPtr domain,
+                                      unsigned int type,
+                                      unsigned int action,
+                                      unsigned int flags)
+{
+#if LIBVIR_VERSION_NUMBER < 3009000
+    assert(0); // Caller should have checked version
+#else
+    return virDomainSetLifecycleAction(domain, type, action, flags);
+#endif
+}
+
+int virDomainDetachDeviceAliasCompat(virDomainPtr domain,
+				     const char *alias,
+				     unsigned int flags)
+{
+#if LIBVIR_VERSION_NUMBER < 4004000
+    assert(0); // Caller should have checked version
+#else
+    return virDomainDetachDeviceAlias(domain, alias, flags);
+#endif
+}
+
+int virDomainGetLaunchSecurityInfoCompat(virDomainPtr domain,
+					 virTypedParameterPtr *params,
+					 int *nparams,
+					 unsigned int flags)
+{
+#if LIBVIR_VERSION_NUMBER < 4005000
+    assert(0); // Caller should have checked version
+#else
+    return virDomainGetLaunchSecurityInfo(domain, params, nparams, flags);
+#endif
+}
+
 */
 import "C"

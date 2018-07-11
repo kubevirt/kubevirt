@@ -20,7 +20,7 @@
 package errors
 
 import (
-	"github.com/libvirt/libvirt-go"
+	"github.com/berrange/libvirt-go"
 )
 
 func checkError(err error, expectedError libvirt.ErrorNumber) bool {

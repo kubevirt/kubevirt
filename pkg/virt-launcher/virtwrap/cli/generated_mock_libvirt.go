@@ -4,8 +4,8 @@
 package cli
 
 import (
+	libvirt_go "github.com/berrange/libvirt-go"
 	gomock "github.com/golang/mock/gomock"
-	libvirt_go "github.com/libvirt/libvirt-go"
 )
 
 // Mock of Connection interface

@@ -394,6 +394,7 @@ type DomainInterfaceAddressesSource int
 const (
 	DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE = DomainInterfaceAddressesSource(C.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE)
 	DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT = DomainInterfaceAddressesSource(C.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT)
+	DOMAIN_INTERFACE_ADDRESSES_SRC_ARP   = DomainInterfaceAddressesSource(C.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_ARP)
 )
 
 type KeycodeSet int
@@ -409,6 +410,7 @@ const (
 	KEYCODE_SET_USB    = KeycodeSet(C.VIR_KEYCODE_SET_USB)
 	KEYCODE_SET_WIN32  = KeycodeSet(C.VIR_KEYCODE_SET_WIN32)
 	KEYCODE_SET_RFB    = KeycodeSet(C.VIR_KEYCODE_SET_RFB)
+	KEYCODE_SET_QNUM   = KeycodeSet(C.VIR_KEYCODE_SET_QNUM)
 )
 
 type ConnectDomainEventBlockJobStatus int
@@ -1492,6 +1494,21 @@ func (d *Domain) DetachDeviceFlags(xml string, flags DomainDeviceModifyFlags) er
 	return nil
 }
 
+// See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainDetachDeviceAlias
+func (d *Domain) DetachDeviceAlias(alias string, flags DomainDeviceModifyFlags) error {
+	if C.LIBVIR_VERSION_NUMBER < 4004000 {
+		return GetNotImplementedError("virDomainDetachDeviceAlias")
+	}
+
+	cAlias := C.CString(alias)
+	defer C.free(unsafe.Pointer(cAlias))
+	result := C.virDomainDetachDeviceAliasCompat(d.ptr, cAlias, C.uint(flags))
+	if result == -1 {
+		return GetLastError()
+	}
+	return nil
+}
+
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainUpdateDeviceFlags
 func (d *Domain) UpdateDeviceFlags(xml string, flags DomainDeviceModifyFlags) error {
 	cXml := C.CString(xml)
@@ -1710,7 +1727,7 @@ func (d *Domain) MemoryStats(nrStats uint32, flags uint32) ([]DomainMemoryStat, 
 		return []DomainMemoryStat{}, GetLastError()
 	}
 
-	out := make([]DomainMemoryStat, result)
+	out := make([]DomainMemoryStat, 0)
 	for i := 0; i < int(result); i++ {
 		out = append(out, DomainMemoryStat{
 			Tag: int32(ptr[i].tag),
@@ -1718,6 +1735,25 @@ func (d *Domain) MemoryStats(nrStats uint32, flags uint32) ([]DomainMemoryStat, 
 		})
 	}
 	return out, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainGetConnect
+//
+// Contrary to the native C API behaviour, the Go API will
+// acquire a reference on the returned Connect, which must
+// be released by calling Close()
+func (d *Domain) DomainGetConnect() (*Connect, error) {
+	ptr := C.virDomainGetConnect(d.ptr)
+	if ptr == nil {
+		return nil, GetLastError()
+	}
+
+	ret := C.virConnectRef(ptr)
+	if ret == -1 {
+		return nil, GetLastError()
+	}
+
+	return &Connect{ptr: ptr}, nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainGetVcpus
@@ -2860,6 +2896,8 @@ type DomainJobInfo struct {
 	MemBps                    uint64
 	MemDirtyRateSet           bool
 	MemDirtyRate              uint64
+	MemPageSizeSet            bool
+	MemPageSize               uint64
 	MemIterationSet           bool
 	MemIteration              uint64
 	DiskTotalSet              bool
@@ -2991,6 +3029,10 @@ func getDomainJobInfoFieldInfo(params *DomainJobInfo) map[string]typedParamsFiel
 		C.VIR_DOMAIN_JOB_MEMORY_DIRTY_RATE: typedParamsFieldInfo{
 			set: &params.MemDirtyRateSet,
 			ul:  &params.MemDirtyRate,
+		},
+		C.VIR_DOMAIN_JOB_MEMORY_PAGE_SIZE: typedParamsFieldInfo{
+			set: &params.MemPageSizeSet,
+			ul:  &params.MemPageSize,
 		},
 		C.VIR_DOMAIN_JOB_MEMORY_ITERATION: typedParamsFieldInfo{
 			set: &params.MemIterationSet,
@@ -3463,19 +3505,19 @@ type DomainSchedulerParameters struct {
 	GlobalPeriodSet   bool
 	GlobalPeriod      uint64
 	GlobalQuotaSet    bool
-	GlobalQuota       uint64
+	GlobalQuota       int64
 	VcpuPeriodSet     bool
 	VcpuPeriod        uint64
 	VcpuQuotaSet      bool
-	VcpuQuota         uint64
+	VcpuQuota         int64
 	EmulatorPeriodSet bool
 	EmulatorPeriod    uint64
 	EmulatorQuotaSet  bool
-	EmulatorQuota     uint64
+	EmulatorQuota     int64
 	IothreadPeriodSet bool
 	IothreadPeriod    uint64
 	IothreadQuotaSet  bool
-	IothreadQuota     uint64
+	IothreadQuota     int64
 	WeightSet         bool
 	Weight            uint
 	CapSet            bool
@@ -3500,7 +3542,7 @@ func getDomainSchedulerParametersFieldInfo(params *DomainSchedulerParameters) ma
 		},
 		C.VIR_DOMAIN_SCHEDULER_GLOBAL_QUOTA: typedParamsFieldInfo{
 			set: &params.GlobalQuotaSet,
-			ul:  &params.GlobalQuota,
+			l:   &params.GlobalQuota,
 		},
 		C.VIR_DOMAIN_SCHEDULER_EMULATOR_PERIOD: typedParamsFieldInfo{
 			set: &params.EmulatorPeriodSet,
@@ -3508,7 +3550,7 @@ func getDomainSchedulerParametersFieldInfo(params *DomainSchedulerParameters) ma
 		},
 		C.VIR_DOMAIN_SCHEDULER_EMULATOR_QUOTA: typedParamsFieldInfo{
 			set: &params.EmulatorQuotaSet,
-			ul:  &params.EmulatorQuota,
+			l:   &params.EmulatorQuota,
 		},
 		C.VIR_DOMAIN_SCHEDULER_VCPU_PERIOD: typedParamsFieldInfo{
 			set: &params.VcpuPeriodSet,
@@ -3516,7 +3558,7 @@ func getDomainSchedulerParametersFieldInfo(params *DomainSchedulerParameters) ma
 		},
 		C.VIR_DOMAIN_SCHEDULER_VCPU_QUOTA: typedParamsFieldInfo{
 			set: &params.VcpuQuotaSet,
-			ul:  &params.VcpuQuota,
+			l:   &params.VcpuQuota,
 		},
 		C.VIR_DOMAIN_SCHEDULER_IOTHREAD_PERIOD: typedParamsFieldInfo{
 			set: &params.IothreadPeriodSet,
@@ -3524,7 +3566,7 @@ func getDomainSchedulerParametersFieldInfo(params *DomainSchedulerParameters) ma
 		},
 		C.VIR_DOMAIN_SCHEDULER_IOTHREAD_QUOTA: typedParamsFieldInfo{
 			set: &params.IothreadQuotaSet,
-			ul:  &params.IothreadQuota,
+			l:   &params.IothreadQuota,
 		},
 		C.VIR_DOMAIN_SCHEDULER_WEIGHT: typedParamsFieldInfo{
 			set: &params.WeightSet,
@@ -4497,4 +4539,78 @@ func (d *Domain) ManagedSaveGetXMLDesc(flags uint32) (string, error) {
 	xml := C.GoString(ret)
 	C.free(unsafe.Pointer(ret))
 	return xml, nil
+}
+
+type DomainLifecycle int
+
+const (
+	DOMAIN_LIFECYCLE_POWEROFF = DomainLifecycle(C.VIR_DOMAIN_LIFECYCLE_POWEROFF)
+	DOMAIN_LIFECYCLE_REBOOT   = DomainLifecycle(C.VIR_DOMAIN_LIFECYCLE_REBOOT)
+	DOMAIN_LIFECYCLE_CRASH    = DomainLifecycle(C.VIR_DOMAIN_LIFECYCLE_CRASH)
+)
+
+type DomainLifecycleAction int
+
+const (
+	DOMAIN_LIFECYCLE_ACTION_DESTROY          = DomainLifecycleAction(C.VIR_DOMAIN_LIFECYCLE_ACTION_DESTROY)
+	DOMAIN_LIFECYCLE_ACTION_RESTART          = DomainLifecycleAction(C.VIR_DOMAIN_LIFECYCLE_ACTION_RESTART)
+	DOMAIN_LIFECYCLE_ACTION_RESTART_RENAME   = DomainLifecycleAction(C.VIR_DOMAIN_LIFECYCLE_ACTION_RESTART_RENAME)
+	DOMAIN_LIFECYCLE_ACTION_PRESERVE         = DomainLifecycleAction(C.VIR_DOMAIN_LIFECYCLE_ACTION_PRESERVE)
+	DOMAIN_LIFECYCLE_ACTION_COREDUMP_DESTROY = DomainLifecycleAction(C.VIR_DOMAIN_LIFECYCLE_ACTION_COREDUMP_DESTROY)
+	DOMAIN_LIFECYCLE_ACTION_COREDUMP_RESTART = DomainLifecycleAction(C.VIR_DOMAIN_LIFECYCLE_ACTION_COREDUMP_RESTART)
+)
+
+// See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSetLifecycleAction
+func (d *Domain) SetLifecycleAction(lifecycleType uint32, action uint32, flags uint32) error {
+	if C.LIBVIR_VERSION_NUMBER < 3009000 {
+		return GetNotImplementedError("virDomainSetLifecycleAction")
+	}
+
+	ret := C.virDomainSetLifecycleActionCompat(d.ptr, C.uint(lifecycleType), C.uint(action), C.uint(flags))
+	if ret == -1 {
+		return GetLastError()
+	}
+
+	return nil
+}
+
+type DomainLaunchSecurityParameters struct {
+	SEVMeasurementSet bool
+	SEVMeasurement    string
+}
+
+func getDomainLaunchSecurityFieldInfo(params *DomainLaunchSecurityParameters) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		C.VIR_DOMAIN_LAUNCH_SECURITY_SEV_MEASUREMENT: typedParamsFieldInfo{
+			set: &params.SEVMeasurementSet,
+			s:   &params.SEVMeasurement,
+		},
+	}
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainGetLaunchSecurityInfo
+func (d *Domain) GetLaunchSecurityInfo(flags uint32) (*DomainLaunchSecurityParameters, error) {
+	if C.LIBVIR_VERSION_NUMBER < 4005000 {
+		return nil, GetNotImplementedError("virDomainGetLaunchSecurityInfo")
+	}
+
+	params := &DomainLaunchSecurityParameters{}
+	info := getDomainLaunchSecurityFieldInfo(params)
+
+	var cparams *C.virTypedParameter
+	var nparams C.int
+
+	ret := C.virDomainGetLaunchSecurityInfoCompat(d.ptr, (*C.virTypedParameterPtr)(unsafe.Pointer(&cparams)), &nparams, C.uint(flags))
+	if ret == -1 {
+		return nil, GetLastError()
+	}
+
+	defer C.virTypedParamsFree(cparams, nparams)
+
+	_, err := typedParamsUnpackLen(cparams, int(nparams), info)
+	if err != nil {
+		return nil, err
+	}
+
+	return params, nil
 }

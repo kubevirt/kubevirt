@@ -142,6 +142,15 @@ func changeChk(f func(*GExpect) bool) Option {
 	}
 }
 
+// SetEnv sets the environmental variables of the spawned process.
+func SetEnv(env []string) Option {
+	return func(e *GExpect) Option {
+		prev := e.cmd.Env
+		e.cmd.Env = env
+		return SetEnv(prev)
+	}
+}
+
 // BatchCommands.
 const (
 	// BatchSend for invoking Send in a batch
