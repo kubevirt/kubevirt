@@ -1,7 +1,9 @@
 package vm_test
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -36,14 +38,20 @@ var _ = Describe("VirtualMachine", func() {
 
 	Context("should patch VM", func() {
 		It("with spec:running:true", func() {
-			cmd := tests.NewRepeatableVirtctlCommand("start", vmName)
-			Expect(cmd()).To(BeNil())
+			buffer := &bytes.Buffer{}
+			cmd := tests.NewVirtctlCommand("start", vmName)
+			cmd.SetOutput(buffer)
+			Expect(cmd.Execute()).To(BeNil())
+			Expect(buffer.String()).To(Equal(fmt.Sprintf("VM %s was scheduled to start\n", vmName)))
 		})
 
 		It("with spec:running:false", func() {
 			vm.Spec.Running = true
-			cmd := tests.NewRepeatableVirtctlCommand("stop", vmName)
-			Expect(cmd()).To(BeNil())
+			buffer := &bytes.Buffer{}
+			cmd := tests.NewVirtctlCommand("stop", vmName)
+			cmd.SetOutput(buffer)
+			Expect(cmd.Execute()).To(BeNil())
+			Expect(buffer.String()).To(Equal(fmt.Sprintf("VM %s was scheduled to stop\n", vmName)))
 		})
 
 		It("with spec:running:false when it's false already ", func() {
