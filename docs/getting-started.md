@@ -6,12 +6,13 @@ development cluster.
 ## Building
 
 The KubeVirt build system runs completely inside docker. In order to build
-KubeVirt you need to have `docker` and `rsync` installed.
+KubeVirt you need to have `docker` and `rsync` installed. You also need to have `docker`
+running, and have the [permissions](https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user) to access it.
 
 **Note:** For running KubeVirt in the dockerized cluster, **nested
-virtualization** must be enabled. As an alternative [software
-emulation](software-emulation.md) can be allowed. Enabling nested
-virtualization should be preferred.
+virtualization** must be enabled - [see here for instructions for Fedora](https://docs.fedoraproject.org/quick-docs/en-US/using-nested-virtualization-in-kvm.html).
+As an alternative [software emulation](software-emulation.md) can be allowed.
+Enabling nested virtualization should be preferred.
 
 ### Dockerized environment
 
@@ -25,8 +26,8 @@ for scheduling and memory are missing or incompatible with previous versions.
 
 ### Compile and run it
 
-Build all required artifacts and launch the
-dockerizied environment:
+To build all required artifacts and launch the
+dockerizied environment, clone the KubeVirt repository, `cd` into it, and:
 
 ```bash
 # Build and deploy KubeVirt on Kubernetes 1.10.4 in our vms inside containers
@@ -84,20 +85,19 @@ To execute a remote command, e.g `ls`, simply type
 cluster/cli.sh ssh node01 -- ls -lh
 ```
 
-### Code generation
+### Automatic Code Generation
 
-**Note:** This is only important if you plan to modify sources, you don't need
-code generators just for building
-
-To invoke all code-generators and regenerate generated code, run:
+Some of the code in our source tree is auto-generated (see `git ls-files|grep '^pkg/.*generated.*go$'`).
+On certain occasions (but not when building git-cloned code), you would need to regenerate it
+with
 
 ```bash
 make generate
 ```
 
-Typical code changes where running the generators is needed:
+Typical cases where code regeneration should be triggered are:
 
- * When changing APIs, REST paths or their comments (gets reflected in the api documentation, clients, generated cloners, ...)
+ * When changing APIs, REST paths or their comments (gets reflected in the api documentation, clients, generated cloners...)
  * When changing mocked interfaces (the mock generator needs to update the generated mocks then)
 
  We have a check in our CI system, so that you don't miss when `make generate` needs to be called.
@@ -124,7 +124,7 @@ If you'd like to run specific functional tests only, you can leverage `ginkgo`
 command line options as follows (run a specified suite):
 
 ```
-    FUNC_TEST_ARGS='-ginkgo.focus=vm_networking_test -ginkgo.regexScansFilePath' make functest
+    FUNC_TEST_ARGS='-ginkgo.focus=vmi_networking_test -ginkgo.regexScansFilePath' make functest
 ```
 
 In addition, if you want to run a specific test or tests you can prepend any `Describe`,
@@ -151,7 +151,7 @@ Finally start a VMI called `vmi-ephemeral`:
     ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
 
     # Sure? Let's list all created VMIs
-    ./cluster/kubectl.sh get vms
+    ./cluster/kubectl.sh get vmis
 
     # Enough, let's get rid of it
     ./cluster/kubectl.sh delete -f cluster/examples/vmi-ephemeral.yaml
@@ -159,6 +159,9 @@ Finally start a VMI called `vmi-ephemeral`:
 
     # You can actually use kubelet.sh to introspect the cluster in general
     ./cluster/kubectl.sh get pods
+
+    # To check the running kubevirt services you need to introspect the `kube-system` namespace:
+    ./cluster/kubectl.sh -n kube-system get pods
 ```
 
 This will start a VMI on master or one of the running nodes with a macvtap and a
@@ -177,11 +180,11 @@ virt-controller                   1/1       Running   1          10h
 virt-handler-z90mp                1/1       Running   1          10h
 virt-launcher-vmi-ephemeral9q7es   1/1       Running   0          10s
 
-$ ./cluster/kubectl.sh get vms
+$ ./cluster/kubectl.sh get vmis
 NAME           LABELS                        DATA
 vmi-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
 
-$ ./cluster/kubectl.sh get vms -o json
+$ ./cluster/kubectl.sh get vmis -o json
 {
     "kind": "List",
     "apiVersion": "v1",

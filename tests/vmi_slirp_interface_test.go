@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"flag"
-	"fmt"
 	"strings"
 	"time"
 
@@ -96,7 +95,6 @@ var _ = Describe("Slirp", func() {
 			vmiPod.Spec.Containers[1].Name,
 			[]string{"curl", "-s", "--retry", "30", "--retry-delay", "30", "127.0.0.1"},
 		)
-		fmt.Println(err)
 		log.Log.Infof("%v", output)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.Contains(output, "Hello World!")).To(BeTrue())
