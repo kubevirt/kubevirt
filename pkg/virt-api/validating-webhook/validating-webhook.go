@@ -529,6 +529,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 			networkNameMap[network.Name] = &network
 		}
+
 		// Make sure interfaces and networks are 1to1 related
 		networkInterfaceMap := make(map[string]struct{})
 
