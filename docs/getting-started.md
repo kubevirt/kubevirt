@@ -9,9 +9,9 @@ The KubeVirt build system runs completely inside docker. In order to build
 KubeVirt you need to have `docker` and `rsync` installed.
 
 **Note:** For running KubeVirt in the dockerized cluster, **nested
-virtualization** must be enabled. As an alternative [software
-emulation](software-emulation.md) can be allowed. Enabling nested
-virtualization should be preferred.
+virtualization** must be enabled - [see here for instructions for Fedora](https://docs.fedoraproject.org/quick-docs/en-US/using-nested-virtualization-in-kvm.html).
+As an alternative [software emulation](software-emulation.md) can be allowed.
+Enabling nested virtualization should be preferred.
 
 ### Dockerized environment
 
@@ -111,7 +111,7 @@ After a successful build you can run the *unit tests*:
 ```
 
 They don't real environment. To run the *functional tests*, make sure you have set
-up dockerizied environment. Then run
+up dockerized environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
@@ -149,7 +149,7 @@ Finally start a VMI called `vmi-ephemeral`:
     ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
 
     # Sure? Let's list all created VMIs
-    ./cluster/kubectl.sh get vms
+    ./cluster/kubectl.sh get vmis
 
     # Enough, let's get rid of it
     ./cluster/kubectl.sh delete -f cluster/examples/vmi-ephemeral.yaml
@@ -157,6 +157,9 @@ Finally start a VMI called `vmi-ephemeral`:
 
     # You can actually use kubelet.sh to introspect the cluster in general
     ./cluster/kubectl.sh get pods
+
+    # To check the running kubevirt services you need to introspect the `kube-system` namespace:
+    ./cluster/kubectl.sh -n kube-system get pods
 ```
 
 This will start a VMI on master or one of the running nodes with a macvtap and a
@@ -175,11 +178,11 @@ virt-controller                   1/1       Running   1          10h
 virt-handler-z90mp                1/1       Running   1          10h
 virt-launcher-vmi-ephemeral9q7es   1/1       Running   0          10s
 
-$ ./cluster/kubectl.sh get vms
+$ ./cluster/kubectl.sh get vmis
 NAME           LABELS                        DATA
 vmi-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
 
-$ ./cluster/kubectl.sh get vms -o json
+$ ./cluster/kubectl.sh get vmis -o json
 {
     "kind": "List",
     "apiVersion": "v1",
