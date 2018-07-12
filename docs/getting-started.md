@@ -7,7 +7,7 @@ development cluster.
 
 The KubeVirt build system runs completely inside docker. In order to build
 KubeVirt you need to have `docker` and `rsync` installed. You also need to have `docker`
-running, and have the permissions to access it.
+running, and have the [permissions](https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user) to access it.
 
 **Note:** For running KubeVirt in the dockerized cluster, **nested
 virtualization** must be enabled. As an alternative [software
