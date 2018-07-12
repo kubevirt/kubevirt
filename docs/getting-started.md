@@ -84,20 +84,19 @@ To execute a remote command, e.g `ls`, simply type
 cluster/cli.sh ssh node01 -- ls -lh
 ```
 
-### Code generation
+### Automatic Code Generation
 
-**Note:** This is only important if you plan to modify sources, you don't need
-code generators just for building
-
-To invoke all code-generators and regenerate generated code, run:
+Some of the code in our source tree is auto-generated (see `git ls-files|grep '^pkg/.*generated.*go$'`).
+On certain occasions (but not when building git-cloned code), you would need to regenerate it
+with
 
 ```bash
 make generate
 ```
 
-Typical code changes where running the generators is needed:
+Typical cases where code regeneration should be triggered are:
 
- * When changing APIs, REST paths or their comments (gets reflected in the api documentation, clients, generated cloners, ...)
+ * When changing APIs, REST paths or their comments (gets reflected in the api documentation, clients, generated cloners...)
  * When changing mocked interfaces (the mock generator needs to update the generated mocks then)
 
  We have a check in our CI system, so that you don't miss when `make generate` needs to be called.
