@@ -181,39 +181,79 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
+func (b *BridgePodInterface) delegateIPAddress() bool {
+	if b.iface.Bridge.DelegateIp != nil {
+		return *b.iface.Bridge.DelegateIp
+	}
+	return true
+}
+
 func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
+	delegateIp := b.delegateIPAddress()
+
 	// Remove IP from POD interface
 	err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
 
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to delete link for interface: %s", podInterface)
+		log.Log.Reason(err).Errorf("failed to delete address for interface: %s", podInterface)
 		return err
 	}
 
-	// Set interface link to down to change its MAC address
-	err = Handler.LinkSetDown(b.podNicLink)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", podInterface)
-		return err
-	}
+	if delegateIp {
+		// Set interface link to down to change its MAC address
+		err = Handler.LinkSetDown(b.podNicLink)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", podInterface)
+			return err
+		}
 
-	_, err = Handler.SetRandomMac(podInterface)
-	if err != nil {
-		return err
-	}
+		_, err = Handler.SetRandomMac(podInterface)
+		if err != nil {
+			return err
+		}
 
-	err = Handler.LinkSetUp(b.podNicLink)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", podInterface)
-		return err
+		err = Handler.LinkSetUp(b.podNicLink)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", podInterface)
+			return err
+		}
 	}
 
 	if err := b.createDefaultBridge(); err != nil {
 		return err
 	}
 
-	b.startDHCPServer()
+	// Set up IP address on the bridge
+	var bridgeAddr string
+	if delegateIp {
+		// Set fake ip on a bridge
+		bridgeAddr = bridgeFakeIP
+	} else {
+		// Move allocated IP address to the bridge
+		bridgeAddr = b.vif.IP.IPNet.String()
+	}
+	if err := b.addIPAddress(bridgeAddr); err != nil {
+		return err
+	}
 
+	if delegateIp {
+		// Start DHCP server to lease the allocated IP address
+		b.startDHCPServer()
+	} else {
+		// Restore default gateway inside the pod
+		if err := b.restoreDefaultGateway(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (b *BridgePodInterface) restoreDefaultGateway() error {
+	route := &netlink.Route{Gw: b.vif.Gateway}
+	if err := Handler.RouteAdd(b.podNicLink, route); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -224,7 +264,10 @@ func (b *BridgePodInterface) startDHCPServer() {
 }
 
 func (b *BridgePodInterface) decorateConfig() error {
-	b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MAC = &api.MAC{MAC: b.vif.MAC.String()}
+	// Move MAC address to the guest only when delegateIp is on
+	if b.delegateIPAddress() {
+		b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MAC = &api.MAC{MAC: b.vif.MAC.String()}
+	}
 
 	return nil
 }
@@ -267,13 +310,17 @@ func (b *BridgePodInterface) setInterfaceRoutes() error {
 	return nil
 }
 
-func (b *BridgePodInterface) createDefaultBridge() error {
-	// Create a bridge
-	bridge := &netlink.Bridge{
+func getBridge() *netlink.Bridge {
+	return &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: api.DefaultBridgeName,
 		},
 	}
+}
+
+func (b *BridgePodInterface) createDefaultBridge() error {
+	// Create a bridge
+	bridge := getBridge()
 	err := Handler.LinkAdd(bridge)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create a bridge")
@@ -287,15 +334,20 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 		return err
 	}
 
-	// set fake ip on a bridge
-	fakeaddr, err := Handler.ParseAddr(bridgeFakeIP)
+	return nil
+}
+
+func (b *BridgePodInterface) addIPAddress(addr string) error {
+	bridge := getBridge()
+
+	bridgeAddr, err := Handler.ParseAddr(addr)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to parse fake bridge address: %s", api.DefaultBridgeName)
+		log.Log.Reason(err).Errorf("failed to parse %s bridge address: %s", api.DefaultBridgeName, addr)
 		return err
 	}
 
-	if err := Handler.AddrAdd(bridge, fakeaddr); err != nil {
-		log.Log.Reason(err).Errorf("failed to set bridge IP")
+	if err := Handler.AddrAdd(bridge, bridgeAddr); err != nil {
+		log.Log.Reason(err).Errorf("failed to set bridge IP: %s", addr)
 		return err
 	}
 

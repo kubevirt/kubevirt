@@ -64,6 +64,16 @@ func (_mr *_MockNetworkHandlerRecorder) RouteList(arg0, arg1 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RouteList", arg0, arg1)
 }
 
+func (_m *MockNetworkHandler) RouteAdd(link netlink.Link, route *netlink.Route) error {
+	ret := _m.ctrl.Call(_m, "RouteAdd", link, route)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) RouteAdd(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RouteAdd", arg0, arg1)
+}
+
 func (_m *MockNetworkHandler) AddrDel(link netlink.Link, addr *netlink.Addr) error {
 	ret := _m.ctrl.Call(_m, "AddrDel", link, addr)
 	ret0, _ := ret[0].(error)
