@@ -417,9 +417,6 @@ metadata:
   labels:
     kubevirt.io: "virt-controller"
 spec:
-  selector:
-    matchLabels:
-      kubevirt.io: virt-controller
   template:
     metadata:
       annotations:
@@ -435,8 +432,13 @@ spec:
         kubevirt.io: virt-controller
     spec:
       serviceAccountName: kubevirt-controller
-      nodeSelector:
-        node-role.kubernetes.io/master: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
       tolerations:
       - key: node-role.kubernetes.io/master
         effect: NoSchedule
