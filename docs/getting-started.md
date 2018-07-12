@@ -6,7 +6,8 @@ development cluster.
 ## Building
 
 The KubeVirt build system runs completely inside docker. In order to build
-KubeVirt you need to have `docker` and `rsync` installed.
+KubeVirt you need to have `docker` and `rsync` installed. You also need to have `docker`
+running, and have the [permissions](https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user) to access it.
 
 **Note:** For running KubeVirt in the dockerized cluster, **nested
 virtualization** must be enabled - [see here for instructions for Fedora](https://docs.fedoraproject.org/quick-docs/en-US/using-nested-virtualization-in-kvm.html).
@@ -25,8 +26,8 @@ for scheduling and memory are missing or incompatible with previous versions.
 
 ### Compile and run it
 
-Build all required artifacts and launch the
-dockerizied environment:
+To build all required artifacts and launch the
+dockerizied environment, clone the KubeVirt repository, `cd` into it, and:
 
 ```bash
 # Build and deploy KubeVirt on Kubernetes 1.10.4 in our vms inside containers
