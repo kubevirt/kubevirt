@@ -410,14 +410,16 @@ spec:
 ---
 # kubevirt controller
 apiVersion: extensions/v1beta1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: virt-controller
   namespace: {{.Namespace}}
   labels:
     kubevirt.io: "virt-controller"
 spec:
-  replicas: 2
+  selector:
+    matchLabels:
+      kubevirt.io: virt-controller
   template:
     metadata:
       annotations:
@@ -433,6 +435,11 @@ spec:
         kubevirt.io: virt-controller
     spec:
       serviceAccountName: kubevirt-controller
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
       containers:
         - name: virt-controller
           image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
