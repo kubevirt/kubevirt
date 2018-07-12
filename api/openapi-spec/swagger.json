@@ -3848,7 +3848,14 @@
      }
     }
    },
-   "v1.InterfaceBridge": {},
+   "v1.InterfaceBridge": {
+    "properties": {
+     "delegateIp": {
+      "description": "Whether to delegate pod IP address to the guest via DHCP.\nDefaults to true.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.InterfaceSlirp": {},
    "v1.KVMTimer": {
     "properties": {
