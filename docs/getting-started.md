@@ -35,7 +35,7 @@ make cluster-up
 make cluster-sync
 ```
 
-This will create a VMI called `node01` which acts as node and master. To create
+This will create a virtual machine called `node01` which acts as node and master. To create
 more nodes which will register themselves on master, you can use the
 `KUBEVIRT_NUM_NODES` environment variable. This would create a master and one
 node:
