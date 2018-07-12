@@ -129,7 +129,7 @@ command line options as follows (run a specified suite):
 
 In addition, if you want to run a specific test or tests you can prepend any `Describe`,
 `Context` and `It` statements of your test with an `F` and Ginkgo will only run items
-that are marked with the prefix. Remeber to remove the prefix before issuing
+that are marked with the prefix. Remember to remove the prefix before issuing
 your pull request.
 
 For additional information check out the [Ginkgo focused specs documentation](http://onsi.github.io/ginkgo/#focused-specs)
