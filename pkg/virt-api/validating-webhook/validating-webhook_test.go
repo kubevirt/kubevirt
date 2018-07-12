@@ -597,7 +597,7 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 				{Name: "default2", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			// if this is processed correctly, it should result an error only about duplicate pod network configureation
+			// if this is processed correctly, it should result an error only about duplicate pod network configuration
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Message).To(Equal("multiple pod networks in fake.interfaces"))
 		})

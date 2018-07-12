@@ -171,7 +171,7 @@ func (c *NodeController) execute(key string) error {
 				return fmt.Errorf("failed to mark node %s as unschedulable: %v", nodeName, err)
 			}
 		}
-		vmis, err := c.virtalMachinesOnNode(nodeName)
+		vmis, err := c.virtualMachinesOnNode(nodeName)
 		if err != nil {
 			logger.Reason(err).Error("Failed fetch vmis for node")
 			return err
@@ -209,7 +209,7 @@ func (c *NodeController) execute(key string) error {
 	return nil
 }
 
-func (c *NodeController) virtalMachinesOnNode(nodeName string) ([]*virtv1.VirtualMachineInstance, error) {
+func (c *NodeController) virtualMachinesOnNode(nodeName string) ([]*virtv1.VirtualMachineInstance, error) {
 	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", virtv1.NodeNameLabel, nodeName))
 	if err != nil {
 		return nil, err
