@@ -39,7 +39,7 @@ spec:
       containers:
         - name: virt-controller
           image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{.ImagePullPolicy}}
           command:
               - "virt-controller"
               - "--launcher-image"

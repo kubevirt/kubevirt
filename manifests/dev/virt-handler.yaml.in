@@ -31,7 +31,7 @@ spec:
             - containerPort: 8185
               hostPort: 8185
           image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{.ImagePullPolicy}}
           command:
             - "virt-handler"
             - "-v"
