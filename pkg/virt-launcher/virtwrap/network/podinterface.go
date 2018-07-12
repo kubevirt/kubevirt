@@ -290,7 +290,7 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 	// set fake ip on a bridge
 	fakeaddr, err := Handler.ParseAddr(bridgeFakeIP)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", api.DefaultBridgeName)
+		log.Log.Reason(err).Errorf("failed to parse fake bridge address: %s", api.DefaultBridgeName)
 		return err
 	}
 
