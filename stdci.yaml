@@ -4,5 +4,3 @@ sub-stages:
   - k8s-1.10.3-release
   - openshift-3.10-release
   - windows2016-release
-runtime_requirements:
-  support_nesting_level: 2
