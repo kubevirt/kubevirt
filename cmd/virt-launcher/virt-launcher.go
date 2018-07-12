@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
 	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -254,6 +255,7 @@ func main() {
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	useEmulation := flag.Bool("use-emulation", false, "Use software emulation")
+	hookSidecars := flag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 
 	// set new default verbosity, was set to 0 by glog
 	flag.Set("v", "2")
@@ -262,6 +264,13 @@ func main() {
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
+
+	// Block until all requested hookSidecars are ready
+	hookManager := hooks.GetManager()
+	err := hookManager.Collect(*hookSidecars, *qemuTimeout)
+	if err != nil {
+		panic(err)
+	}
 
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 

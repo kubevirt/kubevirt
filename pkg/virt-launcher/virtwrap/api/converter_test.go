@@ -418,7 +418,7 @@ var _ = Describe("Converter", func() {
       <vendor_id state="off" value="myvendor"></vendor_id>
     </hyperv>
   </features>
-  <cpu></cpu>
+  <cpu mode="host-model"></cpu>
 </domain>`, domainType)
 
 		var c *ConverterContext
@@ -447,17 +447,42 @@ var _ = Describe("Converter", func() {
 			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal(domainType))
 		})
 
-		It("should convert CPU cores", func() {
+		It("should convert CPU cores and model", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores: 3,
+				Model: "Conroe",
 			}
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Cores).To(Equal(uint32(3)))
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Sockets).To(Equal(uint32(1)))
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).CPU.Topology.Threads).To(Equal(uint32(1)))
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).VCPU.Placement).To(Equal("static"))
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).VCPU.CPUs).To(Equal(uint32(3)))
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
+			Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(3)))
+			Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(1)))
+			Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)))
+			Expect(domainSpec.CPU.Mode).To(Equal("custom"))
+			Expect(domainSpec.CPU.Model).To(Equal("Conroe"))
+			Expect(domainSpec.VCPU.Placement).To(Equal("static"))
+			Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)))
+		})
+
+		Context("when CPU spec defined and model not", func() {
+			It("should set host-model CPU mode", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 3,
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Mode).To(Equal("host-model"))
+			})
+		})
+
+		Context("when CPU spec not defined", func() {
+			It("should set host-model CPU mode", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Mode).To(Equal("host-model"))
+			})
 		})
 
 		It("should select explicitly chosen network model", func() {
@@ -562,26 +587,17 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should add tcp if protocol not exist", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{Port: 80}}}
+			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{v1.Port{Port: 80}}}
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 			err := configPortForward(&qemuArg, iface)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80", iface.Name)))
 		})
-		It("should use podPort", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{v1.Port{PodPort: 9080, Port: 80}}}
-			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-
-			err := configPortForward(&qemuArg, iface)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::9080-:80", iface.Name)))
-		})
 		It("should not fail for duplicate port with different protocol configuration", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 			err := configPortForward(&qemuArg, iface)
@@ -591,8 +607,8 @@ var _ = Describe("Converter", func() {
 		It("Should create network configuration for slirp device", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "otherName"
-			iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net := v1.DefaultPodNetwork()
 			net.Name = name
 			vmi.Spec.Networks = []v1.Network{*net}
@@ -606,14 +622,14 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
+			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = name1
 
 			name2 := "otherName"
-			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 90}}}
+			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 90}}}
+			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net2 := v1.DefaultPodNetwork()
 			net2.Name = name2
 
@@ -634,8 +650,8 @@ var _ = Describe("Converter", func() {
 			net1.Name = name1
 
 			name2 := "otherName"
-			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}}
-			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{Ports: []v1.Port{{Port: 90}}}
+			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 90}}}
+			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net2 := v1.DefaultPodNetwork()
 			net2.Name = name2
 

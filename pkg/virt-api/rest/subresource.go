@@ -62,6 +62,9 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
 		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
+		CheckOrigin: func(_ *http.Request) bool {
+			return true
+		},
 	}
 
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)

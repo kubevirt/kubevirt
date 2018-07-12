@@ -50,7 +50,8 @@ var exampleJSON = `{
         }
       },
       "cpu": {
-        "cores": 3
+        "cores": 3,
+        "model": "Conroe"
       },
       "machine": {
         "type": "q35"
@@ -321,6 +322,7 @@ var _ = Describe("Schema", func() {
 		}
 		exampleVMI.Spec.Domain.CPU = &CPU{
 			Cores: 3,
+			Model: "Conroe",
 		}
 		exampleVMI.Spec.Networks = []Network{
 			Network{
@@ -423,17 +425,16 @@ var _ = Describe("Schema", func() {
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Slirp: &InterfaceSlirp{Ports: []Port{{Port: 80}}},
-					},
+						Slirp: &InterfaceSlirp{}},
+					Ports: []Port{{Port: 80}},
 				},
 			}
-			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {
-              "ports": [
-                {
-                  "port": 80
-                }
-              ]
-            }`}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"slirp": {},
+            "ports": [
+              {
+                "port": 80
+              }
+            ]`}
 
 			tmpl, err := template.New("vmexample").Parse(exampleJSON)
 			Expect(err).To(BeNil())

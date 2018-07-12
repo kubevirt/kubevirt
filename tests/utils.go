@@ -357,14 +357,18 @@ func EnsureKVMPresent() {
 		}
 	}
 	if !useEmulation {
-		listOptions := metav1.ListOptions{}
+		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+		virtHandlerPods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(listOptions)
+		Expect(err).ToNot(HaveOccurred())
+
 		Eventually(func() bool {
-			nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
-			Expect(err).ToNot(HaveOccurred())
 			ready := true
 			// cluster is not ready until all nodes are ready.
-			for _, node := range nodeList.Items {
-				allocatable, ok := node.Status.Allocatable[services.KvmDevice]
+			for _, pod := range virtHandlerPods.Items {
+				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				allocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
 				ready = ready && ok
 				ready = ready && (allocatable.Value() > 0)
 			}
@@ -978,7 +982,7 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 
 func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{Ports: Ports}}}}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}}}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 	return vmi
@@ -994,6 +998,13 @@ func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
+	return vmi
+}
+
+func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	AddExplicitPodNetworkInterface(vmi)
+	vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 	return vmi
 }
 
@@ -1514,4 +1525,45 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	if curVersion < expectedVersion {
 		Skip(message)
 	}
+}
+
+// GetNodeLibvirtCapabilities returns node libvirt capabilities
+func GetNodeLibvirtCapabilities(nodeName string) string {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	// Create a virt-launcher pod, that can fetch virsh capabilities
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vmi.Spec.Affinity = &v1.Affinity{
+		NodeAffinity: &k8sv1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+					{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeName}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
+	Expect(err).ToNot(HaveOccurred())
+	WaitForSuccessfulVMIStart(vmi)
+
+	pods, err := virtClient.CoreV1().Pods(NamespaceTestDefault).List(UnfinishedVMIPodSelector(vmi))
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pods.Items).NotTo(BeEmpty())
+	vmiPod := pods.Items[0]
+
+	output, err := ExecuteCommandOnPod(
+		virtClient,
+		&vmiPod,
+		"compute",
+		[]string{"virsh", "-r", "capabilities"},
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	return output
 }

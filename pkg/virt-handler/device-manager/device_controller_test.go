@@ -63,22 +63,24 @@ var _ = Describe("Device Controller", func() {
 			By(fmt.Sprintf("Device Path: %s", devicePath))
 
 			timeout := make(chan struct{})
-
-			go func() {
+			errChan := make(chan error)
+			go func(devicePath string) {
 				time.Sleep(1 * time.Second)
 
 				fileObj, err := os.Create(devicePath)
-				Expect(err).ToNot(HaveOccurred())
 				fileObj.Close()
-			}()
+				errChan <- err
+			}(devicePath)
 
-			go func() {
+			go func(timeout chan struct{}) {
 				time.Sleep(5 * time.Second)
 				close(timeout)
-			}()
+			}(timeout)
 
-			err := deviceController.waitForPath(devicePath, timeout)
+			err := <-errChan
+			Expect(err).ToNot(HaveOccurred())
 
+			err = deviceController.waitForPath(devicePath, timeout)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

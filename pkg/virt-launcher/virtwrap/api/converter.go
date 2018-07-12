@@ -445,15 +445,28 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	if vmi.Spec.Domain.CPU != nil {
-		domain.Spec.CPU.Topology = &CPUTopology{
-			Sockets: 1,
-			Cores:   vmi.Spec.Domain.CPU.Cores,
-			Threads: 1,
+		// Set VM CPU cores
+		if vmi.Spec.Domain.CPU.Cores != 0 {
+			domain.Spec.CPU.Topology = &CPUTopology{
+				Sockets: 1,
+				Cores:   vmi.Spec.Domain.CPU.Cores,
+				Threads: 1,
+			}
+			domain.Spec.VCPU = &VCPU{
+				Placement: "static",
+				CPUs:      vmi.Spec.Domain.CPU.Cores,
+			}
 		}
-		domain.Spec.VCPU = &VCPU{
-			Placement: "static",
-			CPUs:      vmi.Spec.Domain.CPU.Cores,
+
+		// Set VM CPU model and vendor
+		if vmi.Spec.Domain.CPU.Model != "" {
+			domain.Spec.CPU.Mode = "custom"
+			domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
 		}
+	}
+
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
+		domain.Spec.CPU.Mode = "host-model"
 	}
 
 	// Add mandatory console device
@@ -560,6 +573,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
 			}
 
+			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
+			// append the ports from all the interfaces connected to the same network
 			err := createSlirpNetwork(iface, *net, domain)
 			if err != nil {
 				return err
@@ -595,11 +610,13 @@ func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *Domain) 
 }
 
 func configPortForward(qemuArg *Arg, iface v1.Interface) error {
-	if iface.Slirp.Ports == nil {
+	if iface.Ports == nil {
 		return nil
 	}
 
-	for _, forwardPort := range iface.Slirp.Ports {
+	// Can't be duplicated ports forward or the qemu process will crash
+	configuredPorts := make(map[string]struct{}, 0)
+	for _, forwardPort := range iface.Ports {
 
 		if forwardPort.Port == 0 {
 			return fmt.Errorf("Port must be configured")
@@ -609,13 +626,11 @@ func configPortForward(qemuArg *Arg, iface v1.Interface) error {
 			forwardPort.Protocol = DefaultProtocol
 		}
 
-		// Check if PodPort is configure If not Get the same Port as the vm port
-		if forwardPort.PodPort == 0 {
-			forwardPort.PodPort = forwardPort.Port
+		portConfig := fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)
+		if _, ok := configuredPorts[portConfig]; !ok {
+			qemuArg.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(forwardPort.Protocol), forwardPort.Port, forwardPort.Port)
+			configuredPorts[portConfig] = struct{}{}
 		}
-
-		qemuArg.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(forwardPort.Protocol), forwardPort.PodPort, forwardPort.Port)
-
 	}
 
 	return nil

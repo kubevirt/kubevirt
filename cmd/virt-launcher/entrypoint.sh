@@ -13,11 +13,6 @@ trap _term SIGTERM SIGINT SIGQUIT
 chown :qemu /dev/kvm
 chmod 660 /dev/kvm
 
-# Cockpit/OCP hack to all shoing the vm terminal
-mv /usr/bin/sh /usr/bin/sh.orig
-mv /usr/share/kubevirt/virt-launcher/sh.sh /usr/bin/sh
-chmod +x /usr/bin/sh
-
 virt-launcher $@ &
 virt_launcher_pid=$!
 while true; do

@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
@@ -48,9 +49,13 @@ var _ = Describe("Template", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
 
-				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns", UID: "1234"}, Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
+				annotations := map[string]string{
+					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+				}
+				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
 				Expect(err).ToNot(HaveOccurred())
 
+				Expect(len(pod.Spec.Containers)).To(Equal(2))
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:    "virt-launcher",
@@ -70,7 +75,11 @@ var _ = Describe("Template", func() {
 					"--namespace", "testns",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
-					"--grace-period-seconds", "45"}))
+					"--grace-period-seconds", "45",
+					"--hook-sidecars", "1"}))
+				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
+				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
+				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 				By("setting the right hostname")
 				Expect(pod.Spec.Hostname).To(Equal("testvmi"))
@@ -84,11 +93,15 @@ var _ = Describe("Template", func() {
 					"kubernetes.io/hostname": "master",
 					v1.NodeSchedulable:       "true",
 				}
-				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"}, Spec: v1.VirtualMachineInstanceSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{}}}
+				annotations := map[string]string{
+					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+				}
+				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{}}}
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
+				Expect(len(pod.Spec.Containers)).To(Equal(2))
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:    "virt-launcher",
@@ -105,8 +118,14 @@ var _ = Describe("Template", func() {
 					"--namespace", "default",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
-					"--grace-period-seconds", "45"}))
-				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/kubevirt"))
+					"--grace-period-seconds", "45",
+					"--hook-sidecars", "1"}))
+				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
+				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
+				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
+				Expect(pod.Spec.Containers[1].VolumeMounts[0].MountPath).To(Equal(hooks.HookSocketsSharedDirectory))
+				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMedium("")))
+				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/var/run/kubevirt"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/kubevirt"))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
@@ -426,6 +445,89 @@ var _ = Describe("Template", func() {
 				// RegistryDisk secrets come first
 				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-2"))
 				Expect(pod.Spec.ImagePullSecrets[1].Name).To(Equal("pull-secret-1"))
+			})
+		})
+
+		Context("with slirp interface", func() {
+			It("Should have empty port list in the pod manifest", func() {
+				slirpInterface := v1.InterfaceSlirp{}
+				domain := v1.DomainSpec{}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface}}}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				Expect(len(pod.Spec.Containers[0].Ports)).To(Equal(0))
+			})
+			It("Should create a port list in the pod manifest", func() {
+				slirpInterface := v1.InterfaceSlirp{}
+				ports := []v1.Port{{Name: "http", Port: 80}, {Protocol: "UDP", Port: 80}, {Port: 90}, {Name: "other-http", Port: 80}}
+				domain := v1.DomainSpec{}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface}}}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				Expect(len(pod.Spec.Containers[0].Ports)).To(Equal(4))
+				Expect(pod.Spec.Containers[0].Ports[0].Name).To(Equal("http"))
+				Expect(pod.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(80)))
+				Expect(pod.Spec.Containers[0].Ports[0].Protocol).To(Equal(kubev1.Protocol("TCP")))
+				Expect(pod.Spec.Containers[0].Ports[1].Name).To(Equal(""))
+				Expect(pod.Spec.Containers[0].Ports[1].ContainerPort).To(Equal(int32(80)))
+				Expect(pod.Spec.Containers[0].Ports[1].Protocol).To(Equal(kubev1.Protocol("UDP")))
+				Expect(pod.Spec.Containers[0].Ports[2].Name).To(Equal(""))
+				Expect(pod.Spec.Containers[0].Ports[2].ContainerPort).To(Equal(int32(90)))
+				Expect(pod.Spec.Containers[0].Ports[2].Protocol).To(Equal(kubev1.Protocol("TCP")))
+				Expect(pod.Spec.Containers[0].Ports[3].Name).To(Equal("other-http"))
+				Expect(pod.Spec.Containers[0].Ports[3].ContainerPort).To(Equal(int32(80)))
+				Expect(pod.Spec.Containers[0].Ports[3].Protocol).To(Equal(kubev1.Protocol("TCP")))
+			})
+			It("Should create a port list in the pod manifest with multiple interfaces", func() {
+				slirpInterface1 := v1.InterfaceSlirp{}
+				slirpInterface2 := v1.InterfaceSlirp{}
+				ports1 := []v1.Port{{Name: "http", Port: 80}}
+				ports2 := []v1.Port{{Name: "other-http", Port: 80}}
+				domain := v1.DomainSpec{}
+				domain.Devices.Interfaces = []v1.Interface{
+					{Name: "testnet",
+						Ports: ports1,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface1}},
+					{Name: "testnet",
+						Ports: ports2,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface2}}}
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				Expect(len(pod.Spec.Containers[0].Ports)).To(Equal(2))
+				Expect(pod.Spec.Containers[0].Ports[0].Name).To(Equal("http"))
+				Expect(pod.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(80)))
+				Expect(pod.Spec.Containers[0].Ports[0].Protocol).To(Equal(kubev1.Protocol("TCP")))
+				Expect(pod.Spec.Containers[0].Ports[1].Name).To(Equal("other-http"))
+				Expect(pod.Spec.Containers[0].Ports[1].ContainerPort).To(Equal(int32(80)))
+				Expect(pod.Spec.Containers[0].Ports[1].Protocol).To(Equal(kubev1.Protocol("TCP")))
 			})
 		})
 	})

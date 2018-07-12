@@ -1,10 +1,13 @@
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
+  annotations:
+    hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
+    smbios.vm.kubevirt.io/baseBoardManufacturer: Radical Edward
   creationTimestamp: null
   labels:
-    special: vmi-slirp
-  name: vmi-slirp
+    special: vmi-with-sidecar-hook
+  name: vmi-with-sidecar-hook
 spec:
   domain:
     devices:
@@ -17,21 +20,11 @@ spec:
           bus: virtio
         name: cloudinitdisk
         volumeName: cloudinitvolume
-      interfaces:
-      - name: testSlirp
-        ports:
-        - name: http
-          port: 80
-          protocol: TCP
-        slirp: {}
     machine:
       type: ""
     resources:
       requests:
         memory: 1024M
-  networks:
-  - name: testSlirp
-    pod: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - name: registryvolume
@@ -39,10 +32,8 @@ spec:
       image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
   - cloudInitNoCloud:
       userData: |-
-        #!/bin/bash
-        echo "fedora" |passwd fedora --stdin
-        yum install -y nginx
-        systemctl enable nginx
-        systemctl start nginx
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
     name: cloudinitvolume
 status: {}

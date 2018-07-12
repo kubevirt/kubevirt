@@ -42,6 +42,8 @@ spec:
                     cores:
                       format: int64
                       type: integer
+                    model:
+                      type: string
                 devices:
                   properties:
                     disks:
@@ -90,28 +92,26 @@ spec:
                       items:
                         properties:
                           bridge: {}
+                          macAddress:
+                            type: string
                           model:
                             type: string
                           name:
                             type: string
-                          slirp:
-                            properties:
-                              ports:
-                                items:
-                                  properties:
-                                    name:
-                                      type: string
-                                    podPort:
-                                      format: int32
-                                      type: integer
-                                    port:
-                                      format: int32
-                                      type: integer
-                                    protocol:
-                                      type: string
-                                  required:
-                                  - port
-                                type: array
+                          ports:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                port:
+                                  format: int32
+                                  type: integer
+                                protocol:
+                                  type: string
+                              required:
+                              - port
+                            type: array
+                          slirp: {}
                         required:
                         - name
                       type: array

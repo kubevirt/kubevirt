@@ -98,6 +98,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int64",
 							},
 						},
+						"model": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 					},
 				},
 			},
@@ -832,12 +839,32 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"),
 							},
 						},
+						"ports": {
+							SchemaProps: spec.SchemaProps{
+								Description: "List of ports to be forwarded to the virtual machine.",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Port"),
+										},
+									},
+								},
+							},
+						},
+						"macAddress": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp", "kubevirt.io/kubevirt/pkg/api/v1.Port"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod": {
 			Schema: spec.Schema{
@@ -871,25 +898,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"ports": {
-							SchemaProps: spec.SchemaProps{
-								Description: "List of ports to be forwarded to the virtual machine.",
-								Type:        []string{"array"},
-								Items: &spec.SchemaOrArray{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Port"),
-										},
-									},
-								},
-							},
-						},
-					},
+					Properties: map[string]spec.Schema{},
 				},
 			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Port"},
+			Dependencies: []string{},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.KVMTimer": {
 			Schema: spec.Schema{
@@ -1047,30 +1059,27 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Port": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. Default port is PodPort.",
+					Description: "Port repesents a port to expose from the virtual machine. Default protocol TCP. The port field is mandatory",
 					Properties: map[string]spec.Schema{
 						"name": {
 							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each named port in a pod must have a unique name. Name for the port that can be referred to by services.",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"protocol": {
 							SchemaProps: spec.SchemaProps{
-								Type:   []string{"string"},
-								Format: "",
+								Description: "Protocol for port. Must be UDP or TCP. Defaults to \"TCP\".",
+								Type:        []string{"string"},
+								Format:      "",
 							},
 						},
 						"port": {
 							SchemaProps: spec.SchemaProps{
-								Type:   []string{"integer"},
-								Format: "int32",
-							},
-						},
-						"podPort": {
-							SchemaProps: spec.SchemaProps{
-								Type:   []string{"integer"},
-								Format: "int32",
+								Description: "Number of port to expose for the virtual machine. This must be a valid port number, 0 < x < 65536.",
+								Type:        []string{"integer"},
+								Format:      "int32",
 							},
 						},
 					},

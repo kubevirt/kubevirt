@@ -48,6 +48,7 @@ func (CPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "CPU allows specifying the CPU topology.",
 		"cores": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
+		"model": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\n+optional",
 	}
 }
 
@@ -313,8 +314,10 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name":  "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
-		"model": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"name":       "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
+		"model":      "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"ports":      "List of ports to be forwarded to the virtual machine.",
+		"macAddress": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
 	}
 }
 
@@ -329,14 +332,15 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 }
 
 func (InterfaceSlirp) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"ports": "List of ports to be forwarded to the virtual machine.",
-	}
+	return map[string]string{}
 }
 
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nDefault port is PodPort.",
+		"":         "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
+		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
+		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
+		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
 	}
 }
 

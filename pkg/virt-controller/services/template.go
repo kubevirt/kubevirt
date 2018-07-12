@@ -20,6 +20,7 @@
 package services
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -205,6 +207,25 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	// Read requested hookSidecars from VMI meta
+	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(requestedHookSidecarList) != 0 {
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "hook-sidecar-sockets",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+			Name:      "hook-sidecar-sockets",
+			MountPath: hooks.HookSocketsSharedDirectory,
+		})
+	}
+
 	command := []string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 		"--qemu-timeout", "5m",
 		"--name", domain,
@@ -212,6 +233,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--kubevirt-share-dir", t.virtShareDir,
 		"--readiness-file", "/tmp/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
+		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 	}
 
 	useEmulation, err := IsEmulationAllowed(t.store)
@@ -235,6 +257,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	} else {
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
+
+	// Add ports from interfaces to the pod manifest
+	ports := getPortsFromVMI(vmi)
 
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
@@ -268,6 +293,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			FailureThreshold:    int32(failureThreshold),
 		},
 		Resources: resources,
+		Ports:     ports,
 	}
 
 	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
@@ -303,6 +329,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	podLabels[v1.DomainLabel] = domain
 
 	containers = append(containers, container)
+
+	for i, requestedHookSidecar := range requestedHookSidecarList {
+		containers = append(containers, k8sv1.Container{
+			Name:            fmt.Sprintf("hook-sidecar-%d", i),
+			Image:           requestedHookSidecar.Image,
+			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
+			VolumeMounts: []k8sv1.VolumeMount{
+				k8sv1.VolumeMount{
+					Name:      "hook-sidecar-sockets",
+					MountPath: hooks.HookSocketsSharedDirectory,
+				},
+			},
+		})
+	}
 
 	hostName := dns.SanitizeHostname(vmi)
 
@@ -400,6 +440,28 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	overhead.Add(resource.MustParse("16Mi"))
 
 	return overhead
+}
+
+func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
+	ports := make([]k8sv1.ContainerPort, 0)
+
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Ports != nil {
+			for _, port := range iface.Ports {
+				if port.Protocol == "" {
+					port.Protocol = "TCP"
+				}
+
+				ports = append(ports, k8sv1.ContainerPort{Protocol: k8sv1.Protocol(port.Protocol), Name: port.Name, ContainerPort: port.Port})
+			}
+		}
+	}
+
+	if len(ports) == 0 {
+		return nil
+	}
+
+	return ports
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {

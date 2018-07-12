@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -529,6 +530,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			networkNameMap[network.Name] = &network
 		}
 
+		// Make sure the port name is unique across all the interfaces
+		portForwardMap := make(map[string]struct{})
+
 		// Validate that each interface has a matching network
 		for idx, iface := range spec.Domain.Devices.Interfaces {
 
@@ -554,15 +558,22 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			if iface.Slirp != nil && iface.Slirp.Ports != nil {
-				portForwardMap := make(map[string]struct{})
-
-				for portIdx, forwardPort := range iface.Slirp.Ports {
+			// Check only ports configured on interfaces connected to a pod network
+			if networkExists && networkData.Pod != nil && iface.Ports != nil {
+				for portIdx, forwardPort := range iface.Ports {
 
 					if forwardPort.Port == 0 {
 						causes = append(causes, metav1.StatusCause{
 							Type:    metav1.CauseTypeFieldValueRequired,
 							Message: fmt.Sprintf("Port field is mandatory in every Port"),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+						})
+					}
+
+					if forwardPort.Port < 0 || forwardPort.Port > 65536 {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("Port field must be in range 0 < x < 65536."),
 							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
 						})
 					}
@@ -579,15 +590,17 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						forwardPort.Protocol = "TCP"
 					}
 
-					if _, ok := portForwardMap[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)]; ok {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("Port and protocol combination must be unique"),
-							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-						})
-					}
+					if forwardPort.Name != "" {
+						if _, ok := portForwardMap[forwardPort.Name]; ok {
+							causes = append(causes, metav1.StatusCause{
+								Type:    metav1.CauseTypeFieldValueDuplicate,
+								Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
+								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
+							})
+						}
 
-					portForwardMap[fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)] = struct{}{}
+						portForwardMap[forwardPort.Name] = struct{}{}
+					}
 				}
 			}
 
@@ -606,6 +619,25 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						Type:    metav1.CauseTypeFieldValueNotSupported,
 						Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),
 						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
+					})
+				}
+			}
+
+			// verify that selected macAddress is valid
+			if iface.MacAddress != "" {
+				mac, err := net.ParseMAC(iface.MacAddress)
+				if err != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("interface %s has malformed MAC address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
+					})
+				}
+				if len(mac) > 6 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("interface %s has MAC address (%s) that is too long.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
 					})
 				}
 			}

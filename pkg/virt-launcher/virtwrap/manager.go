@@ -37,6 +37,7 @@ import (
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -109,6 +110,13 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if err := emptydisk.CreateTemporaryDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
+
+	hooksManager := hooks.GetManager()
+	domainSpec, err := hooksManager.OnDefineDomain(&domain.Spec, vmi)
+	if err != nil {
+		return domain, err
+	}
+	domain.Spec = *domainSpec
 
 	return domain, err
 }
