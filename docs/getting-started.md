@@ -117,7 +117,7 @@ up a dockerizied environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
-    make functest # run the functional tests against the VMIs
+    make functest # run the functional tests against the dockerized VMs
 ```
 
 If you'd like to run specific functional tests only, you can leverage `ginkgo`
