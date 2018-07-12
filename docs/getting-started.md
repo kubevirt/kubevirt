@@ -122,7 +122,7 @@ If you'd like to run specific functional tests only, you can leverage `ginkgo`
 command line options as follows (run a specified suite):
 
 ```
-    FUNC_TEST_ARGS='-ginkgo.focus=vm_networking_test -ginkgo.regexScansFilePath' make functest
+    FUNC_TEST_ARGS='-ginkgo.focus=vmi_networking_test -ginkgo.regexScansFilePath' make functest
 ```
 
 In addition, if you want to run a specific test or tests you can prepend any `Describe`,
@@ -149,7 +149,7 @@ Finally start a VMI called `vmi-ephemeral`:
     ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
 
     # Sure? Let's list all created VMIs
-    ./cluster/kubectl.sh get vms
+    ./cluster/kubectl.sh get vmis
 
     # Enough, let's get rid of it
     ./cluster/kubectl.sh delete -f cluster/examples/vmi-ephemeral.yaml
@@ -175,11 +175,11 @@ virt-controller                   1/1       Running   1          10h
 virt-handler-z90mp                1/1       Running   1          10h
 virt-launcher-vmi-ephemeral9q7es   1/1       Running   0          10s
 
-$ ./cluster/kubectl.sh get vms
+$ ./cluster/kubectl.sh get vmis
 NAME           LABELS                        DATA
 vmi-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
 
-$ ./cluster/kubectl.sh get vms -o json
+$ ./cluster/kubectl.sh get vmis -o json
 {
     "kind": "List",
     "apiVersion": "v1",
