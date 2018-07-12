@@ -599,7 +599,7 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			// if this is processed correctly, it should result an error only about duplicate pod network configuration
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Message).To(Equal("multiple pod networks in fake.interfaces"))
+			Expect(causes[0].Message).To(Equal("more than one interface is connected to a pod network in fake.interfaces"))
 		})
 
 		It("should accept valid interface models", func() {
