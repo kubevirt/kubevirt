@@ -44,6 +44,7 @@ for arg in $args; do
         --namespace=${namespace} \
         --docker-prefix=${manifest_docker_prefix} \
         --docker-tag=${docker_tag} \
+        --image-pull-policy=${image_pull_policy} \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
 
@@ -51,6 +52,7 @@ for arg in $args; do
         --namespace="{{ namespace }}" \
         --docker-prefix="{{ docker_prefix }}" \
         --docker-tag="{{ docker_tag }}" \
+        --image-pull-policy="{{ image_pull_policy }}" \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
@@ -63,6 +65,7 @@ find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 export namespace=${namespace}
 export docker_tag=${docker_tag}
 export docker_prefix=${manifest_docker_prefix}
+export image_pull_policy=${image_pull_policy}
 
 TMP_DIR=$(mktemp -d)
 cleanup() {

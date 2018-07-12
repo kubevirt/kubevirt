@@ -31,6 +31,7 @@ type templateData struct {
 	Namespace          string
 	DockerTag          string
 	DockerPrefix       string
+	ImagePullPolicy    string
 	GeneratedManifests map[string]string
 }
 
@@ -38,6 +39,7 @@ func main() {
 	namespace := flag.String("namespace", "", "")
 	dockerPrefix := flag.String("docker-prefix", "", "")
 	dockerTag := flag.String("docker-tag", "", "")
+	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	genDir := flag.String("generated-manifests-dir", "", "")
 	inputFile := flag.String("input-file", "", "")
 	flag.Parse()
@@ -46,6 +48,7 @@ func main() {
 		Namespace:          *namespace,
 		DockerTag:          *dockerTag,
 		DockerPrefix:       *dockerPrefix,
+		ImagePullPolicy:    *imagePullPolicy,
 		GeneratedManifests: make(map[string]string),
 	}
 
