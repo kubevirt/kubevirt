@@ -9,9 +9,9 @@ The KubeVirt build system runs completely inside docker. In order to build
 KubeVirt you need to have `docker` and `rsync` installed.
 
 **Note:** For running KubeVirt in the dockerized cluster, **nested
-virtualization** must be enabled. As an alternative [software
-emulation](software-emulation.md) can be allowed. Enabling nested
-virtualization should be preferred.
+virtualization** must be enabled - [see here for instructions for Fedora](https://docs.fedoraproject.org/quick-docs/en-US/using-nested-virtualization-in-kvm.html).
+As an alternative [software emulation](software-emulation.md) can be allowed.
+Enabling nested virtualization should be preferred.
 
 ### Dockerized environment
 
@@ -110,7 +110,7 @@ After a successful build you can run the *unit tests*:
 ```
 
 They don't real environment. To run the *functional tests*, make sure you have set
-up dockerizied environment. Then run
+up dockerized environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
@@ -156,6 +156,9 @@ Finally start a VMI called `vmi-ephemeral`:
 
     # You can actually use kubelet.sh to introspect the cluster in general
     ./cluster/kubectl.sh get pods
+
+    # To check the running kubevirt services you need to introspect the `kube-system` namespace:
+    ./cluster/kubectl.sh -n kube-system get pods
 ```
 
 This will start a VMI on master or one of the running nodes with a macvtap and a
