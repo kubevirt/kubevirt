@@ -30,13 +30,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/version"
 )
 
 var _ = Describe("Kubevirt Version Client", func() {
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/subresources.kubevirt.io/v1alpha2/version"
 
 	BeforeEach(func() {
 		var err error
@@ -46,6 +47,12 @@ var _ = Describe("Kubevirt Version Client", func() {
 	})
 
 	It("should fetch version", func() {
+
+		groupInfo := metav1.APIGroup{
+			Name:             ApiGroupName,
+			PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: ApiGroupName + "/v1alpha2", Version: "v1alpha2"},
+		}
+
 		info := version.Info{GitVersion: "v0.5.1-alpha.1.43+fda30004223b51-clean",
 			GitCommit:    "fda30004223b51f9e604276419a2b376652cb5ad",
 			GitTreeState: "clear",
@@ -54,13 +61,18 @@ var _ = Describe("Kubevirt Version Client", func() {
 			Compiler:     runtime.Compiler,
 			Platform:     fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)}
 
-		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", basePath),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, info),
-		))
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", ApiGroupName),
+				ghttp.RespondWithJSONEncoded(http.StatusOK, groupInfo),
+			),
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/apis/"+groupInfo.PreferredVersion.GroupVersion+"/version"),
+				ghttp.RespondWithJSONEncoded(http.StatusOK, info),
+			),
+		)
 
 		fetchedVersion, err := client.ServerVersion().Get()
-		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedVersion.Compiler).To(Equal(runtime.Compiler))
 		Expect(fetchedVersion.GitTreeState).To(Equal(info.GitTreeState))
