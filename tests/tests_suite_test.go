@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	. "github.com/onsi/ginkgo"
+
 	. "github.com/onsi/gomega"
 
 	"testing"
@@ -31,7 +32,7 @@ import (
 )
 
 func TestTests(t *testing.T) {
-	RegisterFailHandler(Fail)
+	RegisterFailHandler(tests.KubevirtFailHandler)
 	reporters := make([]Reporter, 0)
 	if ginkgo_reporters.Polarion.Run {
 		reporters = append(reporters, &ginkgo_reporters.Polarion)
