@@ -1,0 +1,33 @@
+#
+# A windows VM leveraging the Windows 2k12r2 preset
+#
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: windows
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/os: win2k12r2
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: sata
+            name: pvcdisk
+            volumeName: pvcvolume
+          interfaces:
+          - bridge: {}
+            model: e1000
+            name: default
+      volumes:
+      - name: pvcvolume
+        persistentVolumeClaim:
+          claimName: disk-windows
+      networks:
+      - name: default
+        pod: {}
+status: {}
